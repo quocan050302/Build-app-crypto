@@ -1,0 +1,24 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_final_display_plan_sources.py backend/tests/test_forecast_causal_closure.py backend/tests/test_v12_2_acceptance.py backend/tests/test_v12_2_repro_defects.py backend/tests/test_v13_4_metrics_exports.py backend/tests/test_v13_7_evidence_utils.py backend/tests/test_v13_8_artifact_contract.py backend/tests/test_v13_8_causal_driver.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_15_membership_repair.py backend/tests/test_v14_4_16_repair_runtime.py backend/tests/test_v14_4_4_ny_quota_pipeline.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v15_0_telegram_and_api.py backend/tests/test_v15_1_execution_lifecycle.py backend/tests/test_v16_10_arm_to_fill_sizing.py backend/tests/test_v16_15_paper_accounting_and_persistence.py backend/tests/test_v16_16_owner_and_shadow.py backend/tests/test_v16_17_red_reproductions.py backend/tests/test_v16_19_red_reproductions.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_v16_2_cg01_guards_lifecycle.py backend/tests/test_v16_38_adaptive_paper_readiness.py backend/tests/test_v16_4_cg01_causal_entry.py backend/tests/test_v16_8_capital_basis.py backend/tests/test_v16_8_statistics_and_accounting.py backend/tests/test_v16_9_historical_runner.py backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_1_coordinator_guards.py backend/tests/test_v17_4_2_noop_authority.py backend/tests/test_v17_4_config_transaction.py backend/tests/test_v17_4_timing_profiles.py backend/tests/test_v17_5_2_detector_to_exit.py backend/tests/test_v17_5_6_actual_order_cost_parity.py backend/tests/test_v17_5_anchor_binding.py backend/tests/test_v17_6_2_transaction_ownership.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3c_transport_authority.py backend/tests/test_v17_6_4_cycle_run_identity.py backend/tests/test_v17_8_runtime_integration.py backend/tests/test_v3_regression.py backend/tests/test_v7_2_realtime_protocol.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\shards\shard_3.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 245556
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 55%]
+........................................................................ [ 74%]
+........................................................................ [ 92%]
+............................                                             [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+388 passed, 2 warnings in 239.71s (0:03:59)
+
+--- STDERR ---

@@ -370,6 +370,7 @@ class ScalpCandidate:
     selection_reason: Optional[str] = None
     stop_placement: Optional[Any] = None
     stop_comparison: Optional[Any] = None
+    unicorn_evidence: Optional[Any] = None
 
 
 def apply_stop_placement_to_candidate(
@@ -395,6 +396,7 @@ def apply_stop_placement_to_candidate(
     decision_cutoff_ms: int = 0,
     expires_at_ms: Optional[int] = None,
     cost_snapshot: Optional[Dict[str, Any]] = None,
+    unicorn_evidence: Optional[Any] = None,
 ) -> StopApplicationResult:
     """
     Applies V17.5.1 Stop Placement policy and returns StopApplicationResult.
@@ -491,8 +493,10 @@ def apply_stop_placement_to_candidate(
         atr_m5_val=eff_scalar_m5,
         spread=(ask - bid) if (bid is not None and ask is not None) else None,
         symbol="XAUUSDT",
+        unicorn_evidence=unicorn_evidence,
     )
 
+    u_dict = unicorn_evidence.to_dict() if (unicorn_evidence and hasattr(unicorn_evidence, "to_dict")) else (unicorn_evidence if isinstance(unicorn_evidence, dict) else None)
     comp_plan = build_stop_comparison_plan(
         opportunity_key=candidate_key,
         model_id=model_id,
@@ -516,6 +520,7 @@ def apply_stop_placement_to_candidate(
         decision_cutoff_ms=decision_cutoff_ms or now_ms,
         expires_at_ms=expires_at_ms,
         cost_snapshot=cost_snapshot,
+        unicorn_evidence=u_dict,
     )
 
     mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")
@@ -2262,6 +2267,33 @@ class ScalpM1ModelService:
         ]
 
         if not matching_fvgs:
+            candidate_pivots = sh_list if direction == "LONG" else sl_list
+            for alt_piv in reversed(candidate_pivots):
+                alt_break = detect_confirmed_continuation_break(
+                    closed_1m, alt_piv, direction, as_of_ms=now_ms, tick_size=cfg.tick_size
+                )
+                if alt_break is None:
+                    continue
+                alt_disp, alt_ratio, _ = evaluate_displacement(
+                    alt_break["bar"], atr_1m, min_body_atr=cfg.displacement_body_atr_min, direction=direction
+                )
+                if not alt_disp:
+                    continue
+                alt_fvgs = [
+                    f for f in raw_fvgs
+                    if f.get("type") == target_fvg_type
+                    and f.get("state") in ("confirmed", "partially_mitigated")
+                    and float(f.get("bottom", 0.0)) < float(f.get("top", 0.0))
+                    and int(f.get("confirmed_at") or f.get("timestamp") or 0) >= alt_break["broken_at_ms"] - 60_000
+                ]
+                if alt_fvgs:
+                    swing_ref = alt_piv
+                    break_res = alt_break
+                    disp_ratio = alt_ratio
+                    matching_fvgs = alt_fvgs
+                    break
+
+        if not matching_fvgs:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                 reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
@@ -2364,6 +2396,7 @@ class ScalpM1ModelService:
         # V17.5: Stop Placement & Paired Research resolution
         candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
         anchor_res = None
+        unicorn_ev = None
         if stop_policy is not None:
             from services.stop_placement_service import (
                 resolve_stop_anchor,
@@ -2407,12 +2440,36 @@ class ScalpM1ModelService:
             fvg_conf_ms = int(selected_fvg.get("confirmed_at") or 0)
             selected_fvg_desc = {
                 "id": fvg_id,
+                "type": target_fvg_type,
+                "direction": direction,
+                "timeframe": "1M",
+                "state": str(selected_fvg.get("state", "confirmed")),
                 "top": fvg_top,
                 "bottom": fvg_bot,
                 "middle_bar_ms": fvg_mid_ms,
                 "timestamp": fvg_mid_ms,
                 "confirmed_at": fvg_conf_ms,
+                "break_open_ms": break_bar_ts,
+                "broken_swing_id": str(ref_dict.get("id")) if ref_dict.get("id") else None,
             }
+            unicorn_ev = None
+            if stop_policy is not None and (
+                getattr(stop_policy, "v18_unicorn_detection_enabled", False) is True
+                or getattr(stop_policy, "v18_structural_intelligence_enabled", False) is True
+            ):
+                from services.unicorn_evidence_service import detect_unicorn_evidence
+                unicorn_ev = detect_unicorn_evidence(
+                    symbol="XAUUSDT",
+                    direction=direction,
+                    closed_bars=closed_1m,
+                    as_of_ms=now_ms,
+                    selected_fvg=selected_fvg_desc,
+                    selected_break=selected_break_desc,
+                    selected_reference=ref_dict,
+                    confirmed_swings=(sh_list, sl_list),
+                    tick_size=getattr(cfg, "tick_size", 0.01),
+                )
+
             anchor_res = resolve_stop_anchor(
                 model_id=model_id,
                 direction=direction,
@@ -2422,6 +2479,8 @@ class ScalpM1ModelService:
                 selected_fvg=selected_fvg_desc,
                 confirmed_swings=(sh_list, sl_list),
                 tick_size=getattr(cfg, "tick_size", 0.01),
+                unicorn_evidence=unicorn_ev,
+                policy=stop_policy,
             )
 
         sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
@@ -2441,6 +2500,7 @@ class ScalpM1ModelService:
             atr_1m_val=atr_1m,
             bid=bid,
             ask=ask,
+            unicorn_evidence=unicorn_ev,
         )
 
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
@@ -2451,6 +2511,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
                 stop_placement=stop_dec,
                 stop_comparison=comp_plan,
+                unicorn_evidence=unicorn_ev,
             )
 
         if not calc_res.is_valid:
@@ -2462,6 +2523,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
                 stop_placement=stop_dec,
                 stop_comparison=comp_plan,
+                unicorn_evidence=unicorn_ev,
             )
         if not calc_res.can_execute:
             return ScalpCandidate(
@@ -2472,6 +2534,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
                 stop_placement=stop_dec,
                 stop_comparison=comp_plan,
+                unicorn_evidence=unicorn_ev,
             )
         if not calc_res.meets_min_rr:
             return ScalpCandidate(
@@ -2483,6 +2546,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
                 stop_placement=stop_dec,
                 stop_comparison=comp_plan,
+                unicorn_evidence=unicorn_ev,
             )
 
         # 11. Full causal evidence chain (Rule 060)
@@ -2600,6 +2664,7 @@ class ScalpM1ModelService:
             model_version="v16.1",
             stop_placement=stop_dec,
             stop_comparison=comp_plan,
+            unicorn_evidence=unicorn_ev,
         )
 
     @staticmethod

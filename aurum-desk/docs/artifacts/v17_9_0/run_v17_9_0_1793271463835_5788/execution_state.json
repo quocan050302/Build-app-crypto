@@ -1,0 +1,233 @@
+{
+  "schema_version": "V17.9.0",
+  "run_id": "run_v17_9_0_1793271463835_5788",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "started_at": "2026-10-29T11:04:55.075988+00:00",
+  "updated_at": "2026-10-29T11:04:55.107987+00:00",
+  "current_stage": "ACCEPTANCE_COMPLETED_COMPLETED",
+  "completed_stages": [
+    "ACCEPTANCE_COMPLETED"
+  ],
+  "completed_test_groups": [
+    "pytest_batch_0",
+    "pytest_batch_1",
+    "pytest_batch_2",
+    "pytest_batch_3",
+    "pytest_batch_4",
+    "pytest_batch_5",
+    "pytest_batch_6",
+    "pytest_batch_7",
+    "pytest_batch_8",
+    "pytest_batch_9"
+  ],
+  "pending_test_groups": [],
+  "failed_test_groups": [],
+  "verified_artifacts": {
+    "junit/pytest_batch_0.xml": {
+      "sha256": "99cf8610af30bb36658ba4ea4fbe4c4c840939a719c95e82e1e6b840beaf765a",
+      "size_bytes": 58827,
+      "verified_at": "2026-10-29T11:04:55.078988+00:00"
+    },
+    "junit/pytest_batch_1.xml": {
+      "sha256": "6572019567678e64351442bc33aabfdad2d3a6dfb14dab08b5dcbb5d796b28cc",
+      "size_bytes": 77392,
+      "verified_at": "2026-10-29T11:04:55.081988+00:00"
+    },
+    "junit/pytest_batch_2.xml": {
+      "sha256": "fbdbe1b8dedad42892f40fb49c52f831e1a262d42a1952d66f627bb8d79ba3fd",
+      "size_bytes": 78584,
+      "verified_at": "2026-10-29T11:04:55.083988+00:00"
+    },
+    "junit/pytest_batch_3.xml": {
+      "sha256": "9f713e7c645cf4aabdc71c8319f7b0882f304d3299c43f64f4115f3bbfdabd0f",
+      "size_bytes": 58458,
+      "verified_at": "2026-10-29T11:04:55.087986+00:00"
+    },
+    "junit/pytest_batch_4.xml": {
+      "sha256": "21dd5871c36136358c698f899cc87a4b4fe9ea6091af608343603eab4e814b57",
+      "size_bytes": 49707,
+      "verified_at": "2026-10-29T11:04:55.090988+00:00"
+    },
+    "junit/pytest_batch_5.xml": {
+      "sha256": "91f4958be6e90482aaf8abc85ed66fb3c410f7f0d5334e058175223d25d18755",
+      "size_bytes": 46333,
+      "verified_at": "2026-10-29T11:04:55.093988+00:00"
+    },
+    "junit/pytest_batch_6.xml": {
+      "sha256": "a438a7c3ae3cec798530b902e836343037078bbe4ae5b8c8b7cdba9cb724c501",
+      "size_bytes": 43442,
+      "verified_at": "2026-10-29T11:04:55.096987+00:00"
+    },
+    "junit/pytest_batch_7.xml": {
+      "sha256": "e35abd40f0e55c28fabf99445a0d79c63a0bbfcfa1f1124c55270a7803316bd5",
+      "size_bytes": 61066,
+      "verified_at": "2026-10-29T11:04:55.100989+00:00"
+    },
+    "junit/pytest_batch_8.xml": {
+      "sha256": "f7ddf5b4130a1b42a139599d59b456ce91652117f76d96b5e486043c678a031a",
+      "size_bytes": 68619,
+      "verified_at": "2026-10-29T11:04:55.103988+00:00"
+    },
+    "junit/pytest_batch_9.xml": {
+      "sha256": "c00c6ee0c6001e61fe4caae41325aa36aeb8f9a59e0762e9aa93ee233a72825f",
+      "size_bytes": 51750,
+      "verified_at": "2026-10-29T11:04:55.105988+00:00"
+    }
+  },
+  "group_records": {
+    "pytest_batch_0": {
+      "group_id": "pytest_batch_0",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.078988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_0.xml"
+      ],
+      "metrics": {
+        "passed": 417,
+        "failed": 0,
+        "skipped": 3,
+        "errors": 0,
+        "duration_ms": 411746
+      }
+    },
+    "pytest_batch_1": {
+      "group_id": "pytest_batch_1",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.081988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_1.xml"
+      ],
+      "metrics": {
+        "passed": 550,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 416619
+      }
+    },
+    "pytest_batch_2": {
+      "group_id": "pytest_batch_2",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.083988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_2.xml"
+      ],
+      "metrics": {
+        "passed": 544,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 250517
+      }
+    },
+    "pytest_batch_3": {
+      "group_id": "pytest_batch_3",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.087986+00:00",
+      "artifacts": [
+        "junit/pytest_batch_3.xml"
+      ],
+      "metrics": {
+        "passed": 429,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 266677
+      }
+    },
+    "pytest_batch_4": {
+      "group_id": "pytest_batch_4",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.090988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_4.xml"
+      ],
+      "metrics": {
+        "passed": 357,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 197260
+      }
+    },
+    "pytest_batch_5": {
+      "group_id": "pytest_batch_5",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.093988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_5.xml"
+      ],
+      "metrics": {
+        "passed": 340,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 255469
+      }
+    },
+    "pytest_batch_6": {
+      "group_id": "pytest_batch_6",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.096987+00:00",
+      "artifacts": [
+        "junit/pytest_batch_6.xml"
+      ],
+      "metrics": {
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 262903
+      }
+    },
+    "pytest_batch_7": {
+      "group_id": "pytest_batch_7",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.100989+00:00",
+      "artifacts": [
+        "junit/pytest_batch_7.xml"
+      ],
+      "metrics": {
+        "passed": 423,
+        "failed": 0,
+        "skipped": 1,
+        "errors": 0,
+        "duration_ms": 297687
+      }
+    },
+    "pytest_batch_8": {
+      "group_id": "pytest_batch_8",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.103988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_8.xml"
+      ],
+      "metrics": {
+        "passed": 485,
+        "failed": 0,
+        "skipped": 4,
+        "errors": 0,
+        "duration_ms": 358097
+      }
+    },
+    "pytest_batch_9": {
+      "group_id": "pytest_batch_9",
+      "exit_code": 0,
+      "completed_at": "2026-10-29T11:04:55.105988+00:00",
+      "artifacts": [
+        "junit/pytest_batch_9.xml"
+      ],
+      "metrics": {
+        "passed": 376,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "duration_ms": 124153
+      }
+    }
+  },
+  "disk_budget_status": "PASS",
+  "interrupted": false,
+  "resume_count": 0,
+  "invalidation_history": []
+}

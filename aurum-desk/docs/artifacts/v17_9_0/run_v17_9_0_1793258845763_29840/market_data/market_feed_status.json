@@ -1,0 +1,24 @@
+{
+  "run_id": "run_v17_9_0_1793258845763_29840",
+  "feed_status": "CONNECTED_FRESH",
+  "transport_state": "CONNECTED",
+  "metrics": {
+    "quotes_received": 22,
+    "quotes_accepted": 22,
+    "quotes_rejected": 0,
+    "quotes_late": 0,
+    "quotes_duplicate": 0,
+    "candles_received": 2821,
+    "candles_closed": 2803,
+    "candles_revised": 12,
+    "candles_missing": 0,
+    "ws_reconnects": 1,
+    "rest_fallback_activations": 1,
+    "queue_depth": 0,
+    "queue_drops": 0,
+    "last_quote_timestamp": 1793258932868,
+    "last_closed_m1_timestamp": 1793258880000,
+    "last_closed_m5_timestamp": 1793258700000,
+    "last_closed_m15_timestamp": 1793258100000
+  }
+}

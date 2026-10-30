@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\g60_market_shadow_execution_forbidden.xml -k test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow or test_nc08_to_nc13_worker_allowlist_boundaries
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 27
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow (0.015s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc08_to_nc13_worker_allowlist_boundaries (0.012s)
+2 passed in 0.03s
+
+--- STDERR ---

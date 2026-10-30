@@ -11,12 +11,28 @@ from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 import models, schemas, crud, bitget_data, smc_engine
 from database import engine, get_db, SessionLocal
+from services.runtime_profile_service import (
+    ALL_BACKGROUND_TRADING_WORKERS,
+    MARKET_SHADOW_ALLOWED_WORKERS,
+    OBSERVE_ONLY_ALLOWED_WORKERS,
+    PROFILE_MARKET_SHADOW,
+    PROFILE_OBSERVE_ONLY,
+    PROFILE_TRADING,
+    assert_not_observe_only,
+    get_runtime_safety_snapshot,
+    increment_safety_counter,
+    is_market_shadow_runtime,
+    is_non_trading_runtime,
+    is_observe_only_runtime,
+    resolve_be_runtime_profile,
+)
 from paper_broker import PaperBroker
 from research_engine import generate_research_report, get_current_session_info
 import news_service
@@ -38,14 +54,19 @@ from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
 from lab.job_manager import ReplayJobManager, ReplayQueueFullException
 
-# Ensure all tables exist
-models.Base.metadata.create_all(bind=engine)
+# Ensure all tables exist (skipped in OBSERVE_ONLY and MARKET_SHADOW runtime profiles to preserve operational DB immutability)
+if not is_non_trading_runtime():
+    models.Base.metadata.create_all(bind=engine)
 
 def reconcile_stuck_orders():
     """
     Reconciles legacy WatchSetup states that are stuck in 'ARMED' or 'PAPER_OPEN'
     when their associated PaperOrder is already in a terminal state.
     """
+    assert_not_observe_only(
+        "reconcile_stuck_orders",
+        counter_key="BLOCKED_STARTUP_MUTATION_ATTEMPTS",
+    )
     db = SessionLocal()
     try:
         # V5.3 Schema Migrations
@@ -144,14 +165,115 @@ async def lifespan(app: FastAPI):
     FastAPI Lifespan:
     Starts and manages background workers cleanly,
     cancels and awaits clean shutdown when stopped.
+    Enforces AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY when configured.
     """
+    global _LIFESPAN_STARTUP_RESULT, _LIFESPAN_SHUTDOWN_RESULT
+    runtime_profile = resolve_be_runtime_profile()
+    observe_only = runtime_profile == PROFILE_OBSERVE_ONLY
+    market_shadow = runtime_profile == PROFILE_MARKET_SHADOW
+
+    if observe_only:
+        _LIFESPAN_STARTUP_RESULT = {
+            "status": "HEALTHY_OBSERVE_ONLY",
+            "runtime_profile": PROFILE_OBSERVE_ONLY,
+            "observe_only": True,
+            "market_shadow": False,
+            "telemetry_worker_ready": False,
+            "allowed_workers": list(OBSERVE_ONLY_ALLOWED_WORKERS),
+            "blocked_trading_workers": list(ALL_BACKGROUND_TRADING_WORKERS),
+            "background_trading_workers_started": 0,
+            "shadow_workers_started": 0,
+            "errors": [],
+        }
+        logger.info("FastAPI started under OBSERVE_ONLY runtime profile; all background trading workers and startup DB mutations are suppressed.")
+        yield
+        _LIFESPAN_SHUTDOWN_RESULT = {
+            "status": "COMPLETED",
+            "runtime_profile": PROFILE_OBSERVE_ONLY,
+            "observe_only": True,
+            "market_shadow": False,
+            "scheduler_drained": True,
+            "telemetry_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
+            "websocket_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
+            "worker_stopped": True,
+            "active_background_tasks_remaining": 0,
+            "errors": [],
+        }
+        return
+
+    if market_shadow:
+        from services.bitget_ws_service import bitget_ws_service
+        from services.market_broadcaster import market_broadcaster
+        from services.market_shadow_service import market_shadow_service
+        from services.shadow_research_storage import shadow_research_storage
+
+        shadow_db_path = shadow_research_storage.initialize()
+        market_shadow_service.set_storage(shadow_research_storage)
+        event_bus.set_main_loop(asyncio.get_running_loop())
+        bitget_ws_service.register_shadow_sink(market_shadow_service)
+        bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
+
+        shadow_tasks = [
+            asyncio.create_task(bitget_ws_service.run_ws_loop(), name="shadow_bitget_ws_loop"),
+            asyncio.create_task(market_shadow_service.run_shadow_loop(), name="shadow_evaluation_loop"),
+        ]
+        increment_safety_counter("SHADOW_WORKERS_STARTED", len(shadow_tasks))
+        _LIFESPAN_STARTUP_RESULT = {
+            "status": "HEALTHY_MARKET_SHADOW",
+            "runtime_profile": PROFILE_MARKET_SHADOW,
+            "observe_only": False,
+            "market_shadow": True,
+            "shadow_db_path": str(shadow_db_path),
+            "telemetry_worker_ready": False,
+            "allowed_workers": list(MARKET_SHADOW_ALLOWED_WORKERS),
+            "blocked_trading_workers": [
+                w for w in ALL_BACKGROUND_TRADING_WORKERS if w != "bitget_ws_service.run_ws_loop"
+            ],
+            "background_trading_workers_started": 0,
+            "shadow_workers_started": len(shadow_tasks),
+            "errors": [],
+        }
+        logger.info(
+            "FastAPI started under MARKET_SHADOW runtime profile (shadow_db=%s); trading workers and operational DB mutations are strictly forbidden.",
+            shadow_db_path,
+        )
+        try:
+            yield
+        finally:
+            bitget_ws_service.stop()
+            market_shadow_service.stop()
+            for st in shadow_tasks:
+                st.cancel()
+            await asyncio.gather(*shadow_tasks, return_exceptions=True)
+            bitget_ws_service.register_shadow_sink(None)
+            shadow_research_storage.shutdown()
+            event_bus.unbind_main_loop()
+            remaining = sum(1 for st in shadow_tasks if not st.done())
+            _LIFESPAN_SHUTDOWN_RESULT = {
+                "status": "COMPLETED" if remaining == 0 else "TIMED_OUT",
+                "runtime_profile": PROFILE_MARKET_SHADOW,
+                "observe_only": False,
+                "market_shadow": True,
+                "scheduler_drained": True,
+                "telemetry_drain": {"status": "SKIPPED_MARKET_SHADOW"},
+                "websocket_drain": {"status": "COMPLETED"},
+                "worker_stopped": remaining == 0,
+                "active_background_tasks_remaining": remaining,
+                "errors": [],
+            }
+        return
+
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
 
-    global _LIFESPAN_STARTUP_RESULT
     _LIFESPAN_STARTUP_RESULT = {
         "status": "STARTING",
+        "runtime_profile": PROFILE_TRADING,
+        "observe_only": False,
         "telemetry_worker_ready": False,
+        "allowed_workers": list(ALL_BACKGROUND_TRADING_WORKERS),
+        "blocked_trading_workers": [],
+        "background_trading_workers_started": 0,
         "errors": [],
     }
 
@@ -236,11 +358,14 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(cg01_evaluation_scheduler.run()),
         asyncio.create_task(cg01_projection_worker.run()),
     ]
+    _LIFESPAN_STARTUP_RESULT["background_trading_workers_started"] = len(tasks)
+    increment_safety_counter("BACKGROUND_TRADING_WORKERS_STARTED", len(tasks))
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 / V16.24 Rules 086-100)
-    global _LIFESPAN_SHUTDOWN_RESULT
     _LIFESPAN_SHUTDOWN_RESULT = {
         "status": "COMPLETED",
+        "runtime_profile": PROFILE_TRADING,
+        "observe_only": False,
         "scheduler_drained": True,
         "telemetry_drain": {},
         "websocket_drain": {},
@@ -360,6 +485,175 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def enforce_observe_only_http_boundary(request: Request, call_next):
+    if is_observe_only_runtime():
+        method = request.method.upper()
+        path = request.url.path.rstrip("/") or "/"
+        if method in ("POST", "PUT", "PATCH", "DELETE") or path == "/api/v1/reports/generate":
+            increment_safety_counter("BLOCKED_HTTP_MUTATION_ATTEMPTS", 1)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": {
+                        "code": "OBSERVE_ONLY_MUTATION_BLOCKED",
+                        "message": f"HTTP {method} {request.url.path} is prohibited when AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY.",
+                        "runtime_profile": PROFILE_OBSERVE_ONLY,
+                    }
+                },
+            )
+    elif is_market_shadow_runtime():
+        method = request.method.upper()
+        path = request.url.path.rstrip("/") or "/"
+        if method in ("POST", "PUT", "PATCH", "DELETE") or path == "/api/v1/reports/generate":
+            increment_safety_counter("BLOCKED_HTTP_MUTATION_ATTEMPTS", 1)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": {
+                        "code": "MARKET_SHADOW_EXECUTION_FORBIDDEN",
+                        "message": f"HTTP {method} {request.url.path} is prohibited when AURUM_BE_RUNTIME_PROFILE=MARKET_SHADOW.",
+                        "runtime_profile": PROFILE_MARKET_SHADOW,
+                    }
+                },
+            )
+    return await call_next(request)
+
+
+@app.get("/api/v1/runtime/profile")
+def get_runtime_profile_endpoint():
+    """Read-only inspection of the active backend runtime profile, worker allowlist, and safety counters."""
+    snap = get_runtime_safety_snapshot()
+    snap["startup_result"] = get_last_startup_result()
+    snap["shutdown_result"] = get_last_shutdown_result()
+    return snap
+
+
+# ==================== MARKET SHADOW READ-ONLY ENDPOINTS (V17.8.0.3) ====================
+
+
+@app.get("/api/v1/shadow/market/status")
+def get_shadow_market_status():
+    """Read-only market shadow feed, multi-timeframe candle, and analysis status."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_latest_backtest_summary
+    status = market_shadow_service.get_market_status_snapshot()
+    status["latest_backtest"] = get_latest_backtest_summary()
+    return status
+
+
+@app.get("/api/v1/shadow/market/quotes")
+def get_shadow_market_quotes(limit: int = Query(50, ge=1, le=200)):
+    """Read-only recent validated canonical quotes observed in shadow mode."""
+    from services.market_shadow_service import market_shadow_service
+    quotes = market_shadow_service.get_recent_quotes(limit=limit)
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(quotes),
+        "quotes": quotes,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/market/candles")
+def get_shadow_market_candles(
+    timeframe: str = Query("1M"),
+    limit: int = Query(100, ge=1, le=500),
+    include_provisional: bool = Query(True),
+):
+    """Read-only closed and provisional multi-timeframe candles in shadow mode."""
+    from services.market_shadow_service import market_shadow_service
+    snap = market_shadow_service.get_candles_snapshot(
+        timeframe=timeframe,
+        limit=limit,
+        include_provisional=include_provisional,
+    )
+    snap["research_disclosure"] = "RESEARCH ONLY — NO ORDER EXECUTED"
+    return snap
+
+
+@app.get("/api/v1/shadow/opportunities")
+def get_shadow_opportunities(
+    limit: int = Query(50, ge=1, le=200),
+    eligibility_status: Optional[str] = Query(None),
+):
+    """Read-only list of quantitative shadow opportunities (never executed)."""
+    from services.market_shadow_service import market_shadow_service
+    items = market_shadow_service.get_opportunities(
+        limit=limit,
+        eligibility_status=eligibility_status,
+    )
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(items),
+        "opportunities": items,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/opportunities/{opportunity_id}")
+def get_shadow_opportunity_detail(opportunity_id: str):
+    """Read-only detail for a single quantitative shadow opportunity."""
+    from services.market_shadow_service import market_shadow_service
+    opp = market_shadow_service.get_opportunity_by_id(opportunity_id)
+    if opp is None:
+        raise HTTPException(status_code=404, detail="Shadow opportunity not found")
+    return opp
+
+
+@app.get("/api/v1/shadow/unicorn/evidence")
+def get_shadow_unicorn_evidence(
+    limit: int = Query(50, ge=1, le=200),
+    validity_status: Optional[str] = Query(None),
+):
+    """Read-only list of ICT Unicorn confluence evidence records."""
+    from services.market_shadow_service import market_shadow_service
+    items = market_shadow_service.get_unicorn_evidence_list(
+        limit=limit,
+        validity_status=validity_status,
+    )
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(items),
+        "unicorn_evidence": items,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/research/backtests")
+def get_shadow_backtests_list(limit: int = Query(20, ge=1, le=100)):
+    """Read-only list of historical backtest runs and latest artifact summary."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_all_backtest_summaries, get_latest_backtest_summary
+    db_runs = market_shadow_service.get_backtests_list(limit=limit)
+    artifact_runs = get_all_backtest_summaries(limit=limit)
+    seen_ids = {r.get("run_id") for r in db_runs if r.get("run_id")}
+    merged = list(db_runs)
+    for ar in artifact_runs:
+        if ar.get("run_id") not in seen_ids:
+            merged.append(ar)
+    latest_bt = get_latest_backtest_summary()
+    return {
+        "count": len(merged),
+        "backtests": merged[:limit],
+        "latest_backtest": latest_bt,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/research/backtests/{run_id}")
+def get_shadow_backtest_detail(run_id: str):
+    """Read-only detail for a specific historical backtest run."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_backtest_detail_by_run_id
+    res = market_shadow_service.get_backtest_by_run_id(run_id)
+    if res is None:
+        res = get_backtest_detail_by_run_id(run_id)
+    if res is None:
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+    return res
 
 # ==================== WEBSOCKET WITH DOMAIN EVENTS ====================
 
@@ -2005,9 +2299,21 @@ def create_report(
 
 
 @app.get("/api/v1/journal")
+@app.get("/api/v1/paper/orders")
 def get_journal(limit: int = 50, db: Session = Depends(get_db)):
     orders = crud.list_paper_orders(db, limit)
     return [schemas.PaperOrderResponse.model_validate(o) for o in orders]
+
+
+@app.get("/api/v1/orders/pending")
+def get_pending_armed_orders(db: Session = Depends(get_db)):
+    armed_orders = (
+        db.query(models.PaperOrder)
+        .filter(models.PaperOrder.state == "armed")
+        .order_by(models.PaperOrder.created_at.desc())
+        .all()
+    )
+    return [schemas.PaperOrderResponse.model_validate(o) for o in armed_orders]
 
 
 @app.get("/api/v1/journal/paginated", response_model=schemas.PaginatedJournalResponse)
@@ -2973,6 +3279,10 @@ def get_stop_placement_policy_endpoint(db: Session = Depends(get_db)):
         max_stop_distance_atr=policy.max_stop_distance_atr,
         max_spread_usd=policy.max_spread_usd,
         algorithm_version=policy.algorithm_version,
+        v18_structural_intelligence_enabled=policy.v18_structural_intelligence_enabled,
+        v18_unicorn_detection_enabled=policy.v18_unicorn_detection_enabled,
+        v18_noise_research_enabled=policy.v18_noise_research_enabled,
+        v18_execution_policy_version=policy.v18_execution_policy_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3027,6 +3337,10 @@ def update_stop_placement_policy_endpoint(
         max_stop_distance_atr=updated.max_stop_distance_atr,
         max_spread_usd=updated.max_spread_usd,
         algorithm_version=updated.algorithm_version,
+        v18_structural_intelligence_enabled=updated.v18_structural_intelligence_enabled,
+        v18_unicorn_detection_enabled=updated.v18_unicorn_detection_enabled,
+        v18_noise_research_enabled=updated.v18_noise_research_enabled,
+        v18_execution_policy_version=updated.v18_execution_policy_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3089,21 +3403,152 @@ def get_order_stop_evidence_endpoint(
         f"{' (đã mở rộng bảo vệ)' if expansion_applied else ''}."
     )
 
+    resolved_mode_at_arm = (
+        cost_dict.get("stop_mode_at_arm")
+        or (stop_placement.get("mode") if isinstance(stop_placement, dict) else None)
+        or "NOT_RECORDED"
+    )
+    resolved_applied_variant = (
+        cost_dict.get("applied_variant")
+        or (stop_placement.get("applied_variant") if isinstance(stop_placement, dict) else None)
+        or "NOT_RECORDED"
+    )
+    resolved_uni_ev = (
+        cost_dict.get("unicorn_evidence")
+        or (stop_placement.get("unicorn_evidence") if isinstance(stop_placement, dict) else None)
+    )
+    resolved_min_prot = (
+        cost_dict.get("min_protective_distance")
+        if cost_dict.get("min_protective_distance") is not None
+        else min_prot_dist
+    )
+
+    arm_gate_dict = None
+    if getattr(order, "arm_decision_snapshot", None):
+        try:
+            arm_gate_dict = (
+                json.loads(order.arm_decision_snapshot)
+                if isinstance(order.arm_decision_snapshot, str)
+                else order.arm_decision_snapshot
+            )
+        except Exception:
+            arm_gate_dict = None
+
+    fill_gate_dict = None
+    if getattr(order, "before_fill_decision_snapshot", None):
+        try:
+            fill_gate_dict = (
+                json.loads(order.before_fill_decision_snapshot)
+                if isinstance(order.before_fill_decision_snapshot, str)
+                else order.before_fill_decision_snapshot
+            )
+        except Exception:
+            fill_gate_dict = None
+
     return {
         "status": "AVAILABLE",
         "order_id": order.id,
         "stop_placement": stop_placement,
-        "stop_mode_at_arm": cost_dict.get("stop_mode_at_arm", "SHADOW_COMPARE"),
-        "stop_policy_version": cost_dict.get("stop_policy_version", 1),
+        "stop_mode_at_arm": resolved_mode_at_arm,
+        "applied_variant": resolved_applied_variant,
+        "stop_policy_version": cost_dict.get("stop_policy_version") or (stop_placement.get("policy_version") if isinstance(stop_placement, dict) else None),
         "stop_comparison_plan_id": cost_dict.get("stop_comparison_plan_id"),
         "actual_sl": order.stop_loss,
+        "planned_entry": order.planned_entry,
         "actual_entry": order.actual_entry or order.planned_entry,
         "take_profit": order.take_profit,
         "direction": order.direction,
+        "quantity": order.quantity,
+        "initial_risk_usdt": order.initial_risk_usdt,
+        "gross_rr": order.gross_rr,
+        "estimated_net_rr": order.estimated_net_rr,
         "algorithm_version": algo_ver,
-        "min_protective_distance": min_prot_dist,
+        "min_protective_distance": resolved_min_prot,
         "protective_expansion_applied": expansion_applied,
+        "structural_anchor_id": cost_dict.get("structural_anchor_id") or (anchor_info.get("id") if isinstance(anchor_info, dict) else None),
+        "quote_timestamp_at_arm": cost_dict.get("quote_timestamp_at_arm"),
         "ui_explanation_vi": ui_explanation_vi,
+        "unicorn_evidence": resolved_uni_ev,
+        "unicorn_id": cost_dict.get("unicorn_evidence_id") or (stop_placement.get("unicorn_id") if isinstance(stop_placement, dict) else None),
+        "invalidation_authority": stop_placement.get("invalidation_authority") if isinstance(stop_placement, dict) else None,
+        "executed_sl": order.stop_loss,
+        "stop_comparison": cost_dict.get("stop_comparison"),
+        "unicorn_sl_candidate": (stop_placement.get("unicorn_sl_candidate") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_c", {}) or {}).get("stop_loss"),
+        "legacy_sl": (stop_placement.get("legacy_sl") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_a", {}) or {}).get("stop_loss"),
+        "structural_sl": (stop_placement.get("structural_sl") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_b", {}) or {}).get("stop_loss") or (stop_placement.get("final_stop_loss") if isinstance(stop_placement, dict) else None),
+        "buffer_components": stop_placement.get("buffer_components") if isinstance(stop_placement, dict) else None,
+        "arm_decision": arm_gate_dict,
+        "fill_decision": fill_gate_dict,
+    }
+
+
+@app.get("/api/v1/research/stop-placement/replay-comparison")
+@app.get("/api/v1/replay/stop-placement-comparison")
+def get_replay_comparison_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db),
+):
+    """
+    V17.8.0.1: Quantitative matched comparison across Variants A, B, C, and D.
+    Returns NO_REPLAY_RESULTS or INSUFFICIENT_REPLAY_DATA when no completed replay batch exists,
+    never returning AVAILABLE with an empty metrics payload.
+    """
+    import time
+    from services.stop_placement_policy_service import resolve_stop_placement_policy
+    from services.stop_placement_research_service import resume_stop_comparisons
+
+    now_ms = int(time.time() * 1000)
+    policy = resolve_stop_placement_policy(db)
+    plans = resume_stop_comparisons(db, namespace="STOP_PLACEMENT_V1", as_of_ms=now_ms)
+
+    variants_meta = {
+        "A": {"name": "Legacy FVG Stop", "description": "FVG Edge + 5 ticks", "calibration_mode": "LEGACY_FIXED_TICKS"},
+        "B": {"name": "V17.7 Structural Stop", "description": "Protected origin + tick floor", "calibration_mode": "STRUCTURAL_TICK_FLOOR"},
+        "C": {"name": "V17.8 Unicorn Stop", "description": "Unicorn breaker distal invalidation + dynamic buffer", "calibration_mode": "STRUCTURAL_DYNAMIC_BUFFER"},
+        "D": {
+            "name": "Experimental Fixed-Multiplier Research Stop",
+            "description": "1.25x dynamic buffer experiment (EXPERIMENTAL_FIXED_MULTIPLIER unless empirical P90 sample provided)",
+            "calibration_mode": "EXPERIMENTAL_FIXED_MULTIPLIER",
+        },
+    }
+
+    if not plans:
+        return {
+            "status": "NO_REPLAY_RESULTS",
+            "reason_code": "NO_COMPLETED_REPLAY_BATCH",
+            "symbol": symbol,
+            "policy_version": policy.version,
+            "algorithm_version": policy.algorithm_version,
+            "total_plans_found": 0,
+            "variants": variants_meta,
+            "metrics": None,
+        }
+
+    resolved_plans = [
+        p for p in plans
+        if isinstance(p, dict) and p.get("resolution_status") in ("RESOLVED", "COMPLETED")
+    ]
+    if not resolved_plans:
+        return {
+            "status": "INSUFFICIENT_REPLAY_DATA",
+            "reason_code": "NO_RESOLVED_REPLAY_OUTCOMES",
+            "symbol": symbol,
+            "policy_version": policy.version,
+            "algorithm_version": policy.algorithm_version,
+            "total_plans_found": len(plans),
+            "variants": variants_meta,
+            "metrics": None,
+        }
+
+    return {
+        "status": "AVAILABLE",
+        "symbol": symbol,
+        "policy_version": policy.version,
+        "algorithm_version": policy.algorithm_version,
+        "total_plans_found": len(plans),
+        "resolved_plans_count": len(resolved_plans),
+        "variants": variants_meta,
+        "metrics": {"resolved_count": len(resolved_plans)},
     }
 
 

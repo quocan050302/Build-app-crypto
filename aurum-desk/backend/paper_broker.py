@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import models, schemas, crud
 from domain_calculator import calculate_risk_reward, CostAssumptions
 from services.entry_guard_service import serialize_entry_mutation
+from services.runtime_profile_service import assert_not_observe_only
 
 class PaperBroker:
     """
@@ -93,6 +94,10 @@ class PaperBroker:
         Client payload is treated as untrusted intent; backend is the authoritative decider.
         Eliminates double-counted slippage by passing entry_has_slippage=True on actual_entry.
         """
+        assert_not_observe_only(
+            "PaperBroker.execute_market_order",
+            counter_key="BLOCKED_FILL_ATTEMPTS",
+        )
         audit = crud.get_or_create_today_audit(db)
         slippage = 0.10  # 10 cents slippage on market execution
 
@@ -235,6 +240,10 @@ class PaperBroker:
         - TP must remain on the valid side of Entry
         - Stop loss cannot breach or approach estimated liquidation price
         """
+        assert_not_observe_only(
+            "PaperBroker.amend_open_position",
+            counter_key="BLOCKED_CLOSE_ATTEMPTS",
+        )
         active_pos = crud.get_paper_order(db, order_id)
         if not active_pos or active_pos.state != "paper_open":
             raise ValueError("Không tìm thấy vị thế mở để điều chỉnh")

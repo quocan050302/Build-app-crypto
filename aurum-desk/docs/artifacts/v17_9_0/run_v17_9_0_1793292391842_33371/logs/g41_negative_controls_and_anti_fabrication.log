@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_quote_noise_guard.py backend/tests/test_v17_8_replay_comparison.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/g41_negative_controls_and_anti_fabrication.xml -k test_unicorn_invalidation_guard_blocks_when_distal_breached or test_stale_or_invalid_quote_fails_closed or test_unverifiable_data_rejected_or_flagged
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 11
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_unicorn_invalidation_guard_blocks_when_distal_breached (0.004s)
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_stale_or_invalid_quote_fails_closed (0.003s)
+PASSED backend.tests.test_v17_8_replay_comparison::test_unverifiable_data_rejected_or_flagged (0.004s)
+3 passed in 0.01s
+
+--- STDERR ---

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "version": "17.8.0.3",
+  "latest_run_id": "run_v17_8_0_3_1793203227963_81705",
+  "run_directory": "docs/artifacts/v17_8_0_3/run_v17_8_0_3_1793203227963_81705",
+  "tested_source_sha": "3428ed3cef23c7cfad6a28abd78256682ceb3ece",
+  "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
+  "release_verdict": "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST",
+  "timestamp_utc": "2026-10-28T16:00:28Z"
+}

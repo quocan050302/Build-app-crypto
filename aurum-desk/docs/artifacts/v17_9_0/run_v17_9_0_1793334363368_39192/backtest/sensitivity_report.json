@@ -1,0 +1,690 @@
+{
+  "schema_version": "V17.8.0.4",
+  "run_id": "v17_8_0_4_bt_1793334289",
+  "source_sha": "0d1d279392127334520b548798587731a939c78e",
+  "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
+  "scenarios": {
+    "normal_spread": {
+      "parameters": {
+        "spread_usd": 0.25,
+        "slippage_usd": 0.1
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 41,
+          "rejected_opportunities": 7215,
+          "simulated_trades": 41,
+          "win_rate": 0.1463,
+          "net_pnl": -69.6,
+          "net_expectancy_R": -0.7032,
+          "max_drawdown": 69.6,
+          "early_stopout_60s": 8,
+          "early_stopout_rate_per_executed_trade": 0.1951,
+          "early_stopout_180s": 16,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 7231,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -31.2265,
+          "net_expectancy_R": -0.5179,
+          "max_drawdown": 31.2265,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 7238,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -16.3506,
+          "net_expectancy_R": -0.3796,
+          "max_drawdown": 16.3506,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 24,
+          "rejected_opportunities": 7232,
+          "simulated_trades": 24,
+          "win_rate": 0.2917,
+          "net_pnl": -29.7228,
+          "net_expectancy_R": -0.5114,
+          "max_drawdown": 29.7228,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "increased_spread": {
+      "parameters": {
+        "spread_usd": 0.6,
+        "slippage_usd": 0.1
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 41,
+          "rejected_opportunities": 5735,
+          "simulated_trades": 41,
+          "win_rate": 0.1463,
+          "net_pnl": -70.0779,
+          "net_expectancy_R": -0.7079,
+          "max_drawdown": 70.0779,
+          "early_stopout_60s": 10,
+          "early_stopout_rate_per_executed_trade": 0.2439,
+          "early_stopout_180s": 16,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 5751,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -32.086,
+          "net_expectancy_R": -0.531,
+          "max_drawdown": 32.086,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -17.1915,
+          "net_expectancy_R": -0.3972,
+          "max_drawdown": 17.1915,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 24,
+          "rejected_opportunities": 5752,
+          "simulated_trades": 24,
+          "win_rate": 0.2917,
+          "net_pnl": -30.0884,
+          "net_expectancy_R": -0.5177,
+          "max_drawdown": 30.0884,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "increased_slippage": {
+      "parameters": {
+        "spread_usd": 0.25,
+        "slippage_usd": 0.35
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 31,
+          "rejected_opportunities": 5745,
+          "simulated_trades": 31,
+          "win_rate": 0.1935,
+          "net_pnl": -44.5348,
+          "net_expectancy_R": -0.6265,
+          "max_drawdown": 44.6517,
+          "early_stopout_60s": 7,
+          "early_stopout_rate_per_executed_trade": 0.2258,
+          "early_stopout_180s": 11,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 5751,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -31.1087,
+          "net_expectancy_R": -0.536,
+          "max_drawdown": 31.1087,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -16.6575,
+          "net_expectancy_R": -0.4037,
+          "max_drawdown": 16.6575,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 22,
+          "rejected_opportunities": 5754,
+          "simulated_trades": 22,
+          "win_rate": 0.3182,
+          "net_pnl": -24.8228,
+          "net_expectancy_R": -0.4848,
+          "max_drawdown": 24.8228,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "higher_volatility": {
+      "parameters": {
+        "atr_scale": 1.5
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 41,
+          "rejected_opportunities": 5735,
+          "simulated_trades": 41,
+          "win_rate": 0.1463,
+          "net_pnl": -69.6,
+          "net_expectancy_R": -0.7032,
+          "max_drawdown": 69.6,
+          "early_stopout_60s": 8,
+          "early_stopout_rate_per_executed_trade": 0.1951,
+          "early_stopout_180s": 16,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 5751,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -31.4567,
+          "net_expectancy_R": -0.5227,
+          "max_drawdown": 31.4567,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -16.6725,
+          "net_expectancy_R": -0.3863,
+          "max_drawdown": 16.6725,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 24,
+          "rejected_opportunities": 5752,
+          "simulated_trades": 24,
+          "win_rate": 0.2917,
+          "net_pnl": -29.7228,
+          "net_expectancy_R": -0.5114,
+          "max_drawdown": 29.7228,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "quote_gaps": {
+      "parameters": {
+        "spread_usd": 0.45,
+        "slippage_usd": 0.25
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 34,
+          "rejected_opportunities": 5742,
+          "simulated_trades": 34,
+          "win_rate": 0.1765,
+          "net_pnl": -52.3549,
+          "net_expectancy_R": -0.656,
+          "max_drawdown": 52.5437,
+          "early_stopout_60s": 7,
+          "early_stopout_rate_per_executed_trade": 0.2059,
+          "early_stopout_180s": 12,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 5751,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -31.5673,
+          "net_expectancy_R": -0.5355,
+          "max_drawdown": 31.5673,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -16.9599,
+          "net_expectancy_R": -0.4031,
+          "max_drawdown": 16.9599,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 22,
+          "rejected_opportunities": 5754,
+          "simulated_trades": 22,
+          "win_rate": 0.3182,
+          "net_pnl": -25.0951,
+          "net_expectancy_R": -0.4819,
+          "max_drawdown": 25.0951,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "delayed_entry": {
+      "parameters": {
+        "entry_delay_bars": 1
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 43,
+          "rejected_opportunities": 5733,
+          "simulated_trades": 43,
+          "win_rate": 0.1163,
+          "net_pnl": -81.0762,
+          "net_expectancy_R": -0.7789,
+          "max_drawdown": 81.0762,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 19,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 33,
+          "rejected_opportunities": 5743,
+          "simulated_trades": 33,
+          "win_rate": 0.1818,
+          "net_pnl": -52.0135,
+          "net_expectancy_R": -0.6501,
+          "max_drawdown": 52.0135,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 4,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3333,
+          "net_pnl": -17.7361,
+          "net_expectancy_R": -0.4082,
+          "max_drawdown": 17.7361,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 29,
+          "rejected_opportunities": 5747,
+          "simulated_trades": 29,
+          "win_rate": 0.2069,
+          "net_pnl": -40.6795,
+          "net_expectancy_R": -0.5791,
+          "max_drawdown": 40.6795,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 3,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "experimental_estimated_atr_m5_sensitivity": {
+      "parameters": {
+        "atr_fallback_policy": "EXPERIMENTAL_ESTIMATED_M5",
+        "isolated_from_primary_backtest": true
+      },
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 41,
+          "rejected_opportunities": 5735,
+          "simulated_trades": 41,
+          "win_rate": 0.1463,
+          "net_pnl": -69.6,
+          "net_expectancy_R": -0.7032,
+          "max_drawdown": 69.6,
+          "early_stopout_60s": 8,
+          "early_stopout_rate_per_executed_trade": 0.1951,
+          "early_stopout_180s": 16,
+          "ambiguous_exits": 0
+        },
+        "B": {
+          "variant_id": "B",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 5751,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "net_pnl": -31.2265,
+          "net_expectancy_R": -0.5179,
+          "max_drawdown": 31.2265,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "C": {
+          "variant_id": "C",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 5758,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "net_pnl": -16.3506,
+          "net_expectancy_R": -0.3796,
+          "max_drawdown": 16.3506,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        },
+        "D": {
+          "variant_id": "D",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "eligible_opportunities": 24,
+          "rejected_opportunities": 5752,
+          "simulated_trades": 24,
+          "win_rate": 0.2917,
+          "net_pnl": -29.7228,
+          "net_expectancy_R": -0.5114,
+          "max_drawdown": 29.7228,
+          "early_stopout_60s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_180s": 0,
+          "ambiguous_exits": 0
+        }
+      }
+    },
+    "missing_candles": {
+      "behavior": "FAIL_CLOSED_ATR_AND_GAP_CADENCE_CHECK",
+      "missing_intervals_detected": 6926,
+      "gap_caused_rejections": 3,
+      "synthetic_bars_fabricated": 0
+    },
+    "stale_feed": {
+      "behavior": "FAIL_CLOSED_STALE_QUOTE_REJECTED",
+      "max_quote_age_sec": 15.0,
+      "confirmed_unicorn_on_stale_quote_allowed": false
+    },
+    "sessions": {
+      "LONDON_SESSION": {
+        "opportunity_count": 1460,
+        "variants": {
+          "A": {
+            "variant_id": "A",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 6,
+            "rejected_opportunities": 1454,
+            "simulated_trades": 6,
+            "win_rate": 0.0,
+            "net_pnl": -12.6894,
+            "net_expectancy_R": -0.8691,
+            "max_drawdown": 12.6894,
+            "early_stopout_60s": 1,
+            "early_stopout_rate_per_executed_trade": 0.1667,
+            "early_stopout_180s": 1,
+            "ambiguous_exits": 0
+          },
+          "B": {
+            "variant_id": "B",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 2,
+            "rejected_opportunities": 1458,
+            "simulated_trades": 2,
+            "win_rate": 0.0,
+            "net_pnl": -4.8334,
+            "net_expectancy_R": -1.0,
+            "max_drawdown": 4.8334,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "C": {
+            "variant_id": "C",
+            "performance_status": "INSUFFICIENT_SAMPLE",
+            "eligible_opportunities": 0,
+            "rejected_opportunities": 1460,
+            "simulated_trades": 0,
+            "win_rate": null,
+            "net_pnl": 0,
+            "net_expectancy_R": null,
+            "max_drawdown": 0.0,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": null,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "D": {
+            "variant_id": "D",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 1,
+            "rejected_opportunities": 1459,
+            "simulated_trades": 1,
+            "win_rate": 0.0,
+            "net_pnl": -2.4618,
+            "net_expectancy_R": -1.0,
+            "max_drawdown": 2.4618,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          }
+        }
+      },
+      "NY_SESSION": {
+        "opportunity_count": 1766,
+        "variants": {
+          "A": {
+            "variant_id": "A",
+            "performance_status": "SUFFICIENT_SAMPLE",
+            "eligible_opportunities": 22,
+            "rejected_opportunities": 1744,
+            "simulated_trades": 22,
+            "win_rate": 0.2273,
+            "net_pnl": -30.4469,
+            "net_expectancy_R": -0.5767,
+            "max_drawdown": 30.4469,
+            "early_stopout_60s": 3,
+            "early_stopout_rate_per_executed_trade": 0.1364,
+            "early_stopout_180s": 7,
+            "ambiguous_exits": 0
+          },
+          "B": {
+            "variant_id": "B",
+            "performance_status": "SUFFICIENT_SAMPLE",
+            "eligible_opportunities": 14,
+            "rejected_opportunities": 1752,
+            "simulated_trades": 14,
+            "win_rate": 0.4286,
+            "net_pnl": -9.3016,
+            "net_expectancy_R": -0.2818,
+            "max_drawdown": 9.556,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "C": {
+            "variant_id": "C",
+            "performance_status": "SUFFICIENT_SAMPLE",
+            "eligible_opportunities": 12,
+            "rejected_opportunities": 1754,
+            "simulated_trades": 12,
+            "win_rate": 0.5,
+            "net_pnl": -4.4278,
+            "net_expectancy_R": -0.162,
+            "max_drawdown": 9.556,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "D": {
+            "variant_id": "D",
+            "performance_status": "SUFFICIENT_SAMPLE",
+            "eligible_opportunities": 14,
+            "rejected_opportunities": 1752,
+            "simulated_trades": 14,
+            "win_rate": 0.4286,
+            "net_pnl": -10.2487,
+            "net_expectancy_R": -0.3049,
+            "max_drawdown": 10.2487,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          }
+        }
+      },
+      "ASIA_OTHER_SESSION": {
+        "opportunity_count": 2550,
+        "variants": {
+          "A": {
+            "variant_id": "A",
+            "performance_status": "SUFFICIENT_SAMPLE",
+            "eligible_opportunities": 13,
+            "rejected_opportunities": 2537,
+            "simulated_trades": 13,
+            "win_rate": 0.0769,
+            "net_pnl": -26.4637,
+            "net_expectancy_R": -0.8407,
+            "max_drawdown": 26.4637,
+            "early_stopout_60s": 4,
+            "early_stopout_rate_per_executed_trade": 0.3077,
+            "early_stopout_180s": 8,
+            "ambiguous_exits": 0
+          },
+          "B": {
+            "variant_id": "B",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 9,
+            "rejected_opportunities": 2541,
+            "simulated_trades": 9,
+            "win_rate": 0.1111,
+            "net_pnl": -17.0915,
+            "net_expectancy_R": -0.7782,
+            "max_drawdown": 17.0915,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "C": {
+            "variant_id": "C",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 6,
+            "rejected_opportunities": 2544,
+            "simulated_trades": 6,
+            "win_rate": 0.1667,
+            "net_pnl": -11.9228,
+            "net_expectancy_R": -0.8147,
+            "max_drawdown": 12.1957,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          },
+          "D": {
+            "variant_id": "D",
+            "performance_status": "LOW_SAMPLE_CAUTION",
+            "eligible_opportunities": 9,
+            "rejected_opportunities": 2541,
+            "simulated_trades": 9,
+            "win_rate": 0.1111,
+            "net_pnl": -17.0123,
+            "net_expectancy_R": -0.7784,
+            "max_drawdown": 17.0123,
+            "early_stopout_60s": 0,
+            "early_stopout_rate_per_executed_trade": 0.0,
+            "early_stopout_180s": 0,
+            "ambiguous_exits": 0
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v10_1_acceptance.py backend/tests/test_v13_4_metrics_exports.py backend/tests/test_v13_7_order_lifecycle.py backend/tests/test_v13_8_target_provenance.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_17_repair_provenance.py backend/tests/test_v14_4_1_scenario_fail_closed.py backend/tests/test_v14_4_2_provisional_plan_regression.py backend/tests/test_v14_4_5_forecast_production.py backend/tests/test_v14_4_6_strict_proof_producer.py backend/tests/test_v14_4_7_proof_fail_closed.py backend/tests/test_v14_4_8_reconciliation_accumulator.py backend/tests/test_v14_4_liquidity.py backend/tests/test_v15_0_scalp_orchestrator.py backend/tests/test_v15_2_liquidity_engine.py backend/tests/test_v16_15_paper_accounting_and_persistence.py backend/tests/test_v16_29_cg01_realtime_serialization.py backend/tests/test_v16_30_cg01_daily_bias.py backend/tests/test_v16_31_cg01_red_regressions.py backend/tests/test_v16_39_16_rr_settings_and_preview_gaps.py backend/tests/test_v16_39_17_rr_sync.py backend/tests/test_v16_39_9_coordinator_policy_acceptance.py backend/tests/test_v16_6_measurement_integrity.py backend/tests/test_v16_7_risk_authority.py backend/tests/test_v16_9_historical_runner.py backend/tests/test_v17_4_1_server_scope.py backend/tests/test_v17_4_entry_session_policy.py backend/tests/test_v17_4_guard_regression.py backend/tests/test_v17_5_1_atr_timeframe.py backend/tests/test_v17_5_1_research_runtime.py backend/tests/test_v17_5_2_boundary_probes.py backend/tests/test_v17_5_4_cost_parity.py backend/tests/test_v17_5_5_cost_authority.py backend/tests/test_v17_5_9_reference_source_authority.py backend/tests/test_v17_6_2_transaction_ownership.py backend/tests/test_v17_6_4_1_quality_transitions.py backend/tests/test_v17_6_4_24_7_coverage.py backend/tests/test_v17_6_4_3c_source_authority.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_6_cycle_telemetry.py backend/tests/test_v17_8_acceptance_runner.py backend/tests/test_v17_9_0_1_2_strict_eligibility_and_parity.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/shards/shard_0.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 68086
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v14_4_5_forecast_production.py::test_f03_genuine_producer_event_to_observer_and_summary
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+439 passed, 2 warnings in 64.29s (0:01:04)
+
+--- STDERR ---

@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g74_market_shadow_startup_shutdown.xml -k test_market_shadow_capability_matrix or test_end_to_end_ws_to_shadow_storage_and_shadow_api
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 284
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_market_shadow_capability_matrix (0.005s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath::test_end_to_end_ws_to_shadow_storage_and_shadow_api (0.279s)
+2 passed in 0.28s
+
+--- STDERR ---

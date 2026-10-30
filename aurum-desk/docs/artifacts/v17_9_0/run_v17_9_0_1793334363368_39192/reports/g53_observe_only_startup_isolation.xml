@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g53_observe_only_startup_isolation" tests="2" errors="0" failures="0" skipped="0" time="0.442"><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_runtime_profile_resolution_and_invalid_profile_fails_closed" time="0.020" /><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_observe_only_lifespan_startup_shutdown_and_negative_control" time="0.422" /></testsuite></testsuites>

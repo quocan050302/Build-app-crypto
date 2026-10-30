@@ -1,0 +1,8 @@
+COMMAND: git branch --show-current
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 13
+EXIT_CODE: 0
+--- STDOUT ---
+feat/v17-8-unicorn-structural-sl-tp-intelligence
+
+--- STDERR ---

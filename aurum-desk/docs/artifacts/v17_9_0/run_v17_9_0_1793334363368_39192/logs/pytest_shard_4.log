@@ -1,0 +1,22 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_order_binding_integrity.py backend/tests/test_v10_3_lifecycle_and_invariants.py backend/tests/test_v12_2_acceptance.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_causal_driver.py backend/tests/test_v14_4_10_frozen_context.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_5_reconciliation_window.py backend/tests/test_v14_4_9_reconciliation_integrity.py backend/tests/test_v14_4_repository.py backend/tests/test_v16_10_runner_result_authority.py backend/tests/test_v16_12_cg01_execution.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_2_cg01_guards_lifecycle.py backend/tests/test_v16_38_adaptive_paper_readiness.py backend/tests/test_v16_39_15_rr_policy_unification.py backend/tests/test_v16_39_1_evidence_scoring_repair.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_3_cg01_replay.py backend/tests/test_v16_5_expiry_pipeline.py backend/tests/test_v17_4_contracts.py backend/tests/test_v17_4_frequency.py backend/tests/test_v17_5_1_anchor_leg.py backend/tests/test_v17_5_3_cycle_to_review.py backend/tests/test_v17_5_5_cost_authority.py backend/tests/test_v17_5_5_origin_bridge.py backend/tests/test_v17_5_6_cycle_regression.py backend/tests/test_v17_5_8_break_fail_closed.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_anchor_binding.py backend/tests/test_v17_6_1_quote_timestamps.py backend/tests/test_v17_6_2_cycle_durability.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_4_1_acceptance_runner.py backend/tests/test_v17_6_4_1_quality_transitions.py backend/tests/test_v17_6_4_3_database_isolation.py backend/tests/test_v17_6_4_3b_feed_provenance.py backend/tests/test_v17_6_4_3c_acceptance_integrity.py backend/tests/test_v17_6_4_3c_epoch_authority.py backend/tests/test_v17_6_4_cycle_run_identity.py backend/tests/test_v17_6_financial_summary.py backend/tests/test_v17_7_atr_provenance.py backend/tests/test_v9_full_matrices.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\shards\shard_4.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 265839
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 52%]
+........................................................................ [ 65%]
+........................................................................ [ 78%]
+........................................................................ [ 92%]
+...........................................                              [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+547 passed, 1 warning in 260.59s (0:04:20)
+
+--- STDERR ---

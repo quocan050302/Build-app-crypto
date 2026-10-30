@@ -9,6 +9,7 @@ import models, crud
 from services.trade_lifecycle_service import TradeLifecycleService
 from services.clock import IClock
 from services.event_bus import event_bus
+from services.runtime_profile_service import assert_not_observe_only
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,10 @@ class PositionRecoveryService:
         now_ms: Optional[int] = None,
         gap_threshold_ms: int = 60000 # 60 seconds gap
     ) -> List[Dict[str, Any]]:
+        assert_not_observe_only(
+            "PositionRecoveryService.check_and_recover_offline_positions",
+            counter_key="BLOCKED_STARTUP_MUTATION_ATTEMPTS",
+        )
         current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
         results: List[Dict[str, Any]] = []
 

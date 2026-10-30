@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g80_unicorn_causal_chain_strict_validation" tests="1" errors="0" failures="0" skipped="0" time="0.013"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG80UnicornStrictCausalValidation" name="test_g80_all_10_mandatory_unicorn_causal_cases" time="0.013" /></testsuite></testsuites>

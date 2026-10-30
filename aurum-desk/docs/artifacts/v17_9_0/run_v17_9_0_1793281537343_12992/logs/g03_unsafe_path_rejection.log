@@ -1,0 +1,17 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_database_safety.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g03_unsafe_path_rejection.xml -k test_dbs_02 or test_dbs_03 or test_dbs_04 or test_dbs_05 or test_dbs_05b or test_dbs_06 or test_dbs_07 or test_dbs_08 or test_dbs_10
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 398
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_02_explicit_runtime_database_path_rejected (0.005s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_03_arbitrary_existing_db_path_rejected (0.007s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_04_existing_file_named_my_test_db_rejected (0.006s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_05_symbolic_link_to_unsafe_database_rejected (0.005s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_05b_hardlink_to_runtime_database_rejected (0.005s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_06_relative_traversal_outside_test_root_rejected (0.005s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_07_file_uri_alias_to_unsafe_database_rejected (0.006s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_08_unsafe_inherited_aurum_db_path_rejected (0.350s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_10_sentinel_database_remains_unchanged (0.010s)
+9 passed in 0.40s
+
+--- STDERR ---

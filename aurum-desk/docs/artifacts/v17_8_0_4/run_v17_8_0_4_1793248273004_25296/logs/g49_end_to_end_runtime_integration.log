@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\g49_end_to_end_runtime_integration.xml -k test_def_178_11 or test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 1394
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_11_scenarios_01_to_12_end_to_end_runtime (0.779s)
+PASSED backend.tests.test_v17_8_runtime_integration::test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers (0.615s)
+2 passed in 1.39s
+
+--- STDERR ---

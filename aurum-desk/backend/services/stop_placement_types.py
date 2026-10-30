@@ -25,6 +25,9 @@ class StopAnchorKind(str, Enum):
     PROTECTED_LEG_LOW = "PROTECTED_LEG_LOW"
     FVG_LEG_ORIGIN = "FVG_LEG_ORIGIN"
     DISPLACEMENT_ORIGIN = "DISPLACEMENT_ORIGIN"
+    BREAKER_DISTAL_BOUNDARY = "BREAKER_DISTAL_BOUNDARY"
+    UNICORN_INVALIDATION = "UNICORN_INVALIDATION"
+    THESIS_BOUND_INVALIDATION = "THESIS_BOUND_INVALIDATION"
     UNKNOWN = "UNKNOWN"
 
 
@@ -129,6 +132,10 @@ class StopPlacementPolicy:
     max_stop_distance_atr: float = 4.0
     max_spread_usd: float = 2.0
     algorithm_version: str = "V17_7_1"
+    v18_structural_intelligence_enabled: bool = False
+    v18_unicorn_detection_enabled: bool = False
+    v18_noise_research_enabled: bool = False
+    v18_execution_policy_version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -148,6 +155,10 @@ class StopPlacementPolicy:
             "max_stop_distance_atr": self.max_stop_distance_atr,
             "max_spread_usd": self.max_spread_usd,
             "algorithm_version": self.algorithm_version,
+            "v18_structural_intelligence_enabled": self.v18_structural_intelligence_enabled,
+            "v18_unicorn_detection_enabled": self.v18_unicorn_detection_enabled,
+            "v18_noise_research_enabled": self.v18_noise_research_enabled,
+            "v18_execution_policy_version": self.v18_execution_policy_version,
         }
 
 
@@ -351,6 +362,13 @@ class StopPlacementDecision:
     expansion_applied: bool = False
     distance_assessment: Optional[str] = "DISTANCE_NORMAL"
     algorithm_version: str = "V17_7_1"
+    unicorn_evidence: Optional[Dict[str, Any]] = None
+    unicorn_id: Optional[str] = None
+    invalidation_authority: Optional[str] = None
+    unicorn_sl_candidate: Optional[float] = None
+    legacy_sl: Optional[float] = None
+    structural_sl: Optional[float] = None
+    buffer_components: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -370,6 +388,13 @@ class StopPlacementDecision:
             "expansion_applied": self.expansion_applied,
             "distance_assessment": self.distance_assessment,
             "algorithm_version": self.algorithm_version,
+            "unicorn_evidence": self.unicorn_evidence,
+            "unicorn_id": self.unicorn_id,
+            "invalidation_authority": self.invalidation_authority,
+            "unicorn_sl_candidate": round(self.unicorn_sl_candidate, 2) if self.unicorn_sl_candidate is not None else None,
+            "legacy_sl": round(self.legacy_sl, 2) if self.legacy_sl is not None else None,
+            "structural_sl": round(self.structural_sl, 2) if self.structural_sl is not None else None,
+            "buffer_components": self.buffer_components,
         }
 
 
@@ -472,6 +497,8 @@ class StopComparisonPlan:
     variant_a: VariantPlan
     variant_b: VariantPlan
     variant_c: VariantPlan
+    variant_d: Optional[VariantPlan] = None
+    unicorn_evidence: Optional[Dict[str, Any]] = None
     anchor: Optional[StopAnchor] = None
     atr_m1: Optional[float] = None
     atr_m5: Optional[float] = None
@@ -498,6 +525,8 @@ class StopComparisonPlan:
             "variant_a": self.variant_a.to_dict(),
             "variant_b": self.variant_b.to_dict(),
             "variant_c": self.variant_c.to_dict(),
+            "variant_d": self.variant_d.to_dict() if self.variant_d else None,
+            "unicorn_evidence": self.unicorn_evidence,
             "anchor": self.anchor.to_dict() if self.anchor else None,
             "atr_m1": round(self.atr_m1, 4) if self.atr_m1 is not None else None,
             "atr_m5": round(self.atr_m5, 4) if self.atr_m5 is not None else None,

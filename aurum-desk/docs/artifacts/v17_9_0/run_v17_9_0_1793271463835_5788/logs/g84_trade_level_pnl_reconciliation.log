@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\g84_trade_level_pnl_reconciliation.xml -k test_g84_trade_level_and_aggregate_financial_reconciliation
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 15
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation::test_g84_trade_level_and_aggregate_financial_reconciliation (0.015s)
+1 passed in 0.01s
+
+--- STDERR ---

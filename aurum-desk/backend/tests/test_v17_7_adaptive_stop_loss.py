@@ -2347,7 +2347,9 @@ def test_ce_20_acceptance_artifact_source_sha_matches_tested_source(tmp_path):
     assert len(expected_sha) == 40
 
     run_id = "test_run_ce20"
-    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "abc123hash"}, "composite_sha": "comp_sha"}
+    import hashlib
+    comp_sha_ce20 = hashlib.sha256(b"backend/database.py:abc123hash;").hexdigest()
+    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "abc123hash"}, "composite_sha": comp_sha_ce20}
     gate_manifest = list(MANDATORY_GATES_V17_7_4)
 
     # Build valid gates payload with all 28 gates
@@ -2436,7 +2438,9 @@ def test_review_probe_4_bundle_verifier_rejects_failing_xml_and_untracked_files(
     for g in gate_manifest:
         valid_gates[g] = {"status": "PASS", "exit_code": 0, "counts": {"passed": 1, "failed": 0}}
 
-    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "hash1"}, "files_count": 1, "composite_sha": "comp_sha"}
+    import hashlib
+    comp_sha_p4 = hashlib.sha256(b"backend/database.py:hash1;").hexdigest()
+    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "hash1"}, "files_count": 1, "composite_sha": comp_sha_p4}
     results_payload = {
         "timestamp_utc": "2026-10-27T00:00:00Z",
         "runner_version": "17.7.4",

@@ -161,7 +161,11 @@ def _upsert_setup(db, sid, direction, state, entry, sl, tp, plan_kind="CONFIRMED
 
 
 def _reset(db):
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import set_backtest_summary_override_for_test
     _CLOCK["ms"] = None
+    market_shadow_service.reset_for_test()
+    set_backtest_summary_override_for_test(None)
     for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
                   models.WatchSetup):
         db.query(model).delete()
@@ -872,6 +876,205 @@ def e2e_seed_observation(payload: dict = Body(default={})):
         return {"status": "SUCCESS", "run_id": run_id}
     finally:
         db.close()
+
+
+@app.post("/__e2e/seed_market_shadow")
+def e2e_seed_market_shadow(payload: dict = Body(default={})):
+    """
+    Seed V17.8.0.3 MarketShadowService state for Playwright browser E2E verification.
+    Supports:
+    - mode="DISCONNECTED": feed disconnected state
+    - mode="FRESH": fresh market data state + M1/M5/M15 candles + Unicorn shadow opportunity
+    - backtest_override: optional dict override for get_latest_backtest_summary() (e.g. missing backtest data)
+    """
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import set_backtest_summary_override_for_test
+
+    market_shadow_service.reset_for_test()
+    if market_shadow_service.storage and market_shadow_service.storage.is_initialized:
+        market_shadow_service.storage.reset_for_testing()
+    mode = str(payload.get("mode", "FRESH")).upper()
+
+    if "backtest_override" in payload:
+        set_backtest_summary_override_for_test(payload["backtest_override"])
+    else:
+        set_backtest_summary_override_for_test(None)
+
+    now_ms = int(time.time() * 1000)
+
+    if mode == "DISCONNECTED":
+        market_shadow_service.on_transport_state_change(
+            state="DISCONNECTED",
+            connection_epoch=1,
+            reason="WS_DISCONNECTED",
+        )
+        return {"status": "SUCCESS", "mode": "DISCONNECTED"}
+
+    # Mode == "FRESH": ingest fresh canonical quote + closed M1/M5/M15 candles + evaluate cycle
+    market_shadow_service.on_transport_state_change(state="CONNECTED", connection_epoch=2)
+    market_shadow_service.ingest_raw_quote(
+        {
+            "symbol": "XAUUSDT",
+            "instType": "USDT-FUTURES",
+            "bid": 2650.00,
+            "ask": 2650.25,
+            "last": 2650.10,
+            "mark_price": 2650.12,
+            "exchange_ts_ms": now_ms - 500,
+            "received_at_ms": now_ms - 400,
+        },
+        source="WS",
+        connection_epoch=2,
+        now_ms=now_ms,
+    )
+
+    # Seed 25 closed M1 bars, 10 closed M5 bars, 5 closed M15 bars
+    m1_base = now_ms - (now_ms % 60_000) - 26 * 60_000
+    m1_rows = []
+    for i in range(25):
+        ot = m1_base + i * 60_000
+        o = 2645.0 + i * 0.2
+        c = o + (0.6 if i % 2 == 0 else -0.2)
+        m1_rows.append(
+            {
+                "open_time": ot,
+                "open": round(o, 2),
+                "high": round(max(o, c) + 0.5, 2),
+                "low": round(min(o, c) - 0.5, 2),
+                "close": round(c, 2),
+                "volume": 120.0 + i,
+                "is_closed": True,
+            }
+        )
+    market_shadow_service.ingest_candle_payload(
+        symbol="XAUUSDT",
+        timeframe="1M",
+        data_rows=m1_rows,
+        action="closed",
+        source="WS",
+        connection_epoch=2,
+        received_at_ms=now_ms,
+    )
+
+    m5_base = now_ms - (now_ms % 300_000) - 11 * 300_000
+    m5_rows = [
+        {
+            "open_time": m5_base + i * 300_000,
+            "open": 2642.0 + i * 0.8,
+            "high": 2643.5 + i * 0.8,
+            "low": 2641.2 + i * 0.8,
+            "close": 2642.9 + i * 0.8,
+            "volume": 500.0,
+            "is_closed": True,
+        }
+        for i in range(10)
+    ]
+    market_shadow_service.ingest_candle_payload(
+        symbol="XAUUSDT",
+        timeframe="5M",
+        data_rows=m5_rows,
+        action="closed",
+        source="WS",
+        connection_epoch=2,
+        received_at_ms=now_ms,
+    )
+
+    m15_base = now_ms - (now_ms % 900_000) - 6 * 900_000
+    m15_rows = [
+        {
+            "open_time": m15_base + i * 900_000,
+            "open": 2640.0 + i * 2.0,
+            "high": 2643.0 + i * 2.0,
+            "low": 2639.0 + i * 2.0,
+            "close": 2642.0 + i * 2.0,
+            "volume": 1500.0,
+            "is_closed": True,
+        }
+        for i in range(5)
+    ]
+    market_shadow_service.ingest_candle_payload(
+        symbol="XAUUSDT",
+        timeframe="15M",
+        data_rows=m15_rows,
+        action="closed",
+        source="WS",
+        connection_epoch=2,
+        received_at_ms=now_ms,
+    )
+
+    # Seed an explicit Unicorn-confirmed shadow opportunity for deterministic UI assertion
+    opp_id = payload.get("opportunity_id", "shopp_e2e_unicorn_long_01")
+    opp_record = {
+        "opportunity_id": opp_id,
+        "cycle_id": f"sh_cycle_e2e_{now_ms}",
+        "symbol": "XAUUSDT",
+        "model_id": "SMC_M1_FVG_CONTINUATION",
+        "direction": "LONG",
+        "setup_episode_id": "ep_e2e_unicorn_01",
+        "analysis_time_ms": now_ms,
+        "decision_cutoff_ms": now_ms - 1000,
+        "entry_reference": 2650.25,
+        "entry_quote_bid": 2650.00,
+        "entry_quote_ask": 2650.25,
+        "legacy_sl": 2648.10,
+        "structural_sl": 2646.50,
+        "unicorn_sl_candidate": 2646.20,
+        "selected_invalidation_price": 2647.00,
+        "selected_anchor_kind": "BREAKER_DISTAL_BOUNDARY",
+        "selected_anchor_id": "brk_long_1m_e2e_01",
+        "atr_m1": 1.25,
+        "atr_m5": 2.80,
+        "spread": 0.25,
+        "protective_distance": 0.80,
+        "target_price": 2662.50,
+        "target_evidence_id": "liq_pool_high_2662_50",
+        "risk_budget": 2.50,
+        "hypothetical_quantity": 0.58,
+        "net_risk": 2.50,
+        "net_reward": 6.85,
+        "net_rr": 2.74,
+        "unicorn_validity": "VALID",
+        "unicorn_evidence_id": "uev_e2e_01",
+        "shadow_eligibility_status": "SHADOW_ELIGIBLE",
+        "lifecycle_state": "ELIGIBLE",
+        "rejection_reason_codes": [],
+        "would_enter_at": 2650.25,
+        "would_use_sl": 2646.20,
+        "would_use_tp": 2662.50,
+        "would_use_quantity": 0.58,
+        "hypothetical_entry_status": "SHADOW_ENTRY_NOT_TRIGGERED",
+        "hypothetical_exit_status": "EXIT_SEQUENCE_UNVERIFIABLE",
+        "execution_status": "NEVER_EXECUTED",
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+        "source_breaker_id": "brk_long_1m_e2e_01",
+        "source_fvg_id": "fvg_bull_1m_e2e_01",
+    }
+    market_shadow_service._register_or_update_opportunity(opp_record)
+    unicorn_rec = {
+        "unicorn_id": "uev_e2e_01",
+        "symbol": "XAUUSDT",
+        "direction": "LONG",
+        "is_valid": True,
+        "validity_status": "VALID",
+        "breaker_id": "brk_long_1m_e2e_01",
+        "selected_fvg_id": "fvg_bull_1m_e2e_01",
+        "invalidation_price": 2647.00,
+    }
+    market_shadow_service._unicorn_records.append(unicorn_rec)
+    if market_shadow_service.storage and market_shadow_service.storage.is_initialized:
+        market_shadow_service.storage.record_unicorn_evidence(unicorn_rec)
+    market_shadow_service._last_cycle_summary = {
+        "cycle_id": f"sh_cycle_e2e_{now_ms}",
+        "symbol": "XAUUSDT",
+        "analysis_time_ms": now_ms,
+        "decision_cutoff_ms": now_ms - 1000,
+        "feed_status": "CONNECTED_FRESH",
+        "detected_setups_count": 1,
+        "confirmed_unicorns_count": 1,
+        "eligible_count": 1,
+        "rejected_count": 0,
+    }
+    return {"status": "SUCCESS", "mode": "FRESH", "opportunity_id": opp_id}
 
 
 def main():

@@ -1,0 +1,71 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_21_production_flow.py backend/tests/test_v16_25_production_flow.py backend/tests/test_final_display_plan_sources.py backend/tests/test_final_reconciliation_chronology.py backend/tests/test_order_geometry_parity.py backend/tests/test_v12_2_acceptance.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_causal_driver.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_11_reconciliation_authority.py backend/tests/test_v14_4_4_metric_gate.py backend/tests/test_v14_4_5_reconciliation_window.py backend/tests/test_v15_0_m1_scalp_models.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_16_owner_and_shadow.py backend/tests/test_v16_19_red_reproductions.py backend/tests/test_v16_21_red_reproductions.py backend/tests/test_v16_27_event_dispatch_lifecycle.py backend/tests/test_v16_2_cg01_long_short.py backend/tests/test_v16_36_paper_tonight_production_regression.py backend/tests/test_v16_39_12_historical_snapshot_states.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_39_6_entry_mode_causal_acceptance.py backend/tests/test_v16_5_expiry_pipeline.py backend/tests/test_v16_7_replay_costs.py backend/tests/test_v16_opportunity_engine.py backend/tests/test_v17_0_opportunity_monitor_metrics.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_1_policy_cas.py backend/tests/test_v17_5_5_entry_context_gate.py backend/tests/test_v17_5_8_break_fail_closed.py backend/tests/test_v17_5_9_arm_production_wiring.py backend/tests/test_v17_5_9_financial_parity.py backend/tests/test_v17_6_2_financial_run_isolation.py backend/tests/test_v17_6_3_market_eligible_coverage.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_2_watcher_integration.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v7_2_realtime_protocol.py backend/tests/test_v9_full_matrices.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/shards/shard_6.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 67667
+EXIT_CODE: 1
+--- STDOUT ---
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+.............................F.......................................... [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+.....................................................                    [100%]
+=================================== FAILURES ===================================
+______________ test_red_030_live_wiring_cache_to_scheduler_trace _______________
+
+isolated_db = <sqlalchemy.orm.session.Session object at 0x110a242f0>
+
+    def test_red_030_live_wiring_cache_to_scheduler_trace(isolated_db: Session):
+        now_ms = int(time.time() * 1000)
+    
+        # 1. Authoritative quote on collector
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT",
+            "bid": 2650.00,
+            "ask": 2650.25,
+            "last": 2650.15,
+            "server_time": now_ms - 500,
+            "observed_at": now_ms - 400,
+        }
+    
+        # 2. Ingest candles into cache
+        candle_cache_service.process_candle_payload(
+            symbol="XAUUSDT",
+            timeframe="1M",
+            data_rows=[
+                {"timestamp": now_ms - 120_000, "open": 2650.0, "high": 2651.0, "low": 2649.5, "close": 2650.5, "volume": 50.0},
+                {"timestamp": now_ms - 60_000, "open": 2650.5, "high": 2651.5, "low": 2650.0, "close": 2651.0, "volume": 60.0},
+            ],
+        )
+    
+        # 3. Scheduler evaluation cycle
+        sched = CG01EvaluationScheduler()
+        sched.enabled = True
+        sched.shadow_mode = True
+    
+        sched.evaluate_symbol_now("XAUUSDT", db=isolated_db)
+    
+        # 4. Flush telemetry traces to DB
+        flush_res = flush_pending_traces(timeout_s=2.0)
+>       assert flush_res["status"] == "COMPLETED"
+E       AssertionError: assert 'IN_FLIGHT' == 'COMPLETED'
+E         
+E         - COMPLETED
+E         + IN_FLIGHT
+
+backend/tests/test_v16_21_red_reproductions.py:362: AssertionError
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v16_27_event_dispatch_lifecycle.py::test_022_outbox_persistence_and_deduplication
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_v16_21_red_reproductions.py::test_red_030_live_wiring_cache_to_scheduler_trace
+1 failed, 484 passed, 2 warnings in 63.67s (0:01:03)
+
+--- STDERR ---

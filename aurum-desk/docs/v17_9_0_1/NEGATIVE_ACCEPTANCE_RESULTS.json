@@ -1,0 +1,996 @@
+{
+  "controls": [
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical VALID_SETUP_REJECTED_BY_RISK cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N01"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical NO_VALID_SETUP cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N02"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical WAITING_CONFIRMATION cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N03"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical MODEL_DISABLED cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N04"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical MISSING_MARKET_DATA cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N05"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical NO_TRADE cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N06"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical REJECTED cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N07"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Unknown canonical decision_status cannot be promoted by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N08"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical ELIGIBLE downgraded when legacy candidate rejects",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N09"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical selected_sl never overwritten by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N10"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical take_profit never overwritten by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N11"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-01: Canonical entry_reference never overwritten by legacy candidate",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N12"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-02: Backtest extraction enforces strict positive DecisionStatus.ELIGIBLE",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N13"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-02: Backtest authoritative simulation blocks VALID_SETUP_REJECTED_BY_RISK",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N14"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-02: Backtest simulation rejects unknown canonical_decision_status",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N15"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-02: Backtest authoritative simulation requires explicit canonical_is_eligible == True",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N16"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Direction mismatch between canonical snapshot and candidate rejected fail-closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N17"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Missing canonical decision_id or decision_fingerprint rejected fail-closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N18"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Invalid LONG SL/TP geometry (SL >= entry or TP <= entry) rejected fail-closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N19"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Invalid SHORT SL/TP geometry (SL <= entry or TP >= entry) rejected fail-closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N20"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Non-positive hypothetical_quantity or net_rr on ELIGIBLE snapshot rejected fail-closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N21"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Duplicate canonical decision_id replay blocked in ScalpWatcherOrchestrator",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N22"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Canonical evaluator runtime exception caught and converted to fail-closed REJECTED",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N23"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-03: Historical baseline provenance fails closed on missing/corrupt commit",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N24"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-03: Isolated historical baseline execution verified with zero current-tree imports",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N25"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-04: Cross-runtime parity report fails closed on empty or divergent records",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N26"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Unclosed 1H/4H candle injection rejected by HTF causality validator",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N27"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "Stale tested_source_sha != final_code_sha normalized to INVALID_EVIDENCE / BLOCKED",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N28"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "CRLF line endings normalized to LF and verified by on-disk SHA-256",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N29"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-05: Resource guard preflight/postflight disk & periodic RSS telemetry verified",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N30"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C01: Unconsumed shared snapshot added to consumed_model_decisions rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N31"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C01: Candidate missing decision_id or decision_fingerprint rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N32"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C01: Order intent created from decision not marked CANDIDATE_CONSUMED rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N33"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C02: Simulated trade without decision_id rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N34"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C02: Simulated trade linked to non-ELIGIBLE decision rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N35"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C02: ELIGIBLE backtest decision neither traded nor blocked with reason rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N36"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C02: Backtest parity adapter vs chronological trade ledger divergence rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N37"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C03: 3-way comparison counted as 5-way comparison rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N38"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C03: 5-way comparison missing Historical Baseline decision rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N39"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C03: 5-way comparison missing SharedStrategyEvaluator decision rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N40"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C04: Current-tree oracle wrapper injected into historical subprocess rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N41"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C04: real_historical_scenarios_count == 0 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N42"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C05: input_snapshot_hash == None rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N43"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C05: configuration_hash == None rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N44"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C05: input_snapshot_hash mismatch across compared runtimes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N45"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C05: configuration_hash mismatch across compared runtimes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N46"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C06: DECISION_PARITY_REPORT.json PASS with five_way_verified == 0 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N47"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C06: FINAL_ARTIFACT_MANIFEST.json mismatched SHA-256 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N48"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C06: tested_source_sha != FINAL_CODE_SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N49"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-C06: Release version mismatch across generated artifacts rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N50"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: IndependentPreRefactorBaselineOracle injected into historical subprocess rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N51"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical subprocess calling evaluate_baseline_dict instead of real callables rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N52"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical module imported from current repository path rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N53"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical comparison reporting PASS with UNEXPECTED_DIVERGENCE > 0 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N54"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Synthetic forward candle passed to parity simulator rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N55"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Missing forward_1m in parity simulator returns NOT_EVALUATED and never fabricates candles",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N56"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Future candle leakage in decision context rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N57"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Non-monotonic or duplicate timestamps in forward_1m rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N58"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Corrupted OHLC values in forward_1m rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N59"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Parity window simulator outcome diverging from chronological backtest ledger rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N60"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Unresolvable backtest source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N61"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Amended-away dangling backtest source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N62"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Backtest source_sha != FINAL_CODE_SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N63"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Backtest executable source_tree_hash mismatch rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N64"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N65"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched dataset_sha256 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N66"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched configuration_hash or evaluator_version rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N67"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N68"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N69"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N70"
+    }
+  ],
+  "evaluator_version": "17.9.0.1.1",
+  "failed_negative_controls": 0,
+  "failed_negative_tests": 0,
+  "final_code_sha": "0d1d279392127334520b548798587731a939c78e",
+  "passed_negative_controls": 70,
+  "passed_negative_tests": 70,
+  "release": "V17.9.0.1.2",
+  "results": [
+    {
+      "description": "DEF-179012-01: Canonical VALID_SETUP_REJECTED_BY_RISK cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N01"
+    },
+    {
+      "description": "DEF-179012-01: Canonical NO_VALID_SETUP cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N02"
+    },
+    {
+      "description": "DEF-179012-01: Canonical WAITING_CONFIRMATION cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N03"
+    },
+    {
+      "description": "DEF-179012-01: Canonical MODEL_DISABLED cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N04"
+    },
+    {
+      "description": "DEF-179012-01: Canonical MISSING_MARKET_DATA cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N05"
+    },
+    {
+      "description": "DEF-179012-01: Canonical NO_TRADE cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N06"
+    },
+    {
+      "description": "DEF-179012-01: Canonical REJECTED cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N07"
+    },
+    {
+      "description": "DEF-179012-01: Unknown canonical decision_status cannot be promoted by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N08"
+    },
+    {
+      "description": "DEF-179012-01: Canonical ELIGIBLE downgraded when legacy candidate rejects",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N09"
+    },
+    {
+      "description": "DEF-179012-01: Canonical selected_sl never overwritten by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N10"
+    },
+    {
+      "description": "DEF-179012-01: Canonical take_profit never overwritten by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N11"
+    },
+    {
+      "description": "DEF-179012-01: Canonical entry_reference never overwritten by legacy candidate",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N12"
+    },
+    {
+      "description": "DEF-179012-02: Backtest extraction enforces strict positive DecisionStatus.ELIGIBLE",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N13"
+    },
+    {
+      "description": "DEF-179012-02: Backtest authoritative simulation blocks VALID_SETUP_REJECTED_BY_RISK",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N14"
+    },
+    {
+      "description": "DEF-179012-02: Backtest simulation rejects unknown canonical_decision_status",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N15"
+    },
+    {
+      "description": "DEF-179012-02: Backtest authoritative simulation requires explicit canonical_is_eligible == True",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N16"
+    },
+    {
+      "description": "Direction mismatch between canonical snapshot and candidate rejected fail-closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N17"
+    },
+    {
+      "description": "Missing canonical decision_id or decision_fingerprint rejected fail-closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N18"
+    },
+    {
+      "description": "Invalid LONG SL/TP geometry (SL >= entry or TP <= entry) rejected fail-closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N19"
+    },
+    {
+      "description": "Invalid SHORT SL/TP geometry (SL <= entry or TP >= entry) rejected fail-closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N20"
+    },
+    {
+      "description": "Non-positive hypothetical_quantity or net_rr on ELIGIBLE snapshot rejected fail-closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N21"
+    },
+    {
+      "description": "Duplicate canonical decision_id replay blocked in ScalpWatcherOrchestrator",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N22"
+    },
+    {
+      "description": "Canonical evaluator runtime exception caught and converted to fail-closed REJECTED",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N23"
+    },
+    {
+      "description": "DEF-179012-03: Historical baseline provenance fails closed on missing/corrupt commit",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N24"
+    },
+    {
+      "description": "DEF-179012-03: Isolated historical baseline execution verified with zero current-tree imports",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N25"
+    },
+    {
+      "description": "DEF-179012-04: Cross-runtime parity report fails closed on empty or divergent records",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N26"
+    },
+    {
+      "description": "Unclosed 1H/4H candle injection rejected by HTF causality validator",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N27"
+    },
+    {
+      "description": "Stale tested_source_sha != final_code_sha normalized to INVALID_EVIDENCE / BLOCKED",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N28"
+    },
+    {
+      "description": "CRLF line endings normalized to LF and verified by on-disk SHA-256",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N29"
+    },
+    {
+      "description": "DEF-179012-05: Resource guard preflight/postflight disk & periodic RSS telemetry verified",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N30"
+    },
+    {
+      "description": "DEF-179012-C01: Unconsumed shared snapshot added to consumed_model_decisions rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N31"
+    },
+    {
+      "description": "DEF-179012-C01: Candidate missing decision_id or decision_fingerprint rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N32"
+    },
+    {
+      "description": "DEF-179012-C01: Order intent created from decision not marked CANDIDATE_CONSUMED rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N33"
+    },
+    {
+      "description": "DEF-179012-C02: Simulated trade without decision_id rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N34"
+    },
+    {
+      "description": "DEF-179012-C02: Simulated trade linked to non-ELIGIBLE decision rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N35"
+    },
+    {
+      "description": "DEF-179012-C02: ELIGIBLE backtest decision neither traded nor blocked with reason rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N36"
+    },
+    {
+      "description": "DEF-179012-C02: Backtest parity adapter vs chronological trade ledger divergence rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N37"
+    },
+    {
+      "description": "DEF-179012-C03: 3-way comparison counted as 5-way comparison rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N38"
+    },
+    {
+      "description": "DEF-179012-C03: 5-way comparison missing Historical Baseline decision rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N39"
+    },
+    {
+      "description": "DEF-179012-C03: 5-way comparison missing SharedStrategyEvaluator decision rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N40"
+    },
+    {
+      "description": "DEF-179012-C04: Current-tree oracle wrapper injected into historical subprocess rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N41"
+    },
+    {
+      "description": "DEF-179012-C04: real_historical_scenarios_count == 0 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N42"
+    },
+    {
+      "description": "DEF-179012-C05: input_snapshot_hash == None rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N43"
+    },
+    {
+      "description": "DEF-179012-C05: configuration_hash == None rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N44"
+    },
+    {
+      "description": "DEF-179012-C05: input_snapshot_hash mismatch across compared runtimes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N45"
+    },
+    {
+      "description": "DEF-179012-C05: configuration_hash mismatch across compared runtimes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N46"
+    },
+    {
+      "description": "DEF-179012-C06: DECISION_PARITY_REPORT.json PASS with five_way_verified == 0 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N47"
+    },
+    {
+      "description": "DEF-179012-C06: FINAL_ARTIFACT_MANIFEST.json mismatched SHA-256 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N48"
+    },
+    {
+      "description": "DEF-179012-C06: tested_source_sha != FINAL_CODE_SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N49"
+    },
+    {
+      "description": "DEF-179012-C06: Release version mismatch across generated artifacts rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N50"
+    },
+    {
+      "description": "DEF-179012-F01: IndependentPreRefactorBaselineOracle injected into historical subprocess rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N51"
+    },
+    {
+      "description": "DEF-179012-F01: Historical subprocess calling evaluate_baseline_dict instead of real callables rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N52"
+    },
+    {
+      "description": "DEF-179012-F01: Historical module imported from current repository path rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N53"
+    },
+    {
+      "description": "DEF-179012-F01: Historical comparison reporting PASS with UNEXPECTED_DIVERGENCE > 0 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N54"
+    },
+    {
+      "description": "DEF-179012-F02: Synthetic forward candle passed to parity simulator rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N55"
+    },
+    {
+      "description": "DEF-179012-F02: Missing forward_1m in parity simulator returns NOT_EVALUATED and never fabricates candles",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N56"
+    },
+    {
+      "description": "DEF-179012-F02: Future candle leakage in decision context rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N57"
+    },
+    {
+      "description": "DEF-179012-F02: Non-monotonic or duplicate timestamps in forward_1m rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N58"
+    },
+    {
+      "description": "DEF-179012-F02: Corrupted OHLC values in forward_1m rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N59"
+    },
+    {
+      "description": "DEF-179012-F02: Parity window simulator outcome diverging from chronological backtest ledger rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N60"
+    },
+    {
+      "description": "DEF-179012-F03: Unresolvable backtest source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N61"
+    },
+    {
+      "description": "DEF-179012-F03: Amended-away dangling backtest source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N62"
+    },
+    {
+      "description": "DEF-179012-F03: Backtest source_sha != FINAL_CODE_SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N63"
+    },
+    {
+      "description": "DEF-179012-F03: Backtest executable source_tree_hash mismatch rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N64"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N65"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched dataset_sha256 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N66"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched configuration_hash or evaluator_version rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N67"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N68"
+    },
+    {
+      "description": "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N69"
+    },
+    {
+      "description": "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N70"
+    }
+  ],
+  "status": "PASS",
+  "total_negative_controls": 70,
+  "total_negative_tests": 70
+}

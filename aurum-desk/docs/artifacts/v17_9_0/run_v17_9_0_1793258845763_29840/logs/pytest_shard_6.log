@@ -1,0 +1,20 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_17_production_flow.py backend/tests/test_v16_24_production_flow.py backend/tests/test_v17_1_monitor_scope_and_focus.py backend/tests/test_realtime_source_ordering.py backend/tests/test_v13_3_daily_scheduler.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_causal_driver.py backend/tests/test_v13_7_execution_costs.py backend/tests/test_v13_7_target_provenance.py backend/tests/test_v13_8_ledger_idempotency.py backend/tests/test_v14_2_entry_guard.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_13_forward_membership.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_4_reconciliation_runtime.py backend/tests/test_v16_16_audit_coverage_and_touch.py backend/tests/test_v16_16_milestone_and_runtime_report.py backend/tests/test_v16_16_owner_and_shadow.py backend/tests/test_v16_28_cg01_setup_correctness.py backend/tests/test_v16_2_causal_evidence_chain.py backend/tests/test_v16_32_cg01_authoritative_registry.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_7_replay_costs.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_4_entry_session_policy.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_4_cycle_reconciliation.py backend/tests/test_v17_5_9_acceptance_runner_self_test.py backend/tests/test_v17_5_9_break_source_authority.py backend/tests/test_v17_5_9_real_cycle_regression.py backend/tests/test_v17_6_1_run_isolation.py backend/tests/test_v17_6_2_acceptance_runner.py backend/tests/test_v17_6_4_1_cycle_commit_consistency.py backend/tests/test_v17_6_4_3_database_isolation.py backend/tests/test_v17_6_4_3a_commit_truth.py backend/tests/test_v17_6_4_3c_acceptance_integrity.py backend/tests/test_v17_6_4_3d_db_isolation.py backend/tests/test_v17_8_quote_noise_guard.py backend/tests/test_v3_regression.py backend/tests/test_v7_trading_policy_quota.py backend/tests/test_v8_telegram_and_journal_matrix.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\shards\shard_6.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 337663
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 87%]
+.....................................................                    [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+413 passed, 1 warning in 330.67s (0:05:30)
+
+--- STDERR ---

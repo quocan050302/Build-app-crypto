@@ -1,0 +1,23 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_realtime_execution_worker.py backend/tests/test_v16_20_production_flow.py backend/tests/test_v16_25_production_flow.py backend/tests/test_order_binding_integrity.py backend/tests/test_setup_quality_service_v14.py backend/tests/test_v13_5_accounting_acceptance.py backend/tests/test_v13_5_strategy_routing.py backend/tests/test_v13_7_ledger_idempotency.py backend/tests/test_v13_8_order_lifecycle.py backend/tests/test_v14_3_frequency_audit.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_5_forecast_production.py backend/tests/test_v14_4_5_reconciliation_window.py backend/tests/test_v14_4_quote_provenance.py backend/tests/test_v16_10_runner_result_authority.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_v16_2_cg01_long_short.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_39_1_evidence_scoring_repair.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_3_cg01_pipeline.py backend/tests/test_v16_3_cg01_replay.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_api.py backend/tests/test_v17_5_1_anchor_leg.py backend/tests/test_v17_5_1_stop_costs.py backend/tests/test_v17_5_9_financial_parity.py backend/tests/test_v17_6_2_coverage_intervals.py backend/tests/test_v17_6_4_2_metadata_good_bypass.py backend/tests/test_v17_6_4_2_persistence_status.py backend/tests/test_v17_6_4_3_current_evidence_health.py backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py backend/tests/test_v17_6_4_engine_owner_truth.py backend/tests/test_v17_8_acceptance_runner.py backend/tests/test_v4_invariants.py backend/tests/test_v5_authoritative_lab.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/shards/shard_3.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 181614
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 73%]
+........................................................................ [ 97%]
+......                                                                   [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v14_4_5_forecast_production.py::test_f03_genuine_producer_event_to_observer_and_summary
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+294 passed, 2 warnings in 177.95s (0:02:57)
+
+--- STDERR ---

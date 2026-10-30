@@ -1,0 +1,55 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_17_production_flow.py backend/tests/test_v16_23_red_reproductions.py backend/tests/test_news_service.py backend/tests/test_risk_and_broker.py backend/tests/test_v12_1_acceptance.py backend/tests/test_v13_4_scheduler_integration.py backend/tests/test_v13_6_negative_integrity.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_7_evidence_utils.py backend/tests/test_v14_2_news_blackout.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_2_forecast_requirements.py backend/tests/test_v14_4_2_requirements.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v15_0_scalp_orchestrator.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_10_quote_age_policy_parity.py backend/tests/test_v15_8_database_failure_recovery.py backend/tests/test_v16_14_missed_opportunity_funnel.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_18_red_reproductions.py backend/tests/test_v16_32_cg01_authoritative_registry.py backend/tests/test_v16_39_9_paper_runtime_snapshot.py backend/tests/test_v16_9_executable_sizing_contract.py backend/tests/test_v17_0_opportunity_monitor_api_readonly.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_2_detector_to_exit.py backend/tests/test_v17_5_6_break_time_contract.py backend/tests/test_v17_5_9_acceptance_runner_self_test.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_2_acceptance_runner.py backend/tests/test_v17_6_3_production_persistence.py backend/tests/test_v17_6_4_2_paper_parity.py backend/tests/test_v17_6_4_3a_health_db_scoping.py backend/tests/test_v17_6_4_interval_producer.py backend/tests/test_v17_6_soak.py backend/tests/test_v17_8_runtime_integration.py backend/tests/test_v17_9_0_1_2_strict_eligibility_and_parity.py backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v7_trading_policy_quota.py backend/tests/test_v8_telegram_and_journal_matrix.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/shards/shard_1.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 168392
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.....                                                                    [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_1_acceptance.py::test_t01_short_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t02_long_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t14_setups_b1_b2_enforce_net_rr
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/pydantic/main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_real_integrity_error_flush_recovers_without_pending_rollback_error
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10db4cde0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10eac67b0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_session_usable_after_rollback_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x118171ef0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10e8c90f0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_queries_between_poison_and_rollback
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10aa09cc0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10f2c8830>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_order_armed_and_arm_candidate_not_called
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10f2c8f30> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10f2cb230>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_watchsetup_and_snapshot_not_mutated
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1185f7f50> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10f220ec0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_staged_data_before_failure_rolled_back_consistently
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1185bac80> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x1185f7e70>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_expire_path_real_integrity_error_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:369: SAWarning: New instance <SystemConfig at 0x1185f50f0> with identity key (<class 'models.SystemConfig'>, ('DUP_EXP_KEY',), None) conflicts with persistent instance <SystemConfig at 0x1185f5a20>
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+437 passed, 11 warnings in 164.94s (0:02:44)
+
+--- STDERR ---

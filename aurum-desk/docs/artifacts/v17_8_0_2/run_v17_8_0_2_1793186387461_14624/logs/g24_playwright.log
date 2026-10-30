@@ -1,0 +1,15 @@
+COMMAND: C:\Program Files\nodejs\npx.cmd playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts
+CWD: D:\build app-crypto\aurum-desk\frontend
+DURATION_MS: 14884
+EXIT_CODE: 0
+--- STDOUT ---
+
+Running 3 tests using 1 worker
+
+  ok 1 tests\e2e\v17_5_3_stop_browser.e2e.ts:22:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor (3.4s)
+  ok 2 tests\e2e\v17_5_3_stop_browser.e2e.ts:95:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P02: LONG order renders correct geometry (SL < Entry < TP) (2.0s)
+  ok 3 tests\e2e\v17_5_3_stop_browser.e2e.ts:167:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P03: Mobile viewport (390x844) renders without horizontal scroll overflow (1.1s)
+
+  3 passed (13.5s)
+
+--- STDERR ---

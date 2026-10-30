@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g67_historical_data_quality_gate" tests="1" errors="0" failures="0" skipped="0" time="0.008"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls" time="0.008" /></testsuite></testsuites>

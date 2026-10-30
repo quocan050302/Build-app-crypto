@@ -13,6 +13,7 @@ from services.event_bus import event_bus
 from services.trading_policy_service import TradingPolicyService
 from services.ny_fallback_service import NYFallbackService
 from services.entry_guard_service import serialize_entry_mutation
+from services.runtime_profile_service import assert_not_observe_only
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class StrategyService:
         return False
 
     def set_auto_state(self, db: Session, enabled: bool) -> bool:
+        assert_not_observe_only("StrategyService.set_auto_state", counter_key="BLOCKED_HTTP_MUTATION_ATTEMPTS")
         now_ms = int(time.time() * 1000)
         cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "auto_paper_trading").first()
         val_str = "true" if enabled else "false"
@@ -1046,6 +1048,10 @@ class StrategyService:
 
     async def run_strategy_loop(self):
         """Periodic background evaluation loop independent of browser activity."""
+        assert_not_observe_only(
+            "StrategyService.run_strategy_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         while True:
             try:

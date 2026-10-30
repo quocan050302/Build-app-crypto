@@ -1413,7 +1413,11 @@ class StopPlacementPolicyResponse(BaseModel):
     min_distance_spread_mult: float = 2.0
     max_stop_distance_atr: float = 4.0
     max_spread_usd: float = 2.0
-    algorithm_version: str = "V17_7"
+    algorithm_version: str = "V17_8_0"
+    v18_structural_intelligence_enabled: bool = False
+    v18_unicorn_detection_enabled: bool = False
+    v18_noise_research_enabled: bool = False
+    v18_execution_policy_version: int = 1
     summary_vi: str = ""
     reason_codes: List[str] = Field(default_factory=list)
 
@@ -1433,6 +1437,10 @@ class StopPlacementPolicyUpdate(BaseModel):
     max_stop_distance_atr: Optional[float] = None
     max_spread_usd: Optional[float] = None
     algorithm_version: Optional[str] = None
+    v18_structural_intelligence_enabled: Optional[Any] = None
+    v18_unicorn_detection_enabled: Optional[Any] = None
+    v18_noise_research_enabled: Optional[Any] = None
+    v18_execution_policy_version: Optional[Any] = None
 
 
 class StopComparisonSummaryResponse(BaseModel):

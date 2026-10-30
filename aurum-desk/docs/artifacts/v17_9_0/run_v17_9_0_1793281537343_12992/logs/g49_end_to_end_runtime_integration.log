@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g49_end_to_end_runtime_integration.xml -k test_def_178_11 or test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 452
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_11_scenarios_01_to_12_end_to_end_runtime (0.236s)
+PASSED backend.tests.test_v17_8_runtime_integration::test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers (0.217s)
+2 passed in 0.45s
+
+--- STDERR ---

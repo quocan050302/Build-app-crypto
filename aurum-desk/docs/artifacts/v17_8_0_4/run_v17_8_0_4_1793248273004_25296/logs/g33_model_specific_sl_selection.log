@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_structural_sl.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\g33_model_specific_sl_selection.xml -k test_fvg_displacement_origin_fallback_when_bound_leg_invalidated
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 11
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_structural_sl::test_fvg_displacement_origin_fallback_when_bound_leg_invalidated (0.011s)
+1 passed in 0.01s
+
+--- STDERR ---

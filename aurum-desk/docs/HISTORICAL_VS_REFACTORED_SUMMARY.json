@@ -1,0 +1,884 @@
+{
+  "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+  "callable_authority_valid": true,
+  "callable_invocation_counts": {
+    "services.cg01_engine.evaluate_cg01_candidate": 41,
+    "services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow": 236,
+    "services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle": 33,
+    "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate": 41,
+    "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate": 41,
+    "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate": 41,
+    "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate": 41,
+    "services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle": 33
+  },
+  "characterization_scenarios_count": 55,
+  "classification_breakdown": {
+    "EXACT_MATCH": 183,
+    "EXPECTED_DOCUMENTED_CHANGE": 22,
+    "INPUT_MISMATCH": 0,
+    "NOT_COMPARABLE": 0,
+    "NOT_EXECUTED": 0,
+    "UNEXPECTED_DIVERGENCE": 0
+  },
+  "combined_total_scenarios": 205,
+  "copied_current_oracle_entry": false,
+  "current_oracle_source_injected": false,
+  "documented_change_records": [
+    {
+      "category": "SHORT",
+      "direction": "SHORT",
+      "documented_change_code": "DOC_CHG_03_DIRECTIONAL_SWEEP_FILTER_BUGFIX",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence selected swept_low (LONG) before elif swept_high (SHORT) without filtering by requested direction; V17.9.0 fixed the directional sweep filter.",
+      "model_id": "SMC_M1_REVERSAL",
+      "raw_historical_field_diffs": {
+        "direction": {
+          "historical": "LONG",
+          "refactored": "SHORT"
+        },
+        "entry_reference": {
+          "historical": 2654.7,
+          "refactored": 2654.5
+        },
+        "legacy_sl": {
+          "historical": 2653.6,
+          "refactored": 2661.85
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "NET_RR_TOO_LOW: Net R:R 1:1.0840 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0"
+          ],
+          "refactored": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2652.85,
+          "refactored": 2662.6
+        },
+        "take_profit": {
+          "historical": 2661.45,
+          "refactored": null
+        },
+        "unicorn_validity": {
+          "historical": "MISSING_BREAKER",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_02_SHORT_SMC_M1_REVERSAL",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Insufficient HTF history",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_REVERSAL",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "MISSING_MARKET_DATA"
+        },
+        "entry_reference": {
+          "historical": 2645.5,
+          "refactored": null
+        },
+        "legacy_sl": {
+          "historical": 2638.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "INSUFFICIENT_HTF_HISTORY"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_06_INSUFFICIENT_HTF_HISTORY_SMC_M1_REVERSAL",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Conflicting structure",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_REVERSAL",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "NO_VALID_SETUP"
+        },
+        "legacy_sl": {
+          "historical": 2638.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "HTF_STRUCTURE_CONFLICT"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_07_CONFLICTING_STRUCTURE_SMC_M1_REVERSAL",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "LONG",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 2637.4
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_01_LONG_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "SHORT",
+      "direction": "SHORT",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 2662.6
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_02_SHORT_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Insufficient HTF history",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "MISSING_MARKET_DATA"
+        },
+        "entry_reference": {
+          "historical": 2645.5,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "INSUFFICIENT_HTF_HISTORY"
+          ]
+        }
+      },
+      "scenario_id": "SCEN_06_INSUFFICIENT_HTF_HISTORY_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Conflicting structure",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "NO_VALID_SETUP"
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "HTF_STRUCTURE_CONFLICT"
+          ]
+        }
+      },
+      "scenario_id": "SCEN_07_CONFLICTING_STRUCTURE_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Risk rejection",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 2637.4
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_09_RISK_REJECTION_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Session/time restrictions",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 2637.4
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "SHADOW_REJECTED_NO_VALID_TARGET",
+            "SESSION_ROLLOVER_RESTRICTED"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_10_SESSION_RESTRICTIONS_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Boundary conditions",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 2637.4
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_11_BOUNDARY_CONDITIONS_SMC_M1_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Insufficient HTF history",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "MISSING_MARKET_DATA"
+        },
+        "entry_reference": {
+          "historical": 2645.5,
+          "refactored": null
+        },
+        "legacy_sl": {
+          "historical": 2641.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "INSUFFICIENT_HTF_HISTORY"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_06_INSUFFICIENT_HTF_HISTORY_SMC_M1_FVG_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Conflicting structure",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "NO_VALID_SETUP"
+        },
+        "legacy_sl": {
+          "historical": 2641.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "HTF_STRUCTURE_CONFLICT"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_07_CONFLICTING_STRUCTURE_SMC_M1_FVG_CONTINUATION",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "SHORT",
+      "direction": "SHORT",
+      "documented_change_code": "DOC_CHG_03_DIRECTIONAL_SWEEP_FILTER_BUGFIX",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence selected swept_low (LONG) before elif swept_high (SHORT) without filtering by requested direction; V17.9.0 fixed the directional sweep filter.",
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "raw_historical_field_diffs": {
+        "direction": {
+          "historical": "LONG",
+          "refactored": "SHORT"
+        },
+        "entry_reference": {
+          "historical": 2654.7,
+          "refactored": 2654.5
+        },
+        "legacy_sl": {
+          "historical": 2653.6,
+          "refactored": 2661.85
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "NET_RR_TOO_LOW: Net R:R 1:1.0840 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0"
+          ],
+          "refactored": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2652.85,
+          "refactored": 2662.6
+        },
+        "take_profit": {
+          "historical": 2661.45,
+          "refactored": null
+        },
+        "unicorn_validity": {
+          "historical": "MISSING_BREAKER",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "SCEN_02_SHORT_SMC_M1_SWEEP_RECLAIM",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Insufficient HTF history",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "MISSING_MARKET_DATA"
+        },
+        "entry_reference": {
+          "historical": 2645.5,
+          "refactored": null
+        },
+        "legacy_sl": {
+          "historical": 2638.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "INSUFFICIENT_HTF_HISTORY"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_06_INSUFFICIENT_HTF_HISTORY_SMC_M1_SWEEP_RECLAIM",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Conflicting structure",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "NO_VALID_SETUP"
+        },
+        "legacy_sl": {
+          "historical": 2638.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "HTF_STRUCTURE_CONFLICT"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_07_CONFLICTING_STRUCTURE_SMC_M1_SWEEP_RECLAIM",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Insufficient HTF history",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "MISSING_MARKET_DATA"
+        },
+        "entry_reference": {
+          "historical": 2645.5,
+          "refactored": null
+        },
+        "legacy_sl": {
+          "historical": 2641.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "INSUFFICIENT_HTF_HISTORY"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_06_INSUFFICIENT_HTF_HISTORY_CG01_SWEEP_MSS_FVG",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "Conflicting structure",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes.",
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "VALID_SETUP_REJECTED_BY_RISK",
+          "refactored": "NO_VALID_SETUP"
+        },
+        "legacy_sl": {
+          "historical": 2641.15,
+          "refactored": null
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ],
+          "refactored": [
+            "HTF_STRUCTURE_CONFLICT"
+          ]
+        },
+        "selected_sl": {
+          "historical": 2637.4,
+          "refactored": null
+        },
+        "setup_validity": {
+          "historical": "VALID",
+          "refactored": "INVALID"
+        },
+        "unicorn_validity": {
+          "historical": "NO_GEOMETRIC_OVERLAP",
+          "refactored": "INVALID"
+        }
+      },
+      "scenario_id": "SCEN_07_CONFLICTING_STRUCTURE_CG01_SWEEP_MSS_FVG",
+      "scope": "CHARACTERIZATION_55"
+    },
+    {
+      "category": "HISTORICAL_REAL",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 4123.44
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "NET_RR_TOO_LOW: Net R:R 1:0.4350 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0"
+          ]
+        },
+        "selected_sl": {
+          "historical": null,
+          "refactored": 4123.63
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "take_profit": {
+          "historical": null,
+          "refactored": 4130.75
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        }
+      },
+      "scenario_id": "HIST_1791440160000_SMC_M1_CONTINUATION",
+      "scope": "HISTORICAL_REAL_150"
+    },
+    {
+      "category": "HISTORICAL_REAL",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_REVERSAL",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 4195.29
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_SWEEP_RECLAIM"
+          ],
+          "refactored": [
+            "SHADOW_REJECTED_NO_VALID_TARGET"
+          ]
+        },
+        "selected_sl": {
+          "historical": null,
+          "refactored": 4195.03
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "NO_GEOMETRIC_OVERLAP"
+        }
+      },
+      "scenario_id": "HIST_1791681540000_SMC_M1_REVERSAL",
+      "scope": "HISTORICAL_REAL_150"
+    },
+    {
+      "category": "HISTORICAL_REAL",
+      "direction": "SHORT",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 4103.69
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": [
+            "STRUCTURAL_ANCHOR_NOT_FOUND",
+            "NET_RR_TOO_LOW: Net R:R 1:-0.4308 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.06 <= 0 sau chi ph\u00ed)"
+          ]
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "take_profit": {
+          "historical": null,
+          "refactored": 4101.41
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "EPISODE_MISMATCH"
+        }
+      },
+      "scenario_id": "HIST_1792004040000_SMC_M1_CONTINUATION",
+      "scope": "HISTORICAL_REAL_150"
+    },
+    {
+      "category": "HISTORICAL_REAL",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_CONTINUATION",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "ELIGIBLE"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 4099.25
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_M1_BOS"
+          ],
+          "refactored": []
+        },
+        "selected_sl": {
+          "historical": null,
+          "refactored": 4092.68
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "take_profit": {
+          "historical": null,
+          "refactored": 4159.52
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        }
+      },
+      "scenario_id": "HIST_1792004220000_SMC_M1_CONTINUATION",
+      "scope": "HISTORICAL_REAL_150"
+    },
+    {
+      "category": "HISTORICAL_REAL",
+      "direction": "LONG",
+      "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+      "documented_change_explanation": "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator scan the full causal M1 structure window.",
+      "model_id": "SMC_M1_REVERSAL",
+      "raw_historical_field_diffs": {
+        "decision_status": {
+          "historical": "WAITING_CONFIRMATION",
+          "refactored": "VALID_SETUP_REJECTED_BY_RISK"
+        },
+        "legacy_sl": {
+          "historical": null,
+          "refactored": 4093.05
+        },
+        "rejection_reason_codes": {
+          "historical": [
+            "WAITING_SWEEP_RECLAIM"
+          ],
+          "refactored": [
+            "NET_RR_TOO_LOW: Net R:R 1:-0.2320 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-0.58 <= 0 sau chi ph\u00ed)"
+          ]
+        },
+        "selected_sl": {
+          "historical": null,
+          "refactored": 4092.77
+        },
+        "setup_validity": {
+          "historical": "INVALID",
+          "refactored": "VALID"
+        },
+        "take_profit": {
+          "historical": null,
+          "refactored": 4097.96
+        },
+        "unicorn_validity": {
+          "historical": "INVALID",
+          "refactored": "EPISODE_MISMATCH"
+        }
+      },
+      "scenario_id": "HIST_1792647000000_SMC_M1_REVERSAL",
+      "scope": "HISTORICAL_REAL_150"
+    }
+  ],
+  "documented_change_records_count": 22,
+  "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_MODULES",
+  "real_historical_scenarios_count": 150,
+  "release": "V17.9.0.1.2",
+  "status": "PASS"
+}

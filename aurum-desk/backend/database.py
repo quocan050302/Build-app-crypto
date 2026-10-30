@@ -8,9 +8,17 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Tuple
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session as OrmSession, sessionmaker
 from sqlalchemy.pool import NullPool
+from services.runtime_profile_service import (
+    increment_safety_counter,
+    is_market_shadow_runtime,
+    is_non_trading_runtime,
+    is_observe_only_runtime,
+    resolve_be_runtime_profile,
+)
 
 # Ensure absolute path to backend/aurum_desk.db
 BASE_DIR = Path(__file__).resolve().parent
@@ -311,7 +319,23 @@ if is_pytest:
     else:
         DB_PATH = str(test_root / f"aurum_isolated_test_{os.getpid()}.db")
 else:
-    DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
+    if is_non_trading_runtime():
+        obs_db_override = os.getenv("AURUM_DB_PATH")
+        if obs_db_override:
+            _, resolved_obs_target = normalize_sqlite_database_target(obs_db_override)
+            if resolved_obs_target and (
+                resolved_obs_target == Path(RUNTIME_DEFAULT_DB_PATH).resolve()
+                or "aurum_desk.db" in resolved_obs_target.name
+            ):
+                raise RuntimeError(
+                    f"CRITICAL SAFETY HAZARD: {resolve_be_runtime_profile()} runtime cannot target operational database ({resolved_obs_target})!"
+                )
+            DB_PATH = str(resolved_obs_target) if resolved_obs_target else ":memory:"
+        else:
+            obs_tmp_dir = Path(tempfile.mkdtemp(prefix="aurum_observe_only_")).resolve()
+            DB_PATH = str(obs_tmp_dir / f"aurum_observe_only_{os.getpid()}.db")
+    else:
+        DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
@@ -324,13 +348,95 @@ engine = create_engine(
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=30000")
+    if is_non_trading_runtime():
+        cursor.execute("PRAGMA query_only=ON")
+        cursor.execute("PRAGMA busy_timeout=30000")
+    else:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
+
+
+_FORBIDDEN_OBSERVE_ONLY_SQL_PREFIXES = (
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "REPLACE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "VACUUM",
+    "REINDEX",
+    "ATTACH",
+    "DETACH",
+)
+
+
+@event.listens_for(Engine, "before_cursor_execute")
+def _enforce_observe_only_sql_guard(conn, cursor, statement, parameters, context, executemany):
+    if not is_non_trading_runtime():
+        return
+    is_shadow_engine = bool(getattr(conn.engine, "_aurum_shadow_research_engine", False))
+    if is_market_shadow_runtime() and is_shadow_engine:
+        return
+    sql_clean = (statement or "").lstrip()
+    while sql_clean.startswith("--") or sql_clean.startswith("/*"):
+        if sql_clean.startswith("--"):
+            nl = sql_clean.find("\n")
+            sql_clean = sql_clean[nl + 1 :].lstrip() if nl != -1 else ""
+        elif sql_clean.startswith("/*"):
+            end_c = sql_clean.find("*/")
+            sql_clean = sql_clean[end_c + 2 :].lstrip() if end_c != -1 else ""
+    if not sql_clean:
+        return
+    first_token = sql_clean.split(None, 1)[0].upper()
+    err_prefix = (
+        "MARKET_SHADOW_EXECUTION_FORBIDDEN"
+        if is_market_shadow_runtime()
+        else "OBSERVE_ONLY_DB_WRITE_BLOCKED"
+    )
+    profile_name = resolve_be_runtime_profile()
+    if first_token in _FORBIDDEN_OBSERVE_ONLY_SQL_PREFIXES:
+        increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+        raise RuntimeError(
+            f"{err_prefix}: Operational DB SQL write statement '{first_token}' is prohibited in {profile_name} runtime profile."
+        )
+    if first_token == "PRAGMA" and "=" in sql_clean:
+        pragma_upper = sql_clean.upper().replace(" ", "")
+        if not (
+            pragma_upper.startswith("PRAGMAQUERY_ONLY=")
+            or pragma_upper.startswith("PRAGMABUSY_TIMEOUT=")
+        ):
+            increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+            raise RuntimeError(
+                f"{err_prefix}: Mutating PRAGMA '{sql_clean.strip()}' is prohibited in {profile_name} runtime profile."
+            )
+
+
+@event.listens_for(OrmSession, "before_flush")
+def _enforce_observe_only_orm_flush_guard(session, flush_context, instances):
+    if not is_non_trading_runtime():
+        return
+    bind = getattr(session, "bind", None)
+    if is_market_shadow_runtime() and bool(getattr(bind, "_aurum_shadow_research_engine", False)):
+        return
+    increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+    err_prefix = (
+        "MARKET_SHADOW_EXECUTION_FORBIDDEN"
+        if is_market_shadow_runtime()
+        else "OBSERVE_ONLY_DB_WRITE_BLOCKED"
+    )
+    raise RuntimeError(
+        f"{err_prefix}: Operational DB ORM Session flush is prohibited in {resolve_be_runtime_profile()} runtime profile."
+    )
+
 
 def run_schema_migrations(target_engine=None):
     """Safely adds missing V6.1 and V7 columns and tables to SQLite without dropping data (V17.7.4 Section 08.4)."""
+    if is_non_trading_runtime():
+        increment_safety_counter("BLOCKED_STARTUP_MUTATION_ATTEMPTS", 1)
+        return False
     eng = target_engine or engine
     if is_pytest:
         # Preflight: fail-closed before connection or DDL execution
@@ -978,13 +1084,15 @@ def run_schema_migrations(target_engine=None):
     except Exception:
         pass
 
-if os.environ.get("AURUM_SKIP_STARTUP_MIGRATIONS") != "1":
+if os.environ.get("AURUM_SKIP_STARTUP_MIGRATIONS") != "1" and not is_non_trading_runtime():
     run_schema_migrations(engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
+    if is_non_trading_runtime():
+        db.autoflush = False
     try:
         yield db
     finally:

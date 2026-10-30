@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_runtime_integration.py backend/tests/test_v17_8_quote_noise_guard.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g46_fill_time_stop_breach_quote_guard.xml -k test_def_178_09 or test_short_stop_breached or test_long_stop_breached
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 72
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_09_fill_guard_protective_distance_and_breached_quote (0.060s)
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_short_stop_breached_by_executable_ask (0.006s)
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_long_stop_breached_by_executable_bid (0.006s)
+3 passed in 0.07s
+
+--- STDERR ---

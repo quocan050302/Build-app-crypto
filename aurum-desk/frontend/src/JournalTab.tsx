@@ -32,6 +32,7 @@ import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { CandidateScoreDetails } from './components/CandidateScoreDetails';
 import { useCandidateScoreDetail } from './hooks/useCandidateScoreDetail';
 import { StopPlacementDetails } from './components/StopPlacementDetails';
+import { SLTPIntelligenceView } from './components/SLTPIntelligenceView';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -1430,6 +1431,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     error={scoreDetailError}
                     onRetry={refetchScoreDetail}
                   />
+
+                  {/* V17.8.0.1: SL/TP Intelligence View Linked to Trade */}
+                  <SLTPIntelligenceView orderId={selectedTrade.id} />
 
                   {/* V10: Lesson Rules Snapshot Linked to Trade */}
                   <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750 space-y-2 text-[11px]">

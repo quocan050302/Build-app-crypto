@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "version": "17.8.0.4",
+  "latest_run_id": "run_v17_8_0_4_1793248273004_25296",
+  "run_directory": "docs/artifacts/v17_8_0_4/run_v17_8_0_4_1793248273004_25296",
+  "tested_source_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+  "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
+  "release_verdict": "V17_8_0_4_ENGINEERING_ACCEPTED",
+  "backtest_verdict": "PRODUCTION_PARITY_BACKTEST_VERIFIED",
+  "performance_verdict": "NEGATIVE_OBSERVED_EXPECTANCY",
+  "trading_authorization": [
+    "MARKET_SHADOW_RESEARCH_ONLY",
+    "PAPER_AUTO_TRADING_NOT_AUTHORIZED_BY_V17_8_0_4",
+    "LIVE_TRADING_NOT_AUTHORIZED"
+  ],
+  "timestamp_utc": "2026-10-29T04:31:13Z"
+}

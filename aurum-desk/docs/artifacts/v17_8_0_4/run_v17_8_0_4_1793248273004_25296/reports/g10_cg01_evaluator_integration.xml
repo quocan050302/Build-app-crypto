@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g10_cg01_evaluator_integration" tests="3" errors="0" failures="0" skipped="0" time="0.207"><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_sl_36_cg01_specific_behavior" time="0.093" /><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_ce_10_stale_quote_blocks_execution" time="0.100" /><testcase classname="backend.tests.test_v17_7_atr_provenance" name="test_atr_17_cg01_uses_verified_atr" time="0.014" /></testsuite></testsuites>

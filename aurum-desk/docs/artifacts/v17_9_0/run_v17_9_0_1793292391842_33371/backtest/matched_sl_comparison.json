@@ -1,0 +1,1399 @@
+{
+  "schema_version": "V17.9.0",
+  "run_id": "v17_9_0_1_2_backtest",
+  "source_sha": "3b40be13fe2fa84af99d541acc88bcace17985e2",
+  "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
+  "matched_cohort_analysis": {
+    "matched_all_ABCD_cohort": {
+      "matched_opportunity_count": 18,
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "variant_name": "Variant A \u2014 Legacy Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.2222,
+          "loss_rate": 0.7778,
+          "net_pnl": -28.8907,
+          "gross_pnl": -1.6506,
+          "net_expectancy_R": -0.6632,
+          "average_win_R": 0.5157,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.1496,
+          "max_drawdown": 28.8907,
+          "drawdown_duration": 18,
+          "average_net_rr": 7.4721,
+          "median_net_rr": 7.6804,
+          "average_stop_distance": 2.3572,
+          "median_stop_distance": 1.845,
+          "stop_distance_atr": 1.5529,
+          "average_quantity": 0.4511,
+          "fees_paid": 26.4281,
+          "slippage_cost": 0.812,
+          "MAE": 2.7361,
+          "MFE": 3.5517,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 5,
+          "early_stopout_180s": 7,
+          "early_stopout_count_60s": 5,
+          "early_stopout_count_180s": 7,
+          "early_stopout_rate_per_executed_trade": 0.2778,
+          "early_stopout_rate_180s_per_executed_trade": 0.3889,
+          "early_stopout_rate_per_matched_trade": 0.2778,
+          "early_stopout_rate_180s_per_matched_trade": 0.3889,
+          "early_stopout_rate_per_eligible_opportunity": 0.2778,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 14,
+            "number_with_valid_followup_data": 13,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 1403.3,
+          "median_holding_time": 510.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_ALL_ABCD_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        },
+        "B": {
+          "variant_id": "B",
+          "variant_name": "Variant B \u2014 V17.7 Structural Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "loss_rate": 0.6111,
+          "net_pnl": -16.3506,
+          "gross_pnl": 3.7084,
+          "net_expectancy_R": -0.3796,
+          "average_win_R": 0.5953,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.3868,
+          "max_drawdown": 16.3506,
+          "drawdown_duration": 18,
+          "average_net_rr": 5.6075,
+          "median_net_rr": 6.0614,
+          "average_stop_distance": 4.2611,
+          "median_stop_distance": 4.065,
+          "stop_distance_atr": 2.8145,
+          "average_quantity": 0.3322,
+          "fees_paid": 19.461,
+          "slippage_cost": 0.598,
+          "MAE": 3.8433,
+          "MFE": 6.7072,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 0,
+          "early_stopout_180s": 0,
+          "early_stopout_count_60s": 0,
+          "early_stopout_count_180s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_rate_180s_per_executed_trade": 0.0,
+          "early_stopout_rate_per_matched_trade": 0.0,
+          "early_stopout_rate_180s_per_matched_trade": 0.0,
+          "early_stopout_rate_per_eligible_opportunity": 0.0,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 11,
+            "number_with_valid_followup_data": 10,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 2570.0,
+          "median_holding_time": 3480.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_ALL_ABCD_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        },
+        "C": {
+          "variant_id": "C",
+          "variant_name": "Variant C \u2014 V17.8 Unicorn Structural Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "loss_rate": 0.6111,
+          "net_pnl": -16.3506,
+          "gross_pnl": 3.7084,
+          "net_expectancy_R": -0.3796,
+          "average_win_R": 0.5953,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.3868,
+          "max_drawdown": 16.3506,
+          "drawdown_duration": 18,
+          "average_net_rr": 5.6075,
+          "median_net_rr": 6.0614,
+          "average_stop_distance": 4.2611,
+          "median_stop_distance": 4.065,
+          "stop_distance_atr": 2.8145,
+          "average_quantity": 0.3322,
+          "fees_paid": 19.461,
+          "slippage_cost": 0.598,
+          "MAE": 3.8433,
+          "MFE": 6.7072,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 0,
+          "early_stopout_180s": 0,
+          "early_stopout_count_60s": 0,
+          "early_stopout_count_180s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_rate_180s_per_executed_trade": 0.0,
+          "early_stopout_rate_per_matched_trade": 0.0,
+          "early_stopout_rate_180s_per_matched_trade": 0.0,
+          "early_stopout_rate_per_eligible_opportunity": 0.0,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 11,
+            "number_with_valid_followup_data": 10,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 2570.0,
+          "median_holding_time": 3480.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_ALL_ABCD_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        },
+        "D": {
+          "variant_id": "D",
+          "variant_name": "Variant D \u2014 Noise Research Variant",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "loss_rate": 0.6111,
+          "net_pnl": -17.3232,
+          "gross_pnl": 0.0661,
+          "net_expectancy_R": -0.3986,
+          "average_win_R": 0.5463,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.3502,
+          "max_drawdown": 17.3232,
+          "drawdown_duration": 18,
+          "average_net_rr": 5.0688,
+          "median_net_rr": 5.7635,
+          "average_stop_distance": 5.2672,
+          "median_stop_distance": 5.06,
+          "stop_distance_atr": 3.5836,
+          "average_quantity": 0.2878,
+          "fees_paid": 16.8713,
+          "slippage_cost": 0.518,
+          "MAE": 4.3461,
+          "MFE": 6.7072,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 0,
+          "early_stopout_180s": 0,
+          "early_stopout_count_60s": 0,
+          "early_stopout_count_180s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_rate_180s_per_executed_trade": 0.0,
+          "early_stopout_rate_per_matched_trade": 0.0,
+          "early_stopout_rate_180s_per_matched_trade": 0.0,
+          "early_stopout_rate_per_eligible_opportunity": 0.0,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 11,
+            "number_with_valid_followup_data": 10,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 2666.7,
+          "median_holding_time": 3480.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_ALL_ABCD_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        }
+      }
+    },
+    "matched_A_vs_C_cohort": {
+      "matched_opportunity_count": 18,
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "variant_name": "Variant A \u2014 Legacy Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.2222,
+          "loss_rate": 0.7778,
+          "net_pnl": -28.8907,
+          "gross_pnl": -1.6506,
+          "net_expectancy_R": -0.6632,
+          "average_win_R": 0.5157,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.1496,
+          "max_drawdown": 28.8907,
+          "drawdown_duration": 18,
+          "average_net_rr": 7.4721,
+          "median_net_rr": 7.6804,
+          "average_stop_distance": 2.3572,
+          "median_stop_distance": 1.845,
+          "stop_distance_atr": 1.5529,
+          "average_quantity": 0.4511,
+          "fees_paid": 26.4281,
+          "slippage_cost": 0.812,
+          "MAE": 2.7361,
+          "MFE": 3.5517,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 5,
+          "early_stopout_180s": 7,
+          "early_stopout_count_60s": 5,
+          "early_stopout_count_180s": 7,
+          "early_stopout_rate_per_executed_trade": 0.2778,
+          "early_stopout_rate_180s_per_executed_trade": 0.3889,
+          "early_stopout_rate_per_matched_trade": 0.2778,
+          "early_stopout_rate_180s_per_matched_trade": 0.3889,
+          "early_stopout_rate_per_eligible_opportunity": 0.2778,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 14,
+            "number_with_valid_followup_data": 13,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 1403.3,
+          "median_holding_time": 510.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_A_VS_C_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        },
+        "C": {
+          "variant_id": "C",
+          "variant_name": "Variant C \u2014 V17.8 Unicorn Structural Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 18,
+          "valid_setup_opportunities": 18,
+          "eligible_opportunities": 18,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 18,
+          "win_rate": 0.3889,
+          "loss_rate": 0.6111,
+          "net_pnl": -16.3506,
+          "gross_pnl": 3.7084,
+          "net_expectancy_R": -0.3796,
+          "average_win_R": 0.5953,
+          "average_loss_R": 1.0,
+          "profit_factor": 0.3868,
+          "max_drawdown": 16.3506,
+          "drawdown_duration": 18,
+          "average_net_rr": 5.6075,
+          "median_net_rr": 6.0614,
+          "average_stop_distance": 4.2611,
+          "median_stop_distance": 4.065,
+          "stop_distance_atr": 2.8145,
+          "average_quantity": 0.3322,
+          "fees_paid": 19.461,
+          "slippage_cost": 0.598,
+          "MAE": 3.8433,
+          "MFE": 6.7072,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 0,
+          "early_stopout_180s": 0,
+          "early_stopout_count_60s": 0,
+          "early_stopout_count_180s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_rate_180s_per_executed_trade": 0.0,
+          "early_stopout_rate_per_matched_trade": 0.0,
+          "early_stopout_rate_180s_per_matched_trade": 0.0,
+          "early_stopout_rate_per_eligible_opportunity": 0.0,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 11,
+            "number_with_valid_followup_data": 10,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 2570.0,
+          "median_holding_time": 3480.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_A_VS_C_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        }
+      },
+      "saved_from_sl_by_C_count": 3,
+      "mean_delta_r_C_minus_A": 0.2836,
+      "total_delta_net_pnl_C_minus_A": 12.5401,
+      "paired_opportunity_comparisons": [
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1791998880000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1791998880000,
+          "entry_price": 4094.22,
+          "take_profit": 4159.52,
+          "sl_difference": {
+            "sl_A": 4092.68,
+            "sl_C": 4090.54,
+            "stop_distance_A": 1.54,
+            "stop_distance_C": 3.68,
+            "stop_distance_delta_C_minus_A": 2.14
+          },
+          "quantity_difference": {
+            "quantity_A": 0.49,
+            "quantity_C": 0.34,
+            "quantity_delta_C_minus_A": -0.15
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4082,
+            "net_pnl_C": -2.3983,
+            "delta_net_pnl_C_minus_A": 0.0099
+          },
+          "cost_difference": {
+            "total_cost_A": 1.6536,
+            "total_cost_C": 1.1471,
+            "cost_delta_C_minus_A": -0.5065
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_CONTINUATION_LONG_1791999060000",
+          "model_id": "SMC_M1_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1791999060000,
+          "entry_price": 4098.34,
+          "take_profit": 4159.52,
+          "sl_difference": {
+            "sl_A": 4093.32,
+            "sl_C": 4092.88,
+            "stop_distance_A": 5.02,
+            "stop_distance_C": 5.46,
+            "stop_distance_delta_C_minus_A": 0.44
+          },
+          "quantity_difference": {
+            "quantity_A": 0.29,
+            "quantity_C": 0.27,
+            "quantity_delta_C_minus_A": -0.02
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.435,
+            "net_pnl_C": -2.3859,
+            "delta_net_pnl_C_minus_A": 0.0491
+          },
+          "cost_difference": {
+            "total_cost_A": 0.9792,
+            "total_cost_C": 0.9117,
+            "cost_delta_C_minus_A": -0.0675
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1791999180000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1791999180000,
+          "entry_price": 4098.35,
+          "take_profit": 4159.52,
+          "sl_difference": {
+            "sl_A": 4095.27,
+            "sl_C": 4092.89,
+            "stop_distance_A": 3.08,
+            "stop_distance_C": 5.46,
+            "stop_distance_delta_C_minus_A": 2.38
+          },
+          "quantity_difference": {
+            "quantity_A": 0.38,
+            "quantity_C": 0.27,
+            "quantity_delta_C_minus_A": -0.11
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4538,
+            "net_pnl_C": -2.3859,
+            "delta_net_pnl_C_minus_A": 0.0679
+          },
+          "cost_difference": {
+            "total_cost_A": 1.2834,
+            "total_cost_C": 0.9117,
+            "cost_delta_C_minus_A": -0.3717
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_LONG_1791999180000",
+          "model_id": "CG01_SWEEP_MSS_FVG",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1791999180000,
+          "entry_price": 4098.35,
+          "take_profit": 4159.52,
+          "sl_difference": {
+            "sl_A": 4095.27,
+            "sl_C": 4092.89,
+            "stop_distance_A": 3.08,
+            "stop_distance_C": 5.46,
+            "stop_distance_delta_C_minus_A": 2.38
+          },
+          "quantity_difference": {
+            "quantity_A": 0.38,
+            "quantity_C": 0.27,
+            "quantity_delta_C_minus_A": -0.11
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4538,
+            "net_pnl_C": -2.3859,
+            "delta_net_pnl_C_minus_A": 0.0679
+          },
+          "cost_difference": {
+            "total_cost_A": 1.2834,
+            "total_cost_C": 0.9117,
+            "cost_delta_C_minus_A": -0.3717
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1792001820000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792001820000,
+          "entry_price": 4100.44,
+          "take_profit": 4169.64,
+          "sl_difference": {
+            "sl_A": 4096.84,
+            "sl_C": 4092.29,
+            "stop_distance_A": 3.6,
+            "stop_distance_C": 8.15,
+            "stop_distance_delta_C_minus_A": 4.55
+          },
+          "quantity_difference": {
+            "quantity_A": 0.35,
+            "quantity_C": 0.21,
+            "quantity_delta_C_minus_A": -0.14
+          },
+          "exit_difference": {
+            "outcome_A": "TIME_EXPIRY_CLOSE",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": 0.7567,
+            "r_C": 0.4614,
+            "delta_r_C_minus_A": -0.2953
+          },
+          "net_pnl": {
+            "net_pnl_A": 1.8765,
+            "net_pnl_C": 1.1259,
+            "delta_net_pnl_C_minus_A": -0.7506
+          },
+          "cost_difference": {
+            "total_cost_A": 1.1843,
+            "total_cost_C": 0.7106,
+            "cost_delta_C_minus_A": -0.4737
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_CONTINUATION_LONG_1792002540000",
+          "model_id": "SMC_M1_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792002540000,
+          "entry_price": 4102.45,
+          "take_profit": 4169.64,
+          "sl_difference": {
+            "sl_A": 4098.48,
+            "sl_C": 4098.15,
+            "stop_distance_A": 3.97,
+            "stop_distance_C": 4.3,
+            "stop_distance_delta_C_minus_A": 0.33
+          },
+          "quantity_difference": {
+            "quantity_A": 0.33,
+            "quantity_C": 0.32,
+            "quantity_delta_C_minus_A": -0.01
+          },
+          "exit_difference": {
+            "outcome_A": "TIME_EXPIRY_CLOSE",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": 0.7163,
+            "r_C": 0.6862,
+            "delta_r_C_minus_A": -0.0301
+          },
+          "net_pnl": {
+            "net_pnl_A": 1.7621,
+            "net_pnl_C": 1.7087,
+            "delta_net_pnl_C_minus_A": -0.0534
+          },
+          "cost_difference": {
+            "total_cost_A": 1.1172,
+            "total_cost_C": 1.0833,
+            "cost_delta_C_minus_A": -0.0339
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1792002660000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792002660000,
+          "entry_price": 4102.48,
+          "take_profit": 4170.38,
+          "sl_difference": {
+            "sl_A": 4100.91,
+            "sl_C": 4098.15,
+            "stop_distance_A": 1.57,
+            "stop_distance_C": 4.33,
+            "stop_distance_delta_C_minus_A": 2.76
+          },
+          "quantity_difference": {
+            "quantity_A": 0.49,
+            "quantity_C": 0.32,
+            "quantity_delta_C_minus_A": -0.17
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": true
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": 0.5568,
+            "delta_r_C_minus_A": 1.5568
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4262,
+            "net_pnl_C": 1.392,
+            "delta_net_pnl_C_minus_A": 3.8182
+          },
+          "cost_difference": {
+            "total_cost_A": 1.6569,
+            "total_cost_C": 1.0832,
+            "cost_delta_C_minus_A": -0.5737
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_SWEEP_RECLAIM_LONG_1792004040000",
+          "model_id": "SMC_M1_SWEEP_RECLAIM",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792004040000,
+          "entry_price": 4103.22,
+          "take_profit": 4170.38,
+          "sl_difference": {
+            "sl_A": 4099.75,
+            "sl_C": 4099.42,
+            "stop_distance_A": 3.47,
+            "stop_distance_C": 3.8,
+            "stop_distance_delta_C_minus_A": 0.33
+          },
+          "quantity_difference": {
+            "quantity_A": 0.35,
+            "quantity_C": 0.34,
+            "quantity_delta_C_minus_A": -0.01
+          },
+          "exit_difference": {
+            "outcome_A": "TIME_EXPIRY_CLOSE",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": 0.3989,
+            "r_C": 0.3798,
+            "delta_r_C_minus_A": -0.0191
+          },
+          "net_pnl": {
+            "net_pnl_A": 0.9694,
+            "net_pnl_C": 0.9418,
+            "delta_net_pnl_C_minus_A": -0.0276
+          },
+          "cost_difference": {
+            "total_cost_A": 1.1848,
+            "total_cost_C": 1.1509,
+            "cost_delta_C_minus_A": -0.0339
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1792004220000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792004220000,
+          "entry_price": 4102.85,
+          "take_profit": 4170.38,
+          "sl_difference": {
+            "sl_A": 4101.64,
+            "sl_C": 4099.21,
+            "stop_distance_A": 1.21,
+            "stop_distance_C": 3.64,
+            "stop_distance_delta_C_minus_A": 2.43
+          },
+          "quantity_difference": {
+            "quantity_A": 0.53,
+            "quantity_C": 0.35,
+            "quantity_delta_C_minus_A": -0.18
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": true
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": 0.2123,
+            "delta_r_C_minus_A": 1.2123
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4337,
+            "net_pnl_C": 0.5287,
+            "delta_net_pnl_C_minus_A": 2.9624
+          },
+          "cost_difference": {
+            "total_cost_A": 1.7924,
+            "total_cost_C": 1.1845,
+            "cost_delta_C_minus_A": -0.6079
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1792004400000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792004400000,
+          "entry_price": 4104.51,
+          "take_profit": 4170.38,
+          "sl_difference": {
+            "sl_A": 4103.22,
+            "sl_C": 4102.33,
+            "stop_distance_A": 1.29,
+            "stop_distance_C": 2.18,
+            "stop_distance_delta_C_minus_A": 0.89
+          },
+          "quantity_difference": {
+            "quantity_A": 0.52,
+            "quantity_C": 0.44,
+            "quantity_delta_C_minus_A": -0.08
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": true,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.43,
+            "net_pnl_C": -2.4476,
+            "delta_net_pnl_C_minus_A": -0.0176
+          },
+          "cost_difference": {
+            "total_cost_A": 1.7592,
+            "total_cost_C": 1.4884,
+            "cost_delta_C_minus_A": -0.2708
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792506960000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792506960000,
+          "entry_price": 4157.41,
+          "take_profit": 4136.3,
+          "sl_difference": {
+            "sl_A": 4158.9,
+            "sl_C": 4162.72,
+            "stop_distance_A": 1.49,
+            "stop_distance_C": 5.31,
+            "stop_distance_delta_C_minus_A": 3.82
+          },
+          "quantity_difference": {
+            "quantity_A": 0.49,
+            "quantity_C": 0.28,
+            "quantity_delta_C_minus_A": -0.21
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": true
+          },
+          "premature_sl_difference": {
+            "early_60s_A": true,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": 1.759,
+            "delta_r_C_minus_A": 2.759
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4091,
+            "net_pnl_C": 4.3447,
+            "delta_net_pnl_C_minus_A": 6.7538
+          },
+          "cost_difference": {
+            "total_cost_A": 1.679,
+            "total_cost_C": 0.9571,
+            "cost_delta_C_minus_A": -0.7219
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728300000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792728300000,
+          "entry_price": 4020.01,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4021.9,
+            "sl_C": 4025.64,
+            "stop_distance_A": 1.89,
+            "stop_distance_C": 5.63,
+            "stop_distance_delta_C_minus_A": 3.74
+          },
+          "quantity_difference": {
+            "quantity_A": 0.47,
+            "quantity_C": 0.27,
+            "quantity_delta_C_minus_A": -0.2
+          },
+          "exit_difference": {
+            "outcome_A": "TIME_EXPIRY_CLOSE",
+            "outcome_C": "TIME_EXPIRY_CLOSE",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": 0.1908,
+            "r_C": 0.1118,
+            "delta_r_C_minus_A": -0.079
+          },
+          "net_pnl": {
+            "net_pnl_A": 0.4751,
+            "net_pnl_C": 0.2729,
+            "delta_net_pnl_C_minus_A": -0.2022
+          },
+          "cost_difference": {
+            "total_cost_A": 1.5577,
+            "total_cost_C": 0.8949,
+            "cost_delta_C_minus_A": -0.6628
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728660000",
+          "model_id": "SMC_M1_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792728660000,
+          "entry_price": 4018.3,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4021.8,
+            "sl_C": 4022.13,
+            "stop_distance_A": 3.5,
+            "stop_distance_C": 3.83,
+            "stop_distance_delta_C_minus_A": 0.33
+          },
+          "quantity_difference": {
+            "quantity_A": 0.36,
+            "quantity_C": 0.34,
+            "quantity_delta_C_minus_A": -0.02
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4538,
+            "net_pnl_C": -2.4297,
+            "delta_net_pnl_C_minus_A": 0.0241
+          },
+          "cost_difference": {
+            "total_cost_A": 1.1938,
+            "total_cost_C": 1.1275,
+            "cost_delta_C_minus_A": -0.0663
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728780000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792728780000,
+          "entry_price": 4018.84,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4019.25,
+            "sl_C": 4022.13,
+            "stop_distance_A": 0.41,
+            "stop_distance_C": 3.29,
+            "stop_distance_delta_C_minus_A": 2.88
+          },
+          "quantity_difference": {
+            "quantity_A": 0.65,
+            "quantity_C": 0.37,
+            "quantity_delta_C_minus_A": -0.28
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": true,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4214,
+            "net_pnl_C": -2.4444,
+            "delta_net_pnl_C_minus_A": -0.023
+          },
+          "cost_difference": {
+            "total_cost_A": 2.1549,
+            "total_cost_C": 1.2271,
+            "cost_delta_C_minus_A": -0.9278
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_SHORT_1792728780000",
+          "model_id": "CG01_SWEEP_MSS_FVG",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792728780000,
+          "entry_price": 4018.84,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4019.25,
+            "sl_C": 4022.13,
+            "stop_distance_A": 0.41,
+            "stop_distance_C": 3.29,
+            "stop_distance_delta_C_minus_A": 2.88
+          },
+          "quantity_difference": {
+            "quantity_A": 0.65,
+            "quantity_C": 0.37,
+            "quantity_delta_C_minus_A": -0.28
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": true,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4214,
+            "net_pnl_C": -2.4444,
+            "delta_net_pnl_C_minus_A": -0.023
+          },
+          "cost_difference": {
+            "total_cost_A": 2.1549,
+            "total_cost_C": 1.2271,
+            "cost_delta_C_minus_A": -0.9278
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728960000",
+          "model_id": "SMC_M1_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792728960000,
+          "entry_price": 4017.62,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4019.42,
+            "sl_C": 4019.75,
+            "stop_distance_A": 1.8,
+            "stop_distance_C": 2.13,
+            "stop_distance_delta_C_minus_A": 0.33
+          },
+          "quantity_difference": {
+            "quantity_A": 0.47,
+            "quantity_C": 0.45,
+            "quantity_delta_C_minus_A": -0.02
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.404,
+            "net_pnl_C": -2.4502,
+            "delta_net_pnl_C_minus_A": -0.0462
+          },
+          "cost_difference": {
+            "total_cost_A": 1.558,
+            "total_cost_C": 1.4917,
+            "cost_delta_C_minus_A": -0.0663
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792729500000",
+          "model_id": "SMC_M1_FVG_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "SHORT",
+          "decision_ms": 1792729500000,
+          "entry_price": 4016.39,
+          "take_profit": 3995.29,
+          "sl_difference": {
+            "sl_A": 4017.04,
+            "sl_C": 4018.24,
+            "stop_distance_A": 0.65,
+            "stop_distance_C": 1.85,
+            "stop_distance_delta_C_minus_A": 1.2
+          },
+          "quantity_difference": {
+            "quantity_A": 0.61,
+            "quantity_C": 0.47,
+            "quantity_delta_C_minus_A": -0.14
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": true,
+            "early_60s_C": false,
+            "early_180s_A": true,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4177,
+            "net_pnl_C": -2.427,
+            "delta_net_pnl_C_minus_A": -0.0093
+          },
+          "cost_difference": {
+            "total_cost_A": 2.0212,
+            "total_cost_C": 1.5575,
+            "cost_delta_C_minus_A": -0.4637
+          }
+        },
+        {
+          "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_CONTINUATION_LONG_1792771740000",
+          "model_id": "SMC_M1_CONTINUATION",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
+          "direction": "LONG",
+          "decision_ms": 1792771740000,
+          "entry_price": 4014.95,
+          "take_profit": 4035.31,
+          "sl_difference": {
+            "sl_A": 4010.5,
+            "sl_C": 4010.04,
+            "stop_distance_A": 4.45,
+            "stop_distance_C": 4.91,
+            "stop_distance_delta_C_minus_A": 0.46
+          },
+          "quantity_difference": {
+            "quantity_A": 0.31,
+            "quantity_C": 0.3,
+            "quantity_delta_C_minus_A": -0.01
+          },
+          "exit_difference": {
+            "outcome_A": "SL",
+            "outcome_C": "SL",
+            "saved_from_sl_by_C": false
+          },
+          "premature_sl_difference": {
+            "early_60s_A": false,
+            "early_60s_C": false,
+            "early_180s_A": false,
+            "early_180s_C": false,
+            "post_stop_recovered_A": false,
+            "post_stop_recovered_C": false
+          },
+          "realized_net_r": {
+            "r_A": -1.0,
+            "r_C": -1.0,
+            "delta_r_C_minus_A": 0.0
+          },
+          "net_pnl": {
+            "net_pnl_A": -2.4057,
+            "net_pnl_C": -2.466,
+            "delta_net_pnl_C_minus_A": -0.0603
+          },
+          "cost_difference": {
+            "total_cost_A": 1.0262,
+            "total_cost_C": 0.993,
+            "cost_delta_C_minus_A": -0.0332
+          }
+        }
+      ]
+    },
+    "matched_A_vs_B_cohort": {
+      "matched_opportunity_count": 25,
+      "variants": {
+        "A": {
+          "variant_id": "A",
+          "variant_name": "Variant A \u2014 Legacy Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 25,
+          "valid_setup_opportunities": 25,
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 25,
+          "win_rate": 0.16,
+          "loss_rate": 0.84,
+          "net_pnl": -43.682,
+          "gross_pnl": -7.1694,
+          "net_expectancy_R": -0.7223,
+          "average_win_R": 0.5157,
+          "average_loss_R": 0.9581,
+          "profit_factor": 0.1042,
+          "max_drawdown": 43.682,
+          "drawdown_duration": 25,
+          "average_net_rr": 6.1299,
+          "median_net_rr": 4.3794,
+          "average_stop_distance": 2.5704,
+          "median_stop_distance": 1.89,
+          "stop_distance_atr": 1.5528,
+          "average_quantity": 0.4356,
+          "fees_paid": 35.4236,
+          "slippage_cost": 1.089,
+          "MAE": 2.7974,
+          "MFE": 3.1548,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 6,
+          "early_stopout_180s": 9,
+          "early_stopout_count_60s": 6,
+          "early_stopout_count_180s": 9,
+          "early_stopout_rate_per_executed_trade": 0.24,
+          "early_stopout_rate_180s_per_executed_trade": 0.36,
+          "early_stopout_rate_per_matched_trade": 0.24,
+          "early_stopout_rate_180s_per_matched_trade": 0.36,
+          "early_stopout_rate_per_eligible_opportunity": 0.24,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 20,
+            "number_with_valid_followup_data": 19,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 1224.0,
+          "median_holding_time": 480.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_A_VS_B_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        },
+        "B": {
+          "variant_id": "B",
+          "variant_name": "Variant B \u2014 V17.7 Structural Stop",
+          "performance_status": "SUFFICIENT_SAMPLE",
+          "total_opportunities": 25,
+          "valid_setup_opportunities": 25,
+          "eligible_opportunities": 25,
+          "rejected_opportunities": 0,
+          "setup_specific_rejections": 0,
+          "simulated_trades": 25,
+          "win_rate": 0.28,
+          "loss_rate": 0.72,
+          "net_pnl": -31.2265,
+          "gross_pnl": -4.7743,
+          "net_expectancy_R": -0.5179,
+          "average_win_R": 0.5953,
+          "average_loss_R": 0.9509,
+          "profit_factor": 0.2483,
+          "max_drawdown": 31.2265,
+          "drawdown_duration": 25,
+          "average_net_rr": 4.5552,
+          "median_net_rr": 3.0187,
+          "average_stop_distance": 4.6816,
+          "median_stop_distance": 4.91,
+          "stop_distance_atr": 2.7543,
+          "average_quantity": 0.3156,
+          "fees_paid": 25.6632,
+          "slippage_cost": 0.789,
+          "MAE": 4.4562,
+          "MFE": 5.499,
+          "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
+          "early_stopout_60s": 0,
+          "early_stopout_180s": 0,
+          "early_stopout_count_60s": 0,
+          "early_stopout_count_180s": 0,
+          "early_stopout_rate_per_executed_trade": 0.0,
+          "early_stopout_rate_180s_per_executed_trade": 0.0,
+          "early_stopout_rate_per_matched_trade": 0.0,
+          "early_stopout_rate_180s_per_matched_trade": 0.0,
+          "early_stopout_rate_per_eligible_opportunity": 0.0,
+          "post_stop_recovery_rate": 0.0,
+          "post_stop_recovery_details": {
+            "number_of_SL_exits": 17,
+            "number_with_valid_followup_data": 16,
+            "number_reaching_original_TP_after_SL": 0,
+            "post_stop_recovery_rate": 0.0,
+            "unverifiable_followup_count": 1,
+            "observation_horizon_bars": 20,
+            "observation_horizon_minutes": 20
+          },
+          "average_holding_time": 2155.2,
+          "median_holding_time": 2580.0,
+          "unverifiable_outcomes": 0,
+          "ambiguous_exits": 0,
+          "ambiguous_exit_rate_per_executed_trade": 0.0,
+          "atr_provenance_summary": {},
+          "dataset_coverage": "MATCHED_A_VS_B_COHORT (M1:1791437880000..1793195940000 (22376 bars, 20.35 days); HTF_15M:15090 bars (160.95 days))",
+          "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+          "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED"
+        }
+      }
+    },
+    "eligibility_transition_matrix": {
+      "ELIGIBLE_IN_ALL_ABCD": 18,
+      "ELIGIBLE_IN_A_REJECTED_IN_B": 16,
+      "ELIGIBLE_IN_A_REJECTED_IN_C": 23,
+      "ELIGIBLE_IN_A_REJECTED_IN_D": 17,
+      "REJECTED_IN_A_ELIGIBLE_IN_B": 0,
+      "REJECTED_IN_A_ELIGIBLE_IN_C": 0,
+      "REJECTED_IN_ALL_ABCD": 5735
+    }
+  }
+}

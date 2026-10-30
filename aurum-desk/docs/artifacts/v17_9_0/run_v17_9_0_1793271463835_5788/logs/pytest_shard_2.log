@@ -1,0 +1,115 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_19_production_flow.py backend/tests/test_final_reconciliation_chronology.py backend/tests/test_migration_runtime_upgrade.py backend/tests/test_order_geometry_parity.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_dates_sessions.py backend/tests/test_v13_5_execution_acceptance.py backend/tests/test_v13_5_metrics_acceptance.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v14_4_10_frozen_context.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_1_repository.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_2_financial_context_regression.py backend/tests/test_v14_4_4_policy_consistency.py backend/tests/test_v14_4_liquidity.py backend/tests/test_v15_0_telegram_and_api.py backend/tests/test_v15_4_causal_entry.py backend/tests/test_v15_6_hypothesis_persistence.py backend/tests/test_v15_7_lifecycle_write_authority.py backend/tests/test_v16_13_cg01_execution.py backend/tests/test_v16_15_auto_permission_and_owner.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v16_33_cg01_final_execution_closure.py backend/tests/test_v16_36_paper_tonight_production_regression.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_39_15_rr_policy_unification.py backend/tests/test_v16_39_16_rr_settings_and_preview_gaps.py backend/tests/test_v16_39_21_e2e_financial_fixtures.py backend/tests/test_v16_39_2_close_lesson_repair.py backend/tests/test_v17_4_1_contracts.py backend/tests/test_v17_4_2_writer_contracts.py backend/tests/test_v17_5_2_boundary_probes.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_6_cycle_regression.py backend/tests/test_v17_5_9_cost_fail_closed.py backend/tests/test_v17_6_4_2_paper_parity.py backend/tests/test_v17_6_4_2_pending_interval_commit.py backend/tests/test_v17_6_4_2_watcher_integration.py backend/tests/test_v17_6_4_3b_feed_provenance.py backend/tests/test_v17_6_4_3c_zero_live_orders_runtime.py backend/tests/test_v17_6_4_3d_observation_soak.py backend/tests/test_v17_6_cycle_telemetry.py backend/tests/test_v9_full_matrices.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\shards\shard_2.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 250517
+EXIT_CODE: 1
+--- STDOUT ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+..F..................................................................... [ 52%]
+........................................................................ [ 66%]
+........................................................................ [ 79%]
+........................................................................ [ 92%]
+........................................                                 [100%]
+================================== FAILURES ===================================
+_ test_red_022_real_scheduler_execution_arms_order_without_direct_evaluate_cycle _
+
+setup_isolated_db = <sqlalchemy.orm.session.Session object at 0x0000025EA9D38F50>
+
+    def test_red_022_real_scheduler_execution_arms_order_without_direct_evaluate_cycle(setup_isolated_db: Session):
+        """
+        Rules 022, 098, 105: Full event-driven execution through scheduler's evaluate_symbol_now
+        (NOT calling evaluate_cycle directly) arms an order when conditions are valid.
+        """
+        db = setup_isolated_db
+        _clean_telemetry()
+        strategy_service.set_auto_state(db, True)
+        audit = crud.get_or_create_today_audit(db)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        audit.realized_pnl = 0.0
+        audit.current_equity = 1000.0
+        db.commit()
+    
+        ny_tz = ZoneInfo("America/New_York")
+        dt = datetime(2026, 10, 19, 3, 30, tzinfo=ny_tz)
+        t_start = int(dt.timestamp() * 1000)
+        now_ms = t_start + 600_000
+    
+        # Configure strategy/PAPER/auto via production settings that runtime reads (Rule 094)
+        db.add(models.SystemConfig(key="scalp_m1_mode", value="PAPER", updated_at=now_ms))
+        db.add(models.SystemConfig(key="cg01_enabled", value="true", updated_at=now_ms))
+        db.add(models.SystemConfig(key="cg01_profile_mode", value="PAPER_EXECUTION", updated_at=now_ms))
+        db.add(models.SystemConfig(key="execution_profile", value="CG01", updated_at=now_ms))
+        db.commit()
+    
+        c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+        for tf, bars in [("4H", c_4h), ("1H", c_1h), ("15M", c_15m), ("1M", c_1m)]:
+            rows = [
+                [
+                    int(b["timestamp"] if isinstance(b, dict) else b.timestamp),
+                    float(b["open"] if isinstance(b, dict) else b.open),
+                    float(b["high"] if isinstance(b, dict) else b.high),
+                    float(b["low"] if isinstance(b, dict) else b.low),
+                    float(b["close"] if isinstance(b, dict) else b.close),
+                    float(b.get("volume", 100.0) if isinstance(b, dict) else getattr(b, "volume", 100.0) or 100.0),
+                ]
+                for b in bars
+            ]
+            candle_cache_service.process_candle_payload("XAUUSDT", tf, rows)
+    
+        poi = WatchedZone(
+            zone_id="poi_long_red_22",
+            symbol="XAUUSDT",
+            timeframe="15M",
+            zone_type="FVG",
+            direction="BULLISH",
+            top=2625.0,
+            bottom=2620.0,
+            created_at=t_start - 3600_000,
+            known_at=t_start - 1800_000,
+            touch_count=0,
+        )
+        scalp_watcher_orchestrator.set_active_zones("XAUUSDT", [poi])
+    
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT",
+            "bid": 2625.5,
+            "ask": 2625.7,
+            "last": 2625.6,
+            "server_time": now_ms,
+            "observed_at": now_ms,
+        }
+    
+        sched = CG01EvaluationScheduler()
+        sched.set_flags(enabled=True, shadow_mode=False, is_owner=True)
+    
+        source_ev = {
+            "event_id": f"XAUUSDT:1M:{now_ms}:1:CANDLE_CLOSED",
+            "candle_timestamp": now_ms,
+            "exchange_event_time_ms": now_ms,
+            "received_at_ms": now_ms + 10,
+            "enqueued_at_ms": now_ms + 12,
+        }
+    
+        # Execute directly via scheduler entrypoint, never calling orchestrator.evaluate_cycle
+        result = sched.evaluate_symbol_now(db, "XAUUSDT", as_of_ms=now_ms, source_event=source_ev)
+    
+        assert result["status"] == "COMPLETED"
+        armed_id = result.get("armed_order_id")
+>       assert armed_id is not None, f"Expected order to be armed by scheduler, got {result}"
+E       AssertionError: Expected order to be armed by scheduler, got {'status': 'COMPLETED', 'processing_status': 'COMPLETED', 'evaluation_status': 'OK', 'cycle_status': 'OK', 'symbol': 'XAUUSDT', 'trace_id': 'trc_XAUUSDT_1792395600000_76177', 'run_id': 'run_cg01_xauusdt_active_1793271535363', 'shadow_mode': False, 'is_owner': True, 'armed_order_id': None, 'runtime_ms': 310.1385999980266, 'cycle_result': {'cycle_id': 'cycle-1792395600000-23953754', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', 'lifecycle_write_status': 'OK', 'lifecycle_write_issues_count': 0, 'transaction_status': 'COMMITTED', 'rollback_status': 'NONE', 'as_of_ms': 1792395600000, 'zones_count': 1, 'candidates_count': 0, 'armed_order_id': None, 'evaluation_duration_ms': 0, 'hypotheses_count': 1, 'entry_authorized_hypotheses_count': 1, 'issues_count': 0, 'liquidity_levels_count': 5, 'market_regime': 'RANGE', 'daily_goal': {'daily_fills': 0, 'daily_min_goal': 2, 'daily_max_cap': 5, 'ny_fills': 0, 'ny_goal': 1, 'policy_version': 1, 'status': 'SEARCHING', 'reason_vi': '\u0110ang qu\xe9t t\xecm c\u01a1 h\u1ed9i h\u1ee3p l\u1ec7: \u0111\xe3 kh\u1edbp 0/2 l\u1ec7nh t\u1ed1i thi\u1ec3u (t\u1ed1i \u0111a 5).', 'is_blocked': False, 'remaining_daily_slots': 5, 'ny_reserve_active': False, 'shortfall_breakdown': {'data': 0, 'market_hours': 0, 'model_confirmation': 0, 'cost': 0, 'news': 0, 'lessons': 0, 'risk': 0, 'open_position': 0, 'execution_error': 0}}, 'cg01_evaluation': {'enabled': True, 'evaluated': True, 'as_of_ms': 1792395600000, 'stage': 'OBSERVING', 'eligible': False, 'reason_codes': ['CONTEXT_WARMUP'], 'candidate_key': '', 'episode_key': '', 'router_outcome': None, 'arm_outcome': None, 'armed_order_id': None, 'guard_summary': None, 'ui_summary_vi': {'status': '\u0110ang kh\u1edfi \u0111\u1ed9ng d\u1eef li\u1ec7u b\u1ed1i c\u1ea3nh HTF: CONTEXT_WARMUP.'}, 'poi_id': None, 'direction': 'NONE', 'daily_bias': None, 'direction_policy': 'LEGACY_H1'}, 'model_diagnostics': [{'model_id': 'SMC_M1_REVERSAL', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION', 'shared_decision_fingerprint': 'cb955c30647424ebd18e9780b8ede8a1291526cd749ed71c365662b23fc0b85e'}, {'model_id': 'SMC_M1_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION', 'shared_decision_fingerprint': 'c0cccac5193aeccba2ed13b72cc949b0bed8cd7ba99128dfb180b6b85949dfa0'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION', 'shared_decision_fingerprint': 'f8bedd7d143da9014d9d2af3183f7fdc940edfb68613971188de248f597ec122'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION', 'shared_decision_fingerprint': '03caec2a1bda351b625867536312cec5aa486b5ce225224e10a857d7290b5b83'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION', 'shared_decision_fingerprint': 'f2938744884044c961be708759a86bd83f5043b7f71efc5acc70009aabde9aaf'}], 'shared_decision_snapshots': [{'model_id': 'SMC_M1_REVERSAL', 'symbol': 'XAUUSDT', 'decision_timestamp_ms': 1792395600000, 'direction': 'LONG', 'setup_validity': 'INVALID', 'entry_reference': None, 'entry_zone_low': None, 'entry_zone_high': None, 'selected_fvg_id': None, 'selected_break_id': None, 'selected_sweep_id': None, 'setup_episode_id': None, 'unicorn_validity': 'INVALID', 'unicorn_failure_stage': 'MISSING_MARKET_DATA', 'selected_anchor_id': None, 'anchor_kind': None, 'structural_invalidation_price': None, 'buffer_value': None, 'selected_sl': None, 'legacy_sl': None, 'take_profit': None, 'selected_target_id': None, 'atr_m1': 1.407143, 'atr_m5': None, 'spread': 0.2, 'hypothetical_quantity': None, 'stop_distance_price': None, 'target_distance_price': None, 'gross_rr': None, 'net_rr': None, 'decision_status': 'MISSING_MARKET_DATA', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES'], 'evidence_fingerprint': 'cda3c0645d5f71f60f06df7e6ece01f92e2af1c9696be08fd2ee0c5e2f53a341', 'policy_fingerprint': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'decision_fingerprint': 'cb955c30647424ebd18e9780b8ede8a1291526cd749ed71c365662b23fc0b85e', 'decision_id': 'dec_SMC_M1_REVERSAL_XAUUSDT_LONG_1792395600000_cb955c306474', 'evaluator_version': '17.9.0.1.1', 'adapter_origin': 'PRODUCTION_ORCHESTRATOR'}, {'model_id': 'SMC_M1_CONTINUATION', 'symbol': 'XAUUSDT', 'decision_timestamp_ms': 1792395600000, 'direction': 'LONG', 'setup_validity': 'INVALID', 'entry_reference': None, 'entry_zone_low': None, 'entry_zone_high': None, 'selected_fvg_id': None, 'selected_break_id': None, 'selected_sweep_id': None, 'setup_episode_id': None, 'unicorn_validity': 'INVALID', 'unicorn_failure_stage': 'MISSING_MARKET_DATA', 'selected_anchor_id': None, 'anchor_kind': None, 'structural_invalidation_price': None, 'buffer_value': None, 'selected_sl': None, 'legacy_sl': None, 'take_profit': None, 'selected_target_id': None, 'atr_m1': 1.407143, 'atr_m5': None, 'spread': 0.2, 'hypothetical_quantity': None, 'stop_distance_price': None, 'target_distance_price': None, 'gross_rr': None, 'net_rr': None, 'decision_status': 'MISSING_MARKET_DATA', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES'], 'evidence_fingerprint': 'be2dba42de705ab43deacb8c42686a801a1b68b5705f9602ae3f4f04cbd74285', 'policy_fingerprint': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'decision_fingerprint': 'c0cccac5193aeccba2ed13b72cc949b0bed8cd7ba99128dfb180b6b85949dfa0', 'decision_id': 'dec_SMC_M1_CONTINUATION_XAUUSDT_LONG_1792395600000_c0cccac5193a', 'evaluator_version': '17.9.0.1.1', 'adapter_origin': 'PRODUCTION_ORCHESTRATOR'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'symbol': 'XAUUSDT', 'decision_timestamp_ms': 1792395600000, 'direction': 'LONG', 'setup_validity': 'INVALID', 'entry_reference': None, 'entry_zone_low': None, 'entry_zone_high': None, 'selected_fvg_id': None, 'selected_break_id': None, 'selected_sweep_id': None, 'setup_episode_id': None, 'unicorn_validity': 'INVALID', 'unicorn_failure_stage': 'MISSING_MARKET_DATA', 'selected_anchor_id': None, 'anchor_kind': None, 'structural_invalidation_price': None, 'buffer_value': None, 'selected_sl': None, 'legacy_sl': None, 'take_profit': None, 'selected_target_id': None, 'atr_m1': 1.407143, 'atr_m5': None, 'spread': 0.2, 'hypothetical_quantity': None, 'stop_distance_price': None, 'target_distance_price': None, 'gross_rr': None, 'net_rr': None, 'decision_status': 'MISSING_MARKET_DATA', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES'], 'evidence_fingerprint': '20b234351237eb348c19d35181af521a66c449d9c3ef96ba69f688011d396266', 'policy_fingerprint': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'decision_fingerprint': 'f8bedd7d143da9014d9d2af3183f7fdc940edfb68613971188de248f597ec122', 'decision_id': 'dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_LONG_1792395600000_f8bedd7d143d', 'evaluator_version': '17.9.0.1.1', 'adapter_origin': 'PRODUCTION_ORCHESTRATOR'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'symbol': 'XAUUSDT', 'decision_timestamp_ms': 1792395600000, 'direction': 'LONG', 'setup_validity': 'INVALID', 'entry_reference': None, 'entry_zone_low': None, 'entry_zone_high': None, 'selected_fvg_id': None, 'selected_break_id': None, 'selected_sweep_id': None, 'setup_episode_id': None, 'unicorn_validity': 'INVALID', 'unicorn_failure_stage': 'MISSING_MARKET_DATA', 'selected_anchor_id': None, 'anchor_kind': None, 'structural_invalidation_price': None, 'buffer_value': None, 'selected_sl': None, 'legacy_sl': None, 'take_profit': None, 'selected_target_id': None, 'atr_m1': 1.407143, 'atr_m5': None, 'spread': 0.2, 'hypothetical_quantity': None, 'stop_distance_price': None, 'target_distance_price': None, 'gross_rr': None, 'net_rr': None, 'decision_status': 'MISSING_MARKET_DATA', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES'], 'evidence_fingerprint': '17c1f3025b911df617fc7048f992f88c35f31678b8ab6c0a9b723f8596360413', 'policy_fingerprint': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'decision_fingerprint': '03caec2a1bda351b625867536312cec5aa486b5ce225224e10a857d7290b5b83', 'decision_id': 'dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_LONG_1792395600000_03caec2a1bda', 'evaluator_version': '17.9.0.1.1', 'adapter_origin': 'PRODUCTION_ORCHESTRATOR'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'symbol': 'XAUUSDT', 'decision_timestamp_ms': 1792395600000, 'direction': 'LONG', 'setup_validity': 'INVALID', 'entry_reference': None, 'entry_zone_low': None, 'entry_zone_high': None, 'selected_fvg_id': None, 'selected_break_id': None, 'selected_sweep_id': None, 'setup_episode_id': None, 'unicorn_validity': 'INVALID', 'unicorn_failure_stage': 'MISSING_MARKET_DATA', 'selected_anchor_id': None, 'anchor_kind': None, 'structural_invalidation_price': None, 'buffer_value': None, 'selected_sl': None, 'legacy_sl': None, 'take_profit': None, 'selected_target_id': None, 'atr_m1': 1.407143, 'atr_m5': None, 'spread': 0.2, 'hypothetical_quantity': None, 'stop_distance_price': None, 'target_distance_price': None, 'gross_rr': None, 'net_rr': None, 'decision_status': 'MISSING_MARKET_DATA', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES'], 'evidence_fingerprint': 'c70cfb84401c4f61049357e49d18a94afc55bcd0a650f3fa030460016862bfe3', 'policy_fingerprint': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'decision_fingerprint': 'f2938744884044c961be708759a86bd83f5043b7f71efc5acc70009aabde9aaf', 'decision_id': 'dec_CG01_SWEEP_MSS_FVG_XAUUSDT_LONG_1792395600000_f29387448840', 'evaluator_version': '17.9.0.1.1', 'adapter_origin': 'PRODUCTION_ORCHESTRATOR'}], 'decision_lineage_records': [{'decision_id': 'dec_SMC_M1_REVERSAL_XAUUSDT_LONG_1792395600000_cb955c306474', 'decision_fingerprint': 'cb955c30647424ebd18e9780b8ede8a1291526cd749ed71c365662b23fc0b85e', 'input_snapshot_hash': 'cda3c0645d5f71f60f06df7e6ece01f92e2af1c9696be08fd2ee0c5e2f53a341', 'configuration_hash': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'evaluator_version': '17.9.0.1.1', 'model_id': 'SMC_M1_REVERSAL', 'direction': 'LONG', 'strategy_decision_status': 'REJECT', 'execution_guard_status': 'NOT_EVALUATED', 'final_execution_authorization': 'REJECTED', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES']}, {'decision_id': 'dec_SMC_M1_CONTINUATION_XAUUSDT_LONG_1792395600000_c0cccac5193a', 'decision_fingerprint': 'c0cccac5193aeccba2ed13b72cc949b0bed8cd7ba99128dfb180b6b85949dfa0', 'input_snapshot_hash': 'be2dba42de705ab43deacb8c42686a801a1b68b5705f9602ae3f4f04cbd74285', 'configuration_hash': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'evaluator_version': '17.9.0.1.1', 'model_id': 'SMC_M1_CONTINUATION', 'direction': 'LONG', 'strategy_decision_status': 'REJECT', 'execution_guard_status': 'NOT_EVALUATED', 'final_execution_authorization': 'REJECTED', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES']}, {'decision_id': 'dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_LONG_1792395600000_f8bedd7d143d', 'decision_fingerprint': 'f8bedd7d143da9014d9d2af3183f7fdc940edfb68613971188de248f597ec122', 'input_snapshot_hash': '20b234351237eb348c19d35181af521a66c449d9c3ef96ba69f688011d396266', 'configuration_hash': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'evaluator_version': '17.9.0.1.1', 'model_id': 'SMC_M1_FVG_CONTINUATION', 'direction': 'LONG', 'strategy_decision_status': 'REJECT', 'execution_guard_status': 'NOT_EVALUATED', 'final_execution_authorization': 'REJECTED', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES']}, {'decision_id': 'dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_LONG_1792395600000_03caec2a1bda', 'decision_fingerprint': '03caec2a1bda351b625867536312cec5aa486b5ce225224e10a857d7290b5b83', 'input_snapshot_hash': '17c1f3025b911df617fc7048f992f88c35f31678b8ab6c0a9b723f8596360413', 'configuration_hash': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'evaluator_version': '17.9.0.1.1', 'model_id': 'SMC_M1_SWEEP_RECLAIM', 'direction': 'LONG', 'strategy_decision_status': 'REJECT', 'execution_guard_status': 'NOT_EVALUATED', 'final_execution_authorization': 'REJECTED', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES']}, {'decision_id': 'dec_CG01_SWEEP_MSS_FVG_XAUUSDT_LONG_1792395600000_f29387448840', 'decision_fingerprint': 'f2938744884044c961be708759a86bd83f5043b7f71efc5acc70009aabde9aaf', 'input_snapshot_hash': 'c70cfb84401c4f61049357e49d18a94afc55bcd0a650f3fa030460016862bfe3', 'configuration_hash': 'd39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f', 'evaluator_version': '17.9.0.1.1', 'model_id': 'CG01_SWEEP_MSS_FVG', 'direction': 'LONG', 'strategy_decision_status': 'REJECT', 'execution_guard_status': 'NOT_EVALUATED', 'final_execution_authorization': 'REJECTED', 'rejection_reason_codes': ['INSUFFICIENT_CLOSED_CANDLES']}], 'evaluator_version': '17.9.0.1.1'}}
+E       assert None is not None
+
+backend\tests\test_v16_22_red_reproductions.py:221: AssertionError
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend/tests/test_v16_22_red_reproductions.py::test_red_022_real_scheduler_execution_arms_order_without_direct_evaluate_cycle
+1 failed, 543 passed, 1 warning in 245.14s (0:04:05)
+
+--- STDERR ---

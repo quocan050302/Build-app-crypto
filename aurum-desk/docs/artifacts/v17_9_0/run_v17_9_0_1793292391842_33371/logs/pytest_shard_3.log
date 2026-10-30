@@ -1,0 +1,18 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_22_production_flow.py backend/tests/test_v13_5_accounting_acceptance.py backend/tests/test_v13_5_strategy_routing.py backend/tests/test_v13_7_ledger_idempotency.py backend/tests/test_v13_8_order_lifecycle.py backend/tests/test_v14_4_14_outcome_authority.py backend/tests/test_v14_4_15_membership_repair.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_1_session_forecasts.py backend/tests/test_v14_4_2_financial_context_regression.py backend/tests/test_v14_4_4_canonical_plan_runtime.py backend/tests/test_v14_4_4_reconciliation_runtime.py backend/tests/test_v14_4_5_frozen_legacy_sources.py backend/tests/test_v14_4_sessions.py backend/tests/test_v15_0_daily_ny_research.py backend/tests/test_v16_10_arm_to_fill_sizing.py backend/tests/test_v16_14_cg01_scheduler_and_trace.py backend/tests/test_v16_16_milestone_and_runtime_report.py backend/tests/test_v16_2_causal_evidence_chain.py backend/tests/test_v16_2_cg01_guards_lifecycle.py backend/tests/test_v16_39_10_snapshot_api_cli.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_39_4_session_compliance_learning.py backend/tests/test_v16_39_paper_learning_regression.py backend/tests/test_v16_5_replay_shared_execution.py backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_api.py backend/tests/test_v17_5_1_guard_matrix.py backend/tests/test_v17_5_4_cycle_reconciliation.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_9_cost_fail_closed.py backend/tests/test_v17_6_2_coverage_intervals.py backend/tests/test_v17_6_4_2_metadata_good_bypass.py backend/tests/test_v17_6_4_2_persistence_status.py backend/tests/test_v17_6_4_3_current_evidence_health.py backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py backend/tests/test_v17_6_4_engine_owner_truth.py backend/tests/test_v3_regression.py backend/tests/test_v41_telegram_lifecycle.py backend/tests/test_v5_authoritative_lab.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/shards/shard_3.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 126163
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 77%]
+..............................................................           [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+278 passed, 1 warning in 122.88s (0:02:02)
+
+--- STDERR ---

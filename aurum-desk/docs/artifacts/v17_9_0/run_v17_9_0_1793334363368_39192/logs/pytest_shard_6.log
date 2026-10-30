@@ -1,0 +1,24 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_25_red_reproductions.py backend/tests/test_entry_intent_closure.py backend/tests/test_v10_4_cost_and_rr.py backend/tests/test_v12_2_repro_defects.py backend/tests/test_v12_4_acceptance.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_dates_sessions.py backend/tests/test_v13_4_metrics_exports.py backend/tests/test_v13_7_execution_costs.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_11_three_session_execution.py backend/tests/test_v14_4_13_forward_membership.py backend/tests/test_v14_4_14_membership_transaction.py backend/tests/test_v14_4_1_production_pipeline.py backend/tests/test_v14_4_20_copied_repair_provenance.py backend/tests/test_v14_4_4_reconciliation_runtime.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v15_0_telegram_and_api.py backend/tests/test_v16_12_htf_state_machine.py backend/tests/test_v16_13_cg01_execution.py backend/tests/test_v16_13_htf_confirmation.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_15_scheduler_lifespan.py backend/tests/test_v16_16_audit_coverage_and_touch.py backend/tests/test_v16_34_cg01_runtime_ownership_consistency.py backend/tests/test_v16_39_10_snapshot_api_cli.py backend/tests/test_v16_39_10_snapshot_contract.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_8_execution_model_and_time.py backend/tests/test_v17_0_opportunity_monitor_api_readonly.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_4_anchor_proof.py backend/tests/test_v17_5_6_episode_origin_binding.py backend/tests/test_v17_6_1_market_hours_dst.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_6_4_3_transaction_boundaries.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_7_database_safety.py backend/tests/test_v17_8_quote_noise_guard.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\shards\shard_6.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 310098
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 72%]
+........................................................................ [ 90%]
+...ss...............s...............                                     [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+393 passed, 3 skipped, 2 warnings in 304.66s (0:05:04)
+
+--- STDERR ---

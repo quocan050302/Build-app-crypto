@@ -20,7 +20,7 @@ import logging
 import math
 import threading
 import time
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 import uuid
 from sqlalchemy.orm import Session
 
@@ -774,6 +774,17 @@ class ScalpWatcherOrchestrator:
         self._arm_rejections: Dict[str, Any] = {}
         self._latest_cg01_evaluation: Dict[str, Dict[str, Any]] = {}
         self._latest_candidate_quality_display: Dict[str, Dict[str, Any]] = {}
+        self._seen_decision_ids: set[str] = set()
+
+    def register_seen_decision_id(self, decision_id: str) -> bool:
+        if not decision_id:
+            return False
+        with self._lock:
+            did = str(decision_id)
+            if did in self._seen_decision_ids:
+                return False
+            self._seen_decision_ids.add(did)
+            return True
 
     def record_candidate_quality_display(
         self,
@@ -1812,12 +1823,53 @@ class ScalpWatcherOrchestrator:
         taker_val = float(policy_dict.get("taker_fee_rate", 0.0004)) if policy_dict.get("taker_fee_rate") is not None else 0.0004
         policy_dict["costs"] = CostAssumptions(slippage_usd=slip_val, maker_fee_rate=maker_val, taker_fee_rate=taker_val)
 
-        # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030)
+        # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030; V17.9.0.1 Phase D Canonical Evaluator Integration)
         exec_profile = getattr(cfg, "execution_profile", "BASELINE")
         adaptive_regime_models = None
         if exec_profile == "PAPER_ADAPTIVE_SMC":
             from services.support_resistance_service import resolve_models_for_regime
             adaptive_regime_models = set(resolve_models_for_regime(regime))
+
+        from services.shared_strategy_evaluator import (
+            EVALUATOR_VERSION,
+            SharedStrategyEvaluator,
+            validate_canonical_executability,
+        )
+        shared_cycle_context = self.build_shared_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=t_recv,
+            m1_candles=c_1m,
+            m5_candles=c_5m,
+            m15_candles=c_15m,
+            h1_candles=c_1h,
+            h4_candles=c_4h,
+            d1_candles=c_1d,
+            bid=bid,
+            ask=ask,
+            quote_timestamp_ms=getattr(q, "exchange_ts_ms", None) or getattr(q, "received_at_ms", None) or t_recv,
+            htf_zones=bounded_zones if len(c_5m) < 3 else None,
+            liquidity_pools=liq_levels if len(c_5m) < 3 else None,
+            htf_bias=bias,
+            h1_alignment=align,
+            policy_config={
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
+                "tick_size": float(getattr(cfg, "tick_size", 0.01)),
+            },
+            risk_config={
+                "capital_usdt": policy_dict["capital_usdt"],
+                "risk_pct": policy_dict["risk_pct"],
+                "leverage": 20 if policy_dict["leverage"] == 5 else policy_dict["leverage"],
+                "margin_mode": policy_dict["margin_mode"],
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
+            },
+            cost_config={
+                "slippage_usd": slip_val,
+                "maker_fee_rate": maker_val,
+                "taker_fee_rate": taker_val,
+            },
+        )
+        shared_decision_snapshots: List[Any] = []
+        downstream_candidates_by_fp: Dict[str, Any] = {}
 
         model_diagnostics: List[Dict[str, Any]] = []
 
@@ -1839,6 +1891,7 @@ class ScalpWatcherOrchestrator:
         }
 
         if run_rev:
+            rev_evaluated_zone = False
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
                     # Check if zone's hypothesis read authority failed (SECTIONS 095 - 098)
@@ -1949,10 +2002,36 @@ class ScalpWatcherOrchestrator:
                         )
                         continue
 
-                    cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
-                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                        stop_policy=stop_policy, stop_context=stop_context,
+                    rev_evaluated_zone = True
+                    cand, rev_snap = SharedStrategyEvaluator.evaluate_production_reversal_candidate(
+                        context=shared_cycle_context,
+                        zone=z,
+                        candles_1m=c_1m,
+                        quote=q,
+                        policy_settings=policy_dict,
+                        now_ms=t_recv,
+                        config=cfg,
+                        context_levels=liq_levels,
+                        stop_policy=stop_policy,
+                        stop_context=stop_context,
                     )
+                    downstream_candidates_by_fp[rev_snap.decision_fingerprint] = cand
+                    existing_rev = next(
+                        (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_REVERSAL.value),
+                        None,
+                    )
+                    if existing_rev is None:
+                        shared_decision_snapshots.append(rev_snap)
+                        rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
+                    elif existing_rev.decision_status != "ELIGIBLE" and (
+                        rev_snap.decision_status == "ELIGIBLE"
+                        or (existing_rev.setup_validity != "VALID" and rev_snap.setup_validity == "VALID")
+                    ):
+                        shared_decision_snapshots = [
+                            s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_REVERSAL.value
+                        ]
+                        shared_decision_snapshots.append(rev_snap)
+                        rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
                     if cand.is_eligible:
                         cand.hypothesis_id = zone_hyp.hypothesis_id
                         cand.regime_snapshot = regime_snapshot
@@ -1977,6 +2056,68 @@ class ScalpWatcherOrchestrator:
                             ),
                             now_ms=t_recv,
                         )
+            has_eligible_rev_snap = any(
+                s.model_id == ModelIdentifier.SMC_M1_REVERSAL.value and s.decision_status == "ELIGIBLE"
+                for s in shared_decision_snapshots
+            )
+            if not rev_evaluated_zone or (len(c_5m) >= 3 and not has_eligible_rev_snap):
+                rev_snap_default = SharedStrategyEvaluator.evaluate_decision(
+                    market_snapshot=shared_cycle_context,
+                    strategy_config={
+                        "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+                        "preferred_direction": SharedStrategyEvaluator.resolve_canonical_preferred_direction(shared_cycle_context, bias),
+                        "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                    },
+                    evaluation_time=t_recv,
+                )
+                shared_decision_snapshots = [
+                    s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_REVERSAL.value
+                ]
+                shared_decision_snapshots.append(rev_snap_default)
+                rev_diag["shared_decision_fingerprint"] = rev_snap_default.decision_fingerprint
+                cand_rev_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                    snap=rev_snap_default,
+                    context=shared_cycle_context,
+                    model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                    expected_direction=rev_snap_default.direction,
+                    policy_settings=policy_dict,
+                    config=cfg,
+                    now_ms=t_recv,
+                    strict_direction_match=False,
+                )
+                if cand_rev_def.is_eligible or rev_evaluated_zone:
+                    downstream_candidates_by_fp[rev_snap_default.decision_fingerprint] = cand_rev_def
+                if cand_rev_def.is_eligible and not rev_diag["eligible"]:
+                    cand_rev_def.regime_snapshot = regime_snapshot
+                    cand_rev_def.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_rev_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                    candidates.append(cand_rev_def)
+                    rev_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            rev_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_REVERSAL.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            rev_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=rev_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(rev_snap_dis)
+            rev_diag["shared_decision_fingerprint"] = rev_snap_dis.decision_fingerprint
         model_diagnostics.append(rev_diag)
 
         # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - PEER independent branch
@@ -1996,10 +2137,22 @@ class ScalpWatcherOrchestrator:
             "reason": reason_cont,
         }
         if run_cont:
-            cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg,
-                stop_policy=stop_policy, stop_context=stop_context,
+            cand_cont, cont_snap = SharedStrategyEvaluator.evaluate_production_continuation_candidate(
+                context=shared_cycle_context,
+                candles_1m=c_1m,
+                candles_5m=c_5m,
+                quote=q,
+                htf_bias=bias,
+                h1_alignment=align,
+                policy_settings=policy_dict,
+                now_ms=t_recv,
+                config=cfg,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
             )
+            shared_decision_snapshots.append(cont_snap)
+            downstream_candidates_by_fp[cont_snap.decision_fingerprint] = cand_cont
+            cont_diag["shared_decision_fingerprint"] = cont_snap.decision_fingerprint
             if cand_cont.is_eligible:
                 cand_cont.regime_snapshot = regime_snapshot
                 cand_cont.execution_profile = exec_profile
@@ -2007,6 +2160,30 @@ class ScalpWatcherOrchestrator:
                     cand_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cand_cont)
                 cont_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            cont_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_CONTINUATION.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            cont_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=cont_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(cont_snap_dis)
+            cont_diag["shared_decision_fingerprint"] = cont_snap_dis.decision_fingerprint
         model_diagnostics.append(cont_diag)
 
         # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - PEER independent branch
@@ -2026,11 +2203,23 @@ class ScalpWatcherOrchestrator:
             "reason": reason_fvg,
         }
         if run_fvg:
-            cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
-                closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
-                policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                stop_policy=stop_policy, stop_context=stop_context,
+            cand_fvg_cont, fvg_snap = SharedStrategyEvaluator.evaluate_production_fvg_continuation_candidate(
+                context=shared_cycle_context,
+                closed_1m=c_1m,
+                closed_5m=c_5m,
+                quote=q,
+                htf_bias=bias,
+                h1_alignment=align,
+                policy_settings=policy_dict,
+                now_ms=t_recv,
+                config=cfg,
+                context_levels=liq_levels,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
             )
+            shared_decision_snapshots.append(fvg_snap)
+            downstream_candidates_by_fp[fvg_snap.decision_fingerprint] = cand_fvg_cont
+            fvg_diag["shared_decision_fingerprint"] = fvg_snap.decision_fingerprint
             if cand_fvg_cont.is_eligible:
                 cand_fvg_cont.regime_snapshot = regime_snapshot
                 cand_fvg_cont.execution_profile = exec_profile
@@ -2038,6 +2227,30 @@ class ScalpWatcherOrchestrator:
                     cand_fvg_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cand_fvg_cont)
                 fvg_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            fvg_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            fvg_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=fvg_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(fvg_snap_dis)
+            fvg_diag["shared_decision_fingerprint"] = fvg_snap_dis.decision_fingerprint
         model_diagnostics.append(fvg_diag)
 
         # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - PEER independent branch
@@ -2059,15 +2272,41 @@ class ScalpWatcherOrchestrator:
         if run_sr:
             from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
             liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
+            sr_evaluated_cluster = False
             for cluster in liq_clusters:
                 update_cluster_state(cluster, c_1m, now_ms=t_recv)
                 cycle_authority.cluster_outcomes[cluster.id] = cluster
                 if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
-                    cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
-                        closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
-                        now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                        stop_policy=stop_policy, stop_context=stop_context,
+                    sr_evaluated_cluster = True
+                    cand_sr, sr_snap = SharedStrategyEvaluator.evaluate_production_sweep_reclaim_candidate(
+                        context=shared_cycle_context,
+                        closed_1m=c_1m,
+                        cluster=cluster,
+                        quote=q,
+                        policy_settings=policy_dict,
+                        now_ms=t_recv,
+                        config=cfg,
+                        context_levels=liq_levels,
+                        stop_policy=stop_policy,
+                        stop_context=stop_context,
                     )
+                    downstream_candidates_by_fp[sr_snap.decision_fingerprint] = cand_sr
+                    existing_sr = next(
+                        (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value),
+                        None,
+                    )
+                    if existing_sr is None:
+                        shared_decision_snapshots.append(sr_snap)
+                        sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
+                    elif existing_sr.decision_status != "ELIGIBLE" and (
+                        sr_snap.decision_status == "ELIGIBLE"
+                        or (existing_sr.setup_validity != "VALID" and sr_snap.setup_validity == "VALID")
+                    ):
+                        shared_decision_snapshots = [
+                            s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
+                        ]
+                        shared_decision_snapshots.append(sr_snap)
+                        sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
                     if cand_sr.is_eligible:
                         cand_sr.regime_snapshot = regime_snapshot
                         cand_sr.execution_profile = exec_profile
@@ -2075,6 +2314,67 @@ class ScalpWatcherOrchestrator:
                             cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                         candidates.append(cand_sr)
                         sr_diag["eligible"] = True
+            has_eligible_sr_snap = any(
+                s.model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value and s.decision_status == "ELIGIBLE"
+                for s in shared_decision_snapshots
+            )
+            if not sr_evaluated_cluster or (len(c_5m) >= 3 and not has_eligible_sr_snap):
+                sr_snap_default = SharedStrategyEvaluator.evaluate_decision(
+                    market_snapshot=shared_cycle_context,
+                    strategy_config={
+                        "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                        "preferred_direction": SharedStrategyEvaluator.resolve_canonical_preferred_direction(shared_cycle_context, bias),
+                        "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                    },
+                    evaluation_time=t_recv,
+                )
+                shared_decision_snapshots = [
+                    s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
+                ]
+                shared_decision_snapshots.append(sr_snap_default)
+                sr_diag["shared_decision_fingerprint"] = sr_snap_default.decision_fingerprint
+                cand_sr_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                    snap=sr_snap_default,
+                    context=shared_cycle_context,
+                    model_id=ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                    expected_direction=sr_snap_default.direction,
+                    policy_settings=policy_dict,
+                    config=cfg,
+                    now_ms=t_recv,
+                    strict_direction_match=False,
+                )
+                downstream_candidates_by_fp[sr_snap_default.decision_fingerprint] = cand_sr_def
+                if cand_sr_def.is_eligible and not sr_diag["eligible"]:
+                    cand_sr_def.regime_snapshot = regime_snapshot
+                    cand_sr_def.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_sr_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                    candidates.append(cand_sr_def)
+                    sr_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            sr_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            sr_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=sr_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(sr_snap_dis)
+            sr_diag["shared_decision_fingerprint"] = sr_snap_dis.decision_fingerprint
         model_diagnostics.append(sr_diag)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
@@ -2112,6 +2412,7 @@ class ScalpWatcherOrchestrator:
 
         cg01_eval_data = None
         cg01_dec = None
+        cg01_snap = None
         if cg01_cfg.enabled and c_1m:
             from services.cg01_daily_bias_service import (
                 build_cg01_authority_publish_context,
@@ -2132,12 +2433,24 @@ class ScalpWatcherOrchestrator:
             from services.cg01_engine import evaluate_cg01_candidate
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "1D": c_1d, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
-            cg01_dec = evaluate_cg01_candidate(
-                closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
-                capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
+            cg01_dec, cg01_snap = SharedStrategyEvaluator.evaluate_production_cg01_candidate(
+                context=shared_cycle_context,
+                closed_ctx=closed_ctx,
+                quote=q,
+                config=cg01_cfg,
+                now_ms=t_recv,
+                capital=policy_dict["capital_usdt"],
+                risk_pct=policy_dict["risk_pct"],
                 costs=costs_to_pass,
-                stop_policy=stop_policy, stop_context=stop_context,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
+                eval_fn=evaluate_cg01_candidate,
             )
+            shared_decision_snapshots.append(cg01_snap)
+            if cg01_dec is not None:
+                downstream_candidates_by_fp[cg01_snap.decision_fingerprint] = (
+                    cg01_dec.candidate if getattr(cg01_dec, "candidate", None) is not None else cg01_dec
+                )
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
                 publish_current_cg01_bias_authority(
                     symbol=symbol,
@@ -2150,13 +2463,35 @@ class ScalpWatcherOrchestrator:
                     generation=pub_ctx.get("generation", 1),
                 )
             cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
-            if cg01_dec.candidate:
+            if cg01_dec and cg01_dec.candidate and cg01_dec.candidate.is_eligible:
                 cg01_dec.candidate.regime_snapshot = regime_snapshot
                 cg01_dec.candidate.execution_profile = exec_profile
                 if sr_zones:
                     cg01_dec.candidate.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cg01_dec.candidate)
         else:
+            from dataclasses import replace as _dc_replace
+            cg_ctx = (
+                shared_cycle_context
+                if (cg01_cfg.enabled and not c_1m)
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.CG01_SWEEP_MSS_FVG.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            cg01_snap = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=cg_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(cg01_snap)
             cg01_eval_data = serialize_cg01_evaluation(
                 None,
                 enabled=cg01_cfg.enabled,
@@ -2172,6 +2507,8 @@ class ScalpWatcherOrchestrator:
             "execution_action": "EVALUATE_AND_EXECUTE" if cg01_cfg.enabled else "DISABLED",
             "reason": "ELIGIBLE_FOR_EVALUATION" if (cg01_cfg.enabled and c_1m) else ("CG01_DISABLED" if not cg01_cfg.enabled else "WARMUP_INSUFFICIENT"),
         }
+        if cg01_snap is not None:
+            cg01_diag["shared_decision_fingerprint"] = cg01_snap.decision_fingerprint
         model_diagnostics.append(cg01_diag)
 
         # Candidate Router & Deduplication (Rules 093 - 096, 131 - 134)
@@ -2183,11 +2520,21 @@ class ScalpWatcherOrchestrator:
             if daily_bias_dir in ("BULLISH", "BEARISH"):
                 effective_router_bias = daily_bias_dir
 
+        pre_routed_eligible_fps = {
+            str(getattr(c, "decision_fingerprint", ""))
+            for c in candidates
+            if getattr(c, "decision_fingerprint", "")
+        }
         routed_candidates = evaluate_smc_opportunity_candidates(
             candidates,
             htf_bias=effective_router_bias,
             cg01_policy=cg01_policy,
         )
+        routed_eligible_fps = {
+            str(getattr(c, "decision_fingerprint", ""))
+            for c in routed_candidates
+            if getattr(c, "decision_fingerprint", "")
+        }
 
         if cg01_eval_data and cg01_dec and cg01_dec.candidate:
             if cg01_dec.candidate not in routed_candidates:
@@ -2207,6 +2554,63 @@ class ScalpWatcherOrchestrator:
             effective_scalp_mode = ScalpMode.SHADOW.value
 
         for cand in candidates:
+            # Section 3 (V17.9.0.1.1): Canonical decision lineage & duplicate decision_id replay guard
+            cand_dec_id = str(getattr(cand, "decision_id", "") or "")
+            cand_dec_fp = str(getattr(cand, "decision_fingerprint", "") or "")
+            if cand.model_id in (
+                ModelIdentifier.SMC_M1_REVERSAL.value,
+                ModelIdentifier.SMC_M1_CONTINUATION.value,
+                ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            ):
+                cand_snap = getattr(cand, "shared_decision_snapshot", None)
+                snap_ok, snap_rej = validate_canonical_executability(cand_snap)
+                coords_match = (
+                    cand_snap is not None
+                    and getattr(cand, "direction", None) == getattr(cand_snap, "direction", None)
+                    and round(float(getattr(cand, "planned_entry", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "entry_reference", 0.0) or 0.0), 4)
+                    and round(float(getattr(cand, "stop_loss", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "selected_sl", 0.0) or 0.0), 4)
+                    and round(float(getattr(cand, "take_profit", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "take_profit", 0.0) or 0.0), 4)
+                )
+                if (
+                    not snap_ok
+                    or not coords_match
+                    or not cand_dec_id
+                    or not cand_dec_fp
+                    or getattr(cand, "strategy_decision_status", "APPROVE") != "APPROVE"
+                ):
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
+                    self._arm_rejections[cand.candidate_key] = (
+                        t_recv,
+                        snap_rej or ("CANONICAL_CANDIDATE_COORDINATE_MISMATCH" if not coords_match else "CANONICAL_DECISION_LINEAGE_MISSING"),
+                    )
+                    continue
+                if cand_dec_id in self._seen_decision_ids:
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
+                    self._arm_rejections[cand.candidate_key] = (t_recv, "DUPLICATE_DECISION_ID_REPLAY_BLOCKED")
+                    OpportunityFunnelService.record_opportunity_transition(
+                        db,
+                        OpportunityEvaluation(
+                            opportunity_id=f"opp_{cand.candidate_key}",
+                            symbol=symbol,
+                            model_id=cand.model_id,
+                            direction=cand.direction,
+                            zone_id=cand.zone_id,
+                            as_of_ms=t_recv,
+                            stage=OpportunityStage.GUARD_BLOCKED.value,
+                            reason_codes=("DUPLICATE_DECISION_ID_REPLAY_BLOCKED",),
+                            planned_entry=cand.planned_entry,
+                            stop_loss=cand.stop_loss,
+                            take_profit=cand.take_profit,
+                            net_rr=cand.net_rr,
+                        ),
+                        now_ms=t_recv,
+                    )
+                    continue
+
             # V17.5.4 Appendix A3: bind execution context to comparison plan before persistence
             if getattr(cand, "stop_comparison", None) is not None:
                 try:
@@ -2253,6 +2657,8 @@ class ScalpWatcherOrchestrator:
             # Rule 019 & 033, 034, 035, 102, 104: Policy router-driven execution arbitration
             pol_action, pol_reason = resolve_model_execution_policy(cfg, cand.model_id, execution_scope="PAPER")
             if pol_action == ModelExecutionAction.DISABLED:
+                setattr(cand, "execution_guard_status", "REJECT")
+                setattr(cand, "final_execution_authorization", "REJECTED")
                 logger.info(f"Candidate {cand.candidate_key} ({cand.model_id}) disabled by execution policy: {pol_reason}")
                 OpportunityFunnelService.record_opportunity_transition(
                     db,
@@ -2277,6 +2683,8 @@ class ScalpWatcherOrchestrator:
             should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value) or (pol_action == ModelExecutionAction.EVALUATE_SHADOW)
 
             if should_shadow:
+                setattr(cand, "execution_guard_status", "SHADOW_ONLY")
+                setattr(cand, "final_execution_authorization", "SHADOW_NO_ORDER")
                 # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)
                 logger.info(f"[SHADOW] Qualified {cand.model_id} candidate: {cand.direction} @ {cand.planned_entry}")
                 opp_eval = OpportunityEvaluation(
@@ -2303,6 +2711,19 @@ class ScalpWatcherOrchestrator:
                     config=cfg, feed_health=feed_health, auto_enabled=auto_enabled,
                     authority_context=cycle_authority, session_context=cand_session_ctx, research_context=research_context,
                 )
+                if armed_order:
+                    setattr(cand, "execution_guard_status", "APPROVE")
+                    setattr(cand, "final_execution_authorization", "AUTHORIZED_PAPER_ORDER")
+                    if cand_dec_id:
+                        self.register_seen_decision_id(cand_dec_id)
+                        setattr(armed_order, "decision_id", cand_dec_id)
+                        setattr(armed_order, "decision_fingerprint", cand_dec_fp)
+                        setattr(armed_order, "input_snapshot_hash", getattr(cand, "input_snapshot_hash", ""))
+                        setattr(armed_order, "configuration_hash", getattr(cand, "configuration_hash", ""))
+                        setattr(armed_order, "evaluator_version", getattr(cand, "evaluator_version", EVALUATOR_VERSION))
+                else:
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
                 if is_cg01_model and cg01_eval_data:
                     if armed_order:
                         cg01_eval_data["armed_order_id"] = armed_order.id
@@ -2419,6 +2840,20 @@ class ScalpWatcherOrchestrator:
         except Exception as tel_err:
             logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
 
+        consumption_summary = self.reconcile_consumed_decisions_from_snapshots(
+            shared_decision_snapshots=shared_decision_snapshots,
+            downstream_candidates_by_fp=downstream_candidates_by_fp,
+            pre_routed_eligible_fps=pre_routed_eligible_fps,
+            routed_eligible_fps=routed_eligible_fps,
+            armed_order=armed_order,
+            commit_ok=commit_ok,
+            arm_rejections=self._arm_rejections,
+        )
+        consumed_model_decisions = consumption_summary["consumed_model_decisions"]
+        evaluated_model_decisions = consumption_summary["evaluated_model_decisions"]
+        unconsumed_model_decisions = consumption_summary["unconsumed_model_decisions"]
+        lineage_records = consumption_summary["decision_lineage_records"]
+
         return {
             "cycle_id": cycle_id,
             "decision_status": cycle_decision_status,
@@ -2441,6 +2876,271 @@ class ScalpWatcherOrchestrator:
             "daily_goal": daily_goal_dict,
             "cg01_evaluation": cg01_final,
             "model_diagnostics": model_diagnostics,
+            "shared_decision_snapshots": [s.to_parity_dict() for s in shared_decision_snapshots],
+            "consumed_model_decisions": consumed_model_decisions,
+            "evaluated_model_decisions": evaluated_model_decisions,
+            "unconsumed_model_decisions": unconsumed_model_decisions,
+            "consumed_decision_reconciliation": consumption_summary,
+            "shared_cycle_input_snapshot_hash": shared_cycle_context.compute_input_snapshot_hash(),
+            "shared_cycle_configuration_hash": shared_cycle_context.compute_configuration_hash(),
+            "decision_lineage_records": lineage_records,
+            "evaluator_version": EVALUATOR_VERSION,
+        }
+
+    @staticmethod
+    def reconcile_consumed_decisions_from_snapshots(
+        *,
+        shared_decision_snapshots: Sequence[Any],
+        downstream_candidates_by_fp: Mapping[str, Any],
+        pre_routed_eligible_fps: Iterable[str] = (),
+        routed_eligible_fps: Iterable[str] = (),
+        armed_order: Optional[Any] = None,
+        commit_ok: bool = True,
+        arm_rejections: Optional[Mapping[str, Any]] = None,
+        injected_consumed_model_decisions: Optional[Mapping[str, Any]] = None,
+        order_intent_decision_ids: Optional[Mapping[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        DEF-179012-C01 (V17.9.0.1.2 Phase B): Reconciles evaluated canonical snapshots against
+        actual downstream Production runtime consumption (candidates, router, execution guards,
+        and order intents). Never marks a snapshot as consumed when no downstream candidate
+        with matching `decision_id` and `decision_fingerprint` consumed it (`N31`, `N32`, `N33`).
+        """
+        pre_routed_set = set(pre_routed_eligible_fps or ())
+        routed_set = set(routed_eligible_fps or ())
+        from services.shared_strategy_evaluator import EVALUATOR_VERSION
+        consumed_model_decisions: Dict[str, Any] = {}
+        evaluated_model_decisions: Dict[str, Any] = {}
+        unconsumed_model_decisions: Dict[str, Any] = {}
+        lineage_records: List[Dict[str, Any]] = []
+        violations: List[str] = []
+        missing_downstream_consumer_link_count = 0
+        unconsumed_reported_as_consumed_count = 0
+        order_intent_without_candidate_consumed_count = 0
+        consumed_decision_ids: set[str] = set()
+
+        for cand_obj in (downstream_candidates_by_fp or {}).values():
+            c_did = str(getattr(cand_obj, "decision_id", "") or "").strip()
+            c_dfp = str(getattr(cand_obj, "decision_fingerprint", "") or "").strip()
+            if not c_did or not c_dfp:
+                missing_downstream_consumer_link_count += 1
+                violations.append("CANDIDATE_MISSING_DECISION_ID_OR_FINGERPRINT")
+
+        for s in shared_decision_snapshots or ():
+            s_parity = s.to_parity_dict() if hasattr(s, "to_parity_dict") else dict(s)
+            s_dec_id = str(getattr(s, "decision_id", "") or s_parity.get("decision_id", ""))
+            s_dec_fp = str(getattr(s, "decision_fingerprint", "") or s_parity.get("decision_fingerprint", ""))
+            s_model_id = str(getattr(s, "model_id", "") or s_parity.get("model_id", ""))
+            s_symbol = str(getattr(s, "symbol", "") or s_parity.get("symbol", "XAUUSDT"))
+            s_ts = int(getattr(s, "decision_timestamp_ms", 0) or s_parity.get("decision_timestamp_ms", 0))
+            s_in_hash = str(getattr(s, "input_snapshot_hash", "") or s_parity.get("input_snapshot_hash", ""))
+            s_cfg_hash = str(getattr(s, "configuration_hash", "") or s_parity.get("configuration_hash", ""))
+            s_status = str(getattr(s, "decision_status", "") or s_parity.get("decision_status", "UNKNOWN"))
+            s_reasons = list(getattr(s, "rejection_reason_codes", ()) or s_parity.get("rejection_reason_codes", ()))
+
+            matched_c = downstream_candidates_by_fp.get(s_dec_fp)
+            if matched_c is None:
+                for cand_obj in downstream_candidates_by_fp.values():
+                    if getattr(cand_obj, "model_id", None) == s_model_id:
+                        matched_c = cand_obj
+                        break
+
+            cand_dec_id = str(getattr(matched_c, "decision_id", "") or "") if matched_c is not None else ""
+            cand_dec_fp = str(getattr(matched_c, "decision_fingerprint", "") or "") if matched_c is not None else ""
+
+            has_valid_consumer_binding = bool(
+                matched_c is not None
+                and s_dec_id
+                and s_dec_fp
+                and cand_dec_id == s_dec_id
+                and cand_dec_fp == s_dec_fp
+            )
+
+            if not has_valid_consumer_binding or (
+                s_status in ("MISSING_MARKET_DATA", "MODEL_DISABLED")
+                and not bool(getattr(matched_c, "is_eligible", False))
+            ):
+                is_consumed = False
+                lifecycle_stage = "EVALUATED_NOT_CONSUMED"
+                candidate_id = None
+                candidate_fp = cand_dec_fp or None
+                downstream_consumer = None
+                guard_status = (
+                    "CANDIDATE_FINGERPRINT_MISMATCH_BLOCKED"
+                    if (matched_c is not None and not has_valid_consumer_binding)
+                    else "NOT_EVALUATED"
+                )
+                final_auth = "REJECTED"
+                order_intent_id = None
+                rejection_reason = (
+                    "CANDIDATE_FINGERPRINT_OR_ID_MISMATCH"
+                    if (matched_c is not None and not has_valid_consumer_binding)
+                    else (s_reasons[0] if s_reasons else "NO_DOWNSTREAM_CONSUMER")
+                )
+                runtime_status = "EVALUATED_NOT_CONSUMED"
+                if matched_c is not None and not has_valid_consumer_binding:
+                    missing_downstream_consumer_link_count += 1
+                    violations.append(f"CANDIDATE_LINEAGE_MISMATCH:{s_model_id}")
+            else:
+                is_consumed = True
+                consumed_decision_ids.add(s_dec_id)
+                candidate_id = str(getattr(matched_c, "candidate_key", "") or f"cand_{s_dec_id}")
+                candidate_fp = cand_dec_fp
+                armed_dec_id = str(getattr(armed_order, "decision_id", "") or "") if armed_order is not None else ""
+                if armed_order is not None and commit_ok and armed_dec_id == s_dec_id:
+                    lifecycle_stage = "ORDER_INTENT_CREATED"
+                    downstream_consumer = "OrderManager.arm_candidate_order"
+                    guard_status = "APPROVE"
+                    final_auth = "AUTHORIZED_PAPER_ORDER"
+                    order_intent_id = str(armed_order.id)
+                    rejection_reason = None
+                    runtime_status = "ORDER_ARMED"
+                elif s_dec_fp in routed_set:
+                    raw_guard = str(getattr(matched_c, "execution_guard_status", "") or "NOT_EVALUATED")
+                    if raw_guard == "SHADOW_ONLY":
+                        lifecycle_stage = "EXECUTION_GUARD_APPROVED"
+                        downstream_consumer = "ScalpWatcherOrchestrator.shadow_execution_guard"
+                        guard_status = "SHADOW_ONLY"
+                        final_auth = "SHADOW_NO_ORDER"
+                        order_intent_id = None
+                        rejection_reason = None
+                        runtime_status = "SHADOW_PLAN_VALID"
+                    else:
+                        lifecycle_stage = "ORDER_BLOCKED"
+                        downstream_consumer = "ScalpWatcherOrchestrator.execution_guard"
+                        guard_status = "REJECT"
+                        final_auth = "REJECTED"
+                        order_intent_id = None
+                        arm_rej = (arm_rejections or {}).get(getattr(matched_c, "candidate_key", ""))
+                        rejection_reason = (
+                            str(arm_rej[1])
+                            if isinstance(arm_rej, tuple) and len(arm_rej) >= 2
+                            else str(getattr(matched_c, "reason_code", "") or "EXECUTION_GUARD_BLOCKED")
+                        )
+                        runtime_status = "ORDER_BLOCKED_BY_GUARD"
+                elif s_dec_fp in pre_routed_set:
+                    lifecycle_stage = "ORDER_BLOCKED"
+                    downstream_consumer = "ScalpM1ModelService.evaluate_smc_opportunity_candidates"
+                    guard_status = "DESELECTED_BY_ROUTER"
+                    final_auth = "REJECTED"
+                    order_intent_id = None
+                    rejection_reason = "OTHER_MODEL_SELECTED"
+                    runtime_status = "DESELECTED_BY_ROUTER"
+                else:
+                    lifecycle_stage = "CANDIDATE_CONSUMED"
+                    downstream_consumer = "SharedStrategyEvaluator.enforce_canonical_decision_authority"
+                    guard_status = str(getattr(matched_c, "execution_guard_status", "REJECT") or "REJECT")
+                    final_auth = str(getattr(matched_c, "final_execution_authorization", "REJECTED") or "REJECTED")
+                    order_intent_id = None
+                    rejection_reason = (
+                        str(s_reasons[0])
+                        if s_reasons
+                        else str(getattr(matched_c, "reason_code", "") or None)
+                    )
+                    runtime_status = "CANDIDATE_REJECTED" if not getattr(matched_c, "is_eligible", False) else "CANDIDATE_ELIGIBLE"
+
+            enriched_record = dict(s_parity)
+            enriched_record.update({
+                "decision_id": s_dec_id,
+                "decision_fingerprint": s_dec_fp,
+                "model_id": s_model_id,
+                "symbol": s_symbol,
+                "decision_timestamp_ms": s_ts,
+                "market_input_hash": s_in_hash,
+                "input_snapshot_hash": s_in_hash,
+                "configuration_hash": s_cfg_hash,
+                "evaluation_status": s_status,
+                "strict_eligibility_status": "ELIGIBLE" if s_status == "ELIGIBLE" else "NON_ELIGIBLE",
+                "candidate_id": candidate_id,
+                "candidate_fingerprint": candidate_fp,
+                "downstream_consumer": downstream_consumer,
+                "guard_status": guard_status,
+                "execution_guard_status": guard_status,
+                "final_execution_authorization": final_auth,
+                "order_intent_id": order_intent_id,
+                "rejection_reason": rejection_reason,
+                "runtime_status": runtime_status,
+                "lifecycle_stage": lifecycle_stage,
+                "is_consumed": is_consumed,
+            })
+
+            evaluated_model_decisions[s_model_id] = enriched_record
+            if is_consumed:
+                consumed_model_decisions[s_model_id] = enriched_record
+            else:
+                unconsumed_model_decisions[s_model_id] = enriched_record
+
+            lineage_records.append({
+                "decision_id": s_dec_id,
+                "decision_fingerprint": s_dec_fp,
+                "market_input_hash": s_in_hash,
+                "input_snapshot_hash": s_in_hash,
+                "configuration_hash": s_cfg_hash,
+                "evaluator_version": getattr(s, "evaluator_version", EVALUATOR_VERSION),
+                "model_id": s_model_id,
+                "symbol": s_symbol,
+                "decision_timestamp_ms": s_ts,
+                "direction": getattr(s, "direction", s_parity.get("direction")),
+                "decision_status": s_status,
+                "evaluation_status": s_status,
+                "strict_eligibility_status": "ELIGIBLE" if s_status == "ELIGIBLE" else "NON_ELIGIBLE",
+                "strategy_decision_status": getattr(s, "strategy_decision_status", "APPROVE" if s_status == "ELIGIBLE" else "REJECT"),
+                "candidate_id": candidate_id,
+                "candidate_fingerprint": candidate_fp,
+                "downstream_consumer": downstream_consumer,
+                "guard_status": guard_status,
+                "execution_guard_status": guard_status,
+                "final_execution_authorization": final_auth,
+                "order_intent_id": order_intent_id,
+                "rejection_reason": rejection_reason,
+                "runtime_status": runtime_status,
+                "lifecycle_stage": lifecycle_stage,
+                "is_consumed": is_consumed,
+                "rejection_reason_codes": s_reasons,
+                "entry_reference": getattr(s, "entry_reference", s_parity.get("entry_reference")),
+                "selected_sl": getattr(s, "selected_sl", s_parity.get("selected_sl")),
+                "take_profit": getattr(s, "take_profit", s_parity.get("take_profit")),
+                "net_rr": getattr(s, "net_rr", s_parity.get("net_rr")),
+                "gross_rr": getattr(s, "gross_rr", s_parity.get("gross_rr")),
+            })
+
+        if injected_consumed_model_decisions:
+            for m_key, inj_rec in injected_consumed_model_decisions.items():
+                inj_did = str(inj_rec.get("decision_id", "") if isinstance(inj_rec, Mapping) else getattr(inj_rec, "decision_id", ""))
+                if not inj_did or inj_did not in consumed_decision_ids:
+                    unconsumed_reported_as_consumed_count += 1
+                    violations.append(f"UNCONSUMED_SNAPSHOT_REPORTED_AS_CONSUMED:{m_key}")
+
+        if armed_order is not None and commit_ok:
+            armed_did = str(getattr(armed_order, "decision_id", "") or "").strip()
+            if not armed_did or armed_did not in consumed_decision_ids:
+                order_intent_without_candidate_consumed_count += 1
+                violations.append("ORDER_INTENT_WITHOUT_CANDIDATE_CONSUMED")
+
+        if order_intent_decision_ids:
+            for dec_id_key, intent_id_val in order_intent_decision_ids.items():
+                if not dec_id_key or str(dec_id_key) not in consumed_decision_ids:
+                    order_intent_without_candidate_consumed_count += 1
+                    violations.append(f"ORDER_INTENT_FROM_UNCONSUMED_DECISION:{intent_id_val}")
+
+        is_valid = (
+            unconsumed_reported_as_consumed_count == 0
+            and missing_downstream_consumer_link_count == 0
+            and order_intent_without_candidate_consumed_count == 0
+            and len(violations) == 0
+        )
+
+        return {
+            "is_valid": is_valid,
+            "status": "PASS" if is_valid else "FAIL",
+            "consumed_model_decisions": consumed_model_decisions,
+            "evaluated_model_decisions": evaluated_model_decisions,
+            "unconsumed_model_decisions": unconsumed_model_decisions,
+            "decision_lineage_records": lineage_records,
+            "unconsumed_reported_as_consumed_count": unconsumed_reported_as_consumed_count,
+            "missing_downstream_consumer_link_count": missing_downstream_consumer_link_count,
+            "order_intent_without_candidate_consumed_count": order_intent_without_candidate_consumed_count,
+            "violations": violations,
         }
 
     def _finalize_failed_cycle(
@@ -2564,9 +3264,33 @@ class ScalpWatcherOrchestrator:
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
         Never bypasses entry guards or daily quotas.
         """
+        from services.runtime_profile_service import assert_not_observe_only
+        assert_not_observe_only(
+            "ScalpWatcherOrchestrator._arm_paper_candidate",
+            counter_key="BLOCKED_ARM_ATTEMPTS",
+        )
         cfg = config if config is not None else load_effective_scalp_config(db)
         snap = cand.snapshot
         calc = cand.calculation
+
+        # V17.9.0.1.2 Phase B: Enforce canonical decision_id and decision_fingerprint at ARM boundary
+        shared_snap = getattr(cand, "shared_decision_snapshot", None)
+        if shared_snap is not None:
+            from services.shared_strategy_evaluator import validate_canonical_executability
+            snap_ok, snap_rej = validate_canonical_executability(shared_snap)
+            cand_dec_id = str(getattr(cand, "decision_id", "") or "")
+            cand_dec_fp = str(getattr(cand, "decision_fingerprint", "") or "")
+            if (
+                not snap_ok
+                or not cand_dec_id
+                or not cand_dec_fp
+                or cand_dec_id != getattr(shared_snap, "decision_id", "")
+                or cand_dec_fp != getattr(shared_snap, "decision_fingerprint", "")
+            ):
+                rej_code = snap_rej or "CANONICAL_DECISION_LINEAGE_MISMATCH_AT_ARM"
+                with self._lock:
+                    self._arm_rejections[getattr(cand, "candidate_key", "unknown")] = (now_ms, rej_code)
+                return None
 
         # Reason-aware repeated arm-rejection suppression (Rule 109)
         suppression_ms = getattr(cfg, "arm_rejection_suppression_ms", 30_000)
@@ -3057,6 +3781,9 @@ class ScalpWatcherOrchestrator:
             min_net_rr=cfg.min_net_rr,
             clock=clock,
             evidence=cand_evidence,
+            min_protective_distance=getattr(cand.stop_placement, "protective_distance", None) if cand.stop_placement else None,
+            unicorn_evidence=getattr(cand, "unicorn_evidence", None),
+            stop_decision=cand.stop_placement,
         )
 
         decision = evaluate_entry_guard(db, req)
@@ -3200,19 +3927,60 @@ class ScalpWatcherOrchestrator:
         if quality_assessment:
             arm_snap["quality_assessment"] = quality_assessment.to_dict()
 
-        # V17.5/V17.5.8: Stop Placement additive metadata in arm_snap
+        # V17.5/V17.8.0.1: Stop Placement & Unicorn additive metadata in arm_snap
         sp = getattr(cand, "stop_placement", None)
         if sp is not None:
             arm_snap["stop_placement"] = sp.to_dict() if hasattr(sp, "to_dict") else sp
+        uni_ev = getattr(cand, "unicorn_evidence", None)
+        if uni_ev is not None:
+            arm_snap["unicorn_evidence"] = uni_ev.to_dict() if hasattr(uni_ev, "to_dict") else uni_ev
+            arm_snap["unicorn_evidence_id"] = (
+                getattr(uni_ev, "unicorn_id", None)
+                if not isinstance(uni_ev, dict)
+                else uni_ev.get("unicorn_id")
+            )
+        else:
+            arm_snap["unicorn_evidence_id"] = getattr(sp, "unicorn_id", None) if sp is not None else None
         if getattr(cand, "stop_comparison", None) is not None:
             sc = cand.stop_comparison
             arm_snap["stop_comparison_plan_id"] = getattr(sc, "opportunity_key", None) or getattr(sc, "id", None)
             arm_snap["stop_comparison"] = sc.to_dict() if hasattr(sc, "to_dict") else sc
         from services.stop_placement_policy_service import resolve_stop_placement_policy
         current_sp_policy = resolve_stop_placement_policy(db)
+        arm_snap["selected_stop_loss"] = cand.stop_loss
+        arm_snap["selected_take_profit"] = cand.take_profit
+        arm_snap["min_protective_distance"] = (
+            getattr(sp, "protective_distance", None)
+            if sp is not None and not isinstance(sp, dict)
+            else (sp.get("protective_distance") if isinstance(sp, dict) else None)
+        )
         arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if sp is not None else current_sp_policy.mode
         arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if sp is not None else current_sp_policy.version
+        arm_snap["stop_algorithm_version"] = (
+            getattr(sp, "algorithm_version", current_sp_policy.algorithm_version)
+            if sp is not None
+            else current_sp_policy.algorithm_version
+        )
         arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if sp is not None else "A"
+        sp_anchor = (
+            getattr(sp, "anchor", None)
+            if sp is not None and not isinstance(sp, dict)
+            else (sp.get("anchor") if isinstance(sp, dict) else None)
+        )
+        arm_snap["structural_anchor_id"] = (
+            getattr(sp_anchor, "id", None)
+            if sp_anchor is not None and not isinstance(sp_anchor, dict)
+            else (sp_anchor.get("id") if isinstance(sp_anchor, dict) else None)
+        )
+        arm_snap["quote_timestamp_at_arm"] = (
+            getattr(v_quote, "observed_at", None) or getattr(v_quote, "exchange_time", None) or now_ms
+            if v_quote is not None
+            else now_ms
+        )
+        arm_snap["v18_structural_intelligence_enabled"] = bool(current_sp_policy.v18_structural_intelligence_enabled)
+        arm_snap["v18_unicorn_detection_enabled"] = bool(current_sp_policy.v18_unicorn_detection_enabled)
+        arm_snap["v18_noise_research_enabled"] = bool(current_sp_policy.v18_noise_research_enabled)
+        arm_snap["v18_execution_policy_version"] = int(current_sp_policy.v18_execution_policy_version)
 
         # V17.5.9 (D03, Section 05 Part 037): Final shared ARM invariant barrier before order persistence
         is_arm_valid, arm_inv_reason = validate_arm_invariants(
@@ -3391,6 +4159,11 @@ class ScalpWatcherOrchestrator:
         return order
     async def run_watcher_loop(self):
         """Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165)."""
+        from services.runtime_profile_service import assert_not_observe_only
+        assert_not_observe_only(
+            "ScalpWatcherOrchestrator.run_watcher_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         while self._running:
             try:
@@ -3466,6 +4239,104 @@ class ScalpWatcherOrchestrator:
 
     def stop(self):
         self._running = False
+
+    def build_shared_decision_context(
+        self,
+        *,
+        symbol: str = "XAUUSDT",
+        decision_timestamp_ms: int,
+        m1_candles: Optional[Sequence[Any]] = None,
+        m5_candles: Optional[Sequence[Any]] = None,
+        m15_candles: Optional[Sequence[Any]] = None,
+        h1_candles: Optional[Sequence[Any]] = None,
+        h4_candles: Optional[Sequence[Any]] = None,
+        d1_candles: Optional[Sequence[Any]] = None,
+        bid: Optional[float] = None,
+        ask: Optional[float] = None,
+        quote_timestamp_ms: Optional[int] = None,
+        htf_zones: Optional[Sequence[Any]] = None,
+        liquidity_pools: Optional[Sequence[Any]] = None,
+        model_enablement: Optional[Dict[str, bool]] = None,
+        policy_config: Optional[Dict[str, Any]] = None,
+        risk_config: Optional[Dict[str, Any]] = None,
+        cost_config: Optional[Dict[str, Any]] = None,
+        strict_causal_validation: bool = False,
+        strict_htf_validation: bool = False,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
+    ):
+        """
+        V17.9.0.1 Phase D: Production adapter method constructing immutable
+        MarketDecisionContext for SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import build_market_decision_context
+        return build_market_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=decision_timestamp_ms,
+            m1_candles=m1_candles,
+            m5_candles=m5_candles,
+            m15_candles=m15_candles,
+            h1_candles=h1_candles,
+            h4_candles=h4_candles,
+            d1_candles=d1_candles,
+            bid=bid,
+            ask=ask,
+            quote_timestamp_ms=quote_timestamp_ms,
+            htf_zones=htf_zones,
+            liquidity_pools=liquidity_pools,
+            model_enablement=model_enablement,
+            policy_config=policy_config,
+            risk_config=risk_config,
+            cost_config=cost_config,
+            strict_causal_validation=strict_causal_validation,
+            strict_htf_validation=strict_htf_validation,
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
+        )
+
+    def evaluate_shared_decision_snapshot(
+        self,
+        *,
+        context: Any,
+        model_id: str,
+        direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: Production adapter method delegating pure strategy
+        decision evaluation to SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import SharedStrategyEvaluator
+        if direction in ("LONG", "SHORT"):
+            return SharedStrategyEvaluator.evaluate_model_direction(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+            )
+        return SharedStrategyEvaluator.evaluate_model_best_direction(
+            context=context,
+            model_id=model_id,
+            adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+        )
+
+    def evaluate_shared_all_models(
+        self,
+        *,
+        context: Any,
+        model_ids: Optional[Sequence[str]] = None,
+        preferred_direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: Production adapter method evaluating all configured
+        production models through SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import PRODUCTION_MODEL_IDS, SharedStrategyEvaluator
+        return SharedStrategyEvaluator.evaluate_all_models(
+            context=context,
+            model_ids=model_ids or PRODUCTION_MODEL_IDS,
+            preferred_direction=preferred_direction,
+            adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+        )
 
 
 scalp_watcher_orchestrator = ScalpWatcherOrchestrator()

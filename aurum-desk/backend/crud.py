@@ -8,6 +8,11 @@ from sqlalchemy import text, desc
 import models, schemas
 
 from services.clock import live_clock, IClock
+from services.runtime_profile_service import (
+    assert_not_observe_only,
+    is_non_trading_runtime,
+    is_observe_only_runtime,
+)
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
@@ -115,6 +120,7 @@ def bulk_upsert_candles(db: Session, candles: List[schemas.CandleCreate]) -> int
 # ==================== PAPER ORDERS CRUD ====================
 
 def create_paper_order(db: Session, order: schemas.PaperOrderCreate, order_id: str, commit: bool = True) -> models.PaperOrder:
+    assert_not_observe_only("crud.create_paper_order", counter_key="BLOCKED_ARM_ATTEMPTS")
     now_ms = int(time.time() * 1000)
     db_order = models.PaperOrder(
         id=order_id,
@@ -188,6 +194,7 @@ def update_paper_order_state(
     invalidation_reason: Optional[str] = None,
     commit: bool = True
 ) -> Optional[models.PaperOrder]:
+    assert_not_observe_only("crud.update_paper_order_state", counter_key="BLOCKED_CLOSE_ATTEMPTS")
     order = get_paper_order(db, order_id)
     if not order:
         return None
@@ -243,6 +250,8 @@ def get_or_create_today_audit(
             is_blocked=False,
             block_reason=None
         )
+        if is_non_trading_runtime():
+            return audit
         db.add(audit)
         if commit:
             db.commit()

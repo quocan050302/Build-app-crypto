@@ -224,13 +224,25 @@ def extract_immutable_entry_metadata(arm_snapshot: Optional[Dict[str, Any]]) -> 
         "stop_comparison_plan_id",
         "stop_mode_at_arm",
         "stop_policy_version",
+        "stop_algorithm_version",
         "applied_variant",
+        "selected_stop_loss",
+        "selected_take_profit",
+        "min_protective_distance",
+        "structural_anchor_id",
+        "unicorn_evidence",
+        "unicorn_evidence_id",
+        "quote_timestamp_at_arm",
+        "v18_structural_intelligence_enabled",
+        "v18_unicorn_detection_enabled",
+        "v18_noise_research_enabled",
+        "v18_execution_policy_version",
     )
 
     out = {}
     for k in whitelist_keys:
         if k in arm_snapshot and arm_snapshot[k] is not None:
-            if k in ("quality_assessment", "stop_placement", "stop_comparison"):
+            if k in ("quality_assessment", "stop_placement", "stop_comparison", "unicorn_evidence"):
                 import copy
                 out[k] = copy.deepcopy(arm_snapshot[k])
             else:

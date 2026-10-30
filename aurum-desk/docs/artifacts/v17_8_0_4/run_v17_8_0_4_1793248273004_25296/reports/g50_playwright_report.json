@@ -1,0 +1,297 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/v17_8_0_1_sltp_intelligence.e2e.ts",
+      "--output=C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_pw50_rlgqtf9r"
+    ],
+    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
+    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/ADMIN/AppData/Local/Temp/aurum_pw50_rlgqtf9r",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.e2e.ts"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_pw50_rlgqtf9r",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.e2e.ts",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:5215",
+          "viewport": {
+            "width": 1512,
+            "height": 857
+          },
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "channel": "chrome"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_8_0_4\\run_v17_8_0_4_1793248273004_25296\\reports\\g50_playwright_report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "v17_8_0_1_sltp_intelligence.e2e.ts",
+      "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V17.8.0.1 SL/TP Intelligence View Browser E2E Verification",
+          "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "P01: Renders full V17.8.0.1 Unicorn structural stop intelligence in Journal Drawer",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5472,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-29T04:32:44.551Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bdcb390e601268a85759-638810bfdbc9aa7c9af7",
+              "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+              "line": 22,
+              "column": 3
+            },
+            {
+              "title": "P02: Distinguishes executed Legacy SL (A) from research Unicorn candidate SL in SHADOW_COMPARE mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2674,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-29T04:32:50.525Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bdcb390e601268a85759-7bc90d8b76e040e09855",
+              "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+              "line": 129,
+              "column": 3
+            },
+            {
+              "title": "P03: Displays UNAVAILABLE_LEGACY and NOT_RECORDED for historical order without fabricating mode or variant",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2355,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-29T04:32:53.223Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bdcb390e601268a85759-a970d60515b93a4d1b74",
+              "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+              "line": 187,
+              "column": 3
+            },
+            {
+              "title": "P04: V17.8.0.3 MarketShadowPanel renders connected fresh feed, Unicorn opportunity, RESEARCH ONLY badge, and backtest results",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2186,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-29T04:32:55.595Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bdcb390e601268a85759-214518bd8789cad4041c",
+              "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+              "line": 214,
+              "column": 3
+            },
+            {
+              "title": "P05: V17.8.0.3 MarketShadowPanel renders DISCONNECTED feed and MISSING_BACKTEST_DATA honestly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1926,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-29T04:32:57.796Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bdcb390e601268a85759-2bc994ffc140dd470380",
+              "file": "v17_8_0_1_sltp_intelligence.e2e.ts",
+              "line": 242,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-29T04:32:35.327Z",
+    "duration": 25720.18,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

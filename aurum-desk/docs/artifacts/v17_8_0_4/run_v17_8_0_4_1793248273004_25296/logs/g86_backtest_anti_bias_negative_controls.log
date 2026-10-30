@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\g86_backtest_anti_bias_negative_controls.xml -k TestG86All20BacktestAntiBiasNegativeControls or test_g86_all_20_mandatory_backtest_negative_controls
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 9
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG86All20BacktestAntiBiasNegativeControls::test_g86_all_20_mandatory_backtest_negative_controls (0.009s)
+1 passed in 0.01s
+
+--- STDERR ---

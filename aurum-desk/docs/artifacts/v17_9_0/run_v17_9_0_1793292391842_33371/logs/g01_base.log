@@ -1,0 +1,8 @@
+COMMAND: git merge-base HEAD origin/master
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 12
+EXIT_CODE: 0
+--- STDOUT ---
+de5e035fc14ef9f155ecd1421b90f38a11a861e9
+
+--- STDERR ---

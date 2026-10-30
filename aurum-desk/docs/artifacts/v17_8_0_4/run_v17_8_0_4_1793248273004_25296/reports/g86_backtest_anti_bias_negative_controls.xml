@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g86_backtest_anti_bias_negative_controls" tests="1" errors="0" failures="0" skipped="0" time="0.009"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG86All20BacktestAntiBiasNegativeControls" name="test_g86_all_20_mandatory_backtest_negative_controls" time="0.009" /></testsuite></testsuites>

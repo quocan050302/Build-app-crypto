@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_database_safety.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/g02_test_db_bootstrap.xml -k test_dbs_01 or test_dbs_09
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 8
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_01_default_isolated_test_path_succeeds (0.004s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_09_test_bootstrap_occurs_before_engine_binding (0.004s)
+2 passed in 0.01s
+
+--- STDERR ---

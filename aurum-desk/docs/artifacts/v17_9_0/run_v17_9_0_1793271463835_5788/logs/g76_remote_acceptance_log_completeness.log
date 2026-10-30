@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\g76_remote_acceptance_log_completeness.xml -k TestG76AcceptanceLogCompleteness
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 141
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG76AcceptanceLogCompleteness::test_g76_gitignore_does_not_ignore_acceptance_or_backtest_logs (0.110s)
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG76AcceptanceLogCompleteness::test_g76_missing_acceptance_log_fails_closed_with_incomplete (0.031s)
+2 passed in 0.14s
+
+--- STDERR ---

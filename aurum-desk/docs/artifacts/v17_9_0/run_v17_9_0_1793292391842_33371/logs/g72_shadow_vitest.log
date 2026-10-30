@@ -1,0 +1,17 @@
+COMMAND: /Users/macbook/.nvm/versions/node/v22.22.3/bin/npx vitest run src/__tests__/v17_8_0_1_sltp_intelligence.test.tsx
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend
+DURATION_MS: 2271
+EXIT_CODE: 0
+--- STDOUT ---
+
+ RUN  v5.0.3 /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend
+
+ ✓ src/__tests__/v17_8_0_1_sltp_intelligence.test.tsx (6 tests) 78ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  23:46:48
+   Duration  981ms (environment 45%, transform 25%, import 20%, tests 9%, worker 1%)
+
+
+--- STDERR ---

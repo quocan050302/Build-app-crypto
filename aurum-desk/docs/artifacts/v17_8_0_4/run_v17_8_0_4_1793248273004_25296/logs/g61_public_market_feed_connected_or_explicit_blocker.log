@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\g61_public_market_feed_connected_or_explicit_blocker.xml -k test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow or test_end_to_end_ws_to_shadow_storage_and_shadow_api
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 2453
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow (0.015s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath::test_end_to_end_ws_to_shadow_storage_and_shadow_api (2.438s)
+2 passed in 2.45s
+
+--- STDERR ---
