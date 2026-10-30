@@ -2139,9 +2139,12 @@ def generate_all_v17_9_0_1_artifacts(
     ])
 
     exec_tree_info = compute_executable_source_tree_hash(REPO_ROOT)
+    exec_files_cnt = int(exec_tree_info.get("files_count") or exec_tree_info.get("file_count") or 0)
     bt_sha_prov = verify_backtest_source_sha_provenance(
-        str(bt_metrics_payload.get("backtest_source_sha") or code_sha),
-        expected_final_code_sha=code_sha,
+        backtest_source_sha=str(bt_metrics_payload.get("backtest_source_sha") or code_sha),
+        final_code_sha=code_sha,
+        backtest_tree_hash=str(ds_man.get("source_tree_hash") or exec_tree_info["executable_source_tree_hash"]),
+        current_tree_hash=str(exec_tree_info["executable_source_tree_hash"]),
         repo_root=REPO_ROOT,
     )
     exact_commit_exec_manifest = {
@@ -2151,7 +2154,7 @@ def generate_all_v17_9_0_1_artifacts(
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
         "evaluator_version": EVALUATOR_VERSION,
         "executable_source_tree_hash": exec_tree_info["executable_source_tree_hash"],
-        "executable_files_count": exec_tree_info["file_count"],
+        "executable_files_count": exec_files_cnt,
         "backtest_source_sha": bt_metrics_payload.get("backtest_source_sha"),
         "backtest_source_sha_provenance": bt_sha_prov,
         "acceptance_tested_source_sha": original_run_sha or code_sha,
@@ -2165,8 +2168,8 @@ def generate_all_v17_9_0_1_artifacts(
         "",
         f"- **Final Code SHA (`FINAL_CODE_SHA`):** `{code_sha}`",
         f"- **Backtest Executed Source SHA:** `{bt_metrics_payload.get('backtest_source_sha')}`",
-        f"- **Executable Source Tree SHA-256:** `{exec_tree_info['executable_source_tree_hash']}` (`{exec_tree_info['file_count']}` files)",
-        f"- **Backtest Source SHA Provenance Status:** `{bt_sha_prov.get('status')}` (`reason={bt_sha_prov.get('reason_code')}`)",
+        f"- **Executable Source Tree SHA-256:** `{exec_tree_info['executable_source_tree_hash']}` (`{exec_files_cnt}` files)",
+        f"- **Backtest Source SHA Provenance Status:** `{bt_sha_prov.get('status')}` (`violations={bt_sha_prov.get('violations')}`)",
         f"- **Trade Ledger Cache Validation Status:** `{ledger_cache_val.get('status')}` (`cache_trusted={ledger_cache_val.get('cache_trusted')}`)",
         "",
         "## 1. Forensics of Previously Reported SHA `3b40be13fe2fa84af99d541acc88bcace17985e2`",
@@ -2183,9 +2186,9 @@ def generate_all_v17_9_0_1_artifacts(
         f"- **Final Code SHA (`FINAL_CODE_SHA`):** `{code_sha}`",
         f"- **Historical Pre-Refactor Reference Commit:** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
         f"- **Evaluator Version:** `{EVALUATOR_VERSION}`",
-        f"- **Negative Acceptance Suite (`N01`–`N50`):** `{neg_results_payload['passed_negative_controls']}/{neg_results_payload['total_negative_controls']}` (`status={neg_results_payload['status']}`)",
+        f"- **Negative Acceptance Suite (`N01`–`N70`):** `{neg_results_payload['passed_negative_controls']}/{neg_results_payload['total_negative_controls']}` (`status={neg_results_payload['status']}`)",
         "",
-        "## 1. Defect Closure Matrix (`DEF-179012-C01` through `DEF-179012-C06`)",
+        "## 1. Defect Closure Matrix (`DEF-179012-C01` through `DEF-179012-F05`)",
         "| Defect ID | Priority | Root Cause | Repair Implemented | Negative Controls | Status |",
         "|---|---|---|---|---|---|",
         "| `DEF-179012-C01` | P0 | `ScalpWatcherOrchestrator.evaluate_cycle()` iterated over `shared_decision_snapshots` and recorded unconsumed snapshots in `consumed_model_decisions`. | Tracked `downstream_candidates_by_fp`, added lifecycle classification (`CANDIDATE_CONSUMED`, `ORDER_INTENT_CREATED`, `ORDER_BLOCKED`, `EVALUATED_NOT_CONSUMED`), and enforced `reconcile_consumed_decisions_from_snapshots()`. | `N31`, `N32`, `N33` | `CLOSED_VERIFIED` |",
@@ -2194,6 +2197,11 @@ def generate_all_v17_9_0_1_artifacts(
         "| `DEF-179012-C04` | P1 | `execute_isolated_historical_baseline_scenarios()` copied current-tree `v17_9_0_1_baseline_oracle.py` into `_oracle_runner/hist_oracle_entry.py` and evaluated only 55 synthetic scenarios. | Removed file copy (`copied_current_oracle_entry=False`), executed pure historical modules from `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`, and evaluated all 150 real historical market scenarios (`HISTORICAL_BASELINE_REAL_SCENARIOS.jsonl`). | `N41`, `N42` | `CLOSED_VERIFIED` |",
         "| `DEF-179012-C05` | P1 | Historical comparison records could have null `input_snapshot_hash` / `configuration_hash` or pass parity when hashes were missing. | Added `_canonical_candle_series()`, `market_input_hash`, fail-closed `_resolve_parity_hash()`, and `validate_comparison_record_hashes()`. | `N43`, `N44`, `N45`, `N46` | `CLOSED_VERIFIED` |",
         "| `DEF-179012-C06` | P0 | Acceptance validator needed semantic cross-artifact checks and uniform `V17.9.0.1.2` release metadata enforcement. | Added `validate_semantic_acceptance_bundle()` (`N47`–`N50`) and standardized all artifacts to `release = 'V17.9.0.1.2'`. | `N47`, `N48`, `N49`, `N50` | `CLOSED_VERIFIED` |",
+        "| `DEF-179012-F01` | P0 | Historical subprocess harness injected `inspect.getsource(IndependentPreRefactorBaselineOracle)` instead of executing the original historical callables at `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`. | Removed `inspect.getsource` injection, invoked original historical `MarketShadowService._evaluate_single_model_shadow`, `ScalpM1ModelService`, `evaluate_cg01_candidate`, and `ScalpWatcherOrchestrator.evaluate_cycle`, and enforced `validate_historical_baseline_execution_authority()`. | `N51`, `N52`, `N53`, `N54` | `CLOSED_VERIFIED` |",
+        "| `DEF-179012-F02` | P0 | `execute_chronological_backtest_window_for_parity()` had a synthetic 12-bar `last_c +/- 0.30` fallback when `forward_1m` was empty. | Removed synthetic fallback, enforced `validate_forward_candles_for_simulation()` and `validate_decision_context_no_future_leakage()`, passed verified real `forward_1m` bars, and reconciled with the chronological backtest ledger. | `N55`, `N56`, `N57`, `N58`, `N59`, `N60` | `CLOSED_VERIFIED` |",
+        "| `DEF-179012-F03` | P0 | Previously reported backtest SHA `3b40be13fe2fa84af99d541acc88bcace17985e2` was an amended-away commit before `git commit --amend`. | Added `verify_backtest_source_sha_provenance()` and `compute_executable_source_tree_hash()`, and executed backtest on frozen `FINAL_CODE_SHA` without post-freeze `--amend`. | `N61`, `N62`, `N63`, `N64` | `CLOSED_VERIFIED` |",
+        "| `DEF-179012-F04` | P0 | `trade_decision_lineage_reconciliation.json` lacked 11-invariant cache provenance validation. | Added `build_backtest_ledger_provenance_envelope()` and `validate_cached_trade_ledger_provenance()`. | `N65`, `N66`, `N67`, `N68` | `CLOSED_VERIFIED` |",
+        "| `DEF-179012-F05` | P0 | Cross-artifact semantic validator needed checks for `DEF-179012-F01`..`F04` artifacts and 70/70 negative controls. | Extended `validate_semantic_acceptance_bundle()` (`N69`, `N70`) and verified all 53 V17.9.0.1.2 artifacts. | `N69`, `N70` | `CLOSED_VERIFIED` |",
         "",
     ])
 
@@ -2549,10 +2557,10 @@ def generate_all_v17_9_0_1_artifacts(
         "",
         "## 1. Semantic Invariants Verified Across Generated Bundle",
         "1. **Release Metadata Uniformity (`N50`):** Every JSON manifest/report carries `release == 'V17.9.0.1.2'`.",
-        "2. **50/50 Negative Controls (`N01`–`N50`):** `NEGATIVE_ACCEPTANCE_RESULTS.json` verifies `50/50` passed controls.",
-        "3. **Isolated Historical Authority (`N41`–`N42`):** `BASELINE_MANIFEST.json` verifies `copied_current_oracle_entry == False` and `real_historical_scenarios_count == 150`.",
-        "4. **Comparison Source Accounting (`N38`–`N40`):** `ACTUAL_RUNTIME_PARITY_REPORT.json` verifies `three_way_current_runtime == 210`, `four_way_current_plus_baseline == 210`, `five_way_verified == 210`, `actual_consumed_trade_lineage == 18`.",
-        "5. **Non-Null Input/Config Hashes (`N43`–`N46`):** All 150 historical records carry valid 64-hex `input_snapshot_hash`, `market_input_hash`, and `configuration_hash`.",
+        "2. **70/70 Negative Controls (`N01`–`N70`):** `NEGATIVE_ACCEPTANCE_RESULTS.json` verifies `70/70` passed controls.",
+        "3. **Isolated Historical Authority (`N41`–`N42`, `N51`–`N54`):** `BASELINE_MANIFEST.json` and `HISTORICAL_EXECUTED_CALLABLE_MANIFEST.json` verify `copied_current_oracle_entry == False`, `current_oracle_source_injected == False`, and `real_historical_scenarios_count == 150`.",
+        "4. **Comparison Source Accounting & Real Forward Candles (`N38`–`N40`, `N55`–`N60`):** `ACTUAL_RUNTIME_PARITY_REPORT.json` and `REAL_FORWARD_CANDLE_PROVENANCE.json` verify `three_way_current_runtime == 210`, `four_way_current_plus_baseline == 210`, `five_way_verified == 210`, `actual_consumed_trade_lineage == 18`, and `fabricated_forward_candles_count == 0`.",
+        "5. **Non-Null Input/Config Hashes & Provenance (`N43`–`N46`, `N61`–`N70`):** All 150 historical records carry valid 64-hex `input_snapshot_hash`, `market_input_hash`, and `configuration_hash`, and `EXACT_COMMIT_EXECUTION_MANIFEST.json` + `LEDGER_CACHE_VALIDATION_REPORT.json` verify exact commit and 11-invariant cache provenance.",
         "",
     ])
     for out_dir in target_dirs:

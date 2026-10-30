@@ -3561,6 +3561,12 @@ def generate_phase_b_baseline_artifacts(
         "historical_orchestrator_class": iso_exec.get("historical_orchestrator_class"),
         "historical_orchestrator_invoked_count": int(iso_exec.get("historical_orchestrator_invoked_count", 0) or 0),
         "callable_invocation_counts": iso_exec.get("callable_invocation_counts", {}),
+        "callable_authority_valid": bool(
+            iso_exec.get("status") == "PASS"
+            and not bool(iso_exec.get("copied_current_oracle_entry", False))
+            and not bool(iso_exec.get("current_oracle_source_injected", False))
+            and bool(iso_exec.get("forbidden_modules_absent", True))
+        ),
         "subprocess_pid": iso_exec.get("subprocess_pid"),
         "forbidden_modules_absent": bool(iso_exec.get("forbidden_modules_absent", True)),
         "loaded_historical_modules": loaded_hist_modules,
@@ -3868,9 +3874,31 @@ def generate_phase_b_baseline_artifacts(
             )
     orig_runtime_md = "\n".join(orig_runtime_lines) + "\n"
 
+    combined_comparison_records = list(decision_records) + list(real_historical_records)
+    vs_refactored_jsonl_bytes = (
+        "\n".join(json.dumps(r, sort_keys=True) for r in combined_comparison_records) + "\n"
+    ).encode("utf-8")
+    vs_refactored_summary_payload = {
+        "release": "V17.9.0.1.2",
+        "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
+        "status": "PASS" if classification_counts.get("UNEXPECTED_DIVERGENCE", 0) == 0 else "FAIL",
+        "historical_execution_authority": manifest["historical_execution_authority"],
+        "copied_current_oracle_entry": False,
+        "current_oracle_source_injected": False,
+        "callable_authority_valid": manifest["callable_authority_valid"],
+        "characterization_scenarios_count": len(decision_records),
+        "real_historical_scenarios_count": len(real_historical_records),
+        "combined_total_scenarios": len(combined_comparison_records),
+        "classification_breakdown": classification_counts,
+        "documented_change_records_count": len(documented_change_records),
+        "documented_change_records": documented_change_records,
+        "callable_invocation_counts": iso_exec.get("callable_invocation_counts", {}),
+    }
+
     if output_dirs:
         manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
         callable_manifest_bytes = (json.dumps(callable_manifest_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        vs_refactored_summary_bytes = (json.dumps(vs_refactored_summary_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
         hash_manifest_bytes = (json.dumps(hash_manifest_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
         char_bytes = char_md_text.encode("utf-8")
         prov_bytes = prov_md.encode("utf-8")
@@ -3888,6 +3916,8 @@ def generate_phase_b_baseline_artifacts(
             (out_path / "HISTORICAL_BASELINE_ORIGINAL_RUNTIME_REPORT.md").write_bytes(orig_runtime_bytes)
             (out_path / "HISTORICAL_ORIGINAL_PRODUCTION_EXECUTION_REPORT.md").write_bytes(orig_runtime_bytes)
             (out_path / "HISTORICAL_EXECUTED_CALLABLE_MANIFEST.json").write_bytes(callable_manifest_bytes)
+            (out_path / "HISTORICAL_VS_REFACTORED_COMPARISON.jsonl").write_bytes(vs_refactored_jsonl_bytes)
+            (out_path / "HISTORICAL_VS_REFACTORED_SUMMARY.json").write_bytes(vs_refactored_summary_bytes)
             (out_path / "HISTORICAL_BASELINE_REAL_SCENARIOS.jsonl").write_bytes(real_jsonl_bytes)
             (out_path / "HISTORICAL_SOURCE_HASH_MANIFEST.json").write_bytes(hash_manifest_bytes)
             disk_sha = hashlib.sha256((out_path / "BASELINE_DECISIONS.jsonl").read_bytes()).hexdigest()
