@@ -1,0 +1,20 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_realtime_execution_worker.py backend/tests/test_v16_21_production_flow.py backend/tests/test_v16_21_red_reproductions.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_v16_25_production_flow.py backend/tests/test_migration_runtime_upgrade.py backend/tests/test_realtime_closure.py backend/tests/test_v10_1_acceptance.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_price_plans.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_17_repair_provenance.py backend/tests/test_v14_4_repository.py backend/tests/test_v15_0_daily_ny_research.py backend/tests/test_v15_0_model_comparison.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v16_10_causal_ohlc_path.py backend/tests/test_v16_12_cg01_execution.py backend/tests/test_v16_13_cg01_execution.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_39_1_evidence_scoring_repair.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v16_5_expiry_pipeline.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_1_stop_costs.py backend/tests/test_v17_5_8_break_fail_closed.py backend/tests/test_v17_5_8_full_cycle.py backend/tests/test_v17_5_model_integration.py backend/tests/test_v17_6_3_market_eligible_coverage.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_6_4_3_transaction_boundaries.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v8_repro_and_contract.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353167001_29964\reports\shards\shard_6.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 296744
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 72%]
+........................................................................ [ 90%]
+......................................                                   [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+398 passed, 1 warning in 290.54s (0:04:50)
+
+--- STDERR ---

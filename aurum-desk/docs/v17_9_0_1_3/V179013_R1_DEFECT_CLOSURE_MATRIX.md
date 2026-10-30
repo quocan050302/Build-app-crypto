@@ -1,7 +1,7 @@
 # V17.9.0.1.3 Defect Closure Matrix
 
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
-- **Final Code SHA:** `21cc6876cd9e2a846adf96d22a4d2061b8bf4e98`
+- **Final Code SHA:** `a499f06951d50779a143828a10fb5ca48944d87c`
 - **Historical Pre-Refactor Baseline:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 
 | Defect ID | Severity | Root Cause | Actual Code Repair | Verification Tests & Negative Controls | Final Status |

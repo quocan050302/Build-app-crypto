@@ -1,11 +1,12 @@
-COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g95_production_cg01_parity.xml -k test_13 or test_14 or test_v17_9_0_1_cg01_parity
-CWD: D:\build app-crypto\aurum-desk
-DURATION_MS: 136
-EXIT_CODE: 0
---- STDOUT ---
-PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_13_stage1_baseline_characterization_cg01_sweep_mss_fvg (0.015s)
-PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_14_stage2_parity_production_vs_shared_all_5_models (0.026s)
-PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_cg01_parity (0.095s)
-3 passed in 0.14s
+# Group: G95_PRODUCTION_CG01_PARITY (CG01_SWEEP_MSS_FVG independent pre-refactor baseline vs SharedStrategyEvaluator parity)
+# Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_13 or test_14 or test_v17_9_0_1_cg01_parity --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g95_production_cg01_parity.xml -q
+# Started: 1793352751167
 
---- STDERR ---
+...                                                                      [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 54 deselected, 1 warning in 13.86s

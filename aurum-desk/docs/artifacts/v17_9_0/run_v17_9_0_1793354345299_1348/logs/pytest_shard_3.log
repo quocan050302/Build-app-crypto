@@ -1,0 +1,21 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_18_red_reproductions.py backend/tests/test_entry_intent_closure.py backend/tests/test_order_geometry_parity.py backend/tests/test_v12_3_acceptance.py backend/tests/test_v13_5_data_range_acceptance.py backend/tests/test_v13_5_integrity_acceptance.py backend/tests/test_v13_6_engine_execution_integration.py backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_4_16_strict_report_authority.py backend/tests/test_v14_4_19_repair_self_proof.py backend/tests/test_v14_4_1_scenario_fail_closed.py backend/tests/test_v14_4_2_requirements.py backend/tests/test_v14_4_8_reconciliation_accumulator.py backend/tests/test_v16_12_htf_state_machine.py backend/tests/test_v16_15_paper_accounting_and_persistence.py backend/tests/test_v16_29_cg01_realtime_serialization.py backend/tests/test_v16_2_repro_and_micro_break.py backend/tests/test_v16_30_cg01_daily_bias.py backend/tests/test_v16_39_9_coordinator_policy_acceptance.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_3_cg01_replay.py backend/tests/test_v16_7_execution_guard_parity.py backend/tests/test_v16_7_replay_costs.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_config_transaction.py backend/tests/test_v17_4_startup.py backend/tests/test_v17_5_2_boundary_probes.py backend/tests/test_v17_5_6_break_time_contract.py backend/tests/test_v17_5_9_arm_production_wiring.py backend/tests/test_v17_5_9_reference_source_authority.py backend/tests/test_v17_5_anchor_binding.py backend/tests/test_v17_6_1_run_isolation.py backend/tests/test_v17_6_4_2_cycle_commit_truth.py backend/tests/test_v17_6_4_3a_discovery_integrity.py backend/tests/test_v17_6_4_3d_db_isolation.py backend/tests/test_v17_6_market_freshness.py backend/tests/test_v17_6_observation_run.py backend/tests/test_v17_8_0_2_observe_only_runtime.py backend/tests/test_v17_8_quote_noise_guard.py backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v5_authoritative_lab.py backend/tests/test_v6_error_and_arm_levels.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793354345299_1348\reports\shards\shard_3.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 374443
+EXIT_CODE: 0
+--- STDOUT ---
+......................s................................................. [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 46%]
+........................................................................ [ 62%]
+........................................................................ [ 77%]
+........................................................................ [ 93%]
+................................                                         [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+463 passed, 1 skipped, 1 warning in 369.52s (0:06:09)
+
+--- STDERR ---

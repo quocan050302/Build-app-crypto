@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — Historical Backtest & Authoritative Shared Evaluator Parity Report
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `21cc6876cd9e2a846adf96d22a4d2061b8bf4e98`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `a499f06951d50779a143828a10fb5ca48944d87c`
 - **Backtest Executed Source SHA:** `2a494323d87f0417fbc2b118f26c788a07140672`
 - **Evaluator Version:** `17.9.0.1.1`
 - **Dataset SHA-256:** `6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5`

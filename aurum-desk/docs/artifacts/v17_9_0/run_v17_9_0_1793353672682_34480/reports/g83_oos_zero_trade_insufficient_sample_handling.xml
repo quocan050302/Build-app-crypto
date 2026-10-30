@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g83_oos_zero_trade_insufficient_sample_handling" tests="1" errors="0" failures="0" skipped="0" time="0.011"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation" name="test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics" time="0.011" /></testsuite></testsuites>

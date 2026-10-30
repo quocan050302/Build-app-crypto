@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g33_model_specific_sl_selection" tests="1" errors="0" failures="0" skipped="0" time="0.014"><testcase classname="backend.tests.test_v17_8_structural_sl" name="test_fvg_displacement_origin_fallback_when_bound_leg_invalidated" time="0.014" /></testsuite></testsuites>

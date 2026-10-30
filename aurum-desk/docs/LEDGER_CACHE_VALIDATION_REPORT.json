@@ -23,12 +23,12 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
-    "source_tree_hash": "0db5661675b4f684f29fdc437bcfd356dcfdbdb3c6c05834877142b15415b389"
+    "source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+    "source_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6"
   },
   "expected_provenance": {
     "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-    "core_backtest_evaluator_tree_hash": "3826d4ec2d1333e3317f2014734910da21a11ceca10ba73542d82aeb8d39581d",
+    "core_backtest_evaluator_tree_hash": "147648f59a39215e073ca175c1148db3ff45bb56bc93b161af655391c48f044a",
     "cost_spread_assumptions": {
       "default_slippage_usd": 0.1,
       "default_spread_usd": 0.25,
@@ -51,10 +51,10 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
-    "source_tree_hash": "0db5661675b4f684f29fdc437bcfd356dcfdbdb3c6c05834877142b15415b389"
+    "source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+    "source_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6"
   },
-  "final_code_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
   "inspected_invariants_count": 11,
   "is_valid": true,
   "regeneration_required": false,

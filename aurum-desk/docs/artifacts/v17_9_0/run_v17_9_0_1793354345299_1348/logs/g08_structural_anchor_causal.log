@@ -1,0 +1,12 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793354345299_1348\reports\g08_structural_anchor_causal.xml -k test_ce_06 or test_ce_07 or test_ce_08 or test_sl_58
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 267
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_58_market_data_provenance_and_causal_timestamps (0.069s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_06_invalid_anchor_causal_ordering_rejected (0.065s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_07_anchor_from_other_episode_rejected (0.067s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_08_previously_invalidated_anchor_rejected (0.066s)
+4 passed in 0.27s
+
+--- STDERR ---

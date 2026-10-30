@@ -1,0 +1,23 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_17_production_flow.py backend/tests/test_v16_20_production_flow.py backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v16_23_production_flow.py backend/tests/test_v16_24_production_flow.py backend/tests/test_setup_quality_service_v14.py backend/tests/test_v12_three_month_replay.py backend/tests/test_v13_5_accounting_acceptance.py backend/tests/test_v13_5_strategy_routing.py backend/tests/test_v13_7_ledger_idempotency.py backend/tests/test_v13_8_order_lifecycle.py backend/tests/test_v14_4_1_contracts.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_2_financial_context_regression.py backend/tests/test_v14_4_6_flow_preservation.py backend/tests/test_v14_4_6_forecast_state_transitions.py backend/tests/test_v14_4_entry_guards.py backend/tests/test_v14_4_quote_provenance.py backend/tests/test_v15_5_lifecycle_closure.py backend/tests/test_v16_13_htf_confirmation.py backend/tests/test_v16_28_cg01_setup_correctness.py backend/tests/test_v16_2_cg01_guards_lifecycle.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_8_statistics_and_accounting.py backend/tests/test_v17_0_opportunity_monitor_metrics.py backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_api.py backend/tests/test_v17_5_1_anchor_leg.py backend/tests/test_v17_5_1_policy_cas.py backend/tests/test_v17_5_1_research_runtime.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_4_context_binding.py backend/tests/test_v17_5_exit_evidence.py backend/tests/test_v17_6_2_coverage_intervals.py backend/tests/test_v17_6_4_2_metadata_good_bypass.py backend/tests/test_v17_6_4_2_persistence_status.py backend/tests/test_v17_6_4_3_current_evidence_health.py backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py backend/tests/test_v17_6_4_3b_unique_commit_truth.py backend/tests/test_v17_6_4_3d_live_order_boundary.py backend/tests/test_v17_6_4_engine_owner_truth.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353167001_29964\reports\shards\shard_2.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 336431
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+...............                                                          [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v17_6_4_3b_unique_commit_truth.py::test_uc03_unique_conflict_without_durable_readback_fails
+  D:\build app-crypto\aurum-desk\backend\tests\test_v17_6_4_3b_unique_commit_truth.py:170: SAWarning: Session's state has been changed on a non-active transaction - this state will be discarded.
+    s_other.rollback()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+303 passed, 2 warnings in 332.29s (0:05:32)
+
+--- STDERR ---

@@ -1,16 +1,16 @@
 {
   "compressed_logs": [],
-  "final_code_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
   "final_temporary_bytes": 0,
-  "generated_at_utc": "2026-10-30T08:16:57.646743+00:00",
+  "generated_at_utc": "2026-10-30T10:06:16.161950+00:00",
   "log_compression_threshold_bytes": 26214400,
   "release": "V17.9.0.1.3",
   "retained_artifact_directories": [
     "docs/v17_9_0_1_3",
     "docs/v17_9_0_1",
-    "docs/artifacts/v17_9_0/run_v17_9_0_1793347765344_24124",
+    "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348",
     "backtest"
   ],
-  "temporary_directory_root": "tmp/v17_9_0/run_v17_9_0_1793347765344_24124",
+  "temporary_directory_root": "tmp/v17_9_0/run_v17_9_0_1793354345299_1348",
   "worker_temp_directories_remaining": 0
 }

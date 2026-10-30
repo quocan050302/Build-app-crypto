@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — HTF Causality & Point-in-Time Data Correctness Report
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `21cc6876cd9e2a846adf96d22a4d2061b8bf4e98`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `a499f06951d50779a143828a10fb5ca48944d87c`
 - **Evaluator Version:** `17.9.0.1.1`
 
 ## 1. Point-in-Time Closed-Candle Validation (`validate_htf_candle_series` & `aggregate_closed_htf_candles`)

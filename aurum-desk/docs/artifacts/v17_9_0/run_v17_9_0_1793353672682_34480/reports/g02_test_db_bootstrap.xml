@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g02_test_db_bootstrap" tests="2" errors="0" failures="0" skipped="0" time="0.026"><testcase classname="backend.tests.test_v17_7_database_safety" name="test_dbs_01_default_isolated_test_path_succeeds" time="0.013" /><testcase classname="backend.tests.test_v17_7_database_safety" name="test_dbs_09_test_bootstrap_occurs_before_engine_binding" time="0.013" /></testsuite></testsuites>

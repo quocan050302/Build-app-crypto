@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g77_git_reproducible_source_manifest.xml -k test_g77_source_manifest_is_git_tree_reproducible_and_excludes_os_noise
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 985
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG77AndG78GitReproducibleSourceManifest::test_g77_source_manifest_is_git_tree_reproducible_and_excludes_os_noise (0.985s)
+1 passed in 0.98s
+
+--- STDERR ---

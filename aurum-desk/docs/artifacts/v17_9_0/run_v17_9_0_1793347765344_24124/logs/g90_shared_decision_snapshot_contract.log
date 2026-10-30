@@ -1,12 +1,12 @@
-COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g90_shared_decision_snapshot_contract.xml -k test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result
-CWD: D:\build app-crypto\aurum-desk
-DURATION_MS: 67
-EXIT_CODE: 0
---- STDOUT ---
-PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_06_strategy_decision_snapshot_immutability_and_20_parity_fields (0.016s)
-PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_07_strategy_decision_snapshot_deterministic_fingerprints (0.020s)
-PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_08_decision_status_enum_completeness_and_model_disabled_handling (0.014s)
-PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_canonical_decision_result_and_evaluate_decision (0.017s)
-4 passed in 0.07s
+# Group: G90_SHARED_DECISION_SNAPSHOT_CONTRACT (StrategyDecisionSnapshot / DecisionResult 20-field schema, evaluate_decision entrypoint & deterministic hashes)
+# Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g90_shared_decision_snapshot_contract.xml -q
+# Started: 1793352712843
 
---- STDERR ---
+....                                                                     [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 53 deselected, 1 warning in 35.74s

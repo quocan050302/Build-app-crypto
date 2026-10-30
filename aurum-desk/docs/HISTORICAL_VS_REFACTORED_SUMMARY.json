@@ -6327,6 +6327,10 @@
             "OTHER_MODEL_SELECTED"
           ],
           "refactored": []
+        },
+        "unicorn_validity": {
+          "historical": "NOT_APPLICABLE",
+          "refactored": "VALID"
         }
       },
       "scenario_id": "HIST_1792728780000_SMC_M1_FVG_CONTINUATION",
@@ -6725,7 +6729,7 @@
           "refactored": 4018.17
         },
         "unicorn_validity": {
-          "historical": "VALID",
+          "historical": "NOT_APPLICABLE",
           "refactored": "NO_GEOMETRIC_OVERLAP"
         }
       },

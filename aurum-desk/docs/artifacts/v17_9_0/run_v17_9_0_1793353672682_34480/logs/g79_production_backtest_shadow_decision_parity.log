@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g79_production_backtest_shadow_decision_parity.xml -k test_g79_five_model_production_replay_shadow_decision_parity
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 61
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG79FiveModelDecisionParity::test_g79_five_model_production_replay_shadow_decision_parity (0.061s)
+1 passed in 0.06s
+
+--- STDERR ---

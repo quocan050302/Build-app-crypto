@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g61_public_market_feed_connected_or_explicit_blocker" tests="2" errors="0" failures="0" skipped="0" time="3.544"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow" time="0.014" /><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath" name="test_end_to_end_ws_to_shadow_storage_and_shadow_api" time="3.530" /></testsuite></testsuites>

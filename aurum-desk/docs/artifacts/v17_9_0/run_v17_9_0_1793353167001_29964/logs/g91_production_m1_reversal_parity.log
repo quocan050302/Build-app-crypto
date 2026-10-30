@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353167001_29964\reports\g91_production_m1_reversal_parity.xml -k test_09 or test_14 or test_v17_9_0_1_reversal_parity
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 157
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_09_stage1_baseline_characterization_smc_m1_reversal (0.032s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_14_stage2_parity_production_vs_shared_all_5_models (0.043s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_reversal_parity (0.082s)
+3 passed in 0.16s
+
+--- STDERR ---

@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g83_oos_zero_trade_insufficient_sample_handling.xml -k test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 11
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation::test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics (0.011s)
+1 passed in 0.01s
+
+--- STDERR ---

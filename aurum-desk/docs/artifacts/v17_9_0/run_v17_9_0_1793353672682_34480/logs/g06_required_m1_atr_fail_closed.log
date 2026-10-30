@@ -1,0 +1,15 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_atr_provenance.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g06_required_m1_atr_fail_closed.xml -k test_atr_02 or test_atr_03 or test_atr_07 or test_atr_10 or test_atr_11 or test_atr_12 or test_atr_20
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 136
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_02_weighted_buffer_cannot_satisfy_missing_atr_gate (0.014s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_03_missing_raw_atr_fails_closed (0.014s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_07_insufficient_closed_candles_fails (0.009s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_10_nan_and_infinite_atr_fail (0.012s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_11_zero_and_negative_atr_fail (0.012s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_12_invalid_status_value_combination_fails (0.011s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance (0.064s)
+7 passed in 0.14s
+
+--- STDERR ---

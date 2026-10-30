@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_unicorn_evidence.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g31_cross_timeframe_causality.xml -k test_negative_unicorn_invalidated_by_distal_breach or test_negative_waiting_retest
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 22
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_unicorn_invalidated_by_distal_breach (0.011s)
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_waiting_retest (0.011s)
+2 passed in 0.02s
+
+--- STDERR ---

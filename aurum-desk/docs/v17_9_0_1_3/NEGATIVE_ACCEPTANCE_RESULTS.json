@@ -759,14 +759,302 @@
       "passed": true,
       "status": "PASS",
       "test_id": "N95"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Candidate unhandled by downstream consumer evaluated not consumed rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N96"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Market Shadow substituted as consumed Production decision rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N97"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Fixed quantity inserted into historical decision rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N98"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Inferred Unicorn validity without evidence rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N99"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Fabricated original decision ID without correlation prefix rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N100"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Candidate matched only by substring rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N101"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: ATR-missing decision falsely marked consumed rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N102"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Identical hash for different runtime OHLC rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N103"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Shared context substituted for independent Production context rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N104"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Empty independent runtime hashes artifact rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N105"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing one of five source records rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N106"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing configuration identity rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N107"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Raw source hash overwritten rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N108"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Wrong canonical schema version rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N109"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Different market timestamps matching claimed hashes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N110"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing historical baseline manifest rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N111"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing negative controls report rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N112"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing disk report rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N113"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing JUnit results rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N114"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing backtest source manifest rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N115"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Mismatched executable SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N116"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Mismatched backtest SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N117"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Corrupted artifact checksum rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N118"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: PASS with zero independently verified five-way comparisons rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N119"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: PASS with incomplete consumed lineage rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N120"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: PASS with mandatory skipped test rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N121"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: PASS with stale checkpoint rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N122"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Child worker crashes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N123"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Parent exits zero despite child failure rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N124"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Missing worker output rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N125"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Duplicated worker result rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N126"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Partial JSON artifact rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N127"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Disk guard stop rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N128"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Unsafe cleanup path rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N129"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Orphan worker remains rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N130"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R02: Resume with wrong source SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N131"
     }
   ],
   "evaluator_version": "17.9.0.1.1",
   "failed_negative_controls": 0,
   "failed_negative_tests": 0,
-  "final_code_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
-  "passed_negative_controls": 95,
-  "passed_negative_tests": 95,
+  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+  "passed_negative_controls": 131,
+  "passed_negative_tests": 131,
   "release": "V17.9.0.1.3",
   "results": [
     {
@@ -1338,9 +1626,225 @@
       "error": null,
       "status": "PASS",
       "test_id": "N95"
+    },
+    {
+      "description": "DEF-179013-R02: Candidate unhandled by downstream consumer evaluated not consumed rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N96"
+    },
+    {
+      "description": "DEF-179013-R02: Market Shadow substituted as consumed Production decision rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N97"
+    },
+    {
+      "description": "DEF-179013-R02: Fixed quantity inserted into historical decision rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N98"
+    },
+    {
+      "description": "DEF-179013-R02: Inferred Unicorn validity without evidence rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N99"
+    },
+    {
+      "description": "DEF-179013-R02: Fabricated original decision ID without correlation prefix rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N100"
+    },
+    {
+      "description": "DEF-179013-R02: Candidate matched only by substring rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N101"
+    },
+    {
+      "description": "DEF-179013-R02: ATR-missing decision falsely marked consumed rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N102"
+    },
+    {
+      "description": "DEF-179013-R02: Identical hash for different runtime OHLC rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N103"
+    },
+    {
+      "description": "DEF-179013-R02: Shared context substituted for independent Production context rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N104"
+    },
+    {
+      "description": "DEF-179013-R02: Empty independent runtime hashes artifact rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N105"
+    },
+    {
+      "description": "DEF-179013-R02: Missing one of five source records rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N106"
+    },
+    {
+      "description": "DEF-179013-R02: Missing configuration identity rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N107"
+    },
+    {
+      "description": "DEF-179013-R02: Raw source hash overwritten rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N108"
+    },
+    {
+      "description": "DEF-179013-R02: Wrong canonical schema version rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N109"
+    },
+    {
+      "description": "DEF-179013-R02: Different market timestamps matching claimed hashes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N110"
+    },
+    {
+      "description": "DEF-179013-R02: Missing historical baseline manifest rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N111"
+    },
+    {
+      "description": "DEF-179013-R02: Missing negative controls report rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N112"
+    },
+    {
+      "description": "DEF-179013-R02: Missing disk report rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N113"
+    },
+    {
+      "description": "DEF-179013-R02: Missing JUnit results rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N114"
+    },
+    {
+      "description": "DEF-179013-R02: Missing backtest source manifest rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N115"
+    },
+    {
+      "description": "DEF-179013-R02: Mismatched executable SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N116"
+    },
+    {
+      "description": "DEF-179013-R02: Mismatched backtest SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N117"
+    },
+    {
+      "description": "DEF-179013-R02: Corrupted artifact checksum rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N118"
+    },
+    {
+      "description": "DEF-179013-R02: PASS with zero independently verified five-way comparisons rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N119"
+    },
+    {
+      "description": "DEF-179013-R02: PASS with incomplete consumed lineage rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N120"
+    },
+    {
+      "description": "DEF-179013-R02: PASS with mandatory skipped test rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N121"
+    },
+    {
+      "description": "DEF-179013-R02: PASS with stale checkpoint rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N122"
+    },
+    {
+      "description": "DEF-179013-R02: Child worker crashes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N123"
+    },
+    {
+      "description": "DEF-179013-R02: Parent exits zero despite child failure rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N124"
+    },
+    {
+      "description": "DEF-179013-R02: Missing worker output rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N125"
+    },
+    {
+      "description": "DEF-179013-R02: Duplicated worker result rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N126"
+    },
+    {
+      "description": "DEF-179013-R02: Partial JSON artifact rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N127"
+    },
+    {
+      "description": "DEF-179013-R02: Disk guard stop rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N128"
+    },
+    {
+      "description": "DEF-179013-R02: Unsafe cleanup path rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N129"
+    },
+    {
+      "description": "DEF-179013-R02: Orphan worker remains rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N130"
+    },
+    {
+      "description": "DEF-179013-R02: Resume with wrong source SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N131"
     }
   ],
   "status": "PASS",
-  "total_negative_controls": 95,
-  "total_negative_tests": 95
+  "total_negative_controls": 131,
+  "total_negative_tests": 131
 }

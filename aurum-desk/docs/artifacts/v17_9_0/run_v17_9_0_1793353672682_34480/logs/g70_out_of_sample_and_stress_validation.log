@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g70_out_of_sample_and_stress_validation.xml -k test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls or test_all_12_backtest_artifacts_exist_and_contain_honest_metrics
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 39
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls (0.017s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestRealHistoricalBacktestArtifacts::test_all_12_backtest_artifacts_exist_and_contain_honest_metrics (0.022s)
+2 passed in 0.04s
+
+--- STDERR ---

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g29_unicorn_breaker_detection" tests="2" errors="0" failures="0" skipped="0" time="0.027"><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_positive_bullish_unicorn_detection" time="0.014" /><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_positive_bearish_unicorn_detection" time="0.013" /></testsuite></testsuites>

@@ -1,19 +1,20 @@
 {
-  "acceptance_tested_source_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+  "acceptance_tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
   "backtest_source_sha": "2a494323d87f0417fbc2b118f26c788a07140672",
   "backtest_source_sha_provenance": {
     "backtest_source_sha": "2a494323d87f0417fbc2b118f26c788a07140672",
     "backtest_tree_hash": "0db5661675b4f684f29fdc437bcfd356dcfdbdb3c6c05834877142b15415b389",
-    "current_tree_hash": "0db5661675b4f684f29fdc437bcfd356dcfdbdb3c6c05834877142b15415b389",
+    "current_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6",
     "exact_sha_match": false,
-    "final_code_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+    "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
     "is_valid": false,
     "sha_in_branch_lineage": true,
     "sha_resolvable_in_repo": true,
     "status": "FAIL",
-    "tree_hash_match": true,
+    "tree_hash_match": false,
     "violations": [
-      "BACKTEST_SOURCE_SHA_MISMATCH_WITH_FINAL_CODE_SHA"
+      "BACKTEST_SOURCE_SHA_MISMATCH_WITH_FINAL_CODE_SHA",
+      "EXECUTABLE_SOURCE_TREE_HASH_MISMATCH"
     ]
   },
   "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
@@ -21,8 +22,8 @@
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "evaluator_version": "17.9.0.1.1",
   "executable_files_count": 113,
-  "executable_source_tree_hash": "0db5661675b4f684f29fdc437bcfd356dcfdbdb3c6c05834877142b15415b389",
-  "final_code_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+  "executable_source_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6",
+  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
   "gate_provenance_status": "PASS",
   "ledger_cache_trusted": true,
   "release": "V17.9.0.1.3",
