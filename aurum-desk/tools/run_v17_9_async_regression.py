@@ -460,11 +460,14 @@ class BoundedAsyncTestOrchestrator:
         if serial_benchmark_sec is not None and parallel_benchmark_sec is not None and parallel_benchmark_sec > 0:
             measured_speedup = round(float(serial_benchmark_sec) / float(parallel_benchmark_sec), 2)
 
+        orphans = int(summary.get("orphan_processes_remaining", 0))
+        calc_status = "FAIL" if (summary.get("status") == "FAIL" or orphans > 0) else summary.get("status", "PASS")
+
         return {
-            "release": "V17.9.0.1.2",
+            "release": "V17.9.0.1.3",
             "run_id": self.run_id,
             "source_sha": self.source_sha,
-            "status": summary.get("status", "PASS"),
+            "status": calc_status,
             "adaptive_concurrency_policy": {
                 "cpu_logical_cores": CPU_COUNT,
                 "max_workers": MAX_WORKERS,
@@ -497,7 +500,7 @@ class BoundedAsyncTestOrchestrator:
                 "total_failed_nodes": summary.get("total_failed_nodes", 0),
                 "total_errors": summary.get("total_failed_nodes", 0),
                 "total_retries": 0,
-                "orphan_processes_remaining": 0,
+                "orphan_processes_remaining": orphans,
                 "peak_rss_mb_observed": disk_rep.get("peak_rss_mb", 0.0),
                 "resource_samples_collected": disk_rep.get("samples_recorded", len(disk_rep.get("cpu_memory_samples", []))),
             },

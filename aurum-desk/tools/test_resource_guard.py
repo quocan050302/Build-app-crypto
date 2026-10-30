@@ -177,14 +177,28 @@ class TestResourceGuard:
             )
         return snap
 
+    def validate_cleanup_target(self, target_path: Any) -> bool:
+        """Validates that a cleanup target resides safely inside the allocated temporary directory tree."""
+        try:
+            target_res = Path(target_path).resolve()
+            tmp_res = self.tmp_root.resolve()
+            # Must be strictly a descendant of self.tmp_root
+            return str(target_res).startswith(str(tmp_res)) and target_res != tmp_res.parent
+        except Exception:
+            return False
+
     def create_worker_temp_dir(self, worker_id: str) -> Path:
         self.enforce_disk_budget(stage=f"WORKER_START_{worker_id}")
         wdir = self.tmp_root / f"worker_{worker_id}"
+        if not self.validate_cleanup_target(wdir):
+            raise ValueError(f"UNSAFE_WORKER_PATH: {worker_id}")
         wdir.mkdir(parents=True, exist_ok=True)
         return wdir
 
     def cleanup_worker_temp_dir(self, worker_id: str) -> bool:
         wdir = self.tmp_root / f"worker_{worker_id}"
+        if not self.validate_cleanup_target(wdir):
+            return False
         if wdir.exists():
             shutil.rmtree(wdir, ignore_errors=True)
             self.cleaned_worker_dirs.append(str(wdir))

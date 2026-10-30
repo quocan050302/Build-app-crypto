@@ -1219,6 +1219,7 @@ def validate_comparison_source_accounting(
             "violations": ["INVALID_RECORD_SOURCES_TYPE"],
         }
 
+    violations: List[str] = []
     present_sources: List[str] = []
     missing_sources: List[str] = []
     engine_ids: List[str] = []
@@ -1229,6 +1230,8 @@ def validate_comparison_source_accounting(
             eng_id = val.get("engine_id")
             if eng_id:
                 engine_ids.append(f"{eng_id}_{val.get('runtime_role', '')}")
+            if src_key == "production_runtime" and val.get("runtime") == "MARKET_SHADOW":
+                violations.append("SHADOW_SUBSTITUTED_FOR_PRODUCTION_CONSUMED")
         else:
             missing_sources.append(src_key)
 
@@ -1245,7 +1248,6 @@ def validate_comparison_source_accounting(
     else:
         tier = f"PARTIAL_{len(present_sources)}_WAY"
 
-    violations: List[str] = []
     if claimed_five_way and len(present_sources) != 5:
         if tier == "THREE_WAY_CURRENT_RUNTIME":
             violations.append("THREE_WAY_COMPARISON_COUNTED_AS_FIVE_WAY")
@@ -1308,17 +1310,30 @@ def canonicalize_runtime_market_input(source_input: Any) -> Dict[str, Any]:
             "volume": round(float(getattr(c, "volume", 0.0) or 0.0), 4),
         }
 
-    m1_bars = [_norm_candle(c) for c in (raw.get("closed_m1_candles") or raw.get("bars_1m") or raw.get("candles_1m") or ())]
-    m5_bars = [_norm_candle(c) for c in (raw.get("closed_m5_candles") or raw.get("bars_5m") or raw.get("candles_5m") or ())]
-    m15_bars = [_norm_candle(c) for c in (raw.get("closed_m15_candles") or raw.get("bars_15m") or raw.get("candles_15m") or ())]
-    h1_bars = [_norm_candle(c) for c in (raw.get("closed_h1_candles") or raw.get("bars_1h") or raw.get("candles_1h") or ())]
-    h4_bars = [_norm_candle(c) for c in (raw.get("closed_h4_candles") or raw.get("bars_4h") or raw.get("candles_4h") or ())]
+    m1_bars = [_norm_candle(c) for c in (raw.get("closed_m1_candles") or raw.get("m1_candles") or raw.get("bars_1m") or raw.get("candles_1m") or ())]
+    m5_bars = [_norm_candle(c) for c in (raw.get("closed_m5_candles") or raw.get("closed_5m_candles") or raw.get("m5_candles") or raw.get("bars_5m") or raw.get("candles_5m") or ())]
+    m15_bars = [_norm_candle(c) for c in (raw.get("closed_m15_candles") or raw.get("closed_15m_candles") or raw.get("m15_candles") or raw.get("bars_15m") or raw.get("candles_15m") or ())]
+    h1_bars = [_norm_candle(c) for c in (raw.get("closed_h1_candles") or raw.get("closed_1h_candles") or raw.get("h1_candles") or raw.get("bars_1h") or raw.get("candles_1h") or ())]
+    h4_bars = [_norm_candle(c) for c in (raw.get("closed_h4_candles") or raw.get("closed_4h_candles") or raw.get("h4_candles") or raw.get("bars_4h") or raw.get("candles_4h") or ())]
 
     q_raw = raw.get("quote") or {}
-    bid_val = float(q_raw.get("bid", raw.get("bid", 0.0)) or 0.0)
-    ask_val = float(q_raw.get("ask", raw.get("ask", 0.0)) or 0.0)
-    last_val = float(q_raw.get("last", raw.get("last", 0.0)) or 0.0)
-    spread_val = float(raw.get("spread", 0.0) or (ask_val - bid_val if ask_val and bid_val else 0.0))
+    if hasattr(q_raw, "to_dict"):
+        q_dict = q_raw.to_dict()
+    elif isinstance(q_raw, dict):
+        q_dict = q_raw
+    else:
+        q_dict = {
+            "bid": getattr(q_raw, "bid", raw.get("bid", 0.0)),
+            "ask": getattr(q_raw, "ask", raw.get("ask", 0.0)),
+            "last": getattr(q_raw, "last", getattr(q_raw, "price", raw.get("last", 0.0))),
+            "spread": getattr(q_raw, "spread", raw.get("spread", 0.0)),
+        }
+    bid_val = float(q_dict.get("bid", raw.get("bid", 0.0)) or 0.0)
+    ask_val = float(q_dict.get("ask", raw.get("ask", 0.0)) or 0.0)
+    last_val = float(q_dict.get("last", raw.get("last", 0.0)) or 0.0)
+    if last_val == 0.0 and bid_val > 0.0 and ask_val > 0.0:
+        last_val = round((bid_val + ask_val) / 2.0, 4)
+    spread_val = float(q_dict.get("spread", raw.get("spread", 0.0)) or (ask_val - bid_val if ask_val and bid_val else 0.0))
 
     quote_norm = {
         "bid": round(bid_val, 4),
@@ -1332,15 +1347,22 @@ def canonicalize_runtime_market_input(source_input: Any) -> Dict[str, Any]:
 
     sh_1m = round(float(raw.get("swing_high_1m", 0.0) or 0.0), 4)
     sl_1m = round(float(raw.get("swing_low_1m", 0.0) or 0.0), 4)
-    liq = sorted([round(float(lv), 4) for lv in (raw.get("liquidity_levels") or [])])
+    def _extract_liq(lv: Any) -> float:
+        if isinstance(lv, (int, float)):
+            return float(lv)
+        if isinstance(lv, str):
+            try:
+                return float(lv)
+            except Exception:
+                return 0.0
+        return float(getattr(lv, "price", getattr(lv, "level", 0.0)) or 0.0)
+
+    liq = sorted([round(_extract_liq(lv), 4) for lv in (raw.get("liquidity_levels") or raw.get("liquidity_pools") or [])])
 
     return {
         "symbol": str(raw.get("symbol") or "XAUUSDT").upper(),
-        "model_id": str(raw.get("model_id") or "UNKNOWN"),
         "decision_timestamp_ms": int(raw.get("decision_timestamp_ms") or raw.get("as_of_ms") or raw.get("timestamp_ms") or 0),
         "quote": quote_norm,
-        "atr_m1": atr_m1,
-        "atr_m5": atr_m5,
         "swing_high_1m": sh_1m,
         "swing_low_1m": sl_1m,
         "htf_bias": str(raw.get("htf_bias") or "UNKNOWN"),
@@ -1525,6 +1547,13 @@ def validate_comparison_record_hashes(
         # DEF-179013-03: Detect illegal overwrite of historical input hash
         if snap.get("raw_historical_input_hash_overwritten") or bool(snap.get("_overwritten_hash_detected", False)):
             violations.append(f"RAW_HISTORICAL_INPUT_HASH_OVERWRITTEN:{src}")
+
+        schema_v = snap.get("canonical_schema_version")
+        if schema_v is not None and schema_v != "V17.9.0.1.3_CANONICAL_HASH_V1":
+            violations.append(f"INVALID_CANONICAL_SCHEMA_VERSION:{src}:{schema_v}")
+
+        if snap.get("different_timestamp_detected"):
+            violations.append(f"DIFFERENT_MARKET_TIMESTAMPS_WITH_MATCHING_CLAIMED_HASH:{src}")
 
         # DEF-179013-03: Validate that if underlying context is provided, canonical hash is authentically derived
         m_in = snap.get("market_input") or snap.get("context")
@@ -1740,7 +1769,7 @@ def derive_authoritative_acceptance_verdicts(
     verdicts: Dict[str, Dict[str, Any]] = {}
 
     # 1. Code & Decision Authority Integrity
-    tested_sha = str(gate_results.get("tested_source_sha") or "")
+    tested_sha = str(gate_results.get("tested_source_sha") or "") if gate_results else ""
     code_auth_ok = bool(final_code_sha and tested_sha == final_code_sha)
     verdicts["VERDICT_CODE_AUTHORITY"] = {
         "verdict_id": "VERDICT_CODE_AUTHORITY",
@@ -1754,10 +1783,19 @@ def derive_authoritative_acceptance_verdicts(
     }
 
     # 2. Historical Baseline Parity
-    hist_st = str(phase_b_manifest.get("isolated_historical_execution_status") if phase_b_manifest else "PASS")
-    hist_callable = bool(phase_b_manifest.get("callable_authority_valid", True) if phase_b_manifest else True)
-    copied_entry = bool(phase_b_manifest.get("copied_current_oracle_entry", False) if phase_b_manifest else False)
-    hist_ok = (hist_st == "PASS" and hist_callable and not copied_entry)
+    if not phase_b_manifest or not isinstance(phase_b_manifest, dict):
+        hist_ok = False
+        hist_st = "MISSING_EVIDENCE"
+        hist_callable = False
+        copied_entry = True
+        hist_fail_reason = "Missing historical baseline manifest"
+    else:
+        hist_st = str(phase_b_manifest.get("isolated_historical_execution_status") or "FAIL")
+        hist_callable = bool(phase_b_manifest.get("callable_authority_valid", False))
+        copied_entry = bool(phase_b_manifest.get("copied_current_oracle_entry", True))
+        hist_ok = (hist_st == "PASS" and hist_callable and not copied_entry)
+        hist_fail_reason = None if hist_ok else f"Historical baseline execution status={hist_st}, callable_valid={hist_callable}, copied_oracle={copied_entry}"
+
     verdicts["VERDICT_HISTORICAL_BASELINE"] = {
         "verdict_id": "VERDICT_HISTORICAL_BASELINE",
         "evaluation_rule": "isolated_historical_execution_status == PASS and callable_authority_valid == True and copied_current_oracle_entry == False",
@@ -1766,14 +1804,23 @@ def derive_authoritative_acceptance_verdicts(
         "provenance": "HISTORICAL_BASELINE_PROVENANCE.json & BASELINE_MANIFEST.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if hist_ok else "FAIL",
-        "failure_explanation": None if hist_ok else "Historical baseline execution authority invalid or copied",
+        "failure_explanation": hist_fail_reason,
     }
 
     # 3. Five-Way Cross-Runtime Parity
-    p_status = str(parity_report.get("status") or "")
-    p_divs = int(parity_report.get("divergences_count", 0) or 0)
-    p_ver_count = int(parity_report.get("five_way_verified_count", 0) or 0)
-    parity_ok = (p_status == "PASS" and p_divs == 0 and p_ver_count >= 210)
+    if not parity_report or not isinstance(parity_report, dict):
+        parity_ok = False
+        p_status = "MISSING_EVIDENCE"
+        p_divs = -1
+        p_ver_count = 0
+        p_fail_reason = "Missing parity report"
+    else:
+        p_status = str(parity_report.get("status") or "FAIL")
+        p_divs = int(parity_report.get("unexpected_divergence_count", parity_report.get("divergences_count", -1)))
+        p_ver_count = int(parity_report.get("five_way_verified_count", 0))
+        parity_ok = (p_status == "PASS" and p_divs == 0 and p_ver_count >= 210)
+        p_fail_reason = None if parity_ok else f"Parity failed: status={p_status}, divs={p_divs}, verified={p_ver_count}"
+
     verdicts["VERDICT_FIVE_WAY_PARITY"] = {
         "verdict_id": "VERDICT_FIVE_WAY_PARITY",
         "evaluation_rule": "status == PASS and divergences_count == 0 and five_way_verified_count >= 210",
@@ -1782,13 +1829,21 @@ def derive_authoritative_acceptance_verdicts(
         "provenance": "V179013_FIVE_WAY_PARITY_REPORT.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if parity_ok else "FAIL",
-        "failure_explanation": None if parity_ok else f"Parity failed: status={p_status}, divs={p_divs}, verified={p_ver_count}",
+        "failure_explanation": p_fail_reason,
     }
 
     # 4. Causal Forward Candle Simulation
-    fab_candles = int(parity_report.get("fabricated_forward_candles_count", 0) or 0)
-    syn_used = bool(parity_report.get("synthetic_forward_candles_used", False))
-    causal_ok = (fab_candles == 0 and not syn_used)
+    if not parity_report or not isinstance(parity_report, dict):
+        causal_ok = False
+        fab_candles = -1
+        syn_used = True
+        causal_fail_reason = "Missing parity report for causal forward candle validation"
+    else:
+        fab_candles = int(parity_report.get("fabricated_forward_candles_count", 0) or 0)
+        syn_used = bool(parity_report.get("synthetic_forward_candles_used", False))
+        causal_ok = (fab_candles == 0 and not syn_used)
+        causal_fail_reason = None if causal_ok else "Fabricated or synthetic forward candles detected in simulation"
+
     verdicts["VERDICT_CAUSAL_FORWARD_CANDLES"] = {
         "verdict_id": "VERDICT_CAUSAL_FORWARD_CANDLES",
         "evaluation_rule": "fabricated_forward_candles_count == 0 and synthetic_forward_candles_used == False",
@@ -1797,31 +1852,50 @@ def derive_authoritative_acceptance_verdicts(
         "provenance": "REAL_FORWARD_CANDLE_PROVENANCE.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if causal_ok else "FAIL",
-        "failure_explanation": None if causal_ok else "Fabricated or synthetic forward candles detected in simulation",
+        "failure_explanation": causal_fail_reason,
     }
 
     # 5. Negative Controls Suite
-    neg_passed = int(negative_results.get("passed_negative_controls", 0) if negative_results else 95)
-    neg_total = int(negative_results.get("total_negative_controls", 0) if negative_results else 95)
-    neg_failed = int(negative_results.get("failed_negative_controls", 0) if negative_results else 0)
-    neg_ok = (neg_total >= 95 and neg_passed == neg_total and neg_failed == 0)
+    if not negative_results or not isinstance(negative_results, dict):
+        neg_ok = False
+        neg_passed = 0
+        neg_total = 0
+        neg_failed = -1
+        neg_fail_reason = "Missing negative controls report"
+    else:
+        neg_passed = int(negative_results.get("passed_negative_controls", 0))
+        neg_total = int(negative_results.get("total_negative_controls", 0))
+        neg_failed = int(negative_results.get("failed_negative_controls", -1))
+        neg_ok = (neg_total >= 131 and neg_passed == neg_total and neg_failed == 0)
+        neg_fail_reason = None if neg_ok else f"Negative controls failed: passed={neg_passed}/{neg_total}, failed={neg_failed}"
+
     verdicts["VERDICT_NEGATIVE_CONTROLS"] = {
         "verdict_id": "VERDICT_NEGATIVE_CONTROLS",
-        "evaluation_rule": "passed_negative_controls == total_negative_controls and total >= 95 and failed == 0",
+        "evaluation_rule": "passed_negative_controls == total_negative_controls and total >= 131 and failed == 0",
         "actual_observation": f"passed={neg_passed}, total={neg_total}, failed={neg_failed}",
-        "expected_threshold": "95/95 passed",
+        "expected_threshold": ">=131/131 passed",
         "provenance": "V179013_NEGATIVE_CONTROLS.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if neg_ok else "FAIL",
-        "failure_explanation": None if neg_ok else f"Negative controls failed: passed={neg_passed}/{neg_total}",
+        "failure_explanation": neg_fail_reason,
     }
 
     # 6. Full Regression Gates
-    passed_gates = int(gate_results.get("passed_gates_count", 0) or 0)
-    total_gates = int(gate_results.get("total_mandatory_gates", 0) or 107)
-    failed_gates = int(gate_results.get("failed_gates_count", 0) or 0)
-    blocked_gates = int(gate_results.get("blocked_gates_count", 0) or 0)
-    gates_ok = (passed_gates >= 107 and failed_gates == 0 and blocked_gates == 0)
+    if not gate_results or not isinstance(gate_results, dict):
+        gates_ok = False
+        passed_gates = 0
+        total_gates = 0
+        failed_gates = -1
+        blocked_gates = -1
+        gates_fail_reason = "Missing gate results"
+    else:
+        passed_gates = int(gate_results.get("passed_gates_count", 0) or 0)
+        total_gates = int(gate_results.get("total_mandatory_gates", 0) or 107)
+        failed_gates = int(gate_results.get("failed_gates_count", 0) or 0)
+        blocked_gates = int(gate_results.get("blocked_gates_count", 0) or 0)
+        gates_ok = (passed_gates >= 107 and failed_gates == 0 and blocked_gates == 0)
+        gates_fail_reason = None if gates_ok else f"Gates failed: passed={passed_gates}/{total_gates}, failed={failed_gates}, blocked={blocked_gates}"
+
     verdicts["VERDICT_FULL_REGRESSION_GATES"] = {
         "verdict_id": "VERDICT_FULL_REGRESSION_GATES",
         "evaluation_rule": "passed_gates_count >= 107 and failed_gates_count == 0 and blocked_gates_count == 0",
@@ -1830,13 +1904,21 @@ def derive_authoritative_acceptance_verdicts(
         "provenance": "ACCEPTANCE_GATE_RESULTS.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if gates_ok else "FAIL",
-        "failure_explanation": None if gates_ok else f"Gates failed: passed={passed_gates}/{total_gates}, failed={failed_gates}",
+        "failure_explanation": gates_fail_reason,
     }
 
     # 7. Asynchronous Runner & Resource Protection
-    disk_st = str(disk_report.get("status") if disk_report else "PASS")
-    free_bytes = int(disk_report.get("free_bytes_postflight", 50_000_000_000) if disk_report else 50_000_000_000)
-    async_ok = (disk_st == "PASS" and free_bytes > 8_000_000_000)
+    if not disk_report or not isinstance(disk_report, dict):
+        async_ok = False
+        disk_st = "MISSING_EVIDENCE"
+        free_bytes = 0
+        disk_fail_reason = "Missing disk guard report"
+    else:
+        disk_st = str(disk_report.get("status") or "FAIL")
+        free_bytes = int(disk_report.get("free_bytes_postflight", 0))
+        async_ok = (disk_st == "PASS" and free_bytes > 8_000_000_000)
+        disk_fail_reason = None if async_ok else f"Disk safety violation: status={disk_st}, free={free_bytes}"
+
     verdicts["VERDICT_ASYNC_AND_DISK_SAFETY"] = {
         "verdict_id": "VERDICT_ASYNC_AND_DISK_SAFETY",
         "evaluation_rule": "disk_guard_status == PASS and free_bytes_postflight > 8GB and orphan_workers == 0",
@@ -1845,22 +1927,47 @@ def derive_authoritative_acceptance_verdicts(
         "provenance": "V179013_DISK_GUARD_REPORT.json",
         "frozen_source_sha": final_code_sha,
         "validation_result": "PASS" if async_ok else "FAIL",
-        "failure_explanation": None if async_ok else f"Disk safety violation: status={disk_st}, free={free_bytes}",
+        "failure_explanation": disk_fail_reason,
     }
 
-    # 8. Strategy Financial Performance
-    b_auth = backtest_metrics.get("authoritative_production_parity_simulation", {}) if backtest_metrics else {}
-    net_pnl = float(b_auth.get("net_pnl", -16.35))
-    sim_trades = int(b_auth.get("simulated_trades", 18))
+    # 8. Strategy Financial Performance & Exact Source Provenance
+    if not backtest_metrics or not isinstance(backtest_metrics, dict):
+        perf_ok = False
+        net_pnl = 0.0
+        sim_trades = 0
+        bt_source_sha = ""
+        perf_fail_reason = "Missing backtest metrics"
+    else:
+        b_auth = backtest_metrics.get("authoritative_production_parity_simulation")
+        if not b_auth or not isinstance(b_auth, dict) or "net_pnl" not in b_auth or "simulated_trades" not in b_auth:
+            perf_ok = False
+            net_pnl = 0.0
+            sim_trades = 0
+            bt_source_sha = ""
+            perf_fail_reason = "Incomplete or missing authoritative simulation metrics in backtest metrics"
+        else:
+            net_pnl = float(b_auth.get("net_pnl"))
+            sim_trades = int(b_auth.get("simulated_trades"))
+            bt_source_sha = str(b_auth.get("source_sha") or "")
+            if bt_source_sha and final_code_sha and bt_source_sha.strip() != final_code_sha.strip():
+                perf_ok = False
+                perf_fail_reason = f"Backtest source SHA mismatch: {bt_source_sha} != {final_code_sha}"
+            elif sim_trades <= 0:
+                perf_ok = False
+                perf_fail_reason = f"Zero simulated trades in backtest: {sim_trades}"
+            else:
+                perf_ok = True
+                perf_fail_reason = None
+
     verdicts["VERDICT_STRATEGY_PERFORMANCE"] = {
         "verdict_id": "VERDICT_STRATEGY_PERFORMANCE",
-        "evaluation_rule": "disclose truthful financial metrics (Variant C net PnL, sample size, OOS)",
-        "actual_observation": f"simulated_trades={sim_trades}, net_pnl={net_pnl}",
-        "expected_threshold": "truthful disclosure: SUFFICIENT_SAMPLE, NEGATIVE_NET_PNL",
+        "evaluation_rule": "authoritative backtest metrics present, sim_trades > 0, backtest source_sha == final_code_sha",
+        "actual_observation": f"simulated_trades={sim_trades}, net_pnl={net_pnl}, bt_source_sha={bt_source_sha}",
+        "expected_threshold": "valid metrics, exact source sha match, truthful financial disclosure",
         "provenance": "HISTORICAL_BACKTEST_METRICS.json",
         "frozen_source_sha": final_code_sha,
-        "validation_result": "PASS",
-        "failure_explanation": None,
+        "validation_result": "PASS" if perf_ok else "FAIL",
+        "failure_explanation": perf_fail_reason,
     }
 
     # Overall Release Readiness Verdict
@@ -1872,6 +1979,7 @@ def derive_authoritative_acceptance_verdicts(
         and neg_ok
         and gates_ok
         and async_ok
+        and perf_ok
     )
 
     if all_mandatory_passed:
@@ -1913,6 +2021,26 @@ def verify_persisted_acceptance_artifacts(
         "V179013_DISK_GUARD_REPORT.json",
         "FINAL_ARTIFACT_MANIFEST.json",
         "HISTORICAL_BACKTEST_METRICS.json",
+        "BASELINE_MANIFEST.json",
+    ]
+
+    # Additional R2 mandatory files to check if present in target_dir or manifest
+    r2_mandatory_files = [
+        "V179013_R2_INITIAL_AUDIT.md",
+        "V179013_R2_DEFECT_CLOSURE_MATRIX.md",
+        "V179013_R2_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
+        "V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json",
+        "V179013_R2_FIVE_WAY_PARITY_REPORT.json",
+        "V179013_R2_NEGATIVE_FAULT_INJECTION.json",
+        "V179013_R2_JUNIT_AGGREGATION.json",
+        "V179013_R2_ASYNC_WORKER_REPORT.json",
+        "V179013_R2_RESOURCE_TELEMETRY.json",
+        "V179013_R2_EXACT_SOURCE_MANIFEST.json",
+        "V179013_R2_BACKTEST_METRICS.json",
+        "V179013_R2_MATCHED_COHORT_REPORT.json",
+        "V179013_R2_OOS_REPORT.json",
+        "V179013_R2_INDEPENDENT_ARTIFACT_VERIFICATION.json",
+        "V179013_R2_FINAL_ACCEPTANCE_AUDIT.md",
     ]
 
     loaded_docs: Dict[str, Any] = {}
@@ -1920,11 +2048,64 @@ def verify_persisted_acceptance_artifacts(
         fpath = target_dir / mf
         if not fpath.exists():
             violations.append(f"MISSING_PERSISTED_ARTIFACT:{mf}")
+        elif fpath.stat().st_size == 0:
+            violations.append(f"EMPTY_MANDATORY_ARTIFACT:{mf}")
         else:
             try:
                 loaded_docs[mf] = json.loads(fpath.read_text(encoding="utf-8"))
             except Exception as ex:
                 violations.append(f"CORRUPT_JSON_ARTIFACT:{mf}:{ex}")
+
+    # Check R2 mandatory files if target_dir is configured for R2
+    for r2_f in r2_mandatory_files:
+        fpath = target_dir / r2_f
+        if fpath.exists():
+            if fpath.stat().st_size == 0:
+                violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r2_f}")
+            elif r2_f.endswith(".json"):
+                try:
+                    r2_doc = json.loads(fpath.read_text(encoding="utf-8"))
+                    if isinstance(r2_doc, dict) and len(r2_doc) == 0:
+                        violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r2_f}")
+                    loaded_docs[r2_f] = r2_doc
+                except Exception as ex:
+                    violations.append(f"CORRUPT_JSON_ARTIFACT:{r2_f}:{ex}")
+
+    # Also check that independent runtime hashes is non-empty if present
+    for hash_name in ("V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_R1_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_INDEPENDENT_RUNTIME_INPUT_HASHES.json"):
+        h_path = target_dir / hash_name
+        if h_path.exists():
+            try:
+                h_doc = json.loads(h_path.read_text(encoding="utf-8"))
+                if isinstance(h_doc, dict) and len(h_doc) == 0:
+                    violations.append(f"EMPTY_MANDATORY_ARTIFACT:{hash_name}")
+            except Exception as ex:
+                violations.append(f"CORRUPT_JSON_ARTIFACT:{hash_name}:{ex}")
+
+    # Verify checksums from FINAL_ARTIFACT_MANIFEST.json
+    manifest_doc = loaded_docs.get("FINAL_ARTIFACT_MANIFEST.json", {})
+    manifest_entries = manifest_doc.get("artifacts", [])
+    if isinstance(manifest_entries, dict):
+        manifest_items = [
+            {"filename": k, **v} if isinstance(v, dict) else {"filename": k, "sha256": v}
+            for k, v in manifest_entries.items()
+        ]
+    else:
+        manifest_items = list(manifest_entries)
+    for entry in manifest_items:
+        if not isinstance(entry, dict):
+            continue
+        fname = str(entry.get("filename") or entry.get("path") or "")
+        claimed_sha = str(entry.get("sha256") or "")
+        f_disk = target_dir / fname
+        if not f_disk.exists():
+            violations.append(f"MANIFESTED_ARTIFACT_MISSING_ON_DISK:{fname}")
+        elif f_disk.stat().st_size == 0:
+            violations.append(f"ARTIFACT_EMPTY_FILE:{fname}")
+        else:
+            actual_sha = hashlib.sha256(f_disk.read_bytes()).hexdigest()
+            if claimed_sha != actual_sha:
+                violations.append(f"ARTIFACT_BYTE_CHECKSUM_MISMATCH:{fname}:{claimed_sha}!={actual_sha}")
 
     if violations:
         return {
@@ -1933,20 +2114,6 @@ def verify_persisted_acceptance_artifacts(
             "violations": violations,
             "recalculated_verdict": "BLOCKED_BY_MISSING_ARTIFACTS",
         }
-
-    # Verify checksums from FINAL_ARTIFACT_MANIFEST.json
-    manifest_doc = loaded_docs.get("FINAL_ARTIFACT_MANIFEST.json", {})
-    manifest_entries = manifest_doc.get("artifacts", [])
-    for entry in manifest_entries:
-        if not isinstance(entry, dict):
-            continue
-        fname = str(entry.get("filename") or entry.get("path") or "")
-        claimed_sha = str(entry.get("sha256") or "")
-        f_disk = target_dir / fname
-        if f_disk.exists():
-            actual_sha = hashlib.sha256(f_disk.read_bytes()).hexdigest()
-            if claimed_sha != actual_sha:
-                violations.append(f"ARTIFACT_BYTE_CHECKSUM_MISMATCH:{fname}:{claimed_sha}!={actual_sha}")
 
     # Validate semantic acceptance bundle
     gate_res = loaded_docs.get("ACCEPTANCE_GATE_RESULTS.json", {})

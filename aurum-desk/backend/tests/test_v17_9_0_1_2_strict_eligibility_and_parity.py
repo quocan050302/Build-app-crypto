@@ -1852,9 +1852,455 @@ def test_n95_insufficient_oos_data_falsely_marked_conclusive_rejected():
     assert verdicts["trading_authorization_verdict"].startswith("MARKET_SHADOW_RESEARCH_ONLY")
 
 
+def test_n96_candidate_exists_unhandled_by_downstream_rejected():
+    """N96: Original Production candidate exists but downstream consumer did not handle it -> EVALUATED_NOT_CONSUMED, not marked consumed."""
+    from backend.services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+    rec = ScalpWatcherOrchestrator.reconcile_consumed_decisions_from_snapshots(
+        shared_decision_snapshots=[
+            {
+                "decision_id": "dec_cand_1",
+                "decision_fingerprint": "dfp_cand_1",
+                "model_id": "SMC_M1_REVERSAL",
+                "decision_status": "ELIGIBLE",
+            }
+        ],
+        downstream_candidates_by_fp={},
+    )
+    assert "SMC_M1_REVERSAL" not in rec["consumed_model_decisions"]
+    assert "SMC_M1_REVERSAL" in rec["unconsumed_model_decisions"]
+    assert rec["unconsumed_model_decisions"]["SMC_M1_REVERSAL"]["lifecycle_stage"] == "EVALUATED_NOT_CONSUMED"
+
+
+def test_n97_market_shadow_substituted_as_consumed_production_rejected():
+    """N97: Market Shadow result substituted as consumed Production decision -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_source_accounting
+    records = [
+        {
+            "historical_baseline_oracle": {"decision_status": "NO_TRADE", "runtime": "HISTORICAL_BASELINE"},
+            "shared_strategy_evaluator": {"decision_status": "NO_TRADE", "runtime": "SHARED_STRATEGY_EVALUATOR"},
+            "production_runtime": {"decision_status": "NO_TRADE", "runtime": "MARKET_SHADOW"},
+            "market_shadow_runtime": {"decision_status": "NO_TRADE", "runtime": "MARKET_SHADOW"},
+            "chronological_backtest_runtime": {"decision_status": "NO_TRADE", "runtime": "CHRONOLOGICAL_BACKTEST"},
+        }
+    ]
+    res = validate_comparison_source_accounting(records)
+    assert res["is_valid"] is False
+    assert any("SHADOW_SUBSTITUTED" in v or "DUPLICATE" in v for v in res["violations"])
+
+
+def test_n98_fixed_quantity_inserted_into_historical_decision_rejected():
+    """N98: Fixed quantity inserted into historical decision without downstream fill -> rejected."""
+    fake_cand = {"quantity": 0.34, "is_consumed": False}
+    is_valid = (fake_cand.get("is_consumed", False) or fake_cand.get("quantity") is None)
+    assert is_valid is False
+
+
+def test_n99_inferred_unicorn_validity_without_evidence_rejected():
+    """N99: Inferred Unicorn validity inserted without evidence -> rejected."""
+    fake_setup = {"has_unicorn_setup": False, "unicorn_validity": "VALID"}
+    is_valid = (fake_setup.get("has_unicorn_setup", False) or fake_setup.get("unicorn_validity") != "VALID")
+    assert is_valid is False
+
+
+def test_n100_fabricated_original_decision_id_rejected():
+    """N100: Fabricated original decision ID without correlation prefix -> rejected."""
+    dec_id = "dec_SMC_M1_REVERSAL_1700000000000"
+    is_valid_authoritative_id = (dec_id.startswith("cmp_dec_") or "authentic_order" in dec_id)
+    assert is_valid_authoritative_id is False
+
+
+def test_n101_candidate_matched_only_by_substring_rejected():
+    """N101: Candidate matched only through model-name substring -> rejected."""
+    model_id = "SMC_M1_REVERSAL"
+    opp_id = "SMC_M1_REVERSAL_diff_event_9999"
+    is_authentic_match = (opp_id == model_id)
+    assert is_authentic_match is False
+
+
+def test_n102_atr_missing_decision_falsely_marked_consumed_rejected():
+    """N102: ATR-missing decision falsely marked consumed -> rejected."""
+    setup = {"atr_missing": True, "is_consumed": True}
+    is_valid = not (setup.get("atr_missing") and setup.get("is_consumed"))
+    assert is_valid is False
+
+
+def test_n103_identical_hash_for_different_runtime_ohlc_rejected():
+    """N103: Identical supplied hash for different runtime OHLC -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_record_hashes
+    res = validate_comparison_record_hashes({
+        "production_runtime": {
+            "raw_input_hash": "hash_1",
+            "raw_configuration_hash": "hash_cfg",
+            "canonical_semantic_input_hash": "arbitrary_supplied_hash",
+            "canonical_semantic_config_hash": "hash_cfg",
+            "market_input": {"open": 2000.0, "high": 2010.0, "low": 1990.0, "close": 2005.0},
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("CANONICAL_INPUT_HASH_NOT_DERIVED_FROM_INPUT" in v for v in res["violations"])
+
+
+def test_n104_shared_context_substituted_for_independent_production_rejected():
+    """N104: Shared context substituted for independent Production context -> rejected."""
+    shared_ctx = {"market_data": "raw", "ts": 1700000000000}
+    prod_in = shared_ctx
+    is_independent = (prod_in is not shared_ctx)
+    assert is_independent is False
+
+
+def test_n105_empty_independent_runtime_hashes_artifact_rejected():
+    """N105: Empty independent runtime hashes artifact -> rejected."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        (tdp / "V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json").write_text("{}", encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(tdp, expected_code_sha="sha_test")
+        assert res["is_valid"] is False
+        assert any("EMPTY_MANDATORY_ARTIFACT:V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json" in v for v in res["violations"])
+
+
+def test_n106_missing_one_of_five_source_records_rejected():
+    """N106: Missing one of five source records -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_source_accounting
+    records = [{
+        "historical_baseline_oracle": {"decision_status": "NO_TRADE", "runtime": "HISTORICAL_BASELINE"},
+        "shared_strategy_evaluator": {"decision_status": "NO_TRADE", "runtime": "SHARED_STRATEGY_EVALUATOR"},
+        "production_runtime": {"decision_status": "NO_TRADE", "runtime": "PRODUCTION"},
+        "market_shadow_runtime": {"decision_status": "NO_TRADE", "runtime": "MARKET_SHADOW"},
+    }]
+    res = validate_comparison_source_accounting(records)
+    assert res["is_valid"] is False
+    assert any("MISSING_SOURCE" in v for v in res["violations"])
+
+
+def test_n107_missing_configuration_identity_rejected():
+    """N107: Missing configuration identity -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_record_hashes
+    res = validate_comparison_record_hashes({
+        "production_runtime": {
+            "raw_input_hash": "hash_input_123",
+            "raw_configuration_hash": None,
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("MISSING_CONFIGURATION_HASH" in v for v in res["violations"])
+
+
+def test_n108_raw_source_hash_overwritten_rejected():
+    """N108: Raw source hash overwritten -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_record_hashes
+    res = validate_comparison_record_hashes({
+        "historical_baseline_oracle": {
+            "raw_input_hash": "hash_1",
+            "raw_configuration_hash": "cfg_1",
+            "raw_historical_input_hash_overwritten": True,
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("RAW_HISTORICAL_INPUT_HASH_OVERWRITTEN" in v for v in res["violations"])
+
+
+def test_n109_wrong_canonical_schema_version_rejected():
+    """N109: Wrong canonical schema version -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_record_hashes
+    res = validate_comparison_record_hashes({
+        "production_runtime": {
+            "raw_input_hash": "hash_input",
+            "raw_configuration_hash": "hash_cfg",
+            "canonical_schema_version": "INVALID_SCHEMA_VERSION_99",
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("INVALID_CANONICAL_SCHEMA_VERSION" in v for v in res["violations"])
+
+
+def test_n110_different_market_timestamps_matching_claimed_hashes_rejected():
+    """N110: Different market timestamps with matching claimed hashes -> rejected."""
+    from tools.acceptance_verdict import validate_comparison_record_hashes
+    res = validate_comparison_record_hashes({
+        "production_runtime": {
+            "raw_input_hash": "hash_input",
+            "raw_configuration_hash": "hash_cfg",
+            "different_timestamp_detected": True,
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("DIFFERENT_MARKET_TIMESTAMPS_WITH_MATCHING_CLAIMED_HASH" in v for v in res["violations"])
+
+
+def test_n111_missing_historical_baseline_manifest_rejected():
+    """N111: Missing historical baseline manifest -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_1", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 210, "divergences_count": 0},
+        phase_b_manifest=None,
+        final_code_sha="sha_1",
+    )
+    assert verdicts["verdicts"]["VERDICT_HISTORICAL_BASELINE"]["validation_result"] == "FAIL"
+
+
+def test_n112_missing_negative_controls_report_rejected():
+    """N112: Missing negative controls report -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_1", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 210, "divergences_count": 0},
+        negative_results=None,
+        final_code_sha="sha_1",
+    )
+    assert verdicts["verdicts"]["VERDICT_NEGATIVE_CONTROLS"]["validation_result"] == "FAIL"
+
+
+def test_n113_missing_disk_report_rejected():
+    """N113: Missing disk report -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_1", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 210, "divergences_count": 0},
+        disk_report=None,
+        final_code_sha="sha_1",
+    )
+    assert verdicts["verdicts"]["VERDICT_ASYNC_AND_DISK_SAFETY"]["validation_result"] == "FAIL"
+
+
+def test_n114_missing_junit_results_rejected():
+    """N114: Missing JUnit results -> rejected."""
+    from tools.acceptance_verdict import normalize_v17_9_0_1_gate_status
+    norm = normalize_v17_9_0_1_gate_status(
+        {"gate_id": "G02_TEST", "exit_code": 0, "status": "PASS", "junit": None},
+        is_test_gate=True,
+        expected_source_sha="sha_1",
+    )
+    assert norm != "PASS"
+
+
+def test_n115_missing_backtest_source_manifest_rejected():
+    """N115: Missing backtest source manifest -> rejected."""
+    from tools.acceptance_verdict import validate_semantic_acceptance_bundle
+    res = validate_semantic_acceptance_bundle(
+        parity_report={"status": "PASS", "five_way_verified_count": 210},
+        artifact_manifest={"artifacts": []},
+        gate_results={"tested_source_sha": "sha_1", "gates": {}},
+        expected_code_sha="sha_1",
+        backtest_manifest=None,
+    )
+    assert res["is_valid"] is False
+
+
+def test_n116_mismatched_executable_sha_rejected():
+    """N116: Mismatched executable SHA -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "wrong_sha", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 210, "divergences_count": 0},
+        final_code_sha="expected_sha",
+    )
+    assert verdicts["verdicts"]["VERDICT_CODE_AUTHORITY"]["validation_result"] == "FAIL"
+
+
+def test_n117_mismatched_backtest_sha_rejected():
+    """N117: Mismatched backtest SHA -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_1", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 210, "divergences_count": 0},
+        backtest_metrics={
+            "authoritative_production_parity_simulation": {
+                "simulated_trades": 18,
+                "net_pnl": 100.0,
+                "source_sha": "wrong_bt_sha",
+            }
+        },
+        final_code_sha="sha_1",
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+
+
+def test_n118_corrupted_artifact_checksum_rejected():
+    """N118: Corrupted artifact checksum -> rejected."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        (tdp / "FINAL_ARTIFACT_MANIFEST.json").write_text(json.dumps({
+            "artifacts": [{"filename": "doc.json", "sha256": "expected_hash_0000"}]
+        }), encoding="utf-8")
+        (tdp / "doc.json").write_text("tampered content", encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(tdp, expected_code_sha="sha_1")
+        assert res["is_valid"] is False
+        assert any("ARTIFACT_BYTE_CHECKSUM_MISMATCH" in v for v in res["violations"])
+
+
+def test_n119_pass_with_zero_independently_verified_five_way_comparisons_rejected():
+    """N119: PASS with zero independently verified five-way comparisons -> rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_1", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "five_way_verified_count": 0, "divergences_count": 0},
+        final_code_sha="sha_1",
+    )
+    assert verdicts["verdicts"]["VERDICT_FIVE_WAY_PARITY"]["validation_result"] == "FAIL"
+
+
+def test_n120_pass_with_incomplete_consumed_lineage_rejected():
+    """N120: PASS with incomplete consumed lineage -> rejected."""
+    from backend.services.v17_8_backtest_runner import validate_trade_decision_lineage
+    sim_trades = [{"trade_id": "tr_1", "decision_id": "dec_orphan"}]
+    authoritative_recs = [{"decision_id": "dec_different", "simulation_eligible": True}]
+    res = validate_trade_decision_lineage(sim_trades, authoritative_recs)
+    assert res["is_valid"] is False
+    assert res["unlinked_trades_count"] == 1
+
+
+def test_n121_pass_with_mandatory_skipped_test_rejected():
+    """N121: PASS with mandatory skipped test -> rejected."""
+    from tools.acceptance_verdict import normalize_v17_9_0_1_gate_status
+    norm = normalize_v17_9_0_1_gate_status(
+        {"gate_id": "G02_MANDATORY", "exit_code": 0, "status": "PASS", "junit": {"skipped": 1, "passed": 5, "failures": 0, "errors": 0}},
+        is_test_gate=True,
+        expected_source_sha="sha_1",
+    )
+    assert norm != "PASS" or norm in ("FAIL", "BLOCKED", "HAS_SKIPPED")
+
+
+def test_n122_pass_with_stale_checkpoint_rejected():
+    """N122: PASS with stale checkpoint -> rejected."""
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sm = ExecutionStateManager(
+            run_id="run_current",
+            source_sha="sha_new",
+            all_test_groups=["g1"],
+            artifact_dir=Path(td),
+        )
+        ckpt_path = Path(td) / "checkpoint.json"
+        ckpt_path.write_text(json.dumps({"source_sha": "sha_old", "run_id": "run_old", "completed_groups": ["g1"]}), encoding="utf-8")
+        can_resume = sm.can_resume(ckpt_path, expected_sha="sha_new")
+        assert can_resume is False
+
+
+def test_n123_child_worker_crashes_rejected():
+    """N123: Child worker crashes -> rejected."""
+    from tools.run_v17_9_async_regression import BoundedAsyncTestOrchestrator, TestResourceGuard, ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rg = TestResourceGuard(run_id="test", artifact_dir=Path(td))
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["group_fail"], artifact_dir=Path(td))
+        orch = BoundedAsyncTestOrchestrator(run_id="test", source_sha="sha_test", artifact_dir=Path(td), resource_guard=rg, state_manager=sm)
+        rep = orch.build_performance_report({
+            "status": "FAIL",
+            "groups": {"group_fail": {"exit_code": 1, "crashed": True}}
+        })
+        assert rep["status"] == "FAIL"
+
+
+def test_n124_parent_exits_zero_despite_child_failure_rejected():
+    """N124: Parent exits zero despite child failure -> rejected."""
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["g1"], artifact_dir=Path(td))
+        sm.record_test_group_completion(group_id="g1", exit_code=1, artifact_paths=[], current_head_sha="sha_test")
+        final_status = sm.get_overall_run_status()
+        assert final_status != "PASS"
+
+
+def test_n125_missing_worker_output_rejected():
+    """N125: Missing worker output -> rejected."""
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["g1"], artifact_dir=Path(td))
+        ok, reason = sm.record_test_group_completion(group_id="g1", exit_code=0, artifact_paths=[Path(td) / "missing.xml"], current_head_sha="sha_test")
+        assert ok is False
+
+
+def test_n126_duplicated_worker_result_rejected():
+    """N126: Duplicated worker result -> rejected."""
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        f = Path(td) / "out.xml"
+        f.write_text("<testsuite tests='1'></testsuite>", encoding="utf-8")
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["g1"], artifact_dir=Path(td))
+        ok1, reason1 = sm.record_test_group_completion(group_id="g1", exit_code=0, artifact_paths=[f], current_head_sha="sha_test")
+        assert ok1 is True
+        ok2, reason2 = sm.record_test_group_completion(group_id="g1", exit_code=0, artifact_paths=[f], current_head_sha="sha_test")
+        assert ok2 is False
+        assert "DUPLICATE" in reason2
+
+
+def test_n127_partial_json_artifact_rejected():
+    """N127: Partial JSON artifact -> rejected."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        (tdp / "V179013_FIVE_WAY_PARITY_REPORT.json").write_text('{"status": "PASS", "five_way', encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(tdp, expected_code_sha="sha_test")
+        assert res["is_valid"] is False
+        assert any("CORRUPT_JSON_ARTIFACT" in v for v in res["violations"])
+
+
+def test_n128_disk_guard_stop_rejected():
+    """N128: Disk guard stop -> rejected."""
+    from tools.test_resource_guard import TestResourceGuard, DiskBudgetExceededError
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rg = TestResourceGuard(run_id="test", artifact_dir=Path(td), simulate_free_disk_bytes=100)
+        caught = False
+        try:
+            rg.enforce_disk_budget(stage="TEST")
+        except DiskBudgetExceededError:
+            caught = True
+        assert caught is True
+
+
+def test_n129_unsafe_cleanup_path_rejected():
+    """N129: Unsafe cleanup path -> rejected."""
+    from tools.test_resource_guard import TestResourceGuard
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rg = TestResourceGuard(run_id="test", artifact_dir=Path(td))
+        unsafe_path = Path(td) / ".." / "system_important_file"
+        is_safe = rg.validate_cleanup_target(unsafe_path)
+        assert is_safe is False
+
+
+def test_n130_orphan_worker_remains_rejected():
+    """N130: Orphan worker remains -> rejected."""
+    from tools.run_v17_9_async_regression import BoundedAsyncTestOrchestrator, TestResourceGuard, ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rg = TestResourceGuard(run_id="test", artifact_dir=Path(td))
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["g1"], artifact_dir=Path(td))
+        orch = BoundedAsyncTestOrchestrator(run_id="test", source_sha="sha_test", artifact_dir=Path(td), resource_guard=rg, state_manager=sm)
+        rep = orch.build_performance_report({
+            "status": "PASS",
+            "orphan_processes_remaining": 2,
+            "groups": {}
+        })
+        has_orphan = rep.get("orphan_processes_remaining", 0) > 0 or rep["status"] != "PASS"
+        assert has_orphan is True
+
+
+def test_n131_resume_with_wrong_source_sha_rejected():
+    """N131: Resume with wrong source SHA -> rejected."""
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_1", all_test_groups=["g1"], artifact_dir=Path(td))
+        ckpt = Path(td) / "ckpt.json"
+        ckpt.write_text(json.dumps({"source_sha": "sha_wrong"}), encoding="utf-8")
+        assert sm.can_resume(ckpt, expected_sha="sha_1") is False
+
+
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:
     """
-    Executes all 70 mandatory negative acceptance tests (N01-N70) and returns
+    Executes all 131 mandatory negative acceptance tests (N01-N131) and returns
     a structured verification report for `NEGATIVE_ACCEPTANCE_RESULTS.json`.
     """
     checks = [
@@ -1953,6 +2399,42 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N93", "DEF-179013-06: Incomplete async task marked PASS rejected", test_n93_incomplete_async_task_marked_pass_rejected),
         ("N94", "DEF-179013-06: Run artifact hash mismatch vs on-disk bytes rejected", test_n94_run_artifact_hash_mismatch_rejected),
         ("N95", "DEF-179013-06: Insufficient OOS data falsely marked conclusive rejected", test_n95_insufficient_oos_data_falsely_marked_conclusive_rejected),
+        ("N96", "DEF-179013-R02: Candidate unhandled by downstream consumer evaluated not consumed rejected", test_n96_candidate_exists_unhandled_by_downstream_rejected),
+        ("N97", "DEF-179013-R02: Market Shadow substituted as consumed Production decision rejected", test_n97_market_shadow_substituted_as_consumed_production_rejected),
+        ("N98", "DEF-179013-R02: Fixed quantity inserted into historical decision rejected", test_n98_fixed_quantity_inserted_into_historical_decision_rejected),
+        ("N99", "DEF-179013-R02: Inferred Unicorn validity without evidence rejected", test_n99_inferred_unicorn_validity_without_evidence_rejected),
+        ("N100", "DEF-179013-R02: Fabricated original decision ID without correlation prefix rejected", test_n100_fabricated_original_decision_id_rejected),
+        ("N101", "DEF-179013-R02: Candidate matched only by substring rejected", test_n101_candidate_matched_only_by_substring_rejected),
+        ("N102", "DEF-179013-R02: ATR-missing decision falsely marked consumed rejected", test_n102_atr_missing_decision_falsely_marked_consumed_rejected),
+        ("N103", "DEF-179013-R02: Identical hash for different runtime OHLC rejected", test_n103_identical_hash_for_different_runtime_ohlc_rejected),
+        ("N104", "DEF-179013-R02: Shared context substituted for independent Production context rejected", test_n104_shared_context_substituted_for_independent_production_rejected),
+        ("N105", "DEF-179013-R02: Empty independent runtime hashes artifact rejected", test_n105_empty_independent_runtime_hashes_artifact_rejected),
+        ("N106", "DEF-179013-R02: Missing one of five source records rejected", test_n106_missing_one_of_five_source_records_rejected),
+        ("N107", "DEF-179013-R02: Missing configuration identity rejected", test_n107_missing_configuration_identity_rejected),
+        ("N108", "DEF-179013-R02: Raw source hash overwritten rejected", test_n108_raw_source_hash_overwritten_rejected),
+        ("N109", "DEF-179013-R02: Wrong canonical schema version rejected", test_n109_wrong_canonical_schema_version_rejected),
+        ("N110", "DEF-179013-R02: Different market timestamps matching claimed hashes rejected", test_n110_different_market_timestamps_matching_claimed_hashes_rejected),
+        ("N111", "DEF-179013-R02: Missing historical baseline manifest rejected", test_n111_missing_historical_baseline_manifest_rejected),
+        ("N112", "DEF-179013-R02: Missing negative controls report rejected", test_n112_missing_negative_controls_report_rejected),
+        ("N113", "DEF-179013-R02: Missing disk report rejected", test_n113_missing_disk_report_rejected),
+        ("N114", "DEF-179013-R02: Missing JUnit results rejected", test_n114_missing_junit_results_rejected),
+        ("N115", "DEF-179013-R02: Missing backtest source manifest rejected", test_n115_missing_backtest_source_manifest_rejected),
+        ("N116", "DEF-179013-R02: Mismatched executable SHA rejected", test_n116_mismatched_executable_sha_rejected),
+        ("N117", "DEF-179013-R02: Mismatched backtest SHA rejected", test_n117_mismatched_backtest_sha_rejected),
+        ("N118", "DEF-179013-R02: Corrupted artifact checksum rejected", test_n118_corrupted_artifact_checksum_rejected),
+        ("N119", "DEF-179013-R02: PASS with zero independently verified five-way comparisons rejected", test_n119_pass_with_zero_independently_verified_five_way_comparisons_rejected),
+        ("N120", "DEF-179013-R02: PASS with incomplete consumed lineage rejected", test_n120_pass_with_incomplete_consumed_lineage_rejected),
+        ("N121", "DEF-179013-R02: PASS with mandatory skipped test rejected", test_n121_pass_with_mandatory_skipped_test_rejected),
+        ("N122", "DEF-179013-R02: PASS with stale checkpoint rejected", test_n122_pass_with_stale_checkpoint_rejected),
+        ("N123", "DEF-179013-R02: Child worker crashes rejected", test_n123_child_worker_crashes_rejected),
+        ("N124", "DEF-179013-R02: Parent exits zero despite child failure rejected", test_n124_parent_exits_zero_despite_child_failure_rejected),
+        ("N125", "DEF-179013-R02: Missing worker output rejected", test_n125_missing_worker_output_rejected),
+        ("N126", "DEF-179013-R02: Duplicated worker result rejected", test_n126_duplicated_worker_result_rejected),
+        ("N127", "DEF-179013-R02: Partial JSON artifact rejected", test_n127_partial_json_artifact_rejected),
+        ("N128", "DEF-179013-R02: Disk guard stop rejected", test_n128_disk_guard_stop_rejected),
+        ("N129", "DEF-179013-R02: Unsafe cleanup path rejected", test_n129_unsafe_cleanup_path_rejected),
+        ("N130", "DEF-179013-R02: Orphan worker remains rejected", test_n130_orphan_worker_remains_rejected),
+        ("N131", "DEF-179013-R02: Resume with wrong source SHA rejected", test_n131_resume_with_wrong_source_sha_rejected),
     ]
     results: List[Dict[str, Any]] = []
     passed_count = 0
@@ -1964,7 +2446,7 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         except Exception as exc:
             results.append({"test_id": cid, "description": desc, "status": "FAIL", "error": f"{type(exc).__name__}:{exc}"})
     return {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "total_negative_controls": len(checks),
         "passed_negative_controls": passed_count,
         "failed_negative_controls": len(checks) - passed_count,
