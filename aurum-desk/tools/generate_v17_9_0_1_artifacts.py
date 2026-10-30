@@ -1499,7 +1499,7 @@ def compute_cross_runtime_parity_report(
     computed_status = "PASS" if (has_non_empty_comparisons and total_divergences == 0 and len(divergences) == 0) else "FAIL"
 
     return {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "evaluator_version": EVALUATOR_VERSION,
         "final_code_sha": final_code_sha,
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
@@ -1578,7 +1578,7 @@ def run_v17_9_0_1_2_negative_acceptance_suite(
         for r in raw["results"]
     ]
     return {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "final_code_sha": code_sha,
         "evaluator_version": EVALUATOR_VERSION,
         "total_negative_controls": raw["total_negative_tests"],
@@ -1602,6 +1602,7 @@ def generate_all_v17_9_0_1_artifacts(
     branch = _get_git_branch()
     now_iso = datetime.now(timezone.utc).isoformat()
     target_dirs = list(output_dirs) if output_dirs else [
+        REPO_ROOT / "docs" / "v17_9_0_1_3",
         REPO_ROOT / "docs" / "v17_9_0_1",
         REPO_ROOT / "docs",
     ]
@@ -1781,7 +1782,7 @@ def generate_all_v17_9_0_1_artifacts(
         expected_source_sha=code_sha,
     )
     gate_results_payload = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "tested_source_sha": original_run_sha or code_sha,
         "final_code_sha": code_sha,
         "run_id": run_results.get("run_id"),
@@ -1861,7 +1862,7 @@ def generate_all_v17_9_0_1_artifacts(
     # 3. Phase J: Disk Guard Report & Artifact Retention Manifest
     disk_report = guard.build_disk_budget_report()
     retention_manifest = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "final_code_sha": code_sha,
         "generated_at_utc": now_iso,
         "temporary_directory_root": str(guard.tmp_root.relative_to(REPO_ROOT)).replace("\\", "/"),
@@ -1870,6 +1871,7 @@ def generate_all_v17_9_0_1_artifacts(
         "log_compression_threshold_bytes": 25 * 1024 * 1024,
         "compressed_logs": disk_report["compressed_logs"],
         "retained_artifact_directories": [
+            "docs/v17_9_0_1_3",
             "docs/v17_9_0_1",
             run_dir_rel or "docs/artifacts/v17_9_0",
             "backtest",
@@ -1894,7 +1896,7 @@ def generate_all_v17_9_0_1_artifacts(
     per_model = ab_comp.get("per_model_breakdown", {})
 
     bt_metrics_payload = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "evaluator_version": EVALUATOR_VERSION,
         "final_code_sha": code_sha,
         "backtest_source_sha": ab_comp.get("source_sha") or ds_man.get("source_sha") or code_sha,
@@ -2142,15 +2144,15 @@ def generate_all_v17_9_0_1_artifacts(
     fwd_prov_records = hist_replay.get("forward_candle_provenance_records", [])
     parity_win_outcomes = hist_replay.get("parity_window_outcomes", [])
     chrono_win_rec = dict(hist_replay.get("chronological_window_reconciliation") or {})
-    chrono_win_rec["release"] = "V17.9.0.1.2"
+    chrono_win_rec["release"] = "V17.9.0.1.3"
     chrono_win_rec["final_code_sha"] = code_sha
 
     ledger_cache_val = dict(hist_replay.get("ledger_cache_validation_report") or {})
-    ledger_cache_val["release"] = "V17.9.0.1.2"
+    ledger_cache_val["release"] = "V17.9.0.1.3"
     ledger_cache_val["final_code_sha"] = code_sha
 
     real_fwd_prov_payload = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "final_code_sha": code_sha,
         "evaluator_version": EVALUATOR_VERSION,
         "dataset_artifact": hist_replay.get("dataset_artifact", "backtest/historical_dataset_XAUUSDT.json.gz"),
@@ -2166,7 +2168,7 @@ def generate_all_v17_9_0_1_artifacts(
         json.dumps(r, sort_keys=True) + "\n" for r in parity_win_outcomes
     )
     real_fwd_causality_md = "\n".join([
-        "# V17.9.0.1.2 — Real Forward Candle Causality & Parity Simulation Report (`DEF-179012-F02`)",
+        "# V17.9.0.1.3 — Real Forward Candle Causality & Parity Simulation Report (`DEF-179012-F02`)",
         "",
         f"- **Final Code SHA (`FINAL_CODE_SHA`):** `{code_sha}`",
         f"- **Dataset Artifact:** `{real_fwd_prov_payload['dataset_artifact']}` (`{real_fwd_prov_payload['dataset_sha256']}`)",
@@ -2192,7 +2194,7 @@ def generate_all_v17_9_0_1_artifacts(
         repo_root=REPO_ROOT,
     )
     exact_commit_exec_manifest = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "branch": branch,
         "final_code_sha": code_sha,
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
@@ -2708,7 +2710,7 @@ def generate_all_v17_9_0_1_artifacts(
                 "size_bytes": fpath.stat().st_size,
             }
     prelim_manifest = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "branch": branch,
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
         "final_code_sha": code_sha,
@@ -2731,7 +2733,7 @@ def generate_all_v17_9_0_1_artifacts(
         artifact_manifest=prelim_manifest,
         gate_results=gate_results_payload,
         expected_code_sha=code_sha,
-        expected_release="V17.9.0.1.2",
+        expected_release="V17.9.0.1.3",
         artifact_checksums_on_disk={
             v["path"]: v["sha256"]
             for v in prelim_hashes.values()
@@ -2739,10 +2741,10 @@ def generate_all_v17_9_0_1_artifacts(
         },
     )
     semantic_report_md = "\n".join([
-        "# V17.9.0.1.2 — Acceptance Semantic Verification Report (`DEF-179012-C06`)",
+        "# V17.9.0.1.3 — Acceptance Semantic Verification Report (`DEF-179012-C06`)",
         "",
         f"- **Final Code SHA (`FINAL_CODE_SHA`):** `{code_sha}`",
-        f"- **Expected Release Version:** `V17.9.0.1.2`",
+        f"- **Expected Release Version:** `V17.9.0.1.3`",
         f"- **Semantic Verification Status:** `{semantic_verification['status']}` (`is_valid={semantic_verification['is_valid']}`)",
         f"- **Errors Count:** `{len(semantic_verification.get('errors', []))}`",
         f"- **Release Version Mismatches:** `{len(semantic_verification.get('release_version_mismatches', []))}`",
@@ -2750,8 +2752,8 @@ def generate_all_v17_9_0_1_artifacts(
         f"- **CRLF Files Detected:** `{len(semantic_verification.get('crlf_files', []))}`",
         "",
         "## 1. Semantic Invariants Verified Across Generated Bundle",
-        "1. **Release Metadata Uniformity (`N50`):** Every JSON manifest/report carries `release == 'V17.9.0.1.2'`.",
-        "2. **70/70 Negative Controls (`N01`–`N70`):** `NEGATIVE_ACCEPTANCE_RESULTS.json` verifies `70/70` passed controls.",
+        "1. **Release Metadata Uniformity (`N50`):** Every JSON manifest/report carries `release == 'V17.9.0.1.3'`.",
+        f"2. **{neg_results_payload['passed_negative_controls']}/{neg_results_payload['total_negative_controls']} Negative Controls (`N01`–`N95`):** `NEGATIVE_ACCEPTANCE_RESULTS.json` verifies `{neg_results_payload['passed_negative_controls']}/{neg_results_payload['total_negative_controls']}` passed controls.",
         "3. **Isolated Historical Authority (`N41`–`N42`, `N51`–`N54`):** `BASELINE_MANIFEST.json` and `HISTORICAL_EXECUTED_CALLABLE_MANIFEST.json` verify `copied_current_oracle_entry == False`, `current_oracle_source_injected == False`, and `real_historical_scenarios_count == 150`.",
         "4. **Comparison Source Accounting & Real Forward Candles (`N38`–`N40`, `N55`–`N60`):** `ACTUAL_RUNTIME_PARITY_REPORT.json` and `REAL_FORWARD_CANDLE_PROVENANCE.json` verify `three_way_current_runtime == 210`, `four_way_current_plus_baseline == 210`, `five_way_verified == 210`, `actual_consumed_trade_lineage == 18`, and `fabricated_forward_candles_count == 0`.",
         "5. **Non-Null Input/Config Hashes & Provenance (`N43`–`N46`, `N61`–`N70`):** All 150 historical records carry valid 64-hex `input_snapshot_hash`, `market_input_hash`, and `configuration_hash`, and `EXACT_COMMIT_EXECUTION_MANIFEST.json` + `LEDGER_CACHE_VALIDATION_REPORT.json` verify exact commit and 11-invariant cache provenance.",
@@ -2776,7 +2778,7 @@ def generate_all_v17_9_0_1_artifacts(
             }
 
     source_integrity_md = "\n".join([
-        "# V17.9.0.1.2 — Source & Artifact Byte-Exact Integrity Report",
+        "# V17.9.0.1.3 — Source & Artifact Byte-Exact Integrity Report",
         "",
         f"- **Branch:** `{branch}`",
         f"- **Pre-V17.9.0 Baseline SHA (V17.8.0.4):** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
@@ -2811,7 +2813,7 @@ def generate_all_v17_9_0_1_artifacts(
     }
 
     final_manifest_payload = {
-        "release": "V17.9.0.1.2",
+        "release": "V17.9.0.1.3",
         "branch": branch,
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
         "final_code_sha": code_sha,

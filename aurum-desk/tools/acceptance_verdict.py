@@ -1352,7 +1352,7 @@ def validate_semantic_acceptance_bundle(
     artifact_manifest: Dict[str, Any],
     gate_results: Dict[str, Any],
     expected_code_sha: str,
-    expected_release: str = "V17.9.0.1.2",
+    expected_release: Optional[str] = None,
     artifact_checksums_on_disk: Optional[Dict[str, str]] = None,
     backtest_manifest: Optional[Dict[str, Any]] = None,
     cache_validation_report: Optional[Dict[str, Any]] = None,
@@ -1428,14 +1428,15 @@ def validate_semantic_acceptance_bundle(
                     violations.append(f"GATE_TESTED_SOURCE_SHA_MISMATCH:{gid}")
 
     # N50: Release version consistency across all artifacts
+    target_release = expected_release if expected_release is not None else str(parity_report.get("release") or "V17.9.0.1.3")
     for name, doc in (
         ("DECISION_PARITY_REPORT.json", parity_report),
         ("FINAL_ARTIFACT_MANIFEST.json", artifact_manifest),
         ("ACCEPTANCE_GATE_RESULTS.json", gate_results),
     ):
         rel_val = str(doc.get("release") or "")
-        if rel_val != expected_release:
-            violations.append(f"RELEASE_VERSION_MISMATCH:{name}:{rel_val}!={expected_release}")
+        if rel_val != target_release:
+            violations.append(f"RELEASE_VERSION_MISMATCH:{name}:{rel_val}!={target_release}")
 
     # N70: Cross-artifact contradiction checks across backtest manifest, cache report, chronological reconciliation, callable manifest
     if isinstance(backtest_manifest, dict):
