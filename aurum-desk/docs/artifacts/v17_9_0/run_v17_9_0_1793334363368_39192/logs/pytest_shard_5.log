@@ -1,0 +1,47 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_1_monitor_scope_and_focus.py backend/tests/test_v17_2_monitor_context.py backend/tests/test_v17_5_production_flow.py backend/tests/test_final_reconciliation_chronology.py backend/tests/test_v13_4_scheduler_integration.py backend/tests/test_v13_8_cadence_contract.py backend/tests/test_v13_8_target_provenance.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_16_strict_report_authority.py backend/tests/test_v14_4_4_forecast_runtime.py backend/tests/test_v14_4_4_ny_quota_pipeline.py backend/tests/test_v14_4_6_pagination_replay.py backend/tests/test_v14_4_liquidity.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_8_database_failure_recovery.py backend/tests/test_v16_10_causal_ohlc_path.py backend/tests/test_v16_28_cg01_setup_correctness.py backend/tests/test_v16_39_11_snapshot_selector_accounting.py backend/tests/test_v16_39_21_e2e_financial_fixtures.py backend/tests/test_v16_4_cg01_causal_entry.py backend/tests/test_v16_7_execution_guard_parity.py backend/tests/test_v17_4_1_coordinator_guards.py backend/tests/test_v17_4_1_quota_not_required.py backend/tests/test_v17_4_3_atomic_mirrors.py backend/tests/test_v17_5_1_atr_timeframe.py backend/tests/test_v17_5_5_cycle_to_chart_contract.py backend/tests/test_v17_5_8_cost_authority.py backend/tests/test_v17_5_9_acceptance_runner_self_test.py backend/tests/test_v17_6_2_acceptance_runner.py backend/tests/test_v17_6_2_transaction_ownership.py backend/tests/test_v17_6_4_2_paper_parity.py backend/tests/test_v17_6_4_2_watcher_integration.py backend/tests/test_v17_6_4_3_evidence_authority.py backend/tests/test_v17_6_4_3a_health_db_scoping.py backend/tests/test_v17_6_4_3c_scheduler_durability.py backend/tests/test_v17_6_cycle_telemetry.py backend/tests/test_v17_8_0_2_observe_only_runtime.py backend/tests/test_v17_8_acceptance_runner.py backend/tests/test_v17_8_runtime_integration.py backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v3_regression.py backend/tests/test_v6_1_isolation_and_recovery.py backend/tests/test_v8_repro_and_contract.py backend/tests/test_v8_telegram_and_journal_matrix.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\shards\shard_5.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 361418
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 20%]
+........................................................................ [ 40%]
+........................................................................ [ 61%]
+........................................................................ [ 81%]
+................................................................         [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_real_integrity_error_flush_recovers_without_pending_rollback_error
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f840a810> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f8434cd0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_session_usable_after_rollback_recovery
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f6751d10> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f861a110>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_queries_between_poison_and_rollback
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f8336bd0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f8374d10>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_order_armed_and_arm_candidate_not_called
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f6470e90> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f6472a90>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_watchsetup_and_snapshot_not_mutated
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f660d690> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f660da10>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_staged_data_before_failure_rolled_back_consistently
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x148f6d7c450> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f6d7ee50>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_expire_path_real_integrity_error_recovery
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:369: SAWarning: New instance <SystemConfig at 0x148f6dea610> with identity key (<class 'models.SystemConfig'>, ('DUP_EXP_KEY',), None) conflicts with persistent instance <SystemConfig at 0x148f6d80bd0>
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+352 passed, 8 warnings in 356.50s (0:05:56)
+
+--- STDERR ---

@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_2_observe_only_runtime.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\g57_observation_startup_shutdown.xml -k test_observe_only_lifespan_startup or test_observe_only_api_read_allowlist
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 816
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_observe_only_lifespan_startup_shutdown_and_negative_control (0.422s)
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_observe_only_api_read_allowlist_and_db_immutability (0.394s)
+2 passed in 0.82s
+
+--- STDERR ---

@@ -1,7 +1,7 @@
 # V17.9.0.1.2 — Historical Backtest & Authoritative Shared Evaluator Parity Report
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `0aa80ed0921662650807a42ec98292cfec83c874`
-- **Backtest Executed Source SHA:** `3b40be13fe2fa84af99d541acc88bcace17985e2`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `0d1d279392127334520b548798587731a939c78e`
+- **Backtest Executed Source SHA:** `0d1d279392127334520b548798587731a939c78e`
 - **Evaluator Version:** `17.9.0.1.1`
 - **Dataset SHA-256:** `6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5`
 - **Saved Repository Snapshot:** `backtest/historical_dataset_XAUUSDT.json.gz` (`9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18`)

@@ -1,0 +1,19 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_21_production_flow.py backend/tests/test_forecast_causal_closure.py backend/tests/test_forecast_forward_observation.py backend/tests/test_setup_quality_api_v14.py backend/tests/test_v10_lesson_rules.py backend/tests/test_v11_historical_replay.py backend/tests/test_v13_4_accounting.py backend/tests/test_v13_5_execution_acceptance.py backend/tests/test_v13_5_metrics_acceptance.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_1_repository.py backend/tests/test_v14_4_5_acceptance_identity.py backend/tests/test_v14_4_6_strict_proof_producer.py backend/tests/test_v14_4_scenario_causality.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v16_10_arm_to_fill_sizing.py backend/tests/test_v16_14_cg01_scheduler_and_trace.py backend/tests/test_v16_27_event_dispatch_lifecycle.py backend/tests/test_v16_39_7_mode_trust_lesson_api_acceptance.py backend/tests/test_v16_39_8_production_lesson_arm_acceptance.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v16_8_statistics_and_accounting.py backend/tests/test_v16_9_historical_runner.py backend/tests/test_v17_0_opportunity_monitor_metrics.py backend/tests/test_v17_4_2_baseline_probes.py backend/tests/test_v17_4_2_noop_authority.py backend/tests/test_v17_5_1_research_runtime.py backend/tests/test_v17_5_8_full_cycle.py backend/tests/test_v17_5_stop_research.py backend/tests/test_v17_6_4_2_pending_interval_commit.py backend/tests/test_v17_6_4_3a_authoritative_good.py backend/tests/test_v17_6_4_3c_transport_authority.py backend/tests/test_v17_6_4_3c_zero_live_orders_runtime.py backend/tests/test_v17_6_4_3d_scheduler_durable_evidence.py backend/tests/test_v17_6_4_interval_producer.py backend/tests/test_v17_6_api_contract.py backend/tests/test_v17_6_engine_heartbeat.py backend/tests/test_v17_6_soak.py backend/tests/test_v17_8_0_3_market_shadow.py backend/tests/test_v17_8_unicorn_evidence.py backend/tests/test_v7_2_stress_harness.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\shards\shard_9.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 277697
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 20%]
+........................................................................ [ 40%]
+........................................................................ [ 60%]
+........................................................................ [ 80%]
+......................................................................   [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+358 passed, 1 warning in 271.46s (0:04:31)
+
+--- STDERR ---

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g78_source_manifest_negative_controls" tests="1" errors="0" failures="0" skipped="0" time="2.129"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG77AndG78GitReproducibleSourceManifest" name="test_g78_all_7_source_manifest_negative_controls" time="2.129" /></testsuite></testsuites>

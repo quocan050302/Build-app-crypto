@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\g10_cg01_evaluator_integration.xml -k test_sl_36 or test_ce_10 or test_atr_17
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 292
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_36_cg01_specific_behavior (0.107s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_10_stale_quote_blocks_execution (0.168s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_17_cg01_uses_verified_atr (0.017s)
+3 passed in 0.29s
+
+--- STDERR ---

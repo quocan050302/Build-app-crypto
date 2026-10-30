@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — Production Decision Authority Report (`DEF-179012-01` & `DEF-179012-C01`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `0aa80ed0921662650807a42ec98292cfec83c874`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `0d1d279392127334520b548798587731a939c78e`
 - **Evaluator Version:** `17.9.0.1.1`
 
 ## 1. Monotonic Domain Reconciliation (`_execute_production_domain_spec`)

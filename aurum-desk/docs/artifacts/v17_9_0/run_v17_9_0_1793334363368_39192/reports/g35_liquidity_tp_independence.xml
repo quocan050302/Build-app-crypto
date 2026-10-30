@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g35_liquidity_tp_independence" tests="1" errors="0" failures="0" skipped="0" time="0.011"><testcase classname="backend.tests.test_v17_8_structural_sl" name="test_fail_closed_when_wide_sl_causes_insufficient_net_rr" time="0.011" /></testsuite></testsuites>

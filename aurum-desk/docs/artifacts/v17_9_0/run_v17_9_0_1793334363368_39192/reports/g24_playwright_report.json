@@ -1,0 +1,229 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/v17_5_3_stop_browser.e2e.ts",
+      "--output=C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_pw24_njcn1wsn"
+    ],
+    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
+    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/ADMIN/AppData/Local/Temp/aurum_pw24_njcn1wsn",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.e2e.ts"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_pw24_njcn1wsn",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.e2e.ts",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:5199",
+          "viewport": {
+            "width": 1512,
+            "height": 857
+          },
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "channel": "chrome"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793334363368_39192\\reports\\g24_playwright_report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "v17_5_3_stop_browser.e2e.ts",
+      "file": "v17_5_3_stop_browser.e2e.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V17.5.3 Stop Placement & Geometry Browser Verification",
+          "file": "v17_5_3_stop_browser.e2e.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7106,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T04:27:23.218Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e310093638213a097b7f-cc6ab5664cc1f731f2c6",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 22,
+              "column": 3
+            },
+            {
+              "title": "P02: LONG order renders correct geometry (SL < Entry < TP)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2958,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T04:27:30.980Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e310093638213a097b7f-58095e663537c6a76065",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 95,
+              "column": 3
+            },
+            {
+              "title": "P03: Mobile viewport (390x844) renders without horizontal scroll overflow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1714,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T04:27:33.961Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e310093638213a097b7f-d869c34a734a49e7b6c4",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 167,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-30T04:27:12.036Z",
+    "duration": 28844.397,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

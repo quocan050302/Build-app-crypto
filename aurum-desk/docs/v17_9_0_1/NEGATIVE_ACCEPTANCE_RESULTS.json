@@ -399,14 +399,174 @@
       "passed": true,
       "status": "PASS",
       "test_id": "N50"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: IndependentPreRefactorBaselineOracle injected into historical subprocess rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N51"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical subprocess calling evaluate_baseline_dict instead of real callables rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N52"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical module imported from current repository path rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N53"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F01: Historical comparison reporting PASS with UNEXPECTED_DIVERGENCE > 0 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N54"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Synthetic forward candle passed to parity simulator rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N55"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Missing forward_1m in parity simulator returns NOT_EVALUATED and never fabricates candles",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N56"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Future candle leakage in decision context rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N57"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Non-monotonic or duplicate timestamps in forward_1m rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N58"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Corrupted OHLC values in forward_1m rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N59"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F02: Parity window simulator outcome diverging from chronological backtest ledger rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N60"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Unresolvable backtest source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N61"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Amended-away dangling backtest source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N62"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Backtest source_sha != FINAL_CODE_SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N63"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F03: Backtest executable source_tree_hash mismatch rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N64"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched source_sha rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N65"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched dataset_sha256 rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N66"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger with mismatched configuration_hash or evaluator_version rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N67"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N68"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N69"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N70"
     }
   ],
   "evaluator_version": "17.9.0.1.1",
   "failed_negative_controls": 0,
   "failed_negative_tests": 0,
-  "final_code_sha": "0aa80ed0921662650807a42ec98292cfec83c874",
-  "passed_negative_controls": 50,
-  "passed_negative_tests": 50,
+  "final_code_sha": "0d1d279392127334520b548798587731a939c78e",
+  "passed_negative_controls": 70,
+  "passed_negative_tests": 70,
   "release": "V17.9.0.1.2",
   "results": [
     {
@@ -708,9 +868,129 @@
       "error": null,
       "status": "PASS",
       "test_id": "N50"
+    },
+    {
+      "description": "DEF-179012-F01: IndependentPreRefactorBaselineOracle injected into historical subprocess rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N51"
+    },
+    {
+      "description": "DEF-179012-F01: Historical subprocess calling evaluate_baseline_dict instead of real callables rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N52"
+    },
+    {
+      "description": "DEF-179012-F01: Historical module imported from current repository path rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N53"
+    },
+    {
+      "description": "DEF-179012-F01: Historical comparison reporting PASS with UNEXPECTED_DIVERGENCE > 0 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N54"
+    },
+    {
+      "description": "DEF-179012-F02: Synthetic forward candle passed to parity simulator rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N55"
+    },
+    {
+      "description": "DEF-179012-F02: Missing forward_1m in parity simulator returns NOT_EVALUATED and never fabricates candles",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N56"
+    },
+    {
+      "description": "DEF-179012-F02: Future candle leakage in decision context rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N57"
+    },
+    {
+      "description": "DEF-179012-F02: Non-monotonic or duplicate timestamps in forward_1m rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N58"
+    },
+    {
+      "description": "DEF-179012-F02: Corrupted OHLC values in forward_1m rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N59"
+    },
+    {
+      "description": "DEF-179012-F02: Parity window simulator outcome diverging from chronological backtest ledger rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N60"
+    },
+    {
+      "description": "DEF-179012-F03: Unresolvable backtest source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N61"
+    },
+    {
+      "description": "DEF-179012-F03: Amended-away dangling backtest source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N62"
+    },
+    {
+      "description": "DEF-179012-F03: Backtest source_sha != FINAL_CODE_SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N63"
+    },
+    {
+      "description": "DEF-179012-F03: Backtest executable source_tree_hash mismatch rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N64"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched source_sha rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N65"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched dataset_sha256 rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N66"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger with mismatched configuration_hash or evaluator_version rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N67"
+    },
+    {
+      "description": "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N68"
+    },
+    {
+      "description": "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N69"
+    },
+    {
+      "description": "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N70"
     }
   ],
   "status": "PASS",
-  "total_negative_controls": 50,
-  "total_negative_tests": 50
+  "total_negative_controls": 70,
+  "total_negative_tests": 70
 }

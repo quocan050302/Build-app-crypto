@@ -1,0 +1,16 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_acceptance_runner.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793334363368_39192\reports\g58_release_artifact_truth.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 110
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_all_52_and_58_gates_pass (0.017s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_missing_gate_blocked (0.015s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_failed_test_gate_blocked (0.013s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_nonzero_exit_code_blocked (0.013s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_skipped_gate_fails_closed (0.013s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_integrity_unverified_blocked (0.014s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_8_0_2_preflight_violation_blocked (0.013s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_9_0_all_107_gates_and_taxonomy (0.013s)
+8 passed in 0.11s
+
+--- STDERR ---
