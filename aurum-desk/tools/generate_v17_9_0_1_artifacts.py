@@ -2748,13 +2748,13 @@ def generate_all_v17_9_0_1_artifacts(
     }
 
     auth_verdicts = derive_authoritative_acceptance_verdicts(
-        parity_report=v179013_five_way_json,
-        artifact_manifest={"artifacts": []},
         gate_results=gate_results_payload,
-        negative_controls=neg_results_payload,
+        parity_report=v179013_five_way_json,
+        negative_results=neg_results_payload,
         backtest_metrics=bt_metrics_payload,
-        async_performance=v179013_async_exec_json,
         disk_report=disk_report,
+        async_exec_report=v179013_async_exec_json,
+        phase_b_manifest=phase_b["manifest"],
         final_code_sha=code_sha,
     )
 
