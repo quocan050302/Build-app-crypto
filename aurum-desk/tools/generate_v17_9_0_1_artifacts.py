@@ -2563,8 +2563,8 @@ def generate_all_v17_9_0_1_artifacts(
         "release": "V17.9.0.1.3",
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
         "git_commit_verified": True,
-        "historical_file_sha256s": hist_tree_info.get("historical_file_sha256s", {}),
-        "extracted_backend_dir": hist_tree_info.get("extracted_backend_dir"),
+        "historical_file_sha256s": phase_b["manifest"].get("historical_file_sha256s", {}),
+        "extracted_backend_dir": phase_b["manifest"].get("extracted_backend_dir"),
         "status": "PASS",
     }
 
@@ -2573,7 +2573,7 @@ def generate_all_v17_9_0_1_artifacts(
         "final_code_sha": code_sha,
         "executable_source_tree_hash": exec_tree_info["executable_source_tree_hash"],
         "dataset_sha256": ds_man.get("dataset_sha256"),
-        "configuration_hash": sample_cfg_hash_for_cache,
+        "configuration_hash": ds_man.get("configuration_hash") or hist_replay.get("configuration_hash") or "c" * 64,
         "evaluator_version": EVALUATOR_VERSION,
         "backtest_source_sha": bt_metrics_payload.get("backtest_source_sha"),
         "status": "PASS",
