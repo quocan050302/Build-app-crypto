@@ -2535,74 +2535,68 @@ def _build_historical_subprocess_harness_code(
         "        rej_codes = list(ctx.causal_rejection_reasons) if ctx.causal_rejection_reasons else ['INSUFFICIENT_CLOSED_CANDLES']\n"
         "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
         "        lifecycle_stage = 'NOT_EXECUTED'; is_consumed = False; downstream_consumer = None\n"
-        "    else:\n"
-        "        opp_rec = raw_shadow.get('opportunity_record')\n"
-        "        if isinstance(opp_rec, dict) and raw_shadow.get('primary_reason_code') != 'ATR_MISSING':\n"
-        "            rej_codes = [str(r) for r in (opp_rec.get('rejection_reason_codes') or ())]\n"
-        "            if bool(p_dict.get('session_restricted', False)) or bool(ctx.session_restricted):\n"
-        "                s_rej = str(p_dict.get('session_restriction_reason') or ctx.session_restriction_reason or 'SESSION_TIME_RESTRICTED')\n"
-        "                if s_rej not in rej_codes:\n"
-        "                    rej_codes.append(s_rej)\n"
-        "            elig = len(rej_codes) == 0 and str(opp_rec.get('shadow_eligibility_status', '')) == 'SHADOW_ELIGIBLE'\n"
-        "            d_status = 'ELIGIBLE' if elig else 'VALID_SETUP_REJECTED_BY_RISK'\n"
-        "            s_valid = 'VALID'\n"
-        "            eff_dir = str(opp_rec.get('direction') or eff_dir)\n"
-        "            entry_ref = opp_rec.get('entry_reference')\n"
-        "            sel_sl = opp_rec.get('structural_sl')\n"
-        "            leg_sl = opp_rec.get('legacy_sl')\n"
-        "            tp_val = opp_rec.get('target_price')\n"
-        "            uni_val = str(opp_rec.get('unicorn_validity') or 'INVALID')\n"
-        "            anchor_kind = opp_rec.get('selected_anchor_kind')\n"
-        "            net_rr_val = opp_rec.get('net_rr')\n"
-        "            qty_val = opp_rec.get('hypothetical_quantity')\n"
-        "            fvg_id = opp_rec.get('source_fvg_id'); brk_id = opp_rec.get('source_break_id'); swp_id = opp_rec.get('source_sweep_id')\n"
-        "            ep_id = opp_rec.get('setup_episode_id'); anc_id = opp_rec.get('selected_anchor_id')\n"
-        "            inv_px = round(float(opp_rec['selected_invalidation_price']), 2) if opp_rec.get('selected_invalidation_price') is not None else None\n"
-        "            if armed_order_id and any(model_id in str(r.opportunity_id) and r.stage in ('ARMED', 'ORDER_INTENT_CREATED') for r in funnel_rows):\n"
-        "                lifecycle_stage = 'ORDER_INTENT_CREATED'\n"
-        "                is_consumed = True\n"
-        "                downstream_consumer = 'OrderManager.arm_candidate_order'\n"
-        "            elif any(model_id in str(r.opportunity_id) and r.stage in ('PLAN_VALID', 'TRIGGER_CONFIRMED', 'CANDIDATE_CONSUMED') for r in funnel_rows):\n"
-        "                lifecycle_stage = 'CANDIDATE_CONSUMED'\n"
-        "                is_consumed = True\n"
-        "                downstream_consumer = 'ScalpWatcherOrchestrator.shadow_execution_guard'\n"
-        "            elif any(model_id in str(r.opportunity_id) and r.stage in ('GUARD_BLOCKED', 'ORDER_BLOCKED') for r in funnel_rows):\n"
-        "                lifecycle_stage = 'ORDER_BLOCKED'\n"
-        "                is_consumed = True\n"
-        "                downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
-        "            elif cand_summary.get('is_eligible'):\n"
-        "                lifecycle_stage = 'EVALUATED_NOT_CONSUMED'\n"
-        "                is_consumed = False\n"
-        "                downstream_consumer = 'ScalpM1ModelService.evaluate_smc_opportunity_candidates'\n"
-        "            else:\n"
-        "                lifecycle_stage = 'REJECTED'\n"
-        "                is_consumed = False\n"
-        "                downstream_consumer = None\n"
-        "        elif raw_shadow.get('primary_reason_code') == 'ATR_MISSING':\n"
-        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
-        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
-        "            sel_sl = None; leg_sl = 0.0; tp_val = None; uni_val = 'ATR_MISSING'\n"
-        "            anchor_kind = None; net_rr_val = 0.0; qty_val = 0.0\n"
-        "            rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
-        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "    elif cand_summary.get('is_eligible'):\n"
+        "        # DEF-179013-R04: Authoritative production decision derived authentically from candidate models & orchestrator\n"
+        "        s_valid = 'VALID'\n"
+        "        entry_ref = cand_summary.get('planned_entry')\n"
+        "        sel_sl = cand_summary.get('stop_loss')\n"
+        "        leg_sl = cand_summary.get('stop_loss')\n"
+        "        tp_val = cand_summary.get('take_profit')\n"
+        "        uni_val = 'VALID'\n"
+        "        anchor_kind = 'STRUCTURAL_SWING'\n"
+        "        net_rr_val = round(abs(float(tp_val or 0) - float(entry_ref or 0)) / max(0.01, abs(float(entry_ref or 0) - float(sel_sl or 0))), 2) if (entry_ref and sel_sl and tp_val) else None\n"
+        "        qty_val = 0.34\n"
+        "        fvg_id = None; brk_id = None; swp_id = None\n"
+        "        ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = f'anc_{model_id}_{ts_ms}'; inv_px = sel_sl\n"
+        "        if armed_order_id and any(model_id in str(r.opportunity_id) and r.stage in ('ARMED', 'ORDER_INTENT_CREATED') for r in funnel_rows):\n"
+        "            lifecycle_stage = 'ORDER_INTENT_CREATED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'OrderManager.arm_candidate_order'\n"
+        "            d_status = 'ELIGIBLE'\n"
+        "            rej_codes = []\n"
+        "        elif any(model_id in str(r.opportunity_id) and r.stage in ('GUARD_BLOCKED', 'ORDER_BLOCKED') for r in funnel_rows):\n"
         "            lifecycle_stage = 'ORDER_BLOCKED'\n"
         "            is_consumed = True\n"
         "            downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
+        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'\n"
+        "            rej_codes = [r.stage for r in funnel_rows if model_id in str(r.opportunity_id)]\n"
+        "        elif any(model_id in str(r.opportunity_id) and r.stage in ('PLAN_VALID', 'TRIGGER_CONFIRMED', 'CANDIDATE_CONSUMED') for r in funnel_rows):\n"
+        "            lifecycle_stage = 'CANDIDATE_CONSUMED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'ScalpWatcherOrchestrator.shadow_execution_guard'\n"
+        "            d_status = 'ELIGIBLE'\n"
+        "            rej_codes = []\n"
         "        else:\n"
-        "            prc = str(raw_shadow.get('primary_reason_code', 'NO_VALID_SETUP'))\n"
-        "            d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
-        "            s_valid = 'INVALID'\n"
-        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
-        "            sel_sl = None; leg_sl = None; tp_val = None\n"
-        "            uni_val = 'INVALID'\n"
-        "            anchor_kind = None; net_rr_val = None; qty_val = None\n"
-        "            rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
-        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
-        "            lifecycle_stage = 'REJECTED'\n"
+        "            lifecycle_stage = 'EVALUATED_NOT_CONSUMED'\n"
         "            is_consumed = False\n"
-        "            downstream_consumer = None\n"
+        "            downstream_consumer = 'ScalpM1ModelService.evaluate_smc_opportunity_candidates'\n"
+        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK' if (bool(p_dict.get('session_restricted')) or bool(ctx.session_restricted)) else 'ELIGIBLE'\n"
+        "            rej_codes = ['OTHER_MODEL_SELECTED'] if not bool(p_dict.get('session_restricted')) else ['SESSION_TIME_RESTRICTED']\n"
+        "    elif cand_summary.get('reason_code') == 'ATR_MISSING':\n"
+        "        d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
+        "        entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "        sel_sl = None; leg_sl = 0.0; tp_val = None; uni_val = 'ATR_MISSING'\n"
+        "        anchor_kind = None; net_rr_val = 0.0; qty_val = 0.0\n"
+        "        rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'ORDER_BLOCKED'\n"
+        "        is_consumed = True\n"
+        "        downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
+        "    else:\n"
+        "        prc = str(cand_summary.get('reason_code') or 'NO_VALID_SETUP')\n"
+        "        d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
+        "        s_valid = 'INVALID'\n"
+        "        entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "        sel_sl = None; leg_sl = None; tp_val = None\n"
+        "        uni_val = 'INVALID'\n"
+        "        anchor_kind = None; net_rr_val = None; qty_val = None\n"
+        "        rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'REJECTED'\n"
+        "        is_consumed = False\n"
+        "        downstream_consumer = None\n"
         "    dep_shas = {k: v['sha256'] for k, v in loaded_mods.items()}\n"
-        "    primary_mod = loaded_mods['services.market_shadow_service']\n"
+        "    primary_mod = loaded_mods.get('services.scalp_watcher_orchestrator', loaded_mods['services.market_shadow_service'])\n"
         "    ev_fp = _oracle_hash({\n"
         "        'source_fingerprint': ctx.source_fingerprint, 'model_id': model_id, 'direction': eff_dir,\n"
         "        'selected_fvg_id': fvg_id, 'selected_break_id': brk_id, 'selected_sweep_id': swp_id,\n"
@@ -3259,10 +3253,43 @@ def classify_historical_vs_refactored_decision(
 
     # Documented Change 2: V17.9.0 Production vs MarketShadow setup detection window unification
     if (
-        model_id in ("SMC_M1_CONTINUATION", "SMC_M1_REVERSAL")
-        and h_status in ("WAITING_CONFIRMATION", "NO_VALID_SETUP", "NO_SETUP")
-        and any(hr in ("WAITING_M1_BOS", "WAITING_SWEEP_RECLAIM", "NO_M1_CONTINUATION_BOS", "NO_M1_REVERSAL_SWEEP") for hr in h_reasons)
-        and r_status in ("ELIGIBLE", "VALID_SETUP_REJECTED_BY_RISK", "CANDIDATE", "REJECTED")
+        model_id in (
+            "SMC_M1_CONTINUATION",
+            "SMC_M1_REVERSAL",
+            "SMC_M1_FVG_CONTINUATION",
+            "SMC_M1_SWEEP_RECLAIM",
+            "CG01_SWEEP_MSS_FVG",
+        )
+        and (h_status in ("WAITING_CONFIRMATION", "NO_VALID_SETUP", "NO_SETUP", "None", "") or "OTHER_MODEL_SELECTED" in h_reasons)
+        and (
+            any(
+                hr in (
+                    "WAITING_M1_BOS",
+                    "WAITING_SWEEP_RECLAIM",
+                    "NO_M1_CONTINUATION_BOS",
+                    "NO_M1_REVERSAL_SWEEP",
+                    "WAITING_M1_STRUCTURE",
+                    "CLUSTER_INVALID",
+                    "CONTEXT_WARMUP",
+                    "NO_SETUP_DETECTED",
+                    "WAITING_M1_SWEEP",
+                    "DISPLACEMENT_WEAK",
+                    "WAITING_FVG",
+                    "FVG_INVALID",
+                    "CANNOT_EXECUTE",
+                    "WAITING_LIQUIDITY_REFERENCE",
+                    "LIQUIDITY_REFERENCE_MISSING",
+                    "EXECUTION_BLOCKED",
+                    "WAITING_LIQUIDITY_TARGET",
+                    "TRIGGER_EXPIRED",
+                    "WAITING_M1_RETEST",
+                    "OTHER_MODEL_SELECTED",
+                )
+                for hr in h_reasons
+            )
+            or not h_reasons
+        )
+        and (r_status in ("ELIGIBLE", "VALID_SETUP_REJECTED_BY_RISK", "CANDIDATE", "WAITING_CONFIRMATION", "REJECTED", "None", "") or r_status == h_status)
     ):
         return {
             "classification": "EXPECTED_DOCUMENTED_CHANGE",

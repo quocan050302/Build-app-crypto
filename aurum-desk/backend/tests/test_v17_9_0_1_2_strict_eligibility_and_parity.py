@@ -1439,10 +1439,16 @@ def test_n70_final_acceptance_bundle_with_cross_artifact_contradiction_rejected(
 
 
 def test_n71_historical_subprocess_result_removed_rejected():
-    """N71: Historical subprocess result removed -> rejected."""
-    decisions = {}
-    assert "HIST_1791998880000_SMC_M1_REVERSAL" not in decisions
-    assert decisions.get("HIST_1791998880000_SMC_M1_REVERSAL") is None
+    """N71: Historical subprocess result removed -> rejected by classify_historical_vs_refactored_decision."""
+    from backend.services.v17_9_0_1_baseline_oracle import classify_historical_vs_refactored_decision
+    res = classify_historical_vs_refactored_decision(
+        scenario_item={"scenario_id": "scen_test", "model_id": "SMC_M1_REVERSAL"},
+        raw_hist_dec=None,
+        ref_dec={"decision_status": "ELIGIBLE"},
+    )
+    assert res["classification"] in ("HISTORICAL_BASELINE_MISSING", "NOT_EXECUTED")
+    assert res.get("is_unexpected_divergence", False) is True or res.get("raw_exact_match") is False
+    assert res.get("raw_exact_match") is False
 
 
 def test_n72_historical_orchestrator_decision_discarded_rejected():
@@ -1471,7 +1477,7 @@ def test_n73_shadow_output_substituted_for_production_consumed_rejected():
                 "decision_status": "ELIGIBLE",
             }
         ],
-        downstream_candidates_by_fp={},  # Empty candidates! Shadow was not consumed by Production
+        downstream_candidates_by_fp={},
     )
     assert rec["unconsumed_reported_as_consumed_count"] == 0
     assert "SMC_M1_REVERSAL" not in rec["consumed_model_decisions"]
@@ -1481,13 +1487,14 @@ def test_n73_shadow_output_substituted_for_production_consumed_rejected():
 
 def test_n74_current_oracle_fallback_activated_rejected():
     """N74: Current oracle fallback activated -> detected and fails closed."""
-    iso_hist_decisions = {}
-    scen_key = "MISSING_HIST_SCENARIO"
-    base_snap_raw = iso_hist_decisions.get(scen_key)
-    assert base_snap_raw is None
-    # Verify no silent current-tree fallback occurs:
-    status = "HISTORICAL_BASELINE_MISSING" if base_snap_raw is None else "VALID"
-    assert status == "HISTORICAL_BASELINE_MISSING"
+    from backend.services.v17_9_0_1_baseline_oracle import classify_historical_vs_refactored_decision
+    res = classify_historical_vs_refactored_decision(
+        scenario_item={"scenario_id": "scen_fallback", "model_id": "CG01_SWEEP_MSS_FVG"},
+        raw_hist_dec={"copied_current_oracle_entry": True},
+        ref_dec={"decision_status": "ELIGIBLE"},
+    )
+    assert res.get("is_unexpected_divergence", False) is True or res.get("raw_exact_match") is False
+    assert res.get("raw_exact_match") is False
 
 
 def test_n75_historical_input_hash_overwritten_rejected():
@@ -1555,28 +1562,35 @@ def test_n77_different_configuration_labeled_equivalent_rejected():
 
 def test_n78_missing_canonical_comparison_source_rejected():
     """N78: Missing canonical comparison source in five-way comparison -> rejected."""
-    res = validate_comparison_record_hashes(
+    from tools.acceptance_verdict import validate_comparison_source_accounting
+    records = [
         {
-            "historical_baseline_oracle": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
-            "shared_strategy_evaluator": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
-            # production_runtime is missing!
-            "market_shadow_runtime": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
-            "chronological_backtest_runtime": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
+            "historical_baseline_oracle": {"engine_id": "BASE"},
+            "shared_strategy_evaluator": {"engine_id": "SHARED"},
+            "market_shadow_runtime": {"engine_id": "SHADOW"},
+            "chronological_backtest_runtime": {"engine_id": "BT"},
         }
-    )
-    assert len(res.get("violations", [])) == 0  # validates present keys
-    # Now check 5-way completeness:
-    sources = {"historical_baseline_oracle", "shared_strategy_evaluator", "market_shadow_runtime", "chronological_backtest_runtime"}
-    assert "production_runtime" not in sources
-    assert len(sources) < 5
+    ]
+    res = validate_comparison_source_accounting(records, expected_unique_sources=5)
+    assert res["is_valid"] is False
+    assert any("MISSING" in v for v in res["violations"])
 
 
 def test_n79_duplicated_source_masquerading_as_independent_runtime_rejected():
     """N79: Duplicated source masquerading as independent runtime -> detected and rejected."""
-    prod_snap = {"decision_id": "dec_1", "runtime_role": "PRODUCTION", "engine_id": "ENGINE_PROD"}
-    shadow_snap = dict(prod_snap)  # Direct copy!
-    is_duplicated = (prod_snap.get("engine_id") == shadow_snap.get("engine_id") and prod_snap.get("runtime_role") == shadow_snap.get("runtime_role"))
-    assert is_duplicated is True
+    from tools.acceptance_verdict import validate_comparison_source_accounting
+    records = [
+        {
+            "historical_baseline_oracle": {"engine_id": "ENGINE_PROD", "runtime_role": "PRODUCTION"},
+            "shared_strategy_evaluator": {"engine_id": "ENGINE_PROD", "runtime_role": "PRODUCTION"},
+            "production_runtime": {"engine_id": "ENGINE_PROD", "runtime_role": "PRODUCTION"},
+            "market_shadow_runtime": {"engine_id": "ENGINE_PROD", "runtime_role": "PRODUCTION"},
+            "chronological_backtest_runtime": {"engine_id": "ENGINE_PROD", "runtime_role": "PRODUCTION"},
+        }
+    ]
+    res = validate_comparison_source_accounting(records, expected_unique_sources=5)
+    assert res["is_valid"] is False
+    assert any("DUPLICATE_SOURCE" in v or "MISSING" in v for v in res["violations"])
 
 
 def test_n80_missing_consumed_lifecycle_evidence_rejected():
@@ -1632,91 +1646,210 @@ def test_n84_fabricated_forward_candles_rejected():
 
 def test_n85_reconstructed_quote_falsely_labeled_real_historical_rejected():
     """N85: Reconstructed quote falsely labeled a real historical quote -> rejected."""
-    quote_metadata = {"source": "RECONSTRUCTED_HISTORICAL_QUOTE", "synthetic_spread": True}
-    claimed_label = "REAL_HISTORICAL_QUOTE"
-    is_valid_claim = (quote_metadata["source"] == claimed_label and not quote_metadata.get("synthetic_spread"))
-    assert is_valid_claim is False
+    res = validate_comparison_record_hashes({
+        "production_runtime": {
+            "raw_input_hash": "hash_1",
+            "configuration_hash": "cfg_1",
+            "quote_source": "RECONSTRUCTED_HISTORICAL_QUOTE",
+            "claimed_source": "REAL_HISTORICAL_QUOTE",
+            "_overwritten_hash_detected": True,
+        }
+    })
+    assert res["is_valid"] is False
+    assert any("RAW_HISTORICAL_INPUT_HASH_OVERWRITTEN" in v for v in res["violations"])
 
 
 def test_n86_chronological_trade_id_mismatch_rejected():
     """N86: Chronological trade ID mismatch in ledger -> rejected."""
-    link = {"trade_id": "tr_101", "decision_id": "dec_202"}
-    ledger_trade = {"trade_id": "tr_999", "decision_id": "dec_202"}
-    assert link["trade_id"] != ledger_trade["trade_id"]
+    from backend.services.v17_8_backtest_runner import validate_trade_decision_lineage
+    sim_trades = [{"trade_id": "tr_101", "decision_id": "dec_202"}]
+    authoritative_recs = [{"decision_id": "dec_999", "simulation_eligible": True}]
+    res = validate_trade_decision_lineage(sim_trades, authoritative_recs)
+    assert res["is_valid"] is False
+    assert res["unlinked_trades_count"] > 0
 
 
 def test_n87_duplicate_trade_lineage_rejected():
     """N87: Duplicate trade lineage in ledger -> rejected."""
-    trades = [{"trade_id": "tr_1"}, {"trade_id": "tr_1"}]
-    unique_ids = {t["trade_id"] for t in trades}
-    assert len(unique_ids) < len(trades)
+    from backend.services.v17_8_backtest_runner import validate_trade_decision_lineage
+    sim_trades = [
+        {"trade_id": "tr_1", "decision_id": "dec_common"},
+        {"trade_id": "tr_1", "decision_id": "dec_common"},
+    ]
+    authoritative_recs = [{"decision_id": "dec_common", "simulation_eligible": True}]
+    res = validate_trade_decision_lineage(sim_trades, authoritative_recs)
+    assert res["is_valid"] is False
+    assert res["duplicate_trades_count"] > 0
 
 
 def test_n88_wrong_backtest_sha_rejected():
     """N88: Wrong backtest source SHA mismatching FINAL_CODE_SHA -> rejected."""
-    final_code_sha = "0d1d279392127334520b548798587731a939c78e"
-    backtest_sha = "stale_or_wrong_sha_123"
-    assert backtest_sha != final_code_sha
+    from tools.acceptance_verdict import validate_semantic_acceptance_bundle
+    res = validate_semantic_acceptance_bundle(
+        parity_report={"status": "PASS", "five_way_verified_count": 210},
+        artifact_manifest={"artifacts": []},
+        gate_results={"tested_source_sha": "final_sha_123", "gates": {}},
+        expected_code_sha="final_sha_123",
+        backtest_manifest={"source_sha": "wrong_backtest_sha_456"},
+    )
+    assert res["is_valid"] is False
+    assert any("BACKTEST_SOURCE_SHA_MISMATCH" in v for v in res["violations"])
 
 
 def test_n89_stale_cached_parity_record_rejected():
     """N89: Stale cached parity record with outdated tree hash -> rejected."""
-    cached_envelope = {
-        "source_tree_hash": "old_tree_hash_111",
-        "current_tree_hash": "new_tree_hash_222",
+    from backend.services.v17_8_backtest_runner import validate_backtest_ledger_cache_envelope
+    cached_payload = {
+        "cache_provenance": {
+            "source_sha": "sha_1",
+            "source_tree_hash": "old_tree_hash_111",
+            "dataset_sha256": "ds_hash",
+            "configuration_hash": "cfg_hash",
+            "evaluator_version": "v1",
+            "runner_version": "v1",
+            "simulator_assumptions": {},
+            "cost_spread_assumptions": {},
+            "historical_period": "2024",
+            "schema_version": "1.0",
+        },
+        "trade_decision_links": [],
     }
-    is_valid = (cached_envelope["source_tree_hash"] == cached_envelope["current_tree_hash"])
-    assert is_valid is False
+    expected_provenance = {
+        "source_sha": "sha_1",
+        "source_tree_hash": "new_tree_hash_999",
+        "dataset_sha256": "ds_hash",
+        "configuration_hash": "cfg_hash",
+        "evaluator_version": "v1",
+        "runner_version": "v1",
+        "simulator_assumptions": {},
+        "cost_spread_assumptions": {},
+        "historical_period": "2024",
+        "schema_version": "1.0",
+    }
+    res = validate_backtest_ledger_cache_envelope(cached_payload, expected_provenance=expected_provenance, strict=False)
+    assert res["is_valid"] is False
+    assert "STALE_CACHE_SOURCE_TREE_HASH_MISMATCH" in res["violations"]
 
 
 def test_n90_tampered_junit_report_rejected():
     """N90: Tampered JUnit report claiming pass with failing testcase -> rejected."""
+    import tempfile
+    import os
+    from tools.run_v17_9_async_regression import parse_junit_xml_nodes
     xml_content = '<testsuite errors="0" failures="1" tests="10"><testcase name="test_x"><failure>err</failure></testcase></testsuite>'
-    claimed_passed = True
-    actual_failures = 1 if 'failures="1"' in xml_content else 0
-    assert actual_failures > 0
-    assert not (claimed_passed and actual_failures == 0)
+    with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False) as tf:
+        tf.write(xml_content)
+        tf_name = tf.name
+    try:
+        nodes = parse_junit_xml_nodes(Path(tf_name))
+        assert nodes["failures"] == 1
+        assert len(nodes["failed_node_ids"]) == 1
+        is_valid_pass = bool(nodes["valid"] and nodes["failures"] == 0 and nodes["errors"] == 0)
+        assert is_valid_pass is False
+    finally:
+        if os.path.exists(tf_name):
+            os.unlink(tf_name)
 
 
 def test_n91_missing_worker_output_in_async_runner_rejected():
     """N91: Missing worker output in async runner -> rejected."""
-    scheduled_workers = {"worker_1", "worker_2", "worker_3"}
-    reported_workers = {"worker_1", "worker_2"}
-    missing = scheduled_workers - reported_workers
-    assert len(missing) == 1
-    assert "worker_3" in missing
+    from tools.v17_9_execution_state import ExecutionStateManager
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        sm = ExecutionStateManager(
+            run_id="test_run",
+            source_sha="sha_test",
+            all_test_groups=["group_1", "group_2"],
+            artifact_dir=Path(td),
+        )
+        ok, reason = sm.record_test_group_completion(
+            group_id="group_1",
+            exit_code=0,
+            artifact_paths=[Path(td) / "non_existent_report.xml"],
+            current_head_sha="sha_test",
+        )
+        assert ok is False
+        assert "ARTIFACT_MISSING" in reason or "MISSING" in reason
 
 
 def test_n92_worker_crash_with_successful_parent_exit_rejected():
     """N92: Worker crash with successful parent exit code -> detected and rejected."""
-    worker_exit_code = 1
-    parent_exit_code = 0
-    overall_status = "PASS" if (worker_exit_code == 0 and parent_exit_code == 0) else "FAIL"
-    assert overall_status == "FAIL"
+    from tools.run_v17_9_async_regression import (
+        BoundedAsyncTestOrchestrator,
+        TestResourceGuard,
+        ExecutionStateManager,
+    )
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        rg = TestResourceGuard(run_id="test_run", artifact_dir=Path(td))
+        sm = ExecutionStateManager(run_id="test", source_sha="sha_test", all_test_groups=["group_crash"], artifact_dir=Path(td))
+        orchestrator = BoundedAsyncTestOrchestrator(
+            run_id="test_run",
+            source_sha="sha_test",
+            artifact_dir=Path(td),
+            resource_guard=rg,
+            state_manager=sm,
+        )
+        summary = {
+            "status": "FAIL",
+            "wall_clock_duration_sec": 10.0,
+            "sum_of_group_durations_sec": 10.0,
+            "speedup_ratio": 1.0,
+            "peak_concurrent_workers": 2,
+            "node_accounting_invariant_holds": False,
+            "total_completed_nodes": 5,
+            "total_failed_nodes": 1,
+            "groups": {
+                "group_crash": {"exit_code": 1, "timed_out": False, "junit": {"failures": 1, "valid": False}}
+            }
+        }
+        report = orchestrator.build_performance_report(summary)
+        assert report["status"] == "FAIL"
 
 
 def test_n93_incomplete_async_task_marked_pass_rejected():
     """N93: Incomplete async task marked PASS -> rejected."""
-    task = {"task_id": "shard_4", "state": "RUNNING", "exit_code": None}
-    claimed_status = "PASS"
-    is_valid = (task["state"] == "COMPLETED" and task["exit_code"] == 0 and claimed_status == "PASS")
-    assert is_valid is False
+    from tools.acceptance_verdict import normalize_v17_9_0_1_gate_status
+    gate_raw = {
+        "gate_id": "G101_ASYNC",
+        "status": "RUNNING",
+        "exit_code": None,
+    }
+    norm = normalize_v17_9_0_1_gate_status(gate_raw, is_test_gate=True, expected_source_sha="sha_test")
+    assert norm != "PASS"
+    assert norm in ("FAIL", "INCOMPLETE", "BLOCKED")
 
 
 def test_n94_run_artifact_hash_mismatch_rejected():
     """N94: Run artifact hash mismatch vs on-disk bytes -> rejected."""
-    claimed_hash = "sha256_claimed_123"
-    actual_hash = "sha256_actual_456"
-    assert claimed_hash != actual_hash
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        manifest = {
+            "artifacts": [
+                {"filename": "test.txt", "sha256": "wrong_sha_123456"}
+            ]
+        }
+        (tdp / "FINAL_ARTIFACT_MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (tdp / "test.txt").write_text("hello world", encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(tdp, expected_code_sha="sha_test")
+        assert res["is_valid"] is False
 
 
 def test_n95_insufficient_oos_data_falsely_marked_conclusive_rejected():
     """N95: Insufficient OOS data falsely marked conclusive -> rejected."""
-    oos_trades_count = 0
-    claimed_verdict = "OUT_OF_SAMPLE_CONCLUSIVE"
-    allowed_verdict = "OUT_OF_SAMPLE_INCONCLUSIVE" if oos_trades_count == 0 else claimed_verdict
-    assert allowed_verdict == "OUT_OF_SAMPLE_INCONCLUSIVE"
-    assert claimed_verdict != allowed_verdict
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={"tested_source_sha": "sha_abc", "passed_gates_count": 107, "total_mandatory_gates": 107},
+        parity_report={"status": "PASS", "divergences_count": 0, "five_way_verified_count": 210},
+        backtest_metrics={
+            "authoritative_production_parity_simulation": {"simulated_trades": 0, "net_pnl": 0.0},
+            "out_of_sample_report": {"oos_trades_count": 0, "verdict": "OUT_OF_SAMPLE_CONCLUSIVE"}
+        },
+        final_code_sha="sha_abc",
+    )
+    assert verdicts["trading_authorization_verdict"].startswith("MARKET_SHADOW_RESEARCH_ONLY")
 
 
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:

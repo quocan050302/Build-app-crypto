@@ -2419,6 +2419,30 @@ def reconcile_backtest_trade_decision_lineage(
     }
 
 
+def validate_trade_decision_lineage(
+    trades: Any = None,
+    authoritative_recs: Any = None,
+    *,
+    opportunities: Optional[Sequence[Dict[str, Any]]] = None,
+    rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_trades: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    canonical_decisions_by_id: Optional[Mapping[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """DEF-179013-R05: Validates 1-to-1 lineage between simulated trades and canonical decisions."""
+    opps = opportunities if opportunities is not None else authoritative_recs
+    res = reconcile_backtest_trade_decision_lineage(
+        trades_or_result=trades,
+        opportunities=opps,
+        rejections=rejections,
+        authoritative_trades=authoritative_trades,
+        authoritative_rejections=authoritative_rejections,
+        canonical_decisions_by_id=canonical_decisions_by_id,
+    )
+    res["duplicate_trades_count"] = res.get("duplicate_decision_trades_count", 0)
+    return res
+
+
 RUNNER_VERSION = "V17.9.0.1.2_CHRONOLOGICAL_PARITY_RUNNER_V1"
 LEDGER_CACHE_SCHEMA_VERSION = "V17.9.0.1.2_LEDGER_PROVENANCE_V1"
 DEFAULT_SIMULATOR_ASSUMPTIONS: Dict[str, Any] = {
@@ -2704,6 +2728,9 @@ def validate_cached_trade_ledger_provenance(
         "expected_provenance": dict(expected_provenance),
         "cached_provenance": {k: prov.get(k) for k in required_keys if isinstance(prov, Mapping)},
     }
+
+
+validate_backtest_ledger_cache_envelope = validate_cached_trade_ledger_provenance
 
 
 def validate_decision_context_no_future_leakage(
