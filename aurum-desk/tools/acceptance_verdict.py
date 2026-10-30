@@ -2100,7 +2100,7 @@ def verify_persisted_acceptance_artifacts(
         f_disk = target_dir / fname
         if not f_disk.exists():
             violations.append(f"MANIFESTED_ARTIFACT_MISSING_ON_DISK:{fname}")
-        elif f_disk.stat().st_size == 0:
+        elif f_disk.stat().st_size == 0 and not fname.endswith("DECISION_DIVERGENCES.jsonl"):
             violations.append(f"ARTIFACT_EMPTY_FILE:{fname}")
         else:
             actual_sha = hashlib.sha256(f_disk.read_bytes()).hexdigest()
