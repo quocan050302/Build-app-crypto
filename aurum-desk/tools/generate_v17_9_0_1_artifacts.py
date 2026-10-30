@@ -2632,7 +2632,7 @@ def generate_all_v17_9_0_1_artifacts(
         "- **Verification:** Verified dynamic counts (5,839 test executions, 4,348 unique test cases, 5,829 passed, 0 failures, 10 skipped).",
         "",
         "### DEF-179013-R08: Fallback Dummy Config Hash and Missing Fail-Closed Verification",
-        "- **Root Cause:** Fallback `"c" * 64` was used when configuration hash was absent.",
+        "- **Root Cause:** Fallback `'c' * 64` was used when configuration hash was absent.",
         "- **Repair:** Removed dummy fallback; enforced fail-closed validation rejecting non-derived or dummy config hashes.",
         "- **Verification:** Tested by `N88` and `N89`.",
         "",

@@ -3284,6 +3284,8 @@ def classify_historical_vs_refactored_decision(
                     "TRIGGER_EXPIRED",
                     "WAITING_M1_RETEST",
                     "OTHER_MODEL_SELECTED",
+                    "HTF_BIAS_NOT_ALIGNED",
+                    "HTF_BIAS_NEUTRAL",
                 )
                 for hr in h_reasons
             )
