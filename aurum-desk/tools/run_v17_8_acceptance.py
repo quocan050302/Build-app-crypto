@@ -1095,11 +1095,12 @@ def main():
             key=lambda f: (
                 0
                 if (
-                    "test_v17_1_" in f
+                    "test_v15_1_execution_lifecycle" in f
+                    or "test_v17_1_" in f
                     or "test_v17_2_" in f
                     or "_production_flow" in f
                     or "test_realtime_execution_worker" in f
-                    or "test_v16_23_red_reproductions" in f
+                    or "_red_reproductions" in f
                 )
                 else 1,
                 f,
@@ -1239,9 +1240,11 @@ def main():
         for stem, tcs in testcases_by_stem.items()
         if any(tc.find("failure") is not None or tc.find("error") is not None for tc in tcs)
     ]
-    for f_stem in failed_stems:
-        rel_target = f"backend/tests/{f_stem}.py"
-        if (ROOT / rel_target).exists():
+    if failed_stems:
+        def _retry_failed_stem_isolated(f_stem: str):
+            rel_target = f"backend/tests/{f_stem}.py"
+            if not (ROOT / rel_target).exists():
+                return f_stem, None
             retry_xml = shards_dir / f"retry_{f_stem}.xml"
             r_code, _, _, _ = run_cmd(
                 [PYTHON_BIN, "-m", "pytest", "-q", rel_target, f"--junitxml={str(retry_xml)}"],
@@ -1252,7 +1255,13 @@ def main():
             if r_code == 0 and retry_xml.exists():
                 r_tcs = ET.parse(retry_xml).getroot().findall(".//testcase")
                 if r_tcs and all(tc.find("failure") is None and tc.find("error") is None for tc in r_tcs):
-                    print(f"  -> [Isolated Retry PASS] {rel_target} passed 100% ({len(r_tcs)} tests) in isolated DB.")
+                    return f_stem, r_tcs
+            return f_stem, None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(failed_stems))) as retry_pool:
+            for f_stem, r_tcs in retry_pool.map(_retry_failed_stem_isolated, failed_stems):
+                if r_tcs is not None:
+                    print(f"  -> [Isolated Retry PASS] backend/tests/{f_stem}.py passed 100% ({len(r_tcs)} tests) in isolated DB.")
                     testcases_by_stem[f_stem] = r_tcs
 
     all_executed_testcases = [

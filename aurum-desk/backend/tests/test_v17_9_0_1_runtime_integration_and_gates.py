@@ -1109,8 +1109,8 @@ def test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historica
 
     neg_suite = run_v17_9_0_1_2_negative_acceptance_suite(final_code_sha="test_sha_v17_9_0_1_2")
     assert neg_suite["status"] == "PASS", f"Failed controls: {[c for c in neg_suite['controls'] if not c['passed']]}"
-    assert neg_suite["total_negative_controls"] == 50
-    assert neg_suite["passed_negative_controls"] == 50
+    assert neg_suite["total_negative_controls"] == 70
+    assert neg_suite["passed_negative_controls"] == 70
     assert neg_suite["failed_negative_controls"] == 0
 
     prov = verify_historical_baseline_commit_provenance()
