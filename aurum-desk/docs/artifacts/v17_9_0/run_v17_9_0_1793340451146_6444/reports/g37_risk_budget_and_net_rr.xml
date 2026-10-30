@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g37_risk_budget_and_net_rr" tests="2" errors="0" failures="0" skipped="0" time="0.023"><testcase classname="backend.tests.test_v17_8_structural_sl" name="test_legitimate_distant_structural_sl_over_4x_and_10x_atr" time="0.012" /><testcase classname="backend.tests.test_v17_8_structural_sl" name="test_financial_risk_conservation_and_quantity_downscaling" time="0.011" /></testsuite></testsuites>

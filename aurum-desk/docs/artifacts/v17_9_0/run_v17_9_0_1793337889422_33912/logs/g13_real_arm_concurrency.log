@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793337889422_33912\reports\g13_real_arm_concurrency.xml -k test_ce_16 or test_sl_57 or test_dsl_18
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 472
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_57_no_duplicate_trade_on_concurrency_race (0.223s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_18_no_duplicate_paper_order_under_racing_conditions (0.107s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_16_concurrent_real_arm_barrier_single_order (0.142s)
+3 passed in 0.47s
+
+--- STDERR ---

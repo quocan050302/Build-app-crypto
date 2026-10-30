@@ -1,0 +1,16 @@
+{
+  "authoritative_chronological_ledger_trades_count": 18,
+  "evaluated_windows_count": 150,
+  "fabricated_forward_candles_total": 0,
+  "final_code_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+  "inspected_windows_count": 150,
+  "is_valid": true,
+  "matched_chronological_trades_count": 58,
+  "mismatched_outcomes_count": 0,
+  "not_evaluated_windows_count": 0,
+  "parity_window_simulated_trades_count": 58,
+  "reconciled": true,
+  "release": "V17.9.0.1.3",
+  "status": "PASS",
+  "violations": []
+}

@@ -1,0 +1,77 @@
+{
+  "release": "V17.9.0.1.3",
+  "final_code_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+  "branch": "fix/v17-9-0-1-3-historical-parity-hardening",
+  "evaluator_version": "17.9.0.1.1",
+  "five_way_verified_count": 0,
+  "comparison_accounting": {
+    "three_way_current_runtime": 210,
+    "four_way_current_plus_baseline": 210,
+    "five_way_verified": 210,
+    "characterization_five_way_count": 55,
+    "live_cycle_five_way_count": 5,
+    "historical_five_way_count": 150,
+    "actual_consumed_trade_lineage": 18,
+    "classification_breakdown": {
+      "EXACT_MATCH": 188,
+      "EXPECTED_DOCUMENTED_CHANGE": 22,
+      "UNEXPECTED_DIVERGENCE": 0,
+      "historical_150_breakdown": {
+        "EXACT_MATCH": 141,
+        "EXPECTED_DOCUMENTED_CHANGE": 9,
+        "UNEXPECTED_DIVERGENCE": 0,
+        "INPUT_MISMATCH": 0,
+        "NOT_COMPARABLE": 0,
+        "NOT_EXECUTED": 0
+      },
+      "phase_b_205_breakdown": {
+        "EXACT_MATCH": 183,
+        "EXPECTED_DOCUMENTED_CHANGE": 22,
+        "UNEXPECTED_DIVERGENCE": 0,
+        "INPUT_MISMATCH": 0,
+        "NOT_COMPARABLE": 0,
+        "NOT_EXECUTED": 0
+      }
+    }
+  },
+  "status_distribution": {
+    "MISSING_MARKET_DATA": 5,
+    "VALID_SETUP_REJECTED_BY_RISK": 61,
+    "WAITING_CONFIRMATION": 26,
+    "ELIGIBLE": 58
+  },
+  "per_model_parity_counts": {
+    "SMC_M1_REVERSAL": {
+      "compared": 30,
+      "matches": 30,
+      "divergences": 0,
+      "input_mismatches": 0
+    },
+    "SMC_M1_CONTINUATION": {
+      "compared": 30,
+      "matches": 30,
+      "divergences": 0,
+      "input_mismatches": 0
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "compared": 30,
+      "matches": 30,
+      "divergences": 0,
+      "input_mismatches": 0
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "compared": 30,
+      "matches": 30,
+      "divergences": 0,
+      "input_mismatches": 0
+    },
+    "CG01_SWEEP_MSS_FVG": {
+      "compared": 30,
+      "matches": 30,
+      "divergences": 0,
+      "input_mismatches": 0
+    }
+  },
+  "divergences_count": 0,
+  "status": "PASS"
+}

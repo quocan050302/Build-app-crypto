@@ -484,7 +484,7 @@
       "violations": []
     }
   ],
-  "source_sha": "d4a70e0a360dede405c4b4eedd9d0e99ba7ef306",
+  "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
   "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752",
   "core_backtest_evaluator_tree_hash": "1d3d111259c5a87d8d4ffbb124eb277b064b21c58de0181c8ae3cf0d1d1d49d1",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
@@ -510,7 +510,7 @@
   },
   "schema_version": "V17.9.0.1.2_LEDGER_PROVENANCE_V1",
   "cache_provenance": {
-    "source_sha": "d4a70e0a360dede405c4b4eedd9d0e99ba7ef306",
+    "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
     "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752",
     "core_backtest_evaluator_tree_hash": "1d3d111259c5a87d8d4ffbb124eb277b064b21c58de0181c8ae3cf0d1d1d49d1",
     "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",

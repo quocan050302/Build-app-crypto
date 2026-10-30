@@ -1,0 +1,21 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_realtime_execution_worker.py backend/tests/test_v15_1_execution_lifecycle.py backend/tests/test_v16_19_red_reproductions.py backend/tests/test_v17_4_production_flow.py backend/tests/test_final_display_plan_sources.py backend/tests/test_v10_lesson_rules.py backend/tests/test_v12_2_acceptance.py backend/tests/test_v13_2_replay_repair.py backend/tests/test_v13_4_accounting.py backend/tests/test_v13_5_metrics_acceptance.py backend/tests/test_v14_1_rr_preview.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_4_canonical_plan_runtime.py backend/tests/test_v14_4_5_frozen_legacy_sources.py backend/tests/test_v14_4_9_reconciliation_integrity.py backend/tests/test_v14_4_scenario_pipeline.py backend/tests/test_v16_27_event_dispatch_lifecycle.py backend/tests/test_v16_36_paper_tonight_production_regression.py backend/tests/test_v16_38_adaptive_paper_readiness.py backend/tests/test_v16_39_10_snapshot_readonly.py backend/tests/test_v16_39_17_rr_sync.py backend/tests/test_v16_5_ledger_reconciliation.py backend/tests/test_v16_8_execution_model_and_time.py backend/tests/test_v16_9_cg01_decision_funnel.py backend/tests/test_v17_0_opportunity_monitor_api_readonly.py backend/tests/test_v17_4_1_contracts.py backend/tests/test_v17_4_timing_profiles.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_4_context_binding.py backend/tests/test_v17_5_6_actual_order_cost_parity.py backend/tests/test_v17_5_8_full_cycle.py backend/tests/test_v17_5_8_reference_provenance.py backend/tests/test_v17_5_risk_invariants.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_2_financial_run_isolation.py backend/tests/test_v17_6_4_1_real_db_integration.py backend/tests/test_v17_6_4_24_7_coverage.py backend/tests/test_v17_6_4_2_quote_authority.py backend/tests/test_v17_6_4_3b_health_truth.py backend/tests/test_v17_6_4_3b_scheduler_runtime.py backend/tests/test_v17_6_financial_summary.py backend/tests/test_v17_8_unicorn_evidence.py backend/tests/test_v5_1_geometry_telegram_news.py backend/tests/test_v7_2_realtime_protocol.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793340451146_6444\reports\shards\shard_7.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 479585
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 43%]
+........................................................................ [ 58%]
+........................................................................ [ 72%]
+........................................................................ [ 87%]
+................................................................         [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+496 passed, 1 warning in 474.09s (0:07:54)
+
+--- STDERR ---

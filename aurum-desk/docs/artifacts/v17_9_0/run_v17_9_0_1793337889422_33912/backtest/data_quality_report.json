@@ -1,0 +1,67 @@
+{
+  "schema_version": "V17.8.0.4",
+  "symbol": "XAUUSDT",
+  "exchange": "BITGET",
+  "product_type": "USDT-FUTURES",
+  "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
+  "reproducibility_status": "REPLAY_REPRODUCIBLE_WITH_SAVED_DATA",
+  "saved_dataset_artifact": "backtest/historical_dataset_XAUUSDT.json.gz",
+  "saved_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
+  "checks": {
+    "source_timestamps_monotonic": true,
+    "duplicate_bars_quarantined": true,
+    "price_geometry_valid": true,
+    "unclosed_candles_excluded": true,
+    "gap_aware_replay_enforced": true,
+    "synthetic_interpolation_forbidden": true,
+    "timezone_consistency": "UTC_EPOCH_MS_WITH_ASIA_HO_CHI_MINH_SESSION_MAPPING",
+    "product_symbol_identity": "XAUUSDT:USDT-FUTURES",
+    "cross_timeframe_alignment": "VERIFIED_CAUSAL_CLOSE_TIME_CUTOFF",
+    "atr_provenance_policy": "ACTUAL_ATR_M5_OR_OPTIONAL_M5_OMITTED_NEVER_SYNTHESIZED",
+    "spread_assumptions": {
+      "baseline_spread_usd": 0.25,
+      "stress_spread_usd": 0.6,
+      "execution_side_rule": "LONG_ENTRY_ASK_EXIT_BID__SHORT_ENTRY_BID_EXIT_ASK"
+    },
+    "tick_coverage": {
+      "bbo_ticks_available": false,
+      "valid_quotes_or_ticks_count": 0,
+      "limitation_disclosure": "Historical dataset consists of verified Bitget closed 1m/5m/15m/1H/4H/1D OHLCV candles. Intrabar Bid/Ask tick ordering is unavailable; same-bar SL+TP collisions are flagged as AMBIGUOUS_EXIT (conservatively resolved as SL-first), and sub-minute 30s stop-out timing is reported as UNAVAILABLE_FROM_M1_OHLC."
+    },
+    "missing_intervals_summary": {
+      "1m": {
+        "total_missing_intervals": 6926,
+        "session_closure_intervals": 6347,
+        "intra_session_missing_intervals": 579
+      },
+      "5m": {
+        "total_missing_intervals": 923,
+        "session_closure_intervals": 870,
+        "intra_session_missing_intervals": 53
+      },
+      "15m": {
+        "total_missing_intervals": 362,
+        "session_closure_intervals": 354,
+        "intra_session_missing_intervals": 8
+      },
+      "1H": {
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
+        "intra_session_missing_intervals": 0
+      },
+      "4H": {
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
+        "intra_session_missing_intervals": 0
+      },
+      "1D": {
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
+        "intra_session_missing_intervals": 0
+      }
+    }
+  },
+  "run_id": "v17_8_0_4_bt_1793337808",
+  "source_sha": "544b4195ce1ea51d6d5b3755e8a51162a944247e"
+}

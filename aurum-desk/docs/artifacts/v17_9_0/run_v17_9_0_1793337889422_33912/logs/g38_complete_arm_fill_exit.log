@@ -1,0 +1,15 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_8_runtime_integration.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793337889422_33912\reports\g38_complete_arm_fill_exit.xml -k test_sl_43 or test_sl_46 or test_sl_47 or test_ce_13 or test_ce_14 or test_ce_15 or test_def_178_11
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 2969
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_43_frozen_arm_stop_remains_unchanged (0.154s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_46_fill_time_quantity_preservation_downsize (0.155s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_47_paper_long_stop_closure (0.090s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_13_real_orchestrator_arm_with_frozen_evidence (0.142s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_14_real_execution_coordinator_fill_quantity_preservation (0.363s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_15_real_bid_ask_stop_trigger_and_persisted_close (0.169s)
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_11_scenarios_01_to_12_end_to_end_runtime (1.896s)
+7 passed in 2.97s
+
+--- STDERR ---

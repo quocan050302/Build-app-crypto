@@ -559,15 +559,215 @@
       "passed": true,
       "status": "PASS",
       "test_id": "N70"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Historical subprocess result removed rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N71"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Historical orchestrator invoked but its decision discarded rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N72"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Shadow output substituted for Production consumed output rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N73"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-02: Current oracle fallback activated in historical parity rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N74"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-03: Historical input hash overwritten rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N75"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-03: Different OHLC inputs labeled equivalent without canonical semantic hash rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N76"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-03: Different configuration labeled equivalent without canonical semantic hash rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N77"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-04: Missing canonical comparison source in five-way comparison rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N78"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-04: Duplicated source masquerading as independent runtime rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N79"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Missing consumed lifecycle evidence rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N80"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Wrong original historical commit rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N81"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-01: Missing original historical callable evidence rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N82"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-05: Non-causal historical candles rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N83"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-05: Fabricated forward candles rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N84"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-05: Reconstructed quote falsely labeled a real historical quote rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N85"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-05: Chronological trade ID mismatch in ledger rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N86"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-05: Duplicate trade lineage in ledger rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N87"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Wrong backtest source SHA mismatching FINAL_CODE_SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N88"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Stale cached parity record with outdated tree hash rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N89"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Tampered JUnit report claiming pass with failing testcase rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N90"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Missing worker output in async runner rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N91"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Worker crash with successful parent exit code rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N92"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Incomplete async task marked PASS rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N93"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Run artifact hash mismatch vs on-disk bytes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N94"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-06: Insufficient OOS data falsely marked conclusive rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N95"
     }
   ],
   "evaluator_version": "17.9.0.1.1",
   "failed_negative_controls": 0,
   "failed_negative_tests": 0,
-  "final_code_sha": "0d1d279392127334520b548798587731a939c78e",
-  "passed_negative_controls": 70,
-  "passed_negative_tests": 70,
-  "release": "V17.9.0.1.2",
+  "final_code_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+  "passed_negative_controls": 95,
+  "passed_negative_tests": 95,
+  "release": "V17.9.0.1.3",
   "results": [
     {
       "description": "DEF-179012-01: Canonical VALID_SETUP_REJECTED_BY_RISK cannot be promoted by legacy candidate",
@@ -988,9 +1188,159 @@
       "error": null,
       "status": "PASS",
       "test_id": "N70"
+    },
+    {
+      "description": "DEF-179013-01: Historical subprocess result removed rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N71"
+    },
+    {
+      "description": "DEF-179013-01: Historical orchestrator invoked but its decision discarded rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N72"
+    },
+    {
+      "description": "DEF-179013-01: Shadow output substituted for Production consumed output rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N73"
+    },
+    {
+      "description": "DEF-179013-02: Current oracle fallback activated in historical parity rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N74"
+    },
+    {
+      "description": "DEF-179013-03: Historical input hash overwritten rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N75"
+    },
+    {
+      "description": "DEF-179013-03: Different OHLC inputs labeled equivalent without canonical semantic hash rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N76"
+    },
+    {
+      "description": "DEF-179013-03: Different configuration labeled equivalent without canonical semantic hash rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N77"
+    },
+    {
+      "description": "DEF-179013-04: Missing canonical comparison source in five-way comparison rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N78"
+    },
+    {
+      "description": "DEF-179013-04: Duplicated source masquerading as independent runtime rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N79"
+    },
+    {
+      "description": "DEF-179013-01: Missing consumed lifecycle evidence rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N80"
+    },
+    {
+      "description": "DEF-179013-01: Wrong original historical commit rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N81"
+    },
+    {
+      "description": "DEF-179013-01: Missing original historical callable evidence rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N82"
+    },
+    {
+      "description": "DEF-179013-05: Non-causal historical candles rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N83"
+    },
+    {
+      "description": "DEF-179013-05: Fabricated forward candles rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N84"
+    },
+    {
+      "description": "DEF-179013-05: Reconstructed quote falsely labeled a real historical quote rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N85"
+    },
+    {
+      "description": "DEF-179013-05: Chronological trade ID mismatch in ledger rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N86"
+    },
+    {
+      "description": "DEF-179013-05: Duplicate trade lineage in ledger rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N87"
+    },
+    {
+      "description": "DEF-179013-06: Wrong backtest source SHA mismatching FINAL_CODE_SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N88"
+    },
+    {
+      "description": "DEF-179013-06: Stale cached parity record with outdated tree hash rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N89"
+    },
+    {
+      "description": "DEF-179013-06: Tampered JUnit report claiming pass with failing testcase rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N90"
+    },
+    {
+      "description": "DEF-179013-06: Missing worker output in async runner rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N91"
+    },
+    {
+      "description": "DEF-179013-06: Worker crash with successful parent exit code rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N92"
+    },
+    {
+      "description": "DEF-179013-06: Incomplete async task marked PASS rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N93"
+    },
+    {
+      "description": "DEF-179013-06: Run artifact hash mismatch vs on-disk bytes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N94"
+    },
+    {
+      "description": "DEF-179013-06: Insufficient OOS data falsely marked conclusive rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N95"
     }
   ],
   "status": "PASS",
-  "total_negative_controls": 70,
-  "total_negative_tests": 70
+  "total_negative_controls": 95,
+  "total_negative_tests": 95
 }

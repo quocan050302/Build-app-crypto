@@ -1,0 +1,329 @@
+{
+  "adaptive_concurrency_policy": {
+    "artifact_budget_bytes": 262144000,
+    "cpu_logical_cores": 12,
+    "disk_reserve_bytes": 2147483648,
+    "max_backtest_workers": 1,
+    "max_cpu_workers": 4,
+    "max_io_workers": 4,
+    "max_playwright_workers": 1,
+    "max_pytest_workers": 4,
+    "max_retries": 1,
+    "max_workers": 4,
+    "memory_reserve_bytes": 2684354560,
+    "memory_reserve_pct": 25.0,
+    "worker_timeout_sec": 600.0
+  },
+  "disk_telemetry": {
+    "SwapFree": null,
+    "SwapTotal": null,
+    "SwapUsed": null,
+    "cleaned_worker_dirs": [],
+    "cleaned_worker_dirs_count": 0,
+    "compressed_logs": [],
+    "cpu_memory_samples": [
+      {
+        "active_workers": 0,
+        "artifact_bytes": 4975485,
+        "child_rss_bytes": 0,
+        "child_rss_mb": 0.0,
+        "cpu_count": 12,
+        "cpu_percent": 0.0,
+        "free_disk_bytes": 55118757888,
+        "memory_available_bytes": null,
+        "memory_percent": null,
+        "memory_total_bytes": null,
+        "memory_used_bytes": 67108864,
+        "process_rss_bytes": 67108864,
+        "process_rss_mb": 64.0,
+        "stage": "ASYNC_ORCHESTRATOR_PREFLIGHT",
+        "swap_free_bytes": null,
+        "swap_total_bytes": null,
+        "swap_used_bytes": null,
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976184,
+        "total_rss_bytes": 67108864,
+        "total_rss_mb": 64.0
+      },
+      {
+        "active_workers": 0,
+        "artifact_bytes": 4975485,
+        "child_rss_bytes": 0,
+        "child_rss_mb": 0.0,
+        "cpu_count": 12,
+        "cpu_percent": 0.0,
+        "free_disk_bytes": 55118757888,
+        "memory_available_bytes": null,
+        "memory_percent": null,
+        "memory_total_bytes": null,
+        "memory_used_bytes": 67108864,
+        "process_rss_bytes": 67108864,
+        "process_rss_mb": 64.0,
+        "stage": "ASYNC_ORCHESTRATOR_POSTFLIGHT",
+        "swap_free_bytes": null,
+        "swap_total_bytes": null,
+        "swap_used_bytes": null,
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976227,
+        "total_rss_bytes": 67108864,
+        "total_rss_mb": 64.0
+      }
+    ],
+    "final_temporary_bytes": 0,
+    "free_disk_bytes_postflight": 55118757888,
+    "free_disk_bytes_preflight": 55118757888,
+    "latest_free_disk_bytes": 55118757888,
+    "min_observed_free_disk_bytes": 55118757888,
+    "minimum_free_disk_bytes_observed": 55118757888,
+    "orphan_worker_count": 0,
+    "peak_artifact_bytes": 4975485,
+    "peak_child_rss_mb": 0.0,
+    "peak_cpu_percent": 0.0,
+    "peak_current_run_bytes": 4975485,
+    "peak_memory_bytes": 67108864,
+    "peak_rss_mb": 64.0,
+    "peak_temporary_bytes": 0,
+    "peak_total_rss_mb": 64.0,
+    "postflight_free_disk_bytes": 55118757888,
+    "preflight_free_disk_bytes": 55118757888,
+    "reserved_disk_floor_bytes": 3221225472,
+    "run_id": "run_v17_9_0_1793340451146_6444",
+    "samples_recorded": 2,
+    "schema_version": "V17.9.0.1.2",
+    "snapshots": [
+      {
+        "current_run_bytes": 4975485,
+        "dataset_bytes": 1892029,
+        "free_disk_bytes": 55118757888,
+        "headroom_bytes": 51897532416,
+        "log_bytes": 416398,
+        "reason_code": "DISK_BUDGET_OK",
+        "report_bytes": 1801568,
+        "reserved_disk_floor_bytes": 3221225472,
+        "run_id": "run_v17_9_0_1793340451146_6444",
+        "stage": "ASYNC_ORCHESTRATOR_PREFLIGHT",
+        "status": "PASS",
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976171,
+        "total_disk_bytes": 154640838656
+      },
+      {
+        "current_run_bytes": 4975485,
+        "dataset_bytes": 1892029,
+        "free_disk_bytes": 55118757888,
+        "headroom_bytes": 51897532416,
+        "log_bytes": 416398,
+        "reason_code": "DISK_BUDGET_OK",
+        "report_bytes": 1801568,
+        "reserved_disk_floor_bytes": 3221225472,
+        "run_id": "run_v17_9_0_1793340451146_6444",
+        "stage": "ASYNC_ORCHESTRATOR_PREFLIGHT",
+        "status": "PASS",
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976184,
+        "total_disk_bytes": 154640838656
+      },
+      {
+        "current_run_bytes": 4975485,
+        "dataset_bytes": 1892029,
+        "free_disk_bytes": 55118757888,
+        "headroom_bytes": 51897532416,
+        "log_bytes": 416398,
+        "reason_code": "DISK_BUDGET_OK",
+        "report_bytes": 1801568,
+        "reserved_disk_floor_bytes": 3221225472,
+        "run_id": "run_v17_9_0_1793340451146_6444",
+        "stage": "ASYNC_ORCHESTRATOR_POSTFLIGHT",
+        "status": "PASS",
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976227,
+        "total_disk_bytes": 154640838656
+      },
+      {
+        "current_run_bytes": 4975485,
+        "dataset_bytes": 1892029,
+        "free_disk_bytes": 55118757888,
+        "headroom_bytes": 51897532416,
+        "log_bytes": 416398,
+        "reason_code": "DISK_BUDGET_OK",
+        "report_bytes": 1801568,
+        "reserved_disk_floor_bytes": 3221225472,
+        "run_id": "run_v17_9_0_1793340451146_6444",
+        "stage": "ASYNC_ORCHESTRATOR_POSTFLIGHT",
+        "status": "PASS",
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976246,
+        "total_disk_bytes": 154640838656
+      },
+      {
+        "current_run_bytes": 4975485,
+        "dataset_bytes": 1892029,
+        "free_disk_bytes": 55118757888,
+        "headroom_bytes": 51897532416,
+        "log_bytes": 416398,
+        "reason_code": "DISK_BUDGET_OK",
+        "report_bytes": 1801568,
+        "reserved_disk_floor_bytes": 3221225472,
+        "run_id": "run_v17_9_0_1793340451146_6444",
+        "stage": "POSTFLIGHT",
+        "status": "PASS",
+        "temporary_bytes": 0,
+        "timestamp_ms": 1793340976267,
+        "total_disk_bytes": 154640838656
+      }
+    ],
+    "status": "PASS",
+    "swappiness": "UNKNOWN",
+    "total_disk_bytes": 154640838656,
+    "zram_devices": "UNKNOWN"
+  },
+  "execution_metrics": {
+    "cumulative_job_duration_to_wall_ratio": 0.0,
+    "measured_serial_vs_parallel_speedup": "NOT_MEASURED",
+    "node_accounting_invariant_holds": true,
+    "orphan_processes_remaining": 0,
+    "parallel_benchmark_duration_sec": 0.003,
+    "peak_concurrent_workers": 0,
+    "peak_rss_mb_observed": 64.0,
+    "resource_samples_collected": 2,
+    "serial_benchmark_duration_sec": "NOT_MEASURED",
+    "speedup_ratio": 0.0,
+    "speedup_ratio_qualification": "CUMULATIVE_JOB_DURATION_SUM_DIVIDED_BY_WALL_CLOCK",
+    "sum_of_group_durations_sec": 0.0,
+    "total_completed_nodes": 156,
+    "total_errors": 0,
+    "total_expected_nodes": 156,
+    "total_failed_nodes": 0,
+    "total_retries": 0,
+    "total_skipped_nodes": 0,
+    "wall_clock_duration_sec": 0.003
+  },
+  "per_group_timings": {
+    "G100_STRUCTURAL_SL_TP_RR_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 101,
+      "tests": 101
+    },
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 2,
+      "tests": 2
+    },
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 6,
+      "tests": 6
+    },
+    "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 4,
+      "tests": 4
+    },
+    "G91_PRODUCTION_M1_REVERSAL_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G95_PRODUCTION_CG01_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 4,
+      "tests": 4
+    },
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
+      "duration_sec": 0.0,
+      "exit_code": 0,
+      "passed": 6,
+      "tests": 6
+    }
+  },
+  "release": "V17.9.0.1.2",
+  "resource_telemetry": {
+    "SwapFree": null,
+    "SwapTotal": null,
+    "SwapUsed": null,
+    "final_temporary_bytes": 0,
+    "free_disk_bytes_postflight": 55118757888,
+    "free_disk_bytes_preflight": 55118757888,
+    "minimum_free_disk_bytes_observed": 55118757888,
+    "orphan_worker_count": 0,
+    "peak_artifact_bytes": 4975485,
+    "peak_child_rss_mb": 0.0,
+    "peak_cpu_percent": 0.0,
+    "peak_memory_bytes": 67108864,
+    "peak_rss_mb": 64.0,
+    "peak_temporary_bytes": 0,
+    "peak_total_rss_mb": 64.0,
+    "samples_recorded": 2,
+    "swappiness": "UNKNOWN",
+    "zram_devices": "UNKNOWN"
+  },
+  "run_id": "run_v17_9_0_1793340451146_6444_v17_9_0_1_1_gates",
+  "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+  "status": "PASS"
+}

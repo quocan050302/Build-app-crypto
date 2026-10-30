@@ -1,0 +1,8 @@
+COMMAND: git branch --show-current
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 30
+EXIT_CODE: 0
+--- STDOUT ---
+fix/v17-9-0-1-3-historical-parity-hardening
+
+--- STDERR ---

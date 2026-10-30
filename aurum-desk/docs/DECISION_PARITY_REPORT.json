@@ -56,7 +56,7 @@
   "divergences_count": 0,
   "evaluator_version": "17.9.0.1.1",
   "fabricated_forward_candles_count": 0,
-  "final_code_sha": "0d1d279392127334520b548798587731a939c78e",
+  "final_code_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
   "five_way_compared_count": 210,
   "five_way_divergences": 0,
   "historical_callable_authority_valid": true,
@@ -10294,7 +10294,7 @@
       "authoritative_rejections_count": 5758,
       "cache_provenance": {
         "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-        "core_backtest_evaluator_tree_hash": "0d6975b074749046e0b44de6449d680c4f59ab3f0f585296bfeeff053a38f77a",
+        "core_backtest_evaluator_tree_hash": "1d3d111259c5a87d8d4ffbb124eb277b064b21c58de0181c8ae3cf0d1d1d49d1",
         "cost_spread_assumptions": {
           "default_slippage_usd": 0.1,
           "default_spread_usd": 0.25,
@@ -10317,12 +10317,12 @@
           "risk_budget_usdt": 2.5,
           "synthetic_forward_candles_allowed": false
         },
-        "source_sha": "0d1d279392127334520b548798587731a939c78e",
-        "source_tree_hash": "ae0b501ef1bf145956581e4c8b0bf1a855ab8236b0d299ca88ca0d538cf17ded"
+        "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+        "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752"
       },
       "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
       "coordinate_mismatch_trades_count": 0,
-      "core_backtest_evaluator_tree_hash": "0d6975b074749046e0b44de6449d680c4f59ab3f0f585296bfeeff053a38f77a",
+      "core_backtest_evaluator_tree_hash": "1d3d111259c5a87d8d4ffbb124eb277b064b21c58de0181c8ae3cf0d1d1d49d1",
       "cost_spread_assumptions": {
         "default_slippage_usd": 0.1,
         "default_spread_usd": 0.25,
@@ -10351,8 +10351,8 @@
         "risk_budget_usdt": 2.5,
         "synthetic_forward_candles_allowed": false
       },
-      "source_sha": "0d1d279392127334520b548798587731a939c78e",
-      "source_tree_hash": "ae0b501ef1bf145956581e4c8b0bf1a855ab8236b0d299ca88ca0d538cf17ded",
+      "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+      "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752",
       "status": "PASS",
       "trade_decision_links": [
         {
@@ -14497,12 +14497,12 @@
           "risk_budget_usdt": 2.5,
           "synthetic_forward_candles_allowed": false
         },
-        "source_sha": "0d1d279392127334520b548798587731a939c78e",
-        "source_tree_hash": "ae0b501ef1bf145956581e4c8b0bf1a855ab8236b0d299ca88ca0d538cf17ded"
+        "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+        "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752"
       },
       "expected_provenance": {
         "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-        "core_backtest_evaluator_tree_hash": "0d6975b074749046e0b44de6449d680c4f59ab3f0f585296bfeeff053a38f77a",
+        "core_backtest_evaluator_tree_hash": "1d3d111259c5a87d8d4ffbb124eb277b064b21c58de0181c8ae3cf0d1d1d49d1",
         "cost_spread_assumptions": {
           "default_slippage_usd": 0.1,
           "default_spread_usd": 0.25,
@@ -14525,8 +14525,8 @@
           "risk_budget_usdt": 2.5,
           "synthetic_forward_candles_allowed": false
         },
-        "source_sha": "0d1d279392127334520b548798587731a939c78e",
-        "source_tree_hash": "ae0b501ef1bf145956581e4c8b0bf1a855ab8236b0d299ca88ca0d538cf17ded"
+        "source_sha": "2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd",
+        "source_tree_hash": "f76fcfd43ee17891f21d25f8f011e67f806def3dc97de4a172983e1497252752"
       },
       "inspected_invariants_count": 11,
       "is_valid": true,
@@ -26920,7 +26920,7 @@
   "production_vs_shadow_compared_count": 210,
   "production_vs_shadow_divergences": 0,
   "production_vs_shadow_input_mismatches": 0,
-  "release": "V17.9.0.1.2",
+  "release": "V17.9.0.1.3",
   "runtime_paths_verified": {
     "backtest_entrypoint": "_extract_historical_opportunities_chronologically -> evaluate_and_simulate_variants_on_opportunities -> execute_chronological_backtest_window_for_parity",
     "historical_baseline_entrypoint": "execute_isolated_historical_baseline_scenarios -> c356d6551e13cd6af61cea5c3ab1f4aae1548af2",

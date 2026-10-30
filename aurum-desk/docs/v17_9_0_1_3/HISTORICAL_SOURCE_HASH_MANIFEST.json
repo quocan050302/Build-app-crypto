@@ -1,0 +1,183 @@
+{
+  "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+  "copied_current_oracle_entry": false,
+  "current_oracle_source_injected": false,
+  "expected_files_count": 15,
+  "git_commit_object_verified": true,
+  "git_toplevel_dir": "D:\\build app-crypto",
+  "historical_dependency_bundle_sha256": "c9ea5033de46499cbbd7032d824eecfb6007f0f1bd44f5f25e2168a74ab9c261",
+  "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_MODULES",
+  "historical_file_sha256s": {
+    "aurum-desk/backend/domain_calculator.py": {
+      "app_relative_path": "backend/domain_calculator.py",
+      "repository_relative_path": "aurum-desk/backend/domain_calculator.py",
+      "sha256": "1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f",
+      "size_bytes": 23934,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/domain_calculator.py"
+    },
+    "aurum-desk/backend/services/cg01_engine.py": {
+      "app_relative_path": "backend/services/cg01_engine.py",
+      "repository_relative_path": "aurum-desk/backend/services/cg01_engine.py",
+      "sha256": "e96b3ab54cf80a4c984d666435875ff8b4c0ff0e7118c1a55680e72aba9a4e5a",
+      "size_bytes": 75578,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/cg01_engine.py"
+    },
+    "aurum-desk/backend/services/liquidity_scenario_service.py": {
+      "app_relative_path": "backend/services/liquidity_scenario_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/liquidity_scenario_service.py",
+      "sha256": "4e0800f300239cd625ac5b2412162623fe1173c7de900f2e07c22062cdfd3e05",
+      "size_bytes": 79593,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/liquidity_scenario_service.py"
+    },
+    "aurum-desk/backend/services/market_shadow_service.py": {
+      "app_relative_path": "backend/services/market_shadow_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/market_shadow_service.py",
+      "sha256": "59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea",
+      "size_bytes": 111526,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/market_shadow_service.py"
+    },
+    "aurum-desk/backend/services/quote_validator.py": {
+      "app_relative_path": "backend/services/quote_validator.py",
+      "repository_relative_path": "aurum-desk/backend/services/quote_validator.py",
+      "sha256": "f7fa210bd9d07175519d27f8426d7fe4295199a5503d19f7cc922d0ecd6b2b93",
+      "size_bytes": 32339,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/quote_validator.py"
+    },
+    "aurum-desk/backend/services/scalp_m1_model_service.py": {
+      "app_relative_path": "backend/services/scalp_m1_model_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/scalp_m1_model_service.py",
+      "sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99",
+      "size_bytes": 139744,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/scalp_m1_model_service.py"
+    },
+    "aurum-desk/backend/services/scalp_m1_types.py": {
+      "app_relative_path": "backend/services/scalp_m1_types.py",
+      "repository_relative_path": "aurum-desk/backend/services/scalp_m1_types.py",
+      "sha256": "7e6d02bc4fe52cf51d1b7198e3a597fea6131c3f0cf018e07b4bab93ee99fc9e",
+      "size_bytes": 28947,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/scalp_m1_types.py"
+    },
+    "aurum-desk/backend/services/scalp_watcher_orchestrator.py": {
+      "app_relative_path": "backend/services/scalp_watcher_orchestrator.py",
+      "repository_relative_path": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+      "sha256": "efd1dec4b38843583652101a6227c41255b992f8c13a54898a0ba3036c60056f",
+      "size_bytes": 168059,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/scalp_watcher_orchestrator.py"
+    },
+    "aurum-desk/backend/services/smc_liquidity_service.py": {
+      "app_relative_path": "backend/services/smc_liquidity_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/smc_liquidity_service.py",
+      "sha256": "4fd49d4c6e93f3dd6cd35fa00a8bee33a0c06ab19e4a7e12437dd403935ddb2e",
+      "size_bytes": 19700,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/smc_liquidity_service.py"
+    },
+    "aurum-desk/backend/services/stop_placement_research_service.py": {
+      "app_relative_path": "backend/services/stop_placement_research_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/stop_placement_research_service.py",
+      "sha256": "9bd9a4222f4933e7274b120063082205cf35010a3d72dbccca722aac1e129842",
+      "size_bytes": 40113,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/stop_placement_research_service.py"
+    },
+    "aurum-desk/backend/services/stop_placement_service.py": {
+      "app_relative_path": "backend/services/stop_placement_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/stop_placement_service.py",
+      "sha256": "7c4371b6aa80d2977c5b80b498c3095b341e20f1f609714b0dd7323eeb07256f",
+      "size_bytes": 137663,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/stop_placement_service.py"
+    },
+    "aurum-desk/backend/services/stop_placement_types.py": {
+      "app_relative_path": "backend/services/stop_placement_types.py",
+      "repository_relative_path": "aurum-desk/backend/services/stop_placement_types.py",
+      "sha256": "68070833337c5b8b6f13cb8c22d9100ef5e43c327839a4bba548053fa4e285a8",
+      "size_bytes": 22879,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/stop_placement_types.py"
+    },
+    "aurum-desk/backend/services/unicorn_evidence_service.py": {
+      "app_relative_path": "backend/services/unicorn_evidence_service.py",
+      "repository_relative_path": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "sha256": "6e6225b7243cf734674599e18798bef1d773ee7a2aa78eb8c26d0abffca6dc78",
+      "size_bytes": 42705,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/unicorn_evidence_service.py"
+    },
+    "aurum-desk/backend/services/v17_8_backtest_runner.py": {
+      "app_relative_path": "backend/services/v17_8_backtest_runner.py",
+      "repository_relative_path": "aurum-desk/backend/services/v17_8_backtest_runner.py",
+      "sha256": "f0f017d8dc2750b334dbbc4309c1534816b94cee4e3dfc9044a00aa43e9c9872",
+      "size_bytes": 137627,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/services/v17_8_backtest_runner.py"
+    },
+    "aurum-desk/backend/smc_engine.py": {
+      "app_relative_path": "backend/smc_engine.py",
+      "repository_relative_path": "aurum-desk/backend/smc_engine.py",
+      "sha256": "aff32b03f7938b98c7300a84aa0ba4ec3623e9ef0a1fa5d9281693b818b9ca7b",
+      "size_bytes": 43890,
+      "source": "git:c356d6551e13cd6af61cea5c3ab1f4aae1548af2:aurum-desk/backend/smc_engine.py"
+    }
+  },
+  "isolated_subprocess_loaded_modules": {
+    "domain_calculator": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\domain_calculator.py",
+      "sha256": "1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f"
+    },
+    "services.cg01_engine": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\cg01_engine.py",
+      "sha256": "e96b3ab54cf80a4c984d666435875ff8b4c0ff0e7118c1a55680e72aba9a4e5a"
+    },
+    "services.liquidity_scenario_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\liquidity_scenario_service.py",
+      "sha256": "4e0800f300239cd625ac5b2412162623fe1173c7de900f2e07c22062cdfd3e05"
+    },
+    "services.market_shadow_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\market_shadow_service.py",
+      "sha256": "59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea"
+    },
+    "services.scalp_m1_model_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\scalp_m1_model_service.py",
+      "sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99"
+    },
+    "services.scalp_watcher_orchestrator": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\scalp_watcher_orchestrator.py",
+      "sha256": "efd1dec4b38843583652101a6227c41255b992f8c13a54898a0ba3036c60056f"
+    },
+    "services.smc_liquidity_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\smc_liquidity_service.py",
+      "sha256": "4fd49d4c6e93f3dd6cd35fa00a8bee33a0c06ab19e4a7e12437dd403935ddb2e"
+    },
+    "services.stop_placement_research_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\stop_placement_research_service.py",
+      "sha256": "9bd9a4222f4933e7274b120063082205cf35010a3d72dbccca722aac1e129842"
+    },
+    "services.stop_placement_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\stop_placement_service.py",
+      "sha256": "7c4371b6aa80d2977c5b80b498c3095b341e20f1f609714b0dd7323eeb07256f"
+    },
+    "services.unicorn_evidence_service": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\unicorn_evidence_service.py",
+      "sha256": "6e6225b7243cf734674599e18798bef1d773ee7a2aa78eb8c26d0abffca6dc78"
+    },
+    "services.v17_8_backtest_runner": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\services\\v17_8_backtest_runner.py",
+      "sha256": "f0f017d8dc2750b334dbbc4309c1534816b94cee4e3dfc9044a00aa43e9c9872"
+    },
+    "smc_engine": {
+      "from_isolated_historical_tree": true,
+      "resolved_file": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_28412\\aurum-desk\\backend\\smc_engine.py",
+      "sha256": "aff32b03f7938b98c7300a84aa0ba4ec3623e9ef0a1fa5d9281693b818b9ca7b"
+    }
+  },
+  "missing_files": [],
+  "provenance_status": "PASS",
+  "release": "V17.9.0.1.2",
+  "verified_files_count": 15
+}

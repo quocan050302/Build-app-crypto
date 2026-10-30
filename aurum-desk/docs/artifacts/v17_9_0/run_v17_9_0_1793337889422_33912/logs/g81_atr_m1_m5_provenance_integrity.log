@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793337889422_33912\reports\g81_atr_m1_m5_provenance_integrity.xml -k test_g81_atr_m1_m5_provenance_no_synthetic_2_1_multiplier
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 31
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG81AtrProvenanceIntegrity::test_g81_atr_m1_m5_provenance_no_synthetic_2_1_multiplier (0.031s)
+1 passed in 0.03s
+
+--- STDERR ---
