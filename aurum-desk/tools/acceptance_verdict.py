@@ -1915,7 +1915,7 @@ def derive_authoritative_acceptance_verdicts(
         disk_fail_reason = "Missing disk guard report"
     else:
         disk_st = str(disk_report.get("status") or "FAIL")
-        free_bytes = int(disk_report.get("free_bytes_postflight", 0))
+        free_bytes = int(disk_report.get("free_disk_bytes_postflight") or disk_report.get("free_bytes_postflight") or disk_report.get("postflight_free_disk_bytes") or disk_report.get("latest_free_disk_bytes") or 0)
         async_ok = (disk_st == "PASS" and free_bytes > 8_000_000_000)
         disk_fail_reason = None if async_ok else f"Disk safety violation: status={disk_st}, free={free_bytes}"
 
@@ -2133,11 +2133,13 @@ def verify_persisted_acceptance_artifacts(
         violations.extend(sem_res["violations"])
 
     # Re-derive verdicts from disk data
+    phase_b_doc = loaded_docs.get("BASELINE_MANIFEST.json")
     derived_verdicts = derive_authoritative_acceptance_verdicts(
         gate_results=gate_res,
         parity_report=parity_doc,
         negative_results=neg_doc,
         backtest_metrics=bt_doc,
+        phase_b_manifest=phase_b_doc,
         disk_report=disk_doc,
         final_code_sha=expected_code_sha,
     )
