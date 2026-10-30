@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — Authoritative Runtime Call-Chain (After V17.9.0.1.2 Final Closure)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `21cc6876cd9e2a846adf96d22a4d2061b8bf4e98`
 - **Evaluator Version:** `17.9.0.1.1`
 
 ## 1. Unified Canonical Strategy Decision Call Graph

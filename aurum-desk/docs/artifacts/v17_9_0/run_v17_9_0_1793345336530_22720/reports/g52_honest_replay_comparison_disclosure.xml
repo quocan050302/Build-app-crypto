@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g52_honest_replay_comparison_disclosure" tests="1" errors="0" failures="0" skipped="0" time="0.111"><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_13_honest_replay_calibration_and_endpoint" time="0.111" /></testsuite></testsuites>

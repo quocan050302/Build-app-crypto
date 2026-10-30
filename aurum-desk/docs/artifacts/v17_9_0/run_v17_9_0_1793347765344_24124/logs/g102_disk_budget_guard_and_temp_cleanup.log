@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g102_disk_budget_guard_and_temp_cleanup.xml -k test_33 or test_34 or test_35 or test_v17_9_0_1_disk_guard
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 40
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_33_disk_budget_guard_preflight_pass_and_worker_temp_cleanup (0.018s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_34_disk_budget_guard_fails_closed_with_blocked_disk_budget_when_below_floor (0.010s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_35_large_log_compression_preserves_uncompressed_sha256_and_tail_summary (0.013s)
+3 passed in 0.04s
+
+--- STDERR ---

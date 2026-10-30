@@ -1,0 +1,17 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_8_acceptance_runner.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g26_acceptance_runner_negative_tests.xml -k test_ce_19 or test_verdict_
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 180
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_19_acceptance_runner_refuses_pass_on_missing_gates (0.099s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_all_52_and_58_gates_pass (0.011s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_missing_gate_blocked (0.009s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_failed_test_gate_blocked (0.009s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_nonzero_exit_code_blocked (0.010s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_skipped_gate_fails_closed (0.010s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_integrity_unverified_blocked (0.011s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_8_0_2_preflight_violation_blocked (0.009s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_9_0_all_107_gates_and_taxonomy (0.012s)
+9 passed in 0.18s
+
+--- STDERR ---

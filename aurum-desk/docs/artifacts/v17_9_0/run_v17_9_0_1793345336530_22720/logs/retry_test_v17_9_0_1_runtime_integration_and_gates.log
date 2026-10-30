@@ -1,0 +1,207 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\shards\retry_test_v17_9_0_1_runtime_integration_and_gates.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 25843
+EXIT_CODE: 1
+--- STDOUT ---
+...........F...FF                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_v17_9_0_1_phase_b_55_scenario_parity __________________
+
+tmp_path = WindowsPath('C:/Users/ADMIN/AppData/Local/Temp/aurum_bt_g8ejh3j1/run/test_v17_9_0_1_phase_b_55_scen0')
+
+    def test_v17_9_0_1_phase_b_55_scenario_parity(tmp_path: Path) -> None:
+        """
+        Phase B: Verifies all 55 scenarios (11 categories x 5 models) achieve 100% parity
+        between `IndependentPreRefactorBaselineOracle` and `SharedStrategyEvaluator`.
+        """
+        res = generate_phase_b_baseline_artifacts(
+            context_builder_fn=build_market_decision_context,
+            refactored_evaluator_fn=lambda ctx, m, d: SharedStrategyEvaluator.evaluate_model_direction(ctx, m, d).to_parity_dict(),
+            output_dirs=[tmp_path],
+        )
+        manifest = res["manifest"]
+        assert manifest["self_referential"] is False
+        assert manifest["imports_shared_strategy_evaluator"] is False
+        assert manifest["total_scenarios"] == 55
+>       assert manifest["parity_matches"] == 55
+E       assert 45 == 55
+
+backend\tests\test_v17_9_0_1_runtime_integration_and_gates.py:505: AssertionError
+_ test_v17_9_0_1_1_shadow_authority_and_backtest_fail_closed_and_gate_provenance _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002A8CDD2A2D0>
+tmp_path = WindowsPath('C:/Users/ADMIN/AppData/Local/Temp/aurum_bt_g8ejh3j1/run/test_v17_9_0_1_1_shadow_author0')
+
+    def test_v17_9_0_1_1_shadow_authority_and_backtest_fail_closed_and_gate_provenance(
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """
+        V17.9.0.1.1 Sections 4, 5, 6, 8 & 15 (Fault Injection #18, #19):
+        - Verifies `MarketShadowService` distinguishes `INPUT_MISMATCH` vs `EXACT_MATCH` vs `DECISION_DIVERGENCE`.
+        - Verifies `v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities` rejects non-executable
+          canonical decisions (`NO_TRADE`, `REJECTED`, missing lineage) and exposes `authoritative_production_parity_simulation`.
+        - Verifies `verify_gate_provenance_integrity` fails closed (`INVALID_EVIDENCE` / `BLOCKED`) when any gate has
+          a stale `tested_source_sha != final_code_sha`.
+        - Verifies 5-way baseline parity and LF byte-exact checksum matching on disk.
+        """
+        from services.v17_8_backtest_runner import evaluate_and_simulate_variants_on_opportunities
+        from tools.acceptance_verdict import verify_gate_provenance_integrity
+    
+        series = _make_synthetic_candle_series(base_open_ms=1_761_696_000_000, direction="LONG")
+        ctx = build_market_decision_context(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=series["decision_ms"],
+            m1_candles=series["m1_candles"],
+            m5_candles=series["m5_candles"],
+            m15_candles=series["m15_candles"],
+            h1_candles=series["h1_candles"],
+            h4_candles=series["h4_candles"],
+            bid=series["bid"],
+            ask=series["ask"],
+        )
+        snap_prod = SharedStrategyEvaluator.evaluate_model_direction(
+            context=ctx,
+            model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            direction="LONG",
+            adapter_origin="PRODUCTION_ORCHESTRATOR",
+        )
+        snap_shad = SharedStrategyEvaluator.evaluate_model_direction(
+            context=ctx,
+            model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            direction="LONG",
+            adapter_origin="MARKET_SHADOW_ADAPTER",
+        )
+    
+        shadow_svc = MarketShadowService()
+        # 1. Exact match on identical input & config hashes
+        cmp_exact = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_shad)
+        assert cmp_exact["comparison_status"] == "EXACT_MATCH"
+        assert cmp_exact["is_match"] is True
+        assert cmp_exact["input_mismatch"] is False
+    
+        # 2. Input mismatch when input_snapshot_hash differs
+        snap_diff_in = dataclasses.replace(snap_shad, evidence_fingerprint="0" * 64)
+        cmp_in_mis = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_diff_in)
+        assert cmp_in_mis["comparison_status"] == "INPUT_MISMATCH"
+        assert cmp_in_mis["input_mismatch"] is True
+        assert cmp_in_mis["is_match"] is False
+    
+        # 3. Decision divergence when inputs match but SL/TP differs
+        snap_div = dataclasses.replace(snap_shad, selected_sl=1999.0, decision_fingerprint="f" * 64)
+        cmp_div = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_div)
+        assert cmp_div["comparison_status"] == "DECISION_DIVERGENCE"
+        assert cmp_div["input_mismatch"] is False
+        assert cmp_div["is_divergent"] is True
+    
+        # 4. Backtest fail-closed on non-executable canonical decision status
+        rogue_opp = {
+            "opportunity_id": "bt_rogue_01",
+            "symbol": "XAUUSDT",
+            "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            "direction": "LONG",
+            "decision_ms": series["decision_ms"],
+            "decision_id": "dec_rogue_01",
+            "decision_fingerprint": "a" * 64,
+            "canonical_decision_status": DecisionStatus.NO_TRADE.value,
+        }
+        sim_res = evaluate_and_simulate_variants_on_opportunities(
+            opportunities=[rogue_opp],
+            early_rejections=[],
+        )
+        assert "authoritative_production_parity_simulation" in sim_res
+        assert sim_res["authoritative_production_parity_simulation"]["simulated_trades"] == 0
+        assert any(
+            r.get("reason_code") == DecisionStatus.NO_TRADE.value
+            for r in sim_res["authoritative_production_parity_rejections"]
+        )
+    
+        # 5. Fault Injection #18: Stale tested_source_sha on any gate -> INVALID_EVIDENCE / BLOCKED
+        gates_stale = {
+            "G01_BRANCH_INTEGRITY": {
+                "status": "PASS",
+                "exit_code": 0,
+                "tested_source_sha": "old_commit_sha_111111",
+            }
+        }
+        prov_check = verify_gate_provenance_integrity(
+            gates_stale,
+            final_code_sha="new_commit_sha_222222",
+            mandatory_gate_manifest=["G01_BRANCH_INTEGRITY"],
+        )
+        assert prov_check["is_valid"] is False
+        assert prov_check["status"] == "INVALID_EVIDENCE"
+        assert "G01_BRANCH_INTEGRITY" in prov_check["stale_gates"]
+        assert (
+            determine_v17_9_0_1_top_level_verdict(
+                gates_stale,
+                ["G01_BRANCH_INTEGRITY"],
+                expected_source_sha="new_commit_sha_222222",
+            )
+            == "BLOCKED"
+        )
+    
+        # 6. Fault Injection #19 & Section 6: 5-way baseline parity & LF byte-exact checksum verification
+        orch_inst = ScalpWatcherOrchestrator()
+        five_way = {
+            "shared_strategy_evaluator": lambda c, m, d: SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=c,
+                structural_context={"model_id": m, "direction": d, "adapter_origin": "SHARED_EVALUATOR"},
+            ).to_parity_dict(),
+            "production_runtime": lambda c, m, d: orch_inst.evaluate_shared_decision_snapshot(
+                context=c, model_id=m, direction=d
+            ).to_parity_dict(),
+            "market_shadow_runtime": lambda c, m, d: shadow_svc.evaluate_shared_decision_snapshot(
+                context=c, model_id=m, direction=d
+            ).to_parity_dict(),
+            "backtest_runtime": lambda c, m, d: evaluate_production_parity_model_snapshot(
+                context=c, model_id=m, direction=d
+            )["shared_decision_snapshot"],
+        }
+        phase_b_out = generate_phase_b_baseline_artifacts(
+            context_builder_fn=build_market_decision_context,
+            refactored_evaluator_fn=five_way["shared_strategy_evaluator"],
+            five_way_evaluators=five_way,
+            output_dirs=[tmp_path],
+        )
+>       assert phase_b_out["manifest"]["five_way_parity_matches"] == 55
+E       assert 45 == 55
+
+backend\tests\test_v17_9_0_1_runtime_integration_and_gates.py:1057: AssertionError
+_ test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historical_parity _
+
+    def test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historical_parity() -> None:
+        """
+        V17.9.0.1.2 Phases B, C, D, E, F, G, H, I:
+        - Verifies all 30 negative controls (`N01`�`N30`) pass and fail closed on any unsafe state.
+        - Verifies `verify_historical_baseline_commit_provenance` resolves all 15 required historical
+          source files at `aurum-desk/backend/...` (`DEF-179012-03`).
+        - Verifies 30 real historical XAUUSDT timestamps (`150` downstream consumed model decisions)
+          achieve 100% parity (`0` divergences) across Production `evaluate_cycle`, `MARKET_SHADOW`
+          `evaluate_shadow_cycle`, and Historical Backtest `evaluate_production_parity_model_snapshot`
+          (`DEF-179012-04`).
+        """
+        from services.v17_9_0_1_baseline_oracle import verify_historical_baseline_commit_provenance
+>       from tools.generate_v17_9_0_1_artifacts import (
+            evaluate_historical_multi_runtime_parity,
+            run_v17_9_0_1_2_negative_acceptance_suite,
+        )
+E         File "D:\build app-crypto\aurum-desk\tools\generate_v17_9_0_1_artifacts.py", line 2635
+E           "- **Root Cause:** Fallback `"c" * 64` was used when configuration hash was absent.",
+E           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       SyntaxError: invalid syntax. Perhaps you forgot a comma?
+
+backend\tests\test_v17_9_0_1_runtime_integration_and_gates.py:1105: SyntaxError
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py::test_v17_9_0_1_phase_b_55_scenario_parity
+FAILED backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py::test_v17_9_0_1_1_shadow_authority_and_backtest_fail_closed_and_gate_provenance
+FAILED backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py::test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historical_parity
+3 failed, 14 passed, 1 warning in 23.85s
+
+--- STDERR ---

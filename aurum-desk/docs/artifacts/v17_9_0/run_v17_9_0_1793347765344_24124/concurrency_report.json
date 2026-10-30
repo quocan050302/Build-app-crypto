@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "run_id": "run_v17_9_0_1793347765344_24124",
+  "tested_source_sha": "21cc6876cd9e2a846adf96d22a4d2061b8bf4e98",
+  "max_workers": 10,
+  "batches_count": 10,
+  "wall_clock_ms": 422186,
+  "expected_nodes_count": 4348,
+  "completed_nodes_count": 4340,
+  "skipped_nodes_count": 8,
+  "failed_nodes_count": 0,
+  "unaccounted_nodes_count": 0,
+  "orphan_processes_remaining": 0
+}

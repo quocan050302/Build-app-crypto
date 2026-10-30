@@ -10,7 +10,7 @@
 - **Exact Parity Matches with `SharedStrategyEvaluator`:** `55/55` (`100.00%`)
 - **5-Way Cross-Runtime Parity Matches:** `55/55`
 - **Real Historical Dataset Scenarios Evaluated:** `150` (`matches=150/150`)
-- **Baseline Decisions SHA-256 (LF byte-exact):** `738a4fed83e75a500a597e543772e17b66cd5b1769c5d5752c50aa9493cf37a0`
+- **Baseline Decisions SHA-256 (LF byte-exact):** `4583f0a7c552a4a32ea3abf99eacb86a6afb161f87c1d8a812ab39405af1f3db`
 
 ## Category Coverage Matrix
 

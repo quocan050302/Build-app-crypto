@@ -1,0 +1,8 @@
+COMMAND: git merge-base HEAD origin/master
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 33
+EXIT_CODE: 0
+--- STDOUT ---
+d4a70e0a360dede405c4b4eedd9d0e99ba7ef306
+
+--- STDERR ---

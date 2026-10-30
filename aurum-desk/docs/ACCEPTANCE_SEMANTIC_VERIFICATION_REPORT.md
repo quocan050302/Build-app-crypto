@@ -1,6 +1,6 @@
 # V17.9.0.1.3 — Acceptance Semantic Verification Report (`DEF-179012-C06`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `2202a72a3a0cadc18bbbf5559bb94cb0ed3aafcd`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `21cc6876cd9e2a846adf96d22a4d2061b8bf4e98`
 - **Expected Release Version:** `V17.9.0.1.3`
 - **Semantic Verification Status:** `PASS` (`is_valid=True`)
 - **Errors Count:** `0`

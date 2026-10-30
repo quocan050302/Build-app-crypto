@@ -1,0 +1,1742 @@
+COMMAND: C:\Program Files\nodejs\npm.cmd test -- --run
+CWD: D:\build app-crypto\aurum-desk\frontend
+DURATION_MS: 20308
+EXIT_CODE: 0
+--- STDOUT ---
+
+> frontend@0.0.0 test
+> vitest run --run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90mD:/build app-crypto/aurum-desk/frontend[39m
+
+ [32m✓[39m src/__tests__/v17_2_monitor_repro.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 826[2mms[22m[39m
+   [32m✓[39m Aurum V17.2 — Frontend Reproduction Probes [2m(3)[22m
+     [33m[2m✓[22m[39m Probe E1: late focus response after Back must NOT trigger chart callback or close drawer[33m 344[2mms[22m[39m
+     [33m[2m✓[22m[39m Probe E2: handleFocusChart sends expected_revision from chart_target[33m 391[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_1_observability_ui.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 486[2mms[22m[39m
+   [33m[2m✓[22m[39m renders V17.6.1 header badge and fail-closed financial presentation when financial is null[33m 361[2mms[22m[39m
+ [32m✓[39m src/__tests__/PaperOpportunityMonitorDrawer.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1542[2mms[22m[39m
+   [32m✓[39m Aurum V17.0 — PaperOpportunityMonitorDrawer Component Tests [2m(8)[22m
+     [33m[2m✓[22m[39m Failure M3 Regression: invokes onFocusTradeOnChart with full canonical ORDER DTO (planned_entry, stop_loss, cost_snapshot)[33m 328[2mms[22m[39m
+     [33m[2m✓[22m[39m handles stale or unavailable target by displaying inline error and keeping drawer open[33m 311[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_4_observation_truth.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 2407[2mms[22m[39m
+   [32m✓[39m V17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12) [2m(12)[22m
+     [33m[2m✓[22m[39m UI01: renders NOT_EVALUATED when snapshot has no latest_cycle[33m 328[2mms[22m[39m
+     [33m[2m✓[22m[39m UI04: renders cycle ID and decision status when latest_cycle is present[33m 337[2mms[22m[39m
+     [33m[2m✓[22m[39m UI05: renders Run not found and N/A when financial status is NOT_FOUND[33m 316[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_4_1_observation_evidence.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 3192[2mms[22m[39m
+   [32m✓[39m V17.6.4.1 Frontend Observation Evidence & Persistence UI Tests [2m(12)[22m
+     [33m[2m✓[22m[39m UI01: Displays UNVERIFIED badge when feed evidence quality is UNVERIFIED[33m 367[2mms[22m[39m
+     [33m[2m✓[22m[39m UI03: Displays DEGRADED badge when feed evidence quality is DEGRADED[33m 383[2mms[22m[39m
+     [33m[2m✓[22m[39m UI04: Displays warning banner when evidence persistence status is DEGRADED[33m 438[2mms[22m[39m
+     [33m[2m✓[22m[39m UI05: Does NOT display persistence warning banner when persistence status is COMMITTED[33m 305[2mms[22m[39m
+     [33m[2m✓[22m[39m UI12: Updates correctly when snapshot refreshes with new evidence quality[33m 554[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_18_rr_contract.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 716[2mms[22m[39m
+   [32m✓[39m Aurum V16.39.18 Contract & Regression Suite [2m(19)[22m
+     [32m✓[39m Production Component Rendering [2m(6)[22m
+       [33m[2m✓[22m[39m QuickDecisionSidebar raises POLICY_GATE when current RR policy is unconfirmed/loading[33m 321[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_4_2_observation_status.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 2495[2mms[22m[39m
+   [32m✓[39m V17.6.4.2 Frontend Observation Persistence Status UI Tests [2m(7)[22m
+     [33m[2m✓[22m[39m OS01: Displays warning banner when snapshot evidence_persistence_status is UNVERIFIED[33m 370[2mms[22m[39m
+     [33m[2m✓[22m[39m OS03: Displays warning banner when snapshot evidence_persistence_status is DEGRADED[33m 569[2mms[22m[39m
+     [33m[2m✓[22m[39m OS05: Renders emerald text style when engine evidence_persistence_status is COMMITTED[33m 467[2mms[22m[39m
+     [33m[2m✓[22m[39m OS06: Renders amber text style when engine evidence_persistence_status is UNVERIFIED[33m 442[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_21_rr_observability.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1124[2mms[22m[39m
+   [32m✓[39m Aurum V16.39.21 — R:R Observability & Invariance Suite [2m(6)[22m
+     [32m✓[39m 1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection [2m(3)[22m
+       [33m[2m✓[22m[39m renders canonical LONG setup with NOT_MET status at min 2.50 with identical geometry[33m 382[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_20_rr_ui_state.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 1187[2mms[22m[39m
+   [32m✓[39m Aurum V16.39.20 — UI State Verification Suite [2m(12)[22m
+     [32m✓[39m Async Callback Bridge & Sidebar Error Gate [2m(2)[22m
+       [33m[2m✓[22m[39m W2: QuickDecisionSidebar blocks ARM submission and displays "Lỗi cấu hình R:R" on CURRENT ERROR even with high actual RR[33m 530[2mms[22m[39m
+[90mstdout[2m | src\hooks\useCG01RealtimeState.ts:307:15
+[22m[39mFailed to fetch CG01 evaluation snapshot: AxiosError: Request aborted
+    at handleAbort [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/adapters/xhr.js:157:16[90m)[39m
+    at XMLHttpRequest.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:308:25[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at XMLHttpRequest.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:113:47[90m)[39m
+    at XMLHttpRequest.#dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:460:14[90m)[39m
+    at AbortSignal.<anonymous> [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:311:32[90m)[39m
+    at AbortSignal.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:254:34[90m)[39m
+    at AbortSignal.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at AbortSignal.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at Axios.request [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:48:43[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at Object.getCG01Evaluation (D:/build app-crypto/aurum-desk/frontend/src/api/client.ts:116:15)
+    at D:/build app-crypto/aurum-desk/frontend/src/hooks/useCG01RealtimeState.ts:298:20 {
+  isAxiosError: [33mtrue[39m,
+  code: [32m'ECONNABORTED'[39m,
+  config: [Object: null prototype] {
+    transitional: {
+      silentJSONParsing: [33mtrue[39m,
+      forcedJSONParsing: [33mtrue[39m,
+      clarifyTimeoutError: [33mfalse[39m,
+      legacyInterceptorReqResOrdering: [33mtrue[39m,
+      advertiseZstdAcceptEncoding: [33mfalse[39m,
+      validateStatusUndefinedResolves: [33mtrue[39m
+    },
+    adapter: [ [32m'xhr'[39m, [32m'http'[39m, [32m'fetch'[39m ],
+    transformRequest: [ [36m[Function: transformRequest][39m ],
+    transformResponse: [ [36m[Function: transformResponse][39m ],
+    timeout: [33m10000[39m,
+    xsrfCookieName: [32m'XSRF-TOKEN'[39m,
+    xsrfHeaderName: [32m'X-XSRF-TOKEN'[39m,
+    maxContentLength: [33m-1[39m,
+    maxBodyLength: [33m-1[39m,
+    env: { FormData: [36m[Function][39m, Blob: [36m[class Blob][39m },
+    validateStatus: [36m[Function: validateStatus][39m,
+    headers: Object [AxiosHeaders] {
+      Accept: [32m'application/json, text/plain, */*'[39m,
+      [32m'Content-Type'[39m: [32m'application/json'[39m
+    },
+    baseURL: [32m''[39m,
+    params: { symbol: [32m'XAUUSDT'[39m },
+    method: [32m'get'[39m,
+    url: [32m'/api/scalp/cg01/evaluation'[39m,
+    allowAbsoluteUrls: [33mtrue[39m,
+    data: [90mundefined[39m
+  },
+  request: XMLHttpRequest [EventTarget] {
+    upload: XMLHttpRequestUpload [EventTarget] {
+      [[32mSymbol(listeners)[39m]: [36m[Object][39m,
+      [[32mSymbol(listenerOptions)[39m]: [36m[Object][39m,
+      [[32mSymbol(propertyEventListeners)[39m]: Map(0) {}
+    },
+    withCredentials: [33mfalse[39m,
+    timeout: [33m10000[39m,
+    [[32mSymbol(listeners)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(listenerOptions)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(propertyEventListeners)[39m]: Map(4) {
+      [32m'onloadend'[39m => [36m[Function: onloadend][39m,
+      [32m'onabort'[39m => [36m[Function: handleAbort][39m,
+      [32m'onerror'[39m => [36m[Function: handleError][39m,
+      [32m'ontimeout'[39m => [36m[Function: handleTimeout][39m
+    }
+  }
+}
+Failed to fetch CG01 evaluation snapshot: AxiosError: Request aborted
+    at handleAbort [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/adapters/xhr.js:157:16[90m)[39m
+    at XMLHttpRequest.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:308:25[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at XMLHttpRequest.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:113:47[90m)[39m
+    at XMLHttpRequest.#dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:460:14[90m)[39m
+    at AbortSignal.<anonymous> [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:311:32[90m)[39m
+    at AbortSignal.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:254:34[90m)[39m
+    at AbortSignal.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at AbortSignal.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at Axios.request [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:48:43[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at Object.getCG01Evaluation (D:/build app-crypto/aurum-desk/frontend/src/api/client.ts:116:15)
+    at D:/build app-crypto/aurum-desk/frontend/src/hooks/useCG01RealtimeState.ts:298:20 {
+  isAxiosError: [33mtrue[39m,
+  code: [32m'ECONNABORTED'[39m,
+  config: [Object: null prototype] {
+    transitional: {
+      silentJSONParsing: [33mtrue[39m,
+      forcedJSONParsing: [33mtrue[39m,
+      clarifyTimeoutError: [33mfalse[39m,
+      legacyInterceptorReqResOrdering: [33mtrue[39m,
+      advertiseZstdAcceptEncoding: [33mfalse[39m,
+      validateStatusUndefinedResolves: [33mtrue[39m
+    },
+    adapter: [ [32m'xhr'[39m, [32m'http'[39m, [32m'fetch'[39m ],
+    transformRequest: [ [36m[Function: transformRequest][39m ],
+    transformResponse: [ [36m[Function: transformResponse][39m ],
+    timeout: [33m10000[39m,
+    xsrfCookieName: [32m'XSRF-TOKEN'[39m,
+    xsrfHeaderName: [32m'X-XSRF-TOKEN'[39m,
+    maxContentLength: [33m-1[39m,
+    maxBodyLength: [33m-1[39m,
+    env: { FormData: [36m[Function][39m, Blob: [36m[class Blob][39m },
+    validateStatus: [36m[Function: validateStatus][39m,
+    headers: Object [AxiosHeaders] {
+      Accept: [32m'application/json, text/plain, */*'[39m,
+      [32m'Content-Type'[39m: [32m'application/json'[39m
+    },
+    baseURL: [32m''[39m,
+    params: { symbol: [32m'XAUUSDT'[39m },
+    method: [32m'get'[39m,
+    url: [32m'/api/scalp/cg01/evaluation'[39m,
+    allowAbsoluteUrls: [33mtrue[39m,
+    data: [90mundefined[39m
+  },
+  request: XMLHttpRequest [EventTarget] {
+    upload: XMLHttpRequestUpload [EventTarget] {
+      [[32mSymbol(listeners)[39m]: [36m[Object][39m,
+      [[32mSymbol(listenerOptions)[39m]: [36m[Object][39m,
+      [[32mSymbol(propertyEventListeners)[39m]: Map(0) {}
+    },
+    withCredentials: [33mfalse[39m,
+    timeout: [33m10000[39m,
+    [[32mSymbol(listeners)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(listenerOptions)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(propertyEventListeners)[39m]: Map(4) {
+      [32m'onloadend'[39m => [36m[Function: onloadend][39m,
+      [32m'onabort'[39m => [36m[Function: handleAbort][39m,
+      [32m'onerror'[39m => [36m[Function: handleError][39m,
+      [32m'ontimeout'[39m => [36m[Function: handleTimeout][39m
+    }
+  }
+}
+Failed to fetch CG01 evaluation snapshot: AxiosError: Request aborted
+    at handleAbort [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/adapters/xhr.js:157:16[90m)[39m
+    at XMLHttpRequest.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:308:25[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at XMLHttpRequest.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:113:47[90m)[39m
+    at XMLHttpRequest.#dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:460:14[90m)[39m
+    at AbortSignal.<anonymous> [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:311:32[90m)[39m
+    at AbortSignal.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:254:34[90m)[39m
+    at AbortSignal.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at AbortSignal.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at Axios.request [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:48:43[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at Object.getCG01Evaluation (D:/build app-crypto/aurum-desk/frontend/src/api/client.ts:116:15)
+    at D:/build app-crypto/aurum-desk/frontend/src/hooks/useCG01RealtimeState.ts:298:20 {
+  isAxiosError: [33mtrue[39m,
+  code: [32m'ECONNABORTED'[39m,
+  config: [Object: null prototype] {
+    transitional: {
+      silentJSONParsing: [33mtrue[39m,
+      forcedJSONParsing: [33mtrue[39m,
+      clarifyTimeoutError: [33mfalse[39m,
+      legacyInterceptorReqResOrdering: [33mtrue[39m,
+      advertiseZstdAcceptEncoding: [33mfalse[39m,
+      validateStatusUndefinedResolves: [33mtrue[39m
+    },
+    adapter: [ [32m'xhr'[39m, [32m'http'[39m, [32m'fetch'[39m ],
+    transformRequest: [ [36m[Function: transformRequest][39m ],
+    transformResponse: [ [36m[Function: transformResponse][39m ],
+    timeout: [33m10000[39m,
+    xsrfCookieName: [32m'XSRF-TOKEN'[39m,
+    xsrfHeaderName: [32m'X-XSRF-TOKEN'[39m,
+    maxContentLength: [33m-1[39m,
+    maxBodyLength: [33m-1[39m,
+    env: { FormData: [36m[Function][39m, Blob: [36m[class Blob][39m },
+    validateStatus: [36m[Function: validateStatus][39m,
+    headers: Object [AxiosHeaders] {
+      Accept: [32m'application/json, text/plain, */*'[39m,
+      [32m'Content-Type'[39m: [32m'application/json'[39m
+    },
+    baseURL: [32m''[39m,
+    params: { symbol: [32m'XAUUSDT'[39m },
+    method: [32m'get'[39m,
+    url: [32m'/api/scalp/cg01/evaluation'[39m,
+    allowAbsoluteUrls: [33mtrue[39m,
+    data: [90mundefined[39m
+  },
+  request: XMLHttpRequest [EventTarget] {
+    upload: XMLHttpRequestUpload [EventTarget] {
+      [[32mSymbol(listeners)[39m]: [36m[Object][39m,
+      [[32mSymbol(listenerOptions)[39m]: [36m[Object][39m,
+      [[32mSymbol(propertyEventListeners)[39m]: Map(0) {}
+    },
+    withCredentials: [33mfalse[39m,
+    timeout: [33m10000[39m,
+    [[32mSymbol(listeners)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(listenerOptions)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(propertyEventListeners)[39m]: Map(4) {
+      [32m'onloadend'[39m => [36m[Function: onloadend][39m,
+      [32m'onabort'[39m => [36m[Function: handleAbort][39m,
+      [32m'onerror'[39m => [36m[Function: handleError][39m,
+      [32m'ontimeout'[39m => [36m[Function: handleTimeout][39m
+    }
+  }
+}
+
+[90mstdout[2m | src\hooks\useCG01RealtimeState.ts:307:15
+[22m[39mFailed to fetch CG01 evaluation snapshot: AxiosError: Request aborted
+    at handleAbort [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/adapters/xhr.js:157:16[90m)[39m
+    at XMLHttpRequest.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:308:25[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at XMLHttpRequest.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at XMLHttpRequest.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:113:47[90m)[39m
+    at XMLHttpRequest.#dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:460:14[90m)[39m
+    at AbortSignal.<anonymous> [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/xml-http-request/XMLHttpRequest.js:311:32[90m)[39m
+    at AbortSignal.#callDispatchEventListeners [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:254:34[90m)[39m
+    at AbortSignal.dispatchEvent [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:117:41[90m)[39m
+    at AbortSignal.#goThroughDispatchEventPhases [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:177:38[90m)[39m
+    at Axios.request [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4maxios[24m/lib/core/Axios.js:48:43[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at Object.getCG01Evaluation (D:/build app-crypto/aurum-desk/frontend/src/api/client.ts:596:17)
+    at D:/build app-crypto/aurum-desk/frontend/src/hooks/useCG01RealtimeState.ts:298:20 {
+  isAxiosError: [33mtrue[39m,
+  code: [32m'ECONNABORTED'[39m,
+  config: [Object: null prototype] {
+    transitional: {
+      silentJSONParsing: [33mtrue[39m,
+      forcedJSONParsing: [33mtrue[39m,
+      clarifyTimeoutError: [33mfalse[39m,
+      legacyInterceptorReqResOrdering: [33mtrue[39m,
+      advertiseZstdAcceptEncoding: [33mfalse[39m,
+      validateStatusUndefinedResolves: [33mtrue[39m
+    },
+    adapter: [ [32m'xhr'[39m, [32m'http'[39m, [32m'fetch'[39m ],
+    transformRequest: [ [36m[Function: transformRequest][39m ],
+    transformResponse: [ [36m[Function: transformResponse][39m ],
+    timeout: [33m10000[39m,
+    xsrfCookieName: [32m'XSRF-TOKEN'[39m,
+    xsrfHeaderName: [32m'X-XSRF-TOKEN'[39m,
+    maxContentLength: [33m-1[39m,
+    maxBodyLength: [33m-1[39m,
+    env: { FormData: [36m[Function][39m, Blob: [36m[class Blob][39m },
+    validateStatus: [36m[Function: validateStatus][39m,
+    headers: Object [AxiosHeaders] {
+      Accept: [32m'application/json, text/plain, */*'[39m,
+      [32m'Content-Type'[39m: [32m'application/json'[39m
+    },
+    baseURL: [32m''[39m,
+    params: { symbol: [32m'XAUUSDT'[39m },
+    method: [32m'get'[39m,
+    url: [32m'/api/scalp/cg01/evaluation'[39m,
+    allowAbsoluteUrls: [33mtrue[39m,
+    data: [90mundefined[39m
+  },
+  request: XMLHttpRequest [EventTarget] {
+    upload: XMLHttpRequestUpload [EventTarget] {
+      [[32mSymbol(listeners)[39m]: [36m[Object][39m,
+      [[32mSymbol(listenerOptions)[39m]: [36m[Object][39m,
+      [[32mSymbol(propertyEventListeners)[39m]: Map(0) {}
+    },
+    withCredentials: [33mfalse[39m,
+    timeout: [33m10000[39m,
+    [[32mSymbol(listeners)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(listenerOptions)[39m]: { bubbling: Map(0) {}, capturing: Map(0) {} },
+    [[32mSymbol(propertyEventListeners)[39m]: Map(4) {
+      [32m'onloadend'[39m => [36m[Function: onloadend][39m,
+      [32m'onabort'[39m => [36m[Function: handleAbort][39m,
+      [32m'onerror'[39m => [36m[Function: handleError][39m,
+      [32m'ontimeout'[39m => [36m[Function: handleTimeout][39m
+    }
+  }
+}
+
+ [32m✓[39m src/__tests__/callerAcceptance.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 2482[2mms[22m[39m
+   [32m✓[39m JournalTab Integration (Rules 091, 092, 141, 142) [2m(2)[22m
+     [33m[2m✓[22m[39m Rule 141 & 142: opening trade in JournalTab triggers score detail; closing drawer aborts and error displays retry[33m 1391[2mms[22m[39m
+     [33m[2m✓[22m[39m Rule 141: closing drawer while pending aborts request; opening trade B fetches trade B[33m 486[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_3_monitor_repro.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 2311[2mms[22m[39m
+   [32m✓[39m Aurum V17.3 — Monitor Context Lifecycle Probes [2m(6)[22m
+     [33m[2m✓[22m[39m Probe R1: Stale focus response resolving after refresh must NOT trigger chart callback or close drawer[33m 499[2mms[22m[39m
+     [33m[2m✓[22m[39m Probe R2: Stale export response resolving after filter change must NOT download file[33m 354[2mms[22m[39m
+     [33m[2m✓[22m[39m Positive Control: Current valid focus chart request succeeds and triggers callback once[33m 477[2mms[22m[39m
+     [33m[2m✓[22m[39m Positive Control: Current valid export downloads Markdown file with correct name[33m 316[2mms[22m[39m
+     [33m[2m✓[22m[39m Probe R2 Extension: Changing custom date inputs also cancels in-flight export[33m 507[2mms[22m[39m
+ [32m✓[39m src/v7_2_realtime.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 188[2mms[22m[39m
+ [32m✓[39m src/__tests__/usePaperOpportunityMonitor.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 387[2mms[22m[39m
+ [32m✓[39m src/candidateScore.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m src/v14_4_1_pipeline.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+ [32m✓[39m src/__tests__/ObservationDashboard.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 482[2mms[22m[39m
+   [33m[2m✓[22m[39m renders observation executive status cards and live metrics[33m 479[2mms[22m[39m
+ [32m✓[39m src/v9_1_user_messages.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_4_1_entry_session_hook.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 260[2mms[22m[39m
+ [32m✓[39m src/v10_3_ui_and_notifications.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_19_rr_closure.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 755[2mms[22m[39m
+   [32m✓[39m Aurum V16.39.19 — RR State Branches & Error Separation Suite [2m(18)[22m
+     [32m✓[39m Production Component Rendering Under Error & Invalid Branches [2m(3)[22m
+       [33m[2m✓[22m[39m QuickDecisionSidebar blocks on CURRENT ERROR and does NOT allow submitting[33m 436[2mms[22m[39m
+ [32m✓[39m src/__tests__/useObservationDashboard.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 264[2mms[22m[39m
+ [32m✓[39m src/__tests__/useCandidateScoreDetail.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 116[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_4_1_entry_session_card.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 494[2mms[22m[39m
+ [32m✓[39m src/__tests__/cg01RealtimeState.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_3_dst_midnight.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/__tests__/paperOpportunityText.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_8_0_1_sltp_intelligence.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 107[2mms[22m[39m
+ [32m✓[39m src/v13_research_tab.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_6_2_observation_events.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/__tests__/cg01DisplayState.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/v10_2_acceptance.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_17_rr_sync.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/v14_4_2_annotation_layout.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/v10_4_cost_and_rr.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/v14_4_2_selection_ws.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_16_rr_policy_settings.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/__tests__/v17_5_1_stop_contract.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m src/v14_2_entry_gate.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/v14_3_ny_quota_labels.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/v14_4_chart_evidence.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/v8_tabs.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/v14_4_2_realtime_hook.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/__tests__/v16_39_15_rr_policy_frontend.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/v14_1_rr_flow.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/v14_4_2_evidence_focus.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/v12_4_lab_job.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/extract_error.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/v14_chart_evidence.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/v5_1_geometry_and_news.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/v14_4_annotation_layout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/v13_4_research_ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/v16_13_htf_evidence.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/v13_3_research_utils.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/v13_5_research_acceptance.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/selection_logic.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/v7_1_realtime.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/__tests__/candidateScoreResponse.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m57 passed[39m[22m[90m (57)[39m
+[2m      Tests [22m [1m[32m554 passed[39m[22m[90m (554)[39m
+[2m   Start at [22m 15:09:28
+[2m   Duration [22m 18.38s[2m (environment 46%, import 24%, tests 18%, transform 9%, worker 2%)[22m
+
+[2m    Isolate [22m [33m57 workers spawned[39m[2m · ~2.08s startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~8.70s faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m
+
+
+--- STDERR ---
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI01: Displays UNVERIFIED badge when feed evidence quality is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI01: renders NOT_EVALUATED when snapshot has no latest_cycle
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI01: renders NOT_EVALUATED when snapshot has no latest_cycle
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI01: renders NOT_EVALUATED when snapshot has no latest_cycle
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI01: renders NOT_EVALUATED when snapshot has no latest_cycle
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI02: renders Opportunities Detected as N/A when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI01: Displays UNVERIFIED badge when feed evidence quality is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI01: Displays UNVERIFIED badge when feed evidence quality is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI02: renders Opportunities Detected as N/A when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI02: renders Opportunities Detected as N/A when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI01: Displays UNVERIFIED badge when feed evidence quality is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI02: Displays GOOD badge when feed evidence quality is GOOD
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI02: renders Opportunities Detected as N/A when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI03: renders Market Regime as UNKNOWN when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI02: Displays GOOD badge when feed evidence quality is GOOD
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI02: Displays GOOD badge when feed evidence quality is GOOD
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI02: Displays GOOD badge when feed evidence quality is GOOD
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI03: Displays DEGRADED badge when feed evidence quality is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI03: renders Market Regime as UNKNOWN when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI03: renders Market Regime as UNKNOWN when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI03: Displays DEGRADED badge when feed evidence quality is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI03: Displays DEGRADED badge when feed evidence quality is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders V17.6.1 header badge and fail-closed financial presentation when financial is null
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI03: renders Market Regime as UNKNOWN when latest_cycle is absent
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI04: renders cycle ID and decision status when latest_cycle is present
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI04: renders cycle ID and decision status when latest_cycle is present
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI04: renders cycle ID and decision status when latest_cycle is present
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI03: Displays DEGRADED badge when feed evidence quality is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI04: Displays warning banner when evidence persistence status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders V17.6.1 header badge and fail-closed financial presentation when financial is null
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders V17.6.1 header badge and fail-closed financial presentation when financial is null
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI04: Displays warning banner when evidence persistence status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI04: Displays warning banner when evidence persistence status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders V17.6.1 header badge and fail-closed financial presentation when financial is null
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI04: renders cycle ID and decision status when latest_cycle is present
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI05: renders Run not found and N/A when financial status is NOT_FOUND
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_1_observability_ui.test.tsx[2m > [22m[2mrenders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI05: renders Run not found and N/A when financial status is NOT_FOUND
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI05: renders Run not found and N/A when financial status is NOT_FOUND
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS01: Displays warning banner when snapshot evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI04: Displays warning banner when evidence persistence status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI05: Does NOT display persistence warning banner when persistence status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI05: renders Run not found and N/A when financial status is NOT_FOUND
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI06: renders N/A fail-closed when financial object is null
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI06: renders N/A fail-closed when financial object is null
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI06: renders N/A fail-closed when financial object is null
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI05: Does NOT display persistence warning banner when persistence status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI05: Does NOT display persistence warning banner when persistence status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS01: Displays warning banner when snapshot evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS01: Displays warning banner when snapshot evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI06: renders N/A fail-closed when financial object is null
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI07: renders 24/7 Bitget contract schedule in feed card
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI05: Does NOT display persistence warning banner when persistence status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI06: Displays process liveness distinct from evaluation health
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS01: Displays warning banner when snapshot evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS02: Displays warning banner when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI06: Displays process liveness distinct from evaluation health
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI06: Displays process liveness distinct from evaluation health
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI07: renders 24/7 Bitget contract schedule in feed card
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI07: renders 24/7 Bitget contract schedule in feed card
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI06: Displays process liveness distinct from evaluation health
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI07: Displays evidence origin LIVE_FORWARD
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS02: Displays warning banner when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS02: Displays warning banner when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI07: renders 24/7 Bitget contract schedule in feed card
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI08: renders contract operational state when available in feed
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI07: Displays evidence origin LIVE_FORWARD
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI07: Displays evidence origin LIVE_FORWARD
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI08: renders contract operational state when available in feed
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI08: renders contract operational state when available in feed
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI08: renders contract operational state when available in feed
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI09: renders underlying reference session and strategy window states
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI09: renders underlying reference session and strategy window states
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI09: renders underlying reference session and strategy window states
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI09: renders underlying reference session and strategy window states
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI10: renders RUN_NOT_FOUND coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI07: Displays evidence origin LIVE_FORWARD
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS02: Displays warning banner when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI08: Displays evidence origin REPLAY when replay isolated
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS03: Displays warning banner when snapshot evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI10: renders RUN_NOT_FOUND coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI10: renders RUN_NOT_FOUND coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI08: Displays evidence origin REPLAY when replay isolated
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI08: Displays evidence origin REPLAY when replay isolated
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS03: Displays warning banner when snapshot evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS03: Displays warning banner when snapshot evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI10: renders RUN_NOT_FOUND coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI11: renders NO_ELIGIBLE_WINDOW coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI11: renders NO_ELIGIBLE_WINDOW coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI11: renders NO_ELIGIBLE_WINDOW coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI08: Displays evidence origin REPLAY when replay isolated
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI09: Displays evidence persistence status in engine card
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI11: renders NO_ELIGIBLE_WINDOW coverage state accurately
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI12: renders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI12: renders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI12: renders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI09: Displays evidence persistence status in engine card
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI09: Displays evidence persistence status in engine card
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI09: Displays evidence persistence status in engine card
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI10: Handles missing optional evidence fields gracefully without crashing
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI10: Handles missing optional evidence fields gracefully without crashing
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI10: Handles missing optional evidence fields gracefully without crashing
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_observation_truth.test.tsx[2m > [22m[2mV17.6.4 Observation Dashboard Truthfulness Tests (UI01 - UI12)[2m > [22m[2mUI12: renders winrate N/A (0 lệnh) when closed_trades is 0
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI10: Handles missing optional evidence fields gracefully without crashing
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI11: Renders distinct state for STALLED process liveness
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS03: Displays warning banner when snapshot evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS04: Does NOT display warning banner when evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS04: Does NOT display warning banner when evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI11: Renders distinct state for STALLED process liveness
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS04: Does NOT display warning banner when evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI11: Renders distinct state for STALLED process liveness
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS04: Does NOT display warning banner when evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI11: Renders distinct state for STALLED process liveness
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS05: Renders emerald text style when engine evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS05: Renders emerald text style when engine evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS05: Renders emerald text style when engine evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC1: Read ERROR with lastKnown displays "Cấu hình gần nhất" and "Chưa xác minh cấu hình" (NOT "Đang áp dụng" or "Đã đồng bộ")
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC1: Read ERROR with lastKnown displays "Cấu hình gần nhất" and "Chưa xác minh cấu hình" (NOT "Đang áp dụng" or "Đã đồng bộ")
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC2: Save ERROR preserves previous confirmed policy as "Đang áp dụng: 1:1.50" and keeps dirty draft
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC2: Save ERROR preserves previous confirmed policy as "Đang áp dụng: 1:1.50" and keeps dirty draft
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC3: Normal READY state displays "Đang áp dụng: 1:1.50" and "R:R Đã Đồng Bộ (1:1.50)"
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure C: RrPolicySettingsCard Read Error vs Save Error[2m > [22m[2mC3: Normal READY state displays "Đang áp dụng: 1:1.50" and "R:R Đã Đồng Bộ (1:1.50)"
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD1: Drawer with CURRENT ERROR context displays "Chưa xác minh lại cấu hình R:R" (NOT "(Hiện hành)")
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS05: Renders emerald text style when engine evidence_persistence_status is COMMITTED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD1: Drawer with CURRENT ERROR context displays "Chưa xác minh lại cấu hình R:R" (NOT "(Hiện hành)")
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS06: Renders amber text style when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD2: Drawer with CURRENT READY 1.5 displays "1:1.50 (Hiện hành)"
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD2: Drawer with CURRENT READY 1.5 displays "1:1.50 (Hiện hành)"
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_1_observation_evidence.test.tsx[2m > [22m[2mV17.6.4.1 Frontend Observation Evidence & Persistence UI Tests[2m > [22m[2mUI12: Updates correctly when snapshot refreshes with new evidence quality
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD3: Frozen order KNOWN 2.0 still displays "1:2.00 (Lúc ARM)" even when CURRENT context is in ERROR
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD3: Frozen order KNOWN 2.0 still displays "1:2.00 (Lúc ARM)" even when CURRENT context is in ERROR
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS06: Renders amber text style when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS06: Renders amber text style when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical LONG setup with MET status at min 1.50 and retains exact geometry
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical LONG setup with MET status at min 1.50 and retains exact geometry
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD4: Frozen order with MISSING snapshot under CURRENT ERROR displays "Chưa lưu ngưỡng lúc ARM"
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD4: Frozen order with MISSING snapshot under CURRENT ERROR displays "Chưa lưu ngưỡng lúc ARM"
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD5: Frozen order with INVALID snapshot under CURRENT ERROR displays "Ngưỡng snapshot lúc ARM không hợp lệ"
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mFailure D: TradeDetailsDrawer Context Propagation[2m > [22m[2mD5: Frozen order with INVALID snapshot under CURRENT ERROR displays "Ngưỡng snapshot lúc ARM không hợp lệ"
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mSettings Card Edge Cases & Evaluation Sync[2m > [22m[2mC4: Read ERROR without lastKnown (value: null) displays "Chưa xác minh cấu hình" safely
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mSettings Card Edge Cases & Evaluation Sync[2m > [22m[2mC4: Read ERROR without lastKnown (value: null) displays "Chưa xác minh cấu hình" safely
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical LONG setup with NOT_MET status at min 2.50 with identical geometry
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mSettings Card Edge Cases & Evaluation Sync[2m > [22m[2mC5: Evaluation Sync displays PENDING and ERROR states with retry option
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mSettings Card Edge Cases & Evaluation Sync[2m > [22m[2mC5: Evaluation Sync displays PENDING and ERROR states with retry option
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS06: Renders amber text style when engine evidence_persistence_status is UNVERIFIED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS07: Renders rose text style when engine evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS07: Renders rose text style when engine evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS07: Renders rose text style when engine evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW1: Async callback bridge in useRrPolicySettings awaits onSaveSuccess completion
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_18_rr_contract.test.tsx[2m > [22m[2mAurum V16.39.18 Contract & Regression Suite[2m > [22m[2mProduction Component Rendering[2m > [22m[2mCG01DiagnosticCard renders Đang tải... when unconfirmed
+[22m[39mAn update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/__tests__/v16_39_18_rr_contract.test.tsx[2m > [22m[2mAurum V16.39.18 Contract & Regression Suite[2m > [22m[2mProduction Component Rendering[2m > [22m[2mCG01DiagnosticCard renders 1:1.50 when confirmed
+[22m[39mAn update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical LONG setup with NOT_MET status at min 2.50 with identical geometry
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v17_6_4_2_observation_status.test.tsx[2m > [22m[2mV17.6.4.2 Frontend Observation Persistence Status UI Tests[2m > [22m[2mOS07: Renders rose text style when engine evidence_persistence_status is DEGRADED
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical SHORT setup with MET at 1.50 and NOT_MET at 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m1. QuickDecisionSidebar DOM Attributes & Policy Met/Not-Met Reflection[2m > [22m[2mrenders canonical SHORT setup with MET at 1.50 and NOT_MET at 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:1.50 (Hiện hành)" under CURRENT READY 1.50
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:1.50 (Hiện hành)" under CURRENT READY 1.50
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW2: QuickDecisionSidebar blocks ARM submission and displays "Lỗi cấu hình R:R" on CURRENT ERROR even with high actual RR
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_20_rr_ui_state.test.tsx[2m > [22m[2mAurum V16.39.20 — UI State Verification Suite[2m > [22m[2mAsync Callback Bridge & Sidebar Error Gate[2m > [22m[2mW2: QuickDecisionSidebar blocks ARM submission and displays "Lỗi cấu hình R:R" on CURRENT ERROR even with high actual RR
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/orders/ord-journal-A/stop-evidence 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:2.50 (Hiện hành)" under CURRENT READY 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:2.50 (Hiện hành)" under CURRENT READY 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:2.00 (Lúc ARM)" for frozen order independent of CURRENT 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/v16_39_21_rr_observability.test.tsx[2m > [22m[2mAurum V16.39.21 — R:R Observability & Invariance Suite[2m > [22m[2m2. TradeDetailsDrawer rr-policy-threshold-value Attribute & Labels[2m > [22m[2mdisplays "1:2.00 (Lúc ARM)" for frozen order independent of CURRENT 2.50
+[22m[39mThe current testing environment is not configured to support act(...)
+
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}
+GET http://localhost:3000/api/scalp/config 404 (Not Found)
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:546:23)
+    at Object.<anonymous> (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:416:101)
+    at AsyncTaskManager.abortAll (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:292:30)
+    at AsyncTaskManager.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:52:21)
+    at DetachedBrowserFrame.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/browser/detached-browser/DetachedBrowserFrame.js:112:58)
+    at DetachedWindowAPI.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/window/DetachedWindowAPI.js:51:35)
+    at teardownWindow (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1174:22)
+    at Object.teardown (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1236:10)
+    at file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/base.DhkQeZwd.js:167:65
+    at Traces.$ (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/traces.js:143:27)
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:546:23)
+    at Object.<anonymous> (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:416:101)
+    at AsyncTaskManager.abortAll (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:292:30)
+    at AsyncTaskManager.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:52:21)
+    at DetachedBrowserFrame.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/browser/detached-browser/DetachedBrowserFrame.js:112:58)
+    at DetachedWindowAPI.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/window/DetachedWindowAPI.js:51:35)
+    at teardownWindow (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1174:22)
+    at Object.teardown (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1236:10)
+    at file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/base.DhkQeZwd.js:167:65
+    at Traces.$ (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/traces.js:143:27)
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:546:23)
+    at Object.<anonymous> (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/fetch/Fetch.js:416:101)
+    at AsyncTaskManager.abortAll (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:292:30)
+    at AsyncTaskManager.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:52:21)
+    at DetachedBrowserFrame.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/browser/detached-browser/DetachedBrowserFrame.js:112:58)
+    at DetachedWindowAPI.abort (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/happy-dom/lib/window/DetachedWindowAPI.js:51:35)
+    at teardownWindow (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1174:22)
+    at Object.teardown (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/index.k8L_ZRzq.js:1236:10)
+    at file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/chunks/base.DhkQeZwd.js:167:65
+    at Traces.$ (file:///D:/build%20app-crypto/aurum-desk/frontend/node_modules/vitest/dist/traces.js:143:27)
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at Socket.socketCloseListener (node:_http_client:491:27)
+    at Socket.emit (node:events:530:35)
+    at TCP.<anonymous> (node:net:351:12) {
+  code: 'ECONNRESET'
+}
+GET http://localhost:3000/api/v1/orders/ord-A-pending/stop-evidence 404 (Not Found)
+GET http://localhost:3000/api/v1/orders/ord-B-target/stop-evidence 404 (Not Found)
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mdoes NOT fetch when open is false
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mdoes NOT fetch when open is false
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mdoes NOT fetch when open is false
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches summary and page when open is true
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches summary and page when open is true
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches summary and page when open is true
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches summary and page when open is true
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches summary and page when open is true
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+[90mstderr[2m | src/__tests__/usePaperOpportunityMonitor.test.tsx[2m > [22m[2mAurum V17.0 — usePaperOpportunityMonitor Hook[2m > [22m[2mfetches detail on selectOpportunity
+[22m[39mThe current testing environment is not configured to support act(...)
+
+GET http://localhost:3000/api/v1/shadow/market/status 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/opportunities?limit=20 404 (Not Found)
+GET http://localhost:3000/api/v1/shadow/research/backtests?limit=5 404 (Not Found)
+[90mstderr[2m | src/__tests__/v16_39_19_rr_closure.test.tsx[2m > [22m[2mAurum V16.39.19 — RR State Branches & Error Separation Suite[2m > [22m[2mHook Error Separation: useRrPolicySettings[2m > [22m[2mSave success updates saved value and calls onSaveSuccess without throwing on callback error
+[22m[39mPost-save callback error (isolated from save success): Error: Refresh upcoming failed
+    at Object.<anonymous> (D:/build app-crypto/aurum-desk/frontend/src/__tests__/v16_39_19_rr_closure.test.tsx:447:15)
+    at Object.Mock [as onSaveSuccess] [90m(file:///D:/build%20app-crypto/aurum-desk/frontend/[39mnode_modules/[4mvitest[24m/dist/chunks/spy.DgMTfhrK.js:323:40[90m)[39m
+    at Object.save (D:/build app-crypto/aurum-desk/frontend/src/hooks/useRrPolicySettings.ts:233:42)
+    at D:/build app-crypto/aurum-desk/frontend/src/__tests__/v16_39_19_rr_closure.test.tsx:472:18
+
+[90mstderr[2m | src/__tests__/v16_39_19_rr_closure.test.tsx[2m > [22m[2mAurum V16.39.19 — RR State Branches & Error Separation Suite[2m > [22m[2mProduction Component Rendering Under Error & Invalid Branches[2m > [22m[2mCG01DiagnosticCard renders Lỗi tải cấu hình when rrPolicyStatus is ERROR
+[22m[39mAn update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/__tests__/v16_39_19_rr_closure.test.tsx[2m > [22m[2mAurum V16.39.19 — RR State Branches & Error Separation Suite[2m > [22m[2mProduction Component Rendering Under Error & Invalid Branches[2m > [22m[2mQuickDecisionSidebar blocks on CURRENT ERROR and does NOT allow submitting
+[22m[39mAn update to QuickDecisionSidebar inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/__tests__/v16_39_19_rr_closure.test.tsx[2m > [22m[2mAurum V16.39.19 — RR State Branches & Error Separation Suite[2m > [22m[2mProduction Component Rendering Under Error & Invalid Branches[2m > [22m[2mQuickDecisionSidebar blocks on CURRENT ERROR and does NOT allow submitting
+[22m[39mAn update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CG01DiagnosticCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | src/__tests__/useObservationDashboard.test.tsx[2m > [22m[2mhook bootstraps and returns observation snapshot and timezone toggling
+[22m[39mAn update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+Error: socket hang up
+    at _destroy (node:_http_client:895:15)
+    at onSocketNT (node:_http_client:918:5)
+    at processTicksAndRejections (node:internal/process/task_queues:91:21) {
+  code: 'ECONNRESET'
+}

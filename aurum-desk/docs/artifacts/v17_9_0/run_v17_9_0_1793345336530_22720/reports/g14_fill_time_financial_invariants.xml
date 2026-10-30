@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g14_fill_time_financial_invariants" tests="2" errors="0" failures="0" skipped="0" time="0.334"><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_sl_46_fill_time_quantity_preservation_downsize" time="0.182" /><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_ce_14_real_execution_coordinator_fill_quantity_preservation" time="0.152" /></testsuite></testsuites>

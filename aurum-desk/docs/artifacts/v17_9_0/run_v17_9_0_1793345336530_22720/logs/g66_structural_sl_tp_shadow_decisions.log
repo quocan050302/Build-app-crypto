@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\g66_structural_sl_tp_shadow_decisions.xml -k test_nc14_to_nc18_shadow_analysis_fail_closed_controls or test_end_to_end_ws_to_shadow_storage_and_shadow_api
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 2193
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc14_to_nc18_shadow_analysis_fail_closed_controls (0.090s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath::test_end_to_end_ws_to_shadow_storage_and_shadow_api (2.103s)
+2 passed in 2.19s
+
+--- STDERR ---

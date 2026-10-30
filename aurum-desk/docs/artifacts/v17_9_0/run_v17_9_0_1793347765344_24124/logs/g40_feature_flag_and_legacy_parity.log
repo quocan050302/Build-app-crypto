@@ -1,0 +1,12 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g40_feature_flag_and_legacy_parity.xml -k test_sl_01 or test_sl_02 or test_sl_03 or test_sl_04
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 468
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_01_long_structure_stop_below_protected_low (0.144s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_02_short_structure_stop_above_protected_high (0.109s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_03_price_geometry_invariant (0.110s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_04_correct_instrument_tick_rounding (0.105s)
+4 passed in 0.47s
+
+--- STDERR ---

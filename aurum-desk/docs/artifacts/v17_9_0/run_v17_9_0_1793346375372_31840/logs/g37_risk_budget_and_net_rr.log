@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_structural_sl.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793346375372_31840\reports\g37_risk_budget_and_net_rr.xml -k test_financial_risk_conservation_and_quantity_downscaling or test_legitimate_distant_structural_sl_over_4x_and_10x_atr
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 40
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_structural_sl::test_legitimate_distant_structural_sl_over_4x_and_10x_atr (0.026s)
+PASSED backend.tests.test_v17_8_structural_sl::test_financial_risk_conservation_and_quantity_downscaling (0.014s)
+2 passed in 0.04s
+
+--- STDERR ---

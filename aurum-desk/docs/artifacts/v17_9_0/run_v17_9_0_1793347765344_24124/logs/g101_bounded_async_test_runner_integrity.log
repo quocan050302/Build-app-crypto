@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793347765344_24124\reports\g101_bounded_async_test_runner_integrity.xml -k test_39 or test_v17_9_0_1_async_orchestrator
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 108
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_39_bounded_async_test_orchestrator_parallel_groups_and_node_accounting_invariant (0.091s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_async_orchestrator_and_disk_guard (0.017s)
+2 passed in 0.11s
+
+--- STDERR ---
