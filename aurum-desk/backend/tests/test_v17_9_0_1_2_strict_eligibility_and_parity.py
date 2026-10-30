@@ -52,14 +52,24 @@ from services.shared_strategy_evaluator import (
 )
 from services.v17_8_backtest_runner import (
     _extract_historical_opportunities_chronologically,
+    build_backtest_ledger_provenance_envelope,
+    compute_executable_source_tree_hash,
     evaluate_and_simulate_variants_on_opportunities,
     execute_chronological_backtest_window_for_parity,
+    extract_and_validate_real_forward_candles,
     reconcile_backtest_trade_decision_lineage,
+    reconcile_parity_windows_with_chronological_backtest,
+    validate_cached_trade_ledger_provenance,
+    validate_decision_context_no_future_leakage,
+    validate_forward_candles_for_simulation,
+    verify_backtest_source_sha_provenance,
 )
 from services.v17_9_0_1_baseline_oracle import (
+    _build_historical_subprocess_harness_code,
     _make_synthetic_candle_series,
     build_phase_b_characterization_scenarios,
     build_real_historical_baseline_scenarios,
+    classify_historical_vs_refactored_decision,
     execute_isolated_historical_baseline_scenarios,
     materialize_historical_baseline_tree,
     validate_historical_baseline_execution_authority,
@@ -1009,9 +1019,428 @@ def test_n50_release_version_mismatch_across_artifacts_rejected():
     assert any("RELEASE_VERSION_MISMATCH" in v for v in res["violations"])
 
 
+def test_n51_reconstructed_oracle_in_historical_subprocess_rejected():
+    """N51: `IndependentPreRefactorBaselineOracle` injected into historical subprocess -> FAIL."""
+    harness_src = _build_historical_subprocess_harness_code()
+    assert "class IndependentPreRefactorBaselineOracle" not in harness_src
+    assert "def evaluate_baseline_dict" not in harness_src
+    res = validate_historical_baseline_execution_authority(
+        {
+            "copied_current_oracle_entry": False,
+            "reconstructed_oracle_injected": True,
+            "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_PRODUCTION_CALLABLES",
+            "loaded_historical_modules": {f"mod_{i}": {"from_isolated_historical_tree": True} for i in range(11)},
+            "real_historical_scenarios_count": 150,
+            "real_historical_parity_matches": 150,
+            "callable_invocation_counts": {"MarketShadowService._evaluate_single_model_shadow": 150},
+            "classification_breakdown": {"EXACT_MATCH": 150, "UNEXPECTED_DIVERGENCE": 0},
+        }
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert "RECONSTRUCTED_ORACLE_CLASS_INJECTED_INTO_HISTORICAL_SUBPROCESS" in res["violations"]
+
+
+def test_n52_evaluate_baseline_dict_in_historical_subprocess_rejected():
+    """N52: Historical baseline subprocess calling `evaluate_baseline_dict` instead of original production callables -> FAIL."""
+    res = validate_historical_baseline_execution_authority(
+        {
+            "copied_current_oracle_entry": False,
+            "reconstructed_oracle_injected": False,
+            "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_PRODUCTION_CALLABLES",
+            "loaded_historical_modules": {f"mod_{i}": {"from_isolated_historical_tree": True} for i in range(11)},
+            "real_historical_scenarios_count": 150,
+            "real_historical_parity_matches": 150,
+            "callable_invocation_counts": {"IndependentPreRefactorBaselineOracle.evaluate_baseline_dict": 150},
+            "classification_breakdown": {"EXACT_MATCH": 150, "UNEXPECTED_DIVERGENCE": 0},
+        }
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert "MISSING_REAL_HISTORICAL_CALLABLE_INVOCATION_COUNTS" in res["violations"]
+
+
+def test_n53_historical_module_imported_from_current_repo_path_rejected():
+    """N53: Historical module imported from current repository path instead of isolated historical tree -> FAIL."""
+    res = validate_historical_baseline_execution_authority(
+        {
+            "copied_current_oracle_entry": False,
+            "reconstructed_oracle_injected": False,
+            "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_PRODUCTION_CALLABLES",
+            "loaded_historical_modules": {
+                **{f"mod_{i}": {"from_isolated_historical_tree": True} for i in range(10)},
+                "services.market_shadow_service": {
+                    "from_isolated_historical_tree": False,
+                    "file": str(REPO_ROOT / "backend" / "services" / "market_shadow_service.py"),
+                },
+            },
+            "real_historical_scenarios_count": 150,
+            "real_historical_parity_matches": 150,
+            "callable_invocation_counts": {"MarketShadowService._evaluate_single_model_shadow": 150},
+            "classification_breakdown": {"EXACT_MATCH": 150, "UNEXPECTED_DIVERGENCE": 0},
+        }
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("HISTORICAL_MODULE_NOT_FROM_ISOLATED_TREE" in v for v in res["violations"])
+
+
+def test_n54_historical_comparison_pass_with_unexpected_divergence_rejected():
+    """N54: Historical comparison reporting PASS when `UNEXPECTED_DIVERGENCE > 0` -> FAIL."""
+    res = validate_historical_baseline_execution_authority(
+        {
+            "copied_current_oracle_entry": False,
+            "reconstructed_oracle_injected": False,
+            "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_PRODUCTION_CALLABLES",
+            "loaded_historical_modules": {f"mod_{i}": {"from_isolated_historical_tree": True} for i in range(11)},
+            "real_historical_scenarios_count": 150,
+            "real_historical_parity_matches": 150,
+            "callable_invocation_counts": {"MarketShadowService._evaluate_single_model_shadow": 150},
+            "classification_breakdown": {"EXACT_MATCH": 149, "UNEXPECTED_DIVERGENCE": 1},
+        }
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("UNEXPECTED_HISTORICAL_DIVERGENCES_DETECTED" in v for v in res["violations"])
+
+
+def test_n55_synthetic_forward_candle_in_parity_simulator_rejected():
+    """N55: Synthetic forward candle (`is_synthetic=True` or `source='SYNTHETIC_FALLBACK'`) passed to parity simulator -> FAIL."""
+    _, _, series = _build_valid_eligible_snapshot_and_context("LONG")
+    dec_ms = series["decision_ms"]
+    synth_bar = {
+        "open_time": dec_ms,
+        "close_time": dec_ms + 60_000,
+        "open": 2650.0,
+        "high": 2650.30,
+        "low": 2649.70,
+        "close": 2650.0,
+        "volume": 100.0,
+        "is_closed": True,
+        "is_synthetic": True,
+        "source": "SYNTHETIC_FALLBACK",
+    }
+    v_res = validate_forward_candles_for_simulation([synth_bar], dec_ms)
+    assert v_res["is_valid"] is False
+    assert v_res["outcome_status"] == "INVALID_FORWARD_CANDLES"
+    assert v_res["reason_code"] == "SYNTHETIC_FORWARD_CANDLE_FORBIDDEN"
+
+    bt_win = execute_chronological_backtest_window_for_parity(
+        symbol="XAUUSDT",
+        model_id="SMC_M1_FVG_CONTINUATION",
+        closed_1m=series["m1_candles"],
+        closed_5m=series["m5_candles"],
+        closed_15m=series["m15_candles"],
+        closed_1h=series["h1_candles"],
+        closed_4h=series["h4_candles"],
+        forward_1m=[synth_bar],
+        as_of_ms=dec_ms,
+    )
+    assert bt_win["outcome_status"] == "INVALID_FORWARD_CANDLES"
+    assert bt_win["simulation_completed"] is False
+    assert bt_win["simulated_trade_record"] is None
+
+
+def test_n56_missing_forward_1m_in_parity_simulator_not_evaluated_never_fabricated():
+    """N56: Missing `forward_1m` in parity simulator -> returns `NOT_EVALUATED`, never fabricates candles."""
+    _, _, series = _build_valid_eligible_snapshot_and_context("LONG")
+    dec_ms = series["decision_ms"]
+    bt_win = execute_chronological_backtest_window_for_parity(
+        symbol="XAUUSDT",
+        model_id="SMC_M1_FVG_CONTINUATION",
+        closed_1m=series["m1_candles"],
+        closed_5m=series["m5_candles"],
+        closed_15m=series["m15_candles"],
+        closed_1h=series["h1_candles"],
+        closed_4h=series["h4_candles"],
+        forward_1m=[],
+        as_of_ms=dec_ms,
+    )
+    assert bt_win["outcome_status"] == "NOT_EVALUATED"
+    assert bt_win["simulation_completed"] is False
+    assert bt_win["simulated_trade_record"] is None
+    assert bt_win["fabricated_forward_candles_count"] == 0
+    assert bt_win["synthetic_fallback_used"] is False
+    assert bt_win["missing_forward_data_reason"] == "MISSING_REAL_FORWARD_M1_BARS"
+
+
+def test_n57_future_candle_leakage_in_decision_context_rejected():
+    """N57: Future candle leakage (`open_time >= decision_ms` or `close_time > decision_ms`) in decision context -> FAIL."""
+    _, _, series = _build_valid_eligible_snapshot_and_context("LONG")
+    dec_ms = series["decision_ms"]
+    leaked_m1 = list(series["m1_candles"]) + [
+        {
+            "open_time": dec_ms,
+            "close_time": dec_ms + 60_000,
+            "open": 2650.0,
+            "high": 2651.0,
+            "low": 2649.0,
+            "close": 2650.5,
+            "volume": 100.0,
+            "is_closed": True,
+        }
+    ]
+    leak_res = validate_decision_context_no_future_leakage(leaked_m1, dec_ms)
+    assert leak_res["is_valid"] is False
+    assert leak_res["status"] == "FAIL"
+    assert leak_res["reason_code"] == "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT"
+
+
+def test_n58_non_monotonic_or_duplicate_forward_1m_timestamps_rejected():
+    """N58: Non-monotonic or duplicate timestamps in `forward_1m` -> FAIL."""
+    dec_ms = 1_761_696_000_000
+    dup_bars = [
+        {"open_time": dec_ms, "close_time": dec_ms + 60_000, "open": 2650.0, "high": 2651.0, "low": 2649.0, "close": 2650.5, "is_closed": True},
+        {"open_time": dec_ms, "close_time": dec_ms + 60_000, "open": 2650.5, "high": 2651.5, "low": 2649.5, "close": 2651.0, "is_closed": True},
+    ]
+    res = validate_forward_candles_for_simulation(dup_bars, dec_ms)
+    assert res["is_valid"] is False
+    assert res["outcome_status"] == "INVALID_FORWARD_CANDLES"
+    assert res["reason_code"] == "NON_MONOTONIC_OR_DUPLICATE_FORWARD_CANDLES"
+
+
+def test_n59_corrupted_ohlc_in_forward_1m_rejected():
+    """N59: Corrupted OHLC values (`high < low` or `high < open`) in `forward_1m` -> FAIL."""
+    dec_ms = 1_761_696_000_000
+    bad_bars = [
+        {"open_time": dec_ms, "close_time": dec_ms + 60_000, "open": 2650.0, "high": 2648.0, "low": 2649.0, "close": 2650.0, "is_closed": True},
+    ]
+    res = validate_forward_candles_for_simulation(bad_bars, dec_ms)
+    assert res["is_valid"] is False
+    assert res["outcome_status"] == "INVALID_FORWARD_CANDLES"
+    assert res["reason_code"] == "CORRUPTED_FORWARD_CANDLE_OHLC"
+
+
+def test_n60_parity_window_vs_chronological_backtest_outcome_divergence_rejected():
+    """N60: Parity window simulator trade outcome diverging from full chronological backtest trade ledger -> FAIL."""
+    rec = reconcile_parity_windows_with_chronological_backtest(
+        parity_window_outcomes=[
+            {
+                "decision_id": "dec_parity_001",
+                "decision_timestamp_ms": 1_761_696_000_000,
+                "model_id": "SMC_M1_FVG_CONTINUATION",
+                "outcome_status": "EVALUATED",
+                "fabricated_forward_candles_count": 0,
+                "simulated_trade_record": {
+                    "trade_id": "tr_001",
+                    "outcome": "TP",
+                    "entry_price": 2650.0,
+                    "stop_loss": 2646.0,
+                    "take_profit": 2660.0,
+                    "net_pnl": 5.20,
+                    "realized_r": 2.08,
+                },
+            }
+        ],
+        chronological_trades=[
+            {
+                "trade_id": "tr_001",
+                "decision_id": "dec_parity_001",
+                "decision_timestamp_ms": 1_761_696_000_000,
+                "model_id": "SMC_M1_FVG_CONTINUATION",
+                "outcome": "SL",
+                "entry_price": 2650.0,
+                "stop_loss": 2646.0,
+                "take_profit": 2660.0,
+                "net_pnl": -2.50,
+                "realized_r": -1.0,
+            }
+        ],
+    )
+    assert rec["is_valid"] is False
+    assert rec["status"] == "FAIL"
+    assert any(v["reason"] == "PARITY_WINDOW_VS_CHRONOLOGICAL_LEDGER_OUTCOME_MISMATCH" for v in rec["violations"])
+
+
+def test_n61_unresolvable_backtest_source_sha_rejected():
+    """N61: Backtest artifact `source_sha` does not resolve in repository -> FAIL."""
+    res = verify_backtest_source_sha_provenance(
+        backtest_source_sha="deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        final_code_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        repo_root=REPO_ROOT,
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert "UNRESOLVABLE_BACKTEST_SOURCE_SHA" in res["violations"]
+
+
+def test_n62_amended_away_dangling_backtest_source_sha_rejected():
+    """N62: Backtest artifact `source_sha` is an amended-away / dangling commit (`3b40be13fe2fa84af99d541acc88bcace17985e2`) -> FAIL."""
+    res = verify_backtest_source_sha_provenance(
+        backtest_source_sha="3b40be13fe2fa84af99d541acc88bcace17985e2",
+        final_code_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        repo_root=REPO_ROOT,
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert (
+        "DANGLING_OR_AMENDED_AWAY_COMMIT_SHA" in res["violations"]
+        or "UNRESOLVABLE_BACKTEST_SOURCE_SHA" in res["violations"]
+    )
+
+
+def test_n63_backtest_source_sha_mismatch_with_final_code_sha_rejected():
+    """N63: Backtest artifact `source_sha != FINAL_CODE_SHA` -> FAIL."""
+    res = verify_backtest_source_sha_provenance(
+        backtest_source_sha="c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+        final_code_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        repo_root=REPO_ROOT,
+        require_exact_sha_match=True,
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert "BACKTEST_SOURCE_SHA_MISMATCH_WITH_FINAL_CODE_SHA" in res["violations"]
+
+
+def test_n64_backtest_executable_source_tree_hash_mismatch_rejected():
+    """N64: Backtest artifact `source_tree_hash != current_tree_hash` -> FAIL."""
+    res = verify_backtest_source_sha_provenance(
+        backtest_source_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        final_code_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        backtest_tree_hash="tree_hash_aaa",
+        current_tree_hash="tree_hash_bbb",
+        repo_root=REPO_ROOT,
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert "EXECUTABLE_SOURCE_TREE_HASH_MISMATCH" in res["violations"]
+
+
+def _build_valid_mock_ledger_cache() -> Dict[str, Any]:
+    env = build_backtest_ledger_provenance_envelope(
+        source_sha="0aa80ed0921662650807a42ec98292cfec83c874",
+        dataset_manifest={
+            "dataset_sha256": "ds_sha_123",
+            "actual_earliest_bar_ms": 1000,
+            "actual_latest_bar_ms": 2000,
+            "m1_bars_count": 100,
+        },
+        configuration_hash="cfg_hash_123",
+        evaluator_version="V17.9.0.1.1_CANONICAL_AUTHORITY_V2",
+        simulated_trades_count=1,
+        repo_root=REPO_ROOT,
+    )
+    return {
+        "is_valid": True,
+        "reconciled": True,
+        "simulated_trades_count": 1,
+        "cache_provenance": dict(env),
+        **env,
+        "trade_decision_links": [
+            {
+                "trade_id": "tr_1",
+                "decision_id": "dec_1",
+                "decision_fingerprint": "fp_1",
+                "outcome": "TP",
+                "stop_loss": 2646.0,
+                "take_profit": 2660.0,
+                "net_pnl": 5.0,
+            }
+        ],
+    }
+
+
+def test_n65_cached_trade_ledger_mismatched_source_sha_rejected():
+    """N65: Cached `trade_decision_lineage_reconciliation.json` with mismatched `source_sha` -> rejected."""
+    cached = _build_valid_mock_ledger_cache()
+    expected = dict(cached["cache_provenance"])
+    expected["source_sha"] = "different_final_code_sha_9999999999999999"
+    res = validate_cached_trade_ledger_provenance(cached, expected)
+    assert res["is_valid"] is False
+    assert res["cache_trusted"] is False
+    assert "STALE_CACHE_SOURCE_SHA_MISMATCH" in res["violations"]
+
+
+def test_n66_cached_trade_ledger_mismatched_dataset_sha256_rejected():
+    """N66: Cached `trade_decision_lineage_reconciliation.json` with mismatched `dataset_sha256` -> rejected."""
+    cached = _build_valid_mock_ledger_cache()
+    expected = dict(cached["cache_provenance"])
+    expected["dataset_sha256"] = "different_dataset_sha256_999"
+    res = validate_cached_trade_ledger_provenance(cached, expected)
+    assert res["is_valid"] is False
+    assert res["cache_trusted"] is False
+    assert "STALE_CACHE_DATASET_SHA256_MISMATCH" in res["violations"]
+
+
+def test_n67_cached_trade_ledger_mismatched_config_or_evaluator_version_rejected():
+    """N67: Cached `trade_decision_lineage_reconciliation.json` with mismatched `configuration_hash` or `evaluator_version` -> rejected."""
+    cached = _build_valid_mock_ledger_cache()
+    expected = dict(cached["cache_provenance"])
+    expected["configuration_hash"] = "different_cfg_hash_999"
+    expected["evaluator_version"] = "OLD_EVALUATOR_V0"
+    res = validate_cached_trade_ledger_provenance(cached, expected)
+    assert res["is_valid"] is False
+    assert res["cache_trusted"] is False
+    assert "STALE_CACHE_CONFIGURATION_HASH_MISMATCH" in res["violations"]
+    assert "STALE_CACHE_EVALUATOR_VERSION_MISMATCH" in res["violations"]
+
+
+def test_n68_cached_trade_ledger_diverging_from_matched_comparison_rejected():
+    """N68: Cached `trade_decision_lineage_reconciliation.json` diverging from `matched_comparison.json` trades -> rejected."""
+    cached = _build_valid_mock_ledger_cache()
+    expected = dict(cached["cache_provenance"])
+    res = validate_cached_trade_ledger_provenance(
+        cached,
+        expected,
+        matched_comparison_trades=[
+            {
+                "trade_id": "tr_1",
+                "decision_id": "dec_1",
+                "decision_fingerprint": "fp_1",
+                "outcome": "SL",
+                "stop_loss": 2640.0,
+                "take_profit": 2660.0,
+                "net_pnl": -2.50,
+            }
+        ],
+    )
+    assert res["is_valid"] is False
+    assert res["cache_trusted"] is False
+    assert any("CACHED_LEDGER_VS_MATCHED_COMPARISON_DIVERGENCE" in v for v in res["violations"])
+
+
+def test_n69_parity_report_claiming_pass_with_not_comparable_or_fabricated_candles_rejected():
+    """N69: Parity report claiming PASS while including `NOT_COMPARABLE > 0` or `fabricated_forward_candles_count > 0` -> FAIL."""
+    res = validate_semantic_acceptance_bundle(
+        parity_report={
+            "release": "V17.9.0.1.2",
+            "status": "PASS",
+            "five_way_verified_count": 210,
+            "classification_breakdown": {"EXACT_MATCH": 180, "NOT_COMPARABLE": 3, "UNEXPECTED_DIVERGENCE": 0},
+            "fabricated_forward_candles_count": 2,
+        },
+        artifact_manifest={"release": "V17.9.0.1.2", "artifacts": []},
+        gate_results={"release": "V17.9.0.1.2", "tested_source_sha": "sha_abc", "gates": {}},
+        expected_code_sha="sha_abc",
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("PARITY_REPORT_HAS_NOT_COMPARABLE" in v for v in res["violations"])
+    assert "PARITY_REPORT_CONTAINS_FABRICATED_FORWARD_CANDLES" in res["violations"]
+
+
+def test_n70_final_acceptance_bundle_with_cross_artifact_contradiction_rejected():
+    """N70: Final acceptance bundle claiming PASS while cross-artifact contradiction exists -> FAIL."""
+    res = validate_semantic_acceptance_bundle(
+        parity_report={"release": "V17.9.0.1.2", "status": "PASS", "five_way_verified_count": 210},
+        artifact_manifest={"release": "V17.9.0.1.2", "artifacts": []},
+        gate_results={"release": "V17.9.0.1.2", "tested_source_sha": "sha_abc", "gates": {}},
+        expected_code_sha="sha_abc",
+        backtest_manifest={"source_sha": "3b40be13fe2fa84af99d541acc88bcace17985e2"},
+        cache_validation_report={"is_valid": False, "cache_trusted": False},
+        chronological_reconciliation={"is_valid": False, "reconciled": False},
+        final_report_verdict="PASS",
+    )
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("CROSS_ARTIFACT_CONTRADICTION:BACKTEST_SOURCE_SHA_MISMATCH" in v for v in res["violations"])
+    assert "CROSS_ARTIFACT_CONTRADICTION:LEDGER_CACHE_NOT_TRUSTED" in res["violations"]
+    assert "CROSS_ARTIFACT_CONTRADICTION:CHRONOLOGICAL_BACKTEST_RECONCILIATION_FAILED" in res["violations"]
+
+
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:
     """
-    Executes all 50 mandatory negative acceptance tests (N01-N50) and returns
+    Executes all 70 mandatory negative acceptance tests (N01-N70) and returns
     a structured verification report for `NEGATIVE_ACCEPTANCE_RESULTS.json`.
     """
     checks = [
@@ -1065,6 +1494,26 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N48", "DEF-179012-C06: FINAL_ARTIFACT_MANIFEST.json mismatched SHA-256 rejected", test_n48_final_artifact_manifest_mismatched_sha256_rejected),
         ("N49", "DEF-179012-C06: tested_source_sha != FINAL_CODE_SHA rejected", test_n49_tested_source_sha_mismatch_in_semantic_bundle_rejected),
         ("N50", "DEF-179012-C06: Release version mismatch across generated artifacts rejected", test_n50_release_version_mismatch_across_artifacts_rejected),
+        ("N51", "DEF-179012-F01: IndependentPreRefactorBaselineOracle injected into historical subprocess rejected", test_n51_reconstructed_oracle_in_historical_subprocess_rejected),
+        ("N52", "DEF-179012-F01: Historical subprocess calling evaluate_baseline_dict instead of real callables rejected", test_n52_evaluate_baseline_dict_in_historical_subprocess_rejected),
+        ("N53", "DEF-179012-F01: Historical module imported from current repository path rejected", test_n53_historical_module_imported_from_current_repo_path_rejected),
+        ("N54", "DEF-179012-F01: Historical comparison reporting PASS with UNEXPECTED_DIVERGENCE > 0 rejected", test_n54_historical_comparison_pass_with_unexpected_divergence_rejected),
+        ("N55", "DEF-179012-F02: Synthetic forward candle passed to parity simulator rejected", test_n55_synthetic_forward_candle_in_parity_simulator_rejected),
+        ("N56", "DEF-179012-F02: Missing forward_1m in parity simulator returns NOT_EVALUATED and never fabricates candles", test_n56_missing_forward_1m_in_parity_simulator_not_evaluated_never_fabricated),
+        ("N57", "DEF-179012-F02: Future candle leakage in decision context rejected", test_n57_future_candle_leakage_in_decision_context_rejected),
+        ("N58", "DEF-179012-F02: Non-monotonic or duplicate timestamps in forward_1m rejected", test_n58_non_monotonic_or_duplicate_forward_1m_timestamps_rejected),
+        ("N59", "DEF-179012-F02: Corrupted OHLC values in forward_1m rejected", test_n59_corrupted_ohlc_in_forward_1m_rejected),
+        ("N60", "DEF-179012-F02: Parity window simulator outcome diverging from chronological backtest ledger rejected", test_n60_parity_window_vs_chronological_backtest_outcome_divergence_rejected),
+        ("N61", "DEF-179012-F03: Unresolvable backtest source_sha rejected", test_n61_unresolvable_backtest_source_sha_rejected),
+        ("N62", "DEF-179012-F03: Amended-away dangling backtest source_sha rejected", test_n62_amended_away_dangling_backtest_source_sha_rejected),
+        ("N63", "DEF-179012-F03: Backtest source_sha != FINAL_CODE_SHA rejected", test_n63_backtest_source_sha_mismatch_with_final_code_sha_rejected),
+        ("N64", "DEF-179012-F03: Backtest executable source_tree_hash mismatch rejected", test_n64_backtest_executable_source_tree_hash_mismatch_rejected),
+        ("N65", "DEF-179012-F04: Cached trade ledger with mismatched source_sha rejected", test_n65_cached_trade_ledger_mismatched_source_sha_rejected),
+        ("N66", "DEF-179012-F04: Cached trade ledger with mismatched dataset_sha256 rejected", test_n66_cached_trade_ledger_mismatched_dataset_sha256_rejected),
+        ("N67", "DEF-179012-F04: Cached trade ledger with mismatched configuration_hash or evaluator_version rejected", test_n67_cached_trade_ledger_mismatched_config_or_evaluator_version_rejected),
+        ("N68", "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected", test_n68_cached_trade_ledger_diverging_from_matched_comparison_rejected),
+        ("N69", "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected", test_n69_parity_report_claiming_pass_with_not_comparable_or_fabricated_candles_rejected),
+        ("N70", "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected", test_n70_final_acceptance_bundle_with_cross_artifact_contradiction_rejected),
     ]
     results: List[Dict[str, Any]] = []
     passed_count = 0

@@ -2419,6 +2419,592 @@ def reconcile_backtest_trade_decision_lineage(
     }
 
 
+RUNNER_VERSION = "V17.9.0.1.2_CHRONOLOGICAL_PARITY_RUNNER_V1"
+LEDGER_CACHE_SCHEMA_VERSION = "V17.9.0.1.2_LEDGER_PROVENANCE_V1"
+DEFAULT_SIMULATOR_ASSUMPTIONS: Dict[str, Any] = {
+    "intrabar_tie_breaker": "CONSERVATIVE_ADVERSE_FIRST_AMBIGUOUS_SL",
+    "forward_candle_source": "VERIFIED_HISTORICAL_M1_OHLC_ONLY",
+    "synthetic_forward_candles_allowed": False,
+    "risk_budget_usdt": 2.50,
+    "min_net_rr": 1.50,
+}
+DEFAULT_COST_SPREAD_ASSUMPTIONS: Dict[str, Any] = {
+    "default_spread_usd": 0.25,
+    "default_slippage_usd": 0.10,
+    "taker_fee_rate": 0.0004,
+}
+
+
+def compute_executable_source_tree_hash(repo_root: Optional[Path] = None) -> Dict[str, Any]:
+    """
+    DEF-179012-F03 (Phase D): Computes deterministic SHA-256 hashes of the executable
+    Python source tree and the core decision/backtest evaluation modules.
+    """
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
+    core_rel_paths = (
+        "backend/services/shared_strategy_evaluator.py",
+        "backend/services/v17_8_backtest_runner.py",
+        "backend/services/scalp_m1_service.py",
+        "backend/services/market_shadow_service.py",
+        "backend/services/scalp_Engine.py",
+        "backend/services/v17_9_0_1_baseline_oracle.py",
+    )
+    file_hashes: Dict[str, str] = {}
+    core_hasher = hashlib.sha256()
+    for rel in core_rel_paths:
+        fpath = root / rel
+        if fpath.exists() and fpath.is_file():
+            digest = hashlib.sha256(fpath.read_bytes()).hexdigest()
+            file_hashes[rel] = digest
+            core_hasher.update(f"{rel}:{digest}\n".encode("utf-8"))
+
+    full_hasher = hashlib.sha256()
+    services_dir = root / "backend" / "services"
+    if services_dir.exists():
+        for py_file in sorted(services_dir.glob("*.py")):
+            rel = f"backend/services/{py_file.name}"
+            digest = file_hashes.get(rel) or hashlib.sha256(py_file.read_bytes()).hexdigest()
+            file_hashes[rel] = digest
+            full_hasher.update(f"{rel}:{digest}\n".encode("utf-8"))
+
+    return {
+        "executable_source_tree_hash": full_hasher.hexdigest(),
+        "core_backtest_evaluator_tree_hash": core_hasher.hexdigest(),
+        "file_hashes": file_hashes,
+        "files_count": len(file_hashes),
+    }
+
+
+def verify_backtest_source_sha_provenance(
+    *,
+    backtest_source_sha: str,
+    final_code_sha: str,
+    backtest_tree_hash: Optional[str] = None,
+    current_tree_hash: Optional[str] = None,
+    repo_root: Optional[Path] = None,
+    require_exact_sha_match: bool = True,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F03 (Phase D, N61-N64): Verifies that the backtest `source_sha`:
+    1. Is a valid 40-char hex git commit that resolves in the repository (`N61`).
+    2. Belongs to the active branch lineage (`git merge-base --is-ancestor`) and is not
+       a dangling or amended-away commit (`N62`).
+    3. Matches `final_code_sha` when exact commit provenance is required (`N63`).
+    4. Matches `current_tree_hash` when executable tree hash comparison is provided (`N64`).
+    """
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
+    bt_sha = str(backtest_source_sha or "").strip()
+    fin_sha = str(final_code_sha or "").strip()
+    violations: List[str] = []
+
+    is_hex_40 = len(bt_sha) == 40 and all(c in "0123456789abcdefABCDEF" for c in bt_sha)
+    sha_resolvable = False
+    sha_in_lineage = False
+
+    if not is_hex_40:
+        violations.append("UNRESOLVABLE_BACKTEST_SOURCE_SHA")
+    else:
+        try:
+            proc_cat = subprocess.run(
+                ["git", "cat-file", "-e", f"{bt_sha}^{{commit}}"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            sha_resolvable = proc_cat.returncode == 0
+        except Exception:
+            sha_resolvable = False
+
+        if not sha_resolvable:
+            violations.append("UNRESOLVABLE_BACKTEST_SOURCE_SHA")
+        else:
+            target_descendant = fin_sha if (len(fin_sha) == 40 and all(c in "0123456789abcdefABCDEF" for c in fin_sha)) else "HEAD"
+            try:
+                proc_anc = subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", bt_sha, target_descendant],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                sha_in_lineage = proc_anc.returncode == 0
+            except Exception:
+                sha_in_lineage = False
+
+            if not sha_in_lineage:
+                violations.append("DANGLING_OR_AMENDED_AWAY_COMMIT_SHA")
+
+    exact_sha_match = bool(bt_sha and fin_sha and bt_sha == fin_sha)
+    if require_exact_sha_match and not exact_sha_match:
+        violations.append("BACKTEST_SOURCE_SHA_MISMATCH_WITH_FINAL_CODE_SHA")
+
+    tree_hash_match = True
+    if backtest_tree_hash is not None and current_tree_hash is not None:
+        tree_hash_match = str(backtest_tree_hash) == str(current_tree_hash)
+        if not tree_hash_match:
+            violations.append("EXECUTABLE_SOURCE_TREE_HASH_MISMATCH")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "backtest_source_sha": bt_sha,
+        "final_code_sha": fin_sha,
+        "sha_resolvable_in_repo": sha_resolvable,
+        "sha_in_branch_lineage": sha_in_lineage,
+        "exact_sha_match": exact_sha_match,
+        "tree_hash_match": tree_hash_match,
+        "backtest_tree_hash": backtest_tree_hash,
+        "current_tree_hash": current_tree_hash,
+        "violations": violations,
+    }
+
+
+def build_backtest_ledger_provenance_envelope(
+    *,
+    source_sha: str,
+    dataset_manifest: Mapping[str, Any],
+    configuration_hash: str,
+    evaluator_version: str,
+    simulated_trades_count: int,
+    repo_root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Builds the 11-invariant provenance envelope for backtest trade ledger cache validation."""
+    tree_info = compute_executable_source_tree_hash(repo_root=repo_root)
+    return {
+        "source_sha": str(source_sha or ""),
+        "source_tree_hash": str(tree_info["executable_source_tree_hash"]),
+        "core_backtest_evaluator_tree_hash": str(tree_info["core_backtest_evaluator_tree_hash"]),
+        "dataset_sha256": str(dataset_manifest.get("dataset_sha256") or ""),
+        "configuration_hash": str(configuration_hash or ""),
+        "evaluator_version": str(evaluator_version or ""),
+        "runner_version": RUNNER_VERSION,
+        "simulator_assumptions": dict(DEFAULT_SIMULATOR_ASSUMPTIONS),
+        "cost_spread_assumptions": dict(DEFAULT_COST_SPREAD_ASSUMPTIONS),
+        "historical_period": {
+            "actual_earliest_bar_ms": int(dataset_manifest.get("actual_earliest_bar_ms") or 0),
+            "actual_latest_bar_ms": int(dataset_manifest.get("actual_latest_bar_ms") or 0),
+            "m1_bars_count": int(dataset_manifest.get("m1_bars_count") or 0),
+        },
+        "schema_version": LEDGER_CACHE_SCHEMA_VERSION,
+        "simulated_trades_count": int(simulated_trades_count),
+    }
+
+
+def validate_cached_trade_ledger_provenance(
+    cached_payload: Optional[Mapping[str, Any]],
+    expected_provenance: Mapping[str, Any],
+    *,
+    matched_comparison_trades: Optional[Sequence[Mapping[str, Any]]] = None,
+    strict: bool = False,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F04 (Phase E, N65-N68): Validates all 11 cache-key invariants before
+    a cached `trade_decision_lineage_reconciliation.json` payload can be trusted.
+    """
+    violations: List[str] = []
+    if not isinstance(cached_payload, Mapping) or not cached_payload:
+        violations.append("MISSING_CACHED_LEDGER_PAYLOAD")
+        if strict:
+            raise ValueError(f"Invalid cached trade ledger provenance: {violations}")
+        return {
+            "is_valid": False,
+            "status": "CACHE_REJECTED_REGENERATION_REQUIRED",
+            "cache_trusted": False,
+            "regeneration_required": True,
+            "inspected_invariants_count": 11,
+            "violations": violations,
+            "expected_provenance": dict(expected_provenance),
+            "cached_provenance": {},
+        }
+
+    prov = cached_payload.get("cache_provenance") if isinstance(cached_payload.get("cache_provenance"), Mapping) else cached_payload
+    required_keys = (
+        "source_sha",
+        "source_tree_hash",
+        "dataset_sha256",
+        "configuration_hash",
+        "evaluator_version",
+        "runner_version",
+        "simulator_assumptions",
+        "cost_spread_assumptions",
+        "historical_period",
+        "schema_version",
+    )
+    missing_keys = [k for k in required_keys if prov.get(k) in (None, "")]
+    if missing_keys:
+        violations.append(f"MISSING_REQUIRED_CACHE_PROVENANCE_KEYS:{','.join(missing_keys)}")
+
+    check_pairs = (
+        ("source_sha", "STALE_CACHE_SOURCE_SHA_MISMATCH"),
+        ("source_tree_hash", "STALE_CACHE_SOURCE_TREE_HASH_MISMATCH"),
+        ("dataset_sha256", "STALE_CACHE_DATASET_SHA256_MISMATCH"),
+        ("configuration_hash", "STALE_CACHE_CONFIGURATION_HASH_MISMATCH"),
+        ("evaluator_version", "STALE_CACHE_EVALUATOR_VERSION_MISMATCH"),
+        ("runner_version", "STALE_CACHE_RUNNER_VERSION_MISMATCH"),
+        ("simulator_assumptions", "STALE_CACHE_SIMULATOR_ASSUMPTIONS_MISMATCH"),
+        ("cost_spread_assumptions", "STALE_CACHE_COST_SPREAD_ASSUMPTIONS_MISMATCH"),
+        ("historical_period", "STALE_CACHE_HISTORICAL_PERIOD_MISMATCH"),
+        ("schema_version", "STALE_CACHE_SCHEMA_VERSION_MISMATCH"),
+    )
+    for key, err_code in check_pairs:
+        exp_val = expected_provenance.get(key)
+        act_val = prov.get(key)
+        if exp_val is not None and act_val != exp_val:
+            violations.append(err_code)
+
+    links = cached_payload.get("trade_decision_links")
+    if not isinstance(links, Sequence):
+        violations.append("CACHED_LEDGER_MISSING_TRADE_DECISION_LINKS")
+        links = []
+
+    sim_count = int(cached_payload.get("simulated_trades_count") if cached_payload.get("simulated_trades_count") is not None else -1)
+    exp_sim_count = expected_provenance.get("simulated_trades_count")
+    if sim_count < 0 or len(links) != sim_count:
+        violations.append("CACHED_LEDGER_TRADE_COUNT_INTERNAL_MISMATCH")
+    if exp_sim_count is not None and len(links) != int(exp_sim_count):
+        violations.append("CACHED_LEDGER_VS_EXPECTED_TRADE_COUNT_MISMATCH")
+
+    if not bool(cached_payload.get("is_valid", False)) or not bool(cached_payload.get("reconciled", False)):
+        violations.append("CACHED_LEDGER_RECONCILIATION_NOT_VALID")
+
+    if matched_comparison_trades is not None:
+        if len(links) != len(matched_comparison_trades):
+            violations.append("CACHED_LEDGER_VS_MATCHED_COMPARISON_COUNT_MISMATCH")
+        else:
+            mc_by_tid = {str(t.get("trade_id") or ""): t for t in matched_comparison_trades}
+            for lnk in links:
+                tid = str(lnk.get("trade_id") or "")
+                mc_t = mc_by_tid.get(tid)
+                if mc_t is None:
+                    violations.append(f"CACHED_LEDGER_TRADE_ID_NOT_IN_MATCHED_COMPARISON:{tid}")
+                    continue
+                if (
+                    str(lnk.get("decision_id") or "") != str(mc_t.get("decision_id") or "")
+                    or str(lnk.get("decision_fingerprint") or "") != str(mc_t.get("decision_fingerprint") or "")
+                    or str(lnk.get("outcome") or "") != str(mc_t.get("outcome") or "")
+                    or abs(float(lnk.get("stop_loss") or 0.0) - float(mc_t.get("stop_loss") or 0.0)) > 1e-4
+                    or abs(float(lnk.get("take_profit") or 0.0) - float(mc_t.get("take_profit") or 0.0)) > 1e-4
+                    or abs(float(lnk.get("net_pnl") or 0.0) - float(mc_t.get("net_pnl") or 0.0)) > 1e-4
+                ):
+                    violations.append(f"CACHED_LEDGER_VS_MATCHED_COMPARISON_DIVERGENCE:{tid}")
+
+    if strict and violations:
+        raise ValueError(f"Stale or invalid cached trade ledger rejected: {violations}")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "CACHE_VALID" if len(violations) == 0 else "CACHE_REJECTED_REGENERATION_REQUIRED",
+        "cache_trusted": len(violations) == 0,
+        "regeneration_required": len(violations) > 0,
+        "inspected_invariants_count": 11,
+        "violations": violations,
+        "expected_provenance": dict(expected_provenance),
+        "cached_provenance": {k: prov.get(k) for k in required_keys if isinstance(prov, Mapping)},
+    }
+
+
+def validate_decision_context_no_future_leakage(
+    decision_bars: Sequence[Any],
+    decision_ms: int,
+    *,
+    bar_interval_ms: int = 60_000,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F02 (Phase C, N57): Verifies that every historical candle supplied
+    to the decision context is strictly closed at or before `decision_ms`
+    (`open_time < decision_ms` and `close_time <= decision_ms`).
+    """
+    dec_ts = int(decision_ms)
+    violations: List[Dict[str, Any]] = []
+    for idx, b in enumerate(decision_bars or ()):
+        b_dict = dict(b) if isinstance(b, Mapping) else b.to_dict()
+        open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
+        close_ts = int(
+            b_dict.get("close_time")
+            if b_dict.get("close_time") is not None
+            else (open_ts + int(bar_interval_ms))
+        )
+        is_closed = bool(b_dict.get("is_closed", True))
+        if open_ts >= dec_ts or close_ts > dec_ts or not is_closed:
+            violations.append(
+                {
+                    "bar_index": idx,
+                    "open_time": open_ts,
+                    "close_time": close_ts,
+                    "decision_timestamp_ms": dec_ts,
+                    "is_closed": is_closed,
+                    "reason": "FUTURE_OR_UNCLOSED_CANDLE_IN_DECISION_CONTEXT",
+                }
+            )
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "decision_timestamp_ms": dec_ts,
+        "inspected_bars_count": len(decision_bars or ()),
+        "future_leakage_violations_count": len(violations),
+        "violations": violations,
+        "reason_code": None if len(violations) == 0 else "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT",
+    }
+
+
+def validate_forward_candles_for_simulation(
+    forward_bars: Sequence[Any],
+    decision_ms: int,
+    *,
+    dataset_sha256: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F02 (Phase C, N55, N56, N58, N59): Validates forward M1 candles for
+    chronological post-entry trajectory simulation.
+    - Empty/missing forward bars -> `NOT_EVALUATED` (`MISSING_REAL_FORWARD_M1_BARS`, `N56`), never fabricated.
+    - Synthetic/fabricated markers -> `INVALID_FORWARD_CANDLES` (`SYNTHETIC_FORWARD_CANDLE_FORBIDDEN`, `N55`).
+    - Timestamp < `decision_ms` -> `INVALID_FORWARD_CANDLES` (`FORWARD_CANDLE_PRECEDES_DECISION_TIMESTAMP`, `N57`).
+    - Duplicate/non-monotonic timestamps or gap discontinuity -> `INVALID_FORWARD_CANDLES` (`N58`).
+    - Invalid OHLC geometry (`high < max(open, close)`, `low > min(open, close)`, `high < low`, `<= 0`) -> `INVALID_FORWARD_CANDLES` (`N59`).
+    """
+    dec_ts = int(decision_ms)
+    if not forward_bars:
+        return {
+            "is_valid": False,
+            "status": "NOT_EVALUATED",
+            "outcome_status": "NOT_EVALUATED",
+            "reason_code": "MISSING_REAL_FORWARD_M1_BARS",
+            "decision_timestamp_ms": dec_ts,
+            "dataset_sha256": dataset_sha256,
+            "forward_bars_count": 0,
+            "first_forward_open_time_ms": None,
+            "last_forward_close_time_ms": None,
+            "fabricated_forward_candles_count": 0,
+            "synthetic_fallback_used": False,
+            "violations": ["MISSING_REAL_FORWARD_M1_BARS"],
+            "validated_bars": [],
+        }
+
+    violations: List[str] = []
+    validated_bars: List[Dict[str, Any]] = []
+    prev_open_ts: Optional[int] = None
+
+    for idx, raw_b in enumerate(forward_bars):
+        b_dict = dict(raw_b) if isinstance(raw_b, Mapping) else raw_b.to_dict()
+        if (
+            bool(b_dict.get("is_synthetic", False))
+            or bool(b_dict.get("fabricated_forward_candle", False))
+            or str(b_dict.get("source") or "").upper() in ("SYNTHETIC", "SYNTHETIC_FALLBACK", "FABRICATED")
+        ):
+            violations.append(f"SYNTHETIC_FORWARD_CANDLE_FORBIDDEN:idx={idx}")
+
+        open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
+        close_ts = int(b_dict.get("close_time") if b_dict.get("close_time") is not None else (open_ts + 60_000))
+        if open_ts < dec_ts:
+            violations.append(f"FORWARD_CANDLE_PRECEDES_DECISION_TIMESTAMP:idx={idx}:open_time={open_ts}<{dec_ts}")
+
+        if prev_open_ts is not None:
+            if open_ts <= prev_open_ts:
+                violations.append(f"NON_MONOTONIC_OR_DUPLICATE_FORWARD_CANDLES:idx={idx}:open_time={open_ts}<={prev_open_ts}")
+            elif open_ts - prev_open_ts > 60_000:
+                violations.append(f"FORWARD_CANDLE_TIMESTAMP_DISCONTINUITY_GAP:idx={idx}:gap_ms={open_ts - prev_open_ts}")
+        prev_open_ts = open_ts
+
+        try:
+            o = float(b_dict.get("open", 0.0))
+            h = float(b_dict.get("high", 0.0))
+            l = float(b_dict.get("low", 0.0))
+            c = float(b_dict.get("close", 0.0))
+        except (TypeError, ValueError):
+            o, h, l, c = -1.0, -1.0, -1.0, -1.0
+
+        is_closed = bool(b_dict.get("is_closed", True))
+        if (
+            not is_closed
+            or o <= 0.0
+            or h <= 0.0
+            or l <= 0.0
+            or c <= 0.0
+            or h < max(o, c) - 1e-9
+            or l > min(o, c) + 1e-9
+            or h < l - 1e-9
+        ):
+            violations.append(f"CORRUPTED_FORWARD_CANDLE_OHLC:idx={idx}")
+
+        norm_bar = dict(b_dict)
+        norm_bar["open_time"] = open_ts
+        norm_bar["close_time"] = close_ts
+        norm_bar["timestamp"] = open_ts
+        norm_bar["open"] = o
+        norm_bar["high"] = h
+        norm_bar["low"] = l
+        norm_bar["close"] = c
+        norm_bar["is_closed"] = is_closed
+        validated_bars.append(norm_bar)
+
+    is_valid = len(violations) == 0
+    primary_reason: Optional[str] = None
+    if violations:
+        first_v = violations[0].split(":")[0]
+        primary_reason = first_v
+
+    return {
+        "is_valid": is_valid,
+        "status": "PASS" if is_valid else "INVALID_FORWARD_CANDLES",
+        "outcome_status": "EVALUATED" if is_valid else "INVALID_FORWARD_CANDLES",
+        "reason_code": primary_reason,
+        "decision_timestamp_ms": dec_ts,
+        "dataset_sha256": dataset_sha256,
+        "forward_bars_count": len(validated_bars) if is_valid else 0,
+        "first_forward_open_time_ms": validated_bars[0]["open_time"] if (is_valid and validated_bars) else None,
+        "last_forward_close_time_ms": validated_bars[-1]["close_time"] if (is_valid and validated_bars) else None,
+        "fabricated_forward_candles_count": 0,
+        "synthetic_fallback_used": False,
+        "violations": violations,
+        "validated_bars": validated_bars if is_valid else [],
+    }
+
+
+def extract_and_validate_real_forward_candles(
+    all_m1_bars: Sequence[Any],
+    decision_ms: int,
+    *,
+    max_bars: int = 60,
+    dataset_sha256: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Extracts up to `max_bars` contiguous real closed M1 bars starting at `open_time >= decision_ms`
+    from the verified historical dataset, stopping before any intra-session gap, and validates them.
+    """
+    dec_ts = int(decision_ms)
+    extracted: List[Dict[str, Any]] = []
+    prev_open: Optional[int] = None
+    for raw_b in all_m1_bars or ():
+        b_dict = dict(raw_b) if isinstance(raw_b, Mapping) else raw_b.to_dict()
+        open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
+        if open_ts < dec_ts:
+            continue
+        if prev_open is not None and open_ts - prev_open > 60_000:
+            break
+        extracted.append(b_dict)
+        prev_open = open_ts
+        if len(extracted) >= max_bars:
+            break
+    return validate_forward_candles_for_simulation(
+        extracted,
+        dec_ts,
+        dataset_sha256=dataset_sha256,
+    )
+
+
+def reconcile_parity_windows_with_chronological_backtest(
+    parity_window_outcomes: Sequence[Mapping[str, Any]],
+    chronological_trades: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F02 (Phase C, N60): Reconciles historical parity window simulation outcomes
+    against the full chronological backtest trade ledger. Any synthetic forward bar, invalid
+    forward candle outcome, or outcome/PnL/coordinate divergence fails reconciliation.
+    """
+    chrono_by_key: Dict[Tuple[int, str], Mapping[str, Any]] = {}
+    chrono_by_dec_id: Dict[str, Mapping[str, Any]] = {}
+    for tr in chronological_trades or ():
+        ts = int(tr.get("decision_timestamp_ms") or tr.get("decision_ms") or 0)
+        mid = str(tr.get("model_id") or "")
+        if ts > 0 and mid:
+            chrono_by_key[(ts, mid)] = tr
+        did = str(tr.get("decision_id") or "")
+        if did:
+            chrono_by_dec_id[did] = tr
+
+    violations: List[Dict[str, Any]] = []
+    evaluated_count = 0
+    not_evaluated_count = 0
+    matched_trades_count = 0
+    fabricated_total = 0
+
+    for idx, win in enumerate(parity_window_outcomes or ()):
+        fab_cnt = int(win.get("fabricated_forward_candles_count") or 0)
+        fabricated_total += fab_cnt
+        if fab_cnt > 0 or bool(win.get("synthetic_fallback_used", False)):
+            violations.append(
+                {
+                    "window_index": idx,
+                    "decision_id": win.get("decision_id"),
+                    "reason": "SYNTHETIC_FORWARD_CANDLE_DETECTED",
+                }
+            )
+
+        out_status = str(win.get("outcome_status") or "EVALUATED")
+        if out_status == "NOT_EVALUATED":
+            not_evaluated_count += 1
+        elif out_status.startswith("INVALID_"):
+            violations.append(
+                {
+                    "window_index": idx,
+                    "decision_id": win.get("decision_id"),
+                    "outcome_status": out_status,
+                    "reason": "INVALID_PARITY_WINDOW_OUTCOME",
+                }
+            )
+        else:
+            evaluated_count += 1
+
+        ts = int(win.get("decision_timestamp_ms") or 0)
+        mid = str(win.get("model_id") or "")
+        did = str(win.get("decision_id") or "")
+        chrono_tr = chrono_by_dec_id.get(did)
+        if chrono_tr is None and (ts, mid) in chrono_by_key:
+            cand_tr = chrono_by_key[(ts, mid)]
+            if not cand_tr.get("decision_id") or str(cand_tr.get("decision_id")) == did:
+                chrono_tr = cand_tr
+
+        if chrono_tr is not None:
+            sim_tr = win.get("simulated_trade_record")
+            if not isinstance(sim_tr, Mapping):
+                violations.append(
+                    {
+                        "window_index": idx,
+                        "decision_id": did,
+                        "chronological_trade_id": chrono_tr.get("trade_id"),
+                        "reason": "PARITY_WINDOW_MISSING_EXPECTED_CHRONOLOGICAL_TRADE",
+                    }
+                )
+            else:
+                matched_trades_count += 1
+                if (
+                    str(sim_tr.get("outcome") or "") != str(chrono_tr.get("outcome") or "")
+                    or abs(float(sim_tr.get("entry_price") or 0.0) - float(chrono_tr.get("entry_price") or 0.0)) > 1e-4
+                    or abs(float(sim_tr.get("stop_loss") or 0.0) - float(chrono_tr.get("stop_loss") or 0.0)) > 1e-4
+                    or abs(float(sim_tr.get("take_profit") or 0.0) - float(chrono_tr.get("take_profit") or 0.0)) > 1e-4
+                    or abs(float(sim_tr.get("net_pnl") or 0.0) - float(chrono_tr.get("net_pnl") or 0.0)) > 1e-4
+                    or abs(float(sim_tr.get("realized_r") or 0.0) - float(chrono_tr.get("realized_r") or 0.0)) > 1e-4
+                ):
+                    violations.append(
+                        {
+                            "window_index": idx,
+                            "decision_id": did,
+                            "chronological_trade_id": chrono_tr.get("trade_id"),
+                            "window_outcome": sim_tr.get("outcome"),
+                            "chronological_outcome": chrono_tr.get("outcome"),
+                            "window_net_pnl": sim_tr.get("net_pnl"),
+                            "chronological_net_pnl": chrono_tr.get("net_pnl"),
+                            "reason": "PARITY_WINDOW_VS_CHRONOLOGICAL_LEDGER_OUTCOME_MISMATCH",
+                        }
+                    )
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "reconciled": len(violations) == 0,
+        "inspected_windows_count": len(parity_window_outcomes or ()),
+        "evaluated_windows_count": evaluated_count,
+        "not_evaluated_windows_count": not_evaluated_count,
+        "matched_chronological_trades_count": matched_trades_count,
+        "mismatched_outcomes_count": len(violations),
+        "fabricated_forward_candles_total": fabricated_total,
+        "violations": violations,
+    }
+
+
 def execute_chronological_backtest_window_for_parity(
     *,
     symbol: str = "XAUUSDT",
@@ -2436,19 +3022,27 @@ def execute_chronological_backtest_window_for_parity(
     htf_bias: str = "NEUTRAL",
     h1_alignment: str = "NEUTRAL",
     chronological_ledger_by_key: Optional[Dict[Tuple[int, str], Dict[str, Any]]] = None,
+    dataset_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179012-C02 (Phase C.1 & C.3): Executes the actual chronological Backtest simulation
+    DEF-179012-F02 (Phase C): Executes the actual chronological Backtest simulation
     pipeline (`validate_canonical_executability` -> `evaluate_and_simulate_variants_on_opportunities`
-    -> `_simulate_ohlc_trajectory_with_spread`) on the historical candle window at `as_of_ms`,
-    and cross-links against the full chronological historical backtest trade/rejection ledger.
-    Never relies solely on an adapter snapshot (`N37`).
+    -> `_simulate_ohlc_trajectory_with_spread`) on the historical candle window at `as_of_ms`
+    using ONLY verified real historical forward M1 candles (`forward_1m`).
+    Synthetic/fabricated forward candles are strictly forbidden (`N55`-`N60`).
     """
     from services.shared_strategy_evaluator import (
         DecisionStatus,
         SharedStrategyEvaluator,
         build_market_decision_context,
         validate_canonical_executability,
+    )
+
+    leakage_check = validate_decision_context_no_future_leakage(closed_1m, as_of_ms, bar_interval_ms=60_000)
+    fwd_validation = validate_forward_candles_for_simulation(
+        forward_1m,
+        as_of_ms,
+        dataset_sha256=dataset_sha256,
     )
 
     eff_cfg = cfg or get_scalp_config()
@@ -2490,6 +3084,116 @@ def execute_chronological_backtest_window_for_parity(
     canon_exec_ok, canon_exec_rej = validate_canonical_executability(bt_snap, context=bt_ctx)
     parity_dict = bt_snap.to_parity_dict()
     opp_id = f"bt_opp_{symbol}_{model_id}_{bt_snap.direction}_{as_of_ms}"
+
+    ledger_entry = (chronological_ledger_by_key or {}).get((as_of_ms, model_id))
+    ledger_trade_id = ledger_entry.get("trade_id") if ledger_entry else None
+
+    if not leakage_check["is_valid"]:
+        rej_rec = {
+            "opportunity_id": opp_id,
+            "decision_ms": as_of_ms,
+            "decision_timestamp_ms": as_of_ms,
+            "direction": bt_snap.direction,
+            "model_id": model_id,
+            "stage": "CAUSALITY_LEAKAGE_GATE",
+            "reason_code": "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT",
+            "simulation_rejection_reason": "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT",
+            "simulation_eligible": False,
+            "trade_id": None,
+            "lifecycle_stage": "FUTURE_LEAKAGE_REJECTED",
+            "shared_decision_snapshot": parity_dict,
+            "decision_id": bt_snap.decision_id,
+            "decision_fingerprint": bt_snap.decision_fingerprint,
+        }
+        return {
+            "symbol": symbol,
+            "model_id": model_id,
+            "decision_timestamp_ms": as_of_ms,
+            "decision_id": bt_snap.decision_id,
+            "decision_fingerprint": bt_snap.decision_fingerprint,
+            "market_input_hash": bt_snap.market_input_hash,
+            "input_snapshot_hash": bt_snap.input_snapshot_hash,
+            "configuration_hash": bt_snap.configuration_hash,
+            "evaluator_version": bt_snap.evaluator_version,
+            "canonical_decision_status": bt_snap.decision_status,
+            "strict_eligibility_status": "ELIGIBLE" if (canon_exec_ok and bt_snap.decision_status == "ELIGIBLE") else "NON_ELIGIBLE",
+            "outcome_status": "INVALID_DECISION_CONTEXT_FUTURE_LEAKAGE",
+            "simulation_completed": False,
+            "simulation_eligible": False,
+            "simulation_rejection_reason": "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT",
+            "missing_forward_data_reason": "FUTURE_CANDLE_LEAKAGE_IN_DECISION_CONTEXT",
+            "fabricated_forward_candles_count": 0,
+            "synthetic_fallback_used": False,
+            "forward_candle_validation": fwd_validation,
+            "decision_context_causality": leakage_check,
+            "trade_id": None,
+            "chronological_ledger_trade_id": ledger_trade_id,
+            "lifecycle_stage": "FUTURE_LEAKAGE_REJECTED",
+            "is_consumed": True,
+            "downstream_consumer": "v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities",
+            "executed_via_simulator": False,
+            "execution_mode": "CHRONOLOGICAL_BACKTEST_SIMULATION_PIPELINE",
+            "simulator_pipeline": "evaluate_and_simulate_variants_on_opportunities",
+            "simulated_trade_record": None,
+            "simulated_rejection_record": rej_rec,
+            "shared_decision_snapshot": parity_dict,
+            "chronological_decision_snapshot": parity_dict,
+        }
+
+    # If explicit forward bars were passed and failed validation (e.g., synthetic, non-monotonic, corrupted),
+    # fail closed immediately regardless of setup eligibility.
+    if forward_1m and not fwd_validation["is_valid"]:
+        rej_reason = str(fwd_validation["reason_code"] or "INVALID_FORWARD_CANDLES")
+        rej_rec = {
+            "opportunity_id": opp_id,
+            "decision_ms": as_of_ms,
+            "decision_timestamp_ms": as_of_ms,
+            "direction": bt_snap.direction,
+            "model_id": model_id,
+            "stage": "FORWARD_CANDLE_VALIDATION_GATE",
+            "reason_code": rej_reason,
+            "simulation_rejection_reason": rej_reason,
+            "simulation_eligible": False,
+            "trade_id": None,
+            "lifecycle_stage": "INVALID_FORWARD_CANDLES_REJECTED",
+            "shared_decision_snapshot": parity_dict,
+            "decision_id": bt_snap.decision_id,
+            "decision_fingerprint": bt_snap.decision_fingerprint,
+        }
+        return {
+            "symbol": symbol,
+            "model_id": model_id,
+            "decision_timestamp_ms": as_of_ms,
+            "decision_id": bt_snap.decision_id,
+            "decision_fingerprint": bt_snap.decision_fingerprint,
+            "market_input_hash": bt_snap.market_input_hash,
+            "input_snapshot_hash": bt_snap.input_snapshot_hash,
+            "configuration_hash": bt_snap.configuration_hash,
+            "evaluator_version": bt_snap.evaluator_version,
+            "canonical_decision_status": bt_snap.decision_status,
+            "strict_eligibility_status": "ELIGIBLE" if (canon_exec_ok and bt_snap.decision_status == "ELIGIBLE") else "NON_ELIGIBLE",
+            "outcome_status": "INVALID_FORWARD_CANDLES",
+            "simulation_completed": False,
+            "simulation_eligible": False,
+            "simulation_rejection_reason": rej_reason,
+            "missing_forward_data_reason": rej_reason,
+            "fabricated_forward_candles_count": 0,
+            "synthetic_fallback_used": False,
+            "forward_candle_validation": fwd_validation,
+            "decision_context_causality": leakage_check,
+            "trade_id": None,
+            "chronological_ledger_trade_id": ledger_trade_id,
+            "lifecycle_stage": "INVALID_FORWARD_CANDLES_REJECTED",
+            "is_consumed": True,
+            "downstream_consumer": "v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities",
+            "executed_via_simulator": False,
+            "execution_mode": "CHRONOLOGICAL_BACKTEST_SIMULATION_PIPELINE",
+            "simulator_pipeline": "evaluate_and_simulate_variants_on_opportunities",
+            "simulated_trade_record": None,
+            "simulated_rejection_record": rej_rec,
+            "shared_decision_snapshot": parity_dict,
+            "chronological_decision_snapshot": parity_dict,
+        }
 
     opps_for_sim: List[Dict[str, Any]] = []
     early_rejs_for_sim: List[Dict[str, Any]] = []
@@ -2534,23 +3238,70 @@ def execute_chronological_backtest_window_for_parity(
     )
 
     if can_enter_variant_simulator:
-        fwd_bars = [dict(b) if isinstance(b, dict) else b.to_dict() for b in (forward_1m or ())]
-        if not fwd_bars and closed_1m:
-            last_b = closed_1m[-1]
-            last_c = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", entry_px))
-            fwd_bars = [
-                {
-                    "timestamp": as_of_ms,
-                    "open_time": as_of_ms,
-                    "close_time": as_of_ms + 60_000,
-                    "open": last_c,
-                    "high": round(last_c + 0.30, 2),
-                    "low": round(last_c - 0.30, 2),
-                    "close": last_c,
-                    "volume": 100.0,
-                    "is_closed": True,
-                }
-            ]
+        if not fwd_validation["is_valid"]:
+            # DEF-179012-F02 (N55, N56): NEVER fabricate synthetic forward candles.
+            missing_reason = str(fwd_validation["reason_code"] or "MISSING_REAL_FORWARD_M1_BARS")
+            rej_rec = {
+                "opportunity_id": opp_id,
+                "decision_ms": as_of_ms,
+                "decision_timestamp_ms": as_of_ms,
+                "direction": bt_snap.direction,
+                "model_id": model_id,
+                "unicorn_qualified": unicorn_valid,
+                "stage": "FORWARD_CANDLE_AVAILABILITY_GATE",
+                "reason_code": missing_reason,
+                "simulation_rejection_reason": missing_reason,
+                "simulation_eligible": False,
+                "trade_id": None,
+                "lifecycle_stage": "FORWARD_DATA_MISSING_NOT_EVALUATED",
+                "shared_decision_snapshot": parity_dict,
+                "decision_id": bt_snap.decision_id,
+                "decision_fingerprint": bt_snap.decision_fingerprint,
+                "evidence_fingerprint": bt_snap.evidence_fingerprint,
+                "policy_fingerprint": bt_snap.policy_fingerprint,
+                "market_input_hash": bt_snap.market_input_hash,
+                "input_snapshot_hash": bt_snap.input_snapshot_hash,
+                "configuration_hash": bt_snap.configuration_hash,
+                "canonical_decision_status": bt_snap.decision_status,
+                "evaluator_version": bt_snap.evaluator_version,
+                "adapter_origin": bt_snap.adapter_origin,
+            }
+            return {
+                "symbol": symbol,
+                "model_id": model_id,
+                "decision_timestamp_ms": as_of_ms,
+                "decision_id": bt_snap.decision_id,
+                "decision_fingerprint": bt_snap.decision_fingerprint,
+                "market_input_hash": bt_snap.market_input_hash,
+                "input_snapshot_hash": bt_snap.input_snapshot_hash,
+                "configuration_hash": bt_snap.configuration_hash,
+                "evaluator_version": bt_snap.evaluator_version,
+                "canonical_decision_status": bt_snap.decision_status,
+                "strict_eligibility_status": "ELIGIBLE" if (canon_exec_ok and bt_snap.decision_status == "ELIGIBLE") else "NON_ELIGIBLE",
+                "outcome_status": fwd_validation["outcome_status"],
+                "simulation_completed": False,
+                "simulation_eligible": False,
+                "simulation_rejection_reason": missing_reason,
+                "missing_forward_data_reason": missing_reason,
+                "fabricated_forward_candles_count": 0,
+                "synthetic_fallback_used": False,
+                "forward_candle_validation": fwd_validation,
+                "decision_context_causality": leakage_check,
+                "trade_id": None,
+                "chronological_ledger_trade_id": ledger_trade_id,
+                "lifecycle_stage": "FORWARD_DATA_MISSING_NOT_EVALUATED",
+                "is_consumed": True,
+                "downstream_consumer": "v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities",
+                "executed_via_simulator": False,
+                "execution_mode": "CHRONOLOGICAL_BACKTEST_SIMULATION_PIPELINE",
+                "simulator_pipeline": "evaluate_and_simulate_variants_on_opportunities",
+                "simulated_trade_record": None,
+                "simulated_rejection_record": rej_rec,
+                "shared_decision_snapshot": parity_dict,
+                "chronological_decision_snapshot": parity_dict,
+            }
+
+        fwd_bars = list(fwd_validation["validated_bars"])
         opps_for_sim.append(
             {
                 "opportunity_id": opp_id,
@@ -2655,9 +3406,6 @@ def execute_chronological_backtest_window_for_parity(
     sim_trade = auth_trades[0] if auth_trades else None
     sim_rej = auth_rejs[0] if auth_rejs else (early_rejs_for_sim[0] if early_rejs_for_sim else None)
 
-    ledger_entry = (chronological_ledger_by_key or {}).get((as_of_ms, model_id))
-    ledger_trade_id = ledger_entry.get("trade_id") if ledger_entry else None
-
     if sim_trade is not None:
         lifecycle_stage = "SIMULATED_TRADE_CREATED"
         sim_eligible = True
@@ -2685,8 +3433,15 @@ def execute_chronological_backtest_window_for_parity(
         "evaluator_version": bt_snap.evaluator_version,
         "canonical_decision_status": bt_snap.decision_status,
         "strict_eligibility_status": "ELIGIBLE" if (canon_exec_ok and bt_snap.decision_status == "ELIGIBLE") else "NON_ELIGIBLE",
+        "outcome_status": "EVALUATED" if fwd_validation["is_valid"] else str(fwd_validation["outcome_status"]),
+        "simulation_completed": bool(fwd_validation["is_valid"]),
         "simulation_eligible": sim_eligible,
         "simulation_rejection_reason": sim_rej_reason,
+        "missing_forward_data_reason": None if fwd_validation["is_valid"] else fwd_validation["reason_code"],
+        "fabricated_forward_candles_count": 0,
+        "synthetic_fallback_used": False,
+        "forward_candle_validation": fwd_validation,
+        "decision_context_causality": leakage_check,
         "trade_id": trade_id,
         "chronological_ledger_trade_id": ledger_trade_id,
         "lifecycle_stage": lifecycle_stage,
@@ -3437,11 +4192,43 @@ def execute_real_v17_8_backtest(
         },
     }
 
+    from services.shared_strategy_evaluator import EVALUATOR_VERSION as _CANONICAL_EVAL_VERSION
+
+    sample_cfg_hash = ""
+    for _cand in list(opportunities) + list(early_rejections):
+        if _cand.get("configuration_hash"):
+            sample_cfg_hash = str(_cand["configuration_hash"])
+            break
+
+    lineage_rec = dict(full_eval.get("trade_decision_lineage_reconciliation") or {})
+    ledger_provenance = build_backtest_ledger_provenance_envelope(
+        source_sha=source_sha,
+        dataset_manifest=dataset_manifest,
+        configuration_hash=sample_cfg_hash,
+        evaluator_version=_CANONICAL_EVAL_VERSION,
+        simulated_trades_count=int(lineage_rec.get("simulated_trades_count") or 0),
+    )
+    lineage_rec.update(ledger_provenance)
+    lineage_rec["cache_provenance"] = dict(ledger_provenance)
+    full_eval["trade_decision_lineage_reconciliation"] = lineage_rec
+    dataset_manifest["source_tree_hash"] = ledger_provenance["source_tree_hash"]
+    dataset_manifest["core_backtest_evaluator_tree_hash"] = ledger_provenance["core_backtest_evaluator_tree_hash"]
+    dataset_manifest["configuration_hash"] = ledger_provenance["configuration_hash"]
+    dataset_manifest["evaluator_version"] = ledger_provenance["evaluator_version"]
+    dataset_manifest["runner_version"] = ledger_provenance["runner_version"]
+    dataset_manifest["cache_provenance"] = dict(ledger_provenance)
+
     matched_comparison = {
         "schema_version": "V17.8.0.4",
         "run_id": eff_run_id,
         "source_sha": source_sha,
+        "source_tree_hash": ledger_provenance["source_tree_hash"],
+        "core_backtest_evaluator_tree_hash": ledger_provenance["core_backtest_evaluator_tree_hash"],
         "dataset_sha256": dataset_manifest["dataset_sha256"],
+        "configuration_hash": ledger_provenance["configuration_hash"],
+        "evaluator_version": ledger_provenance["evaluator_version"],
+        "runner_version": ledger_provenance["runner_version"],
+        "cache_provenance": dict(ledger_provenance),
         "matched_invariants": {
             "same_setup": True,
             "same_decision_time": True,

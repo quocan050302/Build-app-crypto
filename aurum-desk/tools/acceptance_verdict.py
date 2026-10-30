@@ -1317,13 +1317,24 @@ def validate_semantic_acceptance_bundle(
     expected_code_sha: str,
     expected_release: str = "V17.9.0.1.2",
     artifact_checksums_on_disk: Optional[Dict[str, str]] = None,
+    backtest_manifest: Optional[Dict[str, Any]] = None,
+    cache_validation_report: Optional[Dict[str, Any]] = None,
+    chronological_reconciliation: Optional[Dict[str, Any]] = None,
+    callable_manifest: Optional[Dict[str, Any]] = None,
+    final_report_verdict: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179012-C06 (N47, N48, N49, N50): Semantic acceptance validator that fails closed when:
+    DEF-179012-C06 & DEF-179012-F05 (N47-N50, N69, N70): Semantic acceptance validator that fails closed when:
       - N47: `DECISION_PARITY_REPORT.json` has `status: "PASS"` while `five_way_verified == 0`
       - N48: `FINAL_ARTIFACT_MANIFEST.json` has mismatched SHA-256 vs on-disk file bytes
       - N49: `tested_source_sha != FINAL_CODE_SHA`
       - N50: Release version mismatch across generated artifacts (`V17.9.0.1.1` vs `V17.9.0.1.2`)
+      - N69: Parity report claiming PASS/100% parity while classification breakdown includes
+             `NOT_COMPARABLE > 0`, `NOT_EXECUTED > 0`, `UNEXPECTED_DIVERGENCE > 0`, `INPUT_MISMATCH > 0`,
+             or `fabricated_forward_candles_count > 0`
+      - N70: Final acceptance bundle claiming PASS while any cross-artifact contradiction exists
+             (backtest `source_sha != expected_code_sha`, untrusted ledger cache, failed chronological
+             reconciliation, or invalid historical callable authority).
     """
     violations: List[str] = []
 
@@ -1340,6 +1351,19 @@ def validate_semantic_acceptance_bundle(
         violations.append("PARITY_REPORT_PASS_WITH_ZERO_FIVE_WAY_VERIFIED")
     if p_status != "PASS":
         violations.append(f"PARITY_REPORT_NOT_PASS:{p_status or 'MISSING'}")
+
+    # N69: Parity report classification breakdown & fabricated candle check
+    class_bd = parity_report.get("classification_breakdown")
+    if isinstance(class_bd, dict):
+        for bad_cat in ("UNEXPECTED_DIVERGENCE", "INPUT_MISMATCH", "NOT_COMPARABLE", "NOT_EXECUTED"):
+            if int(class_bd.get(bad_cat, 0) or 0) > 0:
+                violations.append(f"PARITY_REPORT_HAS_{bad_cat}:{class_bd.get(bad_cat)}")
+    if int(parity_report.get("fabricated_forward_candles_count", 0) or 0) > 0 or bool(
+        parity_report.get("synthetic_forward_candles_used", False)
+    ):
+        violations.append("PARITY_REPORT_CONTAINS_FABRICATED_FORWARD_CANDLES")
+    if parity_report.get("historical_callable_authority_valid") is False:
+        violations.append("PARITY_REPORT_HISTORICAL_AUTHORITY_INVALID")
 
     # N48: Artifact manifest SHA-256 verification
     manifest_entries = artifact_manifest.get("artifacts", [])
@@ -1375,6 +1399,30 @@ def validate_semantic_acceptance_bundle(
         rel_val = str(doc.get("release") or "")
         if rel_val != expected_release:
             violations.append(f"RELEASE_VERSION_MISMATCH:{name}:{rel_val}!={expected_release}")
+
+    # N70: Cross-artifact contradiction checks across backtest manifest, cache report, chronological reconciliation, callable manifest
+    if isinstance(backtest_manifest, dict):
+        bt_sha = str(backtest_manifest.get("source_sha") or "")
+        if bt_sha != expected_code_sha:
+            violations.append(f"CROSS_ARTIFACT_CONTRADICTION:BACKTEST_SOURCE_SHA_MISMATCH:{bt_sha}!={expected_code_sha}")
+    if isinstance(cache_validation_report, dict):
+        if not bool(cache_validation_report.get("cache_trusted", False)) or not bool(
+            cache_validation_report.get("is_valid", False)
+        ):
+            violations.append("CROSS_ARTIFACT_CONTRADICTION:LEDGER_CACHE_NOT_TRUSTED")
+    if isinstance(chronological_reconciliation, dict):
+        if not bool(chronological_reconciliation.get("is_valid", False)) or not bool(
+            chronological_reconciliation.get("reconciled", False)
+        ):
+            violations.append("CROSS_ARTIFACT_CONTRADICTION:CHRONOLOGICAL_BACKTEST_RECONCILIATION_FAILED")
+    if isinstance(callable_manifest, dict):
+        if not bool(callable_manifest.get("is_valid", True)) or bool(
+            callable_manifest.get("reconstructed_oracle_injected", False)
+        ):
+            violations.append("CROSS_ARTIFACT_CONTRADICTION:HISTORICAL_CALLABLE_MANIFEST_INVALID")
+    if final_report_verdict is not None:
+        if str(final_report_verdict).upper() == "PASS" and len(violations) > 0:
+            violations.append("CROSS_ARTIFACT_CONTRADICTION:FINAL_REPORT_CLAIMS_PASS_WITH_VIOLATIONS")
 
     return {
         "is_valid": len(violations) == 0,

@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -237,17 +238,45 @@ class TestResourceGuard:
             sample["swap_free_bytes"] = int(sm.free)
             sample["swap_used_bytes"] = int(sm.used)
         except Exception:
-            import resource
+            try:
+                import resource  # type: ignore
 
-            rusage_rss = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            rusage_child_rss = int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
-            # On macOS ru_maxrss is bytes; on Linux it is kilobytes
-            is_darwin = os.uname().sysname == "Darwin"
-            rss_b = rusage_rss if is_darwin else rusage_rss * 1024
-            child_rss_b = rusage_child_rss if is_darwin else rusage_child_rss * 1024
+                rusage_rss = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+                rusage_child_rss = int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+                is_darwin = hasattr(os, "uname") and os.uname().sysname == "Darwin"
+                rss_b = rusage_rss if is_darwin else rusage_rss * 1024
+                child_rss_b = rusage_child_rss if is_darwin else rusage_child_rss * 1024
+            except Exception:
+                rss_b = 64 * 1024 * 1024
+                child_rss_b = 0
+                try:
+                    import ctypes
+                    from ctypes import wintypes
+
+                    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                        _fields_ = [
+                            ("cb", wintypes.DWORD),
+                            ("PageFaultCount", wintypes.DWORD),
+                            ("PeakWorkingSetSize", ctypes.c_size_t),
+                            ("WorkingSetSize", ctypes.c_size_t),
+                            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                            ("PagefileUsage", ctypes.c_size_t),
+                            ("PeakPagefileUsage", ctypes.c_size_t),
+                        ]
+
+                    pmc = PROCESS_MEMORY_COUNTERS()
+                    pmc.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+                    handle = ctypes.windll.kernel32.GetCurrentProcess()
+                    if ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(pmc), pmc.cb):
+                        rss_b = int(pmc.WorkingSetSize)
+                except Exception:
+                    pass
             total_rss_b = rss_b + child_rss_b
             try:
-                load_1m = float(os.getloadavg()[0])
+                load_1m = float(os.getloadavg()[0])  # type: ignore[attr-defined]
                 cpu_pct_est = round(min(100.0, (load_1m / max(1, os.cpu_count() or 1)) * 100.0), 2)
             except Exception:
                 cpu_pct_est = 0.0
@@ -359,8 +388,8 @@ class TestResourceGuard:
             "SwapTotal": last_sample.get("swap_total_bytes", "NOT_MEASURED"),
             "SwapFree": last_sample.get("swap_free_bytes", "NOT_MEASURED"),
             "SwapUsed": last_sample.get("swap_used_bytes", "NOT_MEASURED"),
-            "swappiness": "NOT_APPLICABLE_DARWIN" if os.uname().sysname == "Darwin" else "UNKNOWN",
-            "zram_devices": 0 if os.uname().sysname == "Darwin" else "UNKNOWN",
+            "swappiness": "NOT_APPLICABLE_DARWIN" if sys.platform == "darwin" else "UNKNOWN",
+            "zram_devices": 0 if sys.platform == "darwin" else "UNKNOWN",
             "orphan_worker_count": 0,
             "cleaned_worker_dirs_count": len(self.cleaned_worker_dirs),
             "cleaned_worker_dirs": self.cleaned_worker_dirs,

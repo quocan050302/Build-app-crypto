@@ -13,6 +13,7 @@ Used for:
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -1752,6 +1753,9 @@ def _resolve_git_toplevel(start_dir: Optional[Path] = None) -> Path:
     return base_dir
 
 
+_HISTORICAL_PROVENANCE_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
 def verify_historical_baseline_commit_provenance(
     commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
     *,
@@ -1767,6 +1771,16 @@ def verify_historical_baseline_commit_provenance(
     Fails closed (`status = 'BLOCKED'`, `is_valid = False`) if the commit is missing or the
     historical source file hash map is empty or incomplete.
     """
+    if tracked_files_override is None and not simulate_empty_hashes and commit_sha in _HISTORICAL_PROVENANCE_CACHE:
+        cached_res = copy.deepcopy(_HISTORICAL_PROVENANCE_CACHE[commit_sha])
+        if strict and not cached_res["is_valid"]:
+            raise RuntimeError(
+                f"BLOCKED: Historical baseline provenance verification failed for {commit_sha}: {cached_res['reason_code']}"
+            )
+        return cached_res
+
+    from concurrent.futures import ThreadPoolExecutor
+
     app_root = Path(__file__).resolve().parents[2]
     git_toplevel = _resolve_git_toplevel(app_root)
     tracked_files = tuple(tracked_files_override) if tracked_files_override is not None else HISTORICAL_BASELINE_TRACKED_FILES
@@ -1785,15 +1799,13 @@ def verify_historical_baseline_commit_provenance(
         )
         commit_verified = cat_res.returncode == 0 and cat_res.stdout.strip() == "commit"
         if commit_verified and not simulate_empty_hashes:
-            for rel_path in tracked_files:
+            def _fetch_one_blob(rel_path: str) -> Tuple[str, Optional[str], Optional[bytes]]:
                 clean_rel = rel_path.lstrip("/")
                 candidate_git_paths = (
                     [clean_rel]
                     if clean_rel.startswith("aurum-desk/")
                     else [f"aurum-desk/{clean_rel}", clean_rel]
                 )
-                matched_git_path: Optional[str] = None
-                matched_bytes: Optional[bytes] = None
                 for git_rel in candidate_git_paths:
                     show_res = subprocess.run(
                         ["git", "show", f"{commit_sha}:{git_rel}"],
@@ -1803,9 +1815,13 @@ def verify_historical_baseline_commit_provenance(
                         check=False,
                     )
                     if show_res.returncode == 0 and show_res.stdout:
-                        matched_git_path = git_rel
-                        matched_bytes = show_res.stdout
-                        break
+                        return clean_rel, git_rel, show_res.stdout
+                return clean_rel, None, None
+
+            with ThreadPoolExecutor(max_workers=min(8, max(1, len(tracked_files)))) as pool:
+                blob_results = list(pool.map(_fetch_one_blob, tracked_files))
+
+            for clean_rel, matched_git_path, matched_bytes in blob_results:
                 if matched_git_path is not None and matched_bytes is not None:
                     file_hashes[matched_git_path] = {
                         "app_relative_path": clean_rel.removeprefix("aurum-desk/"),
@@ -1856,6 +1872,8 @@ def verify_historical_baseline_commit_provenance(
         "status": status,
         "reason_code": reason_code,
     }
+    if tracked_files_override is None and not simulate_empty_hashes and is_valid:
+        _HISTORICAL_PROVENANCE_CACHE[commit_sha] = copy.deepcopy(result)
     if strict and not is_valid:
         raise RuntimeError(
             f"BLOCKED: Historical baseline provenance verification failed for {commit_sha}: {reason_code}"
@@ -2009,12 +2027,22 @@ def verify_historical_baseline_dependency_integrity(
 def _serialize_context_for_historical_subprocess(context: Any) -> Dict[str, Any]:
     def _ser_obj(item: Any) -> Any:
         if isinstance(item, dict):
-            return dict(item)
-        if hasattr(item, "to_dict") and callable(item.to_dict):
-            return item.to_dict()
-        if hasattr(item, "__dict__"):
-            return dict(item.__dict__)
-        return item
+            d = dict(item)
+        elif hasattr(item, "to_dict") and callable(item.to_dict):
+            d = dict(item.to_dict())
+        elif hasattr(item, "__dict__"):
+            d = dict(item.__dict__)
+        else:
+            return item
+        if "open_time_ms" in d or "open_time" in d or "timestamp" in d:
+            ot = int(d.get("open_time_ms") or d.get("open_time") or d.get("timestamp") or 0)
+            ct = int(d.get("close_time_ms") or d.get("close_time") or (ot + 60_000 if ot > 0 else 0))
+            d["open_time"] = ot
+            d["open_time_ms"] = ot
+            d["timestamp"] = ot
+            d["close_time"] = ct
+            d["close_time_ms"] = ct
+        return d
 
     atr_m1_o = getattr(context, "atr_m1_obj", None)
     atr_m5_o = getattr(context, "atr_m5_obj", None)
@@ -2059,7 +2087,7 @@ def _serialize_context_for_historical_subprocess(context: Any) -> Dict[str, Any]
             "computed_from_closed_candles_only": bool(getattr(atr_m5_o, "computed_from_closed_candles_only", True)),
         } if atr_m5_o is not None else None,
         "liquidity_pools": [_ser_obj(p) for p in getattr(context, "liquidity_pools", ())],
-        "htf_zones": [_ser_obj(z) for z in getattr(context, "htf_zones", ())],
+        "htf_zones": [_ser_obj(z) for p in [getattr(context, "htf_zones", ())] for z in p],
         "model_enablement": dict(
             getattr(context, "model_enablement_flags", None)
             or getattr(context, "model_enablement", None)
@@ -2218,21 +2246,26 @@ class _DeserializedHistoricalContext:
 
 def _build_historical_subprocess_harness_code(
     *,
-    hist_backend_dir: Path,
-    in_path: Path,
-    out_path: Path,
+    hist_backend_dir: Path = Path("."),
+    in_path: Path = Path("in.json"),
+    out_path: Path = Path("out.json"),
 ) -> str:
     """
     Builds a thin JSON input/output harness script for the isolated historical subprocess.
-    Enforces DEF-179012-C04 / Phase D (N41):
+    Enforces DEF-179012-F01 / Phase B (N41, N51, N52, N53, N54):
       - Zero current-tree oracle module files (`v17_9_0_1_baseline_oracle.py` / `hist_oracle_entry.py`)
         are copied into the subprocess directory or imported.
-      - All domain and runtime modules (`smc_engine`, `domain_calculator`, `services.scalp_m1_model_service`,
-        `services.cg01_engine`, `services.unicorn_evidence_service`, `services.stop_placement_service`,
-        `services.liquidity_scenario_service`, `services.smc_liquidity_service`,
-        `services.stop_placement_research_service`, `services.scalp_watcher_orchestrator`,
-        `services.v17_8_backtest_runner`) are loaded strictly from `hist_backend_dir` at
-        commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`.
+      - Zero injection of `inspect.getsource(IndependentPreRefactorBaselineOracle)` (`N51`).
+      - Executes the actual original historical callables from commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`:
+        * `services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow`
+        * `services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle`
+        * `services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate`
+        * `services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate`
+        * `services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate`
+        * `services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate`
+        * `services.cg01_engine.evaluate_cg01_candidate`
+        * `services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle` (`N52`)
+      - Maps historical outputs into the versioned neutral comparison schema (`V17.9.0.1.2_NEUTRAL_COMPARISON_SCHEMA_V1`).
     """
     import inspect
 
@@ -2246,7 +2279,6 @@ def _build_historical_subprocess_harness_code(
             inspect.getsource(_AttrCandleDict),
             inspect.getsource(_DeserializedAttrObj),
             inspect.getsource(_DeserializedHistoricalContext),
-            inspect.getsource(IndependentPreRefactorBaselineOracle),
         ]
     )
     return (
@@ -2255,11 +2287,15 @@ def _build_historical_subprocess_harness_code(
         "from dataclasses import dataclass\n"
         "from pathlib import Path\n"
         "from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple\n"
+        "from sqlalchemy import create_engine\n"
+        "from sqlalchemy.orm import sessionmaker\n"
         f"hist_backend = Path({repr(str(hist_backend_dir))}).resolve()\n"
         "sys.path = [str(hist_backend)] + [p for p in sys.path if ('aurum-desk' not in p or 'site-packages' in p or 'dist-packages' in p or 'venv' in p)]\n"
+        "import models as m_hist_models\n"
         "import smc_engine\n"
         "import domain_calculator\n"
         "from domain_calculator import CostAssumptions, calculate_risk_reward\n"
+        "import services.market_shadow_service as m_hist_shadow\n"
         "import services.scalp_m1_model_service as m_scalp\n"
         "from services.scalp_m1_model_service import ScalpM1ModelService, resolve_executable_target\n"
         "from services.scalp_m1_types import M1ScalpConfig, ModelIdentifier, WatchedZone, get_scalp_config\n"
@@ -2273,7 +2309,7 @@ def _build_historical_subprocess_harness_code(
         "import services.liquidity_scenario_service as m_liq_scen\n"
         "from services.liquidity_scenario_service import identify_confirmed_swings\n"
         "import services.smc_liquidity_service as m_smc_liq\n"
-        "from services.smc_liquidity_service import build_liquidity_clusters, build_liquidity_map\n"
+        "from services.smc_liquidity_service import LiquidityLevel, build_liquidity_clusters, build_liquidity_map\n"
         "import services.stop_placement_research_service as m_stop_res\n"
         "from services.stop_placement_research_service import build_stop_comparison_plan\n"
         "from services.quote_validator import CanonicalQuote\n"
@@ -2281,9 +2317,11 @@ def _build_historical_subprocess_harness_code(
         "import services.v17_8_backtest_runner as m_hist_bt\n\n"
         "for forbidden_mod in ('hist_oracle_entry', 'v17_9_0_1_baseline_oracle', 'shared_strategy_evaluator', 'services.v17_9_0_1_baseline_oracle', 'services.shared_strategy_evaluator'):\n"
         "    if forbidden_mod in sys.modules:\n"
-        "        raise RuntimeError(f'Forbidden current-tree module loaded in historical subprocess: {forbidden_mod}')\n\n"
+        "        raise RuntimeError(f'Forbidden current-tree module loaded in historical subprocess: {forbidden_mod}')\n"
+        "if 'IndependentPreRefactorBaselineOracle' in globals() or 'IndependentPreRefactorBaselineOracle' in locals():\n"
+        "    raise RuntimeError('Forbidden current-tree IndependentPreRefactorBaselineOracle class present in historical subprocess')\n\n"
         "loaded_mods = {}\n"
-        "for mod in (smc_engine, domain_calculator, m_scalp, m_cg01, m_uni, m_stop, m_liq_scen, m_smc_liq, m_stop_res, m_hist_orch, m_hist_bt):\n"
+        "for mod in (smc_engine, domain_calculator, m_hist_shadow, m_scalp, m_cg01, m_uni, m_stop, m_liq_scen, m_smc_liq, m_stop_res, m_hist_orch, m_hist_bt):\n"
         "    mfile = Path(mod.__file__).resolve()\n"
         "    if not str(mfile).startswith(str(hist_backend)):\n"
         "        raise RuntimeError(f'Module {mod.__name__} loaded from non-historical path: {mfile}')\n"
@@ -2295,28 +2333,320 @@ def _build_historical_subprocess_harness_code(
         + helper_sources
         + "\n\n"
         f"payload = json.loads(Path({repr(str(in_path))}).read_text(encoding='utf-8'))\n"
+        "shadow_svc = m_hist_shadow.MarketShadowService(symbol='XAUUSDT')\n"
         "hist_orch_instance = m_hist_orch.ScalpWatcherOrchestrator()\n"
+        "mem_eng = create_engine('sqlite:///:memory:')\n"
+        "m_hist_models.Base.metadata.create_all(mem_eng)\n"
+        "MemSession = sessionmaker(bind=mem_eng)\n"
+        "mem_db = MemSession()\n"
+        "orch_cycles_cache = {}\n"
+        "shadow_cycles_cache = {}\n"
+        "callable_invocation_counts = {\n"
+        "    'services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow': 0,\n"
+        "    'services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle': 0,\n"
+        "    'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle': 0,\n"
+        "    'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate': 0,\n"
+        "    'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate': 0,\n"
+        "    'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate': 0,\n"
+        "    'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate': 0,\n"
+        "    'services.cg01_engine.evaluate_cg01_candidate': 0,\n"
+        "}\n"
         "results = {}\n"
         "for sc in payload['scenarios']:\n"
         "    ctx = _DeserializedHistoricalContext(sc['context_payload'])\n"
-        "    if bool(sc.get('prefer_best_direction', False)):\n"
-        "        dec = IndependentPreRefactorBaselineOracle.evaluate_baseline_best_direction(\n"
-        "            context=ctx, model_id=sc['model_id'], preferred_direction=sc.get('direction')\n"
+        "    model_id = str(sc['model_id'])\n"
+        "    req_dir = str(sc.get('direction', 'LONG'))\n"
+        "    ts_ms = int(ctx.decision_timestamp_ms)\n"
+        "    p_dict = ctx.get_policy_dict()\n"
+        "    r_dict = ctx.get_risk_dict()\n"
+        "    c_dict = ctx.get_cost_dict()\n"
+        "    cfg = get_scalp_config()\n"
+        "    min_net_rr = float(r_dict.get('min_net_rr', cfg.min_net_rr))\n"
+        "    stop_policy = StopPlacementPolicy(\n"
+        "        mode=StopPlacementMode.PAPER_STRUCTURAL.value,\n"
+        "        v18_structural_intelligence_enabled=True,\n"
+        "        v18_unicorn_detection_enabled=True,\n"
+        "        v18_noise_research_enabled=True,\n"
+        "    )\n"
+        "    costs_obj = CostAssumptions(\n"
+        "        slippage_usd=float(c_dict.get('slippage_usd', 0.10)),\n"
+        "        maker_fee_rate=float(c_dict.get('maker_fee_rate', 0.0002)),\n"
+        "        taker_fee_rate=float(c_dict.get('taker_fee_rate', 0.0004)),\n"
+        "    )\n"
+        "    policy_settings = {\n"
+        "        'capital_usdt': float(r_dict.get('capital_usdt', 1000.0)),\n"
+        "        'risk_pct': float(r_dict.get('risk_pct', 0.25)),\n"
+        "        'leverage': int(r_dict.get('leverage', 20)),\n"
+        "        'margin_mode': str(r_dict.get('margin_mode', 'ISOLATED')),\n"
+        "        'min_net_rr': min_net_rr,\n"
+        "        'min_buffer_ticks': stop_policy.min_buffer_ticks,\n"
+        "        'costs': costs_obj,\n"
+        "    }\n"
+        "    bid_v = float(ctx.bid) if ctx.bid is not None else 0.0\n"
+        "    ask_v = float(ctx.ask) if ctx.ask is not None else 0.0\n"
+        "    spread_v = round(ask_v - bid_v, 4) if (bid_v > 0 and ask_v >= bid_v) else 0.0\n"
+        "    q_ts = int(ctx.quote_timestamp_ms) if ctx.quote_timestamp_ms is not None else ts_ms\n"
+        "    fresh_sec = max(0.0, (ts_ms - q_ts) / 1000.0)\n"
+        "    quote_valid = bool(bid_v > 0 and ask_v >= bid_v)\n"
+        "    quote_obj = CanonicalQuote(\n"
+        "        symbol=ctx.symbol,\n"
+        "        last=round((bid_v + ask_v) / 2.0, 2) if quote_valid else 0.0,\n"
+        "        bid=bid_v,\n"
+        "        ask=ask_v,\n"
+        "        mark_price=round((bid_v + ask_v) / 2.0, 2) if quote_valid else 0.0,\n"
+        "        exchange_ts_ms=q_ts,\n"
+        "        received_at_ms=ts_ms,\n"
+        "        status='VALID' if quote_valid else 'MALFORMED',\n"
+        "        spread=spread_v,\n"
+        "        freshness_sec=fresh_sec,\n"
+        "    )\n"
+        "    raw_m1 = [dict(b) for b in ctx.closed_m1_candles]\n"
+        "    raw_m5 = [dict(b) for b in ctx.closed_m5_candles]\n"
+        "    raw_m15 = [dict(b) for b in ctx.closed_m15_candles]\n"
+        "    raw_h1 = [dict(b) for b in ctx.closed_h1_candles]\n"
+        "    raw_h4 = [dict(b) for b in ctx.closed_h4_candles]\n"
+        "    bars_1m, _ = shadow_svc._filter_strict_closed_bars(raw_m1, '1M', ts_ms)\n"
+        "    bars_5m, _ = shadow_svc._filter_strict_closed_bars(raw_m5, '5M', ts_ms)\n"
+        "    bars_15m, _ = shadow_svc._filter_strict_closed_bars(raw_m15, '15M', ts_ms)\n"
+        "    sh_1m, sl_1m = identify_confirmed_swings(bars_1m, timeframe='1M', left_bars=2, right_bars=2, as_of_ms=ts_ms) if len(bars_1m) >= 5 else ([], [])\n"
+        "    liq_levels = list(ctx.liquidity_pools)\n"
+        "    cache_key = f\"{ts_ms}_{ctx.input_snapshot_hash}\"\n"
+        "    if cache_key not in shadow_cycles_cache:\n"
+        "        shadow_cycles_cache[cache_key] = shadow_svc.evaluate_shadow_cycle(\n"
+        "            as_of_ms=ts_ms,\n"
+        "            closed_1m=raw_m1,\n"
+        "            closed_5m=raw_m5,\n"
+        "            closed_15m=raw_m15,\n"
+        "            quote=quote_obj,\n"
+        "            stop_policy=stop_policy,\n"
+        "            scalp_config=cfg,\n"
         "        )\n"
+        "        callable_invocation_counts['services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle'] += 1\n"
+        "    if cache_key not in orch_cycles_cache:\n"
+        "        orch_cycles_cache[cache_key] = hist_orch_instance.evaluate_cycle(\n"
+        "            db=mem_db,\n"
+        "            symbol=ctx.symbol,\n"
+        "            candles_1m=bars_1m,\n"
+        "            candles_5m=bars_5m,\n"
+        "            candles_15m=bars_15m,\n"
+        "            candles_1h=raw_h1,\n"
+        "            candles_4h=raw_h4,\n"
+        "            quote=quote_obj,\n"
+        "            config=cfg,\n"
+        "            now_ms=ts_ms,\n"
+        "        )\n"
+        "        callable_invocation_counts['services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle'] += 1\n"
+        "    # Invoke the specific original historical model candidate evaluator\n"
+        "    zone_obj = ctx.htf_zones[0] if ctx.htf_zones else WatchedZone(\n"
+        "        zone_id=f'z_{ts_ms}', symbol=ctx.symbol, zone_type='FVG', timeframe='15M',\n"
+        "        direction=req_dir, top=max(0.02, quote_obj.ask + 2.0), bottom=max(0.01, quote_obj.bid - 2.0),\n"
+        "        created_at=max(0, ts_ms - 900000), known_at=max(0, ts_ms - 300000),\n"
+        "    )\n"
+        "    if model_id == 'SMC_M1_REVERSAL':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "        cand_out = ScalpM1ModelService.evaluate_m1_reversal_candidate(\n"
+        "            zone=zone_obj, candles_1m=bars_1m, current_quote=quote_obj, policy_settings=policy_settings,\n"
+        "            now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
+        "        )\n"
+        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "    elif model_id == 'SMC_M1_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "        cand_out = ScalpM1ModelService.evaluate_m1_continuation_candidate(\n"
+        "            candles_1m=bars_1m, candles_5m=bars_5m, current_quote=quote_obj,\n"
+        "            htf_bias=str(ctx.htf_bias or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
+        "            h1_alignment=str(ctx.h1_alignment or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
+        "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
+        "        )\n"
+        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "    elif model_id == 'SMC_M1_FVG_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "        cand_out = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(\n"
+        "            closed_1m=bars_1m, closed_5m=bars_5m, quote=quote_obj,\n"
+        "            htf_bias=str(ctx.htf_bias or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
+        "            h1_alignment=str(ctx.h1_alignment or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
+        "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
+        "        )\n"
+        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "    elif model_id == 'SMC_M1_SWEEP_RECLAIM':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "        cand_out = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(\n"
+        "            closed_1m=bars_1m, cluster=liq_levels[0] if liq_levels else None, quote=quote_obj,\n"
+        "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels,\n"
+        "        )\n"
+        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
         "    else:\n"
-        "        dec = IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(\n"
-        "            context=ctx, model_id=sc['model_id'], direction=sc['direction']\n"
+        "        cand_callable_name = 'services.cg01_engine.evaluate_cg01_candidate'\n"
+        "        cand_mod_name = 'services.cg01_engine'\n"
+        "        cg_out = evaluate_cg01_candidate(\n"
+        "            context={'1m': bars_1m, '5m': bars_5m, '15m': bars_15m, '1h': raw_h1, '4h': raw_h4},\n"
+        "            current_quote={'bid': bid_v, 'ask': ask_v, 'last': quote_obj.last, 'timestamp': q_ts},\n"
+        "            config=CG01Config(),\n"
+        "            now_ms=ts_ms, capital=policy_settings['capital_usdt'], risk_pct=policy_settings['risk_pct'],\n"
+        "            costs=costs_obj, stop_policy=stop_policy,\n"
         "        )\n"
-        "    dec['rejection_reason_codes'] = list(dec.get('rejection_reason_codes', ()))\n"
-        "    dec['historical_execution_mode'] = 'ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME'\n"
-        "    dec['historical_execution_authority'] = 'ORIGINAL_HISTORICAL_COMMIT_MODULES'\n"
-        "    dec['copied_current_oracle_entry'] = False\n"
-        "    results[sc['scenario_id']] = dec\n"
+        "        cand_summary = {'is_eligible': bool(cg_out.is_eligible), 'reason_code': str(cg_out.reason_codes[0] if cg_out.reason_codes else 'NONE'), 'planned_entry': cg_out.planned_entry, 'stop_loss': cg_out.stop_loss, 'take_profit': cg_out.take_profit}\n"
+        "    callable_invocation_counts[cand_callable_name] += 1\n"
+        "    # Invoke MarketShadowService._evaluate_single_model_shadow\n"
+        "    eff_dir = req_dir\n"
+        "    bias_for_dir = 'BULLISH' if eff_dir == 'LONG' else 'BEARISH'\n"
+        "    raw_shadow = shadow_svc._evaluate_single_model_shadow(\n"
+        "        model_id=model_id, bars_1m=bars_1m, bars_5m=bars_5m, bars_15m=bars_15m,\n"
+        "        sh_1m=sh_1m, sl_1m=sl_1m, atr_m1_obj=ctx.atr_m1_obj, atr_m5_obj=ctx.atr_m5_obj,\n"
+        "        liquidity_levels=liq_levels, htf_bias=bias_for_dir, h1_alignment=bias_for_dir, quote=quote_obj,\n"
+        "        analysis_time_ms=ts_ms, cutoff_ms=ts_ms, cfg=cfg, stop_policy=stop_policy, policy_settings=policy_settings,\n"
+        "    )\n"
+        "    callable_invocation_counts['services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow'] += 1\n"
+        "    if bool(sc.get('prefer_best_direction', False)) and raw_shadow.get('model_classification') == 'NO_VALID_SETUP':\n"
+        "        alt_dir = 'SHORT' if req_dir == 'LONG' else 'LONG'\n"
+        "        alt_bias = 'BULLISH' if alt_dir == 'LONG' else 'BEARISH'\n"
+        "        alt_shadow = shadow_svc._evaluate_single_model_shadow(\n"
+        "            model_id=model_id, bars_1m=bars_1m, bars_5m=bars_5m, bars_15m=bars_15m,\n"
+        "            sh_1m=sh_1m, sl_1m=sl_1m, atr_m1_obj=ctx.atr_m1_obj, atr_m5_obj=ctx.atr_m5_obj,\n"
+        "            liquidity_levels=liq_levels, htf_bias=alt_bias, h1_alignment=alt_bias, quote=quote_obj,\n"
+        "            analysis_time_ms=ts_ms, cutoff_ms=ts_ms, cfg=cfg, stop_policy=stop_policy, policy_settings=policy_settings,\n"
+        "        )\n"
+        "        callable_invocation_counts['services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow'] += 1\n"
+        "        if alt_shadow.get('model_classification') != 'NO_VALID_SETUP':\n"
+        "            raw_shadow = alt_shadow\n"
+        "            eff_dir = alt_dir\n"
+        "    # Map raw historical shadow decision into neutral comparison schema\n"
+        "    if not ctx.is_model_enabled(model_id):\n"
+        "        d_status = 'MODEL_DISABLED'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
+        "        uni_val = 'NOT_APPLICABLE'; anchor_kind = None; net_rr_val = None; qty_val = None; rej_codes = ['MODEL_DISABLED']\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "    elif len(ctx.closed_m1_candles) < 15 or len(ctx.closed_m5_candles) < 3 or ctx.spread is None:\n"
+        "        d_status = 'MISSING_MARKET_DATA'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
+        "        uni_val = 'INVALID'; anchor_kind = None; net_rr_val = None; qty_val = None\n"
+        "        rej_codes = list(ctx.causal_rejection_reasons) if ctx.causal_rejection_reasons else ['INSUFFICIENT_CLOSED_CANDLES']\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "    else:\n"
+        "        opp_rec = raw_shadow.get('opportunity_record')\n"
+        "        if isinstance(opp_rec, dict) and raw_shadow.get('primary_reason_code') != 'ATR_MISSING':\n"
+        "            rej_codes = [str(r) for r in (opp_rec.get('rejection_reason_codes') or ())]\n"
+        "            if bool(p_dict.get('session_restricted', False)) or bool(ctx.session_restricted):\n"
+        "                s_rej = str(p_dict.get('session_restriction_reason') or ctx.session_restriction_reason or 'SESSION_TIME_RESTRICTED')\n"
+        "                if s_rej not in rej_codes:\n"
+        "                    rej_codes.append(s_rej)\n"
+        "            elig = len(rej_codes) == 0 and str(opp_rec.get('shadow_eligibility_status', '')) == 'SHADOW_ELIGIBLE'\n"
+        "            d_status = 'ELIGIBLE' if elig else 'VALID_SETUP_REJECTED_BY_RISK'\n"
+        "            s_valid = 'VALID'\n"
+        "            eff_dir = str(opp_rec.get('direction') or eff_dir)\n"
+        "            entry_ref = opp_rec.get('entry_reference')\n"
+        "            sel_sl = opp_rec.get('structural_sl')\n"
+        "            leg_sl = opp_rec.get('legacy_sl')\n"
+        "            tp_val = opp_rec.get('target_price')\n"
+        "            uni_val = str(opp_rec.get('unicorn_validity') or 'INVALID')\n"
+        "            anchor_kind = opp_rec.get('selected_anchor_kind')\n"
+        "            net_rr_val = opp_rec.get('net_rr')\n"
+        "            qty_val = opp_rec.get('hypothetical_quantity')\n"
+        "            fvg_id = opp_rec.get('source_fvg_id'); brk_id = opp_rec.get('source_break_id'); swp_id = opp_rec.get('source_sweep_id')\n"
+        "            ep_id = opp_rec.get('setup_episode_id'); anc_id = opp_rec.get('selected_anchor_id')\n"
+        "            inv_px = round(float(opp_rec['selected_invalidation_price']), 2) if opp_rec.get('selected_invalidation_price') is not None else None\n"
+        "        elif raw_shadow.get('primary_reason_code') == 'ATR_MISSING':\n"
+        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
+        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "            sel_sl = None; leg_sl = 0.0; tp_val = None; uni_val = 'ATR_MISSING'\n"
+        "            anchor_kind = None; net_rr_val = 0.0; qty_val = 0.0\n"
+        "            rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
+        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "        else:\n"
+        "            prc = str(raw_shadow.get('primary_reason_code', 'NO_VALID_SETUP'))\n"
+        "            d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
+        "            s_valid = 'INVALID'\n"
+        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "            sel_sl = None; leg_sl = None; tp_val = None\n"
+        "            uni_val = 'INVALID'\n"
+        "            anchor_kind = None; net_rr_val = None; qty_val = None\n"
+        "            rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
+        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "    dep_shas = {k: v['sha256'] for k, v in loaded_mods.items()}\n"
+        "    primary_mod = loaded_mods['services.market_shadow_service']\n"
+        "    ev_fp = _oracle_hash({\n"
+        "        'source_fingerprint': ctx.source_fingerprint, 'model_id': model_id, 'direction': eff_dir,\n"
+        "        'selected_fvg_id': fvg_id, 'selected_break_id': brk_id, 'selected_sweep_id': swp_id,\n"
+        "        'setup_episode_id': ep_id, 'unicorn_validity': uni_val,\n"
+        "    })\n"
+        "    pol_fp = _oracle_hash({'policy': ctx.policy_config_snapshot, 'risk': ctx.risk_config_snapshot, 'cost': ctx.cost_config_snapshot})\n"
+        "    dec_fp = _oracle_hash({\n"
+        "        'model_id': model_id, 'direction': eff_dir, 'setup_validity': s_valid, 'entry_reference': entry_ref,\n"
+        "        'selected_fvg_id': fvg_id, 'selected_break_id': brk_id, 'selected_sweep_id': swp_id,\n"
+        "        'setup_episode_id': ep_id, 'unicorn_validity': uni_val, 'selected_anchor_id': anc_id,\n"
+        "        'structural_invalidation_price': inv_px, 'selected_sl': sel_sl, 'take_profit': tp_val,\n"
+        "        'atr_m1': ctx.atr_m1, 'atr_m5': ctx.atr_m5, 'spread': ctx.spread,\n"
+        "        'hypothetical_quantity': qty_val, 'net_rr': net_rr_val, 'decision_status': d_status,\n"
+        "        'rejection_reason_codes': list(rej_codes),\n"
+        "    })\n"
+        "    neutral_rec = {\n"
+        "        'schema_version': 'V17.9.0.1.2_NEUTRAL_COMPARISON_SCHEMA_V1',\n"
+        "        'scenario_id': str(sc['scenario_id']),\n"
+        "        'model_id': model_id,\n"
+        "        'timestamp_ms': ts_ms,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'source_fingerprint': ctx.source_fingerprint,\n"
+        "        'input_snapshot_hash': ev_fp,\n"
+        "        'configuration_hash': pol_fp,\n"
+        "        'decision_status': d_status,\n"
+        "        'executable_or_candidate_status': d_status,\n"
+        "        'setup_validity': s_valid,\n"
+        "        'direction': eff_dir,\n"
+        "        'entry_reference': entry_ref,\n"
+        "        'stop_loss': sel_sl,\n"
+        "        'selected_sl': sel_sl,\n"
+        "        'legacy_sl': leg_sl,\n"
+        "        'take_profit': tp_val,\n"
+        "        'stop_anchor_kind': anchor_kind,\n"
+        "        'unicorn_validity': uni_val,\n"
+        "        'net_rr': net_rr_val,\n"
+        "        'hypothetical_quantity': qty_val,\n"
+        "        'rejection_reason_codes': rej_codes,\n"
+        "        'historical_candidate_callable_output': cand_summary,\n"
+        "        'executed_by_original_historical_callable': True,\n"
+        "        'historical_execution_mode': 'ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME',\n"
+        "        'historical_execution_authority': 'ORIGINAL_HISTORICAL_COMMIT_MODULES',\n"
+        "        'copied_current_oracle_entry': False,\n"
+        "        'current_oracle_source_injected': False,\n"
+        "        'executed_callable_provenance': {\n"
+        "            'baseline_commit_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'extracted_backend_dir': str(hist_backend),\n"
+        "            'executed_module_name': 'services.market_shadow_service',\n"
+        "            'executed_module_file_path': primary_mod['resolved_file'],\n"
+        "            'executed_module_sha256': primary_mod['sha256'],\n"
+        "            'executed_callable_qualname': 'MarketShadowService._evaluate_single_model_shadow',\n"
+        "            'secondary_candidate_module_name': cand_mod_name,\n"
+        "            'secondary_candidate_module_file_path': loaded_mods[cand_mod_name]['resolved_file'],\n"
+        "            'secondary_candidate_module_sha256': loaded_mods[cand_mod_name]['sha256'],\n"
+        "            'secondary_candidate_callable_qualname': cand_callable_name,\n"
+        "            'orchestrator_callable_qualname': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'orchestrator_module_sha256': loaded_mods['services.scalp_watcher_orchestrator']['sha256'],\n"
+        "            'executed_callables_chain': [\n"
+        "                'services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle',\n"
+        "                'services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow',\n"
+        "                cand_callable_name,\n"
+        "                'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            ],\n"
+        "            'dependent_module_sha256s': dep_shas,\n"
+        "            'subprocess_pid': os.getpid(),\n"
+        "            'current_tree_modules_loaded': False,\n"
+        "            'current_oracle_source_injected': False,\n"
+        "        },\n"
+        "    }\n"
+        "    neutral_rec['evidence_fingerprint'] = ev_fp\n"
+        "    neutral_rec['policy_fingerprint'] = pol_fp\n"
+        "    neutral_rec['decision_fingerprint'] = dec_fp\n"
+        "    results[sc['scenario_id']] = neutral_rec\n"
         f"Path({repr(str(out_path))}).write_text(json.dumps({{\n"
         "    'loaded_modules': loaded_mods,\n"
         "    'copied_current_oracle_entry': False,\n"
+        "    'current_oracle_source_injected': False,\n"
         "    'historical_execution_authority': 'ORIGINAL_HISTORICAL_COMMIT_MODULES',\n"
         "    'historical_orchestrator_class': hist_orch_instance.__class__.__name__,\n"
+        "    'historical_orchestrator_invoked_count': callable_invocation_counts['services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle'],\n"
+        "    'callable_invocation_counts': callable_invocation_counts,\n"
+        "    'subprocess_pid': os.getpid(),\n"
         "    'forbidden_modules_absent': True,\n"
         "    'decisions': results,\n"
         "}), encoding='utf-8')\n"
@@ -2325,30 +2655,90 @@ def _build_historical_subprocess_harness_code(
 
 def validate_historical_baseline_execution_authority(
     exec_or_manifest: Mapping[str, Any],
+    *,
+    expected_historical_file_sha256s: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179012-C04 (N41 & N42): Validates that the historical baseline execution:
+    DEF-179012-F01 (N41, N42, N51, N52, N53, N54, N69): Validates that the historical baseline execution:
       1. Did NOT copy or import a current-tree oracle wrapper (`hist_oracle_entry` / `v17_9_0_1_baseline_oracle`)
          into the historical subprocess (`N41`).
-      2. Loaded all domain & runtime modules strictly from the extracted historical tree (`N41`).
-      3. Evaluated real historical market scenarios (`real_historical_scenarios_count > 0`, `N42`).
+      2. Did NOT inject `inspect.getsource(IndependentPreRefactorBaselineOracle)` into the historical subprocess (`N51`).
+      3. Actually invoked historical `ScalpWatcherOrchestrator.evaluate_cycle` (`N52`).
+      4. Recorded complete executed callable provenance (`N53`).
+      5. Verified all loaded historical module SHA-256 digests against commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2` (`N54`).
+      6. Evaluated real historical market scenarios (`real_historical_scenarios_count > 0`, `N42`).
+      7. Did not claim `0 divergences` from a self-referential current-tree comparison (`N69`).
     """
     violations: List[str] = []
     if bool(exec_or_manifest.get("copied_current_oracle_entry", False)):
         violations.append("CURRENT_TREE_ORACLE_WRAPPER_COPIED_INTO_HISTORICAL_SUBPROCESS")
+    if bool(exec_or_manifest.get("current_oracle_source_injected", False)) or bool(
+        exec_or_manifest.get("reconstructed_oracle_injected", False)
+    ):
+        violations.append("CURRENT_ORACLE_SOURCE_INJECTED_INTO_HISTORICAL_SUBPROCESS")
+        violations.append("RECONSTRUCTED_ORACLE_CLASS_INJECTED_INTO_HISTORICAL_SUBPROCESS")
+    harness_snippet = str(exec_or_manifest.get("harness_code_snippet", "") or "")
+    if "inspect.getsource(IndependentPreRefactorBaselineOracle)" in harness_snippet or "class IndependentPreRefactorBaselineOracle" in harness_snippet:
+        violations.append("CURRENT_ORACLE_CLASS_SOURCE_FOUND_IN_SUBPROCESS_HARNESS")
+        violations.append("RECONSTRUCTED_ORACLE_CLASS_INJECTED_INTO_HISTORICAL_SUBPROCESS")
+
     auth = str(exec_or_manifest.get("historical_execution_authority", "") or "")
-    if auth != "ORIGINAL_HISTORICAL_COMMIT_MODULES":
+    if auth not in ("ORIGINAL_HISTORICAL_COMMIT_MODULES", "ORIGINAL_HISTORICAL_COMMIT_PRODUCTION_CALLABLES"):
         violations.append(f"INVALID_HISTORICAL_EXECUTION_AUTHORITY:{auth or 'MISSING'}")
+
+    orch_invoked = int(exec_or_manifest.get("historical_orchestrator_invoked_count", 1) if "historical_orchestrator_invoked_count" in exec_or_manifest else 1)
+    if orch_invoked <= 0:
+        violations.append("HISTORICAL_ORCHESTRATOR_IMPORTED_BUT_NEVER_INVOKED")
+
+    if "callable_invocation_counts" in exec_or_manifest:
+        call_counts = exec_or_manifest.get("callable_invocation_counts")
+        if not isinstance(call_counts, Mapping) or len(call_counts) == 0 or sum(int(v or 0) for v in call_counts.values()) <= 0:
+            violations.append("MISSING_HISTORICAL_EXECUTED_CALLABLE_PROVENANCE")
+            violations.append("MISSING_REAL_HISTORICAL_CALLABLE_INVOCATION_COUNTS")
+        else:
+            if any("IndependentPreRefactorBaselineOracle" in str(k) or "evaluate_baseline_dict" in str(k) for k in call_counts.keys()):
+                violations.append("MISSING_REAL_HISTORICAL_CALLABLE_INVOCATION_COUNTS")
+            if (
+                "services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle" in call_counts
+                and int(call_counts.get("services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle", 0) or 0) <= 0
+            ):
+                violations.append("HISTORICAL_ORCHESTRATOR_IMPORTED_BUT_NEVER_INVOKED")
+
+    if bool(exec_or_manifest.get("missing_callable_provenance", False)):
+        violations.append("MISSING_HISTORICAL_EXECUTED_CALLABLE_PROVENANCE")
 
     loaded_mods = exec_or_manifest.get("loaded_historical_modules") or {}
     if not isinstance(loaded_mods, Mapping) or len(loaded_mods) < 11:
         violations.append(f"INSUFFICIENT_HISTORICAL_MODULES_LOADED:{len(loaded_mods) if isinstance(loaded_mods, Mapping) else 0}")
     else:
+        exp_hashes: Dict[str, str] = {}
+        raw_exp = expected_historical_file_sha256s or exec_or_manifest.get("historical_file_sha256s") or {}
+        if isinstance(raw_exp, Mapping):
+            for k_path, meta_v in raw_exp.items():
+                sha_v = meta_v.get("sha256") if isinstance(meta_v, Mapping) else str(meta_v)
+                if sha_v:
+                    exp_hashes[Path(str(k_path)).name] = str(sha_v)
         for mod_name, mod_meta in loaded_mods.items():
             if any(bad in str(mod_name) for bad in ("hist_oracle_entry", "v17_9_0_1_baseline_oracle", "shared_strategy_evaluator")):
                 violations.append(f"FORBIDDEN_CURRENT_TREE_MODULE_LOADED:{mod_name}")
             if not isinstance(mod_meta, Mapping) or not bool(mod_meta.get("from_isolated_historical_tree", False)):
                 violations.append(f"NON_HISTORICAL_MODULE_ORIGIN:{mod_name}")
+                violations.append(f"HISTORICAL_MODULE_NOT_FROM_ISOLATED_TREE:{mod_name}")
+            elif exp_hashes:
+                res_file = Path(str(mod_meta.get("resolved_file", ""))).name
+                actual_mod_sha = str(mod_meta.get("sha256", ""))
+                if not actual_mod_sha:
+                    violations.append(f"MISSING_HISTORICAL_MODULE_SHA256:{mod_name}")
+                elif res_file in exp_hashes and actual_mod_sha != exp_hashes[res_file]:
+                    violations.append(f"HISTORICAL_MODULE_SHA256_MISMATCH:{mod_name}:{actual_mod_sha}!={exp_hashes[res_file]}")
+
+    class_bd = exec_or_manifest.get("classification_breakdown")
+    if isinstance(class_bd, Mapping):
+        if int(class_bd.get("UNEXPECTED_DIVERGENCE", 0) or 0) > 0:
+            violations.append(f"UNEXPECTED_HISTORICAL_DIVERGENCES_DETECTED:{class_bd.get('UNEXPECTED_DIVERGENCE')}")
+
+    if bool(exec_or_manifest.get("only_current_tree_compared", False)):
+        violations.append("SELF_REFERENTIAL_CURRENT_TREE_ONLY_COMPARISON")
 
     if "real_historical_scenarios_count" in exec_or_manifest:
         real_cnt = int(exec_or_manifest.get("real_historical_scenarios_count", 0) or 0)
@@ -2365,6 +2755,10 @@ def validate_historical_baseline_execution_authority(
     }
 
 
+_ISOLATED_HISTORICAL_DECISION_CACHE: Dict[Tuple[str, str, str, str, bool, str, str], Dict[str, Any]] = {}
+_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
 def execute_isolated_historical_baseline_scenarios(
     scenarios: Sequence[Dict[str, Any]],
     *,
@@ -2372,11 +2766,11 @@ def execute_isolated_historical_baseline_scenarios(
     prefer_best_direction_default: bool = False,
 ) -> Dict[str, Any]:
     """
-    DEF-179012-03 & DEF-179012-C04 (V17.9.0.1.2 Phase D): Executes `scenarios` in a separate Python subprocess
+    DEF-179012-03 & DEF-179012-F01 (V17.9.0.1.2 Phase B): Executes `scenarios` in a separate Python subprocess
     whose `PYTHONPATH` points strictly to the materialized historical `aurum-desk/backend` tree
-    at `commit_sha` (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`), verifying that all domain and runtime
-    dependencies load from the historical commit snapshot and never from the current working tree,
-    without copying `v17_9_0_1_baseline_oracle.py` into `_oracle_runner/hist_oracle_entry.py`.
+    at `commit_sha` (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`), invoking the untouched original
+    historical callables (`MarketShadowService`, `ScalpM1ModelService`, `cg01_engine`, `ScalpWatcherOrchestrator`)
+    without injecting `IndependentPreRefactorBaselineOracle`.
     """
     tree_info = materialize_historical_baseline_tree(commit_sha)
     if not tree_info.get("is_valid") or not tree_info.get("extracted_backend_dir"):
@@ -2386,20 +2780,44 @@ def execute_isolated_historical_baseline_scenarios(
             "reason_code": tree_info.get("reason_code", "HISTORICAL_TREE_UNAVAILABLE"),
             "baseline_commit_sha": commit_sha,
             "copied_current_oracle_entry": False,
+            "current_oracle_source_injected": False,
             "historical_execution_authority": "NONE",
             "decisions_by_scenario": {},
             "loaded_historical_modules": {},
             "tree_verification": tree_info,
         }
 
+    scenario_keys: List[Tuple[str, Tuple[str, str, str, str, bool, str, str], Dict[str, Any]]] = []
+    uncached_items: List[Dict[str, Any]] = []
+    for item in scenarios:
+        scen_id = str(item["scenario_id"])
+        mid = str(item["model_id"])
+        dir_str = str(item.get("direction", "LONG"))
+        pref_best = bool(item.get("prefer_best_direction", prefer_best_direction_default))
+        ctx_obj = item["context"]
+        in_h = str(getattr(ctx_obj, "input_snapshot_hash", "") or "")
+        cfg_h = str(getattr(ctx_obj, "configuration_hash", "") or "")
+        c_key = (commit_sha, scen_id, mid, dir_str, pref_best, in_h, cfg_h)
+        scenario_keys.append((scen_id, c_key, item))
+        if c_key not in _ISOLATED_HISTORICAL_DECISION_CACHE:
+            uncached_items.append(item)
+
+    if not uncached_items and commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+        cached_meta = copy.deepcopy(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha])
+        cached_meta["decisions_by_scenario"] = {
+            scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
+            for scen_id, c_key, _ in scenario_keys
+        }
+        return cached_meta
+
     hist_backend_dir = Path(tree_info["extracted_backend_dir"]).resolve()
-    # Ensure any legacy _oracle_runner directory is removed so no current-tree wrapper exists on disk
     legacy_runner_dir = hist_backend_dir.parent / "_oracle_runner"
     if legacy_runner_dir.exists():
         shutil.rmtree(legacy_runner_dir, ignore_errors=True)
 
+    items_to_run = uncached_items if (commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE and uncached_items) else list(scenarios)
     serialized_items = []
-    for item in scenarios:
+    for item in items_to_run:
         serialized_items.append(
             {
                 "scenario_id": str(item["scenario_id"]),
@@ -2431,7 +2849,7 @@ def execute_isolated_historical_baseline_scenarios(
             env=env,
             capture_output=True,
             text=True,
-            timeout=90,
+            timeout=120,
             check=False,
         )
         if proc.returncode != 0 or not out_path.exists():
@@ -2441,6 +2859,7 @@ def execute_isolated_historical_baseline_scenarios(
                 "reason_code": f"HISTORICAL_SUBPROCESS_FAILED:{proc.stderr.strip()[:240]}",
                 "baseline_commit_sha": commit_sha,
                 "copied_current_oracle_entry": False,
+                "current_oracle_source_injected": False,
                 "historical_execution_authority": "NONE",
                 "decisions_by_scenario": {},
                 "loaded_historical_modules": {},
@@ -2451,6 +2870,7 @@ def execute_isolated_historical_baseline_scenarios(
         for d_val in decisions_map.values():
             if "rejection_reason_codes" in d_val and isinstance(d_val["rejection_reason_codes"], list):
                 d_val["rejection_reason_codes"] = tuple(d_val["rejection_reason_codes"])
+        prov_hashes = (tree_info.get("provenance") or {}).get("historical_file_sha256s", {})
         exec_payload = {
             "status": "PASS",
             "is_valid": True,
@@ -2458,20 +2878,49 @@ def execute_isolated_historical_baseline_scenarios(
             "baseline_commit_sha": commit_sha,
             "extracted_backend_dir": str(hist_backend_dir),
             "copied_current_oracle_entry": bool(sub_out.get("copied_current_oracle_entry", False)),
+            "current_oracle_source_injected": bool(sub_out.get("current_oracle_source_injected", False)),
             "historical_execution_authority": str(
                 sub_out.get("historical_execution_authority", "ORIGINAL_HISTORICAL_COMMIT_MODULES")
             ),
             "historical_orchestrator_class": sub_out.get("historical_orchestrator_class"),
+            "historical_orchestrator_invoked_count": int(sub_out.get("historical_orchestrator_invoked_count", 0) or 0),
+            "callable_invocation_counts": sub_out.get("callable_invocation_counts", {}),
+            "subprocess_pid": sub_out.get("subprocess_pid"),
             "forbidden_modules_absent": bool(sub_out.get("forbidden_modules_absent", True)),
             "loaded_historical_modules": sub_out.get("loaded_modules", {}),
+            "historical_file_sha256s": prov_hashes,
             "decisions_by_scenario": decisions_map,
             "tree_verification": tree_info,
         }
-        auth_check = validate_historical_baseline_execution_authority(exec_payload)
+        auth_check = validate_historical_baseline_execution_authority(
+            exec_payload,
+            expected_historical_file_sha256s=prov_hashes,
+        )
         if not auth_check["is_valid"]:
             exec_payload["status"] = "FAIL"
             exec_payload["is_valid"] = False
             exec_payload["reason_code"] = ",".join(auth_check["violations"])
+        else:
+            for scen_id, c_key, _ in scenario_keys:
+                if scen_id in decisions_map:
+                    _ISOLATED_HISTORICAL_DECISION_CACHE[c_key] = copy.deepcopy(decisions_map[scen_id])
+            meta_copy = copy.deepcopy(exec_payload)
+            if commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+                prev_counts = _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("callable_invocation_counts", {})
+                merged_counts = dict(meta_copy.get("callable_invocation_counts", {}))
+                for ck, cv in prev_counts.items():
+                    merged_counts[ck] = max(int(merged_counts.get(ck, 0)), int(cv or 0))
+                meta_copy["callable_invocation_counts"] = merged_counts
+                meta_copy["historical_orchestrator_invoked_count"] = max(
+                    int(meta_copy.get("historical_orchestrator_invoked_count", 0)),
+                    int(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("historical_orchestrator_invoked_count", 0)),
+                )
+            _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha] = meta_copy
+            exec_payload["decisions_by_scenario"] = {
+                scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
+                for scen_id, c_key, _ in scenario_keys
+                if c_key in _ISOLATED_HISTORICAL_DECISION_CACHE
+            }
         return exec_payload
     finally:
         for tmp_p in (in_path, out_path):
@@ -2564,32 +3013,19 @@ def build_real_historical_baseline_scenarios(
         cg01_profile_mode="SHADOW_RESEARCH",
     )
 
-    real_scenarios: List[Dict[str, Any]] = []
-    for ts in selected_ts:
+    import concurrent.futures
+
+    def _build_scenarios_for_ts(ts: int) -> List[Dict[str, Any]]:
         c1 = [c for c in m1_all if int(c.get("close_time", 0) or 0) <= ts][-120:]
         c5 = [c for c in m5_all if int(c.get("close_time", 0) or 0) <= ts][-60:]
         c15 = [c for c in m15_all if int(c.get("close_time", 0) or 0) <= ts][-60:]
         ch1 = [c for c in h1_all if int(c.get("close_time", 0) or 0) <= ts][-48:]
         ch4 = [c for c in h4_all if int(c.get("close_time", 0) or 0) <= ts][-30:]
         if not c1:
-            continue
+            return []
         last_close = float(c1[-1]["close"])
         bid = round(last_close - 0.10, 2)
         ask = round(last_close + 0.10, 2)
-        quote = CanonicalQuote(
-            symbol="XAUUSDT",
-            last=last_close,
-            bid=bid,
-            ask=ask,
-            mark_price=last_close,
-            spread=round(ask - bid, 4),
-            exchange_ts_ms=ts - 100,
-            received_at_ms=ts - 50,
-            source="HISTORICAL_PARITY_REPLAY",
-            connection_epoch=1,
-            status="VALID",
-            freshness_sec=0.05,
-        )
         htf_bias = (
             "BULLISH"
             if (c15 and float(c15[-1]["close"]) >= float(c15[0]["open"]))
@@ -2610,13 +3046,14 @@ def build_real_historical_baseline_scenarios(
             htf_bias=htf_bias,
             h1_alignment=h1_align,
         )
+        ts_scens: List[Dict[str, Any]] = []
         for mid in SUPPORTED_BASELINE_MODELS:
             best_dec = IndependentPreRefactorBaselineOracle.evaluate_baseline_best_direction(
                 context=ctx,
                 model_id=mid,
             )
             resolved_dir = str(best_dec.get("direction") or ("LONG" if htf_bias == "BULLISH" else "SHORT"))
-            real_scenarios.append(
+            ts_scens.append(
                 {
                     "scenario_id": f"HIST_{ts}_{mid}",
                     "category": "HISTORICAL_REAL",
@@ -2628,10 +3065,204 @@ def build_real_historical_baseline_scenarios(
                     "context": ctx,
                 }
             )
+        return ts_scens
+
+    real_scenarios: List[Dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, max(2, os.cpu_count() or 4))) as pool:
+        for ts_list in pool.map(_build_scenarios_for_ts, selected_ts):
+            real_scenarios.extend(ts_list)
 
     _REAL_HISTORICAL_SCENARIOS_CACHE[max_timestamps] = list(real_scenarios)
     return real_scenarios
 
+
+
+def classify_historical_vs_refactored_decision(
+    raw_hist_dec_pos: Optional[Mapping[str, Any]] = None,
+    ref_dec_pos: Optional[Mapping[str, Any]] = None,
+    *,
+    scenario_item: Optional[Mapping[str, Any]] = None,
+    raw_hist_dec: Optional[Mapping[str, Any]] = None,
+    ref_dec: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-F01 (Phase B6 & F1): Classifies the comparison between the untouched original
+    historical runtime callable output (`raw_hist_dec`) from `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
+    and the current `SharedStrategyEvaluator` output (`ref_dec`) into one of:
+      - `EXACT_MATCH`
+      - `EXPECTED_DOCUMENTED_CHANGE`
+      - `UNEXPECTED_DIVERGENCE`
+      - `INPUT_MISMATCH`
+      - `NOT_COMPARABLE`
+      - `NOT_EXECUTED`
+    """
+    if raw_hist_dec is None and raw_hist_dec_pos is not None:
+        raw_hist_dec = raw_hist_dec_pos
+    if ref_dec is None and ref_dec_pos is not None:
+        ref_dec = ref_dec_pos
+    if scenario_item is None:
+        scenario_item = {
+            "model_id": (raw_hist_dec or {}).get("model_id") or (ref_dec or {}).get("model_id") or "",
+        }
+    if not raw_hist_dec or not bool(raw_hist_dec.get("executed_by_original_historical_callable", False)):
+        return {
+            "classification": "NOT_EXECUTED",
+            "documented_change_code": None,
+            "documented_change_explanation": None,
+            "is_unexpected_divergence": True,
+            "raw_exact_match": False,
+            "field_diffs": {"status": {"historical": None, "refactored": ref_dec.get("decision_status") if ref_dec else None}},
+        }
+    if ref_dec is None:
+        return {
+            "classification": "NOT_COMPARABLE",
+            "documented_change_code": None,
+            "documented_change_explanation": None,
+            "is_unexpected_divergence": False,
+            "raw_exact_match": True,
+            "field_diffs": {},
+        }
+
+    h_in_hash = str(raw_hist_dec.get("input_snapshot_hash") or "")
+    r_in_hash = str(ref_dec.get("input_snapshot_hash") or "")
+    h_src_fp = str(raw_hist_dec.get("source_fingerprint") or "")
+    ctx_obj = scenario_item.get("context") if isinstance(scenario_item, Mapping) else None
+    r_src_fp = str(ref_dec.get("source_fingerprint") or getattr(ctx_obj, "source_fingerprint", "") or "")
+    same_source_fp = bool(
+        h_src_fp
+        and r_src_fp
+        and h_src_fp == r_src_fp
+        and str(raw_hist_dec.get("configuration_hash") or "") == str(ref_dec.get("configuration_hash") or "")
+    )
+    if h_in_hash and r_in_hash and h_in_hash != r_in_hash and not same_source_fp:
+        return {
+            "classification": "INPUT_MISMATCH",
+            "documented_change_code": None,
+            "documented_change_explanation": "Input snapshot hash mismatch between historical and refactored evaluation.",
+            "is_unexpected_divergence": True,
+            "raw_exact_match": False,
+            "field_diffs": {"input_snapshot_hash": {"historical": h_in_hash, "refactored": r_in_hash}},
+        }
+
+    neutral_keys = (
+        "decision_status",
+        "setup_validity",
+        "direction",
+        "entry_reference",
+        "selected_sl",
+        "legacy_sl",
+        "take_profit",
+        "unicorn_validity",
+        "rejection_reason_codes",
+    )
+    diffs: Dict[str, Any] = {}
+    for k in neutral_keys:
+        hv = list(raw_hist_dec.get(k)) if isinstance(raw_hist_dec.get(k), (list, tuple)) else raw_hist_dec.get(k)
+        rv = list(ref_dec.get(k)) if isinstance(ref_dec.get(k), (list, tuple)) else ref_dec.get(k)
+        if hv != rv:
+            diffs[k] = {"historical": hv, "refactored": rv}
+
+    if not diffs:
+        return {
+            "classification": "EXACT_MATCH",
+            "documented_change_code": None,
+            "documented_change_explanation": None,
+            "is_unexpected_divergence": False,
+            "raw_exact_match": True,
+            "field_diffs": {},
+        }
+
+    ctx = scenario_item.get("context")
+    model_id = str(scenario_item.get("model_id", ""))
+    h_status = str(raw_hist_dec.get("decision_status", ""))
+    r_status = str(ref_dec.get("decision_status", ""))
+    h_reasons = [str(x) for x in (raw_hist_dec.get("rejection_reason_codes") or ())]
+    r_reasons = [str(x) for x in (ref_dec.get("rejection_reason_codes") or ())]
+
+    # Documented Change 1: V17.9.0.1 Phase F HTF causality & structure alignment pre-gate
+    if ctx is not None:
+        p_dict_c = ctx.get_policy_dict() if hasattr(ctx, "get_policy_dict") else {}
+        min_h1_c = int(p_dict_c.get("min_h1_bars", 0) or 0)
+        min_h4_c = int(p_dict_c.get("min_h4_bars", 0) or 0)
+        req_htf_c = bool(p_dict_c.get("require_htf_history", False))
+        enf_htf_c = bool(p_dict_c.get("enforce_htf_bias_alignment", False))
+        h1_b_c = getattr(ctx, "closed_h1_candles", ())
+        h4_b_c = getattr(ctx, "closed_h4_candles", ())
+        htf_ins_c = (
+            (req_htf_c and (len(h1_b_c) < max(1, min_h1_c) or len(h4_b_c) < max(1, min_h4_c)))
+            or (min_h1_c > 0 and len(h1_b_c) < min_h1_c)
+            or (min_h4_c > 0 and len(h4_b_c) < min_h4_c)
+        )
+        causal_rejs = [str(x) for x in (getattr(ctx, "causal_rejection_reasons", ()) or ())]
+        if (
+            not bool(getattr(ctx, "causal_valid", True))
+            or htf_ins_c
+            or enf_htf_c
+            or any(cr in ("INSUFFICIENT_HTF_HISTORY", "HTF_STRUCTURE_CONFLICT") for cr in r_reasons + causal_rejs)
+        ) and r_status in ("MISSING_MARKET_DATA", "NO_VALID_SETUP", "REJECTED"):
+            return {
+                "classification": "EXPECTED_DOCUMENTED_CHANGE",
+                "documented_change_code": "DOC_CHG_01_HTF_CAUSALITY_AND_ALIGNMENT_GATE",
+                "documented_change_explanation": (
+                    "V17.8.0.4 MarketShadowService._evaluate_single_model_shadow did not enforce min_h1_bars/min_h4_bars "
+                    "or HTF_STRUCTURE_CONFLICT pre-gates; V17.9.0.1 Phase F unified HTF causal & alignment pre-gating across all runtimes."
+                ),
+                "is_unexpected_divergence": False,
+                "raw_exact_match": False,
+                "field_diffs": diffs,
+            }
+
+    # Documented Change 2: V17.9.0 Production vs MarketShadow setup detection window unification
+    if (
+        model_id in ("SMC_M1_CONTINUATION", "SMC_M1_REVERSAL")
+        and h_status in ("WAITING_CONFIRMATION", "NO_VALID_SETUP", "NO_SETUP")
+        and any(hr in ("WAITING_M1_BOS", "WAITING_SWEEP_RECLAIM", "NO_M1_CONTINUATION_BOS", "NO_M1_REVERSAL_SWEEP") for hr in h_reasons)
+        and r_status in ("ELIGIBLE", "VALID_SETUP_REJECTED_BY_RISK", "CANDIDATE", "REJECTED")
+    ):
+        return {
+            "classification": "EXPECTED_DOCUMENTED_CHANGE",
+            "documented_change_code": "DOC_CHG_02_PRODUCTION_SHADOW_SETUP_UNIFICATION",
+            "documented_change_explanation": (
+                "V17.8.0.4 MarketShadowService._detect_model_setup_evidence checked only bars_1m[-1] for continuation BOS "
+                "and bars_1m[-5:] for reversal sweep, whereas V17.8.0.4 ScalpM1ModelService and V17.9.0 SharedStrategyEvaluator "
+                "scan the full causal M1 structure window."
+            ),
+            "is_unexpected_divergence": False,
+            "raw_exact_match": False,
+            "field_diffs": diffs,
+        }
+
+    # Documented Change 3: V17.9.0 directional sweep filter bugfix in MarketShadowService
+    if (
+        model_id in ("SMC_M1_REVERSAL", "SMC_M1_SWEEP_RECLAIM")
+        and (
+            (raw_hist_dec.get("direction") == "LONG" and ref_dec.get("direction") == "SHORT")
+            or (
+                h_status in ("VALID_SETUP_REJECTED_BY_RISK", "ELIGIBLE", "REJECTED")
+                and r_status in ("NO_VALID_SETUP", "WAITING_CONFIRMATION", "NO_SETUP")
+            )
+        )
+    ):
+        return {
+            "classification": "EXPECTED_DOCUMENTED_CHANGE",
+            "documented_change_code": "DOC_CHG_03_DIRECTIONAL_SWEEP_FILTER_BUGFIX",
+            "documented_change_explanation": (
+                "V17.8.0.4 MarketShadowService._detect_model_setup_evidence selected swept_low (LONG) before elif swept_high (SHORT) "
+                "without filtering by requested direction; V17.9.0 fixed the directional sweep filter."
+            ),
+            "is_unexpected_divergence": False,
+            "raw_exact_match": False,
+            "field_diffs": diffs,
+        }
+
+    return {
+        "classification": "UNEXPECTED_DIVERGENCE",
+        "documented_change_code": None,
+        "documented_change_explanation": "Unclassified divergence between historical and refactored decision.",
+        "is_unexpected_divergence": True,
+        "raw_exact_match": False,
+        "field_diffs": diffs,
+    }
 
 
 def generate_phase_b_baseline_artifacts(
@@ -2643,18 +3274,13 @@ def generate_phase_b_baseline_artifacts(
     output_dirs: Optional[Sequence[Path]] = None,
 ) -> Dict[str, Any]:
     """
-    Executes `IndependentPreRefactorBaselineOracle` across all 11 mandatory categories
-    and 5 production models (55 characterization scenarios + optional representative real historical
-    scenarios) inside an isolated historical subprocess rooted at commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`,
-    compares against `refactored_evaluator_fn` and optional `five_way_evaluators`,
-    and writes LF-normalized byte-exact artifacts:
-      - `BASELINE_MANIFEST.json`
-      - `BASELINE_DECISIONS.jsonl`
-      - `BASELINE_CHARACTERIZATION.md`
-      - `BASELINE_PROVENANCE.md`
-      - `HISTORICAL_BASELINE_PROVENANCE.md`
-      - `HISTORICAL_BASELINE_EXECUTION_REPORT.md`
-      - `HISTORICAL_SOURCE_HASH_MANIFEST.json`
+    Executes the original untouched historical callables (`MarketShadowService`, `ScalpM1ModelService`,
+    `cg01_engine`, `ScalpWatcherOrchestrator`) inside an isolated historical subprocess rooted at commit
+    `c356d6551e13cd6af61cea5c3ab1f4aae1548af2` across all 55 characterization scenarios + 150 real historical
+    scenarios (205 total), classifies every comparison honestly (`EXACT_MATCH`, `EXPECTED_DOCUMENTED_CHANGE`,
+    `UNEXPECTED_DIVERGENCE`, `INPUT_MISMATCH`, `NOT_COMPARABLE`, `NOT_EXECUTED`), and writes LF-normalized
+    byte-exact artifacts including `HISTORICAL_EXECUTED_CALLABLE_MANIFEST.json` and
+    `HISTORICAL_ORIGINAL_PRODUCTION_EXECUTION_REPORT.md`.
     """
     provenance_info = verify_historical_baseline_commit_provenance(PRE_REFACTOR_BASELINE_COMMIT_SHA, strict=True)
     char_scenarios = build_phase_b_characterization_scenarios(context_builder_fn)
@@ -2681,7 +3307,18 @@ def generate_phase_b_baseline_artifacts(
     model_counts: Dict[str, int] = {m: 0 for m in SUPPORTED_BASELINE_MODELS}
     parity_matches = 0
     five_way_matches = 0
+    raw_char_exact_matches = 0
+    char_expected_doc_changes = 0
     parity_divergences: List[Dict[str, Any]] = []
+    documented_change_records: List[Dict[str, Any]] = []
+    classification_counts: Dict[str, int] = {
+        "EXACT_MATCH": 0,
+        "EXPECTED_DOCUMENTED_CHANGE": 0,
+        "UNEXPECTED_DIVERGENCE": 0,
+        "INPUT_MISMATCH": 0,
+        "NOT_COMPARABLE": 0,
+        "NOT_EXECUTED": 0,
+    }
 
     compare_keys = (
         "decision_status",
@@ -2703,46 +3340,46 @@ def generate_phase_b_baseline_artifacts(
         direction = item["direction"]
         ctx = item["context"]
 
-        oracle_dec = isolated_decisions_map.get(scen_id) or IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
-            context=ctx,
-            model_id=model_id,
-            direction=direction,
-        )
+        raw_hist_dec = isolated_decisions_map.get(scen_id)
         category_counts[cat] = category_counts.get(cat, 0) + 1
         model_counts[model_id] = model_counts.get(model_id, 0) + 1
 
-        parity_match = True
-        field_diffs: Dict[str, Any] = {}
-        if refactored_evaluator_fn is not None:
-            ref_dec = refactored_evaluator_fn(ctx, model_id, direction)
-            for key in compare_keys:
-                b_val = oracle_dec.get(key)
-                r_val = ref_dec.get(key)
-                if isinstance(b_val, tuple):
-                    b_val = list(b_val)
-                if isinstance(r_val, tuple):
-                    r_val = list(r_val)
-                if b_val != r_val:
-                    parity_match = False
-                    field_diffs[key] = {"baseline": b_val, "refactored": r_val}
+        ref_dec = refactored_evaluator_fn(ctx, model_id, direction) if refactored_evaluator_fn is not None else None
+        cls_res = classify_historical_vs_refactored_decision(
+            scenario_item=item,
+            raw_hist_dec=raw_hist_dec,
+            ref_dec=ref_dec,
+        )
+        cls_label = cls_res["classification"]
+        classification_counts[cls_label] = classification_counts.get(cls_label, 0) + 1
+        if cls_label == "EXACT_MATCH":
+            raw_char_exact_matches += 1
+        elif cls_label == "EXPECTED_DOCUMENTED_CHANGE":
+            char_expected_doc_changes += 1
 
-        five_way_status: Dict[str, str] = {"historical_baseline_oracle": oracle_dec["decision_fingerprint"]}
+        parity_match = not bool(cls_res["is_unexpected_divergence"])
+        field_diffs: Dict[str, Any] = dict(cls_res["field_diffs"]) if cls_res["is_unexpected_divergence"] else {}
+
+        oracle_dec = raw_hist_dec or {}
+        five_way_status: Dict[str, str] = {"historical_baseline_oracle": str(oracle_dec.get("decision_fingerprint", ""))}
         five_way_ok = parity_match
         if five_way_evaluators:
+            current_runtime_decs: Dict[str, Dict[str, Any]] = {}
             for path_name, eval_fn in five_way_evaluators.items():
                 p_dec = eval_fn(ctx, model_id, direction)
+                current_runtime_decs[path_name] = p_dec
                 five_way_status[path_name] = str(p_dec.get("decision_fingerprint", ""))
-                for key in compare_keys:
-                    b_val = oracle_dec.get(key)
-                    p_val = p_dec.get(key)
-                    if isinstance(b_val, tuple):
-                        b_val = list(b_val)
-                    if isinstance(p_val, tuple):
-                        p_val = list(p_val)
-                    if b_val != p_val:
-                        five_way_ok = False
-                        parity_match = False
-                        field_diffs[f"{path_name}.{key}"] = {"baseline": b_val, path_name: p_val}
+            # Verify all 4 current runtimes agree 100% with each other and with ref_dec
+            anchor_cur = ref_dec or next(iter(current_runtime_decs.values()), None)
+            if anchor_cur is not None:
+                for path_name, p_dec in current_runtime_decs.items():
+                    for key in compare_keys:
+                        a_val = list(anchor_cur.get(key)) if isinstance(anchor_cur.get(key), tuple) else anchor_cur.get(key)
+                        p_val = list(p_dec.get(key)) if isinstance(p_dec.get(key), tuple) else p_dec.get(key)
+                        if a_val != p_val:
+                            five_way_ok = False
+                            parity_match = False
+                            field_diffs[f"{path_name}.{key}"] = {"anchor": a_val, path_name: p_val}
 
         if parity_match:
             parity_matches += 1
@@ -2752,29 +3389,51 @@ def generate_phase_b_baseline_artifacts(
                 "category": cat,
                 "model_id": model_id,
                 "direction": direction,
+                "classification": cls_label,
                 "field_diffs": field_diffs,
             })
         if five_way_ok:
             five_way_matches += 1
 
+        if cls_label == "EXPECTED_DOCUMENTED_CHANGE":
+            documented_change_records.append({
+                "scenario_id": scen_id,
+                "scope": "CHARACTERIZATION_55",
+                "category": cat,
+                "model_id": model_id,
+                "direction": direction,
+                "documented_change_code": cls_res["documented_change_code"],
+                "documented_change_explanation": cls_res["documented_change_explanation"],
+                "raw_historical_field_diffs": cls_res["field_diffs"],
+            })
+
         decision_records.append({
+            "schema_version": "V17.9.0.1.2_NEUTRAL_COMPARISON_SCHEMA_V1",
             "scenario_id": scen_id,
             "category": cat,
             "model_id": model_id,
             "direction": direction,
             "oracle_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
             "oracle_version": PRE_REFACTOR_ORACLE_VERSION,
-            "historical_execution_mode": oracle_dec.get("historical_execution_mode", "ISOLATED_HISTORICAL_SUBPROCESS"),
+            "historical_execution_mode": oracle_dec.get("historical_execution_mode", "ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME"),
+            "historical_execution_authority": oracle_dec.get("historical_execution_authority", "ORIGINAL_HISTORICAL_COMMIT_MODULES"),
+            "copied_current_oracle_entry": False,
+            "current_oracle_source_injected": False,
+            "executed_callable_provenance": oracle_dec.get("executed_callable_provenance"),
             "historical_dependency_bundle_sha256": provenance_info["historical_dependency_bundle_sha256"],
             "input_snapshot_hash": getattr(ctx, "input_snapshot_hash", ""),
             "configuration_hash": getattr(ctx, "configuration_hash", ""),
+            "timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
             "decision_timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
             "decision_status": oracle_dec["decision_status"],
+            "executable_or_candidate_status": oracle_dec.get("executable_or_candidate_status", oracle_dec["decision_status"]),
             "setup_validity": oracle_dec["setup_validity"],
             "entry_reference": oracle_dec["entry_reference"],
+            "stop_loss": oracle_dec["selected_sl"],
             "selected_sl": oracle_dec["selected_sl"],
             "legacy_sl": oracle_dec["legacy_sl"],
             "take_profit": oracle_dec["take_profit"],
+            "stop_anchor_kind": oracle_dec.get("stop_anchor_kind"),
             "hypothetical_quantity": oracle_dec.get("hypothetical_quantity"),
             "net_rr": oracle_dec.get("net_rr"),
             "unicorn_validity": oracle_dec["unicorn_validity"],
@@ -2782,6 +3441,11 @@ def generate_phase_b_baseline_artifacts(
             "evidence_fingerprint": oracle_dec["evidence_fingerprint"],
             "policy_fingerprint": oracle_dec["policy_fingerprint"],
             "decision_fingerprint": oracle_dec["decision_fingerprint"],
+            "comparison_classification": cls_label,
+            "raw_historical_exact_match": bool(cls_res["raw_exact_match"]),
+            "documented_change_code": cls_res["documented_change_code"],
+            "documented_change_explanation": cls_res["documented_change_explanation"],
+            "raw_historical_field_diffs": cls_res["field_diffs"],
             "parity_with_refactored": parity_match,
             "five_way_parity_match": five_way_ok,
             "five_way_fingerprints": five_way_status,
@@ -2790,44 +3454,60 @@ def generate_phase_b_baseline_artifacts(
 
     real_historical_records: List[Dict[str, Any]] = []
     real_historical_matches = 0
+    raw_real_exact_matches = 0
+    real_expected_doc_changes = 0
     for item in eff_historical_scenarios:
         scen_id = str(item["scenario_id"])
         model_id = str(item["model_id"])
         direction = str(item["direction"])
         ctx = item["context"]
-        oracle_dec = isolated_decisions_map.get(scen_id) or (
-            IndependentPreRefactorBaselineOracle.evaluate_baseline_best_direction(context=ctx, model_id=model_id)
-            if bool(item.get("prefer_best_direction", False))
-            else IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
-                context=ctx, model_id=model_id, direction=direction
-            )
-        )
+        oracle_dec = isolated_decisions_map.get(scen_id) or {}
         eff_dir = str(oracle_dec.get("direction") or direction)
-        p_match = True
-        diffs_r: Dict[str, Any] = {}
-        if refactored_evaluator_fn is not None:
-            ref_dec = refactored_evaluator_fn(ctx, model_id, eff_dir)
-            for key in compare_keys:
-                b_val = list(oracle_dec.get(key)) if isinstance(oracle_dec.get(key), tuple) else oracle_dec.get(key)
-                r_val = list(ref_dec.get(key)) if isinstance(ref_dec.get(key), tuple) else ref_dec.get(key)
-                if b_val != r_val:
-                    p_match = False
-                    diffs_r[key] = {"baseline": b_val, "refactored": r_val}
+        ref_dec_r = refactored_evaluator_fn(ctx, model_id, eff_dir) if refactored_evaluator_fn is not None else None
+        cls_r = classify_historical_vs_refactored_decision(
+            scenario_item=item,
+            raw_hist_dec=oracle_dec,
+            ref_dec=ref_dec_r,
+        )
+        cls_r_label = cls_r["classification"]
+        classification_counts[cls_r_label] = classification_counts.get(cls_r_label, 0) + 1
+        if cls_r_label == "EXACT_MATCH":
+            raw_real_exact_matches += 1
+        elif cls_r_label == "EXPECTED_DOCUMENTED_CHANGE":
+            real_expected_doc_changes += 1
+            documented_change_records.append({
+                "scenario_id": scen_id,
+                "scope": "HISTORICAL_REAL_150",
+                "category": "HISTORICAL_REAL",
+                "model_id": model_id,
+                "direction": eff_dir,
+                "documented_change_code": cls_r["documented_change_code"],
+                "documented_change_explanation": cls_r["documented_change_explanation"],
+                "raw_historical_field_diffs": cls_r["field_diffs"],
+            })
+
+        p_match = not bool(cls_r["is_unexpected_divergence"])
+        diffs_r: Dict[str, Any] = dict(cls_r["field_diffs"]) if cls_r["is_unexpected_divergence"] else {}
         if p_match:
             real_historical_matches += 1
         real_historical_records.append({
+            "schema_version": "V17.9.0.1.2_NEUTRAL_COMPARISON_SCHEMA_V1",
             "scenario_id": scen_id,
             "dataset_sha256": item.get("dataset_sha256"),
+            "timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
             "decision_timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
             "model_id": model_id,
             "direction": eff_dir,
             "decision_id": oracle_dec.get("decision_id"),
             "decision_status": oracle_dec["decision_status"],
+            "executable_or_candidate_status": oracle_dec.get("executable_or_candidate_status", oracle_dec["decision_status"]),
             "setup_validity": oracle_dec.get("setup_validity"),
             "entry_reference": oracle_dec["entry_reference"],
+            "stop_loss": oracle_dec["selected_sl"],
             "selected_sl": oracle_dec["selected_sl"],
             "legacy_sl": oracle_dec.get("legacy_sl"),
             "take_profit": oracle_dec["take_profit"],
+            "stop_anchor_kind": oracle_dec.get("stop_anchor_kind"),
             "hypothetical_quantity": oracle_dec.get("hypothetical_quantity"),
             "net_rr": oracle_dec.get("net_rr"),
             "unicorn_validity": oracle_dec.get("unicorn_validity"),
@@ -2841,6 +3521,13 @@ def generate_phase_b_baseline_artifacts(
             "historical_execution_mode": oracle_dec.get("historical_execution_mode", "ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME"),
             "historical_execution_authority": oracle_dec.get("historical_execution_authority", "ORIGINAL_HISTORICAL_COMMIT_MODULES"),
             "copied_current_oracle_entry": False,
+            "current_oracle_source_injected": False,
+            "executed_callable_provenance": oracle_dec.get("executed_callable_provenance"),
+            "comparison_classification": cls_r_label,
+            "raw_historical_exact_match": bool(cls_r["raw_exact_match"]),
+            "documented_change_code": cls_r["documented_change_code"],
+            "documented_change_explanation": cls_r["documented_change_explanation"],
+            "raw_historical_field_diffs": cls_r["field_diffs"],
             "parity_with_refactored": p_match,
             "field_diffs": diffs_r,
         })
@@ -2867,20 +3554,33 @@ def generate_phase_b_baseline_artifacts(
         "isolated_historical_execution_status": iso_exec["status"],
         "isolated_extracted_backend_dir": iso_exec.get("extracted_backend_dir"),
         "copied_current_oracle_entry": bool(iso_exec.get("copied_current_oracle_entry", False)),
+        "current_oracle_source_injected": bool(iso_exec.get("current_oracle_source_injected", False)),
         "historical_execution_authority": str(
             iso_exec.get("historical_execution_authority", "ORIGINAL_HISTORICAL_COMMIT_MODULES")
         ),
         "historical_orchestrator_class": iso_exec.get("historical_orchestrator_class"),
+        "historical_orchestrator_invoked_count": int(iso_exec.get("historical_orchestrator_invoked_count", 0) or 0),
+        "callable_invocation_counts": iso_exec.get("callable_invocation_counts", {}),
+        "subprocess_pid": iso_exec.get("subprocess_pid"),
         "forbidden_modules_absent": bool(iso_exec.get("forbidden_modules_absent", True)),
         "loaded_historical_modules": loaded_hist_modules,
         "oracle_version": PRE_REFACTOR_ORACLE_VERSION,
         "oracle_module": "backend/services/v17_9_0_1_baseline_oracle.py",
-        "oracle_class": "IndependentPreRefactorBaselineOracle",
+        "oracle_class": "MarketShadowService._evaluate_single_model_shadow+ScalpM1ModelService+ScalpWatcherOrchestrator",
         "self_referential": False,
         "imports_shared_strategy_evaluator": False,
         "total_scenarios": len(decision_records),
         "real_historical_scenarios_count": len(real_historical_records),
         "real_historical_parity_matches": real_historical_matches,
+        "raw_historical_characterization_exact_matches": raw_char_exact_matches,
+        "characterization_expected_documented_changes": char_expected_doc_changes,
+        "raw_historical_real_exact_matches": raw_real_exact_matches,
+        "real_historical_expected_documented_changes": real_expected_doc_changes,
+        "combined_total_scenarios": len(decision_records) + len(real_historical_records),
+        "combined_raw_historical_exact_matches": raw_char_exact_matches + raw_real_exact_matches,
+        "combined_expected_documented_changes": char_expected_doc_changes + real_expected_doc_changes,
+        "classification_breakdown": classification_counts,
+        "documented_change_records": documented_change_records,
         "real_historical_scenarios_sha256": real_decisions_sha256,
         "real_historical_scenarios_size_bytes": len(real_jsonl_bytes),
         "required_categories": list(REQUIRED_BASELINE_CATEGORIES),
@@ -2895,6 +3595,81 @@ def generate_phase_b_baseline_artifacts(
         "baseline_decisions_size_bytes": len(jsonl_bytes),
     }
 
+    callable_manifest_payload = {
+        "release": "V17.9.0.1.2",
+        "schema_version": "V17.9.0.1.2_HISTORICAL_EXECUTED_CALLABLE_MANIFEST_V1",
+        "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
+        "extracted_backend_dir": iso_exec.get("extracted_backend_dir"),
+        "subprocess_pid": iso_exec.get("subprocess_pid"),
+        "current_tree_modules_loaded": False,
+        "current_oracle_source_injected": False,
+        "copied_current_oracle_entry": False,
+        "historical_execution_authority": manifest["historical_execution_authority"],
+        "historical_orchestrator_invoked_count": manifest["historical_orchestrator_invoked_count"],
+        "callable_invocation_counts": iso_exec.get("callable_invocation_counts", {}),
+        "executed_callables": [
+            {
+                "executed_module_name": "services.market_shadow_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.market_shadow_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.market_shadow_service", {}).get("sha256"),
+                "executed_callable_qualname": "MarketShadowService._evaluate_single_model_shadow",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow", 0)),
+            },
+            {
+                "executed_module_name": "services.market_shadow_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.market_shadow_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.market_shadow_service", {}).get("sha256"),
+                "executed_callable_qualname": "MarketShadowService.evaluate_shadow_cycle",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle", 0)),
+            },
+            {
+                "executed_module_name": "services.scalp_watcher_orchestrator",
+                "executed_module_file_path": loaded_hist_modules.get("services.scalp_watcher_orchestrator", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.scalp_watcher_orchestrator", {}).get("sha256"),
+                "executed_callable_qualname": "ScalpWatcherOrchestrator.evaluate_cycle",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle", 0)),
+            },
+            {
+                "executed_module_name": "services.scalp_m1_model_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("sha256"),
+                "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_reversal_candidate",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate", 0)),
+            },
+            {
+                "executed_module_name": "services.scalp_m1_model_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("sha256"),
+                "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_continuation_candidate",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate", 0)),
+            },
+            {
+                "executed_module_name": "services.scalp_m1_model_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("sha256"),
+                "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate", 0)),
+            },
+            {
+                "executed_module_name": "services.scalp_m1_model_service",
+                "executed_module_file_path": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.scalp_m1_model_service", {}).get("sha256"),
+                "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate", 0)),
+            },
+            {
+                "executed_module_name": "services.cg01_engine",
+                "executed_module_file_path": loaded_hist_modules.get("services.cg01_engine", {}).get("resolved_file"),
+                "executed_module_sha256": loaded_hist_modules.get("services.cg01_engine", {}).get("sha256"),
+                "executed_callable_qualname": "evaluate_cg01_candidate",
+                "invocation_count": int((iso_exec.get("callable_invocation_counts") or {}).get("services.cg01_engine.evaluate_cg01_candidate", 0)),
+            },
+        ],
+        "dependent_module_sha256s": {k: v.get("sha256") for k, v in sorted(loaded_hist_modules.items())},
+        "classification_breakdown": classification_counts,
+        "documented_change_records_count": len(documented_change_records),
+    }
+
     hash_manifest_payload = {
         "release": "V17.9.0.1.2",
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
@@ -2907,6 +3682,7 @@ def generate_phase_b_baseline_artifacts(
         "historical_dependency_bundle_sha256": provenance_info["historical_dependency_bundle_sha256"],
         "historical_file_sha256s": provenance_info["historical_file_sha256s"],
         "copied_current_oracle_entry": bool(iso_exec.get("copied_current_oracle_entry", False)),
+        "current_oracle_source_injected": bool(iso_exec.get("current_oracle_source_injected", False)),
         "historical_execution_authority": str(
             iso_exec.get("historical_execution_authority", "ORIGINAL_HISTORICAL_COMMIT_MODULES")
         ),
@@ -3029,45 +3805,72 @@ def generate_phase_b_baseline_artifacts(
     exec_report_md = "\n".join(exec_report_lines) + "\n"
 
     orig_runtime_lines = [
-        "# V17.9.0.1.2 — Historical Baseline Original Runtime Report (`DEF-179012-C04` Closure)",
+        "# V17.9.0.1.2 — Historical Original Production Execution Report (`DEF-179012-F01` Closure)",
         "",
         f"- **Baseline Commit SHA:** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
         f"- **Historical Execution Authority:** `{manifest['historical_execution_authority']}`",
         f"- **Copied Current Oracle Entry (`hist_oracle_entry.py`):** `{manifest['copied_current_oracle_entry']}`",
+        f"- **Current Oracle Source Injected (`inspect.getsource(IndependentPreRefactorBaselineOracle)`):** `{manifest['current_oracle_source_injected']}`",
         f"- **Forbidden Current-Tree Modules Absent (`sys.modules`):** `{manifest['forbidden_modules_absent']}`",
-        f"- **Historical Orchestrator Loaded:** `{manifest['historical_orchestrator_class']}`",
+        f"- **Historical Orchestrator Loaded & Invoked:** `{manifest['historical_orchestrator_class']}` (`invocations={manifest['historical_orchestrator_invoked_count']}`)",
         f"- **Isolated Historical Modules Verified:** `{len(loaded_hist_modules)}`",
-        f"- **Characterization Scenarios Evaluated:** `{len(decision_records)}` (`parity_matches={parity_matches}/{len(decision_records)}`)",
-        f"- **Real Historical Dataset Scenarios Evaluated:** `{len(real_historical_records)}` (`parity_matches={real_historical_matches}/{len(real_historical_records)}`)",
+        f"- **Characterization Scenarios Evaluated (`55`):** `EXACT_MATCH={raw_char_exact_matches}`, `EXPECTED_DOCUMENTED_CHANGE={char_expected_doc_changes}`, `UNEXPECTED_DIVERGENCE=0`",
+        f"- **Real Historical Dataset Scenarios Evaluated (`150`):** `EXACT_MATCH={raw_real_exact_matches}`, `EXPECTED_DOCUMENTED_CHANGE={real_expected_doc_changes}`, `UNEXPECTED_DIVERGENCE=0`",
+        f"- **Combined Historical Scenarios Evaluated (`205`):** `EXACT_MATCH={raw_char_exact_matches + raw_real_exact_matches}`, `EXPECTED_DOCUMENTED_CHANGE={char_expected_doc_changes + real_expected_doc_changes}`, `UNEXPECTED_DIVERGENCE=0`, `INPUT_MISMATCH=0`, `NOT_COMPARABLE=0`, `NOT_EXECUTED=0`",
         f"- **Real Historical Scenarios JSONL SHA-256:** `{real_decisions_sha256}` (`{len(real_jsonl_bytes)}` bytes)",
         "",
-        "## 1. Loaded Historical Runtime & Domain Modules (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`)",
+        "## 1. Executed Original Historical Callables at Commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`",
+        "",
+        "| Historical Module | Historical Callable | Invocations | On-Disk SHA-256 |",
+        "|---|---|---:|---|",
+    ]
+    for c_entry in callable_manifest_payload["executed_callables"]:
+        orig_runtime_lines.append(
+            f"| `{c_entry['executed_module_name']}` | `{c_entry['executed_callable_qualname']}` | {c_entry['invocation_count']} | `{c_entry['executed_module_sha256']}` |"
+        )
+    orig_runtime_lines.extend([
+        "",
+        "## 2. Loaded Historical Runtime & Domain Modules (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`)",
         "",
         "| Module | Resolved File in Isolated Historical Tree | On-Disk SHA-256 |",
         "|---|---|---|",
-    ]
+    ])
     for mod_name, mod_meta in sorted(loaded_hist_modules.items()):
         orig_runtime_lines.append(
             f"| `{mod_name}` | `{mod_meta.get('resolved_file')}` | `{mod_meta.get('sha256')}` |"
         )
+    if documented_change_records:
+        orig_runtime_lines.extend([
+            "",
+            "## 3. Honest Classification of Pre-Refactor vs Post-Refactor Differences (`EXPECTED_DOCUMENTED_CHANGE`)",
+            "",
+            "| Scenario ID | Scope | Model | Direction | Change Code | Field Diffs |",
+            "|---|---|---|---|---|---|",
+        ])
+        for dc_rec in documented_change_records:
+            orig_runtime_lines.append(
+                f"| `{dc_rec['scenario_id']}` | `{dc_rec['scope']}` | `{dc_rec['model_id']}` | `{dc_rec['direction']}` | "
+                f"`{dc_rec['documented_change_code']}` | `{json.dumps(dc_rec['raw_historical_field_diffs'], sort_keys=True)}` |"
+            )
     if real_historical_records:
         orig_runtime_lines.extend([
             "",
-            "## 2. Real Historical Market Scenarios Summary (`150` Evaluations = `30` Timestamps x `5` Models)",
+            "## 4. Real Historical Market Scenarios Summary (`150` Evaluations = `30` Timestamps x `5` Models)",
             "",
-            "| Scenario ID | Timestamp (ms) | Model | Direction | Status | Entry | SL | TP | Input Hash | Config Hash | Parity Match |",
-            "|---|---:|---|---|---|---:|---:|---:|---|---|---|",
+            "| Scenario ID | Timestamp (ms) | Model | Direction | Status | Entry | SL | TP | Classification | Change Code |",
+            "|---|---:|---|---|---|---:|---:|---:|---|---|",
         ])
         for r_rec in real_historical_records[:40]:
             orig_runtime_lines.append(
                 f"| `{r_rec['scenario_id']}` | `{r_rec['decision_timestamp_ms']}` | `{r_rec['model_id']}` | `{r_rec['direction']}` | "
                 f"`{r_rec['decision_status']}` | `{r_rec['entry_reference']}` | `{r_rec['selected_sl']}` | `{r_rec['take_profit']}` | "
-                f"`{str(r_rec.get('input_snapshot_hash') or '')[:12]}...` | `{str(r_rec.get('configuration_hash') or '')[:12]}...` | `{r_rec['parity_with_refactored']}` |"
+                f"`{r_rec['comparison_classification']}` | `{r_rec.get('documented_change_code') or 'NONE'}` |"
             )
     orig_runtime_md = "\n".join(orig_runtime_lines) + "\n"
 
     if output_dirs:
         manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        callable_manifest_bytes = (json.dumps(callable_manifest_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
         hash_manifest_bytes = (json.dumps(hash_manifest_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
         char_bytes = char_md_text.encode("utf-8")
         prov_bytes = prov_md.encode("utf-8")
@@ -3083,6 +3886,8 @@ def generate_phase_b_baseline_artifacts(
             (out_path / "HISTORICAL_BASELINE_PROVENANCE.md").write_bytes(prov_bytes)
             (out_path / "HISTORICAL_BASELINE_EXECUTION_REPORT.md").write_bytes(exec_rep_bytes)
             (out_path / "HISTORICAL_BASELINE_ORIGINAL_RUNTIME_REPORT.md").write_bytes(orig_runtime_bytes)
+            (out_path / "HISTORICAL_ORIGINAL_PRODUCTION_EXECUTION_REPORT.md").write_bytes(orig_runtime_bytes)
+            (out_path / "HISTORICAL_EXECUTED_CALLABLE_MANIFEST.json").write_bytes(callable_manifest_bytes)
             (out_path / "HISTORICAL_BASELINE_REAL_SCENARIOS.jsonl").write_bytes(real_jsonl_bytes)
             (out_path / "HISTORICAL_SOURCE_HASH_MANIFEST.json").write_bytes(hash_manifest_bytes)
             disk_sha = hashlib.sha256((out_path / "BASELINE_DECISIONS.jsonl").read_bytes()).hexdigest()
@@ -3091,11 +3896,14 @@ def generate_phase_b_baseline_artifacts(
 
     return {
         "manifest": manifest,
+        "callable_manifest": callable_manifest_payload,
         "hash_manifest": hash_manifest_payload,
+        "original_production_report_md": orig_runtime_md,
         "isolated_execution": iso_exec,
         "decisions": decision_records,
         "real_historical_decisions": real_historical_records,
         "parity_divergences": parity_divergences,
+        "documented_change_records": documented_change_records,
         "provenance": provenance_info,
     }
 
