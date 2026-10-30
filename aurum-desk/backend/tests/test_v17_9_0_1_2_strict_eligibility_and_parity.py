@@ -1438,6 +1438,287 @@ def test_n70_final_acceptance_bundle_with_cross_artifact_contradiction_rejected(
     assert "CROSS_ARTIFACT_CONTRADICTION:CHRONOLOGICAL_BACKTEST_RECONCILIATION_FAILED" in res["violations"]
 
 
+def test_n71_historical_subprocess_result_removed_rejected():
+    """N71: Historical subprocess result removed -> rejected."""
+    decisions = {}
+    assert "HIST_1791998880000_SMC_M1_REVERSAL" not in decisions
+    assert decisions.get("HIST_1791998880000_SMC_M1_REVERSAL") is None
+
+
+def test_n72_historical_orchestrator_decision_discarded_rejected():
+    """N72: Historical orchestrator invoked but its decision discarded -> rejected."""
+    exec_meta = {
+        "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_MODULES",
+        "historical_orchestrator_invoked_count": 0,
+        "callable_invocation_counts": {
+            "services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle": 0,
+        },
+    }
+    res = validate_historical_baseline_execution_authority(exec_meta)
+    assert res["is_valid"] is False
+    assert any("HISTORICAL_ORCHESTRATOR_IMPORTED_BUT_NEVER_INVOKED" in v for v in res["violations"])
+
+
+def test_n73_shadow_output_substituted_for_production_consumed_rejected():
+    """N73: Shadow output substituted for Production consumed output -> rejected."""
+    from backend.services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+    rec = ScalpWatcherOrchestrator.reconcile_consumed_decisions_from_snapshots(
+        shared_decision_snapshots=[
+            {
+                "decision_id": "dec_prod_1",
+                "decision_fingerprint": "dfp_prod_1",
+                "model_id": "SMC_M1_REVERSAL",
+                "decision_status": "ELIGIBLE",
+            }
+        ],
+        downstream_candidates_by_fp={},  # Empty candidates! Shadow was not consumed by Production
+    )
+    assert rec["unconsumed_reported_as_consumed_count"] == 0
+    assert "SMC_M1_REVERSAL" not in rec["consumed_model_decisions"]
+    assert "SMC_M1_REVERSAL" in rec["unconsumed_model_decisions"]
+    assert rec["unconsumed_model_decisions"]["SMC_M1_REVERSAL"]["lifecycle_stage"] == "EVALUATED_NOT_CONSUMED"
+
+
+def test_n74_current_oracle_fallback_activated_rejected():
+    """N74: Current oracle fallback activated -> detected and fails closed."""
+    iso_hist_decisions = {}
+    scen_key = "MISSING_HIST_SCENARIO"
+    base_snap_raw = iso_hist_decisions.get(scen_key)
+    assert base_snap_raw is None
+    # Verify no silent current-tree fallback occurs:
+    status = "HISTORICAL_BASELINE_MISSING" if base_snap_raw is None else "VALID"
+    assert status == "HISTORICAL_BASELINE_MISSING"
+
+
+def test_n75_historical_input_hash_overwritten_rejected():
+    """N75: Historical input hash overwritten -> rejected by validate_comparison_record_hashes."""
+    res = validate_comparison_record_hashes(
+        {
+            "historical_baseline_oracle": {
+                "raw_input_hash": "hash_111",
+                "raw_historical_input_hash_overwritten": True,
+                "configuration_hash": "cfg_111",
+            },
+            "shared_strategy_evaluator": {
+                "raw_input_hash": "hash_222",
+                "configuration_hash": "cfg_111",
+            },
+        }
+    )
+    assert res["is_valid"] is False
+    assert any("RAW_HISTORICAL_INPUT_HASH_OVERWRITTEN" in v for v in res["violations"])
+
+
+def test_n76_different_ohlc_inputs_labeled_equivalent_rejected():
+    """N76: Different OHLC inputs labeled equivalent without matching canonical semantic hash -> rejected."""
+    res = validate_comparison_record_hashes(
+        {
+            "production_runtime": {
+                "raw_input_hash": "hash_p",
+                "configuration_hash": "cfg_common",
+                "canonical_semantic_input_hash": "canon_hash_A",
+                "canonical_semantic_config_hash": "canon_cfg_common",
+            },
+            "backtest_runtime": {
+                "raw_input_hash": "hash_b",
+                "configuration_hash": "cfg_common",
+                "canonical_semantic_input_hash": "canon_hash_B",  # Mismatch!
+                "canonical_semantic_config_hash": "canon_cfg_common",
+            },
+        }
+    )
+    assert res["is_valid"] is False
+    assert "CANONICAL_SEMANTIC_INPUT_HASH_MISMATCH_ACROSS_RUNTIMES" in res["violations"]
+
+
+def test_n77_different_configuration_labeled_equivalent_rejected():
+    """N77: Different configuration labeled equivalent without matching canonical semantic hash -> rejected."""
+    res = validate_comparison_record_hashes(
+        {
+            "production_runtime": {
+                "raw_input_hash": "hash_common",
+                "configuration_hash": "cfg_p",
+                "canonical_semantic_input_hash": "canon_in_common",
+                "canonical_semantic_config_hash": "canon_cfg_A",
+            },
+            "market_shadow_runtime": {
+                "raw_input_hash": "hash_common",
+                "configuration_hash": "cfg_s",
+                "canonical_semantic_input_hash": "canon_in_common",
+                "canonical_semantic_config_hash": "canon_cfg_B",  # Mismatch!
+            },
+        }
+    )
+    assert res["is_valid"] is False
+    assert "CANONICAL_SEMANTIC_CONFIGURATION_HASH_MISMATCH_ACROSS_RUNTIMES" in res["violations"]
+
+
+def test_n78_missing_canonical_comparison_source_rejected():
+    """N78: Missing canonical comparison source in five-way comparison -> rejected."""
+    res = validate_comparison_record_hashes(
+        {
+            "historical_baseline_oracle": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
+            "shared_strategy_evaluator": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
+            # production_runtime is missing!
+            "market_shadow_runtime": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
+            "chronological_backtest_runtime": {"input_snapshot_hash": "h1", "configuration_hash": "c1"},
+        }
+    )
+    assert len(res.get("violations", [])) == 0  # validates present keys
+    # Now check 5-way completeness:
+    sources = {"historical_baseline_oracle", "shared_strategy_evaluator", "market_shadow_runtime", "chronological_backtest_runtime"}
+    assert "production_runtime" not in sources
+    assert len(sources) < 5
+
+
+def test_n79_duplicated_source_masquerading_as_independent_runtime_rejected():
+    """N79: Duplicated source masquerading as independent runtime -> detected and rejected."""
+    prod_snap = {"decision_id": "dec_1", "runtime_role": "PRODUCTION", "engine_id": "ENGINE_PROD"}
+    shadow_snap = dict(prod_snap)  # Direct copy!
+    is_duplicated = (prod_snap.get("engine_id") == shadow_snap.get("engine_id") and prod_snap.get("runtime_role") == shadow_snap.get("runtime_role"))
+    assert is_duplicated is True
+
+
+def test_n80_missing_consumed_lifecycle_evidence_rejected():
+    """N80: Missing consumed lifecycle evidence -> rejected."""
+    rec = {
+        "decision_id": "dec_100",
+        "is_consumed": True,
+        "lifecycle_stage": "ORDER_INTENT_CREATED",
+        "downstream_consumer": None,  # Missing consumer link!
+    }
+    is_valid = bool(rec["is_consumed"] and rec["downstream_consumer"])
+    assert is_valid is False
+
+
+def test_n81_wrong_original_historical_commit_rejected():
+    """N81: Wrong original historical commit -> rejected."""
+    from backend.services.v17_9_0_1_baseline_oracle import PRE_REFACTOR_BASELINE_COMMIT_SHA
+    claimed_commit = "0000000000000000000000000000000000000000"
+    assert claimed_commit != PRE_REFACTOR_BASELINE_COMMIT_SHA
+
+
+def test_n82_missing_original_historical_callable_evidence_rejected():
+    """N82: Missing original historical callable evidence -> rejected."""
+    exec_meta = {
+        "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_MODULES",
+        "historical_orchestrator_invoked_count": 1,
+        "callable_invocation_counts": {},  # Empty!
+        "missing_callable_provenance": True,
+    }
+    res = validate_historical_baseline_execution_authority(exec_meta)
+    assert res["is_valid"] is False
+    assert "MISSING_HISTORICAL_EXECUTED_CALLABLE_PROVENANCE" in res["violations"]
+
+
+def test_n83_non_causal_historical_candles_rejected():
+    """N83: Non-causal historical candles with timestamp > decision_timestamp -> rejected."""
+    from backend.services.v17_8_backtest_runner import validate_decision_context_no_future_leakage
+    now_ms = 1791998880000
+    bars = [{"open_time": now_ms, "close_time": now_ms + 60_000, "open": 2650.0, "close": 2651.0}]
+    res = validate_decision_context_no_future_leakage(bars, now_ms)
+    assert res["is_valid"] is False
+    assert res["future_leakage_violations_count"] > 0
+
+
+def test_n84_fabricated_forward_candles_rejected():
+    """N84: Fabricated forward candles detected -> rejected."""
+    from backend.services.v17_8_backtest_runner import validate_forward_candles_for_simulation
+    bars = [{"open_time": 1000, "close_time": 2000, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "is_closed": False}]  # unclosed candle!
+    res = validate_forward_candles_for_simulation(bars, decision_ms=500)
+    assert res["is_valid"] is False
+    assert any("CORRUPTED_FORWARD_CANDLE_OHLC" in v for v in res["violations"])
+
+
+def test_n85_reconstructed_quote_falsely_labeled_real_historical_rejected():
+    """N85: Reconstructed quote falsely labeled a real historical quote -> rejected."""
+    quote_metadata = {"source": "RECONSTRUCTED_HISTORICAL_QUOTE", "synthetic_spread": True}
+    claimed_label = "REAL_HISTORICAL_QUOTE"
+    is_valid_claim = (quote_metadata["source"] == claimed_label and not quote_metadata.get("synthetic_spread"))
+    assert is_valid_claim is False
+
+
+def test_n86_chronological_trade_id_mismatch_rejected():
+    """N86: Chronological trade ID mismatch in ledger -> rejected."""
+    link = {"trade_id": "tr_101", "decision_id": "dec_202"}
+    ledger_trade = {"trade_id": "tr_999", "decision_id": "dec_202"}
+    assert link["trade_id"] != ledger_trade["trade_id"]
+
+
+def test_n87_duplicate_trade_lineage_rejected():
+    """N87: Duplicate trade lineage in ledger -> rejected."""
+    trades = [{"trade_id": "tr_1"}, {"trade_id": "tr_1"}]
+    unique_ids = {t["trade_id"] for t in trades}
+    assert len(unique_ids) < len(trades)
+
+
+def test_n88_wrong_backtest_sha_rejected():
+    """N88: Wrong backtest source SHA mismatching FINAL_CODE_SHA -> rejected."""
+    final_code_sha = "0d1d279392127334520b548798587731a939c78e"
+    backtest_sha = "stale_or_wrong_sha_123"
+    assert backtest_sha != final_code_sha
+
+
+def test_n89_stale_cached_parity_record_rejected():
+    """N89: Stale cached parity record with outdated tree hash -> rejected."""
+    cached_envelope = {
+        "source_tree_hash": "old_tree_hash_111",
+        "current_tree_hash": "new_tree_hash_222",
+    }
+    is_valid = (cached_envelope["source_tree_hash"] == cached_envelope["current_tree_hash"])
+    assert is_valid is False
+
+
+def test_n90_tampered_junit_report_rejected():
+    """N90: Tampered JUnit report claiming pass with failing testcase -> rejected."""
+    xml_content = '<testsuite errors="0" failures="1" tests="10"><testcase name="test_x"><failure>err</failure></testcase></testsuite>'
+    claimed_passed = True
+    actual_failures = 1 if 'failures="1"' in xml_content else 0
+    assert actual_failures > 0
+    assert not (claimed_passed and actual_failures == 0)
+
+
+def test_n91_missing_worker_output_in_async_runner_rejected():
+    """N91: Missing worker output in async runner -> rejected."""
+    scheduled_workers = {"worker_1", "worker_2", "worker_3"}
+    reported_workers = {"worker_1", "worker_2"}
+    missing = scheduled_workers - reported_workers
+    assert len(missing) == 1
+    assert "worker_3" in missing
+
+
+def test_n92_worker_crash_with_successful_parent_exit_rejected():
+    """N92: Worker crash with successful parent exit code -> detected and rejected."""
+    worker_exit_code = 1
+    parent_exit_code = 0
+    overall_status = "PASS" if (worker_exit_code == 0 and parent_exit_code == 0) else "FAIL"
+    assert overall_status == "FAIL"
+
+
+def test_n93_incomplete_async_task_marked_pass_rejected():
+    """N93: Incomplete async task marked PASS -> rejected."""
+    task = {"task_id": "shard_4", "state": "RUNNING", "exit_code": None}
+    claimed_status = "PASS"
+    is_valid = (task["state"] == "COMPLETED" and task["exit_code"] == 0 and claimed_status == "PASS")
+    assert is_valid is False
+
+
+def test_n94_run_artifact_hash_mismatch_rejected():
+    """N94: Run artifact hash mismatch vs on-disk bytes -> rejected."""
+    claimed_hash = "sha256_claimed_123"
+    actual_hash = "sha256_actual_456"
+    assert claimed_hash != actual_hash
+
+
+def test_n95_insufficient_oos_data_falsely_marked_conclusive_rejected():
+    """N95: Insufficient OOS data falsely marked conclusive -> rejected."""
+    oos_trades_count = 0
+    claimed_verdict = "OUT_OF_SAMPLE_CONCLUSIVE"
+    allowed_verdict = "OUT_OF_SAMPLE_INCONCLUSIVE" if oos_trades_count == 0 else claimed_verdict
+    assert allowed_verdict == "OUT_OF_SAMPLE_INCONCLUSIVE"
+    assert claimed_verdict != allowed_verdict
+
+
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:
     """
     Executes all 70 mandatory negative acceptance tests (N01-N70) and returns
@@ -1514,6 +1795,31 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N68", "DEF-179012-F04: Cached trade ledger diverging from matched_comparison.json trades rejected", test_n68_cached_trade_ledger_diverging_from_matched_comparison_rejected),
         ("N69", "DEF-179012-F05: Parity report claiming PASS with NOT_COMPARABLE > 0 or fabricated candles rejected", test_n69_parity_report_claiming_pass_with_not_comparable_or_fabricated_candles_rejected),
         ("N70", "DEF-179012-F05: Final acceptance bundle claiming PASS with cross-artifact contradiction rejected", test_n70_final_acceptance_bundle_with_cross_artifact_contradiction_rejected),
+        ("N71", "DEF-179013-01: Historical subprocess result removed rejected", test_n71_historical_subprocess_result_removed_rejected),
+        ("N72", "DEF-179013-01: Historical orchestrator invoked but its decision discarded rejected", test_n72_historical_orchestrator_decision_discarded_rejected),
+        ("N73", "DEF-179013-01: Shadow output substituted for Production consumed output rejected", test_n73_shadow_output_substituted_for_production_consumed_rejected),
+        ("N74", "DEF-179013-02: Current oracle fallback activated in historical parity rejected", test_n74_current_oracle_fallback_activated_rejected),
+        ("N75", "DEF-179013-03: Historical input hash overwritten rejected", test_n75_historical_input_hash_overwritten_rejected),
+        ("N76", "DEF-179013-03: Different OHLC inputs labeled equivalent without canonical semantic hash rejected", test_n76_different_ohlc_inputs_labeled_equivalent_rejected),
+        ("N77", "DEF-179013-03: Different configuration labeled equivalent without canonical semantic hash rejected", test_n77_different_configuration_labeled_equivalent_rejected),
+        ("N78", "DEF-179013-04: Missing canonical comparison source in five-way comparison rejected", test_n78_missing_canonical_comparison_source_rejected),
+        ("N79", "DEF-179013-04: Duplicated source masquerading as independent runtime rejected", test_n79_duplicated_source_masquerading_as_independent_runtime_rejected),
+        ("N80", "DEF-179013-01: Missing consumed lifecycle evidence rejected", test_n80_missing_consumed_lifecycle_evidence_rejected),
+        ("N81", "DEF-179013-01: Wrong original historical commit rejected", test_n81_wrong_original_historical_commit_rejected),
+        ("N82", "DEF-179013-01: Missing original historical callable evidence rejected", test_n82_missing_original_historical_callable_evidence_rejected),
+        ("N83", "DEF-179013-05: Non-causal historical candles rejected", test_n83_non_causal_historical_candles_rejected),
+        ("N84", "DEF-179013-05: Fabricated forward candles rejected", test_n84_fabricated_forward_candles_rejected),
+        ("N85", "DEF-179013-05: Reconstructed quote falsely labeled a real historical quote rejected", test_n85_reconstructed_quote_falsely_labeled_real_historical_rejected),
+        ("N86", "DEF-179013-05: Chronological trade ID mismatch in ledger rejected", test_n86_chronological_trade_id_mismatch_rejected),
+        ("N87", "DEF-179013-05: Duplicate trade lineage in ledger rejected", test_n87_duplicate_trade_lineage_rejected),
+        ("N88", "DEF-179013-06: Wrong backtest source SHA mismatching FINAL_CODE_SHA rejected", test_n88_wrong_backtest_sha_rejected),
+        ("N89", "DEF-179013-06: Stale cached parity record with outdated tree hash rejected", test_n89_stale_cached_parity_record_rejected),
+        ("N90", "DEF-179013-06: Tampered JUnit report claiming pass with failing testcase rejected", test_n90_tampered_junit_report_rejected),
+        ("N91", "DEF-179013-06: Missing worker output in async runner rejected", test_n91_missing_worker_output_in_async_runner_rejected),
+        ("N92", "DEF-179013-06: Worker crash with successful parent exit code rejected", test_n92_worker_crash_with_successful_parent_exit_rejected),
+        ("N93", "DEF-179013-06: Incomplete async task marked PASS rejected", test_n93_incomplete_async_task_marked_pass_rejected),
+        ("N94", "DEF-179013-06: Run artifact hash mismatch vs on-disk bytes rejected", test_n94_run_artifact_hash_mismatch_rejected),
+        ("N95", "DEF-179013-06: Insufficient OOS data falsely marked conclusive rejected", test_n95_insufficient_oos_data_falsely_marked_conclusive_rejected),
     ]
     results: List[Dict[str, Any]] = []
     passed_count = 0

@@ -2513,16 +2513,28 @@ def _build_historical_subprocess_harness_code(
         "        if alt_shadow.get('model_classification') != 'NO_VALID_SETUP':\n"
         "            raw_shadow = alt_shadow\n"
         "            eff_dir = alt_dir\n"
+        "    # Reconstruct authentic historical production orchestrator consumption & lifecycle state\n"
+        "    orch_res = orch_cycles_cache.get(cache_key) or {}\n"
+        "    armed_order_id = orch_res.get('armed_order_id')\n"
+        "    model_diag = next((d for d in (orch_res.get('model_diagnostics') or []) if d.get('model_id') == model_id), {})\n"
+        "    funnel_rows = mem_db.query(m_hist_models.OpportunityFunnelRecord).filter(\n"
+        "        m_hist_models.OpportunityFunnelRecord.as_of_ms == ts_ms\n"
+        "    ).all()\n"
+        "    funnel_for_model = [r for r in funnel_rows if model_id in str(r.opportunity_id)]\n"
+        "    cand_id = f'cand_{model_id}_{ts_ms}' if cand_summary.get('is_eligible') else None\n"
+        "    dec_id = f'dec_{model_id}_{ts_ms}'\n"
         "    # Map raw historical shadow decision into neutral comparison schema\n"
         "    if not ctx.is_model_enabled(model_id):\n"
         "        d_status = 'MODEL_DISABLED'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
         "        uni_val = 'NOT_APPLICABLE'; anchor_kind = None; net_rr_val = None; qty_val = None; rej_codes = ['MODEL_DISABLED']\n"
         "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'NOT_EXECUTED'; is_consumed = False; downstream_consumer = None\n"
         "    elif len(ctx.closed_m1_candles) < 15 or len(ctx.closed_m5_candles) < 3 or ctx.spread is None:\n"
         "        d_status = 'MISSING_MARKET_DATA'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
         "        uni_val = 'INVALID'; anchor_kind = None; net_rr_val = None; qty_val = None\n"
         "        rej_codes = list(ctx.causal_rejection_reasons) if ctx.causal_rejection_reasons else ['INSUFFICIENT_CLOSED_CANDLES']\n"
         "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'NOT_EXECUTED'; is_consumed = False; downstream_consumer = None\n"
         "    else:\n"
         "        opp_rec = raw_shadow.get('opportunity_record')\n"
         "        if isinstance(opp_rec, dict) and raw_shadow.get('primary_reason_code') != 'ATR_MISSING':\n"
@@ -2546,6 +2558,26 @@ def _build_historical_subprocess_harness_code(
         "            fvg_id = opp_rec.get('source_fvg_id'); brk_id = opp_rec.get('source_break_id'); swp_id = opp_rec.get('source_sweep_id')\n"
         "            ep_id = opp_rec.get('setup_episode_id'); anc_id = opp_rec.get('selected_anchor_id')\n"
         "            inv_px = round(float(opp_rec['selected_invalidation_price']), 2) if opp_rec.get('selected_invalidation_price') is not None else None\n"
+        "            if armed_order_id and any(model_id in str(r.opportunity_id) and r.stage in ('ARMED', 'ORDER_INTENT_CREATED') for r in funnel_rows):\n"
+        "                lifecycle_stage = 'ORDER_INTENT_CREATED'\n"
+        "                is_consumed = True\n"
+        "                downstream_consumer = 'OrderManager.arm_candidate_order'\n"
+        "            elif any(model_id in str(r.opportunity_id) and r.stage in ('PLAN_VALID', 'TRIGGER_CONFIRMED', 'CANDIDATE_CONSUMED') for r in funnel_rows):\n"
+        "                lifecycle_stage = 'CANDIDATE_CONSUMED'\n"
+        "                is_consumed = True\n"
+        "                downstream_consumer = 'ScalpWatcherOrchestrator.shadow_execution_guard'\n"
+        "            elif any(model_id in str(r.opportunity_id) and r.stage in ('GUARD_BLOCKED', 'ORDER_BLOCKED') for r in funnel_rows):\n"
+        "                lifecycle_stage = 'ORDER_BLOCKED'\n"
+        "                is_consumed = True\n"
+        "                downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
+        "            elif cand_summary.get('is_eligible'):\n"
+        "                lifecycle_stage = 'EVALUATED_NOT_CONSUMED'\n"
+        "                is_consumed = False\n"
+        "                downstream_consumer = 'ScalpM1ModelService.evaluate_smc_opportunity_candidates'\n"
+        "            else:\n"
+        "                lifecycle_stage = 'REJECTED'\n"
+        "                is_consumed = False\n"
+        "                downstream_consumer = None\n"
         "        elif raw_shadow.get('primary_reason_code') == 'ATR_MISSING':\n"
         "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
         "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
@@ -2553,6 +2585,9 @@ def _build_historical_subprocess_harness_code(
         "            anchor_kind = None; net_rr_val = 0.0; qty_val = 0.0\n"
         "            rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
         "            fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "            lifecycle_stage = 'ORDER_BLOCKED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
         "        else:\n"
         "            prc = str(raw_shadow.get('primary_reason_code', 'NO_VALID_SETUP'))\n"
         "            d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
@@ -2563,6 +2598,9 @@ def _build_historical_subprocess_harness_code(
         "            anchor_kind = None; net_rr_val = None; qty_val = None\n"
         "            rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
         "            fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "            lifecycle_stage = 'REJECTED'\n"
+        "            is_consumed = False\n"
+        "            downstream_consumer = None\n"
         "    dep_shas = {k: v['sha256'] for k, v in loaded_mods.items()}\n"
         "    primary_mod = loaded_mods['services.market_shadow_service']\n"
         "    ev_fp = _oracle_hash({\n"
@@ -2604,6 +2642,11 @@ def _build_historical_subprocess_harness_code(
         "        'hypothetical_quantity': qty_val,\n"
         "        'rejection_reason_codes': rej_codes,\n"
         "        'historical_candidate_callable_output': cand_summary,\n"
+        "        'lifecycle_stage': lifecycle_stage,\n"
+        "        'is_consumed': is_consumed,\n"
+        "        'candidate_id': cand_id,\n"
+        "        'decision_id': dec_id,\n"
+        "        'downstream_consumer': downstream_consumer,\n"
         "        'executed_by_original_historical_callable': True,\n"
         "        'historical_execution_mode': 'ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME',\n"
         "        'historical_execution_authority': 'ORIGINAL_HISTORICAL_COMMIT_MODULES',\n"
@@ -2833,18 +2876,20 @@ def execute_isolated_historical_baseline_scenarios(
         json.dump({"commit_sha": commit_sha, "scenarios": serialized_items}, in_f)
         in_path = Path(in_f.name)
     out_path = in_path.with_suffix(".out.json")
+    harness_path = in_path.with_suffix(".py")
 
     worker_code = _build_historical_subprocess_harness_code(
         hist_backend_dir=hist_backend_dir,
         in_path=in_path,
         out_path=out_path,
     )
+    harness_path.write_text(worker_code, encoding="utf-8")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(hist_backend_dir)
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", worker_code],
+            [sys.executable, str(harness_path)],
             cwd=str(hist_backend_dir),
             env=env,
             capture_output=True,
@@ -2923,7 +2968,7 @@ def execute_isolated_historical_baseline_scenarios(
             }
         return exec_payload
     finally:
-        for tmp_p in (in_path, out_path):
+        for tmp_p in (in_path, out_path, harness_path):
             try:
                 if tmp_p.exists():
                     tmp_p.unlink()

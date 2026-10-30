@@ -1249,8 +1249,11 @@ def validate_comparison_record_hashes(
     record_or_sources: Any,
 ) -> Dict[str, Any]:
     """
-    DEF-179012-C05 (N43, N44, N45, N46): Validates that `input_snapshot_hash` and `configuration_hash`
-    are non-null, non-empty strings and match identically across all compared runtime snapshots.
+    DEF-179012-C05 & DEF-179013-03 (N43-N46, N75-N77): Validates that:
+      1. Every runtime provides valid non-null, non-empty raw hashes (`input_snapshot_hash`, `configuration_hash`).
+      2. Raw source hashes are preserved without overwrite (detects illegal overwrites of historical hash).
+      3. Canonical semantic input hash (`canonical_semantic_input_hash`) and configuration hash
+         (`canonical_semantic_config_hash`) match identically across all compared runtime snapshots.
     Supports either a single comparison record / runtime-source mapping (`dict`) or a list/tuple
     of comparison records (`list`/`tuple`), validating each record individually.
     """
@@ -1275,7 +1278,19 @@ def validate_comparison_record_hashes(
 
     # Support either a single comparison record or a mapping of runtime -> snapshot dict
     snapshots: List[Dict[str, Any]] = []
-    if any(isinstance(v, dict) and ("decision_status" in v or "input_snapshot_hash" in v) for v in record_or_sources.values()):
+    recognized_snapshot_keys = (
+        "decision_status",
+        "input_snapshot_hash",
+        "raw_input_hash",
+        "configuration_hash",
+        "raw_configuration_hash",
+        "canonical_semantic_input_hash",
+        "canonical_input_hash",
+    )
+    if any(
+        isinstance(v, dict) and any(hk in v for hk in recognized_snapshot_keys)
+        for v in record_or_sources.values()
+    ):
         for k, v in record_or_sources.items():
             if isinstance(v, dict):
                 snapshots.append({"_source": k, **v})
@@ -1284,10 +1299,20 @@ def validate_comparison_record_hashes(
 
     seen_input_hashes: set = set()
     seen_config_hashes: set = set()
+    seen_canonical_in_hashes: set = set()
+    seen_canonical_cfg_hashes: set = set()
+
     for snap in snapshots:
         src = snap.get("_source", "record")
-        in_h = snap.get("input_snapshot_hash")
-        cfg_h = snap.get("configuration_hash")
+        in_h = snap.get("raw_input_hash") or snap.get("input_snapshot_hash")
+        cfg_h = snap.get("raw_configuration_hash") or snap.get("configuration_hash")
+        can_in_h = snap.get("canonical_semantic_input_hash") or snap.get("canonical_input_hash")
+        can_cfg_h = snap.get("canonical_semantic_config_hash") or snap.get("canonical_configuration_hash")
+
+        # DEF-179013-03: Detect illegal overwrite of historical input hash
+        if snap.get("raw_historical_input_hash_overwritten") or bool(snap.get("_overwritten_hash_detected", False)):
+            violations.append(f"RAW_HISTORICAL_INPUT_HASH_OVERWRITTEN:{src}")
+
         if in_h is None or not str(in_h).strip():
             violations.append(f"MISSING_INPUT_SNAPSHOT_HASH:{src}")
         else:
@@ -1297,9 +1322,21 @@ def validate_comparison_record_hashes(
         else:
             seen_config_hashes.add(str(cfg_h).strip())
 
-    if len(seen_input_hashes) > 1:
+        if can_in_h is not None and str(can_in_h).strip():
+            seen_canonical_in_hashes.add(str(can_in_h).strip())
+        if can_cfg_h is not None and str(can_cfg_h).strip():
+            seen_canonical_cfg_hashes.add(str(can_cfg_h).strip())
+
+    # When canonical semantic hashes are explicitly provided, verify cross-runtime equivalence
+    if len(seen_canonical_in_hashes) > 1:
+        violations.append("CANONICAL_SEMANTIC_INPUT_HASH_MISMATCH_ACROSS_RUNTIMES")
+    if len(seen_canonical_cfg_hashes) > 1:
+        violations.append("CANONICAL_SEMANTIC_CONFIGURATION_HASH_MISMATCH_ACROSS_RUNTIMES")
+
+    # If canonical semantic hashes are not used, fallback to strict legacy raw hash equality check (N45, N46)
+    if not seen_canonical_in_hashes and len(seen_input_hashes) > 1:
         violations.append("INPUT_SNAPSHOT_HASH_MISMATCH_ACROSS_RUNTIMES")
-    if len(seen_config_hashes) > 1:
+    if not seen_canonical_cfg_hashes and len(seen_config_hashes) > 1:
         violations.append("CONFIGURATION_HASH_MISMATCH_ACROSS_RUNTIMES")
 
     return {
