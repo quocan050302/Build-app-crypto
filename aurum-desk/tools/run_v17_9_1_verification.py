@@ -184,7 +184,7 @@ def main() -> int:
     # 1. Disk Guard Preflight & Reservation
     preflight_budget = probe_disk_budget(workdir=REPO_ROOT, artifact_root=artifact_dir)
     stage_reservation = reserve_test_artifact_budget(
-        stage_name="v17_9_1_full_verification",
+        "v17_9_1_full_verification",
         budget=preflight_budget,
         requested_bytes=150 * 1024 * 1024,
     )
