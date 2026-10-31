@@ -1,0 +1,21 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_realtime_execution_worker.py backend/tests/test_v16_19_red_reproductions.py backend/tests/test_v17_4_production_flow.py backend/tests/test_final_forecast_proof_pipeline.py backend/tests/test_forecast_causal_closure.py backend/tests/test_order_snapshot_closure.py backend/tests/test_v10_2_acceptance.py backend/tests/test_v10_lesson_rules.py backend/tests/test_v13_4_accounting.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_evidence_utils.py backend/tests/test_v13_7_order_lifecycle.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_10_frozen_context.py backend/tests/test_v14_4_2_acceptance_runner.py backend/tests/test_v14_4_2_provisional_plan_regression.py backend/tests/test_v14_4_4_forecast_runtime.py backend/tests/test_v14_4_4_metric_gate.py backend/tests/test_v14_4_5_acceptance_identity.py backend/tests/test_v14_4_entry_guards.py backend/tests/test_v16_11_htf_structure.py backend/tests/test_v16_28_cg01_setup_correctness.py backend/tests/test_v16_2_cg01_long_short.py backend/tests/test_v16_2_repro_and_micro_break.py backend/tests/test_v16_36_paper_tonight_production_regression.py backend/tests/test_v16_5_cost_consistency.py backend/tests/test_v16_9_executable_sizing_contract.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_2_baseline_probes.py backend/tests/test_v17_4_2_writer_contracts.py backend/tests/test_v17_4_timing_profiles.py backend/tests/test_v17_5_1_anchor_leg.py backend/tests/test_v17_5_7_episode_derivation.py backend/tests/test_v17_5_8_cost_authority.py backend/tests/test_v17_5_policy_api.py backend/tests/test_v17_5_stop_research.py backend/tests/test_v17_6_4_1_engine_market_truth.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_3b_health_truth.py backend/tests/test_v17_6_4_3b_scheduler_runtime.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_8_unicorn_evidence.py backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v6_1_isolation_and_recovery.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/shards/shard_7.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 80816
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 43%]
+........................................................................ [ 58%]
+........................................................................ [ 73%]
+........................................................................ [ 87%]
+.............................................................            [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+493 passed, 1 warning in 77.00s (0:01:16)
+
+--- STDERR ---

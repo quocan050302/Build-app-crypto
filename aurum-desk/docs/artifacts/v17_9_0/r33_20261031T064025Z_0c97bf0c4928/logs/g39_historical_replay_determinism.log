@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_replay_comparison.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g39_historical_replay_determinism.xml -k test_variant_a_tight_stop_early_stop_out_vs_variant_c_survival or test_matched_comparison_determinism or test_intrabar_ambiguity_conservative_sl_first
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 13
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_replay_comparison::test_variant_a_tight_stop_early_stop_out_vs_variant_c_survival (0.004s)
+PASSED backend.tests.test_v17_8_replay_comparison::test_matched_comparison_determinism (0.005s)
+PASSED backend.tests.test_v17_8_replay_comparison::test_intrabar_ambiguity_conservative_sl_first (0.004s)
+3 passed in 0.01s
+
+--- STDERR ---

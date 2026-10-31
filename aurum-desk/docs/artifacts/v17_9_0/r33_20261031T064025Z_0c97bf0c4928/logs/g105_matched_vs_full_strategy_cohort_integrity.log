@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g105_matched_vs_full_strategy_cohort_integrity.xml -k test_32 or test_40 or test_v17_9_0_1_phase_b_55_scenario_parity
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 5797
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_32_matched_cohort_and_full_strategy_denominators_separate_and_reproducible (0.016s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_40_runtime_safety_market_shadow_zero_execution_and_operational_db_untouched (0.020s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_phase_b_55_scenario_parity (5.761s)
+3 passed in 5.80s
+
+--- STDERR ---

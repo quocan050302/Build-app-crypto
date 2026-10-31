@@ -1,0 +1,29 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v16_23_production_flow.py backend/tests/test_v16_24_production_flow.py backend/tests/test_v17_5_production_flow.py backend/tests/test_final_display_plan_sources.py backend/tests/test_news_service.py backend/tests/test_v13_3_daily_scheduler.py backend/tests/test_v13_7_causal_driver.py backend/tests/test_v13_8_engine_e2e.py backend/tests/test_v14_4_13_forward_membership.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_2_forecast_requirements.py backend/tests/test_v14_4_4_policy_consistency.py backend/tests/test_v14_4_6_forecast_state_transitions.py backend/tests/test_v15_0_opportunity_funnel.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_0_telegram_and_api.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v15_5_lifecycle_closure.py backend/tests/test_v15_6_hypothesis_persistence.py backend/tests/test_v15_7_lifecycle_write_authority.py backend/tests/test_v16_15_auto_permission_and_owner.py backend/tests/test_v16_15_paper_accounting_and_persistence.py backend/tests/test_v16_39_11_score_display.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_3_cg01_pipeline.py backend/tests/test_v16_4_cg01_replay_ledger.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_1_red_probes.py backend/tests/test_v17_5_4_cost_parity.py backend/tests/test_v17_5_5_cycle_to_chart_contract.py backend/tests/test_v17_5_5_entry_context_gate.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_2_financial_run_isolation.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py backend/tests/test_v17_8_replay_comparison.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/shards/shard_6.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 110601
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+.................................................                        [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_7_atr_provenance.py:527: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db.add(models.SystemConfig(key="stop_placement_v1.mode", value="PAPER_STRUCTURAL", updated_at=datetime.utcnow()))
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+481 passed, 3 warnings in 107.32s (0:01:47)
+
+--- STDERR ---

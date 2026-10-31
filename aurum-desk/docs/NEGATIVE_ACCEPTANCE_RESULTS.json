@@ -1183,14 +1183,174 @@
       "passed": true,
       "status": "PASS",
       "test_id": "N148"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-04): R33_RUN_MANIFEST.json missing final_code_sha fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F01"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-03/P0-04): acceptance_results.json tested_source_sha != frozen_executable_sha fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F02"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-03/P0-04): concurrency_report.tested_source_sha != frozen_executable_sha fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F03"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-03): cpu_memory_metrics.run_id != R33_RUN_MANIFEST.run_id fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F04"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-03): parity_summary.run_id != R33_RUN_MANIFEST.run_id fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F05"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-02): Missing ACTUAL_INPUT_CAPTURED event rejected without arguments_hash fallback",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F06"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Missing INVOCATION_COMPLETED event fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F07"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Duplicate execution_id in runtime events/captures fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F08"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-01/P0-05): Non-monotonic invocation timestamps fail closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F09"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Mutating a candle in R33_RUNTIME_INPUT_SNAPSHOTS.jsonl without updating hash fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F10"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Non-allowlisted callable identity in runtime events/captures fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F11"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Cross-runtime canonical_input_hash mismatch for same scenario fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F12"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-05): Cross-runtime canonical_config_hash mismatch for same scenario fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F13"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-07): Missing negative control ID (N140) in collection or results fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F14"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-03): JUnit XML sidecar with stale run_id or mismatched SHA-256 fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F15"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-07): Worker execution with exit_code != 0 fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F16"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-07): max_active_workers_observed > max_configured_workers fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F17"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-08): Empty directory passed to verify_r33_evidence_bundle or required_schema='R33' fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F18"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-06): unexpected_divergences > 0 in R33_PARITY_CLASSIFICATION.json fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F19"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "R3.3 (P0-04): backtest_source_sha != frozen_executable_sha in R33_BACKTEST_TRADE_LEDGER.jsonl fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "F20"
     }
   ],
   "evaluator_version": "17.9.0.1.1",
   "failed_negative_controls": 0,
   "failed_negative_tests": 0,
-  "final_code_sha": "ab3e82f376c0f0324571bf4b0b7405771f31559d",
-  "passed_negative_controls": 148,
-  "passed_negative_tests": 148,
+  "final_code_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+  "passed_negative_controls": 168,
+  "passed_negative_tests": 168,
   "release": "V17.9.0.1.3",
   "results": [
     {
@@ -2080,9 +2240,129 @@
       "error": null,
       "status": "PASS",
       "test_id": "N148"
+    },
+    {
+      "description": "R3.3 (P0-04): R33_RUN_MANIFEST.json missing final_code_sha fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F01"
+    },
+    {
+      "description": "R3.3 (P0-03/P0-04): acceptance_results.json tested_source_sha != frozen_executable_sha fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F02"
+    },
+    {
+      "description": "R3.3 (P0-03/P0-04): concurrency_report.tested_source_sha != frozen_executable_sha fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F03"
+    },
+    {
+      "description": "R3.3 (P0-03): cpu_memory_metrics.run_id != R33_RUN_MANIFEST.run_id fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F04"
+    },
+    {
+      "description": "R3.3 (P0-03): parity_summary.run_id != R33_RUN_MANIFEST.run_id fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F05"
+    },
+    {
+      "description": "R3.3 (P0-02): Missing ACTUAL_INPUT_CAPTURED event rejected without arguments_hash fallback",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F06"
+    },
+    {
+      "description": "R3.3 (P0-05): Missing INVOCATION_COMPLETED event fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F07"
+    },
+    {
+      "description": "R3.3 (P0-05): Duplicate execution_id in runtime events/captures fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F08"
+    },
+    {
+      "description": "R3.3 (P0-01/P0-05): Non-monotonic invocation timestamps fail closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F09"
+    },
+    {
+      "description": "R3.3 (P0-05): Mutating a candle in R33_RUNTIME_INPUT_SNAPSHOTS.jsonl without updating hash fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F10"
+    },
+    {
+      "description": "R3.3 (P0-05): Non-allowlisted callable identity in runtime events/captures fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F11"
+    },
+    {
+      "description": "R3.3 (P0-05): Cross-runtime canonical_input_hash mismatch for same scenario fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F12"
+    },
+    {
+      "description": "R3.3 (P0-05): Cross-runtime canonical_config_hash mismatch for same scenario fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F13"
+    },
+    {
+      "description": "R3.3 (P0-07): Missing negative control ID (N140) in collection or results fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F14"
+    },
+    {
+      "description": "R3.3 (P0-03): JUnit XML sidecar with stale run_id or mismatched SHA-256 fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F15"
+    },
+    {
+      "description": "R3.3 (P0-07): Worker execution with exit_code != 0 fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F16"
+    },
+    {
+      "description": "R3.3 (P0-07): max_active_workers_observed > max_configured_workers fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F17"
+    },
+    {
+      "description": "R3.3 (P0-08): Empty directory passed to verify_r33_evidence_bundle or required_schema='R33' fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F18"
+    },
+    {
+      "description": "R3.3 (P0-06): unexpected_divergences > 0 in R33_PARITY_CLASSIFICATION.json fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F19"
+    },
+    {
+      "description": "R3.3 (P0-04): backtest_source_sha != frozen_executable_sha in R33_BACKTEST_TRADE_LEDGER.jsonl fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "F20"
     }
   ],
   "status": "PASS",
-  "total_negative_controls": 148,
-  "total_negative_tests": 148
+  "total_negative_controls": 168,
+  "total_negative_tests": 168
 }

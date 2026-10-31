@@ -1,5 +1,5 @@
 {
-  "run_id": "v17_8_0_4_bt_1793422735",
+  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
   "rejected": [
     {
       "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1791441360000",
@@ -348476,9 +348476,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.43,
-      "take_profit": 3997.48,
-      "net_rr": -0.7249,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7249 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.80 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.7223,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7223 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.79 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348490,9 +348490,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348504,9 +348504,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348518,9 +348518,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348532,9 +348532,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.43,
-      "take_profit": 3997.48,
-      "net_rr": -0.7249,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7249 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.80 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.7223,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7223 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.79 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348546,9 +348546,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348560,9 +348560,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -348574,9 +348574,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 3998.01,
       "stop_loss": 3998.76,
-      "take_profit": 3997.48,
-      "net_rr": -0.6672,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6672 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)",
+      "take_profit": 3997.47,
+      "net_rr": -0.6648,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6648 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.65 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355476,9 +355476,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4007.04,
-      "take_profit": 4008.0,
-      "net_rr": -0.7194,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7194 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.79 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.722,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.7220 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.80 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355490,9 +355490,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355504,9 +355504,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355518,9 +355518,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355532,9 +355532,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.9,
-      "take_profit": 4008.0,
-      "net_rr": -0.6937,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6937 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.71 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6962,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6962 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.72 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355546,9 +355546,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355560,9 +355560,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {
@@ -355574,9 +355574,9 @@
       "setup_category": "ORDINARY_FVG_NON_UNICORN",
       "entry_price": 4007.41,
       "stop_loss": 4006.57,
-      "take_profit": 4008.0,
-      "net_rr": -0.6398,
-      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6398 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
+      "take_profit": 4007.99,
+      "net_rr": -0.6421,
+      "reason_code": "NET_RR_TOO_LOW: Net R:R 1:-0.6421 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:1.5 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.58 <= 0 sau chi ph\u00ed)",
       "atr_decision_status": "ACTUAL_ATR_M5"
     },
     {

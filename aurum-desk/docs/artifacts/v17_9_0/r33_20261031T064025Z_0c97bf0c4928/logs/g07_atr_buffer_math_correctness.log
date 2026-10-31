@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_atr_provenance.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g07_atr_buffer_math_correctness.xml -k test_atr_15 or test_atr_16 or test_atr_19
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 13
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_15_correct_distance_raw_atr_ratio (0.004s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_16_no_accidental_4x_atr_rejection (0.005s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_19_shadow_compare_remains_backward_compatible (0.004s)
+3 passed in 0.01s
+
+--- STDERR ---

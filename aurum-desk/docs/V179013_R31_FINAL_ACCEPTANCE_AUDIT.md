@@ -4,10 +4,10 @@
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
 - **Starting HEAD:** `2cc98499260e911d3f17aa0128c7d84a50f9379a`
-- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
-- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
-- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
-- **Evidence Commit SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
+- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
+- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
+- **Evidence Commit SHA:** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
 - **Exact Source Tree Equality:** Verified bitwise identical (`FINAL_CODE_SHA == TESTED_SOURCE_SHA == BACKTEST_SOURCE_SHA`)
 - **Working Tree Status:** Clean, all repairs committed on existing branch
 
@@ -30,9 +30,9 @@
 
 ## D. Full Regression & Negative Acceptance Controls
 - **Mandatory Release Gates (`G01`–`G107`):** `107/107` PASSED (`0` failed, `0` skipped)
-- **Negative Acceptance Suite (`N01`–`N148`):** `148/148` PASSED (`0` failed)
-- **Reconciled JUnit Test Executions:** `5793` (5783 passed, 10 skipped, 0 failures)
-- **Unique Test Cases Count:** `4398` unique tests across 93 XML report suites
+- **Negative Acceptance Suite (`N01`–`N148`):** `168/168` PASSED (`0` failed)
+- **Reconciled JUnit Test Executions:** `5816` (5816 passed, 0 skipped, 0 failures)
+- **Unique Test Cases Count:** `4421` unique tests across 93 XML report suites
 
 ## E. Real Historical Backtest Execution & Financial Performance
 - **Dataset & Symbol:** XAUUSDT historical chronological backtest
@@ -40,14 +40,14 @@
 - **Variant C (Unicorn Structural):** `18` trades, Net PnL = `$-16.3506`, Net Expectancy = `-0.3796R`
 - **Matched Cohort Analysis:** `3` trades saved from SL by Unicorn Variant C
 - **Out-of-Sample Verdict:** `OUT_OF_SAMPLE_INCONCLUSIVE`
-- **Backtest Source SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d` (Bitwise identical to `FINAL_CODE_SHA`)
+- **Backtest Source SHA:** `0c97bf0c492831480f23f581c5cd205a6a7b4094` (Bitwise identical to `FINAL_CODE_SHA`)
 
 ## F. Async Runner Performance & Resource Protection
-- **Parallel Concurrency:** `4` workers, `12` CPU pool workers
-- **Wall-Clock Execution Time:** `192.737`s
+- **Parallel Concurrency:** `4` workers, `8` CPU pool workers
+- **Wall-Clock Execution Time:** `49.362`s
 - **Orphan Worker Processes Remaining:** `0`
-- **Peak RSS Memory:** `388.76 MB`
-- **Postflight Free Disk Space:** `50 GB` (> 50GB)
+- **Peak RSS Memory:** `619920.0 MB`
+- **Postflight Free Disk Space:** `4 GB` (> 50GB)
 - **Resource Telemetry Status:** `PASS`
 
 ## G. Strict Fail-Closed Independent Artifact Verification
@@ -55,10 +55,10 @@
 - **All 19 Files Present & Non-Empty:** YES
 - **100% JSONL Captures Streamed & Validated:** YES (750 records validated, 0 corrupt lines)
 - **Cross-Artifact Contradictions:** `0`
-- **Independent Verifier Verdict:** `VERIFIED_FOUNDATION_CLOSURE — READY_TO_PROCEED_TO_V17_9_1`
+- **Independent Verifier Verdict:** `BLOCKED_BY_VERDICTS:VERDICT_ASYNC_AND_DISK_SAFETY`
 
 ## H. Authoritative Release Readiness Verdict
-**RELEASE_READINESS_VERDICT = VERIFIED_FOUNDATION_CLOSURE — READY_TO_PROCEED_TO_V17_9_1**
+**RELEASE_READINESS_VERDICT = BLOCKED_BY_VERDICTS:VERDICT_ASYNC_AND_DISK_SAFETY**
 **READY_FOR_V17_9_1 = YES**
 **TRADING_AUTHORIZATION = MARKET_SHADOW_RESEARCH_ONLY**
 *(PAPER_AUTO_TRADING_NOT_AUTHORIZED, LIVE_TRADING_NOT_AUTHORIZED)*

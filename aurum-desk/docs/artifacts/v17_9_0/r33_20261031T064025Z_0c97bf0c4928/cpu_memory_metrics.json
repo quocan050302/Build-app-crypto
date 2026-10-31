@@ -1,0 +1,32 @@
+{
+  "schema_version": "V17.9.0",
+  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "cpu_count": 8,
+  "samples_count": 1,
+  "samples": [
+    {
+      "timestamp_ms": 1793429117606,
+      "stage": "FINAL",
+      "cpu_count": 8,
+      "active_workers": 10,
+      "free_disk_bytes": 5230432256,
+      "temporary_bytes": 0,
+      "artifact_bytes": 3183979,
+      "memory_total_bytes": null,
+      "memory_available_bytes": null,
+      "memory_used_bytes": 1468416000,
+      "memory_percent": null,
+      "process_rss_bytes": 127860736,
+      "child_rss_bytes": 1340555264,
+      "total_rss_bytes": 1468416000,
+      "process_rss_mb": 121.94,
+      "child_rss_mb": 1278.45,
+      "total_rss_mb": 1400.39,
+      "cpu_percent": 100.0,
+      "swap_total_bytes": null,
+      "swap_free_bytes": null,
+      "swap_used_bytes": null
+    }
+  ],
+  "tested_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094"
+}

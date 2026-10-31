@@ -1,6 +1,6 @@
 # V17.9.0.1.3 Historical Production Decision Lineage & Consumed Authority Report
 
-- **Final Code SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Final Code SHA:** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
 - **Historical Commit:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 - **Authoritative Historical Callables Executed:**
   * `services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow`

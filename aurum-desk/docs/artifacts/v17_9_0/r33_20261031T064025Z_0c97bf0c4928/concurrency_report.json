@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "tested_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+  "max_workers": 10,
+  "max_configured_workers": 10,
+  "max_active_workers_observed": 10,
+  "batches_count": 10,
+  "wall_clock_ms": 154511,
+  "expected_nodes_count": 4421,
+  "completed_nodes_count": 4421,
+  "skipped_nodes_count": 0,
+  "failed_nodes_count": 0,
+  "unaccounted_nodes_count": 0,
+  "orphan_processes_remaining": 0
+}

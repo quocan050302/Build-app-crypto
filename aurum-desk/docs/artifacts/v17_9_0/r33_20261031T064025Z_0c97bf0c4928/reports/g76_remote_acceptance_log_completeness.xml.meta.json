@@ -1,0 +1,13 @@
+{
+  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "tested_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+  "xml_sha256": "72d8d0e0e7a70d7beb769e9de47befb14af6a65ea8dbe95bf25d1489087ec6c5",
+  "exit_code": 0,
+  "counts": {
+    "collected": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  }
+}

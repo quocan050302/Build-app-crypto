@@ -39,65 +39,65 @@
   "executed_callables": [
     {
       "executed_callable_qualname": "MarketShadowService._evaluate_single_model_shadow",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\market_shadow_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/market_shadow_service.py",
       "executed_module_name": "services.market_shadow_service",
       "executed_module_sha256": "59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea",
       "invocation_count": 236
     },
     {
       "executed_callable_qualname": "MarketShadowService.evaluate_shadow_cycle",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\market_shadow_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/market_shadow_service.py",
       "executed_module_name": "services.market_shadow_service",
       "executed_module_sha256": "59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea",
       "invocation_count": 33
     },
     {
       "executed_callable_qualname": "ScalpWatcherOrchestrator.evaluate_cycle",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\scalp_watcher_orchestrator.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/scalp_watcher_orchestrator.py",
       "executed_module_name": "services.scalp_watcher_orchestrator",
       "executed_module_sha256": "efd1dec4b38843583652101a6227c41255b992f8c13a54898a0ba3036c60056f",
       "invocation_count": 33
     },
     {
       "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_reversal_candidate",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\scalp_m1_model_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/scalp_m1_model_service.py",
       "executed_module_name": "services.scalp_m1_model_service",
       "executed_module_sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99",
       "invocation_count": 41
     },
     {
       "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_continuation_candidate",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\scalp_m1_model_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/scalp_m1_model_service.py",
       "executed_module_name": "services.scalp_m1_model_service",
       "executed_module_sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99",
       "invocation_count": 41
     },
     {
       "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\scalp_m1_model_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/scalp_m1_model_service.py",
       "executed_module_name": "services.scalp_m1_model_service",
       "executed_module_sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99",
       "invocation_count": 41
     },
     {
       "executed_callable_qualname": "ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\scalp_m1_model_service.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/scalp_m1_model_service.py",
       "executed_module_name": "services.scalp_m1_model_service",
       "executed_module_sha256": "c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99",
       "invocation_count": 41
     },
     {
       "executed_callable_qualname": "evaluate_cg01_candidate",
-      "executed_module_file_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend\\services\\cg01_engine.py",
+      "executed_module_file_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend/services/cg01_engine.py",
       "executed_module_name": "services.cg01_engine",
       "executed_module_sha256": "e96b3ab54cf80a4c984d666435875ff8b4c0ff0e7118c1a55680e72aba9a4e5a",
       "invocation_count": 41
     }
   ],
-  "extracted_backend_dir": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v179012_hist_baseline_c356d6551e13_17236\\aurum-desk\\backend",
+  "extracted_backend_dir": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v179012_hist_baseline_c356d6551e13_57447/aurum-desk/backend",
   "historical_execution_authority": "ORIGINAL_HISTORICAL_COMMIT_MODULES",
   "historical_orchestrator_invoked_count": 33,
   "release": "V17.9.0.1.2",
   "schema_version": "V17.9.0.1.2_HISTORICAL_EXECUTED_CALLABLE_MANIFEST_V1",
-  "subprocess_pid": 41388
+  "subprocess_pid": 57472
 }

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g12_orchestrator_real_arm" tests="2" errors="0" failures="0" skipped="0" time="0.098"><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_sl_43_frozen_arm_stop_remains_unchanged" time="0.049" /><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_ce_13_real_orchestrator_arm_with_frozen_evidence" time="0.049" /></testsuite></testsuites>

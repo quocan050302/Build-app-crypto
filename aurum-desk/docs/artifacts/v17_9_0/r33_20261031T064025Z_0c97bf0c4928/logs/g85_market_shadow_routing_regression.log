@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g85_market_shadow_routing_regression.xml -k test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 11
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG85MarketShadowRoutingRegression::test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed (0.011s)
+1 passed in 0.01s
+
+--- STDERR ---

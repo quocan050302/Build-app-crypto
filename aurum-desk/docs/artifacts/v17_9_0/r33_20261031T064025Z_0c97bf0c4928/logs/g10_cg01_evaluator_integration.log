@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g10_cg01_evaluator_integration.xml -k test_sl_36 or test_ce_10 or test_atr_17
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 68
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_36_cg01_specific_behavior (0.032s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_10_stale_quote_blocks_execution (0.029s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_17_cg01_uses_verified_atr (0.007s)
+3 passed in 0.07s
+
+--- STDERR ---

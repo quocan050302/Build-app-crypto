@@ -1,0 +1,16 @@
+{
+  "compressed_logs": [],
+  "final_code_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+  "final_temporary_bytes": 0,
+  "generated_at_utc": "2026-10-31T06:47:01.770102+00:00",
+  "log_compression_threshold_bytes": 26214400,
+  "release": "V17.9.0.1.3",
+  "retained_artifact_directories": [
+    "docs/v17_9_0_1_3",
+    "docs/v17_9_0_1",
+    "docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928",
+    "backtest"
+  ],
+  "temporary_directory_root": "tmp/v17_9_0/r33_20261031T064025Z_0c97bf0c4928",
+  "worker_temp_directories_remaining": 0
+}

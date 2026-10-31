@@ -1,10 +1,10 @@
 # V17.9.0.1.2 — Final Historical Parity, Consumed Decision Authority & Evidence Closure Audit
 
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
-- **Final Code SHA (`FINAL_CODE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
 - **Historical Pre-Refactor Reference Commit:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 - **Evaluator Version:** `17.9.0.1.1`
-- **Negative Acceptance Suite (`N01`–`N70`):** `148/148` (`status=PASS`)
+- **Negative Acceptance Suite (`N01`–`N70`):** `168/168` (`status=PASS`)
 
 ## 1. Defect Closure Matrix (`DEF-179012-C01` through `DEF-179012-F05`)
 | Defect ID | Priority | Root Cause | Repair Implemented | Negative Controls | Status |

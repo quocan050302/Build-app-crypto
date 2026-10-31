@@ -1,6 +1,6 @@
 # V17.9.0.1.3 — Real Forward Candle Causality & Parity Simulation Report (`DEF-179012-F02`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
 - **Dataset Artifact:** `backtest/historical_dataset_XAUUSDT.json.gz` (`6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5`)
 - **Decision Timestamps Evaluated:** `30` (`150` model evaluation windows)
 - **Fabricated Forward Candles Count:** `0`

@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g12_orchestrator_real_arm.xml -k test_sl_43 or test_ce_13
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 98
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_43_frozen_arm_stop_remains_unchanged (0.049s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_13_real_orchestrator_arm_with_frozen_evidence (0.049s)
+2 passed in 0.10s
+
+--- STDERR ---
