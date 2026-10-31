@@ -2588,6 +2588,776 @@ def test_n145_missing_final_code_sha_in_acceptance_verdict_fails_closed():
     assert "Missing final code SHA" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
 
 
+def _build_valid_r33_bundle_fixture(
+    bundle_dir: Path,
+    frozen_sha: str = "a" * 40,
+    run_id: str = "r33_test_run_01",
+) -> Path:
+    """
+    Creates a complete, valid 25-artifact R3.3 evidence bundle in `bundle_dir`
+    for single-field fault-injection testing (F01-F20).
+    """
+    import hashlib
+    import json
+    from tools.acceptance_verdict import (
+        R33_MANDATORY_ARTIFACTS,
+        reconcile_r33_runtime_captures,
+        verify_r33_evidence_bundle,
+    )
+    from tools.runtime_execution_logger import RuntimeExecutionEventLogger
+
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    hist_sha = "c356d6551e13cd6af61cea5c3ab1f4aae1548af2"
+    ts_ms = 1_761_696_000_000
+    scen_id = f"HIST_{ts_ms}_SMC_M1_REVERSAL"
+
+    can_in = {"symbol": "XAUUSDT", "decision_timestamp_ms": ts_ms, "m1_closes": [2745.1, 2745.4]}
+    can_cfg = {"model_id": "SMC_M1_REVERSAL", "min_net_rr": 2.0, "risk_per_trade_pct": 0.25}
+
+    logger = RuntimeExecutionEventLogger(run_id=run_id, source_sha=frozen_sha)
+    hist_logger = RuntimeExecutionEventLogger(run_id=run_id, source_sha=hist_sha)
+
+    # 3 cycle invocations (HISTORICAL_PRODUCTION, PRODUCTION, MARKET_SHADOW)
+    _, h_cycle_id = hist_logger.observe_runtime_invocation(
+        scenario_id=f"HIST_CYCLE_{ts_ms}",
+        runtime_name="HISTORICAL_PRODUCTION",
+        callable_identity="services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle",
+        decision_timestamp_ms=ts_ms,
+        model_id="ALL_MODELS_CYCLE",
+        invocation_scope="CYCLE_EVALUATION",
+        raw_input_payload={"runtime": "HISTORICAL_PRODUCTION_CYCLE", "canonical_market_input": can_in},
+        canonical_input_payload=can_in,
+        raw_config_payload={"runtime": "HISTORICAL_PRODUCTION_CYCLE", "canonical_config": can_cfg},
+        canonical_config_payload=can_cfg,
+        callable_fn=lambda: {"status": "OK"},
+    )
+    _, p_cycle_id = logger.observe_runtime_invocation(
+        scenario_id=f"HIST_CYCLE_{ts_ms}",
+        runtime_name="PRODUCTION",
+        callable_identity="backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle",
+        decision_timestamp_ms=ts_ms,
+        model_id="ALL_MODELS_CYCLE",
+        invocation_scope="CYCLE_EVALUATION",
+        raw_input_payload={"runtime": "PRODUCTION_CYCLE", "canonical_market_input": can_in},
+        canonical_input_payload=can_in,
+        raw_config_payload={"runtime": "PRODUCTION_CYCLE", "canonical_config": can_cfg},
+        canonical_config_payload=can_cfg,
+        callable_fn=lambda: {"status": "OK"},
+    )
+    _, s_cycle_id = logger.observe_runtime_invocation(
+        scenario_id=f"HIST_CYCLE_{ts_ms}",
+        runtime_name="MARKET_SHADOW",
+        callable_identity="backend.services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle",
+        decision_timestamp_ms=ts_ms,
+        model_id="ALL_MODELS_CYCLE",
+        invocation_scope="CYCLE_EVALUATION",
+        raw_input_payload={"runtime": "MARKET_SHADOW_CYCLE", "canonical_market_input": can_in},
+        canonical_input_payload=can_in,
+        raw_config_payload={"runtime": "MARKET_SHADOW_CYCLE", "canonical_config": can_cfg},
+        canonical_config_payload=can_cfg,
+        callable_fn=lambda: {"status": "OK"},
+    )
+
+    # 5 model evaluations
+    hist_logger.observe_runtime_invocation(
+        scenario_id=scen_id,
+        runtime_name="HISTORICAL_PRODUCTION",
+        callable_identity="services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate",
+        decision_timestamp_ms=ts_ms,
+        model_id="SMC_M1_REVERSAL",
+        invocation_scope="MODEL_EVALUATION",
+        parent_cycle_invocation_id=h_cycle_id,
+        raw_input_payload={"runtime": "HISTORICAL_PRODUCTION", "canonical_market_input": can_in},
+        canonical_input_payload=can_in,
+        raw_config_payload={"runtime": "HISTORICAL_PRODUCTION", "canonical_config": can_cfg},
+        canonical_config_payload=can_cfg,
+        callable_fn=lambda: {"decision_status": "ELIGIBLE"},
+    )
+    logger.ingest_external_events_and_snapshots(
+        events=hist_logger.events,
+        snapshots=hist_logger.snapshots,
+    )
+
+    for rt_name, cal_id, parent_id in [
+        ("SHARED_STRATEGY_EVALUATOR", "backend.services.shared_strategy_evaluator.SharedStrategyEvaluator.evaluate_decision", None),
+        ("PRODUCTION", "backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot", p_cycle_id),
+        ("MARKET_SHADOW", "backend.services.market_shadow_service.MarketShadowService.evaluate_shared_decision_snapshot", s_cycle_id),
+        ("CHRONOLOGICAL_BACKTEST", "backend.services.v17_8_backtest_runner.execute_chronological_backtest_window_for_parity", None),
+    ]:
+        logger.observe_runtime_invocation(
+            scenario_id=scen_id,
+            runtime_name=rt_name,
+            callable_identity=cal_id,
+            decision_timestamp_ms=ts_ms,
+            model_id="SMC_M1_REVERSAL",
+            invocation_scope="MODEL_EVALUATION",
+            parent_cycle_invocation_id=parent_id,
+            raw_input_payload={"runtime": rt_name, "canonical_market_input": can_in},
+            canonical_input_payload=can_in,
+            raw_config_payload={"runtime": rt_name, "canonical_config": can_cfg},
+            canonical_config_payload=can_cfg,
+            callable_fn=lambda: {"decision_status": "ELIGIBLE"},
+        )
+
+    captures = logger.build_runtime_input_captures()
+    events = logger.events
+    snapshots = logger.snapshots
+    rt_verif = reconcile_r33_runtime_captures(
+        events=events,
+        snapshots=snapshots,
+        captures=captures,
+        expected_run_id=run_id,
+        expected_frozen_sha=frozen_sha,
+        expected_historical_sha=hist_sha,
+    )
+
+    all_neg_ids = [f"N{i:02d}" for i in range(1, 149)] + [f"F{i:02d}" for i in range(1, 21)]
+    neg_results_rows = [{"test_id": cid, "control_id": cid, "status": "PASS"} for cid in all_neg_ids]
+
+    reports_dir = bundle_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    xml_path = reports_dir / "test_suite_01.xml"
+    xml_bytes = b'<?xml version="1.0" encoding="utf-8"?><testsuite tests="5" failures="0" errors="0" skipped="0"><testcase classname="t" name="t1"/></testsuite>\n'
+    xml_path.write_bytes(xml_bytes)
+    (reports_dir / "test_suite_01.xml.meta.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "xml_sha256": hashlib.sha256(xml_bytes).hexdigest(),
+                "exit_code": 0,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    (bundle_dir / "acceptance_results.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "source_sha": frozen_sha,
+                "concurrency_report": {
+                    "run_id": run_id,
+                    "tested_source_sha": frozen_sha,
+                    "max_configured_workers": 4,
+                    "max_active_workers_observed": 4,
+                },
+                "cpu_memory_metrics": {
+                    "run_id": run_id,
+                    "tested_source_sha": frozen_sha,
+                },
+                "parity_summary": {
+                    "run_id": run_id,
+                    "tested_source_sha": frozen_sha,
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    files_to_write = {
+        "R33_RUN_MANIFEST.json": json.dumps(
+            {
+                "release": "V17.9.0.1.3",
+                "phase": "R3.3",
+                "run_id": run_id,
+                "frozen_executable_sha": frozen_sha,
+                "final_code_sha": frozen_sha,
+                "tested_source_sha": frozen_sha,
+                "backtest_source_sha": frozen_sha,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_DEFECT_ROOT_CAUSE_MATRIX.md": "# R3.3 Defect Root Cause Matrix\n",
+        "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl": json.dumps({"run_id": run_id, "tested_source_sha": frozen_sha, "exit_code": 0, "status": "PASS"}) + "\n",
+        "R33_RUNTIME_INVOCATION_EVENTS.jsonl": "".join(json.dumps(e, sort_keys=True) + "\n" for e in events),
+        "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl": "".join(json.dumps(s, sort_keys=True) + "\n" for s in snapshots),
+        "R33_RUNTIME_INPUT_CAPTURES.jsonl": "".join(json.dumps(c, sort_keys=True) + "\n" for c in captures),
+        "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json": json.dumps(rt_verif, indent=2),
+        "R33_FIVE_WAY_PARITY.json": json.dumps(
+            {
+                "release": "V17.9.0.1.3",
+                "phase": "R3.3",
+                "run_id": run_id,
+                "final_code_sha": frozen_sha,
+                "tested_source_sha": frozen_sha,
+                "five_way_verified_count": 210,
+                "divergences_count": 0,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_HISTORICAL_PRODUCTION_LINEAGE.jsonl": json.dumps({"scenario_id": scen_id, "lifecycle_stage": "CANDIDATE_CONSUMED"}) + "\n",
+        "R33_PARITY_CLASSIFICATION.json": json.dumps(
+            {
+                "release": "V17.9.0.1.3",
+                "phase": "R3.3",
+                "run_id": run_id,
+                "final_code_sha": frozen_sha,
+                "tested_source_sha": frozen_sha,
+                "total_comparisons": 210,
+                "exact_matches": 21,
+                "expected_documented_changes": 189,
+                "unexpected_divergences": 0,
+                "status": "PASS",
+                "breakdown_by_category": {
+                    "EXACT_MATCH": 21,
+                    "EXPECTED_DOCUMENTED_CHANGE": 189,
+                    "UNEXPECTED_DIVERGENCE": 0,
+                },
+            },
+            indent=2,
+        ),
+        "R33_NEGATIVE_TEST_COLLECTION.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "total_collected_controls": len(all_neg_ids),
+                "collected_control_ids": all_neg_ids,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_NEGATIVE_TEST_RESULTS.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "total_negative_controls": len(all_neg_ids),
+                "passed_negative_controls": len(all_neg_ids),
+                "failed_negative_controls": 0,
+                "status": "PASS",
+                "results": neg_results_rows,
+            },
+            indent=2,
+        ),
+        "R33_WORKER_EXECUTIONS.jsonl": json.dumps(
+            {
+                "worker_id": "worker_01",
+                "task_id": "G89",
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "exit_code": 0,
+                "status": "PASS",
+            }
+        )
+        + "\n",
+        "R33_RUN_TASK_ACCOUNTING.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "expected_tasks_count": 1,
+                "completed_tasks_count": 1,
+                "failed_tasks_count": 0,
+                "max_configured_workers": 4,
+                "max_active_workers_observed": 4,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_JUNIT_RECONCILIATION.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "xml_files_count": 1,
+                "total_test_executions": 5,
+                "total_passed": 5,
+                "total_failures": 0,
+                "total_errors": 0,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_ASYNC_RESOURCE_TELEMETRY.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "max_configured_workers": 4,
+                "max_active_workers_observed": 4,
+                "orphan_processes_remaining": 0,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_DISK_GUARD.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "free_disk_bytes_postflight": 20 * 1024**3,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json": json.dumps(
+            {
+                "run_id": run_id,
+                "final_code_sha": frozen_sha,
+                "tested_source_sha": frozen_sha,
+                "backtest_source_sha": frozen_sha,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_BACKTEST_TRADE_LEDGER.jsonl": json.dumps(
+            {
+                "trade_id": "T01",
+                "run_id": run_id,
+                "source_sha": frozen_sha,
+                "backtest_source_sha": frozen_sha,
+            }
+        )
+        + "\n",
+        "R33_BACKTEST_A_B_C_D_METRICS.json": json.dumps(
+            {
+                "run_id": run_id,
+                "final_code_sha": frozen_sha,
+                "tested_source_sha": frozen_sha,
+                "backtest_source_sha": frozen_sha,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_MATCHED_COHORT.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "source_sha": frozen_sha,
+                "status": "PASS",
+            },
+            indent=2,
+        ),
+        "R33_OOS_REPORT.json": json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "source_sha": frozen_sha,
+                "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",
+            },
+            indent=2,
+        ),
+        "R33_INDEPENDENT_VERIFIER_REPORT.json": json.dumps({"run_id": run_id, "tested_source_sha": frozen_sha, "status": "PASS"}, indent=2),
+        "R33_FINAL_ACCEPTANCE_AUDIT.md": "# R3.3 Final Acceptance Audit\n",
+    }
+
+    for fname, content in files_to_write.items():
+        (bundle_dir / fname).write_text(content, encoding="utf-8")
+
+    art_hashes = {}
+    for fname in R33_MANDATORY_ARTIFACTS:
+        if fname in ("R33_ARTIFACT_SHA256_MANIFEST.json", "R33_INDEPENDENT_VERIFIER_REPORT.json", "R33_FINAL_ACCEPTANCE_AUDIT.md"):
+            continue
+        fp = bundle_dir / fname
+        art_hashes[fname] = {
+            "filename": fname,
+            "sha256": hashlib.sha256(fp.read_bytes()).hexdigest(),
+            "size_bytes": fp.stat().st_size,
+        }
+    (bundle_dir / "R33_ARTIFACT_SHA256_MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "tested_source_sha": frozen_sha,
+                "artifacts": art_hashes,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    verif = verify_r33_evidence_bundle(bundle_dir, frozen_sha, expected_run_id=run_id)
+    assert verif["is_valid"] is True, f"Baseline valid fixture failed: {verif['violations']}"
+    return bundle_dir
+
+
+def _refresh_r33_manifest_hashes(bundle_dir: Path) -> None:
+    import hashlib
+    import json
+    from tools.acceptance_verdict import R33_MANDATORY_ARTIFACTS
+
+    man_p = bundle_dir / "R33_ARTIFACT_SHA256_MANIFEST.json"
+    man_doc = json.loads(man_p.read_text(encoding="utf-8"))
+    art_hashes = {}
+    for fname in R33_MANDATORY_ARTIFACTS:
+        if fname in ("R33_ARTIFACT_SHA256_MANIFEST.json", "R33_INDEPENDENT_VERIFIER_REPORT.json", "R33_FINAL_ACCEPTANCE_AUDIT.md"):
+            continue
+        fp = bundle_dir / fname
+        if fp.exists():
+            art_hashes[fname] = {
+                "filename": fname,
+                "sha256": hashlib.sha256(fp.read_bytes()).hexdigest(),
+                "size_bytes": fp.stat().st_size,
+            }
+    man_doc["artifacts"] = art_hashes
+    man_p.write_text(json.dumps(man_doc, indent=2), encoding="utf-8")
+
+
+def test_f01_r33_run_manifest_missing_final_code_sha_rejected():
+    """F01: R3.3 (P0-04): R33_RUN_MANIFEST.json missing final_code_sha fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        man_p = bdir / "R33_RUN_MANIFEST.json"
+        doc = json.loads(man_p.read_text(encoding="utf-8"))
+        doc.pop("final_code_sha", None)
+        man_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("R33_RUN_MANIFEST_MISSING_REQUIRED_SHA:final_code_sha" in v for v in res["violations"])
+
+
+def test_f02_nested_acceptance_results_tested_source_sha_mismatch_rejected():
+    """F02: R3.3 (P0-03/P0-04): acceptance_results.json tested_source_sha != frozen_executable_sha fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        acc_p = bdir / "acceptance_results.json"
+        doc = json.loads(acc_p.read_text(encoding="utf-8"))
+        doc["tested_source_sha"] = "b" * 40
+        acc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("NESTED_ACCEPTANCE_SOURCE_SHA_MISMATCH" in v for v in res["violations"])
+
+
+def test_f03_nested_concurrency_report_tested_source_sha_mismatch_rejected():
+    """F03: R3.3 (P0-03/P0-04): concurrency_report.tested_source_sha != frozen_executable_sha fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        acc_p = bdir / "acceptance_results.json"
+        doc = json.loads(acc_p.read_text(encoding="utf-8"))
+        doc["concurrency_report"]["tested_source_sha"] = "c" * 40
+        acc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("CONCURRENCY_REPORT_SOURCE_SHA_MISMATCH" in v for v in res["violations"])
+
+
+def test_f04_nested_cpu_memory_metrics_run_id_mismatch_rejected():
+    """F04: R3.3 (P0-03): cpu_memory_metrics.run_id != R33_RUN_MANIFEST.run_id fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        acc_p = bdir / "acceptance_results.json"
+        doc = json.loads(acc_p.read_text(encoding="utf-8"))
+        doc["cpu_memory_metrics"]["run_id"] = "run_v17_9_0_stale_seed"
+        acc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("CPU_MEMORY_METRICS_RUN_ID_MISMATCH" in v for v in res["violations"])
+
+
+def test_f05_nested_parity_summary_run_id_mismatch_rejected():
+    """F05: R3.3 (P0-03): parity_summary.run_id != R33_RUN_MANIFEST.run_id fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        acc_p = bdir / "acceptance_results.json"
+        doc = json.loads(acc_p.read_text(encoding="utf-8"))
+        doc["parity_summary"]["run_id"] = "run_v17_9_0_stale_seed"
+        acc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("PARITY_SUMMARY_RUN_ID_MISMATCH" in v for v in res["violations"])
+
+
+def test_f06_missing_actual_input_captured_event_rejected():
+    """F06: R3.3 (P0-02): Missing ACTUAL_INPUT_CAPTURED event rejected without arguments_hash fallback."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    from tools.runtime_execution_logger import RuntimeExecutionEventLogger
+
+    # 1. Verify logger never falls back to start_evt.arguments_hash
+    logger = RuntimeExecutionEventLogger(run_id="r33_f06", source_sha="a" * 40)
+    logger.record_invocation_started(
+        execution_id="exec_f06",
+        scenario_id="SCEN_F06",
+        runtime_name="PRODUCTION",
+        callable_identity="backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot",
+        decision_timestamp_ms=1761696000000,
+        model_id="SMC_M1_REVERSAL",
+        source_sha="a" * 40,
+        arguments_hash="b" * 64,
+    )
+    logger.record_invocation_completed(
+        execution_id="exec_f06",
+        scenario_id="SCEN_F06",
+        runtime_name="PRODUCTION",
+        callable_identity="backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot",
+        decision_timestamp_ms=1761696000000,
+        model_id="SMC_M1_REVERSAL",
+        source_sha="a" * 40,
+        output_decision_id="dec_f06",
+        output_status="ELIGIBLE",
+        output_fingerprint="c" * 64,
+        duration_ms=1.0,
+    )
+    assert logger.build_runtime_input_captures() == []
+
+    # 2. Verify bundle verifier rejects removed ACTUAL_INPUT_CAPTURED event
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        ev_p = bdir / "R33_RUNTIME_INVOCATION_EVENTS.jsonl"
+        events = [json.loads(ln) for ln in ev_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        dropped = False
+        filtered = []
+        for e in events:
+            if not dropped and e.get("event_type") == "ACTUAL_INPUT_CAPTURED":
+                dropped = True
+                continue
+            filtered.append(e)
+        ev_p.write_text("".join(json.dumps(e, sort_keys=True) + "\n" for e in filtered), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("MISSING_ACTUAL_INPUT_CAPTURED_EVENT" in v for v in res["violations"])
+
+
+def test_f07_missing_invocation_completed_event_rejected():
+    """F07: R3.3 (P0-05): Missing INVOCATION_COMPLETED event fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        ev_p = bdir / "R33_RUNTIME_INVOCATION_EVENTS.jsonl"
+        events = [json.loads(ln) for ln in ev_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        dropped = False
+        filtered = []
+        for e in events:
+            if not dropped and e.get("event_type") == "INVOCATION_COMPLETED":
+                dropped = True
+                continue
+            filtered.append(e)
+        ev_p.write_text("".join(json.dumps(e, sort_keys=True) + "\n" for e in filtered), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("MISSING_INVOCATION_COMPLETED_EVENT" in v for v in res["violations"])
+
+
+def test_f08_duplicate_execution_id_rejected():
+    """F08: R3.3 (P0-05): Duplicate execution_id in runtime events/captures fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        cap_p = bdir / "R33_RUNTIME_INPUT_CAPTURES.jsonl"
+        caps = [json.loads(ln) for ln in cap_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        caps[1]["execution_id"] = caps[0]["execution_id"]
+        cap_p.write_text("".join(json.dumps(c, sort_keys=True) + "\n" for c in caps), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("DUPLICATE_EXECUTION_ID" in v for v in res["violations"])
+
+
+def test_f09_non_monotonic_invocation_timestamps_rejected():
+    """F09: R3.3 (P0-01/P0-05): Non-monotonic invocation timestamps fail closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        ev_p = bdir / "R33_RUNTIME_INVOCATION_EVENTS.jsonl"
+        events = [json.loads(ln) for ln in ev_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        for e in events:
+            if e.get("event_type") == "INVOCATION_COMPLETED":
+                e["timestamp_monotonic_ns"] = 1
+                break
+        ev_p.write_text("".join(json.dumps(e, sort_keys=True) + "\n" for e in events), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("NON_MONOTONIC_INVOCATION_TIMESTAMPS" in v for v in res["violations"])
+
+
+def test_f10_mutated_candle_in_runtime_input_snapshot_rejected():
+    """F10: R3.3 (P0-05): Mutating a candle in R33_RUNTIME_INPUT_SNAPSHOTS.jsonl without updating hash fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        snap_p = bdir / "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl"
+        snaps = [json.loads(ln) for ln in snap_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        snaps[0]["canonical_input_payload"]["m1_closes"][0] = 9999.99
+        snap_p.write_text("".join(json.dumps(s, sort_keys=True) + "\n" for s in snaps), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("SNAPSHOT_HASH_RECOMPUTATION_MISMATCH" in v for v in res["violations"])
+
+
+def test_f11_disallowed_callable_identity_rejected():
+    """F11: R3.3 (P0-05): Non-allowlisted callable identity in runtime events/captures fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        cap_p = bdir / "R33_RUNTIME_INPUT_CAPTURES.jsonl"
+        caps = [json.loads(ln) for ln in cap_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        caps[0]["capture_point"] = "services.v17_9_0_1_baseline_oracle.IndependentPreRefactorBaselineOracle.evaluate_baseline_dict"
+        cap_p.write_text("".join(json.dumps(c, sort_keys=True) + "\n" for c in caps), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("DISALLOWED_CALLABLE_IDENTITY" in v for v in res["violations"])
+
+
+def test_f12_cross_runtime_canonical_input_hash_mismatch_rejected():
+    """F12: R3.3 (P0-05): Cross-runtime canonical_input_hash mismatch for same scenario fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        cap_p = bdir / "R33_RUNTIME_INPUT_CAPTURES.jsonl"
+        caps = [json.loads(ln) for ln in cap_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        caps[0]["canonical_input_hash"] = "f" * 64
+        cap_p.write_text("".join(json.dumps(c, sort_keys=True) + "\n" for c in caps), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("CROSS_RUNTIME_CANONICAL_INPUT_HASH_MISMATCH" in v for v in res["violations"])
+
+
+def test_f13_cross_runtime_canonical_config_hash_mismatch_rejected():
+    """F13: R3.3 (P0-05): Cross-runtime canonical_config_hash mismatch for same scenario fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        cap_p = bdir / "R33_RUNTIME_INPUT_CAPTURES.jsonl"
+        caps = [json.loads(ln) for ln in cap_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        caps[0]["canonical_config_hash"] = "e" * 64
+        cap_p.write_text("".join(json.dumps(c, sort_keys=True) + "\n" for c in caps), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("CROSS_RUNTIME_CANONICAL_CONFIG_HASH_MISMATCH" in v for v in res["violations"])
+
+
+def test_f14_missing_mandatory_negative_control_id_rejected():
+    """F14: R3.3 (P0-07): Missing negative control ID (e.g. N140) in collection or results fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        coll_p = bdir / "R33_NEGATIVE_TEST_COLLECTION.json"
+        doc = json.loads(coll_p.read_text(encoding="utf-8"))
+        doc["collected_control_ids"] = [cid for cid in doc["collected_control_ids"] if cid != "N140"]
+        coll_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("MISSING_MANDATORY_NEGATIVE_CONTROL_ID:N140" in v for v in res["violations"])
+
+
+def test_f15_junit_sidecar_provenance_mismatch_rejected():
+    """F15: R3.3 (P0-03): JUnit XML sidecar with stale run_id or mismatched SHA-256 fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        sc_p = bdir / "reports" / "test_suite_01.xml.meta.json"
+        doc = json.loads(sc_p.read_text(encoding="utf-8"))
+        doc["run_id"] = "run_v17_9_0_1793411200786_34380"
+        sc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("JUNIT_SIDECAR_PROVENANCE_MISMATCH" in v for v in res["violations"])
+
+
+def test_f16_worker_non_zero_exit_code_masked_as_pass_rejected():
+    """F16: R3.3 (P0-07): Worker execution with exit_code != 0 fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        w_p = bdir / "R33_WORKER_EXECUTIONS.jsonl"
+        rows = [json.loads(ln) for ln in w_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        rows[0]["exit_code"] = 1
+        w_p.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("WORKER_FAILURE_MASKED_AS_PASS" in v for v in res["violations"])
+
+
+def test_f17_active_workers_exceeding_configured_bound_rejected():
+    """F17: R3.3 (P0-07): max_active_workers_observed > max_configured_workers fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        tel_p = bdir / "R33_ASYNC_RESOURCE_TELEMETRY.json"
+        doc = json.loads(tel_p.read_text(encoding="utf-8"))
+        doc["max_configured_workers"] = 4
+        doc["max_active_workers_observed"] = 5
+        tel_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("CONCURRENCY_BOUND_EXCEEDED" in v for v in res["violations"])
+
+
+def test_f18_empty_directory_passed_to_r33_verifier_rejected():
+    """F18: R3.3 (P0-08): Empty directory passed to verify_r33_evidence_bundle or required_schema='R33' fails closed."""
+    import tempfile
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts, verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        empty_dir = Path(td)
+        res1 = verify_r33_evidence_bundle(empty_dir, "a" * 40)
+        assert res1["is_valid"] is False
+        assert "R33_EMPTY_OR_MISSING_EVIDENCE_DIRECTORY" in res1["violations"]
+        res2 = verify_persisted_acceptance_artifacts(empty_dir, "a" * 40, required_schema="R33")
+        assert res2["is_valid"] is False
+        assert "R33_EMPTY_OR_MISSING_EVIDENCE_DIRECTORY" in res2["violations"]
+
+
+def test_f19_unexpected_divergence_in_r33_parity_classification_rejected():
+    """F19: R3.3 (P0-06): unexpected_divergences > 0 in R33_PARITY_CLASSIFICATION.json fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        pc_p = bdir / "R33_PARITY_CLASSIFICATION.json"
+        doc = json.loads(pc_p.read_text(encoding="utf-8"))
+        doc["exact_matches"] = 20
+        doc["unexpected_divergences"] = 1
+        doc["breakdown_by_category"]["EXACT_MATCH"] = 20
+        doc["breakdown_by_category"]["UNEXPECTED_DIVERGENCE"] = 1
+        pc_p.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("PARITY_CLASSIFICATION_HAS_UNEXPECTED_DIVERGENCES:1" in v for v in res["violations"])
+
+
+def test_f20_backtest_trade_ledger_source_sha_mismatch_rejected():
+    """F20: R3.3 (P0-04): backtest_source_sha != frozen_executable_sha in R33_BACKTEST_TRADE_LEDGER.jsonl fails closed."""
+    import json, tempfile
+    from tools.acceptance_verdict import verify_r33_evidence_bundle
+    with tempfile.TemporaryDirectory() as td:
+        bdir = _build_valid_r33_bundle_fixture(Path(td))
+        led_p = bdir / "R33_BACKTEST_TRADE_LEDGER.jsonl"
+        rows = [json.loads(ln) for ln in led_p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        rows[0]["source_sha"] = "d" * 40
+        rows[0]["backtest_source_sha"] = "d" * 40
+        led_p.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
+        _refresh_r33_manifest_hashes(bdir)
+        res = verify_r33_evidence_bundle(bdir, "a" * 40, expected_run_id="r33_test_run_01")
+        assert res["is_valid"] is False
+        assert any("BACKTEST_LEDGER_SOURCE_SHA_MISMATCH" in v for v in res["violations"])
+
+
+
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:
     """
     Executes all 131 mandatory negative acceptance tests (N01-N131) and returns
@@ -2742,6 +3512,26 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N146", "DEF-179013-R31 (P0-E): Missing mandatory deliverable fails closed", test_n146_missing_r31_mandatory_deliverable_fails_closed),
         ("N147", "DEF-179013-R31: Exact source manifest SHA mismatch fails closed", test_n147_r31_exact_source_manifest_sha_mismatch_fails_closed),
         ("N148", "DEF-179013-R31 (P0-A): Uncompleted runtime capture invocation fails closed", test_n148_uncompleted_runtime_capture_invocation_fails_closed),
+        ("F01", "R3.3 (P0-04): R33_RUN_MANIFEST.json missing final_code_sha fails closed", test_f01_r33_run_manifest_missing_final_code_sha_rejected),
+        ("F02", "R3.3 (P0-03/P0-04): acceptance_results.json tested_source_sha != frozen_executable_sha fails closed", test_f02_nested_acceptance_results_tested_source_sha_mismatch_rejected),
+        ("F03", "R3.3 (P0-03/P0-04): concurrency_report.tested_source_sha != frozen_executable_sha fails closed", test_f03_nested_concurrency_report_tested_source_sha_mismatch_rejected),
+        ("F04", "R3.3 (P0-03): cpu_memory_metrics.run_id != R33_RUN_MANIFEST.run_id fails closed", test_f04_nested_cpu_memory_metrics_run_id_mismatch_rejected),
+        ("F05", "R3.3 (P0-03): parity_summary.run_id != R33_RUN_MANIFEST.run_id fails closed", test_f05_nested_parity_summary_run_id_mismatch_rejected),
+        ("F06", "R3.3 (P0-02): Missing ACTUAL_INPUT_CAPTURED event rejected without arguments_hash fallback", test_f06_missing_actual_input_captured_event_rejected),
+        ("F07", "R3.3 (P0-05): Missing INVOCATION_COMPLETED event fails closed", test_f07_missing_invocation_completed_event_rejected),
+        ("F08", "R3.3 (P0-05): Duplicate execution_id in runtime events/captures fails closed", test_f08_duplicate_execution_id_rejected),
+        ("F09", "R3.3 (P0-01/P0-05): Non-monotonic invocation timestamps fail closed", test_f09_non_monotonic_invocation_timestamps_rejected),
+        ("F10", "R3.3 (P0-05): Mutating a candle in R33_RUNTIME_INPUT_SNAPSHOTS.jsonl without updating hash fails closed", test_f10_mutated_candle_in_runtime_input_snapshot_rejected),
+        ("F11", "R3.3 (P0-05): Non-allowlisted callable identity in runtime events/captures fails closed", test_f11_disallowed_callable_identity_rejected),
+        ("F12", "R3.3 (P0-05): Cross-runtime canonical_input_hash mismatch for same scenario fails closed", test_f12_cross_runtime_canonical_input_hash_mismatch_rejected),
+        ("F13", "R3.3 (P0-05): Cross-runtime canonical_config_hash mismatch for same scenario fails closed", test_f13_cross_runtime_canonical_config_hash_mismatch_rejected),
+        ("F14", "R3.3 (P0-07): Missing negative control ID (N140) in collection or results fails closed", test_f14_missing_mandatory_negative_control_id_rejected),
+        ("F15", "R3.3 (P0-03): JUnit XML sidecar with stale run_id or mismatched SHA-256 fails closed", test_f15_junit_sidecar_provenance_mismatch_rejected),
+        ("F16", "R3.3 (P0-07): Worker execution with exit_code != 0 fails closed", test_f16_worker_non_zero_exit_code_masked_as_pass_rejected),
+        ("F17", "R3.3 (P0-07): max_active_workers_observed > max_configured_workers fails closed", test_f17_active_workers_exceeding_configured_bound_rejected),
+        ("F18", "R3.3 (P0-08): Empty directory passed to verify_r33_evidence_bundle or required_schema='R33' fails closed", test_f18_empty_directory_passed_to_r33_verifier_rejected),
+        ("F19", "R3.3 (P0-06): unexpected_divergences > 0 in R33_PARITY_CLASSIFICATION.json fails closed", test_f19_unexpected_divergence_in_r33_parity_classification_rejected),
+        ("F20", "R3.3 (P0-04): backtest_source_sha != frozen_executable_sha in R33_BACKTEST_TRADE_LEDGER.jsonl fails closed", test_f20_backtest_trade_ledger_source_sha_mismatch_rejected),
     ]
     import concurrent.futures
     import os

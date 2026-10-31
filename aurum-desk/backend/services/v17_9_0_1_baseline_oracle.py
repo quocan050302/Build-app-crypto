@@ -2283,7 +2283,7 @@ def _build_historical_subprocess_harness_code(
     )
     return (
         "from __future__ import annotations\n"
-        "import hashlib, json, os, sys\n"
+        "import hashlib, json, os, sys, time, uuid\n"
         "from dataclasses import dataclass\n"
         "from pathlib import Path\n"
         "from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple\n"
@@ -2333,6 +2333,7 @@ def _build_historical_subprocess_harness_code(
         + helper_sources
         + "\n\n"
         f"payload = json.loads(Path({repr(str(in_path))}).read_text(encoding='utf-8'))\n"
+        "hist_run_id = str(payload.get('run_id') or os.environ.get('AURUM_TEST_RUN_ID') or f'hist_sub_{os.getpid()}')\n"
         "shadow_svc = m_hist_shadow.MarketShadowService(symbol='XAUUSDT')\n"
         "hist_orch_instance = m_hist_orch.ScalpWatcherOrchestrator()\n"
         "mem_eng = create_engine('sqlite:///:memory:')\n"
@@ -2340,7 +2341,25 @@ def _build_historical_subprocess_harness_code(
         "MemSession = sessionmaker(bind=mem_eng)\n"
         "mem_db = MemSession()\n"
         "orch_cycles_cache = {}\n"
+        "orch_cycle_exec_ids = {}\n"
+        "orch_cycle_events_map = {}\n"
+        "orch_cycle_snap_map = {}\n"
         "shadow_cycles_cache = {}\n"
+        "subprocess_events = []\n"
+        "subprocess_snapshots = []\n"
+        "def _canon_bar_list(blist, limit_n):\n"
+        "    out = []\n"
+        "    for b in (blist or [])[-limit_n:]:\n"
+        "        d = dict(b) if isinstance(b, Mapping) else getattr(b, '__dict__', {})\n"
+        "        out.append({\n"
+        "            'open_time': int(d.get('open_time') or d.get('open_time_ms') or 0),\n"
+        "            'open': round(float(d.get('open') or 0.0), 4),\n"
+        "            'high': round(float(d.get('high') or 0.0), 4),\n"
+        "            'low': round(float(d.get('low') or 0.0), 4),\n"
+        "            'close': round(float(d.get('close') or 0.0), 4),\n"
+        "            'volume': round(float(d.get('volume') or 0.0), 4),\n"
+        "        })\n"
+        "    return out\n"
         "callable_invocation_counts = {\n"
         "    'services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow': 0,\n"
         "    'services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle': 0,\n"
@@ -2410,6 +2429,37 @@ def _build_historical_subprocess_harness_code(
         "    bars_15m, _ = shadow_svc._filter_strict_closed_bars(raw_m15, '15M', ts_ms)\n"
         "    sh_1m, sl_1m = identify_confirmed_swings(bars_1m, timeframe='1M', left_bars=2, right_bars=2, as_of_ms=ts_ms) if len(bars_1m) >= 5 else ([], [])\n"
         "    liq_levels = list(ctx.liquidity_pools)\n"
+        "    liq_floats = sorted([round(float(getattr(lv, 'price', getattr(lv, 'level', lv if isinstance(lv, (int, float)) else 0.0)) or 0.0), 4) for lv in liq_levels])\n"
+        "    last_q_v = round(float(quote_obj.last or ((bid_v + ask_v) / 2.0 if (bid_v > 0 and ask_v > 0) else 0.0)), 4)\n"
+        "    hist_can_in = {\n"
+        "        'symbol': str(ctx.symbol or 'XAUUSDT').upper(),\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'quote': {'bid': round(bid_v, 4), 'ask': round(ask_v, 4), 'last': last_q_v, 'spread': round(spread_v, 4)},\n"
+        "        'swing_high_1m': 0.0,\n"
+        "        'swing_low_1m': 0.0,\n"
+        "        'htf_bias': str(ctx.htf_bias or 'UNKNOWN'),\n"
+        "        'h1_alignment': str(ctx.h1_alignment or 'UNKNOWN'),\n"
+        "        'liquidity_levels': liq_floats,\n"
+        "        'm1_bars': _canon_bar_list(raw_m1, 15),\n"
+        "        'm5_bars': _canon_bar_list(raw_m5, 3),\n"
+        "        'm15_bars': _canon_bar_list(raw_m15, 3),\n"
+        "        'h1_bars': _canon_bar_list(raw_h1, 2),\n"
+        "        'h4_bars': _canon_bar_list(raw_h4, 2),\n"
+        "    }\n"
+        "    hist_can_cfg = {\n"
+        "        'stop_policy': 'UNCORRELATED_STRUCTURAL_V17_8',\n"
+        "        'capital_usdt': 1000.0,\n"
+        "        'risk_pct': 0.0025,\n"
+        "        'max_stop_distance': 15.0,\n"
+        "        'min_stop_distance': 0.5,\n"
+        "        'min_net_rr': round(float(getattr(cfg, 'min_net_rr', 2.0)), 2),\n"
+        "        'slippage_usd': 0.1,\n"
+        "        'maker_fee_rate': 0.0002,\n"
+        "        'taker_fee_rate': 0.0004,\n"
+        "        'unicorn_structural_sl_enabled': True,\n"
+        "    }\n"
+        "    hist_can_in_h = hashlib.sha256(json.dumps(hist_can_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    hist_can_cfg_h = hashlib.sha256(json.dumps(hist_can_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
         "    cache_key = f\"{ts_ms}_{ctx.input_snapshot_hash}\"\n"
         "    if cache_key not in shadow_cycles_cache:\n"
         "        shadow_cycles_cache[cache_key] = shadow_svc.evaluate_shadow_cycle(\n"
@@ -2423,6 +2473,87 @@ def _build_historical_subprocess_harness_code(
         "        )\n"
         "        callable_invocation_counts['services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle'] += 1\n"
         "    if cache_key not in orch_cycles_cache:\n"
+        "        cycle_exec_id = f'hist_cycle_{ts_ms}_{uuid.uuid4().hex[:8]}'\n"
+        "        orch_cycle_exec_ids[cache_key] = cycle_exec_id\n"
+        "        cycle_start_mono = time.monotonic_ns()\n"
+        "        cycle_start_utc = int(time.time() * 1000)\n"
+        "        cycle_raw_in = {'runtime': 'HISTORICAL_PRODUCTION', 'scope': 'CYCLE_EVALUATION', 'timestamp_ms': ts_ms, 'canonical_market_input': hist_can_in}\n"
+        "        cycle_raw_cfg = {'runtime': 'HISTORICAL_PRODUCTION', 'scope': 'CYCLE_EVALUATION', 'canonical_config': hist_can_cfg}\n"
+        "        cycle_raw_in_h = hashlib.sha256(json.dumps(cycle_raw_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "        cycle_raw_cfg_h = hashlib.sha256(json.dumps(cycle_raw_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "        c_evt_start = {\n"
+        "            'event_id': f'evt_start_{cycle_exec_id}',\n"
+        "            'event_type': 'INVOCATION_STARTED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': cycle_start_utc,\n"
+        "            'timestamp_monotonic_ns': cycle_start_mono,\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'arguments_hash': hist_can_in_h,\n"
+        "        }\n"
+        "        cycle_in_mono = time.monotonic_ns()\n"
+        "        c_snap = {\n"
+        "            'schema_version': 'R33_RUNTIME_INPUT_SNAPSHOT_V1',\n"
+        "            'snapshot_id': f'snap_{cycle_exec_id}',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'captured_at_utc_ms': int(time.time() * 1000),\n"
+        "            'captured_at_monotonic_ns': cycle_in_mono,\n"
+        "            'raw_input_payload': cycle_raw_in,\n"
+        "            'canonical_input_payload': hist_can_in,\n"
+        "            'raw_config_payload': cycle_raw_cfg,\n"
+        "            'canonical_config_payload': hist_can_cfg,\n"
+        "            'declared_raw_input_hash': cycle_raw_in_h,\n"
+        "            'declared_canonical_input_hash': hist_can_in_h,\n"
+        "            'declared_raw_config_hash': cycle_raw_cfg_h,\n"
+        "            'declared_canonical_config_hash': hist_can_cfg_h,\n"
+        "        }\n"
+        "        c_evt_in = {\n"
+        "            'event_id': f'evt_input_{cycle_exec_id}',\n"
+        "            'event_type': 'ACTUAL_INPUT_CAPTURED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "            'timestamp_monotonic_ns': cycle_in_mono,\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'snapshot_id': f'snap_{cycle_exec_id}',\n"
+        "            'raw_input_hash': cycle_raw_in_h,\n"
+        "            'canonical_input_hash': hist_can_in_h,\n"
+        "            'raw_config_hash': cycle_raw_cfg_h,\n"
+        "            'canonical_config_hash': hist_can_cfg_h,\n"
+        "        }\n"
+        "        subprocess_events.append(c_evt_start)\n"
+        "        subprocess_events.append(c_evt_in)\n"
+        "        subprocess_snapshots.append(c_snap)\n"
+        "        pre_orch_ns = time.monotonic_ns()\n"
         "        orch_cycles_cache[cache_key] = hist_orch_instance.evaluate_cycle(\n"
         "            db=mem_db,\n"
         "            symbol=ctx.symbol,\n"
@@ -2435,13 +2566,152 @@ def _build_historical_subprocess_harness_code(
         "            config=cfg,\n"
         "            now_ms=ts_ms,\n"
         "        )\n"
+        "        post_orch_ns = time.monotonic_ns()\n"
         "        callable_invocation_counts['services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle'] += 1\n"
+        "        c_evt_done = {\n"
+        "            'event_id': f'evt_done_{cycle_exec_id}',\n"
+        "            'event_type': 'INVOCATION_COMPLETED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "            'timestamp_monotonic_ns': time.monotonic_ns(),\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'output_decision_id': str((orch_cycles_cache[cache_key] or {}).get('armed_order_id') or f'cycle_out_{ts_ms}'),\n"
+        "            'output_status': 'COMPLETED',\n"
+        "            'output_fingerprint': _oracle_hash(orch_cycles_cache[cache_key] or {}),\n"
+        "            'pre_call_monotonic_ns': pre_orch_ns,\n"
+        "            'post_call_monotonic_ns': post_orch_ns,\n"
+        "            'duration_ms': round(max(0.001, (post_orch_ns - pre_orch_ns) / 1_000_000.0), 4),\n"
+        "            'exit_status': 'SUCCESS',\n"
+        "        }\n"
+        "        subprocess_events.append(c_evt_done)\n"
+        "        orch_cycle_events_map[cache_key] = [c_evt_start, c_evt_in, c_evt_done]\n"
+        "        orch_cycle_snap_map[cache_key] = c_snap\n"
+        "    parent_cycle_id = orch_cycle_exec_ids.get(cache_key)\n"
         "    # Invoke the specific original historical model candidate evaluator\n"
         "    zone_obj = ctx.htf_zones[0] if ctx.htf_zones else WatchedZone(\n"
         "        zone_id=f'z_{ts_ms}', symbol=ctx.symbol, zone_type='FVG', timeframe='15M',\n"
         "        direction=req_dir, top=max(0.02, quote_obj.ask + 2.0), bottom=max(0.01, quote_obj.bid - 2.0),\n"
         "        created_at=max(0, ts_ms - 900000), known_at=max(0, ts_ms - 300000),\n"
         "    )\n"
+        "    if model_id == 'SMC_M1_REVERSAL':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_FVG_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_SWEEP_RECLAIM':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    else:\n"
+        "        cand_callable_name = 'services.cg01_engine.evaluate_cg01_candidate'\n"
+        "        cand_mod_name = 'services.cg01_engine'\n"
+        "    scen_id_str = str(sc['scenario_id'])\n"
+        "    hist_exec_id = f'hist_{scen_id_str}_{uuid.uuid4().hex[:8]}'\n"
+        "    hist_raw_in = {\n"
+        "        'runtime': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'model_id': model_id,\n"
+        "        'source_fingerprint': str(ctx.source_fingerprint),\n"
+        "        'canonical_market_input': hist_can_in,\n"
+        "    }\n"
+        "    hist_raw_cfg = {\n"
+        "        'runtime': 'HISTORICAL_PRODUCTION',\n"
+        "        'policy': ctx.policy_config_snapshot,\n"
+        "        'risk': ctx.risk_config_snapshot,\n"
+        "        'cost': ctx.cost_config_snapshot,\n"
+        "        'canonical_config': hist_can_cfg,\n"
+        "    }\n"
+        "    hist_raw_in_h = hashlib.sha256(json.dumps(hist_raw_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    hist_raw_cfg_h = hashlib.sha256(json.dumps(hist_raw_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    # PRE-CALL BOUNDARY INSTRUMENTATION: Emit INVOCATION_STARTED and ACTUAL_INPUT_CAPTURED BEFORE calling historical callable\n"
+        "    hist_start_mono = time.monotonic_ns()\n"
+        "    hist_start_evt = {\n"
+        "        'event_id': f'evt_start_{hist_exec_id}',\n"
+        "        'event_type': 'INVOCATION_STARTED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': hist_start_mono,\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'arguments_hash': hist_can_in_h,\n"
+        "    }\n"
+        "    hist_in_mono = time.monotonic_ns()\n"
+        "    hist_snap_rec = {\n"
+        "        'schema_version': 'R33_RUNTIME_INPUT_SNAPSHOT_V1',\n"
+        "        'snapshot_id': f'snap_{hist_exec_id}',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'captured_at_utc_ms': int(time.time() * 1000),\n"
+        "        'captured_at_monotonic_ns': hist_in_mono,\n"
+        "        'raw_input_payload': hist_raw_in,\n"
+        "        'canonical_input_payload': hist_can_in,\n"
+        "        'raw_config_payload': hist_raw_cfg,\n"
+        "        'canonical_config_payload': hist_can_cfg,\n"
+        "        'declared_raw_input_hash': hist_raw_in_h,\n"
+        "        'declared_canonical_input_hash': hist_can_in_h,\n"
+        "        'declared_raw_config_hash': hist_raw_cfg_h,\n"
+        "        'declared_canonical_config_hash': hist_can_cfg_h,\n"
+        "    }\n"
+        "    hist_in_evt = {\n"
+        "        'event_id': f'evt_input_{hist_exec_id}',\n"
+        "        'event_type': 'ACTUAL_INPUT_CAPTURED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': hist_in_mono,\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'snapshot_id': f'snap_{hist_exec_id}',\n"
+        "        'raw_input_hash': hist_raw_in_h,\n"
+        "        'canonical_input_hash': hist_can_in_h,\n"
+        "        'raw_config_hash': hist_raw_cfg_h,\n"
+        "        'canonical_config_hash': hist_can_cfg_h,\n"
+        "    }\n"
+        "    subprocess_events.append(hist_start_evt)\n"
+        "    subprocess_events.append(hist_in_evt)\n"
+        "    subprocess_snapshots.append(hist_snap_rec)\n"
+        "    pre_cand_ns = time.monotonic_ns()\n"
         "    def _extract_cand_summary(c_obj, is_cg=False):\n"
         "        if c_obj is None:\n"
         "            return {'is_eligible': False, 'reason_code': 'NONE', 'planned_entry': None, 'stop_loss': None, 'take_profit': None, 'candidate_key': None, 'quantity': None, 'net_rr': None, 'anchor_kind': None, 'anchor_id': None, 'invalidation_price': None, 'unicorn_validity': 'NOT_APPLICABLE', 'episode_id': None}\n"
@@ -2706,6 +2976,37 @@ def _build_historical_subprocess_harness_code(
         "    neutral_rec['evidence_fingerprint'] = ev_fp\n"
         "    neutral_rec['policy_fingerprint'] = pol_fp\n"
         "    neutral_rec['decision_fingerprint'] = dec_fp\n"
+        "    post_cand_ns = time.monotonic_ns()\n"
+        "    hist_done_evt = {\n"
+        "        'event_id': f'evt_done_{hist_exec_id}',\n"
+        "        'event_type': 'INVOCATION_COMPLETED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': time.monotonic_ns(),\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'output_decision_id': dec_id,\n"
+        "        'output_status': d_status,\n"
+        "        'output_fingerprint': dec_fp,\n"
+        "        'pre_call_monotonic_ns': pre_cand_ns,\n"
+        "        'post_call_monotonic_ns': post_cand_ns,\n"
+        "        'duration_ms': round(max(0.001, (post_cand_ns - pre_cand_ns) / 1_000_000.0), 4),\n"
+        "        'exit_status': 'SUCCESS',\n"
+        "    }\n"
+        "    subprocess_events.append(hist_done_evt)\n"
+        "    neutral_rec['historical_invocation_events'] = [hist_start_evt, hist_in_evt, hist_done_evt]\n"
+        "    neutral_rec['historical_input_snapshot'] = hist_snap_rec\n"
+        "    neutral_rec['historical_cycle_invocation_events'] = orch_cycle_events_map.get(cache_key, [])\n"
+        "    neutral_rec['historical_cycle_input_snapshot'] = orch_cycle_snap_map.get(cache_key)\n"
         "    results[sc['scenario_id']] = neutral_rec\n"
         f"Path({repr(str(out_path))}).write_text(json.dumps({{\n"
         "    'loaded_modules': loaded_mods,\n"
@@ -2717,6 +3018,8 @@ def _build_historical_subprocess_harness_code(
         "    'callable_invocation_counts': callable_invocation_counts,\n"
         "    'subprocess_pid': os.getpid(),\n"
         "    'forbidden_modules_absent': True,\n"
+        "    'invocation_events': subprocess_events,\n"
+        "    'input_snapshots': subprocess_snapshots,\n"
         "    'decisions': results,\n"
         "}), encoding='utf-8')\n"
     )
@@ -2824,8 +3127,8 @@ def validate_historical_baseline_execution_authority(
     }
 
 
-_ISOLATED_HISTORICAL_DECISION_CACHE: Dict[Tuple[str, str, str, str, bool, str, str], Dict[str, Any]] = {}
-_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE: Dict[str, Dict[str, Any]] = {}
+_ISOLATED_HISTORICAL_DECISION_CACHE: Dict[Tuple[str, str, str, str, str, bool, str, str], Dict[str, Any]] = {}
+_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
 
 def execute_isolated_historical_baseline_scenarios(
@@ -2833,6 +3136,7 @@ def execute_isolated_historical_baseline_scenarios(
     *,
     commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
     prefer_best_direction_default: bool = False,
+    run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     DEF-179012-03 & DEF-179012-F01 (V17.9.0.1.2 Phase B): Executes `scenarios` in a separate Python subprocess
@@ -2841,6 +3145,8 @@ def execute_isolated_historical_baseline_scenarios(
     historical callables (`MarketShadowService`, `ScalpM1ModelService`, `cg01_engine`, `ScalpWatcherOrchestrator`)
     without injecting `IndependentPreRefactorBaselineOracle`.
     """
+    eff_run_id = str(run_id or os.environ.get("AURUM_TEST_RUN_ID") or "default_historical_run").strip()
+    meta_cache_key = (commit_sha, eff_run_id)
     tree_info = materialize_historical_baseline_tree(commit_sha)
     if not tree_info.get("is_valid") or not tree_info.get("extracted_backend_dir"):
         return {
@@ -2852,11 +3158,13 @@ def execute_isolated_historical_baseline_scenarios(
             "current_oracle_source_injected": False,
             "historical_execution_authority": "NONE",
             "decisions_by_scenario": {},
+            "invocation_events": [],
+            "input_snapshots": [],
             "loaded_historical_modules": {},
             "tree_verification": tree_info,
         }
 
-    scenario_keys: List[Tuple[str, Tuple[str, str, str, str, bool, str, str], Dict[str, Any]]] = []
+    scenario_keys: List[Tuple[str, Tuple[str, str, str, str, str, bool, str, str], Dict[str, Any]]] = []
     uncached_items: List[Dict[str, Any]] = []
     for item in scenarios:
         scen_id = str(item["scenario_id"])
@@ -2866,13 +3174,13 @@ def execute_isolated_historical_baseline_scenarios(
         ctx_obj = item["context"]
         in_h = str(getattr(ctx_obj, "input_snapshot_hash", "") or "")
         cfg_h = str(getattr(ctx_obj, "configuration_hash", "") or "")
-        c_key = (commit_sha, scen_id, mid, dir_str, pref_best, in_h, cfg_h)
+        c_key = (eff_run_id, commit_sha, scen_id, mid, dir_str, pref_best, in_h, cfg_h)
         scenario_keys.append((scen_id, c_key, item))
         if c_key not in _ISOLATED_HISTORICAL_DECISION_CACHE:
             uncached_items.append(item)
 
-    if not uncached_items and commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
-        cached_meta = copy.deepcopy(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha])
+    if not uncached_items and meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+        cached_meta = copy.deepcopy(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key])
         cached_meta["decisions_by_scenario"] = {
             scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
             for scen_id, c_key, _ in scenario_keys
@@ -2884,7 +3192,7 @@ def execute_isolated_historical_baseline_scenarios(
     if legacy_runner_dir.exists():
         shutil.rmtree(legacy_runner_dir, ignore_errors=True)
 
-    items_to_run = uncached_items if (commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE and uncached_items) else list(scenarios)
+    items_to_run = uncached_items if (meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE and uncached_items) else list(scenarios)
     serialized_items = []
     for item in items_to_run:
         serialized_items.append(
@@ -2899,7 +3207,7 @@ def execute_isolated_historical_baseline_scenarios(
         )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as in_f:
-        json.dump({"commit_sha": commit_sha, "scenarios": serialized_items}, in_f)
+        json.dump({"commit_sha": commit_sha, "run_id": eff_run_id, "scenarios": serialized_items}, in_f)
         in_path = Path(in_f.name)
     out_path = in_path.with_suffix(".out.json")
     harness_path = in_path.with_suffix(".py")
@@ -2960,6 +3268,8 @@ def execute_isolated_historical_baseline_scenarios(
             "forbidden_modules_absent": bool(sub_out.get("forbidden_modules_absent", True)),
             "loaded_historical_modules": sub_out.get("loaded_modules", {}),
             "historical_file_sha256s": prov_hashes,
+            "invocation_events": sub_out.get("invocation_events", []),
+            "input_snapshots": sub_out.get("input_snapshots", []),
             "decisions_by_scenario": decisions_map,
             "tree_verification": tree_info,
         }
@@ -2976,17 +3286,17 @@ def execute_isolated_historical_baseline_scenarios(
                 if scen_id in decisions_map:
                     _ISOLATED_HISTORICAL_DECISION_CACHE[c_key] = copy.deepcopy(decisions_map[scen_id])
             meta_copy = copy.deepcopy(exec_payload)
-            if commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
-                prev_counts = _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("callable_invocation_counts", {})
+            if meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+                prev_counts = _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key].get("callable_invocation_counts", {})
                 merged_counts = dict(meta_copy.get("callable_invocation_counts", {}))
                 for ck, cv in prev_counts.items():
                     merged_counts[ck] = max(int(merged_counts.get(ck, 0)), int(cv or 0))
                 meta_copy["callable_invocation_counts"] = merged_counts
                 meta_copy["historical_orchestrator_invoked_count"] = max(
                     int(meta_copy.get("historical_orchestrator_invoked_count", 0)),
-                    int(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("historical_orchestrator_invoked_count", 0)),
+                    int(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key].get("historical_orchestrator_invoked_count", 0)),
                 )
-            _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha] = meta_copy
+            _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key] = meta_copy
             exec_payload["decisions_by_scenario"] = {
                 scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
                 for scen_id, c_key, _ in scenario_keys

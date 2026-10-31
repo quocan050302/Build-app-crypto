@@ -4,7 +4,7 @@ AURUM DESK V17.8.0.4 — Authoritative Release Verdict Resolution
 Extracts verdict evaluation into a pure, fail-closed, testable module (V17.7.4 Section 10 & V17.8.0.1 DEF-178-15 & V17.8.0.4 Sections 14 & 22).
 """
 
-from typing import Dict, List, Any, Optional, Sequence, Tuple
+from typing import Dict, List, Any, Mapping, Optional, Sequence, Tuple
 import hashlib
 import json
 import math
@@ -2013,26 +2013,54 @@ def derive_authoritative_acceptance_verdicts(
     }
 
 
+R33_ALLOWED_CALLABLES_BY_RUNTIME: Dict[str, set] = {
+    "HISTORICAL_PRODUCTION": {
+        "services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle",
+        "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate",
+        "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate",
+        "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate",
+        "services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate",
+        "services.cg01_engine.evaluate_cg01_candidate",
+    },
+    "SHARED_STRATEGY_EVALUATOR": {
+        "backend.services.shared_strategy_evaluator.SharedStrategyEvaluator.evaluate_decision",
+        "SharedStrategyEvaluator.evaluate_decision",
+    },
+    "PRODUCTION": {
+        "backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle",
+        "backend.services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot",
+        "ScalpWatcherOrchestrator.evaluate_cycle",
+    },
+    "MARKET_SHADOW": {
+        "backend.services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle",
+        "backend.services.market_shadow_service.MarketShadowService.evaluate_shared_decision_snapshot",
+        "MarketShadowService.evaluate_shadow_cycle",
+    },
+    "CHRONOLOGICAL_BACKTEST": {
+        "backend.services.v17_8_backtest_runner.execute_chronological_backtest_window_for_parity",
+        "v17_8_backtest_runner.execute_chronological_backtest_window_for_parity",
+    },
+}
+
+
 def verify_runtime_input_captures(
     records: Sequence[Dict[str, Any]],
     events: Optional[Sequence[Dict[str, Any]]] = None,
+    *,
+    require_events: bool = False,
+    snapshots: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179013-R31-01 & DEF-179013-R32: Fail-closed validator for runtime input capture records.
+    DEF-179013-R31-01, DEF-179013-R32 & R3.3 (P0-05): Fail-closed validator for runtime input capture records.
     Requires:
     1. Non-empty sequence of captures.
-    2. Every record has valid schema (R31_RUNTIME_CAPTURE_V1 or R32_RUNTIME_CAPTURE_V1).
-    3. Production callable identities verified for all 5 boundaries:
-       - HISTORICAL_PRODUCTION (no MarketShadow or mock)
-       - SHARED_STRATEGY_EVALUATOR (SharedStrategyEvaluator)
-       - PRODUCTION (ScalpWatcherOrchestrator)
-       - MARKET_SHADOW (MarketShadowService)
-       - CHRONOLOGICAL_BACKTEST (v17_8_backtest_runner)
-    4. Each scenario contains all 5 mandatory runtime boundaries.
-    5. Each record has invocation_completed is True.
+    2. Every record has valid schema (R31_RUNTIME_CAPTURE_V1, R32_RUNTIME_CAPTURE_V1, or R33_RUNTIME_CAPTURE_V1).
+    3. Allowlisted production callable identities verified for all 5 boundaries.
+    4. Each scenario contains all 5 mandatory runtime boundaries and consistent cross-runtime canonical input/config hashes.
+    5. Each record has invocation_completed is True and unique execution_id.
     6. Non-empty raw_input_hash and canonical_input_hash.
-    7. If events are provided, cross-validate against INVOCATION_STARTED, ACTUAL_INPUT_CAPTURED,
-       and INVOCATION_COMPLETED (SUCCESS).
+    7. If events are provided (or require_events is True), cross-validates against 1 INVOCATION_STARTED,
+       1 ACTUAL_INPUT_CAPTURED, and 1 INVOCATION_COMPLETED (SUCCESS) with monotonic ordering.
     """
     violations: List[str] = []
     if not records:
@@ -2043,6 +2071,9 @@ def verify_runtime_input_captures(
             "records_count": 0,
         }
 
+    if require_events and not events:
+        violations.append("MISSING_REQUIRED_RUNTIME_INVOCATION_EVENTS")
+
     required_runtimes = {
         "HISTORICAL_PRODUCTION",
         "SHARED_STRATEGY_EVALUATOR",
@@ -2051,25 +2082,40 @@ def verify_runtime_input_captures(
         "CHRONOLOGICAL_BACKTEST",
     }
     runtimes_by_scenario: Dict[str, set] = {}
+    canonical_in_by_scenario: Dict[str, set] = {}
+    canonical_cfg_by_scenario: Dict[str, set] = {}
+    seen_exec_ids: set = set()
 
-    started_by_exec: Dict[str, Dict[str, Any]] = {}
-    input_by_exec: Dict[str, Dict[str, Any]] = {}
-    completed_by_exec: Dict[str, Dict[str, Any]] = {}
+    started_by_exec: Dict[str, List[Dict[str, Any]]] = {}
+    input_by_exec: Dict[str, List[Dict[str, Any]]] = {}
+    completed_by_exec: Dict[str, List[Dict[str, Any]]] = {}
+    failed_by_exec: Dict[str, List[Dict[str, Any]]] = {}
 
     if events:
         for evt in events:
             if not isinstance(evt, dict):
                 continue
             etype = evt.get("event_type")
-            eid = evt.get("execution_id")
+            eid = str(evt.get("execution_id") or "")
             if not eid:
                 continue
             if etype == "INVOCATION_STARTED":
-                started_by_exec[eid] = evt
+                started_by_exec.setdefault(eid, []).append(evt)
             elif etype == "ACTUAL_INPUT_CAPTURED":
-                input_by_exec[eid] = evt
+                input_by_exec.setdefault(eid, []).append(evt)
             elif etype == "INVOCATION_COMPLETED":
-                completed_by_exec[eid] = evt
+                completed_by_exec.setdefault(eid, []).append(evt)
+            elif etype == "INVOCATION_FAILED":
+                failed_by_exec.setdefault(eid, []).append(evt)
+
+    snapshots_by_exec: Dict[str, Dict[str, Any]] = {}
+    if snapshots:
+        for snap in snapshots:
+            if isinstance(snap, dict) and snap.get("execution_id"):
+                snapshots_by_exec[str(snap["execution_id"])] = snap
+                snap_check = verify_r33_runtime_snapshot_hash(snap)
+                if not snap_check["is_valid"]:
+                    violations.extend(snap_check["violations"])
 
     for idx, rec in enumerate(records):
         if not isinstance(rec, dict):
@@ -2083,12 +2129,19 @@ def verify_runtime_input_captures(
         inv_comp = rec.get("invocation_completed")
         raw_in_h = str(rec.get("raw_input_hash") or "")
         canon_in_h = str(rec.get("canonical_input_hash") or "")
+        canon_cfg_h = str(rec.get("canonical_config_hash") or "")
 
         if rt_name:
+            if rt_name in runtimes_by_scenario.get(scen_id, set()):
+                violations.append(f"DUPLICATE_EXECUTION_ID:{scen_id}:{rt_name}")
             runtimes_by_scenario.setdefault(scen_id, set()).add(rt_name)
 
         if not exec_id:
             violations.append(f"MISSING_EXECUTION_ID:{scen_id}:{rt_name}")
+        elif exec_id in seen_exec_ids:
+            violations.append(f"DUPLICATE_EXECUTION_ID:{exec_id}")
+        else:
+            seen_exec_ids.add(exec_id)
 
         if inv_comp is not True:
             violations.append(f"INVOCATION_NOT_COMPLETED:{scen_id}:{rt_name}")
@@ -2098,41 +2151,95 @@ def verify_runtime_input_captures(
 
         if not canon_in_h:
             violations.append(f"MISSING_CANONICAL_INPUT_HASH:{scen_id}:{rt_name}")
+        else:
+            canonical_in_by_scenario.setdefault(scen_id, set()).add(canon_in_h)
 
-        # Check production callable boundaries
+        if canon_cfg_h:
+            canonical_cfg_by_scenario.setdefault(scen_id, set()).add(canon_cfg_h)
+
+        # Check allowlisted production callable boundaries
         if rt_name == "HISTORICAL_PRODUCTION":
             if "marketshadow" in cp.lower():
                 violations.append(f"MISLABELED_CAPTURE_POINT:{scen_id}:{cp}")
+            if cp not in R33_ALLOWED_CALLABLES_BY_RUNTIME["HISTORICAL_PRODUCTION"]:
+                violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
         elif rt_name == "SHARED_STRATEGY_EVALUATOR":
             if "sharedstrategyevaluator" not in cp.lower() and "sharedevaluator" not in cp.lower():
                 violations.append(f"INVALID_SHARED_EVALUATOR_CAPTURE_POINT:{scen_id}:{cp}")
+            if cp not in R33_ALLOWED_CALLABLES_BY_RUNTIME["SHARED_STRATEGY_EVALUATOR"]:
+                violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
         elif rt_name == "PRODUCTION":
             if "scalpwatcherorchestrator" not in cp.lower():
                 violations.append(f"INVALID_PRODUCTION_CAPTURE_POINT:{scen_id}:{cp}")
+            if cp not in R33_ALLOWED_CALLABLES_BY_RUNTIME["PRODUCTION"]:
+                violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
         elif rt_name == "MARKET_SHADOW":
             if "marketshadow" not in cp.lower():
                 violations.append(f"INVALID_MARKET_SHADOW_CAPTURE_POINT:{scen_id}:{cp}")
+            if cp not in R33_ALLOWED_CALLABLES_BY_RUNTIME["MARKET_SHADOW"]:
+                violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
         elif rt_name == "CHRONOLOGICAL_BACKTEST":
             if "backtest" not in cp.lower():
                 violations.append(f"INVALID_BACKTEST_CAPTURE_POINT:{scen_id}:{cp}")
+            if cp not in R33_ALLOWED_CALLABLES_BY_RUNTIME["CHRONOLOGICAL_BACKTEST"]:
+                violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
+        else:
+            violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{scen_id}:{rt_name}:{cp}")
 
         # Cross-validate against live events if events are present
         if events:
-            if exec_id not in started_by_exec:
-                violations.append(f"MISSING_INVOCATION_STARTED_EVENT:{scen_id}:{rt_name}:{exec_id}")
-            if exec_id not in input_by_exec:
-                violations.append(f"MISSING_ACTUAL_INPUT_CAPTURED_EVENT:{scen_id}:{rt_name}:{exec_id}")
-            if exec_id not in completed_by_exec:
-                violations.append(f"MISSING_INVOCATION_COMPLETED_EVENT:{scen_id}:{rt_name}:{exec_id}")
-            elif completed_by_exec[exec_id].get("exit_status") != "SUCCESS":
-                violations.append(f"INVOCATION_EXIT_STATUS_NOT_SUCCESS:{scen_id}:{rt_name}:{exec_id}")
+            st_list = started_by_exec.get(exec_id, [])
+            in_list = input_by_exec.get(exec_id, [])
+            cp_list = completed_by_exec.get(exec_id, [])
+            fl_list = failed_by_exec.get(exec_id, [])
 
-    # Check that each scenario has all 5 runtimes
+            if len(st_list) == 0:
+                violations.append(f"MISSING_INVOCATION_STARTED_EVENT:{scen_id}:{rt_name}:{exec_id}")
+            elif len(st_list) > 1:
+                violations.append(f"DUPLICATE_EXECUTION_ID:{exec_id}:MULTIPLE_STARTS")
+
+            if len(in_list) == 0:
+                violations.append(f"MISSING_ACTUAL_INPUT_CAPTURED_EVENT:{scen_id}:{rt_name}:{exec_id}")
+            elif len(in_list) > 1:
+                violations.append(f"DUPLICATE_EXECUTION_ID:{exec_id}:MULTIPLE_INPUTS")
+
+            if len(fl_list) > 0:
+                violations.append(f"FAILED_INVOCATION_MARKED_SUCCESS:{scen_id}:{rt_name}:{exec_id}")
+
+            if len(cp_list) == 0:
+                violations.append(f"MISSING_INVOCATION_COMPLETED_EVENT:{scen_id}:{rt_name}:{exec_id}")
+            elif len(cp_list) > 1:
+                violations.append(f"DUPLICATE_EXECUTION_ID:{exec_id}:MULTIPLE_COMPLETES")
+            else:
+                comp_evt = cp_list[0]
+                if comp_evt.get("exit_status") != "SUCCESS":
+                    violations.append(f"INVOCATION_EXIT_STATUS_NOT_SUCCESS:{scen_id}:{rt_name}:{exec_id}")
+                if st_list and in_list:
+                    m_st = int(st_list[0].get("timestamp_monotonic_ns") or 0)
+                    m_in = int(in_list[0].get("timestamp_monotonic_ns") or 0)
+                    m_cp = int(comp_evt.get("timestamp_monotonic_ns") or 0)
+                    pre_ns = comp_evt.get("pre_call_monotonic_ns")
+                    post_ns = comp_evt.get("post_call_monotonic_ns")
+                    mono_ok = (m_st <= m_in <= m_cp)
+                    if pre_ns is not None:
+                        mono_ok = mono_ok and (m_st <= int(pre_ns)) and (m_in <= int(pre_ns))
+                    if post_ns is not None:
+                        mono_ok = mono_ok and (int(post_ns) <= m_cp)
+                    if pre_ns is not None and post_ns is not None:
+                        mono_ok = mono_ok and (int(pre_ns) <= int(post_ns))
+                    if not mono_ok:
+                        violations.append(f"NON_MONOTONIC_INVOCATION_TIMESTAMPS:{scen_id}:{rt_name}:{exec_id}")
+
+    # Check that each scenario has all 5 runtimes and matching cross-runtime canonical hashes
     for scen_id, found_runtimes in runtimes_by_scenario.items():
         missing = required_runtimes - found_runtimes
         if missing:
             for m in sorted(list(missing)):
                 violations.append(f"MISSING_RUNTIME_CAPTURE:{scen_id}:{m}")
+        if len(canonical_in_by_scenario.get(scen_id, set())) > 1:
+            violations.append(f"CROSS_RUNTIME_CANONICAL_INPUT_HASH_MISMATCH:{scen_id}")
+        if len(canonical_cfg_by_scenario.get(scen_id, set())) > 1:
+            violations.append(f"CROSS_RUNTIME_CANONICAL_CONFIG_HASH_MISMATCH:{scen_id}")
 
     return {
         "status": "PASS" if not violations else "FAIL",
@@ -2241,18 +2348,623 @@ R32_MANDATORY_ARTIFACTS = [
     "R32_FINAL_ACCEPTANCE_AUDIT.md",
 ]
 
+R33_MANDATORY_ARTIFACTS = [
+    "R33_RUN_MANIFEST.json",
+    "R33_DEFECT_ROOT_CAUSE_MATRIX.md",
+    "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl",
+    "R33_RUNTIME_INVOCATION_EVENTS.jsonl",
+    "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl",
+    "R33_RUNTIME_INPUT_CAPTURES.jsonl",
+    "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json",
+    "R33_FIVE_WAY_PARITY.json",
+    "R33_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
+    "R33_PARITY_CLASSIFICATION.json",
+    "R33_NEGATIVE_TEST_COLLECTION.json",
+    "R33_NEGATIVE_TEST_RESULTS.json",
+    "R33_WORKER_EXECUTIONS.jsonl",
+    "R33_RUN_TASK_ACCOUNTING.json",
+    "R33_JUNIT_RECONCILIATION.json",
+    "R33_ASYNC_RESOURCE_TELEMETRY.json",
+    "R33_DISK_GUARD.json",
+    "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json",
+    "R33_BACKTEST_TRADE_LEDGER.jsonl",
+    "R33_BACKTEST_A_B_C_D_METRICS.json",
+    "R33_MATCHED_COHORT.json",
+    "R33_OOS_REPORT.json",
+    "R33_ARTIFACT_SHA256_MANIFEST.json",
+    "R33_INDEPENDENT_VERIFIER_REPORT.json",
+    "R33_FINAL_ACCEPTANCE_AUDIT.md",
+]
+
+
+def _compute_r33_payload_sha256(payload: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def verify_r33_runtime_snapshot_hash(snapshot_rec: Mapping[str, Any]) -> Dict[str, Any]:
+    """
+    R3.3 Phase 3 (F10, F12, F13): Independently recomputes raw and canonical input/config
+    hashes from the persisted `R33_RUNTIME_INPUT_SNAPSHOT_V1` payload. Fails closed if any
+    payload field was mutated without updating the declared hash or if `raw_input_payload`
+    disagrees with `canonical_input_payload`.
+    """
+    violations: List[str] = []
+    if not isinstance(snapshot_rec, Mapping) or not snapshot_rec:
+        return {
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": ["EMPTY_RUNTIME_INPUT_SNAPSHOT"],
+        }
+
+    exec_id = str(snapshot_rec.get("execution_id") or "unknown")
+    raw_in = snapshot_rec.get("raw_input_payload")
+    can_in = snapshot_rec.get("canonical_input_payload")
+    raw_cfg = snapshot_rec.get("raw_config_payload")
+    can_cfg = snapshot_rec.get("canonical_config_payload")
+
+    decl_raw_in_h = str(snapshot_rec.get("declared_raw_input_hash") or "").strip()
+    decl_can_in_h = str(snapshot_rec.get("declared_canonical_input_hash") or "").strip()
+    decl_raw_cfg_h = str(snapshot_rec.get("declared_raw_config_hash") or "").strip()
+    decl_can_cfg_h = str(snapshot_rec.get("declared_canonical_config_hash") or "").strip()
+
+    if raw_in is None or can_in is None or raw_cfg is None or can_cfg is None:
+        violations.append(f"MISSING_SNAPSHOT_PAYLOAD:{exec_id}")
+        return {
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": violations,
+        }
+
+    comp_raw_in_h = _compute_r33_payload_sha256(raw_in)
+    comp_can_in_h = _compute_r33_payload_sha256(can_in)
+    comp_raw_cfg_h = _compute_r33_payload_sha256(raw_cfg)
+    comp_can_cfg_h = _compute_r33_payload_sha256(can_cfg)
+
+    if not decl_raw_in_h or decl_raw_in_h != comp_raw_in_h:
+        violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:raw_input:{exec_id}:{decl_raw_in_h}!={comp_raw_in_h}")
+    if not decl_can_in_h or decl_can_in_h != comp_can_in_h:
+        violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:canonical_input:{exec_id}:{decl_can_in_h}!={comp_can_in_h}")
+    if not decl_raw_cfg_h or decl_raw_cfg_h != comp_raw_cfg_h:
+        violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:raw_config:{exec_id}:{decl_raw_cfg_h}!={comp_raw_cfg_h}")
+    if not decl_can_cfg_h or decl_can_cfg_h != comp_can_cfg_h:
+        violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:canonical_config:{exec_id}:{decl_can_cfg_h}!={comp_can_cfg_h}")
+
+    if isinstance(raw_in, Mapping) and "canonical_market_input" in raw_in:
+        if _compute_r33_payload_sha256(raw_in["canonical_market_input"]) != comp_can_in_h:
+            violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:raw_vs_canonical_input:{exec_id}")
+    if isinstance(raw_cfg, Mapping) and "canonical_config" in raw_cfg:
+        if _compute_r33_payload_sha256(raw_cfg["canonical_config"]) != comp_can_cfg_h:
+            violations.append(f"SNAPSHOT_HASH_RECOMPUTATION_MISMATCH:raw_vs_canonical_config:{exec_id}")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "execution_id": exec_id,
+        "recomputed_raw_input_hash": comp_raw_in_h,
+        "recomputed_canonical_input_hash": comp_can_in_h,
+        "recomputed_raw_config_hash": comp_raw_cfg_h,
+        "recomputed_canonical_config_hash": comp_can_cfg_h,
+        "violations": violations,
+    }
+
+
+def reconcile_r33_runtime_captures(
+    *,
+    events: Sequence[Mapping[str, Any]],
+    snapshots: Sequence[Mapping[str, Any]],
+    captures: Sequence[Mapping[str, Any]],
+    expected_run_id: Optional[str] = None,
+    expected_frozen_sha: Optional[str] = None,
+    expected_historical_sha: str = "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+) -> Dict[str, Any]:
+    """
+    R3.3 Phase 3 (P0-05, P0-06, P0-07, F06–F13): Independently verifies and reconciles
+    all runtime invocation events, persisted snapshots, and runtime input captures.
+    Never returns hardcoded constants.
+    """
+    violations: List[str] = []
+    if not events or not snapshots or not captures:
+        violations.append("EMPTY_R33_RUNTIME_EVENTS_SNAPSHOTS_OR_CAPTURES")
+
+    snapshots_by_exec: Dict[str, Mapping[str, Any]] = {}
+    snapshots_verified_count = 0
+    for s in snapshots:
+        if not isinstance(s, Mapping):
+            violations.append("INVALID_SNAPSHOT_RECORD_FORMAT")
+            continue
+        eid = str(s.get("execution_id") or "")
+        if not eid:
+            violations.append("SNAPSHOT_MISSING_EXECUTION_ID")
+            continue
+        if eid in snapshots_by_exec:
+            violations.append(f"DUPLICATE_EXECUTION_ID:snapshot:{eid}")
+        snapshots_by_exec[eid] = s
+        s_res = verify_r33_runtime_snapshot_hash(s)
+        if s_res["is_valid"]:
+            snapshots_verified_count += 1
+        else:
+            violations.extend(s_res["violations"])
+
+    events_by_exec: Dict[str, List[Mapping[str, Any]]] = {}
+    for evt in events:
+        if not isinstance(evt, Mapping):
+            violations.append("INVALID_EVENT_RECORD_FORMAT")
+            continue
+        eid = str(evt.get("execution_id") or "")
+        if not eid:
+            violations.append("EVENT_MISSING_EXECUTION_ID")
+            continue
+        events_by_exec.setdefault(eid, []).append(evt)
+        ev_run_id = str(evt.get("run_id") or "").strip()
+        if expected_run_id and ev_run_id != expected_run_id.strip():
+            violations.append(f"EVENT_RUN_ID_MISMATCH:{eid}:{ev_run_id}!={expected_run_id}")
+        rt_name = str(evt.get("runtime_name") or "")
+        ev_sha = str(evt.get("source_sha") or "").strip()
+        if rt_name == "HISTORICAL_PRODUCTION":
+            if ev_sha != expected_historical_sha:
+                violations.append(f"HISTORICAL_EVENT_SOURCE_SHA_MISMATCH:{eid}:{ev_sha}!={expected_historical_sha}")
+        elif expected_frozen_sha and ev_sha != expected_frozen_sha.strip():
+            violations.append(f"EVENT_SOURCE_SHA_MISMATCH:{eid}:{ev_sha}!={expected_frozen_sha}")
+
+    cycle_exec_ids_by_runtime_ts: Dict[Tuple[str, int], str] = {}
+    cycle_invocations_count = 0
+    model_evaluations_count = 0
+    uncompleted_invocations_count = 0
+    non_monotonic_invocations_count = 0
+    disallowed_callables_count = 0
+
+    for eid, ev_list in events_by_exec.items():
+        starts = [e for e in ev_list if e.get("event_type") == "INVOCATION_STARTED"]
+        inputs = [e for e in ev_list if e.get("event_type") == "ACTUAL_INPUT_CAPTURED"]
+        completes = [e for e in ev_list if e.get("event_type") == "INVOCATION_COMPLETED"]
+        fails = [e for e in ev_list if e.get("event_type") == "INVOCATION_FAILED"]
+
+        if len(starts) != 1:
+            violations.append(f"DUPLICATE_EXECUTION_ID:{eid}:starts={len(starts)}" if len(starts) > 1 else f"MISSING_INVOCATION_STARTED_EVENT:{eid}")
+        if len(inputs) != 1:
+            violations.append(f"DUPLICATE_EXECUTION_ID:{eid}:inputs={len(inputs)}" if len(inputs) > 1 else f"MISSING_ACTUAL_INPUT_CAPTURED_EVENT:{eid}")
+        if len(fails) > 0:
+            uncompleted_invocations_count += 1
+            violations.append(f"FAILED_INVOCATION_PRESENT:{eid}")
+        if len(completes) != 1:
+            uncompleted_invocations_count += 1
+            violations.append(f"DUPLICATE_EXECUTION_ID:{eid}:completes={len(completes)}" if len(completes) > 1 else f"MISSING_INVOCATION_COMPLETED_EVENT:{eid}")
+            continue
+
+        if not (starts and inputs and completes):
+            continue
+
+        st_e = starts[0]
+        in_e = inputs[0]
+        cp_e = completes[0]
+        scope = str(st_e.get("invocation_scope") or "MODEL_EVALUATION")
+        rt_name = str(st_e.get("runtime_name") or "")
+        cal_id = str(st_e.get("callable_identity") or "")
+        ts_ms = int(st_e.get("decision_timestamp_ms") or 0)
+
+        if scope == "CYCLE_EVALUATION":
+            cycle_invocations_count += 1
+            cycle_exec_ids_by_runtime_ts[(rt_name, ts_ms)] = eid
+        else:
+            model_evaluations_count += 1
+
+        if cp_e.get("exit_status") != "SUCCESS":
+            uncompleted_invocations_count += 1
+            violations.append(f"INVOCATION_EXIT_STATUS_NOT_SUCCESS:{eid}")
+
+        allowed_set = R33_ALLOWED_CALLABLES_BY_RUNTIME.get(rt_name, set())
+        if cal_id not in allowed_set:
+            disallowed_callables_count += 1
+            violations.append(f"DISALLOWED_CALLABLE_IDENTITY:{eid}:{rt_name}:{cal_id}")
+
+        m_st = int(st_e.get("timestamp_monotonic_ns") or 0)
+        m_in = int(in_e.get("timestamp_monotonic_ns") or 0)
+        m_cp = int(cp_e.get("timestamp_monotonic_ns") or 0)
+        pre_ns = cp_e.get("pre_call_monotonic_ns")
+        post_ns = cp_e.get("post_call_monotonic_ns")
+        mono_ok = (m_st <= m_in <= m_cp)
+        if pre_ns is not None:
+            mono_ok = mono_ok and (m_st <= int(pre_ns)) and (m_in <= int(pre_ns))
+        if post_ns is not None:
+            mono_ok = mono_ok and (int(post_ns) <= m_cp)
+        if pre_ns is not None and post_ns is not None:
+            mono_ok = mono_ok and (int(pre_ns) <= int(post_ns))
+        if not mono_ok:
+            non_monotonic_invocations_count += 1
+            violations.append(f"NON_MONOTONIC_INVOCATION_TIMESTAMPS:{eid}")
+
+        snap_rec = snapshots_by_exec.get(eid)
+        if not snap_rec:
+            violations.append(f"MISSING_RUNTIME_INPUT_SNAPSHOT:{eid}")
+        else:
+            if str(in_e.get("raw_input_hash") or "") != str(snap_rec.get("declared_raw_input_hash") or ""):
+                violations.append(f"EVENT_SNAPSHOT_RAW_INPUT_HASH_MISMATCH:{eid}")
+            if str(in_e.get("canonical_input_hash") or "") != str(snap_rec.get("declared_canonical_input_hash") or ""):
+                violations.append(f"EVENT_SNAPSHOT_CANONICAL_INPUT_HASH_MISMATCH:{eid}")
+            if str(in_e.get("raw_config_hash") or "") != str(snap_rec.get("declared_raw_config_hash") or ""):
+                violations.append(f"EVENT_SNAPSHOT_RAW_CONFIG_HASH_MISMATCH:{eid}")
+            if str(in_e.get("canonical_config_hash") or "") != str(snap_rec.get("declared_canonical_config_hash") or ""):
+                violations.append(f"EVENT_SNAPSHOT_CANONICAL_CONFIG_HASH_MISMATCH:{eid}")
+
+    # Verify parent cycle linkage for MODEL_EVALUATION in HISTORICAL_PRODUCTION, PRODUCTION, MARKET_SHADOW
+    for eid, ev_list in events_by_exec.items():
+        starts = [e for e in ev_list if e.get("event_type") == "INVOCATION_STARTED"]
+        if not starts:
+            continue
+        st_e = starts[0]
+        scope = str(st_e.get("invocation_scope") or "MODEL_EVALUATION")
+        rt_name = str(st_e.get("runtime_name") or "")
+        ts_ms = int(st_e.get("decision_timestamp_ms") or 0)
+        if scope == "MODEL_EVALUATION" and rt_name in ("HISTORICAL_PRODUCTION", "PRODUCTION", "MARKET_SHADOW"):
+            parent_id = st_e.get("parent_cycle_invocation_id")
+            expected_parent = cycle_exec_ids_by_runtime_ts.get((rt_name, ts_ms))
+            if not parent_id or (expected_parent and parent_id != expected_parent):
+                violations.append(f"INVALID_PARENT_CYCLE_INVOCATION_LINK:{eid}:{parent_id}!={expected_parent}")
+
+    cap_res = verify_runtime_input_captures(
+        [dict(c) for c in captures],
+        events=[dict(e) for e in events],
+        require_events=True,
+        snapshots=[dict(s) for s in snapshots],
+    )
+    if not cap_res["is_valid"]:
+        violations.extend(cap_res["violations"])
+
+    missing_boundaries = [v for v in violations if v.startswith("MISSING_RUNTIME_CAPTURE:")]
+    invalid_schema_count = sum(1 for v in violations if v.startswith("INVALID_"))
+    in_hash_mismatch_count = sum(1 for v in violations if v.startswith("CROSS_RUNTIME_CANONICAL_INPUT_HASH_MISMATCH:"))
+    cfg_hash_mismatch_count = sum(1 for v in violations if v.startswith("CROSS_RUNTIME_CANONICAL_CONFIG_HASH_MISMATCH:"))
+
+    unique_timestamps = {int(c.get("decision_timestamp_ms") or 0) for c in captures if isinstance(c, Mapping) and c.get("decision_timestamp_ms")}
+    unique_scenarios = {str(c.get("scenario_id") or "") for c in captures if isinstance(c, Mapping) and c.get("scenario_id")}
+
+    dedup_violations = list(dict.fromkeys(violations))
+    is_valid = len(dedup_violations) == 0 and len(captures) > 0
+
+    return {
+        "schema_version": "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION_V1",
+        "run_id": expected_run_id or (str(captures[0].get("run_id")) if captures else ""),
+        "tested_source_sha": expected_frozen_sha or "",
+        "historical_baseline_sha": expected_historical_sha,
+        "timestamps_evaluated_count": len(unique_timestamps),
+        "cycle_invocations_count": cycle_invocations_count,
+        "model_scenarios_count": len(unique_scenarios),
+        "model_evaluations_count": model_evaluations_count,
+        "runtime_captures_count": len(captures),
+        "snapshots_count": len(snapshots),
+        "events_count": len(events),
+        "snapshots_hash_recomputed_verified_count": snapshots_verified_count,
+        "missing_runtime_boundaries": missing_boundaries,
+        "invalid_schema_records_count": invalid_schema_count,
+        "uncompleted_invocations_count": uncompleted_invocations_count,
+        "non_monotonic_invocations_count": non_monotonic_invocations_count,
+        "disallowed_callables_count": disallowed_callables_count,
+        "cross_runtime_input_hash_mismatches_count": in_hash_mismatch_count,
+        "cross_runtime_config_hash_mismatches_count": cfg_hash_mismatch_count,
+        "violations": dedup_violations,
+        "is_valid": is_valid,
+        "status": "PASS" if is_valid else "FAIL",
+    }
+
+
+def verify_r33_evidence_bundle(
+    run_dir: Path,
+    expected_code_sha: str,
+    *,
+    expected_run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    R3.3 Phase 4 (P0-03, P0-04, P0-05, P0-06, P0-07, P0-08, F01–F20):
+    Fail-closed independent verifier for an R3.3 run directory.
+    Rejects empty directories, missing files, missing/mismatched SHAs or run IDs,
+    post-hoc or non-monotonic runtime events, mutated snapshots, stale JUnit XMLs,
+    masked worker failures, concurrency bound violations, missing negative controls,
+    unexpected parity divergences, and backtest ledger SHA mismatches.
+    """
+    violations: List[str] = []
+    run_dir = Path(run_dir)
+    clean_expected_sha = str(expected_code_sha or "").strip()
+    if not clean_expected_sha:
+        violations.append("R33_MISSING_EXPECTED_CODE_SHA")
+
+    if not run_dir.exists() or not run_dir.is_dir():
+        return {
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": ["R33_EMPTY_OR_MISSING_EVIDENCE_DIRECTORY"],
+            "recalculated_verdict": "BLOCKED_BY_EMPTY_OR_MISSING_DIRECTORY",
+        }
+
+    existing_files = [f for f in run_dir.iterdir() if f.is_file()]
+    if not existing_files:
+        return {
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": ["R33_EMPTY_OR_MISSING_EVIDENCE_DIRECTORY"],
+            "recalculated_verdict": "BLOCKED_BY_EMPTY_OR_MISSING_DIRECTORY",
+        }
+
+    loaded_json: Dict[str, Any] = {}
+    loaded_jsonl: Dict[str, List[Dict[str, Any]]] = {}
+
+    for req_file in R33_MANDATORY_ARTIFACTS:
+        fpath = run_dir / req_file
+        if not fpath.exists():
+            violations.append(f"MISSING_MANDATORY_ARTIFACT:{req_file}")
+        elif fpath.stat().st_size == 0:
+            violations.append(f"EMPTY_MANDATORY_ARTIFACT:{req_file}")
+        elif req_file.endswith(".json"):
+            try:
+                doc = json.loads(fpath.read_text(encoding="utf-8"))
+                if isinstance(doc, dict) and len(doc) == 0:
+                    violations.append(f"EMPTY_MANDATORY_ARTIFACT:{req_file}")
+                loaded_json[req_file] = doc
+            except Exception as exc:
+                violations.append(f"CORRUPT_JSON_ARTIFACT:{req_file}:{exc}")
+        elif req_file.endswith(".jsonl"):
+            lines = [ln.strip() for ln in fpath.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            if not lines:
+                violations.append(f"EMPTY_MANDATORY_ARTIFACT:{req_file}")
+            else:
+                parsed_rows: List[Dict[str, Any]] = []
+                for idx, ln in enumerate(lines):
+                    try:
+                        parsed_rows.append(json.loads(ln))
+                    except Exception as exc:
+                        violations.append(f"CORRUPT_JSONL_LINE:{req_file}:{idx}:{exc}")
+                loaded_jsonl[req_file] = parsed_rows
+
+    # 1. Validate R33_RUN_MANIFEST.json (F01)
+    manifest = loaded_json.get("R33_RUN_MANIFEST.json") or {}
+    manifest_run_id = str(manifest.get("run_id") or "").strip()
+    if not manifest_run_id:
+        violations.append("R33_RUN_MANIFEST_MISSING_RUN_ID")
+    elif expected_run_id and manifest_run_id != expected_run_id.strip():
+        violations.append(f"R33_RUN_MANIFEST_RUN_ID_MISMATCH:{manifest_run_id}!={expected_run_id}")
+
+    for sha_field in ("frozen_executable_sha", "final_code_sha", "tested_source_sha", "backtest_source_sha"):
+        val = str(manifest.get(sha_field) or "").strip()
+        if not val:
+            violations.append(f"R33_RUN_MANIFEST_MISSING_REQUIRED_SHA:{sha_field}")
+        elif clean_expected_sha and val != clean_expected_sha:
+            violations.append(f"R33_RUN_MANIFEST_SHA_MISMATCH:{sha_field}:{val}!={clean_expected_sha}")
+
+    # 2. Check all JSON documents for run_id and SHA consistency, plus nested fields (F02, F03, F04, F05, F17)
+    def _inspect_nested_provenance(doc_name: str, obj: Any) -> None:
+        if not isinstance(obj, Mapping):
+            return
+        for k_sha in ("source_sha", "tested_source_sha", "final_code_sha", "backtest_source_sha", "frozen_executable_sha"):
+            if k_sha in obj and obj[k_sha] is not None:
+                v_sha = str(obj[k_sha]).strip()
+                if not v_sha or (clean_expected_sha and v_sha != clean_expected_sha):
+                    violations.append(f"NESTED_ACCEPTANCE_SOURCE_SHA_MISMATCH:{doc_name}:{k_sha}:{v_sha}!={clean_expected_sha}")
+
+        if "concurrency_report" in obj and isinstance(obj["concurrency_report"], Mapping):
+            cr = obj["concurrency_report"]
+            cr_sha = str(cr.get("tested_source_sha") or cr.get("source_sha") or "").strip()
+            if not cr_sha or (clean_expected_sha and cr_sha != clean_expected_sha):
+                violations.append(f"CONCURRENCY_REPORT_SOURCE_SHA_MISMATCH:{doc_name}:{cr_sha}!={clean_expected_sha}")
+            max_obs = int(cr.get("max_active_workers_observed") or cr.get("peak_concurrent_workers") or 0)
+            max_cfg = int(cr.get("max_configured_workers") or cr.get("configured_max_workers") or 4)
+            if max_obs > max_cfg:
+                violations.append(f"CONCURRENCY_BOUND_EXCEEDED:{doc_name}:{max_obs}>{max_cfg}")
+
+        if "cpu_memory_metrics" in obj and isinstance(obj["cpu_memory_metrics"], Mapping):
+            cm = obj["cpu_memory_metrics"]
+            cm_run = str(cm.get("run_id") or "").strip()
+            if manifest_run_id and (not cm_run or cm_run != manifest_run_id):
+                violations.append(f"CPU_MEMORY_METRICS_RUN_ID_MISMATCH:{doc_name}:{cm_run}!={manifest_run_id}")
+
+        if "parity_summary" in obj and isinstance(obj["parity_summary"], Mapping):
+            ps = obj["parity_summary"]
+            ps_run = str(ps.get("run_id") or "").strip()
+            if manifest_run_id and (not ps_run or ps_run != manifest_run_id):
+                violations.append(f"PARITY_SUMMARY_RUN_ID_MISMATCH:{doc_name}:{ps_run}!={manifest_run_id}")
+
+        if "max_active_workers_observed" in obj and "max_configured_workers" in obj:
+            if int(obj.get("max_active_workers_observed") or 0) > int(obj.get("max_configured_workers") or 4):
+                violations.append(
+                    f"CONCURRENCY_BOUND_EXCEEDED:{doc_name}:{obj.get('max_active_workers_observed')}>{obj.get('max_configured_workers')}"
+                )
+
+    for doc_name, doc_obj in loaded_json.items():
+        if isinstance(doc_obj, Mapping):
+            d_run = str(doc_obj.get("run_id") or "").strip()
+            if manifest_run_id and d_run and d_run != manifest_run_id:
+                violations.append(f"RUN_ID_MISMATCH:{doc_name}:{d_run}!={manifest_run_id}")
+            _inspect_nested_provenance(doc_name, doc_obj)
+
+    for extra_acc in ("acceptance_results.json", "ACCEPTANCE_GATE_RESULTS.json"):
+        acc_p = run_dir / extra_acc
+        if acc_p.exists():
+            try:
+                acc_doc = json.loads(acc_p.read_text(encoding="utf-8"))
+                _inspect_nested_provenance(extra_acc, acc_doc)
+            except Exception as exc:
+                violations.append(f"CORRUPT_JSON_ARTIFACT:{extra_acc}:{exc}")
+
+    # 3. Verify Runtime Invocation Events, Snapshots, and Captures (F06–F13)
+    r33_events = loaded_jsonl.get("R33_RUNTIME_INVOCATION_EVENTS.jsonl", [])
+    r33_snapshots = loaded_jsonl.get("R33_RUNTIME_INPUT_SNAPSHOTS.jsonl", [])
+    r33_captures = loaded_jsonl.get("R33_RUNTIME_INPUT_CAPTURES.jsonl", [])
+    recomp_rt_verif = reconcile_r33_runtime_captures(
+        events=r33_events,
+        snapshots=r33_snapshots,
+        captures=r33_captures,
+        expected_run_id=manifest_run_id or None,
+        expected_frozen_sha=clean_expected_sha or None,
+    )
+    if not recomp_rt_verif["is_valid"]:
+        violations.extend(recomp_rt_verif["violations"])
+
+    persisted_rt_verif = loaded_json.get("R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json") or {}
+    if str(persisted_rt_verif.get("status") or "").upper() != "PASS" or not bool(persisted_rt_verif.get("is_valid", False)):
+        violations.append("R33_RUNTIME_CAPTURE_VERIFICATION_REPORT_NOT_PASS")
+
+    # 4. Verify Negative Controls Collection & Results (F14)
+    neg_coll = loaded_json.get("R33_NEGATIVE_TEST_COLLECTION.json") or {}
+    neg_res = loaded_json.get("R33_NEGATIVE_TEST_RESULTS.json") or {}
+    collected_ids = set(neg_coll.get("collected_control_ids") or [])
+    executed_results = neg_res.get("results") or []
+    executed_ids = {str(r.get("control_id") or r.get("test_id") or "") for r in executed_results if isinstance(r, Mapping)}
+    mandatory_neg_ids = {f"N{i:02d}" for i in range(1, 149)} | {f"F{i:02d}" for i in range(1, 21)}
+    for req_nid in sorted(mandatory_neg_ids):
+        if req_nid not in collected_ids or req_nid not in executed_ids:
+            violations.append(f"MISSING_MANDATORY_NEGATIVE_CONTROL_ID:{req_nid}")
+    if int(neg_res.get("failed_negative_controls", 0) or 0) > 0:
+        violations.append(f"NEGATIVE_CONTROLS_FAILED:{neg_res.get('failed_negative_controls')}")
+    for r in executed_results:
+        if isinstance(r, Mapping) and str(r.get("status") or "").upper() != "PASS":
+            violations.append(f"NEGATIVE_CONTROL_NOT_PASS:{r.get('control_id') or r.get('test_id')}")
+
+    # 5. Verify JUnit XMLs and sidecars (F15)
+    junit_rec = loaded_json.get("R33_JUNIT_RECONCILIATION.json") or {}
+    reports_dir = run_dir / "reports"
+    if not reports_dir.exists() and isinstance(manifest, Mapping) and manifest.get("run_directory"):
+        alt_rep = Path(__file__).resolve().parents[1] / str(manifest["run_directory"]) / "reports"
+        if alt_rep.exists():
+            reports_dir = alt_rep
+    xml_files = sorted(reports_dir.glob("*.xml")) if reports_dir.exists() else []
+    if not xml_files:
+        violations.append("JUNIT_SIDECAR_PROVENANCE_MISMATCH:NO_XML_FILES_IN_REPORTS_DIR")
+    for xml_p in xml_files:
+        sidecar_p = xml_p.with_suffix(".xml.meta.json")
+        if not sidecar_p.exists():
+            violations.append(f"JUNIT_SIDECAR_PROVENANCE_MISMATCH:MISSING_SIDECAR:{xml_p.name}")
+            continue
+        try:
+            sc_doc = json.loads(sidecar_p.read_text(encoding="utf-8"))
+            sc_run = str(sc_doc.get("run_id") or "").strip()
+            sc_sha = str(sc_doc.get("tested_source_sha") or "").strip()
+            sc_xml_sha = str(sc_doc.get("xml_sha256") or "").strip()
+            actual_xml_sha = hashlib.sha256(xml_p.read_bytes()).hexdigest()
+            if manifest_run_id and sc_run != manifest_run_id:
+                violations.append(f"JUNIT_SIDECAR_PROVENANCE_MISMATCH:RUN_ID:{xml_p.name}:{sc_run}!={manifest_run_id}")
+            if clean_expected_sha and sc_sha != clean_expected_sha:
+                violations.append(f"JUNIT_SIDECAR_PROVENANCE_MISMATCH:SOURCE_SHA:{xml_p.name}:{sc_sha}!={clean_expected_sha}")
+            if not sc_xml_sha or sc_xml_sha != actual_xml_sha:
+                violations.append(f"JUNIT_SIDECAR_PROVENANCE_MISMATCH:XML_SHA256:{xml_p.name}")
+        except Exception as exc:
+            violations.append(f"JUNIT_SIDECAR_PROVENANCE_MISMATCH:CORRUPT_SIDECAR:{xml_p.name}:{exc}")
+    if int(junit_rec.get("total_failures", 0) or 0) > 0 or int(junit_rec.get("total_errors", 0) or 0) > 0:
+        violations.append("JUNIT_RECONCILIATION_HAS_FAILURES_OR_ERRORS")
+
+    # 6. Verify Worker Executions & Task Accounting (F16, F17)
+    worker_rows = loaded_jsonl.get("R33_WORKER_EXECUTIONS.jsonl", [])
+    task_acc = loaded_json.get("R33_RUN_TASK_ACCOUNTING.json") or {}
+    for w_row in worker_rows:
+        if not isinstance(w_row, Mapping):
+            continue
+        w_exit = int(w_row.get("exit_code", 0) if w_row.get("exit_code") is not None else 0)
+        w_st = str(w_row.get("status") or "PASS").upper()
+        w_run = str(w_row.get("run_id") or "").strip()
+        w_sha = str(w_row.get("tested_source_sha") or w_row.get("source_sha") or "").strip()
+        if w_exit != 0 or w_st not in ("PASS", "COMPLETED", "SUCCESS"):
+            violations.append(f"WORKER_FAILURE_MASKED_AS_PASS:{w_row.get('worker_id') or w_row.get('task_id')}:exit={w_exit}")
+        if manifest_run_id and w_run and w_run != manifest_run_id:
+            violations.append(f"WORKER_RUN_ID_MISMATCH:{w_run}!={manifest_run_id}")
+        if clean_expected_sha and w_sha and w_sha != clean_expected_sha:
+            violations.append(f"WORKER_SOURCE_SHA_MISMATCH:{w_sha}!={clean_expected_sha}")
+    if str(task_acc.get("status") or "").upper() != "PASS":
+        violations.append("RUN_TASK_ACCOUNTING_NOT_PASS")
+
+    # 7. Verify Parity Classification & Five-Way Parity (F19)
+    parity_cls = loaded_json.get("R33_PARITY_CLASSIFICATION.json") or {}
+    p_cls_res = verify_parity_classification_report(parity_cls)
+    if not p_cls_res["is_valid"]:
+        violations.extend(p_cls_res["violations"])
+    five_way_doc = loaded_json.get("R33_FIVE_WAY_PARITY.json") or {}
+    if str(five_way_doc.get("status") or "").upper() != "PASS":
+        violations.append("FIVE_WAY_PARITY_STATUS_NOT_PASS")
+
+    # 8. Verify Backtest Manifest, Metrics, and Trade Ledger Provenance (F20)
+    bt_man = loaded_json.get("R33_EXACT_SOURCE_BACKTEST_MANIFEST.json") or {}
+    bt_met = loaded_json.get("R33_BACKTEST_A_B_C_D_METRICS.json") or {}
+    bt_ledger = loaded_jsonl.get("R33_BACKTEST_TRADE_LEDGER.jsonl", [])
+    for doc_label, bt_d in (("R33_EXACT_SOURCE_BACKTEST_MANIFEST.json", bt_man), ("R33_BACKTEST_A_B_C_D_METRICS.json", bt_met)):
+        b_sha = str(bt_d.get("backtest_source_sha") or bt_d.get("source_sha") or "").strip()
+        if not b_sha or (clean_expected_sha and b_sha != clean_expected_sha):
+            violations.append(f"BACKTEST_LEDGER_SOURCE_SHA_MISMATCH:{doc_label}:{b_sha}!={clean_expected_sha}")
+    for row_idx, l_row in enumerate(bt_ledger):
+        if isinstance(l_row, Mapping):
+            r_sha = str(l_row.get("source_sha") or l_row.get("backtest_source_sha") or "").strip()
+            if not r_sha or (clean_expected_sha and r_sha != clean_expected_sha):
+                violations.append(f"BACKTEST_LEDGER_SOURCE_SHA_MISMATCH:row_{row_idx}:{r_sha}!={clean_expected_sha}")
+
+    # 9. Verify Artifact SHA-256 Manifest
+    sha_man = loaded_json.get("R33_ARTIFACT_SHA256_MANIFEST.json") or {}
+    entries = sha_man.get("artifacts") or []
+    if isinstance(entries, Mapping):
+        entries = [{"filename": k, **(v if isinstance(v, Mapping) else {"sha256": v})} for k, v in entries.items()]
+    for ent in entries:
+        if not isinstance(ent, Mapping):
+            continue
+        fname = str(ent.get("filename") or ent.get("path") or "")
+        if not fname or fname in (
+            "R33_ARTIFACT_SHA256_MANIFEST.json",
+            "R33_INDEPENDENT_VERIFIER_REPORT.json",
+            "R33_FINAL_ACCEPTANCE_AUDIT.md",
+        ):
+            continue
+        f_disk = run_dir / fname
+        claimed_h = str(ent.get("sha256") or "").strip()
+        if not f_disk.exists():
+            violations.append(f"MANIFESTED_ARTIFACT_MISSING_ON_DISK:{fname}")
+        else:
+            actual_h = hashlib.sha256(f_disk.read_bytes()).hexdigest()
+            if claimed_h and claimed_h != actual_h:
+                violations.append(f"ARTIFACT_BYTE_CHECKSUM_MISMATCH:{fname}:{claimed_h}!={actual_h}")
+
+    dedup_violations = list(dict.fromkeys(violations))
+    is_valid = len(dedup_violations) == 0
+
+    return {
+        "schema_version": "R33_INDEPENDENT_VERIFIER_REPORT_V1",
+        "run_id": manifest_run_id,
+        "expected_code_sha": clean_expected_sha,
+        "is_valid": is_valid,
+        "status": "PASS" if is_valid else "FAIL",
+        "violations": dedup_violations,
+        "runtime_capture_verification": recomp_rt_verif,
+        "recalculated_verdict": (
+            "VERIFIED_FOUNDATION_CLOSURE — READY_TO_PROCEED_TO_V17_9_1"
+            if is_valid
+            else f"BLOCKED_BY_R33_VERIFICATION:{dedup_violations[0]}"
+        ),
+    }
+
 
 def verify_persisted_acceptance_artifacts(
     target_dir: Path,
     expected_code_sha: str,
     expected_release: str = "V17.9.0.1.3",
+    *,
+    required_schema: Optional[str] = None,
+    expected_run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179013-R01: Reads persisted artifacts from disk, verifies checksums, validates cross-artifact
-    consistency, and recalculates the final release verdict directly from disk bytes.
+    DEF-179013-R01 & R3.3 (P0-04, P0-08): Reads persisted artifacts from disk, verifies checksums,
+    validates cross-artifact consistency, and recalculates the final release verdict directly from disk bytes.
+    When `required_schema="R33"` or an R3.3 directory is detected, enforces full R3.3 verification and
+    fails closed on an empty directory.
     """
-    violations: List[str] = []
     target_dir = Path(target_dir)
+    if (
+        required_schema == "R33"
+        or (target_dir.exists() and target_dir.is_dir() and (
+            (target_dir / "R33_RUN_MANIFEST.json").exists()
+            or any(f.name.startswith("R33_") for f in target_dir.iterdir() if f.is_file())
+        ))
+    ):
+        return verify_r33_evidence_bundle(
+            target_dir,
+            expected_code_sha,
+            expected_run_id=expected_run_id,
+        )
+
+    violations: List[str] = []
 
     mandatory_files = [
         "ACCEPTANCE_GATE_RESULTS.json",
@@ -2476,8 +3188,15 @@ def verify_persisted_acceptance_artifacts(
                 manifest_run_id = str(r32_man.get("run_id") or "").strip()
                 if not manifest_run_id:
                     violations.append("R32_RUN_MANIFEST_MISSING_RUN_ID")
-                man_sha = str(r32_man.get("source_sha") or "").strip()
-                if expected_code_sha and man_sha and man_sha != expected_code_sha.strip():
+                man_sha = str(
+                    r32_man.get("source_sha")
+                    or r32_man.get("final_code_sha")
+                    or r32_man.get("tested_source_sha")
+                    or ""
+                ).strip()
+                if not man_sha:
+                    violations.append("R32_RUN_MANIFEST_MISSING_SOURCE_SHA")
+                elif expected_code_sha and man_sha != expected_code_sha.strip():
                     violations.append(f"R32_RUN_MANIFEST_SHA_MISMATCH:{man_sha}!={expected_code_sha}")
             except Exception as ex_man:
                 violations.append(f"R32_RUN_MANIFEST_CORRUPT:{ex_man}")

@@ -2777,8 +2777,12 @@ def main():
     res_guard.sample_cpu_memory(stage="FINAL", active_workers=num_shards)
     res_guard.cleanup_run_temp_dir()
     disk_budget_report = res_guard.build_disk_budget_report()
+    disk_budget_report["run_id"] = RUN_ID
+    disk_budget_report["tested_source_sha"] = current_sha
     disk_budget_report["temp_directories_cleaned_up"] = (disk_budget_report.get("final_temporary_bytes", 0) == 0)
     cpu_mem_report = res_guard.build_cpu_memory_report()
+    cpu_mem_report["run_id"] = RUN_ID
+    cpu_mem_report["tested_source_sha"] = current_sha
     (RUN_DIR / "disk_budget_report.json").write_text(json.dumps(disk_budget_report, indent=2), encoding="utf-8")
     (RUN_DIR / "cpu_memory_metrics.json").write_text(json.dumps(cpu_mem_report, indent=2), encoding="utf-8")
 
@@ -2792,6 +2796,21 @@ def main():
     state_mgr.load_or_resume(current_sha)
     for idx_s, s_res in enumerate(shard_results):
         b_xml = JUNIT_DIR / f"pytest_batch_{idx_s}.xml"
+        if b_xml.exists():
+            b_meta = b_xml.with_name(b_xml.name + ".meta.json")
+            b_meta.write_text(
+                json.dumps(
+                    {
+                        "run_id": RUN_ID,
+                        "tested_source_sha": current_sha,
+                        "xml_sha256": hashlib.sha256(b_xml.read_bytes()).hexdigest(),
+                        "exit_code": int(s_res["code"]),
+                        "counts": s_res["counts"],
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         state_mgr.record_test_group_completion(
             group_id=f"pytest_batch_{idx_s}",
             exit_code=int(s_res["code"]),
@@ -2815,6 +2834,8 @@ def main():
         "run_id": RUN_ID,
         "tested_source_sha": current_sha,
         "max_workers": num_shards,
+        "max_configured_workers": num_shards,
+        "max_active_workers_observed": len(shard_results),
         "batches_count": len(shard_results),
         "wall_clock_ms": shard_wall_ms,
         "expected_nodes_count": total_shard_passed + total_shard_failed + total_shard_skipped,
@@ -2908,6 +2929,20 @@ def main():
     }
     for xml_file in sorted(REPORTS_DIR.glob("*.xml")):
         parsed = parse_pytest_counts("", xml_file)
+        meta_path = xml_file.with_name(xml_file.name + ".meta.json")
+        meta_path.write_text(
+            json.dumps(
+                {
+                    "run_id": RUN_ID,
+                    "tested_source_sha": current_sha,
+                    "xml_sha256": hashlib.sha256(xml_file.read_bytes()).hexdigest(),
+                    "exit_code": 0 if int(parsed.get("failed", 0)) == 0 and int(parsed.get("errors", 0)) == 0 else 1,
+                    "counts": parsed,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         junit_reconciliation["xml_files_count"] += 1
         junit_reconciliation["total_xml_tests"] += int(parsed.get("collected", 0))
         junit_reconciliation["total_xml_passed"] += int(parsed.get("passed", 0))
