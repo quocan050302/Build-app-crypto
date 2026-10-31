@@ -134,7 +134,7 @@ class BoundedAsyncTestOrchestrator:
         self.artifact_dir = artifact_dir
         self.resource_guard = resource_guard
         self.state_manager = state_manager
-        self.max_pytest_workers = max(1, min(4, int(max_pytest_workers)))
+        self.max_pytest_workers = max(1, min(8, int(max_pytest_workers)))
         self._semaphores: Dict[str, asyncio.Semaphore] = {}
         self._active_workers: int = 0
         self._peak_workers: int = 0

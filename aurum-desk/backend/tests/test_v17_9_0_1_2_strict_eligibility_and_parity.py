@@ -2622,8 +2622,8 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N26", "DEF-179012-04: Cross-runtime parity report fails closed on empty or divergent records", test_n26_cross_runtime_parity_fails_closed_on_empty_or_divergent_records),
         ("N27", "Unclosed 1H/4H candle injection rejected by HTF causality validator", test_n27_unclosed_htf_candle_rejected_by_causality_validator),
         ("N28", "Stale tested_source_sha != final_code_sha normalized to INVALID_EVIDENCE / BLOCKED", test_n28_stale_tested_source_sha_blocks_gate_and_verdict),
-        ("N29", "CRLF line endings normalized to LF and verified by on-disk SHA-256", lambda: test_n29_lf_byte_integrity_strips_crlf_and_verifies_sha256(tmp_dir)),
-        ("N30", "DEF-179012-05: Resource guard preflight/postflight disk & periodic RSS telemetry verified", lambda: test_n30_resource_guard_and_periodic_telemetry_verification(tmp_dir)),
+        ("N29", "CRLF line endings normalized to LF and verified by on-disk SHA-256", lambda: test_n29_lf_byte_integrity_strips_crlf_and_verifies_sha256(tmp_dir / "N29")),
+        ("N30", "DEF-179012-05: Resource guard preflight/postflight disk & periodic RSS telemetry verified", lambda: test_n30_resource_guard_and_periodic_telemetry_verification(tmp_dir / "N30")),
         ("N31", "DEF-179012-C01: Unconsumed shared snapshot added to consumed_model_decisions rejected", test_n31_unconsumed_shared_snapshot_in_consumed_model_decisions_rejected),
         ("N32", "DEF-179012-C01: Candidate missing decision_id or decision_fingerprint rejected", test_n32_candidate_missing_decision_id_or_fingerprint_rejected),
         ("N33", "DEF-179012-C01: Order intent created from decision not marked CANDIDATE_CONSUMED rejected", test_n33_order_intent_from_unconsumed_decision_rejected),
@@ -2739,16 +2739,28 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N143", "DEF-179013-R03: Missing R3 mandatory deliverables rejected by disk verifier", test_n143_artifact_verifier_rejects_missing_r3_mandatory_deliverables),
         ("N144", "DEF-179013-R03: Zero simulated trades in backtest metrics fails closed", test_n144_zero_simulated_trades_in_backtest_metrics_fails_closed),
         ("N145", "DEF-179013-R03: Missing final code SHA in acceptance verdict fails closed", test_n145_missing_final_code_sha_in_acceptance_verdict_fails_closed),
+        ("N146", "DEF-179013-R31 (P0-E): Missing mandatory deliverable fails closed", test_n146_missing_r31_mandatory_deliverable_fails_closed),
+        ("N147", "DEF-179013-R31: Exact source manifest SHA mismatch fails closed", test_n147_r31_exact_source_manifest_sha_mismatch_fails_closed),
+        ("N148", "DEF-179013-R31 (P0-A): Uncompleted runtime capture invocation fails closed", test_n148_uncompleted_runtime_capture_invocation_fails_closed),
     ]
-    results: List[Dict[str, Any]] = []
-    passed_count = 0
-    for cid, desc, fn in checks:
+    import concurrent.futures
+    import os
+
+    for sub_name in ("N29", "N30"):
+        (tmp_dir / sub_name).mkdir(parents=True, exist_ok=True)
+
+    def _run_one_check(item):
+        cid, desc, fn = item
         try:
             fn()
-            results.append({"test_id": cid, "description": desc, "status": "PASS", "error": None})
-            passed_count += 1
+            return {"test_id": cid, "description": desc, "status": "PASS", "error": None}
         except Exception as exc:
-            results.append({"test_id": cid, "description": desc, "status": "FAIL", "error": f"{type(exc).__name__}:{exc}"})
+            return {"test_id": cid, "description": desc, "status": "FAIL", "error": f"{type(exc).__name__}:{exc}"}
+
+    max_workers = min(12, max(4, (os.cpu_count() or 4) * 2))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        results = list(pool.map(_run_one_check, checks))
+    passed_count = sum(1 for r in results if r["status"] == "PASS")
     return {
         "release": "V17.9.0.1.3",
         "total_negative_controls": len(checks),

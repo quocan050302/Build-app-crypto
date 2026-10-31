@@ -2905,10 +2905,16 @@ def extract_and_validate_real_forward_candles(
     extracted: List[Dict[str, Any]] = []
     prev_open: Optional[int] = None
     for raw_b in all_m1_bars or ():
-        b_dict = dict(raw_b) if isinstance(raw_b, Mapping) else raw_b.to_dict()
-        open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
-        if open_ts < dec_ts:
-            continue
+        if isinstance(raw_b, Mapping):
+            open_ts = int(raw_b.get("open_time") if raw_b.get("open_time") is not None else raw_b.get("timestamp", 0))
+            if open_ts < dec_ts:
+                continue
+            b_dict = dict(raw_b)
+        else:
+            b_dict = raw_b.to_dict()
+            open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
+            if open_ts < dec_ts:
+                continue
         if prev_open is not None and open_ts - prev_open > 60_000:
             break
         extracted.append(b_dict)
