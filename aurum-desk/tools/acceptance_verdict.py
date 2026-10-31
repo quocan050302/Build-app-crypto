@@ -1948,8 +1948,20 @@ def derive_authoritative_acceptance_verdicts(
         else:
             net_pnl = float(b_auth.get("net_pnl"))
             sim_trades = int(b_auth.get("simulated_trades"))
-            bt_source_sha = str(b_auth.get("source_sha") or "")
-            if bt_source_sha and final_code_sha and bt_source_sha.strip() != final_code_sha.strip():
+            top_bt_sha = str(backtest_metrics.get("backtest_source_sha") or "").strip()
+            nested_bt_sha = str(b_auth.get("source_sha") or "").strip()
+            bt_source_sha = top_bt_sha or nested_bt_sha
+
+            if not bt_source_sha:
+                perf_ok = False
+                perf_fail_reason = "Missing authoritative backtest source SHA in backtest metrics"
+            elif not final_code_sha or not final_code_sha.strip():
+                perf_ok = False
+                perf_fail_reason = "Missing final code SHA for exact-source provenance validation"
+            elif top_bt_sha and nested_bt_sha and top_bt_sha != nested_bt_sha:
+                perf_ok = False
+                perf_fail_reason = f"Contradictory backtest source SHAs: top={top_bt_sha} != nested={nested_bt_sha}"
+            elif bt_source_sha.strip() != final_code_sha.strip():
                 perf_ok = False
                 perf_fail_reason = f"Backtest source SHA mismatch: {bt_source_sha} != {final_code_sha}"
             elif sim_trades <= 0:
@@ -2043,6 +2055,28 @@ def verify_persisted_acceptance_artifacts(
         "V179013_R2_FINAL_ACCEPTANCE_AUDIT.md",
     ]
 
+    # Canonical R3 mandatory deliverables (Section 4 & Section 14)
+    r3_mandatory_files = [
+        "V179013_R3_INITIAL_ROOT_CAUSE_AUDIT.md",
+        "V179013_R3_DEFECT_CLOSURE_MATRIX.md",
+        "V179013_R3_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
+        "V179013_R3_RUNTIME_INPUT_CAPTURE.jsonl",
+        "V179013_R3_INDEPENDENT_RUNTIME_INPUT_HASHES.json",
+        "V179013_R3_FIVE_WAY_PARITY_REPORT.json",
+        "V179013_R3_PARITY_CLASSIFICATION_REPORT.json",
+        "V179013_R3_NEGATIVE_CONTROLS.json",
+        "V179013_R3_JUNIT_AGGREGATION.json",
+        "V179013_R3_ASYNC_WORKER_REPORT.json",
+        "V179013_R3_DISK_RESOURCE_REPORT.json",
+        "V179013_R3_BACKTEST_METRICS.json",
+        "V179013_R3_BACKTEST_SOURCE_MANIFEST.json",
+        "V179013_R3_MATCHED_COHORT_REPORT.json",
+        "V179013_R3_OOS_REPORT.json",
+        "V179013_R3_ARTIFACT_MANIFEST.json",
+        "V179013_R3_INDEPENDENT_VERIFICATION.json",
+        "V179013_R3_FINAL_ACCEPTANCE_AUDIT.md",
+    ]
+
     loaded_docs: Dict[str, Any] = {}
     for mf in mandatory_files:
         fpath = target_dir / mf
@@ -2071,8 +2105,70 @@ def verify_persisted_acceptance_artifacts(
                 except Exception as ex:
                     violations.append(f"CORRUPT_JSON_ARTIFACT:{r2_f}:{ex}")
 
+    # Check R3 mandatory files if present or if checking R3 delivery
+    for r3_f in r3_mandatory_files:
+        fpath = target_dir / r3_f
+        if fpath.exists():
+            if fpath.stat().st_size == 0:
+                violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r3_f}")
+            elif r3_f.endswith(".json"):
+                try:
+                    r3_doc = json.loads(fpath.read_text(encoding="utf-8"))
+                    if isinstance(r3_doc, dict) and len(r3_doc) == 0:
+                        violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r3_f}")
+                    loaded_docs[r3_f] = r3_doc
+                except Exception as ex:
+                    violations.append(f"CORRUPT_JSON_ARTIFACT:{r3_f}:{ex}")
+            elif r3_f.endswith(".jsonl"):
+                # Validate non-empty jsonl
+                lines = [l.strip() for l in fpath.read_text(encoding="utf-8").splitlines() if l.strip()]
+                if not lines:
+                    violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r3_f}")
+                elif r3_f == "V179013_R3_RUNTIME_INPUT_CAPTURE.jsonl":
+                    for line_idx, line in enumerate(lines[:50]):
+                        try:
+                            cap_entry = json.loads(line)
+                            cp = str(cap_entry.get("capture_point") or "")
+                            rt = str(cap_entry.get("runtime_name") or "")
+                            if rt == "HISTORICAL_PRODUCTION" and "MarketShadow" in cp:
+                                violations.append(f"MISLABELED_CAPTURE_POINT:{r3_f}:line_{line_idx}:{cp}")
+                        except Exception as ex_l:
+                            violations.append(f"CORRUPT_JSONL_LINE:{r3_f}:{line_idx}:{ex_l}")
+
+    # Deep validation of R3 Backtest Source Manifest if present
+    r3_bt_manifest_path = target_dir / "V179013_R3_BACKTEST_SOURCE_MANIFEST.json"
+    if r3_bt_manifest_path.exists():
+        try:
+            r3_bt_man = json.loads(r3_bt_manifest_path.read_text(encoding="utf-8"))
+            if str(r3_bt_man.get("status") or "").upper() != "PASS":
+                violations.append("R3_BACKTEST_SOURCE_MANIFEST_STATUS_NOT_PASS")
+            bt_sha = str(r3_bt_man.get("backtest_source_sha") or "").strip()
+            final_sha = str(r3_bt_man.get("final_code_sha") or "").strip()
+            if not bt_sha:
+                violations.append("R3_BACKTEST_SOURCE_MANIFEST_MISSING_BACKTEST_SHA")
+            if not final_sha:
+                violations.append("R3_BACKTEST_SOURCE_MANIFEST_MISSING_FINAL_SHA")
+            if bt_sha and final_sha and bt_sha != final_sha:
+                violations.append(f"R3_BACKTEST_SOURCE_MANIFEST_SHA_MISMATCH:{bt_sha}!={final_sha}")
+            if expected_code_sha and bt_sha != expected_code_sha.strip():
+                violations.append(f"R3_BACKTEST_SOURCE_MANIFEST_EXPECTED_SHA_MISMATCH:{bt_sha}!={expected_code_sha}")
+        except Exception as ex_man:
+            violations.append(f"R3_BACKTEST_SOURCE_MANIFEST_CORRUPT:{ex_man}")
+
+    # Deep validation of R3 Parity Classification Report if present
+    r3_parity_class_path = target_dir / "V179013_R3_PARITY_CLASSIFICATION_REPORT.json"
+    if r3_parity_class_path.exists():
+        try:
+            r3_pc = json.loads(r3_parity_class_path.read_text(encoding="utf-8"))
+            if int(r3_pc.get("unexpected_divergences", 0)) > 0:
+                violations.append(f"R3_PARITY_CLASSIFICATION_HAS_UNEXPECTED_DIVERGENCES:{r3_pc.get('unexpected_divergences')}")
+            if str(r3_pc.get("status") or "").upper() != "PASS":
+                violations.append("R3_PARITY_CLASSIFICATION_STATUS_NOT_PASS")
+        except Exception as ex_pc:
+            violations.append(f"R3_PARITY_CLASSIFICATION_CORRUPT:{ex_pc}")
+
     # Also check that independent runtime hashes is non-empty if present
-    for hash_name in ("V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_R1_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_INDEPENDENT_RUNTIME_INPUT_HASHES.json"):
+    for hash_name in ("V179013_R3_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_R2_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_R1_INDEPENDENT_RUNTIME_INPUT_HASHES.json", "V179013_INDEPENDENT_RUNTIME_INPUT_HASHES.json"):
         h_path = target_dir / hash_name
         if h_path.exists():
             try:

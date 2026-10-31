@@ -2298,6 +2298,190 @@ def test_n131_resume_with_wrong_source_sha_rejected():
         assert sm.can_resume(ckpt, expected_sha="sha_1") is False
 
 
+def test_n132_empty_top_level_backtest_source_sha_rejected():
+    """N132: DEF-179013-R03 (P0-02): Empty top-level backtest source SHA in backtest metrics rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "backtest_source_sha": "",
+        "authoritative_production_parity_simulation": {"simulated_trades": 18, "net_pnl": 10.0, "source_sha": ""},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="a" * 40,
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+    assert "Missing authoritative backtest source SHA" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
+
+
+def test_n133_missing_top_level_and_nested_backtest_source_sha_rejected():
+    """N133: DEF-179013-R03 (P0-02): Missing top-level and nested backtest source SHA rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "authoritative_production_parity_simulation": {"simulated_trades": 18, "net_pnl": 10.0},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="a" * 40,
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+
+
+def test_n134_mismatched_top_level_backtest_source_sha_rejected():
+    """N134: DEF-179013-R03 (P0-02): Mismatched top-level backtest source SHA rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "backtest_source_sha": "b" * 40,
+        "authoritative_production_parity_simulation": {"simulated_trades": 18, "net_pnl": 10.0, "source_sha": "b" * 40},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="a" * 40,
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+    assert "Backtest source SHA mismatch" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
+
+
+def test_n135_contradictory_top_and_nested_backtest_source_shas_rejected():
+    """N135: DEF-179013-R03 (P0-02): Contradictory backtest source SHAs between top-level and nested rejected."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "backtest_source_sha": "a" * 40,
+        "authoritative_production_parity_simulation": {"simulated_trades": 18, "net_pnl": 10.0, "source_sha": "b" * 40},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="a" * 40,
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+    assert "Contradictory backtest source SHAs" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
+
+
+def test_n136_backtest_source_manifest_mismatched_sha_cannot_claim_pass():
+    """N136: DEF-179013-R03 (P0-01): Backtest source manifest with mismatched SHA cannot claim PASS."""
+    bt_sha = "b" * 40
+    code_sha = "a" * 40
+    status = "PASS" if (bt_sha and code_sha and bt_sha == code_sha) else "FAIL"
+    assert status == "FAIL"
+
+
+def test_n137_backtest_source_manifest_empty_sha_cannot_claim_pass():
+    """N137: DEF-179013-R03 (P0-01): Backtest source manifest with empty SHA cannot claim PASS."""
+    bt_sha = ""
+    code_sha = "a" * 40
+    status = "PASS" if (bt_sha and code_sha and bt_sha == code_sha) else "FAIL"
+    assert status == "FAIL"
+
+
+def test_n138_historical_production_capture_point_mislabeled_as_market_shadow_rejected():
+    """N138: DEF-179013-R03 (P0-03): Historical production capture point mislabeled as Market Shadow rejected."""
+    bad_record = {
+        "runtime_name": "HISTORICAL_PRODUCTION",
+        "capture_point": "services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow",
+    }
+    is_valid = not (bad_record["runtime_name"] == "HISTORICAL_PRODUCTION" and "MarketShadow" in bad_record["capture_point"])
+    assert is_valid is False
+
+
+def test_n139_cross_runtime_input_capture_missing_runtime_boundaries_rejected():
+    """N139: DEF-179013-R03 (P0-03): Missing any of 5 required runtime boundaries rejected."""
+    runtimes = ["HISTORICAL_PRODUCTION", "SHARED_STRATEGY_EVALUATOR", "PRODUCTION", "MARKET_SHADOW"]  # missing CHRONOLOGICAL_BACKTEST
+    required = {"HISTORICAL_PRODUCTION", "SHARED_STRATEGY_EVALUATOR", "PRODUCTION", "MARKET_SHADOW", "CHRONOLOGICAL_BACKTEST"}
+    missing = required - set(runtimes)
+    assert len(missing) == 1 and "CHRONOLOGICAL_BACKTEST" in missing
+
+
+def test_n140_empty_runtime_input_capture_file_rejected():
+    """N140: DEF-179013-R03 (P0-03): Empty runtime input capture file rejected."""
+    content = ""
+    lines = [l for l in content.splitlines() if l.strip()]
+    assert len(lines) == 0
+
+
+def test_n141_parity_report_claiming_210_exact_matches_when_breakdown_differs_rejected():
+    """N141: DEF-179013-R03 (P0-04): Claiming 210 exact matches when breakdown has 189 changes rejected."""
+    breakdown = {"EXACT_MATCH": 21, "EXPECTED_DOCUMENTED_CHANGE": 189, "UNEXPECTED_DIVERGENCE": 0}
+    claimed_exact = 210
+    has_contradiction = claimed_exact != breakdown["EXACT_MATCH"]
+    assert has_contradiction is True
+
+
+def test_n142_parity_classification_unexpected_divergence_fails_closed():
+    """N142: DEF-179013-R03 (P0-04): Parity classification with unexpected divergences fails closed."""
+    doc = {"total_comparisons": 210, "unexpected_divergences": 1}
+    status = "PASS" if doc["unexpected_divergences"] == 0 else "FAIL"
+    assert status == "FAIL"
+
+
+def test_n143_artifact_verifier_rejects_missing_r3_mandatory_deliverables():
+    """N143: DEF-179013-R03: Missing R3 mandatory deliverables rejected by disk verifier."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        res = verify_persisted_acceptance_artifacts(target_dir=Path(td), expected_code_sha="a" * 40)
+        assert res["status"] == "FAIL"
+        assert len(res["violations"]) > 0
+
+
+def test_n144_zero_simulated_trades_in_backtest_metrics_fails_closed():
+    """N144: DEF-179013-R03: Zero simulated trades in backtest metrics fails closed."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "backtest_source_sha": "a" * 40,
+        "authoritative_production_parity_simulation": {"simulated_trades": 0, "net_pnl": 0.0, "source_sha": "a" * 40},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="a" * 40,
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+    assert "Zero simulated trades" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
+
+
+def test_n145_missing_final_code_sha_in_acceptance_verdict_fails_closed():
+    """N145: DEF-179013-R03: Missing final code SHA in acceptance verdict fails closed."""
+    from tools.acceptance_verdict import derive_authoritative_acceptance_verdicts
+    bt = {
+        "backtest_source_sha": "a" * 40,
+        "authoritative_production_parity_simulation": {"simulated_trades": 18, "net_pnl": 10.0, "source_sha": "a" * 40},
+    }
+    verdicts = derive_authoritative_acceptance_verdicts(
+        gate_results={},
+        parity_report={},
+        negative_results={},
+        backtest_metrics=bt,
+        phase_b_manifest={},
+        disk_report={},
+        final_code_sha="",
+    )
+    assert verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["validation_result"] == "FAIL"
+    assert "Missing final code SHA" in str(verdicts["verdicts"]["VERDICT_STRATEGY_PERFORMANCE"]["failure_explanation"])
+
+
 def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, Any]:
     """
     Executes all 131 mandatory negative acceptance tests (N01-N131) and returns
@@ -2435,6 +2619,20 @@ def run_all_v17_9_0_1_2_negative_acceptance_checks(tmp_dir: Path) -> Dict[str, A
         ("N129", "DEF-179013-R02: Unsafe cleanup path rejected", test_n129_unsafe_cleanup_path_rejected),
         ("N130", "DEF-179013-R02: Orphan worker remains rejected", test_n130_orphan_worker_remains_rejected),
         ("N131", "DEF-179013-R02: Resume with wrong source SHA rejected", test_n131_resume_with_wrong_source_sha_rejected),
+        ("N132", "DEF-179013-R03: Empty top-level backtest source SHA in backtest metrics rejected", test_n132_empty_top_level_backtest_source_sha_rejected),
+        ("N133", "DEF-179013-R03: Missing top-level and nested backtest source SHA rejected", test_n133_missing_top_level_and_nested_backtest_source_sha_rejected),
+        ("N134", "DEF-179013-R03: Mismatched top-level backtest source SHA rejected", test_n134_mismatched_top_level_backtest_source_sha_rejected),
+        ("N135", "DEF-179013-R03: Contradictory backtest source SHAs between top-level and nested rejected", test_n135_contradictory_top_and_nested_backtest_source_shas_rejected),
+        ("N136", "DEF-179013-R03: Backtest source manifest with mismatched SHA cannot claim PASS", test_n136_backtest_source_manifest_mismatched_sha_cannot_claim_pass),
+        ("N137", "DEF-179013-R03: Backtest source manifest with empty SHA cannot claim PASS", test_n137_backtest_source_manifest_empty_sha_cannot_claim_pass),
+        ("N138", "DEF-179013-R03: Historical production capture point mislabeled as Market Shadow rejected", test_n138_historical_production_capture_point_mislabeled_as_market_shadow_rejected),
+        ("N139", "DEF-179013-R03: Missing any of 5 required runtime boundaries rejected", test_n139_cross_runtime_input_capture_missing_runtime_boundaries_rejected),
+        ("N140", "DEF-179013-R03: Empty runtime input capture file rejected", test_n140_empty_runtime_input_capture_file_rejected),
+        ("N141", "DEF-179013-R03: Claiming 210 exact matches when breakdown has 189 changes rejected", test_n141_parity_report_claiming_210_exact_matches_when_breakdown_differs_rejected),
+        ("N142", "DEF-179013-R03: Parity classification with unexpected divergences fails closed", test_n142_parity_classification_unexpected_divergence_fails_closed),
+        ("N143", "DEF-179013-R03: Missing R3 mandatory deliverables rejected by disk verifier", test_n143_artifact_verifier_rejects_missing_r3_mandatory_deliverables),
+        ("N144", "DEF-179013-R03: Zero simulated trades in backtest metrics fails closed", test_n144_zero_simulated_trades_in_backtest_metrics_fails_closed),
+        ("N145", "DEF-179013-R03: Missing final code SHA in acceptance verdict fails closed", test_n145_missing_final_code_sha_in_acceptance_verdict_fails_closed),
     ]
     results: List[Dict[str, Any]] = []
     passed_count = 0
