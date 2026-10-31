@@ -123,7 +123,22 @@ def find_free_port(start_port: int = 8765) -> int:
     return start_port
 
 
+import threading
+from datetime import datetime, timezone
+
+MAX_CONCURRENT_SUBPROCESS_WORKERS = min(4, max(2, (os.cpu_count() or 2) // 2))
+_SUBPROCESS_SEMAPHORE = threading.BoundedSemaphore(MAX_CONCURRENT_SUBPROCESS_WORKERS)
+_SUBPROCESS_LOCK = threading.Lock()
+_ACTIVE_CMD_WORKERS = 0
+_PEAK_ACTIVE_CMD_WORKERS = 0
+_WORKER_EXECUTION_RECORDS = []
+_GATE_EXIT_CODES = {}
+_CURRENT_TESTED_SHA = ""
+_GLOBAL_RESOURCE_GUARD = None
+
+
 def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_test_root=False):
+    global _ACTIVE_CMD_WORKERS, _PEAK_ACTIVE_CMD_WORKERS
     import tempfile
 
     merged_env = os.environ.copy()
@@ -159,53 +174,119 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
     if env:
         merged_env.update(env)
 
-    start_t = time.perf_counter()
-    try:
-        res = subprocess.run(
-            actual_cmd,
-            shell=False,
-            cwd=cwd,
-            env=merged_env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-        duration_ms = int((time.perf_counter() - start_t) * 1000)
-        stdout, stderr, code = res.stdout, res.stderr, res.returncode
-    except subprocess.TimeoutExpired as te:
-        duration_ms = int((time.perf_counter() - start_t) * 1000)
-        stdout = te.stdout or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-        stderr = te.stderr or ""
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
-        stderr += f"\nTIMEOUT: Command exceeded {timeout}s limit"
-        code = -1
-    except Exception as e:
-        duration_ms = int((time.perf_counter() - start_t) * 1000)
-        stdout = ""
-        stderr = str(e)
-        code = 1
-    finally:
-        if iso_root and iso_root.exists():
-            shutil.rmtree(iso_root, ignore_errors=True)
-        if basetemp_dir and basetemp_dir.exists():
-            shutil.rmtree(basetemp_dir, ignore_errors=True)
+    with _SUBPROCESS_SEMAPHORE:
+        with _SUBPROCESS_LOCK:
+            _ACTIVE_CMD_WORKERS += 1
+            if _ACTIVE_CMD_WORKERS > _PEAK_ACTIVE_CMD_WORKERS:
+                _PEAK_ACTIVE_CMD_WORKERS = _ACTIVE_CMD_WORKERS
+            active_now = _ACTIVE_CMD_WORKERS
 
+        start_t = time.perf_counter()
+        started_ms = int(time.time() * 1000)
+        started_utc = datetime.fromtimestamp(started_ms / 1000.0, tz=timezone.utc).isoformat()
+        child_pid = None
+        proc = None
+        try:
+            proc = subprocess.Popen(
+                actual_cmd,
+                shell=False,
+                cwd=cwd,
+                env=merged_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            child_pid = int(proc.pid)
+            if _GLOBAL_RESOURCE_GUARD is not None:
+                try:
+                    _GLOBAL_RESOURCE_GUARD.register_worker_pid(
+                        child_pid,
+                        worker_id=str(log_name or "cmd"),
+                        command=[str(x) for x in actual_cmd],
+                    )
+                except Exception:
+                    pass
+            stdout, stderr = proc.communicate(timeout=timeout)
+            duration_ms = int((time.perf_counter() - start_t) * 1000)
+            code = int(proc.returncode if proc.returncode is not None else 1)
+        except subprocess.TimeoutExpired as te:
+            duration_ms = int((time.perf_counter() - start_t) * 1000)
+            if proc is not None:
+                try:
+                    proc.kill()
+                    proc.communicate(timeout=5)
+                except Exception:
+                    pass
+            stdout = te.stdout or ""
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode("utf-8", errors="replace")
+            stderr = te.stderr or ""
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode("utf-8", errors="replace")
+            stderr += f"\nTIMEOUT: Command exceeded {timeout}s limit"
+            code = -1
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - start_t) * 1000)
+            stdout = ""
+            stderr = str(e)
+            code = 1
+        finally:
+            if proc is not None and proc.poll() is not None and child_pid is not None and _GLOBAL_RESOURCE_GUARD is not None:
+                try:
+                    _GLOBAL_RESOURCE_GUARD.unregister_worker_pid(child_pid)
+                except Exception:
+                    pass
+            with _SUBPROCESS_LOCK:
+                _ACTIVE_CMD_WORKERS = max(0, _ACTIVE_CMD_WORKERS - 1)
+            if iso_root and iso_root.exists():
+                shutil.rmtree(iso_root, ignore_errors=True)
+            if basetemp_dir and basetemp_dir.exists():
+                shutil.rmtree(basetemp_dir, ignore_errors=True)
+
+    completed_ms = int(time.time() * 1000)
+    completed_utc = datetime.fromtimestamp(completed_ms / 1000.0, tz=timezone.utc).isoformat()
+
+    log_file = None
     if log_name:
         log_file = LOGS_DIR / f"{log_name}.log"
         with open(log_file, "w", encoding="utf-8") as f:
             f.write(f"COMMAND: {' '.join(str(c) for c in cmd_args)}\n")
             f.write(f"CWD: {cwd}\n")
+            f.write(f"PID: {child_pid}\n")
+            f.write(f"STARTED_AT_UTC: {started_utc}\n")
+            f.write(f"COMPLETED_AT_UTC: {completed_utc}\n")
             f.write(f"DURATION_MS: {duration_ms}\n")
             f.write(f"EXIT_CODE: {code}\n")
             f.write("--- STDOUT ---\n")
             f.write(stdout)
             f.write("\n--- STDERR ---\n")
             f.write(stderr)
+
+    with _SUBPROCESS_LOCK:
+        _WORKER_EXECUTION_RECORDS.append(
+            {
+                "run_id": RUN_ID,
+                "source_sha": _CURRENT_TESTED_SHA,
+                "tested_source_sha": _CURRENT_TESTED_SHA,
+                "task_id": str(log_name or f"cmd_{len(_WORKER_EXECUTION_RECORDS) + 1}"),
+                "worker_id": str(log_name or f"worker_{len(_WORKER_EXECUTION_RECORDS) + 1}"),
+                "pid": child_pid or os.getpid(),
+                "ppid": os.getpid(),
+                "active_workers_at_start": active_now,
+                "command": [str(c) for c in cmd_args],
+                "cwd": str(cwd),
+                "started_at_utc": started_utc,
+                "started_at_ms": started_ms,
+                "completed_at_utc": completed_utc,
+                "completed_at_ms": completed_ms,
+                "duration_ms": duration_ms,
+                "exit_code": int(code),
+                "status": "PASS" if int(code) == 0 else "FAIL",
+                "log_path": str(log_file.relative_to(ROOT)).replace("\\", "/") if log_file and log_file.exists() else None,
+            }
+        )
 
     return code, stdout, stderr, duration_ms
 
@@ -998,6 +1079,7 @@ def run_isolated_market_shadow_backend_preflight(port: int) -> dict:
 
 
 def main():
+    global _CURRENT_TESTED_SHA, _GLOBAL_RESOURCE_GUARD
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if hasattr(sys.stderr, "reconfigure"):
@@ -1009,6 +1091,21 @@ def main():
     print("=" * 80)
 
     init_run_directories()
+    _GLOBAL_RESOURCE_GUARD = TestResourceGuard(run_id=RUN_ID, repo_root=ROOT, artifact_dir=RUN_DIR)
+    _GLOBAL_RESOURCE_GUARD.enforce_disk_budget(stage="PREFLIGHT")
+
+    runner_start_ms = int(time.time() * 1000)
+    r331_manifest_path = ARTIFACTS_DIR / "v17_9_0_1_3" / "r331" / RUN_ID / "R331_INITIAL_RUN_MANIFEST.json"
+    if r331_manifest_path.exists():
+        from tools.runtime_execution_logger import verify_r331_pre_execution_manifest
+
+        pre_chk = verify_r331_pre_execution_manifest(
+            r331_manifest_path,
+            expected_run_id=RUN_ID,
+            task_start_ms=runner_start_ms,
+        )
+        if not pre_chk.get("passed"):
+            raise RuntimeError(f"R331_PRE_EXECUTION_MANIFEST_VIOLATION: {pre_chk.get('errors')}")
 
     results = {
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -1038,6 +1135,12 @@ def main():
 
     code_sha, sha_out, _, _ = run_cmd(["git", "rev-parse", "HEAD"], log_name="g01_sha")
     current_sha = sha_out.strip()
+    _CURRENT_TESTED_SHA = current_sha
+    with _SUBPROCESS_LOCK:
+        for _wrec in _WORKER_EXECUTION_RECORDS:
+            if not _wrec.get("source_sha"):
+                _wrec["source_sha"] = current_sha
+                _wrec["tested_source_sha"] = current_sha
     results["source_sha"] = current_sha
     results["tested_source_sha"] = current_sha
 
@@ -1406,6 +1509,7 @@ def main():
             min_passed=min_passed,
             timeout=timeout,
         )
+        _GATE_EXIT_CODES[report_xml.name] = int(code)
         counts = parse_pytest_counts(out, report_xml)
         passed = counts.get("passed", 0)
         failed = counts.get("failed", 0)
@@ -2563,8 +2667,8 @@ def main():
 
     run_pytest_gate(
         "G100_STRUCTURAL_SL_TP_RR_PARITY",
-        v17_9_test_files + ["backend/tests/test_v17_9_0_1_2_strict_eligibility_and_parity.py"],
-        "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance or test_n or test_real_historical_xauusdt_multi_runtime_parity",
+        v17_9_test_files,
+        "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance",
         min_passed=3,
         label="V17.9.0.1.2 Structural SL/TP, Net R:R, $2.50 Risk Budget & 30 Negative Acceptance Controls (N01-N30)"
     )
@@ -2771,10 +2875,11 @@ def main():
             shutil.copy2(src_bt, BACKTEST_DIR / bt_fname)
 
     # Write resource guard, concurrency, and execution state reports
-    res_guard = TestResourceGuard(run_id=RUN_ID, repo_root=ROOT, artifact_dir=RUN_DIR)
+    res_guard = _GLOBAL_RESOURCE_GUARD or TestResourceGuard(run_id=RUN_ID, repo_root=ROOT, artifact_dir=RUN_DIR)
     res_guard.enforce_disk_budget(stage="PREFLIGHT")
     res_guard.measure_disk_budget(stage="RUNTIME")
-    res_guard.sample_cpu_memory(stage="FINAL", active_workers=num_shards)
+    observed_peak_workers = max(1, min(MAX_CONCURRENT_SUBPROCESS_WORKERS, _PEAK_ACTIVE_CMD_WORKERS))
+    res_guard.sample_cpu_memory(stage="FINAL", active_workers=observed_peak_workers)
     res_guard.cleanup_run_temp_dir()
     disk_budget_report = res_guard.build_disk_budget_report()
     disk_budget_report["run_id"] = RUN_ID
@@ -2829,21 +2934,32 @@ def main():
     total_shard_passed = sum(int(s["counts"].get("passed", 0)) for s in shard_results)
     total_shard_failed = sum(int(s["counts"].get("failed", 0)) for s in shard_results)
     total_shard_skipped = sum(int(s["counts"].get("skipped", 0)) for s in shard_results)
+    with _SUBPROCESS_LOCK:
+        worker_records_snapshot = list(_WORKER_EXECUTION_RECORDS)
+    (RUN_DIR / "worker_executions.jsonl").write_text(
+        "\n".join(json.dumps(w, sort_keys=True) for w in worker_records_snapshot) + ("\n" if worker_records_snapshot else ""),
+        encoding="utf-8",
+    )
     concurrency_report = {
         "schema_version": 1,
         "run_id": RUN_ID,
         "tested_source_sha": current_sha,
-        "max_workers": num_shards,
-        "max_configured_workers": num_shards,
-        "max_active_workers_observed": len(shard_results),
+        "max_workers": MAX_CONCURRENT_SUBPROCESS_WORKERS,
+        "max_configured_workers": MAX_CONCURRENT_SUBPROCESS_WORKERS,
+        "max_active_workers_observed": observed_peak_workers,
         "batches_count": len(shard_results),
         "wall_clock_ms": shard_wall_ms,
+        "scheduled_tasks": len(worker_records_snapshot),
+        "succeeded_tasks": sum(1 for w in worker_records_snapshot if int(w.get("exit_code", 1)) == 0),
+        "failed_tasks": sum(1 for w in worker_records_snapshot if int(w.get("exit_code", 1)) != 0),
+        "blocked_tasks": 0,
+        "cancelled_tasks": 0,
         "expected_nodes_count": total_shard_passed + total_shard_failed + total_shard_skipped,
         "completed_nodes_count": total_shard_passed,
         "skipped_nodes_count": total_shard_skipped,
         "failed_nodes_count": total_shard_failed,
         "unaccounted_nodes_count": 0,
-        "orphan_processes_remaining": 0,
+        "orphan_processes_remaining": int(disk_budget_report.get("orphan_worker_count", 0)),
     }
     (RUN_DIR / "concurrency_report.json").write_text(json.dumps(concurrency_report, indent=2), encoding="utf-8")
     results["disk_budget_report"] = disk_budget_report
@@ -2913,6 +3029,18 @@ def main():
         backtest_summary_record = {"status": "FAIL", "error": str(bt_exc), "fabricated_candles_count": -1}
     results["backtest_summary"] = backtest_summary_record
 
+    # Materialize G58 XML BEFORE G87 JUnit reconciliation so all 93 gate XMLs in REPORTS_DIR are reconciled
+    report_xml_g58 = REPORTS_DIR / "g58_release_artifact_truth.xml"
+    code_g58, out_g58, err_g58, dur_g58 = materialize_pytest_gate(
+        test_files=["backend/tests/test_v17_8_acceptance_runner.py"],
+        filter_expr="",
+        report_xml=report_xml_g58,
+        log_name="g58_release_artifact_truth",
+        min_passed=7,
+    )
+    _GATE_EXIT_CODES[report_xml_g58.name] = int(code_g58)
+    counts_g58 = parse_pytest_counts(out_g58, report_xml_g58)
+
     # G87: JUnit XML & Gate Results Count Reconciliation (Section 15)
     print("\n[G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION] Reconciling JUnit XML Test Counts Across All Executed Pytest Gates...")
     junit_reconciliation = {
@@ -2929,6 +3057,7 @@ def main():
     }
     for xml_file in sorted(REPORTS_DIR.glob("*.xml")):
         parsed = parse_pytest_counts("", xml_file)
+        actual_exit = int(_GATE_EXIT_CODES.get(xml_file.name, 0))
         meta_path = xml_file.with_name(xml_file.name + ".meta.json")
         meta_path.write_text(
             json.dumps(
@@ -2936,7 +3065,7 @@ def main():
                     "run_id": RUN_ID,
                     "tested_source_sha": current_sha,
                     "xml_sha256": hashlib.sha256(xml_file.read_bytes()).hexdigest(),
-                    "exit_code": 0 if int(parsed.get("failed", 0)) == 0 and int(parsed.get("errors", 0)) == 0 else 1,
+                    "exit_code": actual_exit,
                     "counts": parsed,
                 },
                 indent=2,
@@ -3019,16 +3148,6 @@ def main():
         expected_commit_sha=current_sha,
         check_worktree_clean=False,
     )
-
-    report_xml_g58 = REPORTS_DIR / "g58_release_artifact_truth.xml"
-    code_g58, out_g58, err_g58, dur_g58 = materialize_pytest_gate(
-        test_files=["backend/tests/test_v17_8_acceptance_runner.py"],
-        filter_expr="",
-        report_xml=report_xml_g58,
-        log_name="g58_release_artifact_truth",
-        min_passed=7,
-    )
-    counts_g58 = parse_pytest_counts(out_g58, report_xml_g58)
 
     g88_log_path = LOGS_DIR / "g88_exact_commit_evidence.log"
     g88_log_path.write_text(

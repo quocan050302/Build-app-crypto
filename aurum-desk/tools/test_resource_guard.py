@@ -37,6 +37,234 @@ class DiskBudgetExceededError(RuntimeError):
         self.report = report or {}
 
 
+def normalize_ru_maxrss_to_bytes(ru_maxrss: int, platform_name: Optional[str] = None) -> int:
+    """
+    R3.3.1 Section 2.4 (P0-B): Normalizes OS `ru_maxrss` into exact bytes without unit inflation.
+      - macOS / Darwin (`darwin`): `ru_maxrss` is already reported in bytes by the kernel.
+      - Linux (`linux`): `ru_maxrss` is reported in kilobytes (KiB) and must be multiplied by 1024.
+      - Windows (`win32` / `cygwin`): working set counters are already in bytes.
+    """
+    val = int(ru_maxrss)
+    if val < 0:
+        raise ValueError(f"INVALID_NEGATIVE_RU_MAXRSS: {ru_maxrss}")
+    plat = str(platform_name if platform_name is not None else sys.platform).lower()
+    if "darwin" in plat or "mac" in plat:
+        return val
+    if "linux" in plat or "freebsd" in plat or "openbsd" in plat or "netbsd" in plat:
+        return val * 1024
+    if "win" in plat:
+        return val
+    # Fallback check via uname if platform string is generic
+    if hasattr(os, "uname"):
+        try:
+            sysname = os.uname().sysname.lower()
+            if "darwin" in sysname:
+                return val
+            if "linux" in sysname:
+                return val * 1024
+        except Exception:
+            pass
+    return val
+
+
+def measure_process_memory_scopes(
+    *,
+    simulate_failure: bool = False,
+    platform_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    R3.3.1 Section 2.4 (P0-B): Measures separated memory scopes in exact bytes without any
+    hardcoded 64 MiB (67,108,864 bytes) fallback.
+    """
+    plat = str(platform_override if platform_override is not None else sys.platform)
+    if simulate_failure:
+        return {
+            "measurement_status": "NOT_MEASURED",
+            "memory_measurement_source": "NOT_MEASURED",
+            "memory_measurement_scope": "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES",
+            "unit": "BYTES",
+            "platform": plat,
+            "current_rss_bytes": None,
+            "peak_process_rss_bytes": None,
+            "child_rss_bytes": None,
+            "peak_child_rss_bytes": None,
+            "total_process_tree_rss_bytes": None,
+            "peak_process_tree_rss_bytes": None,
+            "system_total_memory_bytes": None,
+            "system_available_memory_bytes": None,
+            "system_used_memory_bytes": None,
+            "system_memory_percent": None,
+            "swap_total_bytes": None,
+            "swap_free_bytes": None,
+            "swap_used_bytes": None,
+            "cpu_percent": None,
+        }
+
+    sources: List[str] = []
+    current_rss_b: Optional[int] = None
+    child_rss_b: Optional[int] = None
+    peak_proc_rss_b: Optional[int] = None
+    peak_child_rss_b: Optional[int] = None
+    sys_total_b: Optional[int] = None
+    sys_avail_b: Optional[int] = None
+    sys_used_b: Optional[int] = None
+    sys_pct: Optional[float] = None
+    swap_total_b: Optional[int] = None
+    swap_free_b: Optional[int] = None
+    swap_used_b: Optional[int] = None
+    cpu_pct: Optional[float] = None
+
+    try:
+        import psutil  # type: ignore
+
+        vm = psutil.virtual_memory()
+        sm = psutil.swap_memory()
+        proc = psutil.Process(os.getpid())
+        current_rss_b = int(proc.memory_info().rss)
+        c_rss = 0
+        for ch in proc.children(recursive=True):
+            try:
+                c_rss += int(ch.memory_info().rss)
+            except Exception:
+                pass
+        child_rss_b = c_rss
+        sys_total_b = int(vm.total)
+        sys_avail_b = int(vm.available)
+        sys_used_b = int(getattr(vm, "used", vm.total - vm.available))
+        sys_pct = float(vm.percent)
+        swap_total_b = int(sm.total)
+        swap_free_b = int(sm.free)
+        swap_used_b = int(sm.used)
+        cpu_pct = float(psutil.cpu_percent(interval=None))
+        sources.append("PSUTIL_PROCESS_AND_VIRTUAL_MEMORY")
+    except Exception:
+        pass
+
+    try:
+        import resource  # type: ignore
+
+        r_self = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        r_child = int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+        peak_proc_rss_b = normalize_ru_maxrss_to_bytes(r_self, platform_name=plat)
+        peak_child_rss_b = normalize_ru_maxrss_to_bytes(r_child, platform_name=plat)
+        if current_rss_b is not None and peak_proc_rss_b < current_rss_b:
+            peak_proc_rss_b = current_rss_b
+        if child_rss_b is not None and peak_child_rss_b < child_rss_b:
+            peak_child_rss_b = child_rss_b
+        sources.append("RESOURCE_GETRUSAGE_NORMALIZED_BYTES")
+    except Exception:
+        if current_rss_b is not None:
+            peak_proc_rss_b = current_rss_b
+        if child_rss_b is not None:
+            peak_child_rss_b = child_rss_b
+
+    if current_rss_b is None and peak_proc_rss_b is not None:
+        current_rss_b = peak_proc_rss_b
+    if child_rss_b is None and peak_child_rss_b is not None:
+        child_rss_b = peak_child_rss_b
+
+    if current_rss_b is None and peak_proc_rss_b is None:
+        return {
+            "measurement_status": "NOT_MEASURED",
+            "memory_measurement_source": "NOT_MEASURED",
+            "memory_measurement_scope": "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES",
+            "unit": "BYTES",
+            "platform": plat,
+            "current_rss_bytes": None,
+            "peak_process_rss_bytes": None,
+            "child_rss_bytes": None,
+            "peak_child_rss_bytes": None,
+            "total_process_tree_rss_bytes": None,
+            "peak_process_tree_rss_bytes": None,
+            "system_total_memory_bytes": sys_total_b,
+            "system_available_memory_bytes": sys_avail_b,
+            "system_used_memory_bytes": sys_used_b,
+            "system_memory_percent": sys_pct,
+            "swap_total_bytes": swap_total_b,
+            "swap_free_bytes": swap_free_b,
+            "swap_used_bytes": swap_used_b,
+            "cpu_percent": cpu_pct,
+        }
+
+    total_tree_b = int(current_rss_b or 0) + int(child_rss_b or 0)
+    peak_tree_b = max(
+        total_tree_b,
+        int(peak_proc_rss_b or 0) + int(peak_child_rss_b or 0),
+    )
+
+    if sys_total_b is None or sys_used_b is None:
+        try:
+            if hasattr(os, "sysconf"):
+                pg_sz = int(os.sysconf("SC_PAGE_SIZE"))
+                ph_pg = int(os.sysconf("SC_PHYS_PAGES"))
+                if pg_sz > 0 and ph_pg > 0:
+                    sys_total_b = pg_sz * ph_pg
+                    if hasattr(os, "sysconf") and "SC_AVPHYS_PAGES" in getattr(os, "sysconf_names", {}):
+                        av_pg = int(os.sysconf("SC_AVPHYS_PAGES"))
+                        if av_pg >= 0:
+                            sys_avail_b = pg_sz * av_pg
+                            sys_used_b = max(peak_tree_b, sys_total_b - sys_avail_b)
+                    if sys_used_b is None:
+                        import subprocess as _sp
+
+                        vm_res = _sp.run(
+                            ["vm_stat"],
+                            capture_output=True,
+                            text=True,
+                            timeout=2,
+                            check=False,
+                        )
+                        if vm_res.returncode == 0 and vm_res.stdout:
+                            free_pages = 0
+                            for ln in vm_res.stdout.splitlines():
+                                if any(k in ln for k in ("Pages free", "Pages inactive", "Pages speculative")):
+                                    parts = ln.split(":")
+                                    if len(parts) == 2:
+                                        num_s = parts[1].strip().rstrip(".")
+                                        if num_s.isdigit():
+                                            free_pages += int(num_s)
+                            if free_pages > 0:
+                                sys_avail_b = min(sys_total_b, free_pages * pg_sz)
+                                sys_used_b = max(peak_tree_b, sys_total_b - sys_avail_b)
+                    if sys_used_b is None and sys_total_b > 0:
+                        sys_used_b = max(1, peak_tree_b)
+                        sys_avail_b = max(0, sys_total_b - sys_used_b)
+                    if sys_total_b and sys_used_b is not None:
+                        sys_pct = round((sys_used_b / sys_total_b) * 100.0, 2)
+                        sources.append("SYSCONF_VM_STAT_BYTES")
+        except Exception:
+            pass
+
+    if cpu_pct is None:
+        try:
+            load_1m = float(os.getloadavg()[0])  # type: ignore[attr-defined]
+            cpu_pct = round(min(100.0, (load_1m / max(1, os.cpu_count() or 1)) * 100.0), 2)
+        except Exception:
+            cpu_pct = 0.0
+
+    return {
+        "measurement_status": "MEASURED",
+        "memory_measurement_source": "+".join(sources) if sources else "MEASURED",
+        "memory_measurement_scope": "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES",
+        "unit": "BYTES",
+        "platform": plat,
+        "current_rss_bytes": current_rss_b,
+        "peak_process_rss_bytes": peak_proc_rss_b,
+        "child_rss_bytes": child_rss_b,
+        "peak_child_rss_bytes": peak_child_rss_b,
+        "total_process_tree_rss_bytes": total_tree_b,
+        "peak_process_tree_rss_bytes": peak_tree_b,
+        "system_total_memory_bytes": sys_total_b,
+        "system_available_memory_bytes": sys_avail_b,
+        "system_used_memory_bytes": sys_used_b,
+        "system_memory_percent": sys_pct,
+        "swap_total_bytes": swap_total_b,
+        "swap_free_bytes": swap_free_b,
+        "swap_used_bytes": swap_used_b,
+        "cpu_percent": cpu_pct,
+    }
+
+
 def _dir_size_bytes(path: Path) -> int:
     if not path.exists():
         return 0
@@ -92,6 +320,7 @@ class TestResourceGuard:
         run_id: str,
         repo_root: Optional[Path] = None,
         artifact_dir: Optional[Path] = None,
+        tmp_root: Optional[Path] = None,
         reserved_floor_override_bytes: Optional[int] = None,
         simulate_free_disk_bytes: Optional[int] = None,
         strict_percent_floor: bool = False,
@@ -103,14 +332,68 @@ class TestResourceGuard:
             if artifact_dir
             else (self.repo_root / "docs" / "artifacts" / "v17_9_0" / run_id)
         )
-        self.tmp_root = self.repo_root / "tmp" / "v17_9_0" / run_id
+        self.tmp_root = Path(tmp_root) if tmp_root else (self.repo_root / "tmp" / "v17_9_0" / run_id)
         self.reserved_floor_override_bytes = reserved_floor_override_bytes
         self.simulate_free_disk_bytes = simulate_free_disk_bytes
         self.strict_percent_floor = strict_percent_floor
+        self.simulate_memory_measurement_failure: bool = False
         self.snapshots: List[DiskBudgetSnapshot] = []
         self.cleaned_worker_dirs: List[str] = []
         self.compressed_logs: List[Dict[str, Any]] = []
         self.cpu_memory_samples: List[Dict[str, Any]] = []
+        self.registered_worker_pids: Dict[int, Dict[str, Any]] = {}
+
+    def register_worker_pid(
+        self,
+        pid: int,
+        worker_id: str = "",
+        command: Optional[List[str]] = None,
+    ) -> None:
+        self.registered_worker_pids[int(pid)] = {
+            "pid": int(pid),
+            "worker_id": str(worker_id),
+            "command": list(command or []),
+            "registered_at_ms": int(time.time() * 1000),
+        }
+
+    def unregister_worker_pid(self, pid: int) -> None:
+        self.registered_worker_pids.pop(int(pid), None)
+
+    def inspect_orphan_worker_processes(self) -> Dict[str, Any]:
+        """
+        R3.3.1 Section 2.4 (P0-E): Inspects owned worker PIDs and live child processes
+        rather than hardcoding `orphan_worker_count: 0`.
+        """
+        alive_orphans: List[Dict[str, Any]] = []
+        for pid, meta in list(self.registered_worker_pids.items()):
+            is_alive = False
+            try:
+                import psutil  # type: ignore
+
+                if psutil.pid_exists(pid):
+                    p = psutil.Process(pid)
+                    if p.status() != psutil.STATUS_ZOMBIE:
+                        is_alive = True
+            except Exception:
+                try:
+                    os.kill(pid, 0)
+                    is_alive = True
+                except OSError:
+                    is_alive = False
+            if is_alive:
+                alive_orphans.append(dict(meta))
+            else:
+                self.registered_worker_pids.pop(pid, None)
+
+        return {
+            "orphan_worker_count": len(alive_orphans),
+            "orphan_worker_pids": [int(m["pid"]) for m in alive_orphans],
+            "orphan_workers": alive_orphans,
+            "status": "PASS" if len(alive_orphans) == 0 else "BLOCKED_ORPHAN_PROCESSES",
+        }
+
+    def cleanup_run_temp_root(self) -> Dict[str, Any]:
+        return self.cleanup_run_temp_dir()
 
     def compute_reserved_floor_bytes(self, total_disk_bytes: int) -> int:
         if self.reserved_floor_override_bytes is not None:
@@ -214,6 +497,15 @@ class TestResourceGuard:
 
     def sample_cpu_memory(self, stage: str = "SAMPLE", active_workers: int = 1) -> Dict[str, Any]:
         disk_snap = self.measure_disk_budget(stage=stage)
+        scopes = measure_process_memory_scopes(simulate_failure=self.simulate_memory_measurement_failure)
+        m_status = scopes.get("measurement_status", "NOT_MEASURED")
+        curr_rss = scopes.get("current_rss_bytes")
+        child_rss = scopes.get("child_rss_bytes")
+        total_rss = scopes.get("total_process_tree_rss_bytes")
+        peak_proc_rss = scopes.get("peak_process_rss_bytes")
+        peak_child_rss = scopes.get("peak_child_rss_bytes")
+        peak_tree_rss = scopes.get("peak_process_tree_rss_bytes")
+
         sample: Dict[str, Any] = {
             "timestamp_ms": int(time.time() * 1000),
             "stage": stage,
@@ -222,92 +514,37 @@ class TestResourceGuard:
             "free_disk_bytes": disk_snap.free_disk_bytes,
             "temporary_bytes": disk_snap.temporary_bytes,
             "artifact_bytes": disk_snap.current_run_bytes,
+            "measurement_status": m_status,
+            "memory_measurement_source": scopes.get("memory_measurement_source", "NOT_MEASURED"),
+            "memory_measurement_scope": scopes.get("memory_measurement_scope", "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES"),
+            "unit": "BYTES",
+            "platform": scopes.get("platform", sys.platform),
+            "memory_total_bytes": scopes.get("system_total_memory_bytes"),
+            "memory_available_bytes": scopes.get("system_available_memory_bytes"),
+            "memory_used_bytes": scopes.get("system_used_memory_bytes"),
+            "system_total_memory_bytes": scopes.get("system_total_memory_bytes"),
+            "system_available_memory_bytes": scopes.get("system_available_memory_bytes"),
+            "system_used_memory_bytes": scopes.get("system_used_memory_bytes"),
+            "memory_percent": scopes.get("system_memory_percent"),
+            "current_rss_bytes": curr_rss,
+            "peak_process_rss_bytes": peak_proc_rss,
+            "child_rss_bytes": child_rss,
+            "peak_child_rss_bytes": peak_child_rss,
+            "total_process_tree_rss_bytes": total_rss,
+            "peak_process_tree_rss_bytes": peak_tree_rss,
+            "process_rss_bytes": curr_rss,
+            "total_rss_bytes": total_rss,
+            "process_rss_mb": round(curr_rss / (1024 * 1024), 2) if isinstance(curr_rss, int) else None,
+            "peak_process_rss_mb": round(peak_proc_rss / (1024 * 1024), 2) if isinstance(peak_proc_rss, int) else None,
+            "child_rss_mb": round(child_rss / (1024 * 1024), 2) if isinstance(child_rss, int) else None,
+            "peak_child_rss_mb": round(peak_child_rss / (1024 * 1024), 2) if isinstance(peak_child_rss, int) else None,
+            "total_rss_mb": round(total_rss / (1024 * 1024), 2) if isinstance(total_rss, int) else None,
+            "peak_process_tree_rss_mb": round(peak_tree_rss / (1024 * 1024), 2) if isinstance(peak_tree_rss, int) else None,
+            "cpu_percent": scopes.get("cpu_percent"),
+            "swap_total_bytes": scopes.get("swap_total_bytes"),
+            "swap_free_bytes": scopes.get("swap_free_bytes"),
+            "swap_used_bytes": scopes.get("swap_used_bytes"),
         }
-        try:
-            import psutil  # type: ignore
-
-            vm = psutil.virtual_memory()
-            sm = psutil.swap_memory()
-            proc = psutil.Process(os.getpid())
-            rss_b = int(proc.memory_info().rss)
-            child_rss_b = 0
-            for ch in proc.children(recursive=True):
-                try:
-                    child_rss_b += int(ch.memory_info().rss)
-                except Exception:
-                    pass
-            total_rss_b = rss_b + child_rss_b
-            sample["memory_total_bytes"] = int(vm.total)
-            sample["memory_available_bytes"] = int(vm.available)
-            sample["memory_used_bytes"] = int(getattr(vm, "used", vm.total - vm.available))
-            sample["memory_percent"] = float(vm.percent)
-            sample["process_rss_bytes"] = rss_b
-            sample["child_rss_bytes"] = child_rss_b
-            sample["total_rss_bytes"] = total_rss_b
-            sample["process_rss_mb"] = round(rss_b / (1024 * 1024), 2)
-            sample["child_rss_mb"] = round(child_rss_b / (1024 * 1024), 2)
-            sample["total_rss_mb"] = round(total_rss_b / (1024 * 1024), 2)
-            sample["cpu_percent"] = float(psutil.cpu_percent(interval=None))
-            sample["swap_total_bytes"] = int(sm.total)
-            sample["swap_free_bytes"] = int(sm.free)
-            sample["swap_used_bytes"] = int(sm.used)
-        except Exception:
-            try:
-                import resource  # type: ignore
-
-                rusage_rss = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-                rusage_child_rss = int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
-                is_darwin = hasattr(os, "uname") and os.uname().sysname == "Darwin"
-                rss_b = rusage_rss if is_darwin else rusage_rss * 1024
-                child_rss_b = rusage_child_rss if is_darwin else rusage_child_rss * 1024
-            except Exception:
-                rss_b = 64 * 1024 * 1024
-                child_rss_b = 0
-                try:
-                    import ctypes
-                    from ctypes import wintypes
-
-                    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
-                        _fields_ = [
-                            ("cb", wintypes.DWORD),
-                            ("PageFaultCount", wintypes.DWORD),
-                            ("PeakWorkingSetSize", ctypes.c_size_t),
-                            ("WorkingSetSize", ctypes.c_size_t),
-                            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                            ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                            ("PagefileUsage", ctypes.c_size_t),
-                            ("PeakPagefileUsage", ctypes.c_size_t),
-                        ]
-
-                    pmc = PROCESS_MEMORY_COUNTERS()
-                    pmc.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
-                    handle = ctypes.windll.kernel32.GetCurrentProcess()
-                    if ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(pmc), pmc.cb):
-                        rss_b = int(pmc.WorkingSetSize)
-                except Exception:
-                    pass
-            total_rss_b = rss_b + child_rss_b
-            try:
-                load_1m = float(os.getloadavg()[0])  # type: ignore[attr-defined]
-                cpu_pct_est = round(min(100.0, (load_1m / max(1, os.cpu_count() or 1)) * 100.0), 2)
-            except Exception:
-                cpu_pct_est = 0.0
-            sample["memory_total_bytes"] = None
-            sample["memory_available_bytes"] = None
-            sample["memory_used_bytes"] = total_rss_b
-            sample["memory_percent"] = None
-            sample["process_rss_bytes"] = rss_b
-            sample["child_rss_bytes"] = child_rss_b
-            sample["total_rss_bytes"] = total_rss_b
-            sample["process_rss_mb"] = round(rss_b / (1024 * 1024), 2)
-            sample["child_rss_mb"] = round(child_rss_b / (1024 * 1024), 2)
-            sample["total_rss_mb"] = round(total_rss_b / (1024 * 1024), 2)
-            sample["cpu_percent"] = cpu_pct_est
-            sample["swap_total_bytes"] = None
-            sample["swap_free_bytes"] = None
-            sample["swap_used_bytes"] = None
         self.cpu_memory_samples.append(sample)
         return sample
 
@@ -366,20 +603,64 @@ class TestResourceGuard:
         all_pass = all(s.status == "PASS" for s in self.snapshots)
         final_temp = _dir_size_bytes(self.tmp_root)
 
-        peak_mem_b = max(
-            (int(s.get("total_rss_bytes") or s.get("memory_used_bytes") or 0) for s in self.cpu_memory_samples),
-            default=0,
-        )
-        peak_rss_mb = max((float(s.get("process_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
-        peak_child_rss_mb = max((float(s.get("child_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
-        peak_total_rss_mb = max((float(s.get("total_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
-        peak_cpu_pct = max((float(s.get("cpu_percent") or 0.0) for s in self.cpu_memory_samples), default=0.0)
+        any_unmeasured = any(s.get("measurement_status") == "NOT_MEASURED" for s in self.cpu_memory_samples)
+        orphan_info = self.inspect_orphan_worker_processes()
+        orphan_count = int(orphan_info["orphan_worker_count"])
+
+        measured_samples = [s for s in self.cpu_memory_samples if s.get("measurement_status") == "MEASURED"]
+        if measured_samples and not any_unmeasured:
+            peak_proc_rss_b = max((int(s.get("peak_process_rss_bytes") or s.get("current_rss_bytes") or 0) for s in measured_samples), default=0)
+            peak_child_rss_b = max((int(s.get("peak_child_rss_bytes") or s.get("child_rss_bytes") or 0) for s in measured_samples), default=0)
+            peak_tree_rss_b = max((int(s.get("peak_process_tree_rss_bytes") or s.get("total_rss_bytes") or 0) for s in measured_samples), default=0)
+            curr_rss_b = int(measured_samples[-1].get("current_rss_bytes") or 0)
+            child_rss_b = int(measured_samples[-1].get("child_rss_bytes") or 0)
+            sys_used_raw = measured_samples[-1].get("system_used_memory_bytes")
+            sys_total_raw = measured_samples[-1].get("system_total_memory_bytes")
+            sys_avail_raw = measured_samples[-1].get("system_available_memory_bytes")
+            sys_used_b: Any = int(sys_used_raw) if isinstance(sys_used_raw, (int, float)) and sys_used_raw > 0 else "NOT_MEASURED"
+            sys_total_b: Any = int(sys_total_raw) if isinstance(sys_total_raw, (int, float)) and sys_total_raw > 0 else "NOT_MEASURED"
+            sys_avail_b: Any = int(sys_avail_raw) if isinstance(sys_avail_raw, (int, float)) and sys_avail_raw >= 0 else "NOT_MEASURED"
+            peak_rss_mb: Any = round(peak_proc_rss_b / (1024 * 1024), 2)
+            peak_child_rss_mb: Any = round(peak_child_rss_b / (1024 * 1024), 2)
+            peak_total_rss_mb: Any = round(peak_tree_rss_b / (1024 * 1024), 2)
+            peak_mem_b: Any = peak_tree_rss_b
+            mem_status = "MEASURED"
+        else:
+            peak_proc_rss_b = "NOT_MEASURED"  # type: ignore[assignment]
+            peak_child_rss_b = "NOT_MEASURED"  # type: ignore[assignment]
+            peak_tree_rss_b = "NOT_MEASURED"  # type: ignore[assignment]
+            curr_rss_b = "NOT_MEASURED"  # type: ignore[assignment]
+            child_rss_b = "NOT_MEASURED"  # type: ignore[assignment]
+            sys_used_b = "NOT_MEASURED"
+            sys_total_b = "NOT_MEASURED"
+            sys_avail_b = "NOT_MEASURED"
+            peak_rss_mb = "NOT_MEASURED"
+            peak_child_rss_mb = "NOT_MEASURED"
+            peak_total_rss_mb = "NOT_MEASURED"
+            peak_mem_b = "NOT_MEASURED"
+            mem_status = "NOT_MEASURED"
+
+        peak_cpu_pct = max((float(s.get("cpu_percent") or 0.0) for s in measured_samples), default=0.0)
         last_sample = self.cpu_memory_samples[-1] if self.cpu_memory_samples else {}
 
+        if not all_pass:
+            report_status = "BLOCKED_DISK_BUDGET"
+        elif orphan_count > 0:
+            report_status = "BLOCKED_ORPHAN_PROCESSES"
+        elif any_unmeasured:
+            report_status = "BLOCKED_RESOURCE_TELEMETRY"
+        else:
+            report_status = "PASS"
+
         return {
-            "schema_version": "V17.9.0.1.2",
+            "schema_version": "V17.9.0.1.3_R3.3.1",
             "run_id": self.run_id,
-            "status": "PASS" if all_pass else "BLOCKED_DISK_BUDGET",
+            "status": report_status,
+            "measurement_status": mem_status,
+            "memory_measurement_source": last_sample.get("memory_measurement_source", "NOT_MEASURED"),
+            "memory_measurement_scope": "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES",
+            "unit": "BYTES",
+            "platform": sys.platform,
             "total_disk_bytes": latest.total_disk_bytes,
             "reserved_disk_floor_bytes": latest.reserved_disk_floor_bytes,
             "free_disk_bytes_preflight": preflight_free,
@@ -394,17 +675,26 @@ class TestResourceGuard:
             "peak_temporary_bytes": peak_temp,
             "final_temporary_bytes": final_temp,
             "samples_recorded": len(self.cpu_memory_samples),
+            "current_rss_bytes": curr_rss_b,
+            "peak_process_rss_bytes": peak_proc_rss_b,
+            "child_rss_bytes": child_rss_b,
+            "peak_child_rss_bytes": peak_child_rss_b,
+            "peak_process_tree_rss_bytes": peak_tree_rss_b,
+            "system_total_memory_bytes": sys_total_b,
+            "system_available_memory_bytes": sys_avail_b,
+            "system_used_memory_bytes": sys_used_b,
             "peak_memory_bytes": peak_mem_b,
             "peak_rss_mb": peak_rss_mb,
             "peak_child_rss_mb": peak_child_rss_mb,
             "peak_total_rss_mb": peak_total_rss_mb,
             "peak_cpu_percent": peak_cpu_pct,
-            "SwapTotal": last_sample.get("swap_total_bytes", "NOT_MEASURED"),
-            "SwapFree": last_sample.get("swap_free_bytes", "NOT_MEASURED"),
-            "SwapUsed": last_sample.get("swap_used_bytes", "NOT_MEASURED"),
+            "SwapTotal": last_sample.get("swap_total_bytes") if last_sample.get("swap_total_bytes") is not None else "NOT_MEASURED",
+            "SwapFree": last_sample.get("swap_free_bytes") if last_sample.get("swap_free_bytes") is not None else "NOT_MEASURED",
+            "SwapUsed": last_sample.get("swap_used_bytes") if last_sample.get("swap_used_bytes") is not None else "NOT_MEASURED",
             "swappiness": "NOT_APPLICABLE_DARWIN" if sys.platform == "darwin" else "UNKNOWN",
             "zram_devices": 0 if sys.platform == "darwin" else "UNKNOWN",
-            "orphan_worker_count": 0,
+            "orphan_worker_count": orphan_count,
+            "orphan_workers": orphan_info["orphan_workers"],
             "cleaned_worker_dirs_count": len(self.cleaned_worker_dirs),
             "cleaned_worker_dirs": self.cleaned_worker_dirs,
             "compressed_logs": self.compressed_logs,
@@ -415,10 +705,59 @@ class TestResourceGuard:
     def build_cpu_memory_report(self) -> Dict[str, Any]:
         if not self.cpu_memory_samples:
             self.sample_cpu_memory(stage="FINAL", active_workers=1)
+        any_unmeasured = any(s.get("measurement_status") == "NOT_MEASURED" for s in self.cpu_memory_samples)
+        measured_samples = [s for s in self.cpu_memory_samples if s.get("measurement_status") == "MEASURED"]
+        last_sample = self.cpu_memory_samples[-1] if self.cpu_memory_samples else {}
+        if measured_samples and not any_unmeasured:
+            peak_proc_rss_b: Any = max((int(s.get("peak_process_rss_bytes") or s.get("current_rss_bytes") or 0) for s in measured_samples), default=0)
+            peak_child_rss_b: Any = max((int(s.get("peak_child_rss_bytes") or s.get("child_rss_bytes") or 0) for s in measured_samples), default=0)
+            peak_tree_rss_b: Any = max((int(s.get("peak_process_tree_rss_bytes") or s.get("total_rss_bytes") or 0) for s in measured_samples), default=0)
+            curr_rss_b: Any = int(measured_samples[-1].get("current_rss_bytes") or 0)
+            child_rss_b: Any = int(measured_samples[-1].get("child_rss_bytes") or 0)
+            sys_used_raw = measured_samples[-1].get("system_used_memory_bytes")
+            sys_total_raw = measured_samples[-1].get("system_total_memory_bytes")
+            sys_avail_raw = measured_samples[-1].get("system_available_memory_bytes")
+            sys_used_b: Any = int(sys_used_raw) if isinstance(sys_used_raw, (int, float)) and sys_used_raw > 0 else "NOT_MEASURED"
+            sys_total_b: Any = int(sys_total_raw) if isinstance(sys_total_raw, (int, float)) and sys_total_raw > 0 else "NOT_MEASURED"
+            sys_avail_b: Any = int(sys_avail_raw) if isinstance(sys_avail_raw, (int, float)) and sys_avail_raw >= 0 else "NOT_MEASURED"
+            peak_rss_mb: Any = round(peak_proc_rss_b / (1024 * 1024), 2)
+            peak_child_rss_mb: Any = round(peak_child_rss_b / (1024 * 1024), 2)
+            peak_total_rss_mb: Any = round(peak_tree_rss_b / (1024 * 1024), 2)
+        else:
+            peak_proc_rss_b = "NOT_MEASURED"
+            peak_child_rss_b = "NOT_MEASURED"
+            peak_tree_rss_b = "NOT_MEASURED"
+            curr_rss_b = "NOT_MEASURED"
+            child_rss_b = "NOT_MEASURED"
+            sys_used_b = "NOT_MEASURED"
+            sys_total_b = "NOT_MEASURED"
+            sys_avail_b = "NOT_MEASURED"
+            peak_rss_mb = "NOT_MEASURED"
+            peak_child_rss_mb = "NOT_MEASURED"
+            peak_total_rss_mb = "NOT_MEASURED"
+        peak_cpu_pct = max((float(s.get("cpu_percent") or 0.0) for s in measured_samples), default=0.0)
         return {
-            "schema_version": "V17.9.0",
+            "schema_version": "V17.9.0.1.3_R3.3.1",
             "run_id": self.run_id,
+            "status": "BLOCKED_RESOURCE_TELEMETRY" if any_unmeasured else "PASS",
+            "measurement_status": "NOT_MEASURED" if any_unmeasured else "MEASURED",
+            "memory_measurement_source": last_sample.get("memory_measurement_source", "RESOURCE_GETRUSAGE_NORMALIZED_BYTES"),
+            "memory_measurement_scope": "SEPARATED_PROCESS_CHILD_TREE_AND_SYSTEM_BYTES",
+            "unit": "BYTES",
+            "platform": sys.platform,
             "cpu_count": os.cpu_count() or 1,
+            "current_rss_bytes": curr_rss_b,
+            "peak_process_rss_bytes": peak_proc_rss_b,
+            "child_rss_bytes": child_rss_b,
+            "peak_child_rss_bytes": peak_child_rss_b,
+            "peak_process_tree_rss_bytes": peak_tree_rss_b,
+            "system_total_memory_bytes": sys_total_b,
+            "system_available_memory_bytes": sys_avail_b,
+            "system_used_memory_bytes": sys_used_b,
+            "peak_rss_mb": peak_rss_mb,
+            "peak_child_rss_mb": peak_child_rss_mb,
+            "peak_total_rss_mb": peak_total_rss_mb,
+            "peak_cpu_percent": peak_cpu_pct,
             "samples_count": len(self.cpu_memory_samples),
             "samples": self.cpu_memory_samples,
         }

@@ -4073,10 +4073,38 @@ def execute_real_v17_8_backtest(
     and writes all 13 required artifacts to `output_dir` (default `aurum-desk/backtest/`).
     Also records the replay summary in `shadow_research_storage` if initialized.
     """
+    import sys
+
+    started_at_ms = int(time.time() * 1000)
+    started_at_utc = datetime.fromtimestamp(started_at_ms / 1000.0, tz=timezone.utc).isoformat()
+    proc_pid = os.getpid()
+    proc_ppid = os.getppid()
+    proc_cmd = list(sys.argv)
+
     eff_out_dir = Path(output_dir) if output_dir else DEFAULT_BACKTEST_OUT_DIR
     eff_out_dir.mkdir(parents=True, exist_ok=True)
-    eff_run_id = run_id or f"v17_8_0_4_bt_{int(time.time())}"
+    eff_run_id = run_id or os.environ.get("AURUM_TEST_RUN_ID") or f"v17_8_0_4_bt_{int(time.time())}"
     source_sha = _get_git_head_sha()
+
+    # R3.3.1 Section 2.6: If an R3.3.1 initial manifest exists for this run_id, validate pre-execution ordering
+    r331_manifest_path = (
+        REPO_ROOT / "docs" / "artifacts" / "v17_9_0_1_3" / "r331" / eff_run_id / "R331_INITIAL_RUN_MANIFEST.json"
+    )
+    if r331_manifest_path.exists():
+        try:
+            from tools.runtime_execution_logger import verify_r331_pre_execution_manifest
+
+            chk = verify_r331_pre_execution_manifest(
+                r331_manifest_path,
+                expected_run_id=eff_run_id,
+                expected_source_sha=source_sha,
+                backtest_started_at_ms=started_at_ms,
+            )
+            if not chk.get("passed"):
+                raise RuntimeError(f"R331_PRE_EXECUTION_MANIFEST_VIOLATION: {chk.get('errors')}")
+        except ImportError:
+            pass
+
     log_lines: List[str] = []
 
     def _log(msg: str) -> None:
@@ -4085,7 +4113,10 @@ def execute_real_v17_8_backtest(
         log_lines.append(line)
         logger.info(msg)
 
-    _log(f"Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id={eff_run_id} source_sha={source_sha}")
+    _log(
+        f"Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id={eff_run_id} "
+        f"source_sha={source_sha} started_at_utc={started_at_utc} pid={proc_pid}"
+    )
 
     requested_end_ms = 1793196000000
     requested_start_ms = requested_end_ms - (90 * 86_400_000)
@@ -4519,6 +4550,45 @@ def execute_real_v17_8_backtest(
         },
     }
 
+    completed_at_ms = int(time.time() * 1000)
+    completed_at_utc = datetime.fromtimestamp(completed_at_ms / 1000.0, tz=timezone.utc).isoformat()
+    exec_provenance = {
+        "run_id": eff_run_id,
+        "source_sha": source_sha,
+        "tested_source_sha": source_sha,
+        "executable_tree_hash": ledger_provenance["source_tree_hash"],
+        "core_backtest_evaluator_tree_hash": ledger_provenance["core_backtest_evaluator_tree_hash"],
+        "started_at_utc": started_at_utc,
+        "started_at_ms": started_at_ms,
+        "completed_at_utc": completed_at_utc,
+        "completed_at_ms": completed_at_ms,
+        "duration_ms": max(0, completed_at_ms - started_at_ms),
+        "pid": proc_pid,
+        "ppid": proc_ppid,
+        "command": proc_cmd,
+    }
+    dataset_manifest["tested_source_sha"] = source_sha
+    dataset_manifest["started_at_utc"] = started_at_utc
+    dataset_manifest["started_at_ms"] = started_at_ms
+    dataset_manifest["completed_at_utc"] = completed_at_utc
+    dataset_manifest["completed_at_ms"] = completed_at_ms
+    dataset_manifest["pid"] = proc_pid
+    dataset_manifest["ppid"] = proc_ppid
+    dataset_manifest["command"] = proc_cmd
+    dataset_manifest["execution_provenance"] = dict(exec_provenance)
+    data_quality_report["tested_source_sha"] = source_sha
+    data_quality_report["execution_provenance"] = dict(exec_provenance)
+    matched_comparison["tested_source_sha"] = source_sha
+    matched_comparison["started_at_utc"] = started_at_utc
+    matched_comparison["started_at_ms"] = started_at_ms
+    matched_comparison["completed_at_utc"] = completed_at_utc
+    matched_comparison["completed_at_ms"] = completed_at_ms
+    matched_comparison["execution_provenance"] = dict(exec_provenance)
+    out_of_sample_report["tested_source_sha"] = source_sha
+    out_of_sample_report["execution_provenance"] = dict(exec_provenance)
+    sensitivity_report["tested_source_sha"] = source_sha
+    sensitivity_report["execution_provenance"] = dict(exec_provenance)
+
     backtest_verdict = "REAL_HISTORICAL_BACKTEST_COMPLETED"
     matched_ac = full_eval["matched_cohort_analysis"]["matched_A_vs_C_cohort"]
     _log(
@@ -4658,6 +4728,15 @@ def execute_real_v17_8_backtest(
         "run_id": eff_run_id,
         "symbol": "XAUUSDT",
         "source_sha": source_sha,
+        "tested_source_sha": source_sha,
+        "started_at_utc": started_at_utc,
+        "started_at_ms": started_at_ms,
+        "completed_at_utc": completed_at_utc,
+        "completed_at_ms": completed_at_ms,
+        "pid": proc_pid,
+        "ppid": proc_ppid,
+        "command": proc_cmd,
+        "execution_provenance": dict(exec_provenance),
         "dataset_sha": dataset_manifest["dataset_sha256"],
         "backtest_verdict": backtest_verdict,
         "data_quality_status": dataset_manifest["data_quality_status"],

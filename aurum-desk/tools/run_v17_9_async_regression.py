@@ -13,12 +13,14 @@ Enforces Section 11 requirements:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -128,6 +130,7 @@ class BoundedAsyncTestOrchestrator:
         resource_guard: TestResourceGuard,
         state_manager: ExecutionStateManager,
         max_pytest_workers: int = MAX_PYTEST_WORKERS,
+        max_global_workers: Optional[int] = None,
     ) -> None:
         self.run_id = run_id
         self.source_sha = source_sha
@@ -135,149 +138,236 @@ class BoundedAsyncTestOrchestrator:
         self.resource_guard = resource_guard
         self.state_manager = state_manager
         self.max_pytest_workers = max(1, min(8, int(max_pytest_workers)))
+        self.max_global_workers = max(
+            1,
+            min(8, int(max_global_workers if max_global_workers is not None else self.max_pytest_workers)),
+        )
+        self._global_semaphore = asyncio.Semaphore(self.max_global_workers)
         self._semaphores: Dict[str, asyncio.Semaphore] = {}
         self._active_workers: int = 0
         self._peak_workers: int = 0
         self.group_results: Dict[str, Dict[str, Any]] = {}
+        self.worker_executions: List[Dict[str, Any]] = []
 
     def _get_semaphore(self, pool: str) -> asyncio.Semaphore:
         if pool not in self._semaphores:
             if pool == "PLAYWRIGHT":
-                limit = MAX_PLAYWRIGHT_WORKERS
+                limit = min(MAX_PLAYWRIGHT_WORKERS, self.max_global_workers)
             elif pool == "BACKTEST":
-                limit = MAX_BACKTEST_WORKERS
+                limit = min(MAX_BACKTEST_WORKERS, self.max_global_workers)
             elif pool == "CPU":
-                limit = min(MAX_CPU_WORKERS, self.max_pytest_workers)
+                limit = min(MAX_CPU_WORKERS, self.max_pytest_workers, self.max_global_workers)
             elif pool == "IO":
-                limit = MAX_IO_REPORTERS
+                limit = min(MAX_IO_REPORTERS, self.max_global_workers)
             else:
-                limit = self.max_pytest_workers
+                limit = min(self.max_pytest_workers, self.max_global_workers)
             self._semaphores[pool] = asyncio.Semaphore(limit)
         return self._semaphores[pool]
 
     async def _run_single_group(self, spec: AsyncWorkerGroupSpec) -> Dict[str, Any]:
         sem = self._get_semaphore(spec.worker_pool)
-        async with sem:
-            self._active_workers += 1
-            if self._active_workers > self._peak_workers:
-                self._peak_workers = self._active_workers
+        async with self._global_semaphore:
+            async with sem:
+                self._active_workers += 1
+                if self._active_workers > self._peak_workers:
+                    self._peak_workers = self._active_workers
 
-            worker_dir = self.resource_guard.create_worker_temp_dir(spec.group_id)
-            self.resource_guard.sample_cpu_memory(
-                stage=f"START_{spec.group_id}",
-                active_workers=self._active_workers,
-            )
-
-            spec.log_path.parent.mkdir(parents=True, exist_ok=True)
-            if spec.junit_xml_path is not None:
-                spec.junit_xml_path.parent.mkdir(parents=True, exist_ok=True)
-
-            env = os.environ.copy()
-            env["PYTHONPATH"] = str(REPO_ROOT / "backend") + os.pathsep + str(REPO_ROOT)
-            env["PYTHONIOENCODING"] = "utf-8"
-            env["AURUM_TEST_WORKER_ID"] = spec.group_id
-            env["AURUM_TEST_TMP_DIR"] = str(worker_dir)
-            env["AURUM_SHADOW_DB_PATH"] = str(worker_dir / f"shadow_{spec.group_id}.db")
-            env["TMP"] = str(worker_dir)
-            env["TEMP"] = str(worker_dir)
-            env["TMPDIR"] = str(worker_dir)
-            env.update(spec.env_overrides)
-
-            t0 = time.perf_counter()
-            started_ms = int(time.time() * 1000)
-            exit_code = -1
-            timed_out = False
-
-            try:
-                with open(spec.log_path, "wb") as log_file:
-                    header = (
-                        f"# Group: {spec.group_id} ({spec.description})\n"
-                        f"# Command: {' '.join(spec.command)}\n"
-                        f"# Started: {started_ms}\n\n"
-                    ).encode("utf-8")
-                    log_file.write(header)
-                    log_file.flush()
-
-                    proc = await asyncio.create_subprocess_exec(
-                        *spec.command,
-                        cwd=str(spec.cwd),
-                        env=env,
-                        stdout=log_file,
-                        stderr=asyncio.subprocess.STDOUT,
-                    )
-                    try:
-                        exit_code = await asyncio.wait_for(proc.wait(), timeout=spec.timeout_sec)
-                    except asyncio.TimeoutError:
-                        timed_out = True
-                        try:
-                            proc.kill()
-                            await proc.wait()
-                        except Exception:
-                            pass
-                        exit_code = 124
+                worker_dir = self.resource_guard.create_worker_temp_dir(spec.group_id)
                 self.resource_guard.sample_cpu_memory(
-                    stage=f"END_{spec.group_id}",
+                    stage=f"START_{spec.group_id}",
                     active_workers=self._active_workers,
                 )
-            finally:
-                self.resource_guard.cleanup_worker_temp_dir(spec.group_id)
-                self.resource_guard.compress_large_log_if_needed(spec.log_path)
-                self._active_workers -= 1
 
-            duration_sec = round(time.perf_counter() - t0, 3)
-            completed_ms = int(time.time() * 1000)
+                spec.log_path.parent.mkdir(parents=True, exist_ok=True)
+                if spec.junit_xml_path is not None:
+                    spec.junit_xml_path.parent.mkdir(parents=True, exist_ok=True)
 
-            junit_info = (
-                parse_junit_xml_nodes(spec.junit_xml_path)
-                if spec.junit_xml_path is not None
-                else {
-                    "valid": exit_code == 0,
-                    "tests": 1 if exit_code == 0 else 0,
-                    "passed": 1 if exit_code == 0 else 0,
-                    "failures": 0 if exit_code == 0 else 1,
-                    "errors": 0,
-                    "skipped": 0,
-                    "completed_node_ids": [f"{spec.group_id}::cmd"] if exit_code == 0 else [],
-                    "skipped_node_ids": [],
-                    "failed_node_ids": [] if exit_code == 0 else [f"{spec.group_id}::cmd"],
-                }
-            )
+                env = os.environ.copy()
+                env["PYTHONPATH"] = str(REPO_ROOT / "backend") + os.pathsep + str(REPO_ROOT)
+                env["PYTHONIOENCODING"] = "utf-8"
+                env["AURUM_TEST_RUN_ID"] = self.run_id
+                env["AURUM_TEST_WORKER_ID"] = spec.group_id
+                env["AURUM_TEST_TMP_DIR"] = str(worker_dir)
+                env["AURUM_SHADOW_DB_PATH"] = str(worker_dir / f"shadow_{spec.group_id}.db")
+                env["TMP"] = str(worker_dir)
+                env["TEMP"] = str(worker_dir)
+                env["TMPDIR"] = str(worker_dir)
+                env.update(spec.env_overrides)
 
-            expected_artifacts = [spec.log_path]
-            if spec.junit_xml_path is not None:
-                expected_artifacts.append(spec.junit_xml_path)
+                t0 = time.perf_counter()
+                started_ms = int(time.time() * 1000)
+                started_utc = datetime.fromtimestamp(started_ms / 1000.0, tz=timezone.utc).isoformat()
+                exit_code = -1
+                timed_out = False
+                proc_pid: Optional[int] = None
 
-            checkpoint_ok, checkpoint_reason = self.state_manager.record_test_group_completion(
-                group_id=spec.group_id,
-                exit_code=exit_code,
-                artifact_paths=expected_artifacts,
-                current_head_sha=self.source_sha,
-                metrics={
+                try:
+                    with open(spec.log_path, "wb") as log_file:
+                        header = (
+                            f"# Group: {spec.group_id} ({spec.description})\n"
+                            f"# Command: {' '.join(spec.command)}\n"
+                            f"# Started: {started_ms}\n\n"
+                        ).encode("utf-8")
+                        log_file.write(header)
+                        log_file.flush()
+
+                        proc = await asyncio.create_subprocess_exec(
+                            *spec.command,
+                            cwd=str(spec.cwd),
+                            env=env,
+                            stdout=log_file,
+                            stderr=asyncio.subprocess.STDOUT,
+                        )
+                        proc_pid = int(proc.pid)
+                        self.resource_guard.register_worker_pid(
+                            proc_pid,
+                            worker_id=spec.group_id,
+                            command=spec.command,
+                        )
+                        try:
+                            exit_code = await asyncio.wait_for(proc.wait(), timeout=spec.timeout_sec)
+                        except asyncio.TimeoutError:
+                            timed_out = True
+                            try:
+                                proc.kill()
+                                await proc.wait()
+                            except Exception:
+                                pass
+                            exit_code = 124
+                        finally:
+                            if proc.returncode is not None and proc_pid is not None:
+                                self.resource_guard.unregister_worker_pid(proc_pid)
+                    self.resource_guard.sample_cpu_memory(
+                        stage=f"END_{spec.group_id}",
+                        active_workers=self._active_workers,
+                    )
+                finally:
+                    self.resource_guard.cleanup_worker_temp_dir(spec.group_id)
+                    self.resource_guard.compress_large_log_if_needed(spec.log_path)
+                    self._active_workers -= 1
+
+                duration_sec = round(time.perf_counter() - t0, 3)
+                completed_ms = int(time.time() * 1000)
+                completed_utc = datetime.fromtimestamp(completed_ms / 1000.0, tz=timezone.utc).isoformat()
+
+                junit_info = (
+                    parse_junit_xml_nodes(spec.junit_xml_path)
+                    if spec.junit_xml_path is not None
+                    else {
+                        "valid": exit_code == 0,
+                        "tests": 1 if exit_code == 0 else 0,
+                        "passed": 1 if exit_code == 0 else 0,
+                        "failures": 0 if exit_code == 0 else 1,
+                        "errors": 0,
+                        "skipped": 0,
+                        "completed_node_ids": [f"{spec.group_id}::cmd"] if exit_code == 0 else [],
+                        "skipped_node_ids": [],
+                        "failed_node_ids": [] if exit_code == 0 else [f"{spec.group_id}::cmd"],
+                    }
+                )
+
+                if spec.junit_xml_path is not None:
+                    xml_exists = spec.junit_xml_path.exists() and spec.junit_xml_path.stat().st_size > 0
+                    xml_sha256 = (
+                        hashlib.sha256(spec.junit_xml_path.read_bytes()).hexdigest()
+                        if xml_exists
+                        else None
+                    )
+                    sidecar_path = spec.junit_xml_path.with_suffix(".xml.meta.json")
+                    sidecar_payload = {
+                        "xml_file": spec.junit_xml_path.name,
+                        "run_id": self.run_id,
+                        "tested_source_sha": self.source_sha,
+                        "source_sha": self.source_sha,
+                        "worker_id": spec.group_id,
+                        "task_id": spec.group_id,
+                        "pid": proc_pid,
+                        "ppid": os.getpid(),
+                        "started_ms": started_ms,
+                        "completed_ms": completed_ms,
+                        "duration_sec": duration_sec,
+                        "exit_code": int(exit_code),
+                        "status": "PASS" if (exit_code == 0 and junit_info.get("valid")) else "FAIL",
+                        "timed_out": timed_out,
+                        "tests": junit_info.get("tests", 0),
+                        "passed": junit_info.get("passed", 0),
+                        "failures": junit_info.get("failures", 0),
+                        "errors": junit_info.get("errors", 0),
+                        "skipped": junit_info.get("skipped", 0),
+                        "xml_sha256": xml_sha256,
+                    }
+                    sidecar_path.write_text(json.dumps(sidecar_payload, indent=2), encoding="utf-8")
+
+                expected_artifacts = [spec.log_path]
+                if spec.junit_xml_path is not None:
+                    expected_artifacts.append(spec.junit_xml_path)
+
+                checkpoint_ok, checkpoint_reason = self.state_manager.record_test_group_completion(
+                    group_id=spec.group_id,
+                    exit_code=exit_code,
+                    artifact_paths=expected_artifacts,
+                    current_head_sha=self.source_sha,
+                    metrics={
+                        "duration_sec": duration_sec,
+                        "tests": junit_info["tests"],
+                        "passed": junit_info["passed"],
+                        "failures": junit_info["failures"],
+                        "skipped": junit_info["skipped"],
+                    },
+                )
+
+                worker_rec = {
+                    "run_id": self.run_id,
+                    "source_sha": self.source_sha,
+                    "tested_source_sha": self.source_sha,
+                    "task_id": spec.group_id,
+                    "worker_id": spec.group_id,
+                    "group_id": spec.group_id,
+                    "description": spec.description,
+                    "worker_pool": spec.worker_pool,
+                    "stage": spec.stage,
+                    "pid": proc_pid,
+                    "ppid": os.getpid(),
+                    "command": list(spec.command),
+                    "cwd": str(spec.cwd),
+                    "started_at_utc": started_utc,
+                    "started_at_ms": started_ms,
+                    "completed_at_utc": completed_utc,
+                    "completed_at_ms": completed_ms,
+                    "duration_ms": max(0, completed_ms - started_ms),
                     "duration_sec": duration_sec,
-                    "tests": junit_info["tests"],
-                    "passed": junit_info["passed"],
-                    "failures": junit_info["failures"],
-                    "skipped": junit_info["skipped"],
-                },
-            )
+                    "exit_code": int(exit_code),
+                    "timed_out": timed_out,
+                    "status": "PASS" if (exit_code == 0 and junit_info.get("valid") and junit_info.get("failures", 0) == 0) else "FAIL",
+                    "log_path": str(spec.log_path),
+                    "junit_xml_path": str(spec.junit_xml_path) if spec.junit_xml_path else None,
+                    "tests": junit_info.get("tests", 0),
+                    "passed": junit_info.get("passed", 0),
+                    "failures": junit_info.get("failures", 0),
+                    "errors": junit_info.get("errors", 0),
+                    "skipped": junit_info.get("skipped", 0),
+                }
+                self.worker_executions.append(worker_rec)
 
-            res = {
-                "group_id": spec.group_id,
-                "description": spec.description,
-                "worker_pool": spec.worker_pool,
-                "exit_code": exit_code,
-                "timed_out": timed_out,
-                "started_ms": started_ms,
-                "completed_ms": completed_ms,
-                "duration_sec": duration_sec,
-                "checkpoint_ok": checkpoint_ok,
-                "checkpoint_reason": checkpoint_reason,
-                "log_path": str(spec.log_path),
-                "junit_xml_path": str(spec.junit_xml_path) if spec.junit_xml_path else None,
-                "junit": junit_info,
-            }
-            self.group_results[spec.group_id] = res
-            return res
+                res = {
+                    "group_id": spec.group_id,
+                    "description": spec.description,
+                    "worker_pool": spec.worker_pool,
+                    "pid": proc_pid,
+                    "exit_code": exit_code,
+                    "status": worker_rec["status"],
+                    "timed_out": timed_out,
+                    "started_ms": started_ms,
+                    "completed_ms": completed_ms,
+                    "duration_sec": duration_sec,
+                    "checkpoint_ok": checkpoint_ok,
+                    "checkpoint_reason": checkpoint_reason,
+                    "log_path": str(spec.log_path),
+                    "junit_xml_path": str(spec.junit_xml_path) if spec.junit_xml_path else None,
+                    "junit": junit_info,
+                }
+                self.group_results[spec.group_id] = res
+                return res
 
     async def _periodic_resource_monitor(self, stop_event: asyncio.Event, interval_sec: float = 0.25) -> None:
         while not stop_event.is_set():
@@ -386,10 +476,41 @@ class BoundedAsyncTestOrchestrator:
         invariant_holds = len(expected_nodes) == (
             len(completed_nodes) + len(skipped_nodes) + len(failed_nodes)
         )
+
+        # Task-level accounting (R3.3.1 Section 2.3)
+        scheduled_tasks = len(specs)
+        succeeded_tasks = 0
+        failed_tasks = 0
+        blocked_tasks = 0
+        cancelled_tasks = 0
+        for s in specs:
+            gres = self.group_results.get(s.group_id)
+            if gres is None:
+                cancelled_tasks += 1
+            elif gres.get("status") == "BLOCKED":
+                blocked_tasks += 1
+            elif gres.get("exit_code") == 0 and gres.get("junit", {}).get("failures", 0) == 0:
+                succeeded_tasks += 1
+            else:
+                failed_tasks += 1
+
+        task_accounting_holds = (
+            scheduled_tasks == (succeeded_tasks + failed_tasks + blocked_tasks + cancelled_tasks)
+        )
+        orphan_info = self.resource_guard.inspect_orphan_worker_processes()
+        orphan_count = int(orphan_info.get("orphan_worker_count", 0))
+        concurrency_bound_holds = self._peak_workers <= self.max_global_workers
+
         all_groups_passed = (
             all(self.group_results.get(s.group_id, {}).get("exit_code") == 0 for s in specs)
             and len(failed_nodes) == 0
+            and failed_tasks == 0
+            and blocked_tasks == 0
+            and cancelled_tasks == 0
             and invariant_holds
+            and task_accounting_holds
+            and orphan_count == 0
+            and concurrency_bound_holds
         )
 
         sum_group_durations = round(
@@ -398,12 +519,14 @@ class BoundedAsyncTestOrchestrator:
         )
 
         summary = {
-            "schema_version": "V17.9.0.1.1",
+            "schema_version": "V17.9.0.1.3_R3.3.1",
             "run_id": self.run_id,
             "source_sha": self.source_sha,
+            "tested_source_sha": self.source_sha,
             "status": "PASS" if all_groups_passed else "FAIL",
             "cpu_count": CPU_COUNT,
-            "max_workers": MAX_WORKERS,
+            "max_workers": self.max_global_workers,
+            "max_global_workers": self.max_global_workers,
             "max_cpu_workers": MAX_CPU_WORKERS,
             "max_io_workers": MAX_IO_WORKERS,
             "max_pytest_workers": self.max_pytest_workers,
@@ -416,10 +539,30 @@ class BoundedAsyncTestOrchestrator:
             "max_retries": MAX_RETRIES,
             "artifact_budget_bytes": ARTIFACT_BUDGET_BYTES,
             "peak_concurrent_workers": self._peak_workers,
+            "concurrency_bound_holds": concurrency_bound_holds,
+            "orphan_processes_remaining": orphan_count,
             "wall_clock_duration_sec": wall_clock_sec,
             "sum_of_group_durations_sec": sum_group_durations,
             "speedup_ratio": round(sum_group_durations / max(0.001, wall_clock_sec), 2),
             "resume_info": resume_info,
+            "scheduled_tasks": scheduled_tasks,
+            "succeeded_tasks": succeeded_tasks,
+            "failed_tasks": failed_tasks,
+            "blocked_tasks": blocked_tasks,
+            "cancelled_tasks": cancelled_tasks,
+            "task_accounting_invariant_holds": task_accounting_holds,
+            "task_accounting": {
+                "scheduled_tasks": scheduled_tasks,
+                "succeeded_tasks": succeeded_tasks,
+                "failed_tasks": failed_tasks,
+                "blocked_tasks": blocked_tasks,
+                "cancelled_tasks": cancelled_tasks,
+                "unaccounted_tasks_count": abs(scheduled_tasks - (succeeded_tasks + failed_tasks + blocked_tasks + cancelled_tasks)),
+                "max_configured_workers": self.max_global_workers,
+                "max_active_workers_observed": self._peak_workers,
+                "orphan_processes_remaining": orphan_count,
+                "status": "PASS" if (all_groups_passed and task_accounting_holds and concurrency_bound_holds and orphan_count == 0) else "FAIL",
+            },
             "node_accounting_invariant_holds": invariant_holds,
             "total_expected_nodes": len(expected_nodes),
             "total_scheduled_nodes": len(scheduled_nodes),
@@ -433,6 +576,7 @@ class BoundedAsyncTestOrchestrator:
             "completed_node_ids": completed_nodes,
             "skipped_node_ids": skipped_nodes,
             "failed_node_ids": failed_nodes,
+            "worker_executions": list(self.worker_executions),
             "groups": {s.group_id: self.group_results.get(s.group_id) for s in specs},
         }
         self._last_summary = summary
