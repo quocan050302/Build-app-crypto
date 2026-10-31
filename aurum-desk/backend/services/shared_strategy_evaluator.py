@@ -460,6 +460,14 @@ class MarketDecisionContext:
     htf_provenance: Tuple[Tuple[str, Any], ...] = ()
     session_restricted: bool = False
     session_restriction_reason: Optional[str] = None
+    # V17.9.1 Causal Multi-Timeframe Structure & Liquidity Context Fields
+    mtf_context_id: Optional[str] = None
+    mtf_context_hash: Optional[str] = None
+    mtf_algorithm_version: str = "17.9.1"
+    mtf_quality_state: str = "VALID"
+    mtf_structure_bias_summary: Optional[Dict[str, Any]] = None
+    mtf_liquidity_summary: Optional[Dict[str, Any]] = None
+    mtf_context: Optional[Any] = None
 
     def is_model_enabled(self, model_id: str) -> bool:
         flags = dict(self.model_enablement_flags)
@@ -830,6 +838,60 @@ def build_market_decision_context(
         "h4_status": h4_status,
     }.items()))
 
+    # V17.9.1 Causal Multi-Timeframe Structure & Liquidity Context (H4/H1/M15)
+    mtf_eval_ctx = None
+    mtf_ctx_id: Optional[str] = None
+    mtf_ctx_hash: Optional[str] = None
+    mtf_alg_ver = "17.9.1"
+    mtf_qual_state = "VALID" if causal_valid else "INSUFFICIENT_HISTORY"
+    mtf_struct_summary: Optional[Dict[str, Any]] = None
+    mtf_liq_summary: Optional[Dict[str, Any]] = None
+    try:
+        from backend.services.mtf_structure_liquidity_service import (
+            DEFAULT_MTF_CONTEXT_CACHE,
+            MtfStructureLiquidityConfig,
+            build_mtf_context as _build_v17_9_1_mtf_context,
+        )
+        eff_m15_for_mtf = closed_m15
+        if not eff_m15_for_mtf and len(closed_m5) >= 3:
+            eff_m15_for_mtf = aggregate_closed_htf_candles(
+                closed_m5,
+                target_timeframe="15M",
+                decision_timestamp_ms=decision_timestamp_ms,
+                symbol=symbol,
+                source_tf_ms=300_000,
+            ) if False else []
+        mtf_cfg = MtfStructureLiquidityConfig(
+            symbol=symbol if symbol == "XAUUSDT" else "XAUUSDT",
+            mtf_structure_observe_only=bool(default_policy.get("mtf_structure_observe_only", True)),
+            mtf_structure_eligibility_enabled=bool(default_policy.get("mtf_structure_eligibility_enabled", False)),
+            mtf_ablation_mode=str(default_policy.get("mtf_ablation_mode", "FULL")),
+        )
+        ref_px = round((eff_bid + eff_ask) / 2.0, 2) if (eff_bid is not None and eff_ask is not None) else None
+        mtf_eval_ctx = _build_v17_9_1_mtf_context(
+            decision_time=decision_timestamp_ms,
+            market_data_source={
+                "symbol": symbol,
+                "H4": closed_h4,
+                "H1": closed_h1,
+                "M15": closed_m15,
+                "M5": closed_m5,
+                "M1": closed_m1 if not closed_m15 and not closed_m5 else (),
+                "D1": closed_d1,
+            },
+            config=mtf_cfg,
+            cache=DEFAULT_MTF_CONTEXT_CACHE,
+            reference_price=ref_px,
+        )
+        mtf_ctx_id = mtf_eval_ctx.mtf_context_id
+        mtf_ctx_hash = mtf_eval_ctx.mtf_context_hash
+        mtf_alg_ver = mtf_eval_ctx.mtf_algorithm_version
+        mtf_qual_state = mtf_eval_ctx.mtf_quality_state
+        mtf_struct_summary = mtf_eval_ctx.to_summary_dict()
+        mtf_liq_summary = mtf_eval_ctx.evaluator_liquidity.to_dict()
+    except Exception:
+        pass
+
     return MarketDecisionContext(
         symbol=symbol,
         decision_timestamp_ms=int(decision_timestamp_ms),
@@ -865,6 +927,13 @@ def build_market_decision_context(
         htf_provenance=htf_prov_tuple,
         session_restricted=bool(session_restricted or default_policy.get("session_restricted", False)),
         session_restriction_reason=session_restriction_reason or default_policy.get("session_restriction_reason"),
+        mtf_context_id=mtf_ctx_id,
+        mtf_context_hash=mtf_ctx_hash,
+        mtf_algorithm_version=mtf_alg_ver,
+        mtf_quality_state=mtf_qual_state,
+        mtf_structure_bias_summary=mtf_struct_summary,
+        mtf_liquidity_summary=mtf_liq_summary,
+        mtf_context=mtf_eval_ctx,
     )
 
 
@@ -919,6 +988,13 @@ class StrategyDecisionSnapshot:
     evaluator_version: str = EVALUATOR_VERSION
     custom_decision_id: Optional[str] = None
     production_candidate_payload: Optional[Any] = None
+    # V17.9.1 Additive MTF Structure & Liquidity Evidence Fields
+    mtf_context_id: Optional[str] = None
+    mtf_context_hash: Optional[str] = None
+    mtf_algorithm_version: str = "17.9.1"
+    mtf_quality_state: str = "VALID"
+    mtf_structure_bias_summary: Optional[Dict[str, Any]] = None
+    mtf_liquidity_summary: Optional[Dict[str, Any]] = None
 
     @property
     def decision_id(self) -> str:
@@ -1017,6 +1093,12 @@ class StrategyDecisionSnapshot:
             "decision_id": self.decision_id,
             "evaluator_version": self.evaluator_version,
             "adapter_origin": self.adapter_origin,
+            "mtf_context_id": self.mtf_context_id,
+            "mtf_context_hash": self.mtf_context_hash,
+            "mtf_algorithm_version": self.mtf_algorithm_version,
+            "mtf_quality_state": self.mtf_quality_state,
+            "mtf_structure_bias_summary": self.mtf_structure_bias_summary,
+            "mtf_liquidity_summary": self.mtf_liquidity_summary,
         }
 
 
@@ -1971,6 +2053,12 @@ class SharedStrategyEvaluator:
                 decision_fingerprint=dec_fp,
                 adapter_origin=adapter_origin,
                 raw_candidate_reason_code="MODEL_DISABLED",
+                mtf_context_id=getattr(context, "mtf_context_id", None),
+                mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+                mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
             )
 
         min_h1_bars = int(policy_dict.get("min_h1_bars", 0) or 0)
@@ -2060,6 +2148,12 @@ class SharedStrategyEvaluator:
                 decision_fingerprint=dec_fp,
                 adapter_origin=adapter_origin,
                 raw_candidate_reason_code=reasons_tuple[0],
+                mtf_context_id=getattr(context, "mtf_context_id", None),
+                mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+                mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
             )
 
         closed_1m = list(context.closed_m1_candles)
@@ -2136,6 +2230,12 @@ class SharedStrategyEvaluator:
                     decision_fingerprint=dec_fp,
                     adapter_origin=adapter_origin,
                     raw_candidate_reason_code="HTF_STRUCTURE_CONFLICT",
+                    mtf_context_id=getattr(context, "mtf_context_id", None),
+                    mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                    mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                    mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+                    mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                    mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                 )
 
         # 3. Fail closed if ATR M1 is missing/unavailable (e.g. M1 cadence gap)
@@ -2210,6 +2310,12 @@ class SharedStrategyEvaluator:
                 adapter_origin=adapter_origin,
                 raw_candidate_reason_code="ATR_MISSING",
                 candidate_key=f"shopp_{model_id}_{context.symbol}_{now_ms}_no_atr",
+                mtf_context_id=getattr(context, "mtf_context_id", None),
+                mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+                mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
             )
 
         atr_m1_val = round(float(atr_m1_obj.value), 6)
@@ -2351,6 +2457,12 @@ class SharedStrategyEvaluator:
                 decision_fingerprint=dec_fp,
                 adapter_origin=adapter_origin,
                 raw_candidate_reason_code=str(raw_code),
+                mtf_context_id=getattr(context, "mtf_context_id", None),
+                mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+                mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
             )
 
         selected_fvg = setup_info.get("selected_fvg")
@@ -2500,6 +2612,22 @@ class SharedStrategyEvaluator:
             rejection_reasons.append(
                 str(policy_dict.get("session_restriction_reason") or context.session_restriction_reason or "SESSION_TIME_RESTRICTED")
             )
+
+        # V17.9.1 Optional MTF Structure & Liquidity Eligibility Filter (Default OFF; preserves 100% baseline when OFF)
+        mtf_elig_enabled = bool(
+            policy_dict.get("mtf_structure_eligibility_enabled", getattr(cfg, "mtf_structure_eligibility_enabled", False))
+        )
+        if mtf_elig_enabled:
+            from backend.services.mtf_structure_liquidity_service import evaluate_mtf_eligibility_for_direction
+            ablation_mode = str(policy_dict.get("mtf_ablation_mode", getattr(cfg, "mtf_ablation_mode", "FULL")))
+            mtf_ok, mtf_rej_code, _ = evaluate_mtf_eligibility_for_direction(
+                direction=direction,
+                mtf_context=getattr(context, "mtf_context", None),
+                ablation_mode=ablation_mode,
+            )
+            if not mtf_ok and mtf_rej_code:
+                if mtf_rej_code not in rejection_reasons:
+                    rejection_reasons.append(mtf_rej_code)
 
         policy_settings = {
             "capital_usdt": float(risk_dict.get("capital_usdt", 1000.0)),
@@ -2653,6 +2781,12 @@ class SharedStrategyEvaluator:
             protective_distance=stop_dec.protective_distance,
             selected_breaker_id=unicorn_ev.breaker_id,
             production_candidate_payload=precomputed_domain_payload,
+            mtf_context_id=getattr(context, "mtf_context_id", None),
+            mtf_context_hash=getattr(context, "mtf_context_hash", None),
+            mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+            mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+            mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+            mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
         )
 
     @staticmethod
@@ -3694,6 +3828,12 @@ def characterize_production_baseline_decision(
         unicorn_sl_candidate=raw_dict.get("unicorn_sl_candidate"),
         protective_distance=raw_dict.get("protective_distance"),
         selected_breaker_id=raw_dict.get("selected_breaker_id"),
+        mtf_context_id=getattr(context, "mtf_context_id", None),
+        mtf_context_hash=getattr(context, "mtf_context_hash", None),
+        mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+        mtf_quality_state=getattr(context, "mtf_quality_state", "VALID"),
+        mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+        mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
     )
 
 
@@ -3922,3 +4062,19 @@ def verify_no_synthetic_index_signals_in_source(
         "violation_count": len(violations),
         "violations": violations,
     }
+
+
+# V17.9.1 Section 6 Shared Evaluator Adapter & Evidence Exports
+SharedStrategyEvaluator.evaluate = SharedStrategyEvaluator.evaluate_decision  # type: ignore[attr-defined]
+
+from backend.services.mtf_structure_liquidity_service import (  # noqa: E402, F401
+    MtfContextCache,
+    MtfEvaluationContext,
+    MtfStructureLiquidityConfig,
+    attach_context_to_evaluation,
+    build_mtf_context,
+    compare_actual_consumed_decisions,
+    evaluate_common_decision,
+    evaluate_mtf_eligibility_for_direction,
+    serialize_decision_evidence,
+)

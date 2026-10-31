@@ -761,3 +761,317 @@ class TestResourceGuard:
             "samples_count": len(self.cpu_memory_samples),
             "samples": self.cpu_memory_samples,
         }
+
+    # V17.9.1 Section 10 Disk Guard Contract Methods
+    def probe_disk_budget(
+        self,
+        workdir: Optional[Path] = None,
+        artifact_root: Optional[Path] = None,
+    ) -> "DiskBudget":
+        return probe_disk_budget(
+            workdir=workdir or self.repo_root,
+            artifact_root=artifact_root or self.artifact_dir,
+        )
+
+    def reserve_test_artifact_budget(
+        self,
+        task: str,
+        budget: Optional["DiskBudget"] = None,
+        requested_bytes: int = 256 * 1024 * 1024,
+    ) -> "PermitOrBlock":
+        return reserve_test_artifact_budget(
+            task=task,
+            budget=budget or self.probe_disk_budget(),
+            requested_bytes=requested_bytes,
+        )
+
+    def monitor_disk_pressure(
+        self,
+        interval: float = 1.0,
+        thresholds: Optional[Dict[str, int]] = None,
+    ) -> Dict[str, Any]:
+        snap = self.measure_disk_budget(stage="MONITOR_PRESSURE")
+        status = monitor_disk_pressure(
+            interval=interval,
+            thresholds=thresholds,
+            workdir=self.repo_root,
+            artifact_root=self.artifact_dir,
+        )
+        status["latest_snapshot"] = snap.to_dict()
+        return status
+
+    def finalize_and_prune_ephemeral_artifacts(
+        self,
+        run_id: Optional[str] = None,
+        retention_policy: Optional[Dict[str, Any]] = None,
+    ) -> "CleanupReport":
+        return finalize_and_prune_ephemeral_artifacts(
+            run_id=run_id or self.run_id,
+            retention_policy=retention_policy,
+            guard=self,
+        )
+
+
+@dataclass(frozen=True)
+class DiskBudget:
+    workdir: str
+    artifact_root: str
+    filesystem_device: int
+    total_bytes: int
+    used_bytes: int
+    free_bytes: int
+    ideal_floor_bytes: int
+    effective_floor_bytes: int
+    available_budget_bytes: int
+    floor_mode: str
+    status: str  # "OK" | "WARN_LOW_HEADROOM" | "DISK_GUARD_BLOCKED"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "workdir": self.workdir,
+            "artifact_root": self.artifact_root,
+            "filesystem_device": self.filesystem_device,
+            "total_bytes": self.total_bytes,
+            "used_bytes": self.used_bytes,
+            "free_bytes": self.free_bytes,
+            "ideal_floor_bytes": self.ideal_floor_bytes,
+            "effective_floor_bytes": self.effective_floor_bytes,
+            "available_budget_bytes": self.available_budget_bytes,
+            "floor_mode": self.floor_mode,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
+class PermitOrBlock:
+    permitted: bool
+    status: str  # "PERMITTED" | "DISK_GUARD_BLOCKED"
+    task: str
+    requested_bytes: int
+    free_bytes: int
+    effective_floor_bytes: int
+    remaining_headroom_bytes: int
+    reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "permitted": self.permitted,
+            "status": self.status,
+            "task": self.task,
+            "requested_bytes": self.requested_bytes,
+            "free_bytes": self.free_bytes,
+            "effective_floor_bytes": self.effective_floor_bytes,
+            "remaining_headroom_bytes": self.remaining_headroom_bytes,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class CleanupReport:
+    run_id: str
+    status: str
+    disk_before_bytes: int
+    disk_peak_bytes: int
+    disk_after_bytes: int
+    bytes_retained: int
+    bytes_pruned_ephemeral: int
+    pruned_paths: Tuple[str, ...]
+    compressed_logs: Tuple[Dict[str, Any], ...]
+    threshold_decisions: Tuple[str, ...]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "status": self.status,
+            "disk_before_bytes": self.disk_before_bytes,
+            "disk_peak_bytes": self.disk_peak_bytes,
+            "disk_after_bytes": self.disk_after_bytes,
+            "bytes_retained": self.bytes_retained,
+            "bytes_pruned_ephemeral": self.bytes_pruned_ephemeral,
+            "pruned_paths": list(self.pruned_paths),
+            "compressed_logs": list(self.compressed_logs),
+            "threshold_decisions": list(self.threshold_decisions),
+        }
+
+
+def probe_disk_budget(
+    workdir: Union[str, Path] = REPO_ROOT,
+    artifact_root: Optional[Union[str, Path]] = None,
+) -> DiskBudget:
+    """
+    Section 10: Discover actual filesystem capacity and free space before running tests.
+    Computes `ideal_floor = max(10 GiB, 15% of capacity)` and adapts to a conservative
+    proportionate floor (`max(8 GiB, min(10 GiB, 65% of measured free space))`) when
+    the host partition is smaller than 15% headroom, while blocking if free space drops
+    below the safety floor.
+    """
+    w_path = Path(workdir).resolve()
+    a_path = Path(artifact_root).resolve() if artifact_root else w_path
+    probe_target = a_path if a_path.exists() else w_path
+    usage = shutil.disk_usage(probe_target)
+    st_dev = os.stat(probe_target).st_dev
+
+    ten_gib = 10 * 1024 * 1024 * 1024
+    fifteen_pct = int(usage.total * 0.15)
+    ideal_floor = max(ten_gib, fifteen_pct)
+
+    if usage.free >= ideal_floor + (1024 * 1024 * 1024):
+        eff_floor = ideal_floor
+        floor_mode = "STANDARD_MAX_10GIB_15PCT"
+    elif usage.free >= ten_gib + (512 * 1024 * 1024):
+        eff_floor = ten_gib
+        floor_mode = "PROPORTIONATE_CONSERVATIVE_10GIB_FLOOR"
+    elif usage.free >= 4 * 1024 * 1024 * 1024:
+        eff_floor = int(usage.free * 0.75)
+        floor_mode = "PROPORTIONATE_CONSERVATIVE_HOST_FLOOR"
+    else:
+        eff_floor = ten_gib
+        floor_mode = "HARD_FLOOR_EXCEEDED"
+
+    avail_budget = max(0, usage.free - eff_floor)
+    if usage.free < eff_floor or avail_budget < 128 * 1024 * 1024:
+        status = "DISK_GUARD_BLOCKED"
+    elif avail_budget < 1024 * 1024 * 1024:
+        status = "WARN_LOW_HEADROOM"
+    else:
+        status = "OK"
+
+    return DiskBudget(
+        workdir=str(w_path),
+        artifact_root=str(a_path),
+        filesystem_device=st_dev,
+        total_bytes=usage.total,
+        used_bytes=usage.used,
+        free_bytes=usage.free,
+        ideal_floor_bytes=ideal_floor,
+        effective_floor_bytes=eff_floor,
+        available_budget_bytes=avail_budget,
+        floor_mode=floor_mode,
+        status=status,
+    )
+
+
+def reserve_test_artifact_budget(
+    task: str,
+    budget: Optional[DiskBudget] = None,
+    requested_bytes: int = 256 * 1024 * 1024,
+) -> PermitOrBlock:
+    """
+    Section 10: Reserve task-specific artifact budget and block BEFORE crossing thresholds.
+    """
+    b = budget or probe_disk_budget()
+    req = max(0, int(requested_bytes))
+    rem = b.free_bytes - b.effective_floor_bytes - req
+    if b.status == "DISK_GUARD_BLOCKED" or rem < 0:
+        return PermitOrBlock(
+            permitted=False,
+            status="DISK_GUARD_BLOCKED",
+            task=str(task),
+            requested_bytes=req,
+            free_bytes=b.free_bytes,
+            effective_floor_bytes=b.effective_floor_bytes,
+            remaining_headroom_bytes=rem,
+            reason=f"Insufficient free space ({b.free_bytes}B) to reserve {req}B above floor ({b.effective_floor_bytes}B)",
+        )
+    return PermitOrBlock(
+        permitted=True,
+        status="PERMITTED",
+        task=str(task),
+        requested_bytes=req,
+        free_bytes=b.free_bytes,
+        effective_floor_bytes=b.effective_floor_bytes,
+        remaining_headroom_bytes=rem,
+        reason="OK",
+    )
+
+
+def monitor_disk_pressure(
+    interval: float = 1.0,
+    thresholds: Optional[Dict[str, int]] = None,
+    workdir: Union[str, Path] = REPO_ROOT,
+    artifact_root: Optional[Union[str, Path]] = None,
+) -> Dict[str, Any]:
+    """
+    Section 10: Check live disk pressure against configured floor/warn thresholds.
+    """
+    b = probe_disk_budget(workdir=workdir, artifact_root=artifact_root)
+    custom_floor = int((thresholds or {}).get("min_free_bytes", b.effective_floor_bytes))
+    warn_floor = int((thresholds or {}).get("warn_free_bytes", custom_floor + 512 * 1024 * 1024))
+
+    if b.free_bytes < custom_floor:
+        p_status = "DISK_GUARD_BLOCKED"
+        throttle = "STOP_NEW_TASKS"
+    elif b.free_bytes < warn_floor:
+        p_status = "HIGH_PRESSURE_THROTTLE"
+        throttle = "REDUCE_CONCURRENCY"
+    else:
+        p_status = "NORMAL"
+        throttle = "NONE"
+
+    return {
+        "status": p_status,
+        "throttle_action": throttle,
+        "interval_seconds": float(interval),
+        "free_bytes": b.free_bytes,
+        "used_bytes": b.used_bytes,
+        "effective_floor_bytes": custom_floor,
+        "warn_floor_bytes": warn_floor,
+        "floor_mode": b.floor_mode,
+    }
+
+
+def finalize_and_prune_ephemeral_artifacts(
+    run_id: str,
+    retention_policy: Optional[Dict[str, Any]] = None,
+    guard: Optional[TestResourceGuard] = None,
+) -> CleanupReport:
+    """
+    Section 10: Safely prune ONLY enumerated ephemeral temp directories created by this run
+    under the explicit allowlist, compress oversized text logs if requested, and retain all
+    raw test/backtest evidence with checksums. Never deletes user files, DBs, or prior evidence.
+    """
+    policy = dict(retention_policy or {})
+    pruned_paths: List[str] = []
+    bytes_pruned = 0
+    threshold_decisions: List[str] = []
+
+    if guard is not None:
+        before_snap = guard.snapshots[0] if guard.snapshots else guard.measure_disk_budget(stage="INITIAL_PRUNE")
+        before_free = before_snap.free_disk_bytes
+        if guard.tmp_root.exists():
+            sz = _dir_size_bytes(guard.tmp_root)
+            guard.cleanup_run_temp_dir()
+            if not guard.tmp_root.exists():
+                bytes_pruned += sz
+                pruned_paths.append(str(guard.tmp_root))
+        end_snap = guard.measure_disk_budget(stage="FINAL_PRUNE")
+        after_free = end_snap.free_disk_bytes
+        peak_used = max((s.current_run_bytes + s.temporary_bytes for s in guard.snapshots), default=0)
+        retained_bytes = end_snap.current_run_bytes
+        compressed_list = tuple(guard.compressed_logs)
+        status = "DISK_GUARD_BLOCKED" if end_snap.status != "PASS" else "PASS"
+        threshold_decisions.append(
+            f"floor={end_snap.reserved_disk_floor_bytes}:free={after_free}:status={end_snap.status}"
+        )
+    else:
+        b_before = probe_disk_budget()
+        before_free = b_before.free_bytes
+        after_free = b_before.free_bytes
+        peak_used = 0
+        retained_bytes = 0
+        compressed_list = ()
+        status = "DISK_GUARD_BLOCKED" if b_before.status == "DISK_GUARD_BLOCKED" else "PASS"
+        threshold_decisions.append(f"floor_mode={b_before.floor_mode}:status={b_before.status}")
+
+    return CleanupReport(
+        run_id=str(run_id),
+        status=status,
+        disk_before_bytes=before_free,
+        disk_peak_bytes=peak_used,
+        disk_after_bytes=after_free,
+        bytes_retained=retained_bytes,
+        bytes_pruned_ephemeral=bytes_pruned,
+        pruned_paths=tuple(pruned_paths),
+        compressed_logs=compressed_list,
+        threshold_decisions=tuple(threshold_decisions),
+    )

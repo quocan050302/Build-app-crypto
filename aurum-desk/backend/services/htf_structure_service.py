@@ -1546,3 +1546,31 @@ def resolve_cg01_direction_context(
         "h4_phase": h4_phase,
         "h1_phase": h1_phase,
     }
+
+
+# V17.9.1 Causal MTF Structure & Data Causality Contract Exports
+from backend.services.mtf_structure_liquidity_service import (  # noqa: E402, F401
+    CausalValidation,
+    ClosedBarWindow,
+    MtfSnapshot,
+    MtfStructureContext,
+    MtfStructureLiquidityConfig,
+    NormalizedBar,
+    NormalizedBars,
+    StructureBreakEvent,
+    StructureBreakEvents,
+    StructureContext,
+    StructureState,
+    SwingEvent,
+    SwingEvents,
+    build_mtf_bar_snapshot,
+    build_multi_timeframe_structure,
+    classify_swing_sequence,
+    detect_confirmed_swings,
+    detect_structure_break,
+    get_closed_bars_asof,
+    normalize_market_bars,
+    resample_closed_bars_to_htf,
+    update_structure_state,
+    validate_causal_window,
+)

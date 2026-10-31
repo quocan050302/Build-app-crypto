@@ -486,3 +486,35 @@ def update_cluster_state(
                     cluster.state = "ACCEPTED_BEYOND"
 
     return cluster.state
+
+
+# V17.9.1 Causal Liquidity & Sweep Contract Exports
+from backend.services.mtf_structure_liquidity_service import (  # noqa: E402, F401
+    EvaluatorLiquidityContext,
+    LiquidityContext,
+    LiquidityLevelRecord,
+    LiquidityLevels,
+    LiquidityPoolCluster,
+    LiquidityPools,
+    SweepEvent,
+    SweepEvents,
+    cluster_equal_high_low,
+    derive_reference_liquidity_levels,
+    detect_liquidity_sweep,
+    summarize_liquidity_for_evaluator,
+    update_liquidity_state as _mtf_update_liquidity_state,
+)
+
+_legacy_update_liquidity_state = update_liquidity_state
+
+
+def update_liquidity_state(first_arg: Any, *args: Any, **kwargs: Any) -> Any:
+    """
+    Polymorphic dispatcher preserving 100% compatibility with legacy single-level
+    `update_liquidity_state(level: LiquidityLevel, causal_candles, now_ms, candle_duration_ms=300_000)`
+    while supporting the V17.9.1 MTF contract
+    `update_liquidity_state(previous: LiquidityLevels | LiquidityContext, touches, sweeps, structure_breaks, asof)`.
+    """
+    if isinstance(first_arg, (LiquidityLevels, LiquidityContext)):
+        return _mtf_update_liquidity_state(first_arg, *args, **kwargs)
+    return _legacy_update_liquidity_state(first_arg, *args, **kwargs)
