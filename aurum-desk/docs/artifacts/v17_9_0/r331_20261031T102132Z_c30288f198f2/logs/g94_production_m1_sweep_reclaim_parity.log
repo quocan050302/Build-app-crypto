@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g94_production_m1_sweep_reclaim_parity.xml -k test_12 or test_14 or test_v17_9_0_1_sweep_reclaim_parity
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 52
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_12_stage1_baseline_characterization_smc_m1_sweep_reclaim (0.007s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_14_stage2_parity_production_vs_shared_all_5_models (0.012s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_sweep_reclaim_parity (0.033s)
+3 passed in 0.05s
+
+--- STDERR ---

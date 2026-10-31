@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g64_shadow_database_isolation.xml -k test_nc19_to_nc21_shadow_storage_isolation_and_path_guards
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 27
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc19_to_nc21_shadow_storage_isolation_and_path_guards (0.027s)
+1 passed in 0.03s
+
+--- STDERR ---

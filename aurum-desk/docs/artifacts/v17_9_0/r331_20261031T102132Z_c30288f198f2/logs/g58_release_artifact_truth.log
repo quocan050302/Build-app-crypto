@@ -1,0 +1,16 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_acceptance_runner.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g58_release_artifact_truth.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 27
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_all_52_and_58_gates_pass (0.005s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_missing_gate_blocked (0.004s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_failed_test_gate_blocked (0.003s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_nonzero_exit_code_blocked (0.003s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_skipped_gate_fails_closed (0.003s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_integrity_unverified_blocked (0.003s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_8_0_2_preflight_violation_blocked (0.003s)
+PASSED backend.tests.test_v17_8_acceptance_runner::test_verdict_v17_9_0_all_107_gates_and_taxonomy (0.003s)
+8 passed in 0.03s
+
+--- STDERR ---

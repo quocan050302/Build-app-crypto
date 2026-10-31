@@ -1,5 +1,5 @@
 {
-  "acceptance_run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "acceptance_run_id": "r331_20261031T102132Z_c30288f198f2",
   "all_valid_setups_matched_comparison": {
     "A": {
       "MAE": 2.7428,
@@ -816,10 +816,10 @@
     "variant_name": "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)",
     "win_rate": 0.3889
   },
-  "backtest_run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "backtest_run_id": "r331_20261031T102132Z_c30288f198f2",
   "cache_provenance": {
     "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-    "core_backtest_evaluator_tree_hash": "09328e2d87fc826012350e90efbdbc7e5ec9e67ba31f2504f545a980263bcf03",
+    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
     "cost_spread_assumptions": {
       "default_slippage_usd": 0.1,
       "default_spread_usd": 0.25,
@@ -842,13 +842,32 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-    "source_tree_hash": "93bc2c18aa72585fcb95ea3ac9b4504b334c41d8760f8182dc3c7bfd66df9f21"
+    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93"
   },
+  "completed_at_ms": 1793442131370,
+  "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
   "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-  "core_backtest_evaluator_tree_hash": "09328e2d87fc826012350e90efbdbc7e5ec9e67ba31f2504f545a980263bcf03",
+  "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "evaluator_version": "17.9.0.1.1",
+  "execution_provenance": {
+    "command": [
+      "-c"
+    ],
+    "completed_at_ms": 1793442131370,
+    "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
+    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
+    "duration_ms": 36876,
+    "executable_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
+    "pid": 69556,
+    "ppid": 69537,
+    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "started_at_ms": 1793442094494,
+    "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
+    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+  },
   "experiment_1_matched_sl_only_comparison": {
     "eligibility_transition_matrix": {
       "ELIGIBLE_IN_ALL_ABCD": 18,
@@ -2935,17 +2954,19 @@
   "release": "V17.9.0.1.3",
   "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED",
   "research_scope_variants_abcd": "SL_VARIANT_COMPARISON_RESEARCH_ABCD",
-  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
   "runner_version": "V17.9.0.1.2_CHRONOLOGICAL_PARITY_RUNNER_V1",
   "schema_version": "V17.8.0.4",
-  "source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-  "source_tree_hash": "93bc2c18aa72585fcb95ea3ac9b4504b334c41d8760f8182dc3c7bfd66df9f21",
-  "tested_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+  "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
+  "started_at_ms": 1793442094494,
+  "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
   "trade_decision_lineage_reconciliation": {
     "authoritative_rejections_count": 5758,
     "cache_provenance": {
       "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-      "core_backtest_evaluator_tree_hash": "09328e2d87fc826012350e90efbdbc7e5ec9e67ba31f2504f545a980263bcf03",
+      "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
       "cost_spread_assumptions": {
         "default_slippage_usd": 0.1,
         "default_spread_usd": 0.25,
@@ -2968,12 +2989,12 @@
         "risk_budget_usdt": 2.5,
         "synthetic_forward_candles_allowed": false
       },
-      "source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-      "source_tree_hash": "93bc2c18aa72585fcb95ea3ac9b4504b334c41d8760f8182dc3c7bfd66df9f21"
+      "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+      "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93"
     },
     "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
     "coordinate_mismatch_trades_count": 0,
-    "core_backtest_evaluator_tree_hash": "09328e2d87fc826012350e90efbdbc7e5ec9e67ba31f2504f545a980263bcf03",
+    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
     "cost_spread_assumptions": {
       "default_slippage_usd": 0.1,
       "default_spread_usd": 0.25,
@@ -3002,8 +3023,8 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-    "source_tree_hash": "93bc2c18aa72585fcb95ea3ac9b4504b334c41d8760f8182dc3c7bfd66df9f21",
+    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
     "status": "PASS",
     "trade_decision_links": [
       {

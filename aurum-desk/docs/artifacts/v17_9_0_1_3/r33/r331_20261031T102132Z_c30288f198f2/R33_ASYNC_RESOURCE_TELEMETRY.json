@@ -1,0 +1,17 @@
+{
+  "cpu_pool_workers": 8,
+  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "free_disk_bytes_postflight": 17129525248,
+  "max_active_workers_observed": 8,
+  "max_configured_workers": 8,
+  "max_parallel_workers": 4,
+  "orphan_processes_remaining": 0,
+  "peak_memory_bytes": 628228096,
+  "peak_memory_mb": 599.12,
+  "phase": "R3.3",
+  "release": "V17.9.0.1.3",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "status": "PASS",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "wall_clock_seconds": 152.836
+}

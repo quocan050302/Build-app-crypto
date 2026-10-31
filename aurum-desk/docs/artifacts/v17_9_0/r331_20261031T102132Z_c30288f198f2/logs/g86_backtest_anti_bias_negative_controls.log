@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g86_backtest_anti_bias_negative_controls.xml -k TestG86All20BacktestAntiBiasNegativeControls or test_g86_all_20_mandatory_backtest_negative_controls
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 5
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG86All20BacktestAntiBiasNegativeControls::test_g86_all_20_mandatory_backtest_negative_controls (0.005s)
+1 passed in 0.01s
+
+--- STDERR ---

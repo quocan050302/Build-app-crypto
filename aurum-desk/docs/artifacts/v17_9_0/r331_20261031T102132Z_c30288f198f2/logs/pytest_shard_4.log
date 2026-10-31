@@ -1,0 +1,108 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_18_red_reproductions.py backend/tests/test_v17_1_monitor_scope_and_focus.py backend/tests/test_realtime_source_ordering.py backend/tests/test_v12_3_acceptance.py backend/tests/test_v13_4_dates_sessions.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_acceptance.py backend/tests/test_v14_1_rr_preview.py backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_4_12_reconciliation_fair_review.py backend/tests/test_v14_4_13_review_resolution.py backend/tests/test_v14_4_14_membership_transaction.py backend/tests/test_v14_4_16_strict_report_authority.py backend/tests/test_v14_4_18_repair_source_conflicts.py backend/tests/test_v14_4_19_repair_self_proof.py backend/tests/test_v14_4_4_reconciliation_runtime.py backend/tests/test_v14_4_5_acceptance_identity.py backend/tests/test_v14_4_quote_provenance.py backend/tests/test_v14_4_scenario_pipeline.py backend/tests/test_v15_0_daily_ny_research.py backend/tests/test_v15_8_execution_quote_validation.py backend/tests/test_v16_10_funnel_attribution.py backend/tests/test_v16_12_htf_state_machine.py backend/tests/test_v16_15_auto_permission_and_owner.py backend/tests/test_v16_15_scheduler_lifespan.py backend/tests/test_v16_35_rr_propagation_telegram_proximity.py backend/tests/test_v16_39_12_score_binding_contract.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_8_capital_basis.py backend/tests/test_v17_4_contracts.py backend/tests/test_v17_4_frequency.py backend/tests/test_v17_5_1_structural_gate.py backend/tests/test_v17_5_9_break_source_authority.py backend/tests/test_v17_6_2_acceptance_runner.py backend/tests/test_v17_6_4_1_acceptance_runner.py backend/tests/test_v17_6_4_3_database_isolation.py backend/tests/test_v17_6_4_3b_feed_provenance.py backend/tests/test_v17_6_4_3c_acceptance_integrity.py backend/tests/test_v17_6_4_3c_epoch_authority.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_6_api_contract.py backend/tests/test_v17_6_market_freshness.py backend/tests/test_v17_8_0_2_observe_only_runtime.py backend/tests/test_v7_trading_policy_quota.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_4.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 69990
+STARTED_AT_UTC: 2026-10-31T10:22:53.258000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:23:42.319000+00:00
+DURATION_MS: 49013
+EXIT_CODE: 1
+--- STDOUT ---
+.........F.............................................................. [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 43%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 86%]
+......................................................................   [100%]
+=================================== FAILURES ===================================
+_ TestV171MonitorScopeAndFocus.test_repro_m1_default_list_isolates_active_run __
+
+self = <test_v17_1_monitor_scope_and_focus.TestV171MonitorScopeAndFocus object at 0x109e879d0>
+client = <starlette.testclient.TestClient object at 0x10af5d550>
+db_session = <sqlalchemy.orm.session.Session object at 0x109a476b0>
+
+    def test_repro_m1_default_list_isolates_active_run(self, client, db_session):
+        """
+        Failure M1: When run_id is omitted, default list must resolve active run (COLLECTING)
+        and NOT mix opportunities from old completed runs.
+        """
+        t_base = 1715000000000
+    
+        # Seed active run A
+        run_a = models.PaperResearchRunRecord(
+            run_id="run-active-a",
+            scope="CG01",
+            symbol="XAUUSDT",
+            status="COLLECTING",
+            started_at_ms=t_base,
+            software_version="V17.1",
+            initial_capital_usdt=1000.0,
+            created_at_ms=t_base,
+            updated_at_ms=t_base,
+        )
+        # Seed completed old run B
+        run_b = models.PaperResearchRunRecord(
+            run_id="run-old-b",
+            scope="CG01",
+            symbol="XAUUSDT",
+            status="COMPLETED",
+            started_at_ms=t_base - 50000,
+            software_version="V17.0",
+            initial_capital_usdt=1000.0,
+            created_at_ms=t_base - 50000,
+            updated_at_ms=t_base - 1000,
+        )
+        db_session.add_all([run_a, run_b])
+    
+        # Opp in active-a
+        opp_a = models.OpportunityFunnelRecord(
+            opportunity_id="opp-in-active-a",
+            symbol="XAUUSDT",
+            model_id="CG01_SWEEP",
+            direction="LONG",
+            session_id="run-active-a",
+            run_id="run-active-a",
+            as_of_ms=t_base + 100,
+            stage="ZONE_DETECTED",
+            reason_codes_json=json.dumps(["WATCH_POI"]),
+            payload_json=json.dumps({"planned_entry": 2650.0}),
+            created_at=t_base + 100,
+            updated_at=t_base + 100,
+        )
+        # Opp in old-b
+        opp_b = models.OpportunityFunnelRecord(
+            opportunity_id="opp-in-old-b",
+            symbol="XAUUSDT",
+            model_id="CG01_SWEEP",
+            direction="SHORT",
+            session_id="run-old-b",
+            run_id="run-old-b",
+            as_of_ms=t_base + 100,
+            stage="ZONE_DETECTED",
+            reason_codes_json=json.dumps(["WATCH_POI"]),
+            payload_json=json.dumps({"planned_entry": 2655.0}),
+            created_at=t_base + 100,
+            updated_at=t_base + 100,
+        )
+        db_session.add_all([opp_a, opp_b])
+        db_session.commit()
+    
+        try:
+            # Query default opportunities without run_id
+            res_list = client.get("/api/v1/paper/opportunity-monitor/opportunities?symbol=XAUUSDT")
+            assert res_list.status_code == 200
+            data_list = res_list.json()
+>           assert data_list["total"] == 1
+E           assert 0 == 1
+
+backend/tests/test_v17_1_monitor_scope_and_focus.py:137: AssertionError
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_v17_1_monitor_scope_and_focus.py::TestV171MonitorScopeAndFocus::test_repro_m1_default_list_isolates_active_run
+1 failed, 501 passed, 1 warning in 46.09s
+
+--- STDERR ---

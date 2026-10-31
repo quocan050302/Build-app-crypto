@@ -1,0 +1,942 @@
+{
+  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "per_xml_records": {
+    "g02_test_db_bootstrap.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g02_test_db_bootstrap.xml",
+      "xml_sha256": "b5e63da0b214ae0c478a3d72a2c1b6dfa8f6b0e25b21221709302d3f4e35643b"
+    },
+    "g03_unsafe_path_rejection.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 9,
+      "skipped": 0,
+      "tests": 9,
+      "xml_file": "g03_unsafe_path_rejection.xml",
+      "xml_sha256": "6f14486c974d9c9ecde4430a9e85c91dcbc86b388318fdcc80ae39c4e1b666f1"
+    },
+    "g04_destructive_fixture_isolation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 5,
+      "skipped": 0,
+      "tests": 5,
+      "xml_file": "g04_destructive_fixture_isolation.xml",
+      "xml_sha256": "7194a0218bf8877fd89374a6cced5be1d2713cb05e96ae3cabfdfdae96df0ce2"
+    },
+    "g05_raw_atr_provenance.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 8,
+      "skipped": 0,
+      "tests": 8,
+      "xml_file": "g05_raw_atr_provenance.xml",
+      "xml_sha256": "53acdb9d6579cf757c81d2ab3757f352ec79cde8cfe8b67b4a084640109e0fbb"
+    },
+    "g06_required_m1_atr_fail_closed.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 7,
+      "skipped": 0,
+      "tests": 7,
+      "xml_file": "g06_required_m1_atr_fail_closed.xml",
+      "xml_sha256": "568ef8c173ba4aba3b185abf490ad359b7808fbb9856db2e0b133a132d8276eb"
+    },
+    "g07_atr_buffer_math_correctness.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g07_atr_buffer_math_correctness.xml",
+      "xml_sha256": "d4762f4f7eac419dc104b8ad864c509bb40f81db8a8755ba3a7a82131c1b9425"
+    },
+    "g08_structural_anchor_causal.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g08_structural_anchor_causal.xml",
+      "xml_sha256": "ec63433cb867dd288384ed3a425ecace63907093e4c8c3d3c0b0f32d35831541"
+    },
+    "g09_distant_sl_financial_integrity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g09_distant_sl_financial_integrity.xml",
+      "xml_sha256": "42915f733cccc56f3efcd412634bafada811e848eb91ccdd1e1d345b5c2609df"
+    },
+    "g100_structural_sl_tp_rr_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 5,
+      "skipped": 0,
+      "tests": 5,
+      "xml_file": "g100_structural_sl_tp_rr_parity.xml",
+      "xml_sha256": "f5f8e93623169cdd36439201cdf86dd478b9df47605598ed416b07aed631b902"
+    },
+    "g101_bounded_async_test_runner_integrity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g101_bounded_async_test_runner_integrity.xml",
+      "xml_sha256": "6eb589ba8b66dee49008db0ff2207c70aa77a4bc2a0e3aeeb1adf227e2e00cc8"
+    },
+    "g102_disk_budget_guard_and_temp_cleanup.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g102_disk_budget_guard_and_temp_cleanup.xml",
+      "xml_sha256": "6413d1039620aef554cab2629d9de0c52732dfecab5cefaec2de15c956237119"
+    },
+    "g103_checkpoint_resume_and_invalidation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g103_checkpoint_resume_and_invalidation.xml",
+      "xml_sha256": "10cacd4488e2e6c5701ee066902d4e8359ac4d7be51e7a0c6d8e59e234c8e4d7"
+    },
+    "g104_real_historical_backtest_shared_evaluator.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g104_real_historical_backtest_shared_evaluator.xml",
+      "xml_sha256": "e8e5233918f7936a74ad05a1b0d1d8cc8ab39e98d68105436fe8705c3d2ffe26"
+    },
+    "g105_matched_vs_full_strategy_cohort_integrity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g105_matched_vs_full_strategy_cohort_integrity.xml",
+      "xml_sha256": "efb296eb63175da938f2262b921cef1294636695d53c5ae7c346d5b76cae0136"
+    },
+    "g10_cg01_evaluator_integration.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g10_cg01_evaluator_integration.xml",
+      "xml_sha256": "cee3401609854f64d7582535190664e98673d66130244c282bcc2da1b1c1e8b8"
+    },
+    "g11_m1_evaluator_integration.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 7,
+      "skipped": 0,
+      "tests": 7,
+      "xml_file": "g11_m1_evaluator_integration.xml",
+      "xml_sha256": "714e47375d5b2e1a49d7f5c511a4742cbaea002197c84bb778ac5de3aba18de6"
+    },
+    "g12_orchestrator_real_arm.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g12_orchestrator_real_arm.xml",
+      "xml_sha256": "7ba163bc0ef00c42ce12ba9392b8307d68fe80ed10a9ae9381d00e17ee005f18"
+    },
+    "g13_real_arm_concurrency.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g13_real_arm_concurrency.xml",
+      "xml_sha256": "5a3da12307b76e37baa38c42605ce4c5885d15f05ac861c902d767468f8c344c"
+    },
+    "g14_fill_time_financial_invariants.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g14_fill_time_financial_invariants.xml",
+      "xml_sha256": "fda192f72d26de938a3ae77cf22a950646819b6a6a79127e9b287a7173db59a8"
+    },
+    "g15_paper_exit_and_persistence.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g15_paper_exit_and_persistence.xml",
+      "xml_sha256": "c3d9da33bd3019a9da2948976eea548d4fc45c786d9b32bccf963f163bbf2227"
+    },
+    "g16.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g16.xml",
+      "xml_sha256": "b0d06564b380cfb98256d601bd77fd307e78596f7619c0dd3e018453f395c846"
+    },
+    "g17_existing_sl_dsl_ce_regression.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 102,
+      "skipped": 0,
+      "tests": 102,
+      "xml_file": "g17_existing_sl_dsl_ce_regression.xml",
+      "xml_sha256": "696b4aec6358a9f46057f4745578c6d597a7b2805a3e737e4afa9d852866d1f9"
+    },
+    "g18_v17_5_regression.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 278,
+      "skipped": 0,
+      "tests": 278,
+      "xml_file": "g18_v17_5_regression.xml",
+      "xml_sha256": "1ac392bb67a8d6b91278798f190e6045561b558ae9e54448231aa4948456c97f"
+    },
+    "g19_v17_6_regression.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 776,
+      "skipped": 0,
+      "tests": 776,
+      "xml_file": "g19_v17_6_regression.xml",
+      "xml_sha256": "a0bfc67b8003c96e0ef4f84bcf5476ba8059f6acfe9c8f4c59abb9a467d4e810"
+    },
+    "g20_full_backend_pytest.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4451,
+      "skipped": 0,
+      "tests": 4451,
+      "xml_file": "g20_full_backend_pytest.xml",
+      "xml_sha256": "1c96dd7ecdfd91753a893cd46f8d0fc10113a6eb529ece4f5e669c36791c8143"
+    },
+    "g25_deterministic_replay.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g25_deterministic_replay.xml",
+      "xml_sha256": "15711d84185be6727c89ec4b9ac2d72067e46f8fc4dc494ef98cb596651add2b"
+    },
+    "g26_acceptance_runner_negative_tests.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 9,
+      "skipped": 0,
+      "tests": 9,
+      "xml_file": "g26_acceptance_runner_negative_tests.xml",
+      "xml_sha256": "89f9b9db53c4cd7de2494a62f4ca2ff84b6c95dcb8f627743b70b36b416fb7bd"
+    },
+    "g27.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g27.xml",
+      "xml_sha256": "a980d28967e5392663f98d866c0b1a333abba0c9323cc4fee711afd405deb1cf"
+    },
+    "g29_unicorn_breaker_detection.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g29_unicorn_breaker_detection.xml",
+      "xml_sha256": "4fa4a46eeae55fabce54c99b4234d5e81f9dbaed33a81839cf73319ea3c315bb"
+    },
+    "g30_unicorn_fvg_overlap.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g30_unicorn_fvg_overlap.xml",
+      "xml_sha256": "adb1297e5406fe4fd79356f08b1a800df06a98d09292e3c377e592936bf2d541"
+    },
+    "g31_cross_timeframe_causality.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g31_cross_timeframe_causality.xml",
+      "xml_sha256": "06d4d74c515195e42358353720d8f814ec4bf28fe011a5f129e1a34c84676800"
+    },
+    "g32_structural_invalidation_authority.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g32_structural_invalidation_authority.xml",
+      "xml_sha256": "2bab2be28ff87267260603dfd1c9b518e7d6793ec9926f1654faa3ae3a451beb"
+    },
+    "g33_model_specific_sl_selection.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g33_model_specific_sl_selection.xml",
+      "xml_sha256": "b730f48508e7a34c780c06e4017b736dc72b21dea7df97948e586aad426dd408"
+    },
+    "g34_atr_spread_noise_protection.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g34_atr_spread_noise_protection.xml",
+      "xml_sha256": "96066d31532c5a33f257560551b724ee9485c6f346bff4cbdbec5252a26e5dbf"
+    },
+    "g35_liquidity_tp_independence.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g35_liquidity_tp_independence.xml",
+      "xml_sha256": "55a86ce81dea4deefcb35fdf18c47278362ec86e0b1ad2bc03995f54358bb0af"
+    },
+    "g36_entry_quote_proximity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g36_entry_quote_proximity.xml",
+      "xml_sha256": "c7b369ddda94beeec8328465f4117b75bc24bd7c93bf6778e346879f54aed1d2"
+    },
+    "g37_risk_budget_and_net_rr.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g37_risk_budget_and_net_rr.xml",
+      "xml_sha256": "a0247eb6e68a810e003510cd0d47567b255df7b8d29bba09e02a2a5ba53e965c"
+    },
+    "g38_complete_arm_fill_exit.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 7,
+      "skipped": 0,
+      "tests": 7,
+      "xml_file": "g38_complete_arm_fill_exit.xml",
+      "xml_sha256": "509dd628969d2ac845d8a3177188006c752f8a42aca7799445fddf96cf53bfc8"
+    },
+    "g39_historical_replay_determinism.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g39_historical_replay_determinism.xml",
+      "xml_sha256": "a4b2e1248a876f2d828132b364763855d63097a60ffa7436e088009dfcdf4b56"
+    },
+    "g40_feature_flag_and_legacy_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g40_feature_flag_and_legacy_parity.xml",
+      "xml_sha256": "c633c8f95eaf4203ef1c954bc56fec88bb805020ab43932cdca6b89efe5d5ce4"
+    },
+    "g41_negative_controls_and_anti_fabrication.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g41_negative_controls_and_anti_fabrication.xml",
+      "xml_sha256": "003528271f0f6ebff2e0bf7795e4e64ab64410970f28d46a231529ed6c09510a"
+    },
+    "g43_unicorn_runtime_interface_contract.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g43_unicorn_runtime_interface_contract.xml",
+      "xml_sha256": "2da2ec1b86eb863515c0ea654d699ff12d24c871c94a73a762d890cd3d1a697d"
+    },
+    "g44_feature_flag_persistence_and_reload.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g44_feature_flag_persistence_and_reload.xml",
+      "xml_sha256": "c036a0941841b9bedde5ad4d643a692c7a526fe2d0c860f9959e6ca5cfc6ce17"
+    },
+    "g45_fill_time_protective_distance_guard.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g45_fill_time_protective_distance_guard.xml",
+      "xml_sha256": "9eb6d8bac9814bfeab437a57127123708cbef206d55f4ab5761debbe270520c4"
+    },
+    "g46_fill_time_stop_breach_quote_guard.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g46_fill_time_stop_breach_quote_guard.xml",
+      "xml_sha256": "77f14921082ec8a8ffbcbadc1a83544cc0e1932dbbc0754c4c4f9722e709456b"
+    },
+    "g47_causal_unicorn_episode_binding.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g47_causal_unicorn_episode_binding.xml",
+      "xml_sha256": "234b5c0dda4791b1cd80bbb30172687e5b95b1b34e941d589d3b060fe1bfcb22"
+    },
+    "g48_anti_lookahead_and_unclosed_candle_rejection.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g48_anti_lookahead_and_unclosed_candle_rejection.xml",
+      "xml_sha256": "fdce89979c021828691305b17f0c831a1cf7474dce9291c027303bbf1b3d55f4"
+    },
+    "g49_end_to_end_runtime_integration.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g49_end_to_end_runtime_integration.xml",
+      "xml_sha256": "ac467fb77f4bbe0ff191712b717bc4cc3418b2bdd7bf87dbb5a47e6d4beaf59c"
+    },
+    "g51_forensic_audit_truth_reconciliation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g51_forensic_audit_truth_reconciliation.xml",
+      "xml_sha256": "dde9d365257f020f78c50291c75c93ca5231f8f383d1166108425d4bdc6a3791"
+    },
+    "g52_honest_replay_comparison_disclosure.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g52_honest_replay_comparison_disclosure.xml",
+      "xml_sha256": "6a9c3441b53233a37970003f8395a4394c9b3b06d5ee4c53d8dde87b43aac10d"
+    },
+    "g53_observe_only_startup_isolation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g53_observe_only_startup_isolation.xml",
+      "xml_sha256": "f7a89a388444ce88cdac3245173916abf7f5bb97068ddeac9cc60a8c8b8068f1"
+    },
+    "g54_zero_background_order_mutations.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g54_zero_background_order_mutations.xml",
+      "xml_sha256": "b230593da063b903e4cd43eb2ac53cc9ea7cd0eabaca925967b7cbe84a8f900f"
+    },
+    "g55_zero_live_exchange_dispatch.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g55_zero_live_exchange_dispatch.xml",
+      "xml_sha256": "b3b6129eb58e6dc74345db052b819adefa3ee923284681e7768c2fb76e764ce7"
+    },
+    "g56_observation_database_immutability.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g56_observation_database_immutability.xml",
+      "xml_sha256": "045826ce57b6e4c5a0bf89dd002bc3e28620a1c30ca34735be3614c86c4e9e01"
+    },
+    "g57_observation_startup_shutdown.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g57_observation_startup_shutdown.xml",
+      "xml_sha256": "272ba85ffd2e4286f393f9f8b5c0fbad1aab9a328c55a6fa1b416cff9098174a"
+    },
+    "g58_release_artifact_truth.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 8,
+      "skipped": 0,
+      "tests": 8,
+      "xml_file": "g58_release_artifact_truth.xml",
+      "xml_sha256": "2f7446048923c1c06dc7282cb4ebe8e7afce668902c41491a51f33718985cd28"
+    },
+    "g59_market_shadow_profile_contract.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g59_market_shadow_profile_contract.xml",
+      "xml_sha256": "74bd74bfb0b46b3e6da7af4ae38457e003b831bb9be165155d6fb9dcde01bd39"
+    },
+    "g60_market_shadow_execution_forbidden.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g60_market_shadow_execution_forbidden.xml",
+      "xml_sha256": "c295a669a2b285b3ab226b479241028af7bc5f9fc946f54177e1b358059d4384"
+    },
+    "g61_public_market_feed_connected_or_explicit_blocker.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g61_public_market_feed_connected_or_explicit_blocker.xml",
+      "xml_sha256": "72a7db6038e5ff0684e9f5e28c5f97a4b5369469de0d32a1e13ed6d9d90c82c9"
+    },
+    "g62_canonical_quote_validation_and_ordering.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g62_canonical_quote_validation_and_ordering.xml",
+      "xml_sha256": "3472e1d97dbf8699838e83219dd09697773025d1533379526fd1bcaaab746234"
+    },
+    "g63_shadow_candle_finality_and_cache.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g63_shadow_candle_finality_and_cache.xml",
+      "xml_sha256": "5fcbf2584a0a9e15485f8b3a7462618d799234957cf8b16e66fbdd92f74550fd"
+    },
+    "g64_shadow_database_isolation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g64_shadow_database_isolation.xml",
+      "xml_sha256": "782de7890047a4d2792666e3bca0a015074244bdb06d3c2b11b627337d878481"
+    },
+    "g65_continuous_unicorn_shadow_evaluation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g65_continuous_unicorn_shadow_evaluation.xml",
+      "xml_sha256": "c580ce8e33ab4b0c1245e77f87c7a1dbfa7f871b40a8ef4bb85a003bec44c250"
+    },
+    "g66_structural_sl_tp_shadow_decisions.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g66_structural_sl_tp_shadow_decisions.xml",
+      "xml_sha256": "1e3e672222ebb66b063308ee016e1aa9a3b9c95eaad0351483c650cd99d2030e"
+    },
+    "g67_historical_data_quality_gate.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g67_historical_data_quality_gate.xml",
+      "xml_sha256": "fc00480bc14b56c296184b6f60eb0195f9c7957361e0f5926bbd22da1ef470cb"
+    },
+    "g68_real_historical_backtest_execution.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g68_real_historical_backtest_execution.xml",
+      "xml_sha256": "bf3e1d1b82896c8d7a816439d4be98c4a86c8f06ffb3434f245a389df6abf57a"
+    },
+    "g69_matched_abcd_comparison_completeness.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g69_matched_abcd_comparison_completeness.xml",
+      "xml_sha256": "d38b098b1cfce900ead0cb269307aa7a11279148f022d2f87bfa68ee685f1b58"
+    },
+    "g70_out_of_sample_and_stress_validation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g70_out_of_sample_and_stress_validation.xml",
+      "xml_sha256": "3204641b735ab26bb8838f8880cbb802f0f47c4200c35eea5ce7ab7e89258589"
+    },
+    "g71_shadow_api_read_only_contract.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g71_shadow_api_read_only_contract.xml",
+      "xml_sha256": "c3f371599608fc400bcb12fb0324b92a13451c4c1b98c7e8ae8ef2f3c30c4d2e"
+    },
+    "g73_operational_db_zero_mutation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g73_operational_db_zero_mutation.xml",
+      "xml_sha256": "c9efc1222fbe75b467e079663970c4f7a5f3db0c7431e777a6bf49e4b75bec95"
+    },
+    "g74_market_shadow_startup_shutdown.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g74_market_shadow_startup_shutdown.xml",
+      "xml_sha256": "f07d1df90bc9f167e869b66c16ea57a8eac75de66aaf2c13ee3f30ba46157f64"
+    },
+    "g76_remote_acceptance_log_completeness.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 2,
+      "skipped": 0,
+      "tests": 2,
+      "xml_file": "g76_remote_acceptance_log_completeness.xml",
+      "xml_sha256": "a1140cfb6462e05b7816edbb7eb05ec2a1bd8718a288769784a4951a3a44e5ff"
+    },
+    "g77_git_reproducible_source_manifest.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g77_git_reproducible_source_manifest.xml",
+      "xml_sha256": "cdf7edf57d666e631b3d719db5e40675560bc4138580a1211029382d1ea8972c"
+    },
+    "g78_source_manifest_negative_controls.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g78_source_manifest_negative_controls.xml",
+      "xml_sha256": "fc601be8f04c91cb1727d3ad49fe8bfeab47edcca7970869a39979f944dcd6f5"
+    },
+    "g79_production_backtest_shadow_decision_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g79_production_backtest_shadow_decision_parity.xml",
+      "xml_sha256": "c90bbfa2860d6ffc084178ff21ea014799b806d8b6bf85b3e0340eac28b3715a"
+    },
+    "g80_unicorn_causal_chain_strict_validation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g80_unicorn_causal_chain_strict_validation.xml",
+      "xml_sha256": "82897082c22bc6d039f9453e37b25d527fad269762089f6792c7af4cc64b63ad"
+    },
+    "g81_atr_m1_m5_provenance_integrity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g81_atr_m1_m5_provenance_integrity.xml",
+      "xml_sha256": "dc3aab68454d4427a81f88d309237d880308d76b3837770f66ae547684d603dc"
+    },
+    "g82_matched_cohort_stop_out_analysis.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g82_matched_cohort_stop_out_analysis.xml",
+      "xml_sha256": "899b1ab8c65f57fbcab03657095612bec4d36a6194f5a3e54936d305dbbfb429"
+    },
+    "g83_oos_zero_trade_insufficient_sample_handling.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g83_oos_zero_trade_insufficient_sample_handling.xml",
+      "xml_sha256": "df17468ddc07b3100c86550c04c9ecea34be8808da19736e4dabe79fb7ec3517"
+    },
+    "g84_trade_level_pnl_reconciliation.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g84_trade_level_pnl_reconciliation.xml",
+      "xml_sha256": "d40a963049ad2e718cc560b9c031dadcdd8cc35958ba94f2bad50e7400493f02"
+    },
+    "g85_market_shadow_routing_regression.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g85_market_shadow_routing_regression.xml",
+      "xml_sha256": "3dc8800c1b7d775bd691daedaa704309a371bc90a9ddcaa21a7788e3ad7bdba5"
+    },
+    "g86_backtest_anti_bias_negative_controls.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 1,
+      "skipped": 0,
+      "tests": 1,
+      "xml_file": "g86_backtest_anti_bias_negative_controls.xml",
+      "xml_sha256": "3f129fc81bf419730d5ee8800951b684d60ec6791e294d45445c4abf790d7b97"
+    },
+    "g89_shared_decision_context_contract.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 6,
+      "skipped": 0,
+      "tests": 6,
+      "xml_file": "g89_shared_decision_context_contract.xml",
+      "xml_sha256": "25210b4cd7a27fba1b7650ea716fd5f2d7a689a96d495ff4984eef96a2368929"
+    },
+    "g90_shared_decision_snapshot_contract.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g90_shared_decision_snapshot_contract.xml",
+      "xml_sha256": "0a77763b57949ab45b934c7caf667b19661e533cd5776c116ea73dacafdd9e9c"
+    },
+    "g91_production_m1_reversal_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g91_production_m1_reversal_parity.xml",
+      "xml_sha256": "c9b77151316d57bdb5a227f3992210166974871e9aa0dc490b1fca1514a6fb5c"
+    },
+    "g92_production_m1_continuation_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g92_production_m1_continuation_parity.xml",
+      "xml_sha256": "5eabe318830b6c09e9cf523b03bd2329283a7d20cfca49b8cf164ea14dbb1be4"
+    },
+    "g93_production_m1_fvg_continuation_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g93_production_m1_fvg_continuation_parity.xml",
+      "xml_sha256": "f67dcd38b8d18b9f81ffdc564615ee13fa36b3eaaee0283579783a8396d06a18"
+    },
+    "g94_production_m1_sweep_reclaim_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g94_production_m1_sweep_reclaim_parity.xml",
+      "xml_sha256": "b0ff5055223f800ec9cc6af29a1bf91e552c9c7303b466ef7b638e827dd20225"
+    },
+    "g95_production_cg01_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g95_production_cg01_parity.xml",
+      "xml_sha256": "a82506b2cad3fd02fbd00694590d74599b3a772f50427cd383117812823366d2"
+    },
+    "g96_production_shadow_decision_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g96_production_shadow_decision_parity.xml",
+      "xml_sha256": "3102624366f4a2adf631c545e7c3eee05899052c2fb765f68f09cbb6f2448bf3"
+    },
+    "g97_production_backtest_decision_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 4,
+      "skipped": 0,
+      "tests": 4,
+      "xml_file": "g97_production_backtest_decision_parity.xml",
+      "xml_sha256": "c4e2e673564dc0cc7a196b7318a7918f42a32dc7af152f134c6b9da98d623118"
+    },
+    "g98_synthetic_index_signal_removal.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 3,
+      "skipped": 0,
+      "tests": 3,
+      "xml_file": "g98_synthetic_index_signal_removal.xml",
+      "xml_sha256": "6ade4ed58056d34126fac1679c61088492833abde9674d9082c43cabd7cf1747"
+    },
+    "g99_unicorn_causal_chain_parity.xml": {
+      "errors": 0,
+      "exit_code": 0,
+      "failures": 0,
+      "passed": 6,
+      "skipped": 0,
+      "tests": 6,
+      "xml_file": "g99_unicorn_causal_chain_parity.xml",
+      "xml_sha256": "8b9db1139516979976796fdb2823506bf88b041d56c6e87cbabfc84d48c938d8"
+    }
+  },
+  "phase": "R3.3.1",
+  "release": "V17.9.0.1.3",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "schema_version": "R331_JUNIT_PER_XML_RECALCULATION_V1",
+  "status": "PASS",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "xml_files_count": 93
+}

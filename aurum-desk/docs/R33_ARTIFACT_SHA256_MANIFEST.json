@@ -2,18 +2,18 @@
   "artifacts": {
     "R33_ASYNC_RESOURCE_TELEMETRY.json": {
       "filename": "R33_ASYNC_RESOURCE_TELEMETRY.json",
-      "sha256": "4dc45f61fe6bb4b1f36cdf7deb4ffeb49a686c7552327a9633cd5ba3715abc09",
-      "size_bytes": 549
+      "sha256": "baaa2476516b321c9d12ba2a3e34531ab67a34ad6005a78ddf2a5928a8979ca3",
+      "size_bytes": 547
     },
     "R33_BACKTEST_A_B_C_D_METRICS.json": {
       "filename": "R33_BACKTEST_A_B_C_D_METRICS.json",
-      "sha256": "3fb4cfea633acb725a0cf2d3893a597c8af5b90d945944647ed953c8e8fa2ba9",
-      "size_bytes": 281532
+      "sha256": "4f7363395c20b97ff701ba2f5c859a158ae572c4983330a3dfb6a6f06db17342",
+      "size_bytes": 282347
     },
     "R33_BACKTEST_TRADE_LEDGER.jsonl": {
       "filename": "R33_BACKTEST_TRADE_LEDGER.jsonl",
-      "sha256": "11b2d1acd76a3bdcd78104daf57f5a35b3266b649ebddcc8e856b7f05da01d56",
-      "size_bytes": 215910
+      "sha256": "b1858cbca79fa22afef34124d617b6f5d6051bc8ae98f27aff1a4e16f1bed27b",
+      "size_bytes": 216078
     },
     "R33_DEFECT_ROOT_CAUSE_MATRIX.md": {
       "filename": "R33_DEFECT_ROOT_CAUSE_MATRIX.md",
@@ -22,23 +22,23 @@
     },
     "R33_DISK_GUARD.json": {
       "filename": "R33_DISK_GUARD.json",
-      "sha256": "0427c6fdcff2311299cedbb1a3c477fa7c12d346228ab6cae0df6a8ca7f5cf6c",
-      "size_bytes": 131076
+      "sha256": "3667b6d37647d4182dd0221e63c15e4dd1c7d9de63703dd64974b82d2d7ae53e",
+      "size_bytes": 677096
     },
     "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json": {
       "filename": "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json",
-      "sha256": "43734aa9d301f9fa0b31df6e9294a2f098f7d82c2482e67b1469a99c59320617",
-      "size_bytes": 708
+      "sha256": "4fd28c1e174b829e484fcb2700ab990991f8e69ad347677c4964bd7b20f5334e",
+      "size_bytes": 709
     },
     "R33_FINAL_ACCEPTANCE_AUDIT.md": {
       "filename": "R33_FINAL_ACCEPTANCE_AUDIT.md",
-      "sha256": "443ab472fba27eeca61c1116e1200bd20024dd8ad982778f7a55ed6cdc3003c2",
-      "size_bytes": 6715
+      "sha256": "bf73c6871461275436041df95edc048981f447ee41f57df7a9e6260068426e84",
+      "size_bytes": 6717
     },
     "R33_FIVE_WAY_PARITY.json": {
       "filename": "R33_FIVE_WAY_PARITY.json",
-      "sha256": "e22cb5af3ab1f1822d23ab5ff5e31d902dd4d5daef04ddc696be23cedff7fcc1",
-      "size_bytes": 2228
+      "sha256": "5cdacfe9bd2d97307f305d7518456188ef72ff12875e860e9bcf022708a38ddd",
+      "size_bytes": 2229
     },
     "R33_HISTORICAL_PRODUCTION_LINEAGE.jsonl": {
       "filename": "R33_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
@@ -47,87 +47,87 @@
     },
     "R33_INDEPENDENT_VERIFIER_REPORT.json": {
       "filename": "R33_INDEPENDENT_VERIFIER_REPORT.json",
-      "sha256": "b520d7899fb9cbdef18a238a1380aa298ef1216436f34c7d59fb39852e3267eb",
-      "size_bytes": 1289
+      "sha256": "b381d303846f9327e90ded1f3ff86172394ae32faa506e4b71d23375aded88a2",
+      "size_bytes": 1291
     },
     "R33_JUNIT_RECONCILIATION.json": {
       "filename": "R33_JUNIT_RECONCILIATION.json",
-      "sha256": "691f1a90011e2ad27c1b96ea1caa9f28019aeb22bc15adf59e9af721af7b0d05",
-      "size_bytes": 14460
+      "sha256": "9cf68509b9647c860a0e2a1fa32e33b660d915a2832c1bdf2164b73839998d52",
+      "size_bytes": 14461
     },
     "R33_MATCHED_COHORT.json": {
       "filename": "R33_MATCHED_COHORT.json",
-      "sha256": "52ec66eb8a028477640e4d98bc377eb05c0f0a83064b7568f17611cd57479e16",
-      "size_bytes": 235139
+      "sha256": "d56e0462de0f66dffb525eb22b39c1b862b4daf436e8490d45ca7a27bc11facf",
+      "size_bytes": 236036
     },
     "R33_NEGATIVE_TEST_COLLECTION.json": {
       "filename": "R33_NEGATIVE_TEST_COLLECTION.json",
-      "sha256": "802f9a4afa8240af5e3fa70a5b89b4b899df28d6d2184a576f70e0036766cded",
-      "size_bytes": 2215
+      "sha256": "5e689351c23389629a6e689a74101b4142762353e97671f63f7928b573256979",
+      "size_bytes": 2666
     },
     "R33_NEGATIVE_TEST_RESULTS.json": {
       "filename": "R33_NEGATIVE_TEST_RESULTS.json",
-      "sha256": "15e953bc92c2c34cbe27def28d47b3ce40c288df84616c2e64e3bf94b98ec95f",
-      "size_bytes": 78825
+      "sha256": "6fcea680907a863618eeb67b74e1bd41b53d0d4e014c370c1a919fd5ed15c920",
+      "size_bytes": 93082
     },
     "R33_OOS_REPORT.json": {
       "filename": "R33_OOS_REPORT.json",
-      "sha256": "391e671139dd5f3e68188fb898cc21655b3d3bd84a65796edc9f28eea7ffa4c9",
-      "size_bytes": 171131
+      "sha256": "8765dca96d13bcbbff2d03d763c21ce8a226d9eab6f609a9c5ce95281e240054",
+      "size_bytes": 171844
     },
     "R33_PARITY_CLASSIFICATION.json": {
       "filename": "R33_PARITY_CLASSIFICATION.json",
-      "sha256": "af8394c71ed669929f51c8cb8f5d5cd2428c60de9cebd7d5192d9c9dd2d3e306",
-      "size_bytes": 649
+      "sha256": "f72cabb826d7dc7882d375c51fe4935a7146472a8e73cedaea136be9f47dc804",
+      "size_bytes": 650
     },
     "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json": {
       "filename": "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json",
-      "sha256": "b1bb59d4a84e04892099561c151753cf991d1908662c5717e80e06fc458d9304",
-      "size_bytes": 879
+      "sha256": "7d5ede370c9916b1087cf828e7c4bcbf4e7a98e66b3d51a6ad4607abcbf808c8",
+      "size_bytes": 880
     },
     "R33_RUNTIME_INPUT_CAPTURES.jsonl": {
       "filename": "R33_RUNTIME_INPUT_CAPTURES.jsonl",
-      "sha256": "520da818094e2613c831fec58866cc1b1f9127824e74c3c73b64bbedb1e7c1f7",
-      "size_bytes": 1530235
+      "sha256": "d3d56f3f6633378ee9c5f9d6701849541ff42ef77729c9b2eada0149e860b0b5",
+      "size_bytes": 1531046
     },
     "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl": {
       "filename": "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl",
-      "sha256": "da1a1d297d4a87803050a8a4d11201d433a9cca275ad2c149765f7058c75319d",
-      "size_bytes": 8049778
+      "sha256": "e9ab33dd4d462c88b43a3223a4b7a55679323c8977b40097e7670116b75682f7",
+      "size_bytes": 8050618
     },
     "R33_RUNTIME_INVOCATION_EVENTS.jsonl": {
       "filename": "R33_RUNTIME_INVOCATION_EVENTS.jsonl",
-      "sha256": "a5ae1ffeb8d402436ff0f2bcf03b4148704aa604585dde3095693eb910ffdb08",
-      "size_bytes": 3385237
+      "sha256": "287d3866a54676f0506a2f6a898f33b00ffd2ec9e13b162690ed38ff816b6c19",
+      "size_bytes": 3387832
     },
     "R33_RUN_MANIFEST.json": {
       "filename": "R33_RUN_MANIFEST.json",
-      "sha256": "dc61500f4b99d707199729c8248a177850d54e125e6c5ef1c17f4097f577e387",
-      "size_bytes": 846
+      "sha256": "c27b1195d956bbfbba0819b5c731fb646d13fe90f61f0a153f88d2c1b1d9d52b",
+      "size_bytes": 848
     },
     "R33_RUN_TASK_ACCOUNTING.json": {
       "filename": "R33_RUN_TASK_ACCOUNTING.json",
-      "sha256": "cd81222c02b8fff1b657cd53bee89556867542ad113bf28a1628e79c2746a5ca",
-      "size_bytes": 809
+      "sha256": "a3d0a7d2399e07681904a153c8b53882fb0804d1de22c70b6249c558b09597fd",
+      "size_bytes": 810
     },
     "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl": {
       "filename": "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl",
-      "sha256": "31dee9943008edaf42951461978369c0b4666cc8adeeaec343a03d739796a192",
-      "size_bytes": 5199
+      "sha256": "1264b77fc014cd3f166ac2daeed2e6a70ab83a8bb675abc5b9d845fd3665964f",
+      "size_bytes": 5219
     },
     "R33_WORKER_EXECUTIONS.jsonl": {
       "filename": "R33_WORKER_EXECUTIONS.jsonl",
-      "sha256": "84891d01541f40dbcceb6ce92ef68e260939effff8e2a013cb8657516d0f5fe7",
-      "size_bytes": 6980
+      "sha256": "ad5ccef234d62cdd186565af2a1d0879be4bc34dc8f5af1369e52672636f5904",
+      "size_bytes": 7029
     }
   },
-  "backtest_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-  "final_code_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-  "frozen_executable_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-  "generated_at_utc": "2026-10-31T06:47:01.770102+00:00",
+  "backtest_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "frozen_executable_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "generated_at_utc": "2026-10-31T10:25:47.042813+00:00",
   "phase": "R3.3",
   "release": "V17.9.0.1.3",
-  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
   "schema_version": "R33_ARTIFACT_SHA256_MANIFEST_V1",
-  "tested_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094"
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
 }

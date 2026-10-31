@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g44_feature_flag_persistence_and_reload" tests="2" errors="0" failures="0" skipped="0" time="0.067"><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_08_feature_flags_full_lifecycle_and_api" time="0.051" /><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_08_paper_structural_without_v18_flag_uses_v17_7_anchor" time="0.016" /></testsuite></testsuites>

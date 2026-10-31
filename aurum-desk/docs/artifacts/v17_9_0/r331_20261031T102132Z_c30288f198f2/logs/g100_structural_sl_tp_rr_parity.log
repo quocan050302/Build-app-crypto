@@ -1,0 +1,13 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g100_structural_sl_tp_rr_parity.xml -k test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 52556
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_26_anti_fake_control_08_divergent_selected_anchor_id_fails_parity (0.007s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_27_anti_fake_control_09_divergent_hypothetical_quantity_or_net_rr_fails_parity (0.007s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_28_anti_fake_control_10_divergent_rejection_reason_codes_or_decision_status_fails_parity (0.007s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_negative_acceptance_all_15_scenarios (0.009s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historical_parity (52.526s)
+5 passed in 52.56s
+
+--- STDERR ---

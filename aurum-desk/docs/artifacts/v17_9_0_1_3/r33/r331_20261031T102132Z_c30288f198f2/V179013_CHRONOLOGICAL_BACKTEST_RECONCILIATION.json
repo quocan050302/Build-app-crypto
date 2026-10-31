@@ -1,0 +1,16 @@
+{
+  "is_valid": true,
+  "status": "PASS",
+  "reconciled": true,
+  "inspected_windows_count": 150,
+  "evaluated_windows_count": 150,
+  "not_evaluated_windows_count": 0,
+  "matched_chronological_trades_count": 58,
+  "mismatched_outcomes_count": 0,
+  "fabricated_forward_candles_total": 0,
+  "violations": [],
+  "authoritative_chronological_ledger_trades_count": 18,
+  "parity_window_simulated_trades_count": 58,
+  "release": "V17.9.0.1.3",
+  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+}

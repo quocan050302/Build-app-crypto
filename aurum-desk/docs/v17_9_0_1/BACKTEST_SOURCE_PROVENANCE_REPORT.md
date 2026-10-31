@@ -1,8 +1,8 @@
 # V17.9.0.1.2 — Backtest Source SHA Provenance & Amendment Forensics Report (`DEF-179012-F03`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
-- **Backtest Executed Source SHA:** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
-- **Executable Source Tree SHA-256:** `93bc2c18aa72585fcb95ea3ac9b4504b334c41d8760f8182dc3c7bfd66df9f21` (`113` files)
+- **Final Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Backtest Executed Source SHA:** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Executable Source Tree SHA-256:** `242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93` (`113` files)
 - **Backtest Source SHA Provenance Status:** `PASS` (`violations=[]`)
 - **Trade Ledger Cache Validation Status:** `CACHE_VALID` (`cache_trusted=True`)
 

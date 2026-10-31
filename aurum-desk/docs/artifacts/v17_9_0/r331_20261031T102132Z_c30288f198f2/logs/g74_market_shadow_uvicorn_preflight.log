@@ -1,0 +1,39 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8835
+DURATION_MS: 3399
+OPERATIONAL_DB_PATH: /private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_test_root_y4ey7obx/market_shadow_op_preflight_r331_20261031T10.db
+SHADOW_DB_PATH: /private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_test_root_y4ey7obx/market_shadow_research_preflight_r331_20261031T10.db
+--- STDOUT ---
+INFO:     127.0.0.1:55004 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/runtime/profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/market/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/market/quotes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/market/candles?timeframe=1M&limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/opportunities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/unicorn/evidence HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/research/backtests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "POST /api/v1/orders/paper HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:55004 - "PUT /api/v1/policy/stop-placement HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:55004 - "POST /api/v1/shadow/market/status HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:55004 - "GET /api/v1/runtime/profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55004 - "GET /api/v1/shadow/market/status HTTP/1.1" 200 OK
+
+--- STDERR ---
+INFO:     Started server process [69995]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8835 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+ERROR:    Traceback (most recent call last):
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 654, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 221, in __aexit__
+    await anext(self.gen)
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/main.py", line 249, in lifespan
+    shadow_research_storage.shutdown()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ShadowResearchStorage' object has no attribute 'shutdown'
+
+ERROR:    Application shutdown failed. Exiting.
+INFO:     Finished server process [69995]

@@ -1,0 +1,29 @@
+{
+  "xml_file": "g102_disk_budget_guard_and_temp_cleanup.xml",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "worker_id": "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+  "task_id": "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+  "pid": 71181,
+  "ppid": 71066,
+  "started_ms": 1793442364197,
+  "completed_ms": 1793442371901,
+  "duration_sec": 7.703,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 3,
+  "passed": 3,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "6413d1039620aef554cab2629d9de0c52732dfecab5cefaec2de15c956237119",
+  "counts": {
+    "tests": 3,
+    "passed": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

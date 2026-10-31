@@ -1,0 +1,13 @@
+{
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "xml_sha256": "46cba467e9147635d2eac7dc1cdcf3eaf4a8fc0453f9f69b3f0cb0b4c267c9d6",
+  "exit_code": 0,
+  "counts": {
+    "collected": 360,
+    "passed": 360,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  }
+}

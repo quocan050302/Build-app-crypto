@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — Historical Backtest Decision-to-Trade Lineage Report (`DEF-179012-C02`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `0c97bf0c492831480f23f581c5cd205a6a7b4094`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
 - **Evaluator Version:** `17.9.0.1.1`
 - **Total Canonical `ELIGIBLE` Opportunities Extracted:** `18`
 - **Authoritative Simulated Trades (`Variant C`):** `18`

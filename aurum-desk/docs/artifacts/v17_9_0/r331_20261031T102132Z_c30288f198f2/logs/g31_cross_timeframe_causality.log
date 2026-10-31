@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_unicorn_evidence.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g31_cross_timeframe_causality.xml -k test_negative_unicorn_invalidated_by_distal_breach or test_negative_waiting_retest
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 1189
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_unicorn_invalidated_by_distal_breach (0.004s)
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_waiting_retest (1.185s)
+2 passed in 1.19s
+
+--- STDERR ---

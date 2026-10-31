@@ -1,0 +1,11 @@
+COMMAND: git branch --show-current
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 69619
+STARTED_AT_UTC: 2026-10-31T10:22:12.102000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:22:12.121000+00:00
+DURATION_MS: 18
+EXIT_CODE: 0
+--- STDOUT ---
+fix/v17-9-0-1-3-historical-parity-hardening
+
+--- STDERR ---

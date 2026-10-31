@@ -1,0 +1,18 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_1_monitor_scope_and_focus.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/retry_test_v17_1_monitor_scope_and_focus.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 71040
+STARTED_AT_UTC: 2026-10-31T10:25:40.517000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:25:43.575000+00:00
+DURATION_MS: 3056
+EXIT_CODE: 0
+--- STDOUT ---
+.....                                                                    [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 1 warning in 1.85s
+
+--- STDERR ---

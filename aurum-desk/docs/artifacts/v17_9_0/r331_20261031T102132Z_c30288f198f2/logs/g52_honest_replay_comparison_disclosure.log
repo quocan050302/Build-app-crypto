@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g52_honest_replay_comparison_disclosure.xml -k test_def_178_13
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 21
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_13_honest_replay_calibration_and_endpoint (0.021s)
+1 passed in 0.02s
+
+--- STDERR ---

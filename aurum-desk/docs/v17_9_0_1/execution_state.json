@@ -1,26 +1,26 @@
 {
   "schema_version": "V17.9.0",
-  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
-  "source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
-  "started_at": "2026-10-31T06:45:26.195079+00:00",
-  "updated_at": "2026-10-31T06:47:32.380619+00:00",
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "started_at": "2026-10-31T10:25:53.329316+00:00",
+  "updated_at": "2026-10-31T10:27:15.801526+00:00",
   "current_stage": "INITIALIZED",
   "completed_stages": [],
   "completed_test_groups": [
     "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
-    "G89_SHARED_DECISION_CONTEXT_CONTRACT",
-    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
     "G91_PRODUCTION_M1_REVERSAL_PARITY",
-    "G92_PRODUCTION_M1_CONTINUATION_PARITY",
-    "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
     "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY",
     "G95_PRODUCTION_CG01_PARITY",
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY",
     "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
     "G99_UNICORN_CAUSAL_CHAIN_PARITY",
-    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
-    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
-    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
     "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
     "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
     "G100_STRUCTURAL_SL_TP_RR_PARITY"
@@ -28,222 +28,190 @@
   "pending_test_groups": [],
   "failed_test_groups": [],
   "verified_artifacts": {
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g90_shared_decision_snapshot_contract.log": {
-      "sha256": "62ce35bf73104037d3e1e49d2c9959db3cdfa48f7950030eb18118d913369065",
-      "size_bytes": 1352,
-      "verified_at": "2026-10-31T06:45:36.615950+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g90_shared_decision_snapshot_contract.log": {
+      "sha256": "71fa87f4c07bd3a1243854602a6e4f43c3930cb3a4abf2f667adb0942b565443",
+      "size_bytes": 1354,
+      "verified_at": "2026-10-31T10:26:03.670521+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g90_shared_decision_snapshot_contract.xml": {
-      "sha256": "d6b9b1acc1831967a9f0e54ff2d228a60c89a874e9e090963451b4a9655dc819",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g90_shared_decision_snapshot_contract.xml": {
+      "sha256": "0a77763b57949ab45b934c7caf667b19661e533cd5776c116ea73dacafdd9e9c",
       "size_bytes": 919,
-      "verified_at": "2026-10-31T06:45:36.616169+00:00"
+      "verified_at": "2026-10-31T10:26:03.671198+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g89_shared_decision_context_contract.log": {
-      "sha256": "0919ec29e131e025bd07693b94e733aa09809243f6a5622b5efacf91e304ee73",
-      "size_bytes": 1342,
-      "verified_at": "2026-10-31T06:45:37.125844+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g91_production_m1_reversal_parity.log": {
+      "sha256": "bc98e5a6614b18be6b2c5e2d84b2038080d2dc417715d9d76cb53cf12a7621f3",
+      "size_bytes": 1298,
+      "verified_at": "2026-10-31T10:26:03.925431+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g89_shared_decision_context_contract.xml": {
-      "sha256": "1e5294777a9a1036ec94a6fc34a8647e5f783766e16494cbb528375ab6e8b21b",
-      "size_bytes": 1232,
-      "verified_at": "2026-10-31T06:45:37.126023+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g93_production_m1_fvg_continuation_parity.log": {
-      "sha256": "80cc413aaa96f882254ac5bdfc91c7a5dc2ad20c59ecb7744fc1ce265b8921e1",
-      "size_bytes": 1328,
-      "verified_at": "2026-10-31T06:45:37.150656+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g93_production_m1_fvg_continuation_parity.xml": {
-      "sha256": "f3b9571753f963dd84d9b0746fed507cd10524541884c1f4d07fdfc9d138f013",
-      "size_bytes": 716,
-      "verified_at": "2026-10-31T06:45:37.150808+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g91_production_m1_reversal_parity.log": {
-      "sha256": "06cedf917c3730b34a779d56a2bea196ac6db1f2987fd49e70bbba2cae2a6631",
-      "size_bytes": 1296,
-      "verified_at": "2026-10-31T06:45:37.163564+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g91_production_m1_reversal_parity.xml": {
-      "sha256": "5c32ff05f9afc9d5045b260576a7a72a6d16155fa109b63119df19f7f52b329a",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g91_production_m1_reversal_parity.xml": {
+      "sha256": "c9b77151316d57bdb5a227f3992210166974871e9aa0dc490b1fca1514a6fb5c",
       "size_bytes": 700,
-      "verified_at": "2026-10-31T06:45:37.163689+00:00"
+      "verified_at": "2026-10-31T10:26:03.925608+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g92_production_m1_continuation_parity.log": {
-      "sha256": "acdaea7e6de52c76c686685ba6db7f4199e9ab0581e39275d17fbe0f4ceffafe",
-      "size_bytes": 1312,
-      "verified_at": "2026-10-31T06:45:37.173094+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g93_production_m1_fvg_continuation_parity.log": {
+      "sha256": "46587d17265d22191cf621e6eecc4cc98a9daf18476f2852658e087a69994e0c",
+      "size_bytes": 1330,
+      "verified_at": "2026-10-31T10:26:03.960776+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g92_production_m1_continuation_parity.xml": {
-      "sha256": "b921a07e15d196589b6758c23515db7f4da4833060d99fd94138f81773786d4b",
-      "size_bytes": 708,
-      "verified_at": "2026-10-31T06:45:37.173278+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g93_production_m1_fvg_continuation_parity.xml": {
+      "sha256": "f67dcd38b8d18b9f81ffdc564615ee13fa36b3eaaee0283579783a8396d06a18",
+      "size_bytes": 716,
+      "verified_at": "2026-10-31T10:26:03.960909+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g96_production_shadow_decision_parity.log": {
-      "sha256": "546e510755f4386b167e5f143b1b862352bc4930f3b6baa3a46e19f8ba269d5c",
-      "size_bytes": 1367,
-      "verified_at": "2026-10-31T06:45:37.181219+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g94_production_m1_sweep_reclaim_parity.log": {
+      "sha256": "391f2c49d5e51877bb460842bf94d733aff96cdeb8cf44a2871e251569ea2cfb",
+      "size_bytes": 1318,
+      "verified_at": "2026-10-31T10:26:03.976079+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g96_production_shadow_decision_parity.xml": {
-      "sha256": "29b5a92ea29fd9409ddb71e5af7f2215bea213fc298b440c7ed7831bc45be0f8",
-      "size_bytes": 726,
-      "verified_at": "2026-10-31T06:45:37.181352+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g94_production_m1_sweep_reclaim_parity.log": {
-      "sha256": "49d2d99a1387a6a9b41bc7d7e0fdf3f3f048cffa4ffffc482fc2ce7a9645bb4a",
-      "size_bytes": 1316,
-      "verified_at": "2026-10-31T06:45:37.190344+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g94_production_m1_sweep_reclaim_parity.xml": {
-      "sha256": "63ff690fc36f3b441535def5a02a11f6f8ee4f197a5ec612723cbab4d544c325",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g94_production_m1_sweep_reclaim_parity.xml": {
+      "sha256": "b0ff5055223f800ec9cc6af29a1bf91e552c9c7303b466ef7b638e827dd20225",
       "size_bytes": 710,
-      "verified_at": "2026-10-31T06:45:37.190476+00:00"
+      "verified_at": "2026-10-31T10:26:03.976218+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g95_production_cg01_parity.log": {
-      "sha256": "c5ebd58546058f702f24b9b586cfb475e4d05308bae98d55cfb34f5a054f8717",
-      "size_bytes": 1281,
-      "verified_at": "2026-10-31T06:45:37.263810+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g92_production_m1_continuation_parity.log": {
+      "sha256": "d7cc85c67b5218a4e05cb0501d4b9f8752b576a466ec26ea01593d94119a11d3",
+      "size_bytes": 1314,
+      "verified_at": "2026-10-31T10:26:04.025976+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g95_production_cg01_parity.xml": {
-      "sha256": "0a4d9c693c98bd597ca7fa6022007eca99cabdb2840ac0488ef6d01e079b8b3b",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g92_production_m1_continuation_parity.xml": {
+      "sha256": "5eabe318830b6c09e9cf523b03bd2329283a7d20cfca49b8cf164ea14dbb1be4",
+      "size_bytes": 708,
+      "verified_at": "2026-10-31T10:26:04.026108+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g95_production_cg01_parity.log": {
+      "sha256": "d43bfd53c8a52a1ea22560e25518935d24be63b515cb9548b53a302bdb6163c6",
+      "size_bytes": 1283,
+      "verified_at": "2026-10-31T10:26:04.037328+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g95_production_cg01_parity.xml": {
+      "sha256": "a82506b2cad3fd02fbd00694590d74599b3a772f50427cd383117812823366d2",
       "size_bytes": 699,
-      "verified_at": "2026-10-31T06:45:37.263954+00:00"
+      "verified_at": "2026-10-31T10:26:04.037479+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g103_checkpoint_resume_and_invalidation.log": {
-      "sha256": "563aa33af93e9d439d1f92ad7b09ccad3ab0991850da62ae3d7da6636bfb1efd",
-      "size_bytes": 1231,
-      "verified_at": "2026-10-31T06:45:45.411957+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g89_shared_decision_context_contract.log": {
+      "sha256": "4ca36cd7bde22bdf0cd36f7eecb8bff7aa98a09e1c04af13ee20fafbd6d23835",
+      "size_bytes": 1344,
+      "verified_at": "2026-10-31T10:26:04.048617+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g103_checkpoint_resume_and_invalidation.xml": {
-      "sha256": "825df2a0c4e4ac0bca24a92686c9a58e13a54342f5f869237650dfe3c92cfa77",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g89_shared_decision_context_contract.xml": {
+      "sha256": "25210b4cd7a27fba1b7650ea716fd5f2d7a689a96d495ff4984eef96a2368929",
+      "size_bytes": 1232,
+      "verified_at": "2026-10-31T10:26:04.048762+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g96_production_shadow_decision_parity.log": {
+      "sha256": "02a796899aa8e23bbe76bee123366635101fc03d77539039c039e6c6190d2fbe",
+      "size_bytes": 1369,
+      "verified_at": "2026-10-31T10:26:04.067564+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g96_production_shadow_decision_parity.xml": {
+      "sha256": "3102624366f4a2adf631c545e7c3eee05899052c2fb765f68f09cbb6f2448bf3",
+      "size_bytes": 726,
+      "verified_at": "2026-10-31T10:26:04.067701+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g103_checkpoint_resume_and_invalidation.log": {
+      "sha256": "162f98f94582f777fa2319ece7f3a366c38e82c737e032905613268c3b6e7aa4",
+      "size_bytes": 1233,
+      "verified_at": "2026-10-31T10:26:11.816042+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g103_checkpoint_resume_and_invalidation.xml": {
+      "sha256": "10cacd4488e2e6c5701ee066902d4e8359ac4d7be51e7a0c6d8e59e234c8e4d7",
       "size_bytes": 761,
-      "verified_at": "2026-10-31T06:45:45.412116+00:00"
+      "verified_at": "2026-10-31T10:26:11.816320+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g99_unicorn_causal_chain_parity.log": {
-      "sha256": "8116f7fc0e1dd9350c1447243695efcf1c5616e221729809673e1429a45973cd",
-      "size_bytes": 1357,
-      "verified_at": "2026-10-31T06:45:45.550369+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g99_unicorn_causal_chain_parity.xml": {
-      "sha256": "9209995c44c701ab1dd9065549da8a7e153e7e2d798e1f57bb272d42a2a6836f",
-      "size_bytes": 1247,
-      "verified_at": "2026-10-31T06:45:45.550512+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g102_disk_budget_guard_and_temp_cleanup.log": {
-      "sha256": "4223b8d8a7310b3e2da59556eddd691de400ebdf4bcea290e5a59d6c8dd636d0",
-      "size_bytes": 1320,
-      "verified_at": "2026-10-31T06:45:45.557239+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g102_disk_budget_guard_and_temp_cleanup.xml": {
-      "sha256": "2cfbf5f7b0cd75e26faeaa587acf4a1c238e7aeebf618fe6db0f1c9cba5e3d14",
-      "size_bytes": 775,
-      "verified_at": "2026-10-31T06:45:45.557420+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g101_bounded_async_test_runner_integrity.log": {
-      "sha256": "84ea17ab1af463fadb14446c632a0613dc6c8ea85d3fac064c66fdd78157835c",
-      "size_bytes": 1320,
-      "verified_at": "2026-10-31T06:45:45.563938+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g101_bounded_async_test_runner_integrity.xml": {
-      "sha256": "f6a936245e906eebe2af96bbcf1ea20d58ad8864d57390461c40410b29151413",
-      "size_bytes": 592,
-      "verified_at": "2026-10-31T06:45:45.564090+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g104_real_historical_backtest_shared_evaluator.log": {
-      "sha256": "e11863d00f73349a18696a1760347596a2d095862ebf07a6eb0682d9a988af78",
-      "size_bytes": 1373,
-      "verified_at": "2026-10-31T06:45:45.570296+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g104_real_historical_backtest_shared_evaluator.xml": {
-      "sha256": "c484be81740ac79938a1f3f5b7fb3da3a280cddb07d881f390a8f36ad820f694",
-      "size_bytes": 768,
-      "verified_at": "2026-10-31T06:45:45.570445+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g97_production_backtest_decision_parity.log": {
-      "sha256": "0e712acb2e21f8b77f637dc5e58b084075811528cce0f3012196594386ff5437",
-      "size_bytes": 1337,
-      "verified_at": "2026-10-31T06:45:45.577264+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g97_production_backtest_decision_parity.xml": {
-      "sha256": "da26ca8f905513500d058701c19131cac653e60557fe1174e42b3d61621f05be",
-      "size_bytes": 897,
-      "verified_at": "2026-10-31T06:45:45.577509+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g98_synthetic_index_signal_removal.log": {
-      "sha256": "deaab33a11b51459f1757b91fe1fb2f499dadcd6d083483eeba25c3ef7aef133",
-      "size_bytes": 1222,
-      "verified_at": "2026-10-31T06:47:11.584405+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g98_synthetic_index_signal_removal.xml": {
-      "sha256": "eea90a9c9d26078c9abcf212678e2fee81d4e8ff126b2b66f7b6c2295fdb531a",
-      "size_bytes": 797,
-      "verified_at": "2026-10-31T06:47:11.584600+00:00"
-    },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g105_matched_vs_full_strategy_cohort_integrity.log": {
-      "sha256": "56144c8642c007d5a2482fc081e81f26db8ac3fe856a62ab1f02a453c348fb06",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g99_unicorn_causal_chain_parity.log": {
+      "sha256": "bff7fb2c38b7126f3e19be3fe57784b27b2965b977db6fb061816922d5dd16cc",
       "size_bytes": 1359,
-      "verified_at": "2026-10-31T06:47:16.187640+00:00"
+      "verified_at": "2026-10-31T10:26:11.869954+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g105_matched_vs_full_strategy_cohort_integrity.xml": {
-      "sha256": "ff883d4edc73125f16d4829e7ee285e7ad2b2ffb6120eaa45ab297f4adfad6ff",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g99_unicorn_causal_chain_parity.xml": {
+      "sha256": "8b9db1139516979976796fdb2823506bf88b041d56c6e87cbabfc84d48c938d8",
+      "size_bytes": 1247,
+      "verified_at": "2026-10-31T10:26:11.870095+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g97_production_backtest_decision_parity.log": {
+      "sha256": "a11e1a55d125812ce9ace06dabe0706ac61f1530efc474f7a91f9757134b1d2f",
+      "size_bytes": 1339,
+      "verified_at": "2026-10-31T10:26:11.887002+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g97_production_backtest_decision_parity.xml": {
+      "sha256": "c4e2e673564dc0cc7a196b7318a7918f42a32dc7af152f134c6b9da98d623118",
+      "size_bytes": 897,
+      "verified_at": "2026-10-31T10:26:11.887175+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g102_disk_budget_guard_and_temp_cleanup.log": {
+      "sha256": "666ac1ba6d3a1546c478fdc79ebd3f811c5cf63367a45c963db8a986f19587ad",
+      "size_bytes": 1322,
+      "verified_at": "2026-10-31T10:26:11.901738+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g102_disk_budget_guard_and_temp_cleanup.xml": {
+      "sha256": "6413d1039620aef554cab2629d9de0c52732dfecab5cefaec2de15c956237119",
+      "size_bytes": 775,
+      "verified_at": "2026-10-31T10:26:11.901913+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g104_real_historical_backtest_shared_evaluator.log": {
+      "sha256": "1cb38a01c7fcdc1be5e8b7432d335fcc22d396ee22b01cd16168794c1e5be507",
+      "size_bytes": 1375,
+      "verified_at": "2026-10-31T10:26:11.920595+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g104_real_historical_backtest_shared_evaluator.xml": {
+      "sha256": "e8e5233918f7936a74ad05a1b0d1d8cc8ab39e98d68105436fe8705c3d2ffe26",
+      "size_bytes": 768,
+      "verified_at": "2026-10-31T10:26:11.920757+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g101_bounded_async_test_runner_integrity.log": {
+      "sha256": "6d3c52e4f88aabd0f5f1c6354fab9d548ce1bafd0b95643f30788617a1c36b04",
+      "size_bytes": 1322,
+      "verified_at": "2026-10-31T10:26:11.984351+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g101_bounded_async_test_runner_integrity.xml": {
+      "sha256": "6eb589ba8b66dee49008db0ff2207c70aa77a4bc2a0e3aeeb1adf227e2e00cc8",
+      "size_bytes": 592,
+      "verified_at": "2026-10-31T10:26:11.984579+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g98_synthetic_index_signal_removal.log": {
+      "sha256": "786a0629b8b17e091cc494aa0c8fadd172cc2e77e00d50e31fcdc4e672a60992",
+      "size_bytes": 1224,
+      "verified_at": "2026-10-31T10:26:13.336615+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g98_synthetic_index_signal_removal.xml": {
+      "sha256": "6ade4ed58056d34126fac1679c61088492833abde9674d9082c43cabd7cf1747",
+      "size_bytes": 797,
+      "verified_at": "2026-10-31T10:26:13.336818+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g105_matched_vs_full_strategy_cohort_integrity.log": {
+      "sha256": "5c2cb739cc580b3579ec0e99673dc08f87ac9ee1458036f6878a2143608ea7f8",
+      "size_bytes": 1361,
+      "verified_at": "2026-10-31T10:26:19.808786+00:00"
+    },
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g105_matched_vs_full_strategy_cohort_integrity.xml": {
+      "sha256": "efb296eb63175da938f2262b921cef1294636695d53c5ae7c346d5b76cae0136",
       "size_bytes": 759,
-      "verified_at": "2026-10-31T06:47:16.187870+00:00"
+      "verified_at": "2026-10-31T10:26:19.808994+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g100_structural_sl_tp_rr_parity.log": {
-      "sha256": "e919ef4529318b70fb518a9bda99dbf43ca908326211223557cf1c48c3d659bc",
-      "size_bytes": 1320,
-      "verified_at": "2026-10-31T06:47:32.380328+00:00"
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g100_structural_sl_tp_rr_parity.log": {
+      "sha256": "e120dabea0543d3d84ee9ef9ea9d1a4175837901234d3e6e05828c8ad006e8f0",
+      "size_bytes": 1332,
+      "verified_at": "2026-10-31T10:27:15.801214+00:00"
     },
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g100_structural_sl_tp_rr_parity.xml": {
-      "sha256": "2bfd6143627f3bb2b55d56437142240b3e02f7d56c473e4985023881459e045f",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g100_structural_sl_tp_rr_parity.xml": {
+      "sha256": "f5f8e93623169cdd36439201cdf86dd478b9df47605598ed416b07aed631b902",
       "size_bytes": 1146,
-      "verified_at": "2026-10-31T06:47:32.380581+00:00"
+      "verified_at": "2026-10-31T10:27:15.801482+00:00"
     }
   },
   "group_records": {
     "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
       "group_id": "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:36.616176+00:00",
+      "completed_at": "2026-10-31T10:26:03.671221+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g90_shared_decision_snapshot_contract.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g90_shared_decision_snapshot_contract.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g90_shared_decision_snapshot_contract.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g90_shared_decision_snapshot_contract.xml"
       ],
       "metrics": {
-        "duration_sec": 10.365,
+        "duration_sec": 10.293,
         "tests": 4,
         "passed": 4,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
-      "group_id": "G89_SHARED_DECISION_CONTEXT_CONTRACT",
-      "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.126030+00:00",
-      "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g89_shared_decision_context_contract.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g89_shared_decision_context_contract.xml"
-      ],
-      "metrics": {
-        "duration_sec": 10.908,
-        "tests": 6,
-        "passed": 6,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
-      "group_id": "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
-      "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.150813+00:00",
-      "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g93_production_m1_fvg_continuation_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g93_production_m1_fvg_continuation_parity.xml"
-      ],
-      "metrics": {
-        "duration_sec": 10.853,
-        "tests": 3,
-        "passed": 3,
         "failures": 0,
         "skipped": 0
       }
@@ -251,45 +219,29 @@
     "G91_PRODUCTION_M1_REVERSAL_PARITY": {
       "group_id": "G91_PRODUCTION_M1_REVERSAL_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.163702+00:00",
+      "completed_at": "2026-10-31T10:26:03.925617+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g91_production_m1_reversal_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g91_production_m1_reversal_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g91_production_m1_reversal_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g91_production_m1_reversal_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 10.9,
+        "duration_sec": 10.53,
         "tests": 3,
         "passed": 3,
         "failures": 0,
         "skipped": 0
       }
     },
-    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
-      "group_id": "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
+      "group_id": "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.173285+00:00",
+      "completed_at": "2026-10-31T10:26:03.960918+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g92_production_m1_continuation_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g92_production_m1_continuation_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g93_production_m1_fvg_continuation_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g93_production_m1_fvg_continuation_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 10.891,
-        "tests": 3,
-        "passed": 3,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
-      "group_id": "G96_PRODUCTION_SHADOW_DECISION_PARITY",
-      "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.181357+00:00",
-      "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g96_production_shadow_decision_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g96_production_shadow_decision_parity.xml"
-      ],
-      "metrics": {
-        "duration_sec": 10.835,
+        "duration_sec": 10.527,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -299,13 +251,29 @@
     "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
       "group_id": "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.190482+00:00",
+      "completed_at": "2026-10-31T10:26:03.976226+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g94_production_m1_sweep_reclaim_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g94_production_m1_sweep_reclaim_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g94_production_m1_sweep_reclaim_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g94_production_m1_sweep_reclaim_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 10.879,
+        "duration_sec": 10.519,
+        "tests": 3,
+        "passed": 3,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
+      "group_id": "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T10:26:04.026115+00:00",
+      "artifacts": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g92_production_m1_continuation_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g92_production_m1_continuation_parity.xml"
+      ],
+      "metrics": {
+        "duration_sec": 10.612,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -315,13 +283,45 @@
     "G95_PRODUCTION_CG01_PARITY": {
       "group_id": "G95_PRODUCTION_CG01_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:37.263959+00:00",
+      "completed_at": "2026-10-31T10:26:04.037487+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g95_production_cg01_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g95_production_cg01_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g95_production_cg01_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g95_production_cg01_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 10.937,
+        "duration_sec": 10.557,
+        "tests": 3,
+        "passed": 3,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
+      "group_id": "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T10:26:04.048770+00:00",
+      "artifacts": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g89_shared_decision_context_contract.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g89_shared_decision_context_contract.xml"
+      ],
+      "metrics": {
+        "duration_sec": 10.693,
+        "tests": 6,
+        "passed": 6,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
+      "group_id": "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T10:26:04.067708+00:00",
+      "artifacts": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g96_production_shadow_decision_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g96_production_shadow_decision_parity.xml"
+      ],
+      "metrics": {
+        "duration_sec": 10.547,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -331,13 +331,13 @@
     "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
       "group_id": "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.412123+00:00",
+      "completed_at": "2026-10-31T10:26:11.816346+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g103_checkpoint_resume_and_invalidation.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g103_checkpoint_resume_and_invalidation.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g103_checkpoint_resume_and_invalidation.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g103_checkpoint_resume_and_invalidation.xml"
       ],
       "metrics": {
-        "duration_sec": 8.159,
+        "duration_sec": 7.6,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -347,15 +347,31 @@
     "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
       "group_id": "G99_UNICORN_CAUSAL_CHAIN_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.550518+00:00",
+      "completed_at": "2026-10-31T10:26:11.870106+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g99_unicorn_causal_chain_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g99_unicorn_causal_chain_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g99_unicorn_causal_chain_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g99_unicorn_causal_chain_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 8.349,
+        "duration_sec": 7.876,
         "tests": 6,
         "passed": 6,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
+      "group_id": "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T10:26:11.887188+00:00",
+      "artifacts": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g97_production_backtest_decision_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g97_production_backtest_decision_parity.xml"
+      ],
+      "metrics": {
+        "duration_sec": 8.173,
+        "tests": 4,
+        "passed": 4,
         "failures": 0,
         "skipped": 0
       }
@@ -363,13 +379,29 @@
     "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
       "group_id": "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.557426+00:00",
+      "completed_at": "2026-10-31T10:26:11.901921+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g102_disk_budget_guard_and_temp_cleanup.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g102_disk_budget_guard_and_temp_cleanup.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g102_disk_budget_guard_and_temp_cleanup.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g102_disk_budget_guard_and_temp_cleanup.xml"
       ],
       "metrics": {
-        "duration_sec": 8.318,
+        "duration_sec": 7.703,
+        "tests": 3,
+        "passed": 3,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
+      "group_id": "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T10:26:11.920766+00:00",
+      "artifacts": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g104_real_historical_backtest_shared_evaluator.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g104_real_historical_backtest_shared_evaluator.xml"
+      ],
+      "metrics": {
+        "duration_sec": 7.663,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -379,47 +411,15 @@
     "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
       "group_id": "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.564096+00:00",
+      "completed_at": "2026-10-31T10:26:11.984588+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g101_bounded_async_test_runner_integrity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g101_bounded_async_test_runner_integrity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g101_bounded_async_test_runner_integrity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g101_bounded_async_test_runner_integrity.xml"
       ],
       "metrics": {
-        "duration_sec": 8.338,
+        "duration_sec": 7.84,
         "tests": 2,
         "passed": 2,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
-      "group_id": "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
-      "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.570452+00:00",
-      "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g104_real_historical_backtest_shared_evaluator.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g104_real_historical_backtest_shared_evaluator.xml"
-      ],
-      "metrics": {
-        "duration_sec": 8.294,
-        "tests": 3,
-        "passed": 3,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
-      "group_id": "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
-      "exit_code": 0,
-      "completed_at": "2026-10-31T06:45:45.577515+00:00",
-      "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g97_production_backtest_decision_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g97_production_backtest_decision_parity.xml"
-      ],
-      "metrics": {
-        "duration_sec": 8.946,
-        "tests": 4,
-        "passed": 4,
         "failures": 0,
         "skipped": 0
       }
@@ -427,13 +427,13 @@
     "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
       "group_id": "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:47:11.584611+00:00",
+      "completed_at": "2026-10-31T10:26:13.336825+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g98_synthetic_index_signal_removal.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g98_synthetic_index_signal_removal.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g98_synthetic_index_signal_removal.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g98_synthetic_index_signal_removal.xml"
       ],
       "metrics": {
-        "duration_sec": 4.021,
+        "duration_sec": 9.389,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -443,13 +443,13 @@
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
       "group_id": "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:47:16.187877+00:00",
+      "completed_at": "2026-10-31T10:26:19.809002+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g105_matched_vs_full_strategy_cohort_integrity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g105_matched_vs_full_strategy_cohort_integrity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g105_matched_vs_full_strategy_cohort_integrity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g105_matched_vs_full_strategy_cohort_integrity.xml"
       ],
       "metrics": {
-        "duration_sec": 8.592,
+        "duration_sec": 7.962,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -459,13 +459,13 @@
     "G100_STRUCTURAL_SL_TP_RR_PARITY": {
       "group_id": "G100_STRUCTURAL_SL_TP_RR_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-31T06:47:32.380588+00:00",
+      "completed_at": "2026-10-31T10:27:15.801488+00:00",
       "artifacts": [
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/logs/g100_structural_sl_tp_rr_parity.log",
-        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r33/r33_20261031T064025Z_0c97bf0c4928/reports/g100_structural_sl_tp_rr_parity.xml"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/logs/g100_structural_sl_tp_rr_parity.log",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/reports/g100_structural_sl_tp_rr_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 24.799,
+        "duration_sec": 71.787,
         "tests": 5,
         "passed": 5,
         "failures": 0,
@@ -475,7 +475,7 @@
   },
   "disk_budget_status": "PASS",
   "interrupted": false,
-  "resume_count": 1,
+  "resume_count": 0,
   "invalidation_history": [
     {
       "timestamp": "2026-10-29T11:05:09.997436+00:00",
@@ -608,6 +608,12 @@
       "reason": "CHECKPOINT_INVALIDATED_SOURCE_SHA_MISMATCH",
       "previous_source_sha": "ab3e82f376c0f0324571bf4b0b7405771f31559d",
       "new_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094"
+    },
+    {
+      "timestamp": "2026-10-31T10:25:53.329303+00:00",
+      "reason": "CHECKPOINT_INVALIDATED_SOURCE_SHA_MISMATCH",
+      "previous_source_sha": "0c97bf0c492831480f23f581c5cd205a6a7b4094",
+      "new_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
     }
   ]
 }

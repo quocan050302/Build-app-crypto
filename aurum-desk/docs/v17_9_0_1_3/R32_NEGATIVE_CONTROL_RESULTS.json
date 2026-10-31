@@ -1,9 +1,9 @@
 {
   "release": "V17.9.0.1.3",
   "phase": "R3.2",
-  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
-  "total_negative_controls": 168,
-  "passed_negative_controls": 168,
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "total_negative_controls": 198,
+  "passed_negative_controls": 198,
   "failed_negative_controls": 0,
   "status": "PASS",
   "controls": [
@@ -1350,6 +1350,246 @@
       "passed": true,
       "status": "PASS",
       "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-01",
+      "injected_condition": "R3.3.1 (P0-A): Missing or empty R331_INITIAL_RUN_MANIFEST.json fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-02",
+      "injected_condition": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json with status != RUNNING fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-03",
+      "injected_condition": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json created after first task fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-04",
+      "injected_condition": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json created after backtest fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-05",
+      "injected_condition": "R3.3.1 (P0-A): Mutating R331_INITIAL_RUN_MANIFEST.json after creation fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-06",
+      "injected_condition": "R3.3.1 (P0-B): macOS ru_maxrss 1024x unit inflation fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-07",
+      "injected_condition": "R3.3.1 (P0-B): Fabricated 64 MiB (67108864) memory fallback fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-08",
+      "injected_condition": "R3.3.1 (P0-B): NOT_MEASURED memory telemetry fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-09",
+      "injected_condition": "R3.3.1 (P0-B): Missing separated memory scopes or peak < current RSS fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-10",
+      "injected_condition": "R3.3.1 (P0-B): Disk budget below reserved floor fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-11",
+      "injected_condition": "R3.3.1 (P0-C): JUnit scope inventory file count mismatch (92 vs 93) fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-12",
+      "injected_condition": "R3.3.1 (P0-C): JUnit scope inventory raw test count mismatch (5957 vs 5816) fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-13",
+      "injected_condition": "R3.3.1 (P0-C): JUnit per-XML recalculation mismatch fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-14",
+      "injected_condition": "R3.3.1 (P0-C): JUnit overlap reconciliation formula mismatch fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-15",
+      "injected_condition": "R3.3.1 (P0-C): Missing or corrupt JUnit .xml.meta.json sidecar fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-16",
+      "injected_condition": "R3.3.1 (P0-D): Missing current-run directory blocks without latest_run.json fallback",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-17",
+      "injected_condition": "R3.3.1 (P0-D): Stale run_id or tested_source_sha in acceptance_results.json rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-18",
+      "injected_condition": "R3.3.1 (P0-D): Stale nested concurrency_report.run_id rejected by assert_nested_run_provenance",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-19",
+      "injected_condition": "R3.3.1 (P0-D): Illegal _provenance_rewritten marker rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-20",
+      "injected_condition": "R3.3.1 (P0-D): Stale run_id in JSONL artifact rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-21",
+      "injected_condition": "R3.3.1 (P0-E): JUnit sidecar exit_code != 0 with 0 XML failures fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-22",
+      "injected_condition": "R3.3.1 (P0-E): Bounded orchestrator global semaphore & concurrency bound violation rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-23",
+      "injected_condition": "R3.3.1 (P0-E): Task accounting sum mismatch fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-24",
+      "injected_condition": "R3.3.1 (P0-E): Live orphan worker process detected and blocks resource guard",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-25",
+      "injected_condition": "R3.3.1 (P0-E): Worker started before pre-execution manifest fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-26",
+      "injected_condition": "R3.3.1 (P0-F): Worker missing exit_code fails closed (never defaults to 0)",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-27",
+      "injected_condition": "R3.3.1 (P0-F): Worker missing status fails closed (never defaults to PASS)",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-28",
+      "injected_condition": "R3.3.1 (P0-F): Task accounting missing status fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-29",
+      "injected_condition": "R3.3.1 (P0-F): Incomplete SHA-256 manifest missing mandatory entry fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R331-30",
+      "injected_condition": "R3.3.1 (P0-F): Post-manifest byte mutation in R331 deliverable fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
     }
   ],
   "results": [
@@ -2358,6 +2598,186 @@
     {
       "test_id": "F20",
       "description": "R3.3 (P0-04): backtest_source_sha != frozen_executable_sha in R33_BACKTEST_TRADE_LEDGER.jsonl fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-01",
+      "description": "R3.3.1 (P0-A): Missing or empty R331_INITIAL_RUN_MANIFEST.json fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-02",
+      "description": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json with status != RUNNING fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-03",
+      "description": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json created after first task fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-04",
+      "description": "R3.3.1 (P0-A): R331_INITIAL_RUN_MANIFEST.json created after backtest fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-05",
+      "description": "R3.3.1 (P0-A): Mutating R331_INITIAL_RUN_MANIFEST.json after creation fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-06",
+      "description": "R3.3.1 (P0-B): macOS ru_maxrss 1024x unit inflation fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-07",
+      "description": "R3.3.1 (P0-B): Fabricated 64 MiB (67108864) memory fallback fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-08",
+      "description": "R3.3.1 (P0-B): NOT_MEASURED memory telemetry fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-09",
+      "description": "R3.3.1 (P0-B): Missing separated memory scopes or peak < current RSS fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-10",
+      "description": "R3.3.1 (P0-B): Disk budget below reserved floor fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-11",
+      "description": "R3.3.1 (P0-C): JUnit scope inventory file count mismatch (92 vs 93) fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-12",
+      "description": "R3.3.1 (P0-C): JUnit scope inventory raw test count mismatch (5957 vs 5816) fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-13",
+      "description": "R3.3.1 (P0-C): JUnit per-XML recalculation mismatch fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-14",
+      "description": "R3.3.1 (P0-C): JUnit overlap reconciliation formula mismatch fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-15",
+      "description": "R3.3.1 (P0-C): Missing or corrupt JUnit .xml.meta.json sidecar fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-16",
+      "description": "R3.3.1 (P0-D): Missing current-run directory blocks without latest_run.json fallback",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-17",
+      "description": "R3.3.1 (P0-D): Stale run_id or tested_source_sha in acceptance_results.json rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-18",
+      "description": "R3.3.1 (P0-D): Stale nested concurrency_report.run_id rejected by assert_nested_run_provenance",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-19",
+      "description": "R3.3.1 (P0-D): Illegal _provenance_rewritten marker rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-20",
+      "description": "R3.3.1 (P0-D): Stale run_id in JSONL artifact rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-21",
+      "description": "R3.3.1 (P0-E): JUnit sidecar exit_code != 0 with 0 XML failures fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-22",
+      "description": "R3.3.1 (P0-E): Bounded orchestrator global semaphore & concurrency bound violation rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-23",
+      "description": "R3.3.1 (P0-E): Task accounting sum mismatch fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-24",
+      "description": "R3.3.1 (P0-E): Live orphan worker process detected and blocks resource guard",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-25",
+      "description": "R3.3.1 (P0-E): Worker started before pre-execution manifest fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-26",
+      "description": "R3.3.1 (P0-F): Worker missing exit_code fails closed (never defaults to 0)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-27",
+      "description": "R3.3.1 (P0-F): Worker missing status fails closed (never defaults to PASS)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-28",
+      "description": "R3.3.1 (P0-F): Task accounting missing status fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-29",
+      "description": "R3.3.1 (P0-F): Incomplete SHA-256 manifest missing mandatory entry fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R331-30",
+      "description": "R3.3.1 (P0-F): Post-manifest byte mutation in R331 deliverable fails closed",
       "status": "PASS",
       "error": null
     }
