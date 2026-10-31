@@ -1,0 +1,17 @@
+{
+  "release": "V17.9.0.1.3",
+  "final_code_sha": "ab3e82f376c0f0324571bf4b0b7405771f31559d",
+  "evaluator_version": "17.9.0.1.1",
+  "total_comparisons": 210,
+  "exact_matches": 21,
+  "expected_documented_changes": 189,
+  "unexpected_divergences": 0,
+  "not_comparable": 0,
+  "not_executed": 0,
+  "status": "PASS",
+  "breakdown_by_category": {
+    "EXACT_MATCH": 21,
+    "EXPECTED_DOCUMENTED_CHANGE": 189,
+    "UNEXPECTED_DIVERGENCE": 0
+  }
+}

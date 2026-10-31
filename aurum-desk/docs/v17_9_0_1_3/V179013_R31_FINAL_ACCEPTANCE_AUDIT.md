@@ -4,10 +4,10 @@
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
 - **Starting HEAD:** `2cc98499260e911d3f17aa0128c7d84a50f9379a`
-- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Evidence Commit SHA:** `1572393c130bec73a3e4a9d089d664a7705ab431`
+- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Evidence Commit SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
 - **Exact Source Tree Equality:** Verified bitwise identical (`FINAL_CODE_SHA == TESTED_SOURCE_SHA == BACKTEST_SOURCE_SHA`)
 - **Working Tree Status:** Clean, all repairs committed on existing branch
 
@@ -30,7 +30,7 @@
 
 ## D. Full Regression & Negative Acceptance Controls
 - **Mandatory Release Gates (`G01`–`G107`):** `107/107` PASSED (`0` failed, `0` skipped)
-- **Negative Acceptance Suite (`N01`–`N148`):** `145/145` PASSED (`0` failed)
+- **Negative Acceptance Suite (`N01`–`N148`):** `148/148` PASSED (`0` failed)
 - **Reconciled JUnit Test Executions:** `5793` (5783 passed, 10 skipped, 0 failures)
 - **Unique Test Cases Count:** `4398` unique tests across 93 XML report suites
 
@@ -40,13 +40,13 @@
 - **Variant C (Unicorn Structural):** `18` trades, Net PnL = `$-16.3506`, Net Expectancy = `-0.3796R`
 - **Matched Cohort Analysis:** `3` trades saved from SL by Unicorn Variant C
 - **Out-of-Sample Verdict:** `OUT_OF_SAMPLE_INCONCLUSIVE`
-- **Backtest Source SHA:** `1572393c130bec73a3e4a9d089d664a7705ab431` (Bitwise identical to `FINAL_CODE_SHA`)
+- **Backtest Source SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d` (Bitwise identical to `FINAL_CODE_SHA`)
 
 ## F. Async Runner Performance & Resource Protection
-- **Parallel Concurrency:** `10` workers, `12` CPU pool workers
-- **Wall-Clock Execution Time:** `472.878`s
+- **Parallel Concurrency:** `4` workers, `12` CPU pool workers
+- **Wall-Clock Execution Time:** `192.737`s
 - **Orphan Worker Processes Remaining:** `0`
-- **Peak RSS Memory:** `64.0 MB`
+- **Peak RSS Memory:** `388.76 MB`
 - **Postflight Free Disk Space:** `50 GB` (> 50GB)
 - **Resource Telemetry Status:** `PASS`
 

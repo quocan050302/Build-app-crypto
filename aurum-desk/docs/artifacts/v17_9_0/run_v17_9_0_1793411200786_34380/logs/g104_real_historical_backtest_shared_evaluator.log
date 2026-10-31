@@ -1,6 +1,6 @@
 # Group: G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR (Real chronological historical backtest invoking SharedStrategyEvaluator across all 5 production models)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_30 or test_31 or test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g104_real_historical_backtest_shared_evaluator.xml -q
-# Started: 1793414554691
+# Started: 1793420994535
 
 ...                                                                      [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-3 passed, 54 deselected, 1 warning in 8.28s
+3 passed, 54 deselected, 1 warning in 13.97s

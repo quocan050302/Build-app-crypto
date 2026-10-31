@@ -1,6 +1,6 @@
 # Group: G92_PRODUCTION_M1_CONTINUATION_PARITY (SMC_M1_CONTINUATION independent pre-refactor baseline vs SharedStrategyEvaluator parity)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_10 or test_14 or test_v17_9_0_1_continuation_parity --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g92_production_m1_continuation_parity.xml -q
-# Started: 1793414478801
+# Started: 1793420902247
 
 ...                                                                      [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-3 passed, 54 deselected, 1 warning in 27.04s
+3 passed, 54 deselected, 1 warning in 29.75s

@@ -1,6 +1,6 @@
 # Group: G90_SHARED_DECISION_SNAPSHOT_CONTRACT (StrategyDecisionSnapshot / DecisionResult 20-field schema, evaluate_decision entrypoint & deterministic hashes)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g90_shared_decision_snapshot_contract.xml -q
-# Started: 1793414478719
+# Started: 1793420902162
 
 ....                                                                     [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-4 passed, 53 deselected, 1 warning in 27.15s
+4 passed, 53 deselected, 1 warning in 29.87s

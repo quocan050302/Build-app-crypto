@@ -1,7 +1,7 @@
 # V17.9.0.1.3 Root Cause Audit (`DEF-179013-R01` – `DEF-179013-R08`)
 
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
-- **Tested Code SHA:** `1572393c130bec73a3e4a9d089d664a7705ab431`
+- **Tested Code SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
 - **Historical Pre-Refactor Reference SHA:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 
 ## Defect Root Causes and Verifications

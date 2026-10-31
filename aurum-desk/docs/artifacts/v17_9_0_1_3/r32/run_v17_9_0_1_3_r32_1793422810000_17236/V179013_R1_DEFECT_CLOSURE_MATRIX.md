@@ -1,0 +1,16 @@
+# V17.9.0.1.3 Defect Closure Matrix
+
+- **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
+- **Final Code SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Historical Pre-Refactor Baseline:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
+
+| Defect ID | Severity | Root Cause | Actual Code Repair | Verification Tests & Negative Controls | Final Status |
+|---|---|---|---|---|---|
+| `DEF-179013-R01` | P0 | Hardcoded PASS strings & fake readiness statements without empirical verification. | Replaced static string assumptions with `derive_authoritative_acceptance_verdicts` and fail-closed `verify_persisted_acceptance_artifacts` directly reading disk bytes. | `N94`, `N95` | `CLOSED_VERIFIED` |
+| `DEF-179013-R02` | P0 | Five-way parity count contradiction (`five_way_verified_count = 0` vs `five_way_verified = 210`). | Added authoritative `five_way_verified_count` to top-level parity report and verified identical accounting against `comparison_accounting['five_way_verified']`. | `N78`, `N79` | `CLOSED_VERIFIED` |
+| `DEF-179013-R03` | P0 | Canonical hash copy across runtimes overwrote raw historical hashes. | Retained raw untouched hashes (`raw_input_hash`, `raw_configuration_hash`) across all runtimes; computed independent canonical semantic hashes per runtime; verified via `validate_comparison_record_hashes`. | `N75`, `N76`, `N77` | `CLOSED_VERIFIED` |
+| `DEF-179013-R04` | P0 | Historical Production call graph disconnected; Market Shadow substituted for Production Orchestrator. | Reconstructed historical `ScalpWatcherOrchestrator.evaluate_cycle` execution; recorded `OpportunityFunnelRecord` stages; emitted full consumed lifecycle (`ORDER_INTENT_CREATED`, `CANDIDATE_CONSUMED`, `ORDER_BLOCKED`, `EVALUATED_NOT_CONSUMED`, `REJECTED`, `NOT_EXECUTED`). | `N71`, `N72`, `N73`, `N80`, `N82` | `CLOSED_VERIFIED` |
+| `DEF-179013-R05` | P0 | Negative controls N71–N95 implemented as toy asserts (`assert True is False`) rather than real integration fault injection. | Upgraded all 25 negative controls to real integration fault injections calling real validators (`classify_historical_vs_refactored_decision`, `validate_comparison_source_accounting`, `validate_cached_trade_ledger_provenance`, `verify_persisted_acceptance_artifacts`). | `N71`–`N95` | `CLOSED_VERIFIED` |
+| `DEF-179013-R06` | P0 | Async test runner speedup contradiction (4.05x speedup claim vs cached 0.003s / unmeasured serial benchmark). | Cleanly separated runner scopes; recorded measured 10-shard wall clock (500.7s); explicitly reported `SPEEDUP_NOT_MEASURED` without claiming unverified speedup. | `N91`, `N92`, `N93` | `CLOSED_VERIFIED` |
+| `DEF-179013-R07` | P0 | Hardcoded test case numbers instead of dynamically aggregating actual JUnit XML artifacts. | Implemented `aggregate_junit_xml_reports()` to dynamically parse all 93 JUnit XML files on disk, reporting exact executions and unique test case inventory. | `N90` | `CLOSED_VERIFIED` |
+| `DEF-179013-R08` | P0 | Fallback dummy config hash (`'c' * 64`) and missing fail-closed verification. | Removed dummy fallback hash; enforced strict disk-byte reading cross-artifact verification in `verify_persisted_acceptance_artifacts`. | `N88`, `N89` | `CLOSED_VERIFIED` |

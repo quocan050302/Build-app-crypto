@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g84_trade_level_pnl_reconciliation" tests="1" errors="0" failures="0" skipped="0" time="0.021"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation" name="test_g84_trade_level_and_aggregate_financial_reconciliation" time="0.021" /></testsuite></testsuites>

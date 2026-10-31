@@ -1,6 +1,6 @@
 # Group: G103_CHECKPOINT_RESUME_AND_INVALIDATION (Atomic execution state checkpoint resumption, SHA mismatch & corrupt JUnit XML invalidation)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py -k test_36 or test_37 or test_38 --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g103_checkpoint_resume_and_invalidation.xml -q
-# Started: 1793414554536
+# Started: 1793420994270
 
 ...                                                                      [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-3 passed, 37 deselected, 1 warning in 8.39s
+3 passed, 37 deselected, 1 warning in 11.98s

@@ -1,7 +1,7 @@
 # AURUM DESK V17.8.0.4 — Production-Parity Real Historical Backtest Summary
 
-- **Run ID**: `v17_8_0_4_bt_1793414347`
-- **Tested Source SHA**: `1572393c130bec73a3e4a9d089d664a7705ab431`
+- **Run ID**: `v17_8_0_4_bt_1793422735`
+- **Tested Source SHA**: `ab3e82f376c0f0324571bf4b0b7405771f31559d`
 - **Dataset SHA-256**: `6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5`
 - **Saved Dataset Artifact**: `backtest/historical_dataset_XAUUSDT.json.gz` (`9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18`)
 - **Reproducibility Status**: `REPLAY_REPRODUCIBLE_WITH_SAVED_DATA`

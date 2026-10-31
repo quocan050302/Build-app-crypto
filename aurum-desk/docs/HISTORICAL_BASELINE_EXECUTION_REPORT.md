@@ -2,7 +2,7 @@
 
 - **Baseline Commit SHA:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 - **Isolated Execution Status:** `PASS` (`ORIGINAL_HISTORICAL_RUNTIME_SUBPROCESS_VERIFIED`)
-- **Extracted Historical Backend Directory:** `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_30564\aurum-desk\backend`
+- **Extracted Historical Backend Directory:** `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_17236\aurum-desk\backend`
 - **Historical Dependency Bundle SHA-256:** `c9ea5033de46499cbbd7032d824eecfb6007f0f1bd44f5f25e2168a74ab9c261`
 - **Characterization Scenarios Evaluated:** `55` (`parity_matches=55/55`, `divergences=0`)
 - **Real Historical Dataset Scenarios Evaluated:** `150` (`parity_matches=150/150`)

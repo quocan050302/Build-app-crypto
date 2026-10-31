@@ -4,10 +4,10 @@
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
 - **Starting HEAD:** `03c12313ccf4d107692578f2aa3dda7716ad0f3d`
-- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
-- **Evidence Commit SHA:** `1572393c130bec73a3e4a9d089d664a7705ab431`
+- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
+- **Evidence Commit SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d`
 - **Exact Source Tree Equality:** Verified bitwise identical (`FINAL_CODE_SHA == TESTED_SOURCE_SHA == BACKTEST_SOURCE_SHA`)
 - **Working Tree Status:** Clean, all repairs committed on existing branch
 
@@ -34,7 +34,7 @@
 - **Total Reconciled Test Executions:** `5793`
 - **Passed / Failed / Errors / Skipped:** `5783` passed, `0` failed, `0` errors, `10` skipped
 - **JUnit XML Files:** 93 suites dynamically aggregated from disk
-- **Negative Acceptance Controls:** `145/145` PASSED (N01–N145)
+- **Negative Acceptance Controls:** `148/148` PASSED (N01–N145)
 
 ## E. Real Historical Backtest
 - **A/B/C/D Variants Evaluated:** Real chronological XAUUSDT backtest
@@ -43,10 +43,10 @@
 - **Net Expectancy (R):** Variant C=-0.3796R
 - **Matched Cohort:** `3` trades saved from SL by Unicorn Variant C
 - **OOS Verdict:** `OUT_OF_SAMPLE_INCONCLUSIVE`
-- **Exact Backtest Executed SHA:** `1572393c130bec73a3e4a9d089d664a7705ab431` (Identical to `FINAL_CODE_SHA`)
+- **Exact Backtest Executed SHA:** `ab3e82f376c0f0324571bf4b0b7405771f31559d` (Identical to `FINAL_CODE_SHA`)
 
 ## F. Async Performance & Disk Safety
-- **Actual Workers:** 10 parallel sharded workers, peak concurrency 10
+- **Actual Workers:** 10 parallel sharded workers, peak concurrency 4
 - **Wall-Clock Time:** 500.7s (speedup recorded as SPEEDUP_NOT_MEASURED)
 - **Disk Safety:** PASS, free disk space > 8GB verified
 - **Orphan Workers Remaining:** 0

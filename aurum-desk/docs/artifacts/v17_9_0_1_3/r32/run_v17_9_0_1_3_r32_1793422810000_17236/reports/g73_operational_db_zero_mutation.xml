@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g73_operational_db_zero_mutation" tests="1" errors="0" failures="0" skipped="0" time="4.251"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath" name="test_end_to_end_ws_to_shadow_storage_and_shadow_api" time="4.251" /></testsuite></testsuites>

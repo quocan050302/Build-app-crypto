@@ -1,6 +1,6 @@
 # Group: G96_PRODUCTION_SHADOW_DECISION_PARITY (Live runtime spy & decision parity between ScalpWatcherOrchestrator.evaluate_cycle and MarketShadowService.evaluate_shadow_cycle)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_15 or test_17 or test_v17_9_0_1_runtime_spy_production_and_shadow --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g96_production_shadow_decision_parity.xml -q
-# Started: 1793414508455
+# Started: 1793420934659
 
 ...                                                                      [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-3 passed, 54 deselected, 1 warning in 17.28s
+3 passed, 54 deselected, 1 warning in 18.62s

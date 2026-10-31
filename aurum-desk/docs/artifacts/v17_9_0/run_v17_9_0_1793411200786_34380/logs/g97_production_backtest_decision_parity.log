@@ -1,6 +1,6 @@
 # Group: G97_PRODUCTION_BACKTEST_DECISION_PARITY (Live runtime spy & decision parity between Production, MARKET_SHADOW, and Chronological Backtest)
 # Command: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py -k test_16 or test_17 or test_18 or test_v17_9_0_1_runtime_spy_backtest --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g97_production_backtest_decision_parity.xml -q
-# Started: 1793414528629
+# Started: 1793420955903
 
 ....                                                                     [100%]
 ============================== warnings summary ===============================
@@ -9,4 +9,4 @@ backend\venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-4 passed, 53 deselected, 1 warning in 12.68s
+4 passed, 53 deselected, 1 warning in 22.13s
