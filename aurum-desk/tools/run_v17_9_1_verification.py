@@ -301,6 +301,7 @@ def main() -> int:
 
     # 4. Finalize Disk Guard & Prune Ephemeral Temp Directories
     cleanup_report = guard.finalize_and_prune_ephemeral_artifacts()
+    guard_rep = guard.build_disk_budget_report()
     postflight_budget = probe_disk_budget(workdir=REPO_ROOT, artifact_root=artifact_dir)
     exec_tree_info = compute_executable_source_tree_hash(REPO_ROOT)
 
@@ -409,9 +410,9 @@ def main() -> int:
             "coverage_limitations": backtest_res.get("coverage_limitations"),
         },
         "disk_guard": {
-            "min_free_bytes_observed": cleanup_report.min_free_bytes_observed,
-            "peak_temp_bytes": cleanup_report.peak_temp_bytes,
-            "Peak_artifact_bytes": cleanup_report.peak_artifact_bytes,
+            "min_free_bytes_observed": guard_rep.get("minimum_free_disk_bytes_observed", cleanup_report.disk_peak_bytes),
+            "peak_temp_bytes": guard_rep.get("peak_temporary_bytes", 0),
+            "Peak_artifact_bytes": cleanup_report.bytes_retained,
             "bytes_pruned": cleanup_report.bytes_pruned_ephemeral,
             "status": cleanup_report.status,
         },
