@@ -4105,6 +4105,25 @@ def execute_real_v17_8_backtest(
         except ImportError:
             pass
 
+    # R3.3.2 Section 5: If an R3.3.2 initial manifest exists for this run_id, validate pre-execution ordering
+    r332_manifest_path = (
+        REPO_ROOT / "docs" / "artifacts" / "v17_9_0_1_3" / "r332" / eff_run_id / "R332_INITIAL_RUN_MANIFEST.json"
+    )
+    if r332_manifest_path.exists():
+        try:
+            from tools.runtime_execution_logger import verify_r332_pre_execution_manifest
+
+            chk_r332 = verify_r332_pre_execution_manifest(
+                r332_manifest_path,
+                expected_run_id=eff_run_id,
+                expected_source_sha=source_sha,
+                backtest_started_at_ms=started_at_ms,
+            )
+            if not chk_r332.get("passed"):
+                raise RuntimeError(f"R332_PRE_EXECUTION_MANIFEST_VIOLATION: {chk_r332.get('errors')}")
+        except ImportError:
+            pass
+
     log_lines: List[str] = []
 
     def _log(msg: str) -> None:

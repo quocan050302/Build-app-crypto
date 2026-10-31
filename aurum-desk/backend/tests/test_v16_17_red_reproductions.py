@@ -33,8 +33,18 @@ from services.opportunity_funnel_service import OpportunityFunnelService
 @pytest.fixture
 def test_db():
     db = SessionLocal()
-    yield db
-    db.close()
+    try:
+        db.query(models.OpportunityFunnelRecord).delete()
+        db.query(models.PaperResearchRunRecord).delete()
+        db.commit()
+        yield db
+    finally:
+        try:
+            db.query(models.OpportunityFunnelRecord).delete()
+            db.query(models.PaperResearchRunRecord).delete()
+            db.commit()
+        finally:
+            db.close()
 
 
 def test_red_026_coverage_fails_due_to_missing_get_recent_traces(test_db):

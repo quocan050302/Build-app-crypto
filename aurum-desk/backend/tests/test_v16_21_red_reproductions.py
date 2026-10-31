@@ -67,32 +67,17 @@ from services.cg01_telemetry_service import (
     get_in_flight_count,
     set_in_flight_count,
     get_retry_buffer_count,
+    reset_telemetry_worker_state,
 )
 
 
 @pytest.fixture(autouse=True)
 def clean_telemetry_and_cache_state():
-    """Ensure clean queue, retry buffer, in-flight count, and cache for each test."""
-    while not _TRACE_QUEUE.empty():
-        try:
-            _TRACE_QUEUE.get_nowait()
-            _TRACE_QUEUE.task_done()
-        except Exception:
-            break
-    with _RETRY_BUFFER_LOCK:
-        _RETRY_BUFFER.clear()
-    set_in_flight_count(0)
+    """Ensure clean queue, retry buffer, receipts, in-flight count, and cache for each test."""
+    reset_telemetry_worker_state()
     candle_cache_service._cache.clear()
     yield
-    while not _TRACE_QUEUE.empty():
-        try:
-            _TRACE_QUEUE.get_nowait()
-            _TRACE_QUEUE.task_done()
-        except Exception:
-            break
-    with _RETRY_BUFFER_LOCK:
-        _RETRY_BUFFER.clear()
-    set_in_flight_count(0)
+    reset_telemetry_worker_state()
     candle_cache_service._cache.clear()
 
 

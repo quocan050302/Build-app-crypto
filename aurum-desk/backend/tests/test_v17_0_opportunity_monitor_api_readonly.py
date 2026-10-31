@@ -18,6 +18,23 @@ from database import SessionLocal, engine
 from main import app
 
 
+@pytest.fixture(autouse=True)
+def _clean_monitor_tables():
+    db = SessionLocal()
+    try:
+        db.query(models.OpportunityFunnelRecord).delete()
+        db.query(models.PaperResearchRunRecord).delete()
+        db.commit()
+        yield
+    finally:
+        try:
+            db.query(models.OpportunityFunnelRecord).delete()
+            db.query(models.PaperResearchRunRecord).delete()
+            db.commit()
+        finally:
+            db.close()
+
+
 @pytest.fixture
 def db_session():
     db = SessionLocal()

@@ -133,11 +133,21 @@ _ACTIVE_CMD_WORKERS = 0
 _PEAK_ACTIVE_CMD_WORKERS = 0
 _WORKER_EXECUTION_RECORDS = []
 _GATE_EXIT_CODES = {}
+_GATE_PROJECTION_RECORDS = {}
 _CURRENT_TESTED_SHA = ""
 _GLOBAL_RESOURCE_GUARD = None
 
 
-def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_test_root=False):
+def run_cmd(
+    cmd_args,
+    cwd=ROOT,
+    env=None,
+    log_name=None,
+    timeout=600,
+    isolate_test_root=False,
+    attempt_type="PRIMARY",
+    source_attempt_id=None,
+):
     global _ACTIVE_CMD_WORKERS, _PEAK_ACTIVE_CMD_WORKERS
     import tempfile
 
@@ -186,6 +196,7 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
         started_utc = datetime.fromtimestamp(started_ms / 1000.0, tz=timezone.utc).isoformat()
         child_pid = None
         proc = None
+        timed_out = False
         try:
             proc = subprocess.Popen(
                 actual_cmd,
@@ -212,6 +223,7 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
             duration_ms = int((time.perf_counter() - start_t) * 1000)
             code = int(proc.returncode if proc.returncode is not None else 1)
         except subprocess.TimeoutExpired as te:
+            timed_out = True
             duration_ms = int((time.perf_counter() - start_t) * 1000)
             if proc is not None:
                 try:
@@ -249,9 +261,14 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
     completed_utc = datetime.fromtimestamp(completed_ms / 1000.0, tz=timezone.utc).isoformat()
 
     log_file = None
+    log_sha256 = None
     if log_name:
         log_file = LOGS_DIR / f"{log_name}.log"
         with open(log_file, "w", encoding="utf-8") as f:
+            f.write(f"EXECUTION_MODE: ACTUAL_SUBPROCESS\n")
+            f.write(f"ATTEMPT_TYPE: {attempt_type}\n")
+            if source_attempt_id:
+                f.write(f"SOURCE_ATTEMPT_ID: {source_attempt_id}\n")
             f.write(f"COMMAND: {' '.join(str(c) for c in cmd_args)}\n")
             f.write(f"CWD: {cwd}\n")
             f.write(f"PID: {child_pid}\n")
@@ -263,15 +280,24 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
             f.write(stdout)
             f.write("\n--- STDERR ---\n")
             f.write(stderr)
+        log_sha256 = hashlib.sha256(log_file.read_bytes()).hexdigest()
 
     with _SUBPROCESS_LOCK:
+        seq_idx = len(_WORKER_EXECUTION_RECORDS) + 1
+        task_name = str(log_name or f"cmd_{seq_idx}")
+        prefix = "retry" if str(attempt_type).upper() == "RETRY" else "primary"
+        attempt_id = f"{prefix}_{task_name}"
         _WORKER_EXECUTION_RECORDS.append(
             {
+                "attempt_id": attempt_id,
+                "attempt_type": str(attempt_type).upper(),
+                "source_attempt_id": source_attempt_id,
+                "execution_mode": "ACTUAL_SUBPROCESS",
                 "run_id": RUN_ID,
                 "source_sha": _CURRENT_TESTED_SHA,
                 "tested_source_sha": _CURRENT_TESTED_SHA,
-                "task_id": str(log_name or f"cmd_{len(_WORKER_EXECUTION_RECORDS) + 1}"),
-                "worker_id": str(log_name or f"worker_{len(_WORKER_EXECUTION_RECORDS) + 1}"),
+                "task_id": task_name,
+                "worker_id": str(log_name or f"worker_{seq_idx}"),
                 "pid": child_pid or os.getpid(),
                 "ppid": os.getpid(),
                 "active_workers_at_start": active_now,
@@ -282,9 +308,11 @@ def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600, isolate_te
                 "completed_at_utc": completed_utc,
                 "completed_at_ms": completed_ms,
                 "duration_ms": duration_ms,
+                "timed_out": timed_out,
                 "exit_code": int(code),
-                "status": "PASS" if int(code) == 0 else "FAIL",
+                "status": "PASS" if (int(code) == 0 and not timed_out) else "FAIL",
                 "log_path": str(log_file.relative_to(ROOT)).replace("\\", "/") if log_file and log_file.exists() else None,
+                "log_sha256": log_sha256,
             }
         )
 
@@ -1107,6 +1135,18 @@ def main():
         if not pre_chk.get("passed"):
             raise RuntimeError(f"R331_PRE_EXECUTION_MANIFEST_VIOLATION: {pre_chk.get('errors')}")
 
+    r332_manifest_path = ARTIFACTS_DIR / "v17_9_0_1_3" / "r332" / RUN_ID / "R332_INITIAL_RUN_MANIFEST.json"
+    if r332_manifest_path.exists():
+        from tools.runtime_execution_logger import verify_r332_pre_execution_manifest
+
+        pre_chk_r332 = verify_r332_pre_execution_manifest(
+            r332_manifest_path,
+            expected_run_id=RUN_ID,
+            task_start_ms=runner_start_ms,
+        )
+        if not pre_chk_r332.get("passed"):
+            raise RuntimeError(f"R332_PRE_EXECUTION_MANIFEST_VIOLATION: {pre_chk_r332.get('errors')}")
+
     results = {
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "runner_version": RUNNER_VERSION,
@@ -1173,8 +1213,10 @@ def main():
     # --------------------------------------------------------------------------
     # Parallel Sharded Backend Pytest Execution & Gate Materialization
     # --------------------------------------------------------------------------
-    shards_dir = REPORTS_DIR / "shards"
-    shards_dir.mkdir(parents=True, exist_ok=True)
+    raw_primary_dir = REPORTS_DIR / "raw" / "primary"
+    raw_retries_dir = REPORTS_DIR / "raw" / "retries"
+    raw_primary_dir.mkdir(parents=True, exist_ok=True)
+    raw_retries_dir.mkdir(parents=True, exist_ok=True)
     all_backend_test_files = sorted(
         str(p.relative_to(ROOT)).replace("\\", "/")
         for p in (BACKEND / "tests").glob("test_*.py")
@@ -1229,24 +1271,80 @@ def main():
 
     def _run_pytest_shard(shard_idx: int, files_list: list):
         time.sleep(shard_idx * 0.1)
-        shard_xml = shards_dir / f"shard_{shard_idx}.xml"
+        shard_xml = raw_primary_dir / f"shard_{shard_idx}.xml"
         cmd = [PYTHON_BIN, "-m", "pytest", "-q"] + files_list + [f"--junitxml={str(shard_xml)}"]
         code, out, err, dur = run_cmd(
             cmd,
             log_name=f"pytest_shard_{shard_idx}",
             timeout=900,
             isolate_test_root=True,
+            attempt_type="PRIMARY",
         )
         counts = parse_pytest_counts(out, shard_xml)
+        raw_xml_sha = (
+            hashlib.sha256(shard_xml.read_bytes()).hexdigest()
+            if shard_xml.exists() and shard_xml.stat().st_size > 0
+            else None
+        )
+        xml_valid = (
+            shard_xml.exists()
+            and shard_xml.stat().st_size > 0
+            and int(counts.get("collected", 0)) > 0
+            and raw_xml_sha is not None
+        )
+        xml_has_failures = (int(counts.get("failed", 0)) + int(counts.get("errors", 0))) > 0
+        inconsistent_proc = (
+            (int(code) != 0 and not xml_has_failures)
+            or (int(code) == 0 and xml_has_failures)
+            or (not xml_valid)
+        )
+        if int(code) == 0 and xml_valid and not xml_has_failures and not inconsistent_proc:
+            prim_status = "PASS"
+        elif inconsistent_proc:
+            prim_status = "BLOCKED"
+        else:
+            prim_status = "FAIL"
+
+        worker_rec = {}
+        with _SUBPROCESS_LOCK:
+            for w in reversed(_WORKER_EXECUTION_RECORDS):
+                if w.get("task_id") == f"pytest_shard_{shard_idx}":
+                    worker_rec = dict(w)
+                    break
+
         return {
+            "primary_attempt_id": f"primary_pytest_shard_{shard_idx}",
             "shard_idx": shard_idx,
-            "files": files_list,
+            "run_id": RUN_ID,
+            "source_sha": current_sha,
+            "tested_source_sha": current_sha,
+            "pid": worker_rec.get("pid", os.getpid()),
+            "ppid": worker_rec.get("ppid", os.getpid()),
+            "command": [str(c) for c in cmd],
+            "files": list(files_list),
+            "started_at_utc": worker_rec.get("started_at_utc"),
+            "started_at_ms": worker_rec.get("started_at_ms"),
+            "completed_at_utc": worker_rec.get("completed_at_utc"),
+            "completed_at_ms": worker_rec.get("completed_at_ms"),
             "xml_path": shard_xml,
-            "code": code,
+            "raw_xml_path": str(shard_xml.relative_to(ROOT)).replace("\\", "/"),
+            "raw_xml_sha256": raw_xml_sha,
+            "xml_original_sha256": raw_xml_sha,
+            "log_path": worker_rec.get("log_path"),
+            "log_sha256": worker_rec.get("log_sha256"),
+            "code": int(code),
+            "primary_exit_code": int(code),
+            "primary_status": prim_status,
+            "inconsistent_process_result": inconsistent_proc,
             "out": out,
             "err": err,
             "dur": dur,
-            "counts": counts,
+            "duration_ms": dur,
+            "counts": copy.deepcopy(counts),
+            "primary_counts": copy.deepcopy(counts),
+            "retries": [],
+            "effective_test_outcome": "CLEAN_PASS" if prim_status == "PASS" else prim_status,
+            "clean_acceptance_status": "PASS" if prim_status == "PASS" else "FAIL",
         }
 
     shard_results = []
@@ -1314,9 +1412,9 @@ def main():
         for fut in concurrent.futures.as_completed(futs):
             s_res = fut.result()
             shard_results.append(s_res)
-            sc = s_res["counts"]
+            sc = s_res["primary_counts"]
             print(
-                f"  -> [Shard {s_res['shard_idx']}] exit={s_res['code']} | "
+                f"  -> [Shard {s_res['shard_idx']}] primary_exit={s_res['primary_exit_code']} | "
                 f"{sc.get('passed', 0)} passed, {sc.get('failed', 0)} failed, {sc.get('errors', 0)} errors "
                 f"({len(s_res['files'])} files) in {s_res['dur']/1000:.1f}s"
             )
@@ -1332,8 +1430,21 @@ def main():
     shard_wall_ms = int((time.perf_counter() - shard_start_t) * 1000)
     print(f"[PARALLEL PYTEST ENGINE] Completed {len(shard_results)} shards in {shard_wall_ms/1000:.1f}s wall-clock time.")
 
+    # Immutable primary testcase aggregation — never overwritten by retries!
     testcases_by_stem = {}
+    retry_testcases_by_stem = {}
+    stem_to_primary_attempt = {}
+    stem_to_raw_xml_sha = {}
+    stem_to_shard_idx = {}
+    primary_testcase_provenance = []
+
     for s_res in shard_results:
+        for rel_f in s_res["files"]:
+            st = Path(rel_f).stem
+            stem_to_primary_attempt[st] = s_res["primary_attempt_id"]
+            stem_to_raw_xml_sha[st] = s_res["raw_xml_sha256"]
+            stem_to_shard_idx[st] = s_res["shard_idx"]
+
         s_xml = s_res["xml_path"]
         if s_xml.exists() and s_xml.stat().st_size > 0:
             try:
@@ -1341,42 +1452,121 @@ def main():
                 root_el = tree.getroot()
                 for tc in root_el.findall(".//testcase"):
                     cname = tc.get("classname", "")
+                    tname = tc.get("name", "")
+                    matched_stem = None
                     for part in cname.split("."):
                         if part.startswith("test_"):
-                            testcases_by_stem.setdefault(part, []).append(tc)
+                            matched_stem = part
+                            testcases_by_stem.setdefault(part, []).append(copy.deepcopy(tc))
                             break
+                    tc_status = (
+                        "FAILED"
+                        if tc.find("failure") is not None
+                        else ("ERROR" if tc.find("error") is not None else ("SKIPPED" if tc.find("skipped") is not None else "PASSED"))
+                    )
+                    primary_testcase_provenance.append(
+                        {
+                            "node_id": f"{cname}::{tname}",
+                            "classname": cname,
+                            "name": tname,
+                            "file_stem": matched_stem,
+                            "shard_idx": s_res["shard_idx"],
+                            "primary_attempt_id": s_res["primary_attempt_id"],
+                            "primary_status": tc_status,
+                            "raw_xml_sha256": s_res["raw_xml_sha256"],
+                        }
+                    )
             except Exception as parse_exc:
                 print(f"  -> WARNING: Failed to parse shard XML {s_xml}: {parse_exc}")
 
-    # Isolate-retry any file that experienced cross-file shared-DB state collision in a multi-file shard
+    # Non-masking diagnostic isolation retry for any file that failed in a primary shard.
+    # Retries NEVER overwrite `testcases_by_stem` or rewrite `s_res["code"]` / `primary_exit_code`!
     failed_stems = [
         stem
         for stem, tcs in testcases_by_stem.items()
         if any(tc.find("failure") is not None or tc.find("error") is not None for tc in tcs)
     ]
+    retry_attempt_records = []
     if failed_stems:
         def _retry_failed_stem_isolated(f_stem: str):
             rel_target = f"backend/tests/{f_stem}.py"
             if not (ROOT / rel_target).exists():
-                return f_stem, None
-            retry_xml = shards_dir / f"retry_{f_stem}.xml"
-            r_code, _, _, _ = run_cmd(
-                [PYTHON_BIN, "-m", "pytest", "-q", rel_target, f"--junitxml={str(retry_xml)}"],
-                log_name=f"retry_{f_stem}",
+                return f_stem, None, None
+            src_attempt_id = stem_to_primary_attempt.get(f_stem, "primary_unknown")
+            retry_id = f"retry_{f_stem}"
+            retry_xml = raw_retries_dir / f"{src_attempt_id}__{retry_id}.xml"
+            r_cmd = [PYTHON_BIN, "-m", "pytest", "-q", rel_target, f"--junitxml={str(retry_xml)}"]
+            r_code, r_out, r_err, r_dur = run_cmd(
+                r_cmd,
+                log_name=retry_id,
                 timeout=300,
                 isolate_test_root=True,
+                attempt_type="RETRY",
+                source_attempt_id=src_attempt_id,
             )
-            if r_code == 0 and retry_xml.exists():
-                r_tcs = ET.parse(retry_xml).getroot().findall(".//testcase")
-                if r_tcs and all(tc.find("failure") is None and tc.find("error") is None for tc in r_tcs):
-                    return f_stem, r_tcs
-            return f_stem, None
+            r_counts = parse_pytest_counts(r_out, retry_xml)
+            r_xml_sha = (
+                hashlib.sha256(retry_xml.read_bytes()).hexdigest()
+                if retry_xml.exists() and retry_xml.stat().st_size > 0
+                else None
+            )
+            r_tcs = []
+            if retry_xml.exists() and retry_xml.stat().st_size > 0:
+                try:
+                    r_tcs = [copy.deepcopy(tc) for tc in ET.parse(retry_xml).getroot().findall(".//testcase")]
+                except Exception:
+                    r_tcs = []
+            r_passed_all = (
+                int(r_code) == 0
+                and bool(r_tcs)
+                and all(tc.find("failure") is None and tc.find("error") is None for tc in r_tcs)
+            )
+            retry_w_rec = {}
+            with _SUBPROCESS_LOCK:
+                for w in reversed(_WORKER_EXECUTION_RECORDS):
+                    if w.get("task_id") == retry_id and w.get("attempt_type") == "RETRY":
+                        retry_w_rec = dict(w)
+                        break
+
+            retry_record = {
+                "retry_attempt_id": retry_w_rec.get("attempt_id", f"retry_{retry_id}"),
+                "source_attempt_id": src_attempt_id,
+                "file_stem": f_stem,
+                "test_file": rel_target,
+                "run_id": RUN_ID,
+                "source_sha": current_sha,
+                "tested_source_sha": current_sha,
+                "pid": retry_w_rec.get("pid", os.getpid()),
+                "ppid": retry_w_rec.get("ppid", os.getpid()),
+                "command": [str(c) for c in r_cmd],
+                "started_at_utc": retry_w_rec.get("started_at_utc"),
+                "started_at_ms": retry_w_rec.get("started_at_ms"),
+                "completed_at_utc": retry_w_rec.get("completed_at_utc"),
+                "completed_at_ms": retry_w_rec.get("completed_at_ms"),
+                "duration_ms": r_dur,
+                "exit_code": int(r_code),
+                "counts": r_counts,
+                "retry_xml_path": str(retry_xml.relative_to(ROOT)).replace("\\", "/"),
+                "retry_xml_sha256": r_xml_sha,
+                "log_path": retry_w_rec.get("log_path"),
+                "log_sha256": retry_w_rec.get("log_sha256"),
+                "retry_reason_classification": "ISOLATION_RACE" if r_passed_all else "PRODUCT_ASSERTION",
+                "effective_test_outcome": "FLAKY_OR_ISOLATION_DEPENDENT" if r_passed_all else "DETERMINISTIC_FAIL",
+                "clean_acceptance_status": "FAIL",
+            }
+            return f_stem, r_tcs, retry_record
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(failed_stems))) as retry_pool:
-            for f_stem, r_tcs in retry_pool.map(_retry_failed_stem_isolated, failed_stems):
+            for f_stem, r_tcs, r_rec in retry_pool.map(_retry_failed_stem_isolated, failed_stems):
+                if r_rec is not None:
+                    retry_attempt_records.append(r_rec)
                 if r_tcs is not None:
-                    print(f"  -> [Isolated Retry PASS] backend/tests/{f_stem}.py passed 100% ({len(r_tcs)} tests) in isolated DB.")
-                    testcases_by_stem[f_stem] = r_tcs
+                    retry_testcases_by_stem[f_stem] = r_tcs
+                    print(
+                        f"  -> [Diagnostic Isolated Retry] backend/tests/{f_stem}.py "
+                        f"outcome={r_rec['effective_test_outcome'] if r_rec else 'UNKNOWN'} "
+                        f"(primary failure preserved; clean_acceptance_status=FAIL)."
+                    )
 
     all_executed_testcases = [
         tc for stem in sorted(testcases_by_stem.keys()) for tc in testcases_by_stem[stem]
@@ -1390,21 +1580,30 @@ def main():
         s_skips = sum(1 for tc in shard_tcs if tc.find("skipped") is not None)
         s_passed = max(0, s_total - s_fails - s_errs - s_skips)
         s_elapsed = sum(float(tc.get("time", 0.0) or 0.0) for tc in shard_tcs)
-        s_res["counts"] = {
-            "collected": s_total,
-            "passed": s_passed,
-            "failed": s_fails,
-            "skipped": s_skips,
-            "errors": s_errs,
-        }
-        if s_fails == 0 and s_errs == 0 and s_passed > 0:
-            s_res["code"] = 0
+        s_res["retries"] = [
+            r for r in retry_attempt_records if r.get("source_attempt_id") == s_res["primary_attempt_id"]
+        ]
+        if s_res["primary_status"] == "PASS" and s_fails == 0 and s_errs == 0 and int(s_res["primary_exit_code"]) == 0:
+            s_res["effective_test_outcome"] = "CLEAN_PASS"
+            s_res["clean_acceptance_status"] = "PASS"
+        elif s_res["retries"] and all(int(r.get("exit_code", 1)) == 0 for r in s_res["retries"]):
+            s_res["effective_test_outcome"] = "FLAKY_OR_ISOLATION_DEPENDENT"
+            s_res["clean_acceptance_status"] = "FAIL"
+        else:
+            s_res["effective_test_outcome"] = "FAIL"
+            s_res["clean_acceptance_status"] = "FAIL"
+
+        # NEVER overwrite s_res["code"] or s_res["primary_exit_code"]!
         suites_el = ET.Element("testsuites")
         suite_el = ET.SubElement(
             suites_el,
             "testsuite",
             {
                 "name": f"pytest_batch_{idx_s}",
+                "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                "source_attempt_id": str(s_res["primary_attempt_id"]),
+                "source_xml_sha256": str(s_res["raw_xml_sha256"] or ""),
+                "primary_exit_code": str(s_res["primary_exit_code"]),
                 "tests": str(s_total),
                 "errors": str(s_errs),
                 "failures": str(s_fails),
@@ -1414,8 +1613,35 @@ def main():
         )
         for tc in shard_tcs:
             suite_el.append(copy.deepcopy(tc))
-        ET.ElementTree(suites_el).write(JUNIT_DIR / f"pytest_batch_{idx_s}.xml", encoding="utf-8", xml_declaration=True)
-    shutil.rmtree(shards_dir, ignore_errors=True)
+        batch_xml_p = JUNIT_DIR / f"pytest_batch_{idx_s}.xml"
+        ET.ElementTree(suites_el).write(batch_xml_p, encoding="utf-8", xml_declaration=True)
+        batch_xml_sha = hashlib.sha256(batch_xml_p.read_bytes()).hexdigest()
+        (JUNIT_DIR / f"pytest_batch_{idx_s}.xml.meta.json").write_text(
+            json.dumps(
+                {
+                    "run_id": RUN_ID,
+                    "tested_source_sha": current_sha,
+                    "source_sha": current_sha,
+                    "xml_sha256": batch_xml_sha,
+                    "execution_mode": "DERIVED_PROJECTION",
+                    "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                    "source_attempt_ids": [str(s_res["primary_attempt_id"])],
+                    "source_xml_hashes": {str(s_res["primary_attempt_id"]): s_res["raw_xml_sha256"]},
+                    "source_primary_exit_code": int(s_res["primary_exit_code"]),
+                    "exit_code": "not_applicable",
+                    "clean_acceptance_status": s_res["clean_acceptance_status"],
+                    "counts": {
+                        "collected": s_total,
+                        "passed": s_passed,
+                        "failed": s_fails,
+                        "skipped": s_skips,
+                        "errors": s_errs,
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     def materialize_pytest_gate(
         test_files: list,
@@ -1427,11 +1653,32 @@ def main():
     ):
         if test_files == ["backend/tests"]:
             candidates = list(all_executed_testcases)
+            source_stems = sorted(testcases_by_stem.keys())
         else:
-            stems = [Path(tf).stem for tf in test_files]
+            source_stems = [Path(tf).stem for tf in test_files]
             candidates = []
-            for st_name in stems:
+            for st_name in source_stems:
                 candidates.extend(testcases_by_stem.get(st_name, []))
+
+        src_attempt_ids = sorted(
+            {
+                stem_to_primary_attempt[st]
+                for st in source_stems
+                if st in stem_to_primary_attempt
+            }
+        )
+        src_xml_hashes = {
+            stem_to_primary_attempt[st]: stem_to_raw_xml_sha.get(st)
+            for st in source_stems
+            if st in stem_to_primary_attempt
+        }
+        src_shard_exit_codes = [
+            int(s["primary_exit_code"])
+            for s in shard_results
+            if s["primary_attempt_id"] in src_attempt_ids
+        ]
+        any_src_shard_nonzero = any(c != 0 for c in src_shard_exit_codes)
+        src_primary_exit_code = max([abs(c) for c in src_shard_exit_codes if c != 0], default=0)
 
         if filter_expr:
             terms = [t.strip().lower() for t in filter_expr.split(" or ") if t.strip()]
@@ -1451,13 +1698,23 @@ def main():
         elapsed_sec = sum(float(tc.get("time", 0.0) or 0.0) for tc in matched)
         dur_ms = max(1, int(elapsed_sec * 1000))
 
-        if passed_t >= min_passed and fails == 0 and errs == 0:
+        # Materialize as a derived projection whenever primary shards covered these test cases
+        if total_t > 0 and (
+            (passed_t >= min_passed and fails == 0 and errs == 0 and not any_src_shard_nonzero)
+            or test_files == ["backend/tests"]
+            or fails > 0
+            or errs > 0
+            or any_src_shard_nonzero
+        ):
             suites_el = ET.Element("testsuites")
             suite_el = ET.SubElement(
                 suites_el,
                 "testsuite",
                 {
                     "name": log_name,
+                    "execution_mode": "DERIVED_PROJECTION",
+                    "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                    "source_attempt_ids": ",".join(src_attempt_ids),
                     "tests": str(total_t),
                     "errors": str(errs),
                     "failures": str(fails),
@@ -1469,31 +1726,88 @@ def main():
                 suite_el.append(copy.deepcopy(tc))
             ET.ElementTree(suites_el).write(report_xml, encoding="utf-8", xml_declaration=True)
 
-            cmd_repr = [PYTHON_BIN, "-m", "pytest", "-q"] + test_files + [f"--junitxml={str(report_xml)}"]
-            if filter_expr:
-                cmd_repr += ["-k", filter_expr]
-            summary_line = f"{passed_t} passed" + (f", {skips} skipped" if skips else "") + f" in {elapsed_sec:.2f}s\n"
+            summary_line = (
+                f"{passed_t} passed"
+                + (f", {fails} failed" if fails else "")
+                + (f", {errs} errors" if errs else "")
+                + (f", {skips} skipped" if skips else "")
+                + f" in {elapsed_sec:.2f}s\n"
+            )
             tc_lines = [
-                f"PASSED {tc.get('classname', '')}::{tc.get('name', '')} ({float(tc.get('time', 0.0) or 0.0):.3f}s)"
+                f"{'FAILED' if (tc.find('failure') is not None or tc.find('error') is not None) else 'PASSED'} "
+                f"{tc.get('classname', '')}::{tc.get('name', '')} ({float(tc.get('time', 0.0) or 0.0):.3f}s)"
                 for tc in matched
                 if tc.find("skipped") is None
             ]
             stdout_str = "\n".join(tc_lines[:200]) + ("\n...\n" if len(tc_lines) > 200 else "\n") + summary_line
             log_file = LOGS_DIR / f"{log_name}.log"
             with open(log_file, "w", encoding="utf-8") as lf:
-                lf.write(f"COMMAND: {' '.join(str(c) for c in cmd_repr)}\n")
-                lf.write(f"CWD: {ROOT}\n")
+                lf.write("EXECUTION_MODE: DERIVED_PROJECTION\n")
+                lf.write("PROVENANCE: DERIVED_VIEW_FROM_PRIMARY_EXECUTION\n")
+                lf.write(f"SOURCE_ATTEMPT_IDS: {','.join(src_attempt_ids)}\n")
+                lf.write(f"SOURCE_XML_HASHES: {json.dumps(src_xml_hashes, sort_keys=True)}\n")
+                lf.write(f"SOURCE_PRIMARY_EXIT_CODE: {src_primary_exit_code}\n")
+                lf.write("DERIVED_EXIT_CODE: not_applicable\n")
+                lf.write(f"FILTER_TARGETS: {','.join(str(x) for x in test_files)}\n")
+                lf.write(f"FILTER_EXPR: {filter_expr}\n")
                 lf.write(f"DURATION_MS: {dur_ms}\n")
-                lf.write("EXIT_CODE: 0\n")
-                lf.write("--- STDOUT ---\n")
+                lf.write("--- PROJECTED TESTCASES ---\n")
                 lf.write(stdout_str)
-                lf.write("\n--- STDERR ---\n")
-            return 0, stdout_str, "", dur_ms
+
+            effective_code = 0 if (passed_t >= min_passed and fails == 0 and errs == 0 and src_primary_exit_code == 0) else (src_primary_exit_code or 1)
+            _GATE_PROJECTION_RECORDS[report_xml.name] = {
+                "gate_xml": report_xml.name,
+                "log_name": log_name,
+                "execution_mode": "DERIVED_PROJECTION",
+                "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                "exit_code": "not_applicable",
+                "source_primary_exit_code": int(src_primary_exit_code),
+                "effective_gate_status": "PASS" if effective_code == 0 else "FAIL",
+                "source_attempt_ids": src_attempt_ids,
+                "source_xml_hashes": src_xml_hashes,
+                "filter_targets": [str(x) for x in test_files],
+                "filter_expr": filter_expr,
+                "counts": {
+                    "collected": total_t,
+                    "passed": passed_t,
+                    "failed": fails,
+                    "skipped": skips,
+                    "errors": errs,
+                },
+            }
+            return effective_code, stdout_str, "", dur_ms
 
         cmd = [PYTHON_BIN, "-m", "pytest", "-q"] + test_files + [f"--junitxml={str(report_xml)}"]
         if filter_expr:
             cmd += ["-k", filter_expr]
-        return run_cmd(cmd, log_name=log_name, timeout=timeout, isolate_test_root=True)
+        sub_code, sub_out, sub_err, sub_dur = run_cmd(
+            cmd,
+            log_name=log_name,
+            timeout=timeout,
+            isolate_test_root=True,
+            attempt_type="PRIMARY",
+        )
+        sub_counts = parse_pytest_counts(sub_out, report_xml)
+        sub_xml_sha = (
+            hashlib.sha256(report_xml.read_bytes()).hexdigest()
+            if report_xml.exists() and report_xml.stat().st_size > 0
+            else None
+        )
+        _GATE_PROJECTION_RECORDS[report_xml.name] = {
+            "gate_xml": report_xml.name,
+            "log_name": log_name,
+            "execution_mode": "ACTUAL_SUBPROCESS",
+            "provenance": "DIRECT_SUBPROCESS_EXECUTION",
+            "exit_code": int(sub_code),
+            "source_primary_exit_code": int(sub_code),
+            "effective_gate_status": "PASS" if int(sub_code) == 0 else "FAIL",
+            "source_attempt_ids": [f"primary_{log_name}"],
+            "source_xml_hashes": {f"primary_{log_name}": sub_xml_sha},
+            "filter_targets": [str(x) for x in test_files],
+            "filter_expr": filter_expr,
+            "counts": sub_counts,
+        }
+        return sub_code, sub_out, sub_err, sub_dur
 
     # --------------------------------------------------------------------------
     # Helper for running pytest gates
@@ -1510,6 +1824,7 @@ def main():
             timeout=timeout,
         )
         _GATE_EXIT_CODES[report_xml.name] = int(code)
+        proj_info = _GATE_PROJECTION_RECORDS.get(report_xml.name, {})
         counts = parse_pytest_counts(out, report_xml)
         passed = counts.get("passed", 0)
         failed = counts.get("failed", 0)
@@ -1522,13 +1837,19 @@ def main():
             results["gates"][gate_id] = {
                 "status": "PASS", "gate_type": "command", "counts": counts, "report_path": rep_rel,
                 "junit_path": rep_rel, "log_path": log_rel,
-                "report_status": "VALID", "duration_ms": dur, "exit_code": code
+                "report_status": "VALID", "duration_ms": dur, "exit_code": code,
+                "execution_mode": proj_info.get("execution_mode", "DERIVED_PROJECTION"),
+                "provenance": proj_info.get("provenance", "DERIVED_VIEW_FROM_PRIMARY_EXECUTION"),
+                "source_attempt_ids": proj_info.get("source_attempt_ids", []),
             }
         else:
             print(f"  -> FAIL: Gate failed (passed: {passed}/{min_passed}, failed: {failed}, errors: {errors}):\n{out}\n{err}")
             results["gates"][gate_id] = {
                 "status": "FAIL", "gate_type": "command", "counts": counts, "report_path": rep_rel,
-                "junit_path": rep_rel, "log_path": log_rel, "duration_ms": dur, "exit_code": code or 1
+                "junit_path": rep_rel, "log_path": log_rel, "duration_ms": dur, "exit_code": code or 1,
+                "execution_mode": proj_info.get("execution_mode", "DERIVED_PROJECTION"),
+                "provenance": proj_info.get("provenance", "DERIVED_VIEW_FROM_PRIMARY_EXECUTION"),
+                "source_attempt_ids": proj_info.get("source_attempt_ids", []),
             }
 
     # G02: Test DB Bootstrap
@@ -2827,18 +3148,21 @@ def main():
         parity_diff_summary = {"status": "FAIL", "error": str(par_exc), "mismatched_decisions": 1}
     results["parity_summary"] = parity_diff_summary
 
-    # Populate JUNIT_DIR with vitest.xml and playwright.xml
-    for j_name, j_counts in (
-        ("vitest.xml", results["gates"].get("G21_FRONTEND_VITEST", {}).get("counts", {})),
-        ("playwright.xml", results["gates"].get("G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E", {}).get("counts", {})),
+    # Populate JUNIT_DIR with vitest.xml and playwright.xml + sidecar metadata
+    for j_name, g_key, src_aid in (
+        ("vitest.xml", "G21_FRONTEND_VITEST", "primary_g21_vitest"),
+        ("playwright.xml", "G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E", "primary_g50_sltp_playwright"),
     ):
+        g_rec = results["gates"].get(g_key, {})
+        j_counts = g_rec.get("counts", {})
+        g_exit = int(g_rec.get("exit_code", 0))
         ts_el = ET.Element("testsuites")
         s_el = ET.SubElement(
             ts_el,
             "testsuite",
             {
                 "name": j_name.replace(".xml", ""),
-                "tests": str(j_counts.get("collected", 0)),
+                "tests": str(j_counts.get("collected", j_counts.get("passed", 0))),
                 "failures": str(j_counts.get("failed", 0)),
                 "errors": str(j_counts.get("errors", 0)),
                 "skipped": str(j_counts.get("skipped", 0)),
@@ -2846,7 +3170,35 @@ def main():
         )
         for idx_tc in range(int(j_counts.get("passed", 0))):
             ET.SubElement(s_el, "testcase", {"classname": j_name.replace(".xml", ""), "name": f"test_{idx_tc+1}"})
-        ET.ElementTree(ts_el).write(JUNIT_DIR / j_name, encoding="utf-8", xml_declaration=True)
+        j_xml_p = JUNIT_DIR / j_name
+        ET.ElementTree(ts_el).write(j_xml_p, encoding="utf-8", xml_declaration=True)
+        j_xml_sha = hashlib.sha256(j_xml_p.read_bytes()).hexdigest()
+        (JUNIT_DIR / f"{j_name}.meta.json").write_text(
+            json.dumps(
+                {
+                    "run_id": RUN_ID,
+                    "tested_source_sha": current_sha,
+                    "source_sha": current_sha,
+                    "xml_sha256": j_xml_sha,
+                    "execution_mode": "DERIVED_PROJECTION",
+                    "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                    "source_attempt_ids": [src_aid],
+                    "source_xml_hashes": {src_aid: j_xml_sha},
+                    "source_primary_exit_code": g_exit,
+                    "exit_code": "not_applicable",
+                    "clean_acceptance_status": "PASS" if g_exit == 0 else "FAIL",
+                    "counts": {
+                        "collected": int(j_counts.get("collected", j_counts.get("passed", 0))),
+                        "passed": int(j_counts.get("passed", 0)),
+                        "failed": int(j_counts.get("failed", 0)),
+                        "skipped": int(j_counts.get("skipped", 0)),
+                        "errors": int(j_counts.get("errors", 0)),
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     # Copy preflight JSONs into PREFLIGHT_DIR
     if (RUNTIME_DIR / "observe_only_preflight.json").is_file():
@@ -2909,8 +3261,14 @@ def main():
                         "run_id": RUN_ID,
                         "tested_source_sha": current_sha,
                         "xml_sha256": hashlib.sha256(b_xml.read_bytes()).hexdigest(),
-                        "exit_code": int(s_res["code"]),
-                        "counts": s_res["counts"],
+                        "execution_mode": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                        "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+                        "source_attempt_id": s_res["primary_attempt_id"],
+                        "source_xml_sha256": s_res["raw_xml_sha256"],
+                        "primary_exit_code": int(s_res["primary_exit_code"]),
+                        "exit_code": int(s_res["primary_exit_code"]),
+                        "clean_acceptance_status": s_res["clean_acceptance_status"],
+                        "counts": s_res["primary_counts"],
                     },
                     indent=2,
                 ),
@@ -2918,30 +3276,187 @@ def main():
             )
         state_mgr.record_test_group_completion(
             group_id=f"pytest_batch_{idx_s}",
-            exit_code=int(s_res["code"]),
+            exit_code=int(s_res["primary_exit_code"]),
             artifact_paths=[b_xml],
             current_head_sha=current_sha,
             metrics={
-                "passed": int(s_res["counts"].get("passed", 0)),
-                "failed": int(s_res["counts"].get("failed", 0)),
-                "skipped": int(s_res["counts"].get("skipped", 0)),
-                "errors": int(s_res["counts"].get("errors", 0)),
+                "passed": int(s_res["primary_counts"].get("passed", 0)),
+                "failed": int(s_res["primary_counts"].get("failed", 0)),
+                "skipped": int(s_res["primary_counts"].get("skipped", 0)),
+                "errors": int(s_res["primary_counts"].get("errors", 0)),
                 "duration_ms": int(s_res["dur"]),
             },
         )
     state_mgr.mark_stage_completed("ACCEPTANCE_COMPLETED")
 
-    total_shard_passed = sum(int(s["counts"].get("passed", 0)) for s in shard_results)
-    total_shard_failed = sum(int(s["counts"].get("failed", 0)) for s in shard_results)
-    total_shard_skipped = sum(int(s["counts"].get("skipped", 0)) for s in shard_results)
+    total_shard_passed = sum(int(s["primary_counts"].get("passed", 0)) for s in shard_results)
+    total_shard_failed = sum(int(s["primary_counts"].get("failed", 0)) for s in shard_results)
+    total_shard_errors = sum(int(s["primary_counts"].get("errors", 0)) for s in shard_results)
+    total_shard_skipped = sum(int(s["primary_counts"].get("skipped", 0)) for s in shard_results)
     with _SUBPROCESS_LOCK:
         worker_records_snapshot = list(_WORKER_EXECUTION_RECORDS)
     (RUN_DIR / "worker_executions.jsonl").write_text(
         "\n".join(json.dumps(w, sort_keys=True) for w in worker_records_snapshot) + ("\n" if worker_records_snapshot else ""),
         encoding="utf-8",
     )
+
+    primary_worker_attempts = [
+        w for w in worker_records_snapshot if str(w.get("attempt_type", "PRIMARY")).upper() == "PRIMARY"
+    ]
+    retry_worker_attempts = [
+        w for w in worker_records_snapshot if str(w.get("attempt_type", "")).upper() == "RETRY"
+    ]
+
+    # Enrich primary shard attempt rows with raw XML paths/SHAs and counts
+    shard_by_task = {f"pytest_shard_{s['shard_idx']}": s for s in shard_results}
+    enriched_primary_attempts = []
+    for w in primary_worker_attempts:
+        w_copy = dict(w)
+        s_match = shard_by_task.get(str(w.get("task_id")))
+        if s_match:
+            w_copy["primary_attempt_id"] = s_match["primary_attempt_id"]
+            w_copy["shard_idx"] = s_match["shard_idx"]
+            w_copy["files"] = s_match["files"]
+            w_copy["raw_xml_path"] = s_match["raw_xml_path"]
+            w_copy["raw_xml_sha256"] = s_match["raw_xml_sha256"]
+            w_copy["primary_exit_code"] = int(s_match["primary_exit_code"])
+            w_copy["primary_status"] = s_match["primary_status"]
+            w_copy["primary_counts"] = s_match["primary_counts"]
+            w_copy["effective_test_outcome"] = s_match["effective_test_outcome"]
+            w_copy["clean_acceptance_status"] = s_match["clean_acceptance_status"]
+        else:
+            w_copy["primary_attempt_id"] = w_copy.get("attempt_id", f"primary_{w_copy.get('task_id')}")
+            w_copy["primary_exit_code"] = int(w_copy.get("exit_code", 1))
+            w_copy["primary_status"] = w_copy.get("status", "FAIL")
+            w_copy["effective_test_outcome"] = "CLEAN_PASS" if int(w_copy.get("exit_code", 1)) == 0 else "FAIL"
+            w_copy["clean_acceptance_status"] = "PASS" if int(w_copy.get("exit_code", 1)) == 0 else "FAIL"
+        enriched_primary_attempts.append(w_copy)
+
+    (RUN_DIR / "master_primary_attempts.jsonl").write_text(
+        "\n".join(json.dumps(r, sort_keys=True) for r in enriched_primary_attempts) + ("\n" if enriched_primary_attempts else ""),
+        encoding="utf-8",
+    )
+    (RUN_DIR / "master_retry_attempts.jsonl").write_text(
+        "\n".join(json.dumps(r, sort_keys=True) for r in retry_attempt_records) + ("\n" if retry_attempt_records else ""),
+        encoding="utf-8",
+    )
+
+    raw_junit_manifest_entries = []
+    for s_res in shard_results:
+        s_xml = s_res["xml_path"]
+        raw_junit_manifest_entries.append(
+            {
+                "shard_idx": s_res["shard_idx"],
+                "primary_attempt_id": s_res["primary_attempt_id"],
+                "attempt_type": "PRIMARY",
+                "raw_xml_path": s_res["raw_xml_path"],
+                "raw_xml_sha256": s_res["raw_xml_sha256"],
+                "exists": bool(s_xml.exists() and s_xml.stat().st_size > 0),
+                "size_bytes": int(s_xml.stat().st_size) if s_xml.exists() else 0,
+                "primary_exit_code": int(s_res["primary_exit_code"]),
+                "primary_counts": s_res["primary_counts"],
+                "log_path": s_res["log_path"],
+                "log_sha256": s_res["log_sha256"],
+            }
+        )
+    for r_rec in retry_attempt_records:
+        r_p = ROOT / r_rec["retry_xml_path"]
+        raw_junit_manifest_entries.append(
+            {
+                "retry_attempt_id": r_rec["retry_attempt_id"],
+                "source_attempt_id": r_rec["source_attempt_id"],
+                "attempt_type": "RETRY",
+                "raw_xml_path": r_rec["retry_xml_path"],
+                "raw_xml_sha256": r_rec["retry_xml_sha256"],
+                "exists": bool(r_p.exists() and r_p.stat().st_size > 0),
+                "size_bytes": int(r_p.stat().st_size) if r_p.exists() else 0,
+                "exit_code": int(r_rec["exit_code"]),
+                "counts": r_rec["counts"],
+                "log_path": r_rec["log_path"],
+                "log_sha256": r_rec["log_sha256"],
+            }
+        )
+    raw_junit_manifest = {
+        "schema_version": "1.0.0-r3.3.2",
+        "run_id": RUN_ID,
+        "tested_source_sha": current_sha,
+        "primary_shard_xml_count": len(shard_results),
+        "retry_xml_count": len(retry_attempt_records),
+        "entries": raw_junit_manifest_entries,
+    }
+    (RUN_DIR / "raw_junit_sha256_manifest.json").write_text(
+        json.dumps(raw_junit_manifest, indent=2),
+        encoding="utf-8",
+    )
+
+    primary_failed_testcases = [
+        tc_p for tc_p in primary_testcase_provenance if tc_p["primary_status"] in ("FAILED", "ERROR")
+    ]
+    failure_and_flake_report = {
+        "schema_version": "1.0.0-r3.3.2",
+        "run_id": RUN_ID,
+        "tested_source_sha": current_sha,
+        "primary_shards_total": len(shard_results),
+        "primary_shards_succeeded": sum(1 for s in shard_results if int(s["primary_exit_code"]) == 0 and s["primary_status"] == "PASS"),
+        "primary_shards_failed": sum(1 for s in shard_results if int(s["primary_exit_code"]) != 0 or s["primary_status"] != "PASS"),
+        "primary_failed_stems": failed_stems,
+        "primary_failed_testcases_count": len(primary_failed_testcases),
+        "primary_failed_testcases": primary_failed_testcases,
+        "isolated_retries_count": len(retry_attempt_records),
+        "isolated_retries": retry_attempt_records,
+        "flaky_or_isolation_dependent_count": sum(
+            1 for r in retry_attempt_records if r.get("effective_test_outcome") == "FLAKY_OR_ISOLATION_DEPENDENT"
+        ),
+        "masked_primary_failures_count": 0,
+        "clean_primary_acceptance_status": (
+            "PASS"
+            if (
+                all(int(s["primary_exit_code"]) == 0 and s["primary_status"] == "PASS" for s in shard_results)
+                and len(primary_failed_testcases) == 0
+                and all(int(w.get("exit_code", 1)) == 0 for w in primary_worker_attempts)
+            )
+            else "FAIL"
+        ),
+    }
+    (RUN_DIR / "master_failure_and_flake_report.json").write_text(
+        json.dumps(failure_and_flake_report, indent=2),
+        encoding="utf-8",
+    )
+
+    primary_vs_retry_reconciliation = {
+        "schema_version": "1.0.0-r3.3.2",
+        "run_id": RUN_ID,
+        "tested_source_sha": current_sha,
+        "primary_execution_scope": {
+            "shards_count": len(shard_results),
+            "backend_files_scheduled": len(all_backend_test_files),
+            "backend_files_executed": sum(len(s["files"]) for s in shard_results),
+            "total_tests_collected": total_shard_passed + total_shard_failed + total_shard_errors + total_shard_skipped,
+            "passed": total_shard_passed,
+            "failed": total_shard_failed,
+            "errors": total_shard_errors,
+            "skipped": total_shard_skipped,
+            "unique_testcase_nodes": len({tc["node_id"] for tc in primary_testcase_provenance}),
+        },
+        "retry_execution_scope": {
+            "retry_attempts_count": len(retry_attempt_records),
+            "total_tests_collected": sum(int(r["counts"].get("collected", 0)) for r in retry_attempt_records),
+            "passed": sum(int(r["counts"].get("passed", 0)) for r in retry_attempt_records),
+            "failed": sum(int(r["counts"].get("failed", 0)) for r in retry_attempt_records),
+            "errors": sum(int(r["counts"].get("errors", 0)) for r in retry_attempt_records),
+            "skipped": sum(int(r["counts"].get("skipped", 0)) for r in retry_attempt_records),
+        },
+        "replacement_performed": False,
+        "primary_exit_codes_rewritten": False,
+        "raw_shard_xml_retained": True,
+    }
+    (RUN_DIR / "primary_vs_retry_junit_reconciliation.json").write_text(
+        json.dumps(primary_vs_retry_reconciliation, indent=2),
+        encoding="utf-8",
+    )
+
     concurrency_report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": RUN_ID,
         "tested_source_sha": current_sha,
         "max_workers": MAX_CONCURRENT_SUBPROCESS_WORKERS,
@@ -2949,22 +3464,38 @@ def main():
         "max_active_workers_observed": observed_peak_workers,
         "batches_count": len(shard_results),
         "wall_clock_ms": shard_wall_ms,
-        "scheduled_tasks": len(worker_records_snapshot),
-        "succeeded_tasks": sum(1 for w in worker_records_snapshot if int(w.get("exit_code", 1)) == 0),
-        "failed_tasks": sum(1 for w in worker_records_snapshot if int(w.get("exit_code", 1)) != 0),
+        "scheduled_tasks": len(primary_worker_attempts),
+        "succeeded_tasks": sum(1 for w in primary_worker_attempts if int(w.get("exit_code", 1)) == 0),
+        "failed_tasks": sum(1 for w in primary_worker_attempts if int(w.get("exit_code", 1)) != 0),
         "blocked_tasks": 0,
         "cancelled_tasks": 0,
-        "expected_nodes_count": total_shard_passed + total_shard_failed + total_shard_skipped,
+        "retry_attempts_count": len(retry_worker_attempts),
+        "retry_succeeded_count": sum(1 for w in retry_worker_attempts if int(w.get("exit_code", 1)) == 0),
+        "retry_failed_count": sum(1 for w in retry_worker_attempts if int(w.get("exit_code", 1)) != 0),
+        "total_subprocess_attempts": len(worker_records_snapshot),
+        "expected_nodes_count": total_shard_passed + total_shard_failed + total_shard_errors + total_shard_skipped,
         "completed_nodes_count": total_shard_passed,
         "skipped_nodes_count": total_shard_skipped,
-        "failed_nodes_count": total_shard_failed,
+        "failed_nodes_count": total_shard_failed + total_shard_errors,
         "unaccounted_nodes_count": 0,
         "orphan_processes_remaining": int(disk_budget_report.get("orphan_worker_count", 0)),
+        "status": (
+            "PASS"
+            if (
+                sum(1 for w in primary_worker_attempts if int(w.get("exit_code", 1)) != 0) == 0
+                and len(retry_worker_attempts) == 0
+                and int(disk_budget_report.get("orphan_worker_count", 0)) == 0
+            )
+            else "FAIL"
+        ),
     }
     (RUN_DIR / "concurrency_report.json").write_text(json.dumps(concurrency_report, indent=2), encoding="utf-8")
+    (RUN_DIR / "master_attempt_accounting.json").write_text(json.dumps(concurrency_report, indent=2), encoding="utf-8")
     results["disk_budget_report"] = disk_budget_report
     results["cpu_memory_metrics"] = cpu_mem_report
     results["concurrency_report"] = concurrency_report
+    results["master_failure_and_flake_report"] = failure_and_flake_report
+    results["primary_vs_retry_junit_reconciliation"] = primary_vs_retry_reconciliation
 
     # Verify & record backtest summary into bundle
     backtest_summary_record = {"status": "FAIL", "fabricated_candles_count": -1}
@@ -3058,20 +3589,33 @@ def main():
     for xml_file in sorted(REPORTS_DIR.glob("*.xml")):
         parsed = parse_pytest_counts("", xml_file)
         actual_exit = int(_GATE_EXIT_CODES.get(xml_file.name, 0))
+        proj_rec = _GATE_PROJECTION_RECORDS.get(xml_file.name, {})
+        exec_mode = proj_rec.get("execution_mode", "DERIVED_PROJECTION")
+        prov_label = proj_rec.get("provenance", "DERIVED_VIEW_FROM_PRIMARY_EXECUTION")
+        src_attempts = proj_rec.get("source_attempt_ids", [])
+        src_hashes = proj_rec.get("source_xml_hashes", {})
+        src_prim_exit = int(proj_rec.get("source_primary_exit_code", actual_exit))
+        sidecar_exit = "not_applicable" if exec_mode == "DERIVED_PROJECTION" else actual_exit
+        xml_sha256_val = hashlib.sha256(xml_file.read_bytes()).hexdigest()
         meta_path = xml_file.with_name(xml_file.name + ".meta.json")
+        meta_payload = {
+            "run_id": RUN_ID,
+            "tested_source_sha": current_sha,
+            "xml_sha256": xml_sha256_val,
+            "execution_mode": exec_mode,
+            "provenance": prov_label,
+            "exit_code": sidecar_exit,
+            "source_primary_exit_code": src_prim_exit,
+            "source_attempt_ids": src_attempts,
+            "source_xml_hashes": src_hashes,
+            "counts": parsed,
+        }
         meta_path.write_text(
-            json.dumps(
-                {
-                    "run_id": RUN_ID,
-                    "tested_source_sha": current_sha,
-                    "xml_sha256": hashlib.sha256(xml_file.read_bytes()).hexdigest(),
-                    "exit_code": actual_exit,
-                    "counts": parsed,
-                },
-                indent=2,
-            ),
+            json.dumps(meta_payload, indent=2),
             encoding="utf-8",
         )
+        if xml_file.name in _GATE_PROJECTION_RECORDS:
+            _GATE_PROJECTION_RECORDS[xml_file.name]["xml_sha256"] = xml_sha256_val
         junit_reconciliation["xml_files_count"] += 1
         junit_reconciliation["total_xml_tests"] += int(parsed.get("collected", 0))
         junit_reconciliation["total_xml_passed"] += int(parsed.get("passed", 0))
@@ -3079,6 +3623,25 @@ def main():
         junit_reconciliation["total_xml_errors"] += int(parsed.get("errors", 0))
         junit_reconciliation["total_xml_skipped"] += int(parsed.get("skipped", 0))
         junit_reconciliation["gate_xml_records"][xml_file.name] = parsed
+
+    gate_projection_provenance = {
+        "schema_version": "1.0.0-r3.3.2",
+        "run_id": RUN_ID,
+        "tested_source_sha": current_sha,
+        "total_gate_xml_files": len(_GATE_PROJECTION_RECORDS),
+        "derived_projections_count": sum(
+            1 for r in _GATE_PROJECTION_RECORDS.values() if r.get("execution_mode") == "DERIVED_PROJECTION"
+        ),
+        "actual_subprocess_gates_count": sum(
+            1 for r in _GATE_PROJECTION_RECORDS.values() if r.get("execution_mode") == "ACTUAL_SUBPROCESS"
+        ),
+        "projections": dict(sorted(_GATE_PROJECTION_RECORDS.items())),
+    }
+    (RUN_DIR / "gate_projection_provenance.json").write_text(
+        json.dumps(gate_projection_provenance, indent=2),
+        encoding="utf-8",
+    )
+    results["gate_projection_provenance"] = gate_projection_provenance
 
     for g_name, g_data in results["gates"].items():
         rep_rel = g_data.get("report_path") or g_data.get("junit_path")

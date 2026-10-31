@@ -3208,14 +3208,34 @@ def independently_reconcile_junit_scopes(
                     sc_sha = str(sc.get("tested_source_sha") or sc.get("source_sha") or "").strip()
                     sc_xml_sha = str(sc.get("xml_sha256") or "").strip()
                     sc_exit = sc.get("exit_code")
+                    sc_exec_mode = str(sc.get("execution_mode") or "").strip()
+                    sc_src_prim_exit = sc.get("source_primary_exit_code", 0)
                     if not sc_run or (exp_run and sc_run != exp_run):
                         violations.append(f"JUNIT_SIDECAR_RUN_ID_MISMATCH:{scope_label}:{xp.name}:{sc_run}!={exp_run}")
                     if not sc_sha or (exp_sha and sc_sha != exp_sha):
                         violations.append(f"JUNIT_SIDECAR_SOURCE_SHA_MISMATCH:{scope_label}:{xp.name}:{sc_sha}!={exp_sha}")
                     if not sc_xml_sha or sc_xml_sha != actual_xml_sha:
                         violations.append(f"JUNIT_SIDECAR_XML_SHA256_MISMATCH:{scope_label}:{xp.name}")
-                    if sc_exit is None or isinstance(sc_exit, bool) or not isinstance(sc_exit, int) or int(sc_exit) != 0:
-                        violations.append(f"JUNIT_SIDECAR_NONZERO_OR_MISSING_EXIT_CODE:{scope_label}:{xp.name}:{sc_exit}")
+                    if sc_exec_mode == "DERIVED_PROJECTION" and sc_exit == "not_applicable":
+                        if (
+                            sc_src_prim_exit is None
+                            or isinstance(sc_src_prim_exit, bool)
+                            or not isinstance(sc_src_prim_exit, int)
+                            or int(sc_src_prim_exit) != 0
+                            or not sc.get("source_attempt_ids")
+                        ):
+                            violations.append(
+                                f"JUNIT_SIDECAR_NONZERO_OR_MISSING_EXIT_CODE:{scope_label}:{xp.name}:src_exit={sc_src_prim_exit}"
+                            )
+                    else:
+                        if (
+                            sc_exit is None
+                            or isinstance(sc_exit, bool)
+                            or not isinstance(sc_exit, int)
+                            or int(sc_exit) != 0
+                            or (sc_src_prim_exit is not None and int(sc_src_prim_exit) != 0)
+                        ):
+                            violations.append(f"JUNIT_SIDECAR_NONZERO_OR_MISSING_EXIT_CODE:{scope_label}:{xp.name}:{sc_exit}")
                 except Exception as exc:
                     violations.append(f"JUNIT_SIDECAR_CORRUPT:{scope_label}:{xp.name}:{exc}")
 
@@ -3591,7 +3611,7 @@ def verify_mandatory_artifact_hash_coverage(
             violations.append(f"MANIFESTED_ARTIFACT_MISSING_SHA256:{fname}")
         elif not f_disk.exists():
             violations.append(f"MANIFESTED_ARTIFACT_MISSING_ON_DISK:{fname}")
-        elif f_disk.stat().st_size == 0:
+        elif f_disk.stat().st_size == 0 and fname not in {"R332_MASTER_RETRY_ATTEMPTS.jsonl", "master_retry_attempts.jsonl"}:
             violations.append(f"MANIFESTED_ARTIFACT_EMPTY_ON_DISK:{fname}")
         else:
             actual_sha = hashlib.sha256(f_disk.read_bytes()).hexdigest()
@@ -3868,6 +3888,617 @@ def verify_r331_evidence_bundle(
     }
 
 
+def verify_r332_evidence_bundle(
+    run_dir: Path,
+    expected_code_sha: str,
+    *,
+    expected_run_id: Optional[str] = None,
+    expected_historical_baseline_sha: str = "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+    expected_dataset_sha256: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    R3.3.2 Section 5: Standalone, fail-closed independent verifier for the 30 mandatory
+    R3.3.2 deliverables in `docs/artifacts/v17_9_0_1_3/r332/<run_id>/`.
+    Reconciles ALL raw master-run primary worker attempts, raw primary shard XMLs,
+    retry attempts, derived gate projections, Phase-H workers, 5-way runtime captures,
+    resource/disk telemetry, backtest provenance, and 30-file SHA-256 manifest coverage.
+    """
+    import xml.etree.ElementTree as _ET
+    from tools.runtime_execution_logger import R332_MANDATORY_ARTIFACTS
+
+    run_dir = Path(run_dir)
+    repo_root = Path(__file__).resolve().parents[1]
+    violations: List[str] = []
+    clean_expected_sha = str(expected_code_sha or "").strip()
+    clean_hist_sha = str(expected_historical_baseline_sha or "c356d6551e13cd6af61cea5c3ab1f4aae1548af2").strip()
+
+    if not run_dir.exists() or not run_dir.is_dir():
+        return {
+            "schema_version": "R332_INDEPENDENT_VERIFICATION_V1",
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": [f"R332_RUN_DIR_DOES_NOT_EXIST:{run_dir}"],
+            "recalculated_verdict": "BLOCKED_BY_MISSING_RUN_DIR",
+            "ready_for_v17_9_1": "NO",
+            "trading_authorization": "MARKET_SHADOW_RESEARCH_ONLY",
+        }
+
+    existing_files = [p.name for p in run_dir.iterdir() if p.is_file()]
+    if not existing_files:
+        return {
+            "schema_version": "R332_INDEPENDENT_VERIFICATION_V1",
+            "is_valid": False,
+            "status": "FAIL",
+            "violations": ["EMPTY_R332_RUN_DIRECTORY"],
+            "recalculated_verdict": "BLOCKED_BY_EMPTY_RUN_DIR",
+            "ready_for_v17_9_1": "NO",
+            "trading_authorization": "MARKET_SHADOW_RESEARCH_ONLY",
+        }
+
+    # Note: R332_MASTER_RETRY_ATTEMPTS.jsonl may legitimately be 0 bytes (empty) on a 100% clean primary run!
+    empty_allowed_jsonl = {"R332_MASTER_RETRY_ATTEMPTS.jsonl"}
+
+    loaded_json: Dict[str, Any] = {}
+    loaded_jsonl: Dict[str, List[Dict[str, Any]]] = {}
+
+    for fname in R332_MANDATORY_ARTIFACTS:
+        fpath = run_dir / fname
+        if not fpath.exists():
+            violations.append(f"MISSING_MANDATORY_R332_ARTIFACT:{fname}")
+            continue
+        if fpath.stat().st_size == 0 and fname not in empty_allowed_jsonl:
+            violations.append(f"EMPTY_MANDATORY_R332_ARTIFACT:{fname}")
+            continue
+        if fname.endswith(".json"):
+            try:
+                doc = json.loads(fpath.read_text(encoding="utf-8"))
+                if isinstance(doc, Mapping) and len(doc) == 0:
+                    violations.append(f"EMPTY_JSON_R332_ARTIFACT:{fname}")
+                loaded_json[fname] = doc
+            except Exception as exc:
+                violations.append(f"CORRUPT_JSON_R332_ARTIFACT:{fname}:{exc}")
+        elif fname.endswith(".jsonl"):
+            lines = [ln.strip() for ln in fpath.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            if not lines and fname not in empty_allowed_jsonl:
+                violations.append(f"EMPTY_JSONL_R332_ARTIFACT:{fname}")
+                loaded_jsonl[fname] = []
+            else:
+                rows: List[Dict[str, Any]] = []
+                for idx, ln in enumerate(lines):
+                    try:
+                        rows.append(json.loads(ln))
+                    except Exception as exc:
+                        violations.append(f"CORRUPT_JSONL_R332_ARTIFACT:{fname}:line_{idx}:{exc}")
+                loaded_jsonl[fname] = rows
+
+    init_man = loaded_json.get("R332_INITIAL_RUN_MANIFEST.json") or {}
+    final_man = loaded_json.get("R332_RUN_MANIFEST_FINALIZATION.json") or {}
+    init_man_path = run_dir / "R332_INITIAL_RUN_MANIFEST.json"
+    init_man_bytes = init_man_path.read_bytes() if init_man_path.exists() else None
+    manifest_run_id = str(init_man.get("run_id") or expected_run_id or "").strip()
+
+    # Check separate historical baseline SHA identity (Condition B / R332-30)
+    man_hist_sha = str(init_man.get("historical_baseline_sha") or "").strip()
+    if not man_hist_sha or man_hist_sha != clean_hist_sha or (clean_expected_sha and man_hist_sha == clean_expected_sha):
+        violations.append(f"HISTORICAL_BASELINE_SHA_MISMATCH:{man_hist_sha}!={clean_hist_sha}")
+
+    # Check safety policy & trading authorization (Condition T)
+    safety_pol = init_man.get("safety_policy") or {}
+    if (
+        str(safety_pol.get("trading_authorization") or "") != "MARKET_SHADOW_RESEARCH_ONLY"
+        or bool(safety_pol.get("paper_auto_trading_authorized", False))
+        or bool(safety_pol.get("live_trading_authorized", False))
+    ):
+        violations.append("UNSAFE_TRADING_AUTHORIZATION_IN_MANIFEST")
+
+    cmd_rows = loaded_jsonl.get("R332_SOURCE_COMMAND_EXECUTIONS.jsonl", [])
+    master_primary_rows = loaded_jsonl.get("R332_MASTER_PRIMARY_ATTEMPTS.jsonl", [])
+    master_retry_rows = loaded_jsonl.get("R332_MASTER_RETRY_ATTEMPTS.jsonl", [])
+    phase_h_worker_rows = loaded_jsonl.get("R332_PHASE_H_WORKER_EXECUTIONS.jsonl", [])
+
+    all_start_ms = [
+        int(r.get("started_at_ms") or r.get("started_ms") or 0)
+        for r in (list(cmd_rows) + list(master_primary_rows) + list(phase_h_worker_rows))
+        if isinstance(r, Mapping) and int(r.get("started_at_ms") or r.get("started_ms") or 0) > 0
+    ]
+    first_task_ms = min(all_start_ms) if all_start_ms else None
+
+    bt_man = loaded_json.get("R332_EXACT_SOURCE_BACKTEST_MANIFEST.json") or {}
+    bt_start_ms = bt_man.get("started_at_ms") or (bt_man.get("execution_provenance") or {}).get("started_at_ms")
+
+    # 1. Verify Pre-Execution Run Manifest Lifecycle (Condition A & R332-35)
+    man_chk = verify_pre_execution_run_manifest(
+        init_man,
+        final_man,
+        expected_run_id=expected_run_id or manifest_run_id,
+        expected_source_sha=clean_expected_sha,
+        first_task_started_at_ms=first_task_ms,
+        backtest_started_at_ms=int(bt_start_ms) if bt_start_ms is not None else None,
+        initial_manifest_bytes=init_man_bytes,
+    )
+    if not man_chk["is_valid"]:
+        violations.extend(man_chk["violations"])
+
+    # 2. Verify Unmodified Run Identity Tree across all JSON & JSONL artifacts (Condition B & O)
+    for fname, doc in loaded_json.items():
+        if fname == "R332_INDEPENDENT_VERIFICATION.json":
+            continue
+        tree_chk = verify_unmodified_run_identity_tree(
+            doc,
+            expected_run_id=manifest_run_id,
+            expected_source_sha=clean_expected_sha,
+            expected_historical_sha=clean_hist_sha,
+            path_prefix=fname,
+        )
+        if not tree_chk["is_valid"]:
+            violations.extend(tree_chk["violations"])
+
+    for fname, rows in loaded_jsonl.items():
+        if not rows:
+            continue
+        tree_chk = verify_unmodified_run_identity_tree(
+            rows,
+            expected_run_id=manifest_run_id,
+            expected_source_sha=clean_expected_sha,
+            expected_historical_sha=clean_hist_sha,
+            path_prefix=fname,
+        )
+        if not tree_chk["is_valid"]:
+            violations.extend(tree_chk["violations"])
+
+    # 3. Verify Master Primary Worker Attempts, Raw Shard XMLs & Logs (Conditions C, D, E, L, S & R332-01..R332-22, R332-33..R332-34)
+    assets_base_dir = run_dir
+    if not (run_dir / "reports").exists() and isinstance(init_man, Mapping) and init_man.get("run_directory"):
+        alt_base = repo_root / str(init_man["run_directory"])
+        if (alt_base / "reports").exists():
+            assets_base_dir = alt_base
+
+    raw_junit_man = loaded_json.get("R332_RAW_JUNIT_SHA256_MANIFEST.json") or {}
+    raw_man_by_id: Dict[str, Mapping[str, Any]] = {}
+    for ent in (raw_junit_man.get("entries") or []):
+        if isinstance(ent, Mapping):
+            aid = str(ent.get("primary_attempt_id") or ent.get("retry_attempt_id") or "").strip()
+            if aid:
+                raw_man_by_id[aid] = ent
+
+    seen_attempt_ids: set[str] = set()
+    primary_attempt_by_id: Dict[str, Mapping[str, Any]] = {}
+    scheduled_shard_files: List[str] = []
+    raw_primary_xml_test_totals = {"tests": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0}
+    raw_primary_node_ids: set[str] = set()
+
+    if not master_primary_rows:
+        violations.append("EMPTY_OR_MISSING_MASTER_PRIMARY_ATTEMPTS")
+    for idx, row in enumerate(master_primary_rows):
+        if not isinstance(row, Mapping):
+            violations.append(f"INVALID_PRIMARY_ATTEMPT_ROW:{idx}")
+            continue
+        aid = str(row.get("primary_attempt_id") or row.get("attempt_id") or "").strip()
+        if not aid:
+            violations.append(f"MISSING_PRIMARY_ATTEMPT_ID:row_{idx}")
+            continue
+        if aid in seen_attempt_ids:
+            violations.append(f"DUPLICATE_ATTEMPT_ID:{aid}")
+        seen_attempt_ids.add(aid)
+        primary_attempt_by_id[aid] = row
+
+        w_sha = str(row.get("source_sha") or row.get("tested_source_sha") or "").strip()
+        if not w_sha or (clean_expected_sha and w_sha != clean_expected_sha):
+            violations.append(f"MISSING_OR_MISMATCHED_WORKER_SOURCE_SHA:{aid}:{w_sha}!={clean_expected_sha}")
+
+        st_ms = row.get("started_at_ms")
+        comp_ms = row.get("completed_at_ms")
+        if st_ms is None or isinstance(st_ms, bool) or not isinstance(st_ms, int) or int(st_ms) <= 0:
+            violations.append(f"MISSING_PRIMARY_SHARD_STARTED_AT_MS:{aid}")
+        if comp_ms is None or isinstance(comp_ms, bool) or not isinstance(comp_ms, int) or (isinstance(st_ms, int) and int(comp_ms) < int(st_ms)):
+            violations.append(f"INVALID_PRIMARY_SHARD_COMPLETED_AT_MS:{aid}")
+
+        pid_val = row.get("pid")
+        cmd_val = row.get("command")
+        if pid_val is None or isinstance(pid_val, bool) or not isinstance(pid_val, int) or int(pid_val) <= 0 or not cmd_val:
+            violations.append(f"MISSING_PRIMARY_SUBPROCESS_PID_OR_ARGV:{aid}")
+
+        if bool(row.get("timed_out", False)):
+            violations.append(f"INTERRUPTED_OR_TIMED_OUT_WORKER_REPORTED:{aid}")
+
+        exit_c = row.get("exit_code")
+        prim_exit_c = row.get("primary_exit_code", exit_c)
+        prim_status = str(row.get("primary_status") or row.get("status") or "").upper()
+        if exit_c is None or isinstance(exit_c, bool) or not isinstance(exit_c, int):
+            violations.append(f"MISSING_PRIMARY_EXIT_CODE:{aid}")
+        elif prim_exit_c is None or isinstance(prim_exit_c, bool) or not isinstance(prim_exit_c, int):
+            violations.append(f"MISSING_PRIMARY_EXIT_CODE:{aid}")
+        else:
+            if int(exit_c) != int(prim_exit_c):
+                violations.append(f"PRIMARY_EXIT_CODE_MUTATED:{aid}:{prim_exit_c}!={exit_c}")
+            if int(exit_c) != 0 or int(prim_exit_c) != 0 or prim_status != "PASS":
+                violations.append(f"PRIMARY_SUBPROCESS_NONZERO_EXIT_OR_FAIL:{aid}:exit={exit_c},prim_exit={prim_exit_c},status={prim_status}")
+
+        # Verify raw log file existence, SHA-256, and unmutated EXIT_CODE line (R332-03, R332-05, R332-33)
+        log_rel = str(row.get("log_path") or "").strip()
+        log_sha = str(row.get("log_sha256") or "").strip()
+        log_candidates = []
+        if log_rel:
+            log_candidates.append(assets_base_dir / "logs" / Path(log_rel).name)
+            log_candidates.append(assets_base_dir / log_rel)
+            log_candidates.append(run_dir / "logs" / Path(log_rel).name)
+            log_candidates.append(run_dir / log_rel)
+            log_candidates.append(repo_root / log_rel)
+        log_disk = next((p for p in log_candidates if p.exists() and p.is_file()), None)
+        if log_disk is None or log_disk.stat().st_size == 0:
+            violations.append(f"MISSING_ORIGINAL_RAW_SHARD_LOG:{aid}:{log_rel}")
+        else:
+            actual_log_sha = hashlib.sha256(log_disk.read_bytes()).hexdigest()
+            if log_sha and actual_log_sha != log_sha:
+                violations.append(f"RAW_SHARD_LOG_SHA256_MISMATCH:{aid}:{actual_log_sha}!={log_sha}")
+            log_text = log_disk.read_text(encoding="utf-8", errors="replace")
+            for ln in log_text.splitlines()[:15]:
+                if ln.startswith("EXIT_CODE:"):
+                    try:
+                        logged_exit = int(ln.split(":", 1)[1].strip())
+                        if isinstance(prim_exit_c, int) and logged_exit != int(prim_exit_c):
+                            violations.append(f"PRIMARY_EXIT_CODE_MUTATED_FROM_RAW_LOG:{aid}:log={logged_exit}!=record={prim_exit_c}")
+                        if logged_exit != 0:
+                            violations.append(f"RAW_LOG_RECORDS_NONZERO_EXIT:{aid}:{logged_exit}")
+                    except Exception:
+                        violations.append(f"CORRUPT_RAW_LOG_EXIT_CODE:{aid}")
+
+        # If this is a pytest shard attempt, verify raw primary shard XML on disk (R332-02, R332-04, R332-06, R332-09, R332-21)
+        task_id_str = str(row.get("task_id") or "")
+        if task_id_str.startswith("pytest_shard_") or "raw_xml_path" in row:
+            shard_files = row.get("files") or []
+            if isinstance(shard_files, list):
+                scheduled_shard_files.extend(str(f) for f in shard_files)
+            raw_xml_rel = str(row.get("raw_xml_path") or "").strip()
+            claimed_xml_sha = str(row.get("raw_xml_sha256") or "").strip()
+            xml_candidates = []
+            if raw_xml_rel:
+                xml_candidates.append(assets_base_dir / "reports" / "raw" / "primary" / Path(raw_xml_rel).name)
+                xml_candidates.append(assets_base_dir / raw_xml_rel)
+                xml_candidates.append(run_dir / "reports" / "raw" / "primary" / Path(raw_xml_rel).name)
+                xml_candidates.append(run_dir / raw_xml_rel)
+                xml_candidates.append(repo_root / raw_xml_rel)
+            xml_disk = next((p for p in xml_candidates if p.exists() and p.is_file()), None)
+            if xml_disk is None or xml_disk.stat().st_size == 0:
+                violations.append(f"MISSING_ORIGINAL_RAW_SHARD_XML:{aid}:{raw_xml_rel}")
+            else:
+                actual_xml_sha = hashlib.sha256(xml_disk.read_bytes()).hexdigest()
+                man_ent = raw_man_by_id.get(aid) or {}
+                man_xml_sha = str(man_ent.get("raw_xml_sha256") or "").strip()
+                if not claimed_xml_sha or actual_xml_sha != claimed_xml_sha or (man_xml_sha and actual_xml_sha != man_xml_sha):
+                    violations.append(f"ALTERED_RAW_XML_SHA256_MISMATCH:{aid}:disk={actual_xml_sha},claimed={claimed_xml_sha},man={man_xml_sha}")
+                try:
+                    xroot = _ET.parse(xml_disk).getroot()
+                    tcs = xroot.findall(".//testcase")
+                    f_c = sum(1 for tc in tcs if tc.find("failure") is not None)
+                    e_c = sum(1 for tc in tcs if tc.find("error") is not None)
+                    s_c = sum(1 for tc in tcs if tc.find("skipped") is not None)
+                    t_c = len(tcs)
+                    p_c = max(0, t_c - f_c - e_c - s_c)
+                    raw_primary_xml_test_totals["tests"] += t_c
+                    raw_primary_xml_test_totals["passed"] += p_c
+                    raw_primary_xml_test_totals["failed"] += f_c
+                    raw_primary_xml_test_totals["errors"] += e_c
+                    raw_primary_xml_test_totals["skipped"] += s_c
+                    if f_c > 0 or e_c > 0:
+                        violations.append(f"RAW_PRIMARY_SHARD_XML_HAS_FAILURES:{aid}:failures={f_c},errors={e_c}")
+                    shard_nodes = [f"{tc.get('classname', '')}::{tc.get('name', '')}" for tc in tcs]
+                    if len(set(shard_nodes)) != len(shard_nodes):
+                        violations.append(f"DUPLICATE_TESTCASE_ID_IN_SHARD:{aid}")
+                    for nid in shard_nodes:
+                        if nid in raw_primary_node_ids:
+                            violations.append(f"DUPLICATE_TESTCASE_ID_ACROSS_SHARDS:{nid}")
+                        raw_primary_node_ids.add(nid)
+                    p_counts = row.get("primary_counts") or {}
+                    if isinstance(p_counts, Mapping) and int(p_counts.get("collected", t_c)) != t_c:
+                        violations.append(f"DUPLICATE_TESTCASE_ID_COLLAPSED_OR_COUNT_MISMATCH:{aid}:{p_counts.get('collected')}!={t_c}")
+                except Exception as xp_exc:
+                    violations.append(f"CORRUPT_RAW_PRIMARY_SHARD_XML:{aid}:{xp_exc}")
+
+    # Check shard file inventory completeness if running against real repo shard set (R332-21)
+    expected_shard_files = (init_man.get("expected_backend_test_files") or [])
+    if expected_shard_files:
+        missing_files = sorted(set(str(x) for x in expected_shard_files) - set(scheduled_shard_files))
+        if missing_files:
+            violations.append(f"MISSING_BACKEND_TESTS_IN_SHARD_INVENTORY:{missing_files[:5]}")
+    elif len(scheduled_shard_files) > 50:
+        actual_repo_test_files = {
+            str(p.relative_to(repo_root)).replace("\\", "/")
+            for p in (repo_root / "backend" / "tests").glob("test_*.py")
+        }
+        missing_repo_files = sorted(actual_repo_test_files - set(scheduled_shard_files))
+        if missing_repo_files:
+            violations.append(f"MISSING_BACKEND_TESTS_IN_SHARD_INVENTORY:{missing_repo_files[:5]}")
+
+    # 4. Verify Master Attempt Accounting & Failure/Flake Report (Conditions C, D, E, G & R332-01, R332-07, R332-10, R332-11, R332-14, R332-19, R332-31)
+    master_acc = loaded_json.get("R332_MASTER_ATTEMPT_ACCOUNTING.json") or {}
+    m_sched = int(master_acc.get("scheduled_tasks", -1))
+    m_succ = int(master_acc.get("succeeded_tasks", -1))
+    m_fail = int(master_acc.get("failed_tasks", -1))
+    m_blk = int(master_acc.get("blocked_tasks", 0))
+    m_canc = int(master_acc.get("cancelled_tasks", 0))
+    if m_sched <= 0 or m_sched != len(master_primary_rows) or m_sched != (m_succ + m_fail + m_blk + m_canc):
+        violations.append(
+            f"MASTER_ATTEMPT_ACCOUNTING_MISMATCH:sched={m_sched},rows={len(master_primary_rows)},sum={m_succ + m_fail + m_blk + m_canc}"
+        )
+    if m_fail != 0 or m_blk != 0 or m_canc != 0:
+        violations.append(f"MASTER_WORKER_LEDGER_HAS_FAILED_TASKS:failed={m_fail},blocked={m_blk},cancelled={m_canc}")
+    if int(master_acc.get("retry_attempts_count", 0)) != len(master_retry_rows):
+        violations.append("MASTER_RETRY_COUNT_ACCOUNTING_MISMATCH")
+
+    flake_rep = loaded_json.get("R332_MASTER_FAILURE_AND_FLAKE_REPORT.json") or {}
+    if (
+        int(flake_rep.get("primary_shards_failed", 0)) > 0
+        or int(flake_rep.get("primary_failed_testcases_count", 0)) > 0
+        or int(flake_rep.get("isolated_retries_count", 0)) > 0
+        or int(flake_rep.get("flaky_or_isolation_dependent_count", 0)) > 0
+        or str(flake_rep.get("clean_primary_acceptance_status") or "").upper() != "PASS"
+    ):
+        violations.append("MASTER_FAILURE_OR_FLAKE_REPORT_NOT_CLEAN_PASS")
+
+    prim_vs_retry = loaded_json.get("R332_PRIMARY_VS_RETRY_JUNIT_RECONCILIATION.json") or {}
+    if (
+        bool(prim_vs_retry.get("replacement_performed", False))
+        or bool(prim_vs_retry.get("primary_exit_codes_rewritten", False))
+        or not bool(prim_vs_retry.get("raw_shard_xml_retained", False))
+    ):
+        violations.append("ILLEGAL_PRIMARY_JUNIT_REPLACEMENT_OR_EXIT_REWRITE")
+    p_scope = prim_vs_retry.get("primary_execution_scope") or {}
+    if int(p_scope.get("unique_testcase_nodes", -1)) != len(raw_primary_node_ids):
+        violations.append(
+            f"PRIMARY_UNIQUE_TESTCASE_COUNT_MISMATCH:claimed={p_scope.get('unique_testcase_nodes')}!=actual={len(raw_primary_node_ids)}"
+        )
+
+    for r_idx, r_row in enumerate(master_retry_rows):
+        if not isinstance(r_row, Mapping):
+            violations.append(f"INVALID_RETRY_ATTEMPT_ROW:{r_idx}")
+            continue
+        r_id = str(r_row.get("retry_attempt_id") or r_row.get("attempt_id") or "").strip()
+        src_id = str(r_row.get("source_attempt_id") or "").strip()
+        if not r_id or not src_id:
+            violations.append(f"RETRY_MISSING_ATTEMPT_IDS:row_{r_idx}")
+        if r_id == src_id or r_id in primary_attempt_by_id:
+            violations.append(f"RETRY_REUSES_PRIMARY_ATTEMPT_ID:{r_id}")
+        if r_id in seen_attempt_ids:
+            violations.append(f"DUPLICATE_ATTEMPT_ID:{r_id}")
+        seen_attempt_ids.add(r_id)
+        if (
+            not r_row.get("pid")
+            or not r_row.get("command")
+            or not r_row.get("started_at_ms")
+            or not r_row.get("completed_at_ms")
+        ):
+            violations.append(f"RETRY_MISSING_SUBPROCESS_PROVENANCE:{r_id}")
+        r_run = str(r_row.get("run_id") or "").strip()
+        r_sha = str(r_row.get("source_sha") or r_row.get("tested_source_sha") or "").strip()
+        if (manifest_run_id and r_run != manifest_run_id) or (clean_expected_sha and r_sha != clean_expected_sha):
+            violations.append(f"CROSS_RUN_OR_COMMIT_RETRY_XML:{r_id}")
+        r_xml_rel = str(r_row.get("retry_xml_path") or "").strip()
+        r_xml_sha = str(r_row.get("retry_xml_sha256") or "").strip()
+        r_candidates = []
+        if r_xml_rel:
+            r_candidates.append(assets_base_dir / "reports" / "raw" / "retries" / Path(r_xml_rel).name)
+            r_candidates.append(assets_base_dir / r_xml_rel)
+            r_candidates.append(run_dir / "reports" / "raw" / "retries" / Path(r_xml_rel).name)
+            r_candidates.append(run_dir / r_xml_rel)
+            r_candidates.append(repo_root / r_xml_rel)
+        r_disk = next((p for p in r_candidates if p.exists() and p.is_file()), None)
+        if r_disk is None or r_disk.stat().st_size == 0:
+            violations.append(f"MISSING_RETRY_XML_ON_DISK:{r_id}")
+        else:
+            actual_r_sha = hashlib.sha256(r_disk.read_bytes()).hexdigest()
+            if not r_xml_sha or actual_r_sha != r_xml_sha:
+                violations.append(f"ALTERED_RETRY_XML_LINEAGE_MISMATCH:{r_id}")
+            try:
+                rtcs = _ET.parse(r_disk).getroot().findall(".//testcase")
+                rf_c = sum(1 for tc in rtcs if tc.find("failure") is not None or tc.find("error") is not None)
+                rc_counts = r_row.get("counts") or {}
+                if len(rtcs) != int(rc_counts.get("collected", -1)) or rf_c != (int(rc_counts.get("failed", 0)) + int(rc_counts.get("errors", 0))):
+                    violations.append(f"ALTERED_RETRY_XML_LINEAGE_MISMATCH:{r_id}:counts_mismatch")
+            except Exception:
+                violations.append(f"ALTERED_RETRY_XML_LINEAGE_MISMATCH:{r_id}:corrupt_xml")
+        # Any retry after primary failure blocks clean acceptance (R332-01, R332-31)
+        violations.append(f"PRIMARY_FAILURE_FOLLOWED_BY_ISOLATED_RETRY:{src_id}->{r_id}:{r_row.get('effective_test_outcome')}")
+
+    # 5. Verify Gate Projection Provenance & Reconcile JUnit Scopes (Conditions F, H, I, J & R332-02, R332-12, R332-13, R332-20)
+    reports_dir = assets_base_dir / "reports"
+    junit_dir = assets_base_dir / "junit"
+    junit_chk = independently_reconcile_junit_scopes(
+        gate_xml_dir=reports_dir,
+        suite_xml_dir=junit_dir if junit_dir.exists() else None,
+        expected_run_id=manifest_run_id,
+        expected_source_sha=clean_expected_sha,
+        scope_inventory_doc=loaded_json.get("R332_JUNIT_SCOPE_INVENTORY.json"),
+        per_xml_doc=loaded_json.get("R332_JUNIT_PER_XML_RECALCULATION.json"),
+    )
+    if not junit_chk["is_valid"]:
+        violations.extend(junit_chk["violations"])
+
+    gate_proj_doc = loaded_json.get("R332_GATE_PROJECTION_PROVENANCE.json") or {}
+    projections_map = gate_proj_doc.get("projections") or {}
+    if not isinstance(projections_map, Mapping) or len(projections_map) == 0:
+        violations.append("EMPTY_GATE_PROJECTION_PROVENANCE")
+    else:
+        for g_xml_name, p_rec in projections_map.items():
+            if not isinstance(p_rec, Mapping):
+                continue
+            mode = str(p_rec.get("execution_mode") or "").strip()
+            src_aids = p_rec.get("source_attempt_ids") or []
+            src_hashes = p_rec.get("source_xml_hashes") or {}
+            log_n = str(p_rec.get("log_name") or Path(g_xml_name).stem).strip()
+            g_log_p = assets_base_dir / "logs" / f"{log_n}.log"
+            if mode == "DERIVED_PROJECTION":
+                if p_rec.get("exit_code") != "not_applicable":
+                    violations.append(f"DERIVED_PROJECTION_CLAIMS_SUBPROCESS_EXIT_CODE:{g_xml_name}:{p_rec.get('exit_code')}")
+                if g_log_p.exists():
+                    g_log_txt = g_log_p.read_text(encoding="utf-8", errors="replace")
+                    if any(
+                        ln.startswith("COMMAND:")
+                        or ln.startswith("EXIT_CODE:")
+                        or "EXECUTION_MODE: ACTUAL_SUBPROCESS" in ln
+                        for ln in g_log_txt.splitlines()
+                    ):
+                        violations.append(f"DERIVED_PROJECTION_CLAIMS_SUBPROCESS_EXECUTION:{g_xml_name}")
+                if not src_aids or not isinstance(src_hashes, Mapping):
+                    violations.append(f"DERIVED_PROJECTION_MISSING_SOURCE_PROVENANCE:{g_xml_name}")
+                for s_aid in src_aids:
+                    p_att = primary_attempt_by_id.get(str(s_aid))
+                    if p_att is None:
+                        violations.append(f"DERIVED_PROJECTION_UNKNOWN_SOURCE_ATTEMPT:{g_xml_name}:{s_aid}")
+                    else:
+                        if int(p_att.get("primary_exit_code", 1)) != 0 or str(p_att.get("primary_status") or "").upper() != "PASS":
+                            violations.append(f"DERIVED_JUNIT_MASKS_FAILED_PRIMARY_ATTEMPT:{g_xml_name}:{s_aid}")
+                        expected_raw_sha = str(p_att.get("raw_xml_sha256") or "").strip()
+                        recorded_raw_sha = str(src_hashes.get(str(s_aid)) or "").strip()
+                        if expected_raw_sha and recorded_raw_sha != expected_raw_sha:
+                            violations.append(f"DERIVED_PROJECTION_SOURCE_XML_HASH_MISMATCH:{g_xml_name}:{s_aid}")
+            elif mode == "ACTUAL_SUBPROCESS":
+                if not src_aids or any(str(s_aid) not in primary_attempt_by_id for s_aid in src_aids):
+                    violations.append(f"ACTUAL_SUBPROCESS_GATE_MISSING_PRIMARY_ATTEMPT:{g_xml_name}")
+            else:
+                violations.append(f"INVALID_GATE_EXECUTION_MODE:{g_xml_name}:{mode}")
+
+    # 6. Verify All 107 Mandatory Gates in R332_GATE_RESULTS.json (Condition K)
+    gate_res_doc = loaded_json.get("R332_GATE_RESULTS.json") or {}
+    gates_map = gate_res_doc.get("gates") or {}
+    for req_gate in MANDATORY_GATES_V17_9_0:
+        g_entry = gates_map.get(req_gate)
+        if not isinstance(g_entry, Mapping) or str(g_entry.get("status") or "").upper() != "PASS":
+            violations.append(f"MANDATORY_GATE_NOT_PASS:{req_gate}")
+
+    # 7. Verify Negative Controls Collection & Results (Condition R & R332-27: N01-N148, F01-F20, R331-01..R331-30, R332-01..R332-36 = 234 controls)
+    neg_coll = loaded_json.get("R332_NEGATIVE_CONTROL_COLLECTION.json") or {}
+    neg_res = loaded_json.get("R332_NEGATIVE_CONTROL_RESULTS.json") or {}
+    collected_ids = set(neg_coll.get("collected_control_ids") or [])
+    executed_results = neg_res.get("results") or []
+    executed_ids = {str(r.get("control_id") or r.get("test_id") or "") for r in executed_results if isinstance(r, Mapping)}
+    mandatory_neg_ids = (
+        {f"N{i:02d}" for i in range(1, 149)}
+        | {f"F{i:02d}" for i in range(1, 21)}
+        | {f"R331-{i:02d}" for i in range(1, 31)}
+        | {f"R332-{i:02d}" for i in range(1, 37)}
+    )
+    for req_nid in sorted(mandatory_neg_ids):
+        if req_nid not in collected_ids or req_nid not in executed_ids:
+            violations.append(f"MISSING_MANDATORY_NEGATIVE_CONTROL_ID:{req_nid}")
+    if int(neg_res.get("failed_negative_controls", -1)) != 0:
+        violations.append(f"NEGATIVE_CONTROLS_FAILED:{neg_res.get('failed_negative_controls')}")
+    for r in executed_results:
+        if isinstance(r, Mapping) and str(r.get("status") or "").upper() != "PASS":
+            violations.append(f"NEGATIVE_CONTROL_NOT_PASS:{r.get('control_id') or r.get('test_id')}")
+
+    # 8. Verify Phase-H Worker Execution & Resource/Disk Telemetry (Conditions M, N & R332-23..R332-26)
+    res_disk_doc = loaded_json.get("R332_RESOURCE_AND_DISK_TELEMETRY.json") or {}
+    phase_h_acc = res_disk_doc.get("phase_h_task_accounting") or master_acc
+    worker_chk = verify_worker_execution_accounting(
+        phase_h_worker_rows,
+        phase_h_acc,
+        expected_run_id=manifest_run_id,
+        expected_source_sha=clean_expected_sha,
+        manifest_created_at_ms=man_chk.get("created_at_ms"),
+    )
+    if not worker_chk["is_valid"]:
+        violations.extend(worker_chk["violations"])
+
+    mem_rep = res_disk_doc.get("memory_unit_and_scope_report") or res_disk_doc.get("cpu_memory_metrics") or {}
+    disk_rep = res_disk_doc.get("disk_budget_and_cleanup_report") or res_disk_doc.get("disk_budget_report") or {}
+    res_chk = verify_resource_telemetry_semantics(
+        mem_rep,
+        disk_rep,
+        expected_run_id=manifest_run_id,
+        expected_source_sha=clean_expected_sha,
+    )
+    if not res_chk["is_valid"]:
+        violations.extend(res_chk["violations"])
+
+    # 9. Verify Runtime Invocation Events, Input Snapshots, Captures & Five-Way Parity
+    rt_events = loaded_jsonl.get("R332_RUNTIME_INVOCATION_EVENTS.jsonl", [])
+    rt_snaps = loaded_jsonl.get("R332_RUNTIME_INPUT_SNAPSHOTS.jsonl", [])
+    rt_caps = loaded_jsonl.get("R332_RUNTIME_INPUT_CAPTURES.jsonl", [])
+    recomp_rt_verif = reconcile_r33_runtime_captures(
+        events=rt_events,
+        snapshots=rt_snaps,
+        captures=rt_caps,
+        expected_run_id=manifest_run_id or None,
+        expected_frozen_sha=clean_expected_sha or None,
+    )
+    if not recomp_rt_verif["is_valid"]:
+        violations.extend(recomp_rt_verif["violations"])
+
+    five_way_doc = loaded_json.get("R332_FIVE_WAY_PARITY.json") or {}
+    if str(five_way_doc.get("status") or "").upper() != "PASS":
+        violations.append("FIVE_WAY_PARITY_STATUS_NOT_PASS")
+    p_cls_res = verify_parity_classification_report(five_way_doc)
+    if not p_cls_res["is_valid"]:
+        violations.extend(p_cls_res["violations"])
+
+    # 10. Verify Backtest Manifest, Variants ABCD, Trade Ledger & Dataset SHA (Condition P & R332-28..R332-29)
+    bt_abcd = loaded_json.get("R332_BACKTEST_A_B_C_D.json") or {}
+    bt_cohort = loaded_json.get("R332_MATCHED_COHORT_AND_OOS.json") or {}
+    bt_ledger = loaded_jsonl.get("R332_BACKTEST_TRADE_LEDGER.jsonl", [])
+    for doc_label, bt_d in (
+        ("R332_EXACT_SOURCE_BACKTEST_MANIFEST.json", bt_man),
+        ("R332_BACKTEST_A_B_C_D.json", bt_abcd),
+        ("R332_MATCHED_COHORT_AND_OOS.json", bt_cohort),
+    ):
+        b_sha = str(bt_d.get("backtest_source_sha") or bt_d.get("tested_source_sha") or bt_d.get("source_sha") or "").strip()
+        if not b_sha or (clean_expected_sha and b_sha != clean_expected_sha):
+            violations.append(f"BACKTEST_SOURCE_SHA_MISMATCH:{doc_label}:{b_sha}!={clean_expected_sha}")
+    exp_ds = str(expected_dataset_sha256 or init_man.get("dataset_sha256") or "").strip()
+    bt_ds = str(bt_man.get("dataset_sha256") or "").strip()
+    if not bt_ds or (exp_ds and bt_ds != exp_ds):
+        violations.append(f"BACKTEST_DATASET_SHA_MISMATCH:{bt_ds}!={exp_ds}")
+    if not bt_ledger:
+        violations.append("EMPTY_BACKTEST_TRADE_LEDGER")
+
+    # 11. Verify Mandatory Artifact Hash Coverage (Condition Q)
+    sha_man = loaded_json.get("R332_ARTIFACT_SHA256_MANIFEST.json") or {}
+    hash_chk = verify_mandatory_artifact_hash_coverage(
+        run_dir,
+        sha_man,
+        R332_MANDATORY_ARTIFACTS,
+        self_excluded_files=(
+            "R332_ARTIFACT_SHA256_MANIFEST.json",
+            "R332_INDEPENDENT_VERIFICATION.json",
+            "R332_FINAL_ACCEPTANCE_AUDIT.md",
+        ),
+    )
+    if not hash_chk["is_valid"]:
+        violations.extend(hash_chk["violations"])
+
+    dedup_violations = list(dict.fromkeys(violations))
+    is_valid = len(dedup_violations) == 0
+
+    return {
+        "schema_version": "R332_INDEPENDENT_VERIFICATION_V1",
+        "run_id": manifest_run_id,
+        "tested_source_sha": clean_expected_sha,
+        "expected_code_sha": clean_expected_sha,
+        "historical_baseline_sha": clean_hist_sha,
+        "is_valid": is_valid,
+        "status": "PASS" if is_valid else "FAIL",
+        "violations": dedup_violations,
+        "manifest_lifecycle_verification": man_chk,
+        "master_primary_attempts_verified": len(master_primary_rows),
+        "master_retry_attempts_verified": len(master_retry_rows),
+        "raw_primary_xml_test_totals": raw_primary_xml_test_totals,
+        "unique_primary_test_nodes": len(raw_primary_node_ids),
+        "junit_scope_reconciliation": junit_chk,
+        "worker_accounting_verification": worker_chk,
+        "resource_telemetry_verification": res_chk,
+        "runtime_capture_verification": recomp_rt_verif,
+        "hash_coverage_verification": hash_chk,
+        "release_readiness_verdict": "VERIFIED_FOUNDATION_CLOSURE" if is_valid else "BLOCKED",
+        "ready_for_v17_9_1": "YES" if is_valid else "NO",
+        "trading_authorization": "MARKET_SHADOW_RESEARCH_ONLY",
+        "recalculated_verdict": (
+            "VERIFIED_FOUNDATION_CLOSURE — READY_TO_PROCEED_TO_V17_9_1"
+            if is_valid
+            else f"BLOCKED_BY_R332_VERIFICATION:{dedup_violations[0]}"
+        ),
+    }
+
+
 def verify_persisted_acceptance_artifacts(
     target_dir: Path,
     expected_code_sha: str,
@@ -3877,10 +4508,22 @@ def verify_persisted_acceptance_artifacts(
     expected_run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    DEF-179013-R01 & R3.3 / R3.3.1: Reads persisted artifacts from disk, verifies checksums,
+    DEF-179013-R01 & R3.3 / R3.3.1 / R3.3.2: Reads persisted artifacts from disk, verifies checksums,
     validates cross-artifact consistency, and recalculates the final release verdict directly from disk bytes.
     """
     target_dir = Path(target_dir)
+    if (
+        required_schema == "R332"
+        or (target_dir.exists() and target_dir.is_dir() and (
+            (target_dir / "R332_INITIAL_RUN_MANIFEST.json").exists()
+            or any(f.name.startswith("R332_") for f in target_dir.iterdir() if f.is_file())
+        ))
+    ):
+        return verify_r332_evidence_bundle(
+            target_dir,
+            expected_code_sha,
+            expected_run_id=expected_run_id,
+        )
     if (
         required_schema == "R331"
         or (target_dir.exists() and target_dir.is_dir() and (

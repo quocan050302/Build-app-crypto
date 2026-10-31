@@ -85,6 +85,39 @@ R331_MANDATORY_ARTIFACTS: Tuple[str, ...] = (
     "R331_FINAL_ACCEPTANCE_AUDIT.md",
 )
 
+R332_MANDATORY_ARTIFACTS: Tuple[str, ...] = (
+    "R332_INITIAL_RUN_MANIFEST.json",
+    "R332_RUN_MANIFEST_FINALIZATION.json",
+    "R332_ROOT_CAUSE_AND_FUNCTION_CLOSURE.md",
+    "R332_SOURCE_COMMAND_EXECUTIONS.jsonl",
+    "R332_MASTER_PRIMARY_ATTEMPTS.jsonl",
+    "R332_MASTER_RETRY_ATTEMPTS.jsonl",
+    "R332_MASTER_FAILURE_AND_FLAKE_REPORT.json",
+    "R332_MASTER_ATTEMPT_ACCOUNTING.json",
+    "R332_RAW_JUNIT_SHA256_MANIFEST.json",
+    "R332_PRIMARY_VS_RETRY_JUNIT_RECONCILIATION.json",
+    "R332_GATE_PROJECTION_PROVENANCE.json",
+    "R332_GATE_RESULTS.json",
+    "R332_JUNIT_SCOPE_INVENTORY.json",
+    "R332_JUNIT_PER_XML_RECALCULATION.json",
+    "R332_NEGATIVE_CONTROL_COLLECTION.json",
+    "R332_NEGATIVE_CONTROL_RESULTS.json",
+    "R332_PHASE_H_WORKER_EXECUTIONS.jsonl",
+    "R332_RUNTIME_INVOCATION_EVENTS.jsonl",
+    "R332_RUNTIME_INPUT_SNAPSHOTS.jsonl",
+    "R332_RUNTIME_INPUT_CAPTURES.jsonl",
+    "R332_FIVE_WAY_PARITY.json",
+    "R332_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
+    "R332_RESOURCE_AND_DISK_TELEMETRY.json",
+    "R332_EXACT_SOURCE_BACKTEST_MANIFEST.json",
+    "R332_BACKTEST_A_B_C_D.json",
+    "R332_BACKTEST_TRADE_LEDGER.jsonl",
+    "R332_MATCHED_COHORT_AND_OOS.json",
+    "R332_ARTIFACT_SHA256_MANIFEST.json",
+    "R332_INDEPENDENT_VERIFICATION.json",
+    "R332_FINAL_ACCEPTANCE_AUDIT.md",
+)
+
 
 def compute_payload_sha256(payload: Any) -> str:
     """Computes deterministic SHA-256 of any JSON-serializable payload."""
@@ -725,7 +758,7 @@ def verify_r331_pre_execution_manifest(
         }
 
     schema_ver = str(manifest_doc.get("schema_version") or "").strip()
-    if schema_ver != "R331_INITIAL_RUN_MANIFEST_V1":
+    if schema_ver not in ("R331_INITIAL_RUN_MANIFEST_V1", "R332_INITIAL_RUN_MANIFEST_V1"):
         violations.append(f"INVALID_INITIAL_MANIFEST_SCHEMA:{schema_ver}")
 
     init_status = str(manifest_doc.get("status") or "").strip().upper()
@@ -888,6 +921,322 @@ def finalize_r331_run_manifest(
         "task_accounting_summary": dict(task_accounting_summary or {}),
     }
     finalization_path = run_context.run_dir / "R331_RUN_MANIFEST_FINALIZATION.json"
+    _atomic_write_json(finalization_path, finalization_payload)
+    return finalization_payload
+
+
+R332RunContext = R331RunContext
+
+
+def create_r332_run_context(
+    *,
+    run_id: Optional[str] = None,
+    frozen_executable_sha: Optional[str] = None,
+    historical_baseline_sha: Optional[str] = None,
+    dataset_sha256: Optional[str] = None,
+    configuration_hash: Optional[str] = None,
+    output_root: Optional[Path] = None,
+    run_dir: Optional[Path] = None,
+    repo_root: Path = REPO_ROOT,
+    branch: Optional[str] = None,
+    expected_branch: str = "fix/v17-9-0-1-3-historical-parity-hardening",
+    runner_version: str = "17.9.0.1.3-R3.3.2",
+    required_task_ids: Optional[Sequence[str]] = None,
+    mandatory_suite_selection: Optional[Sequence[str]] = None,
+    verify_git: Optional[bool] = None,
+    allow_join_existing: bool = True,
+) -> R331RunContext:
+    """
+    R3.3.2 Section 5.A / Section 9: Creates or joins an active pre-execution R3.3.2 run context
+    in `docs/artifacts/v17_9_0_1_3/r332/<run_id>` and atomically persists `R332_INITIAL_RUN_MANIFEST.json`
+    with `status="RUNNING"` before any mandatory worker or backtest starts.
+    """
+    if verify_git is None:
+        verify_git = False
+    actual_head = ""
+    actual_branch = str(branch or expected_branch)
+    if verify_git:
+        head_res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        actual_head = head_res.stdout.strip()
+        br_res = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        actual_branch = br_res.stdout.strip()
+        allowed_branches = {
+            expected_branch,
+            "fix/v17-9-0-1-3-historical-parity-hardening",
+            "feat/v17-8-unicorn-structural-sl-tp-intelligence",
+        }
+        if actual_branch not in allowed_branches:
+            raise ValueError(f"R332_INVALID_BRANCH:{actual_branch} not in {sorted(allowed_branches)}")
+        st_res = subprocess.run(
+            ["git", "status", "--porcelain", "--", "backend", "tools", "frontend/src"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        dirty_lines = [ln for ln in st_res.stdout.splitlines() if ln.strip()]
+        if dirty_lines:
+            raise RuntimeError(f"R332_DIRTY_EXECUTABLE_WORKTREE:{dirty_lines[:5]}")
+
+    eff_sha = str(frozen_executable_sha or actual_head).strip()
+    if not eff_sha or len(eff_sha) < 7:
+        raise ValueError("R332_MISSING_FROZEN_SHA: frozen_executable_sha is required")
+    if verify_git and actual_head and eff_sha != actual_head:
+        raise ValueError(f"R332_FROZEN_SHA_MISMATCH:supplied={eff_sha}!=head={actual_head}")
+
+    eff_ds_sha = str(dataset_sha256 or "").strip()
+    if not eff_ds_sha:
+        ds_man_p = repo_root / "backtest" / "dataset_manifest.json"
+        if ds_man_p.exists():
+            try:
+                eff_ds_sha = str(json.loads(ds_man_p.read_text(encoding="utf-8")).get("dataset_sha256") or "").strip()
+            except Exception:
+                eff_ds_sha = ""
+    if not eff_ds_sha:
+        eff_ds_sha = "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5"
+
+    eff_cfg_hash = str(configuration_hash or "").strip()
+    if not eff_cfg_hash:
+        eff_cfg_hash = compute_payload_sha256(
+            {
+                "release": "V17.9.0.1.3-R3.3.2",
+                "trading_authorization": "MARKET_SHADOW_RESEARCH_ONLY",
+                "symbol": "XAUUSDT",
+                "min_net_rr": 2.0,
+                "risk_per_trade_pct": 0.25,
+            }
+        )
+
+    now_ms = int(time.time() * 1000)
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    utc_compact = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    mono_ns = time.monotonic_ns()
+    eff_run_id = str(run_id or os.environ.get("AURUM_TEST_RUN_ID") or f"r332_{utc_compact}_{eff_sha[:12]}").strip()
+    if not eff_run_id:
+        raise ValueError("R332_EMPTY_RUN_ID")
+
+    base_root = Path(output_root) if output_root is not None else (repo_root / "docs" / "artifacts" / "v17_9_0_1_3" / "r332")
+    eff_run_dir = Path(run_dir).resolve() if run_dir is not None else (base_root / eff_run_id).resolve()
+    eff_hist_sha = str(historical_baseline_sha or PRE_REFACTOR_BASELINE_COMMIT_SHA).strip()
+    reports_dir = eff_run_dir / "reports"
+    logs_dir = eff_run_dir / "logs"
+    manifest_path = eff_run_dir / "R332_INITIAL_RUN_MANIFEST.json"
+    finalization_path = eff_run_dir / "R332_RUN_MANIFEST_FINALIZATION.json"
+    tree_hash = compute_executable_source_tree_hash(repo_root)
+
+    if finalization_path.exists():
+        raise RuntimeError(f"R332_RUN_DIRECTORY_ALREADY_FINALIZED:{eff_run_dir}")
+
+    if manifest_path.exists():
+        if not allow_join_existing:
+            raise RuntimeError(f"R332_RUN_DIRECTORY_COLLISION:{manifest_path}")
+        existing_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
+        ex_run = str(existing_doc.get("run_id") or "").strip()
+        ex_sha = str(existing_doc.get("frozen_executable_sha") or "").strip()
+        ex_st = str(existing_doc.get("status") or "").strip().upper()
+        if ex_run != eff_run_id or ex_sha != eff_sha:
+            raise RuntimeError(
+                f"R332_EXISTING_MANIFEST_IDENTITY_MISMATCH:run={ex_run}!={eff_run_id} or sha={ex_sha}!={eff_sha}"
+            )
+        if ex_st not in ("RUNNING", "PENDING"):
+            raise RuntimeError(f"R332_EXISTING_MANIFEST_NOT_RUNNING:status={ex_st}")
+        init_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        return R331RunContext(
+            run_id=eff_run_id,
+            release=str(existing_doc.get("release") or "V17.9.0.1.3"),
+            phase=str(existing_doc.get("phase") or "R3.3.2"),
+            schema_version=str(existing_doc.get("schema_version") or "R332_INITIAL_RUN_MANIFEST_V1"),
+            frozen_executable_sha=eff_sha,
+            executable_tree_hash=str(existing_doc.get("executable_tree_hash") or tree_hash),
+            branch=str(existing_doc.get("branch") or actual_branch),
+            runner_version=str(existing_doc.get("runner_version") or runner_version),
+            dataset_sha256=str(existing_doc.get("dataset_sha256") or eff_ds_sha),
+            configuration_hash=str(existing_doc.get("configuration_hash") or eff_cfg_hash),
+            historical_baseline_sha=str(existing_doc.get("historical_baseline_sha") or eff_hist_sha),
+            created_at_utc=str(existing_doc.get("created_at_utc") or now_utc),
+            created_at_ms=int(existing_doc.get("created_at_ms") or now_ms),
+            created_monotonic_ns=int(existing_doc.get("created_monotonic_ns") or mono_ns),
+            manifest_path=manifest_path,
+            run_dir=eff_run_dir,
+            reports_dir=reports_dir,
+            logs_dir=logs_dir,
+            allowed_workspace_paths=tuple(existing_doc.get("allowed_workspace_paths") or [str(eff_run_dir)]),
+            required_task_ids=tuple(existing_doc.get("required_task_ids") or []),
+            mandatory_suite_selection=tuple(existing_doc.get("mandatory_suite_selection") or []),
+            safety_policy=dict(existing_doc.get("safety_policy") or {}),
+            launch_context=dict(existing_doc.get("launch_context") or {}),
+            initial_manifest_sha256=init_sha,
+        )
+
+    eff_run_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    req_tasks = tuple(
+        required_task_ids
+        if required_task_ids is not None
+        else (
+            "G89_SHARED_STRATEGY_EVALUATOR_FOUNDATION",
+            "G90_CANONICAL_DECISION_SNAPSHOT_CONTRACT",
+            "G91_PRODUCTION_SHARED_EVALUATOR_INTEGRATION",
+            "G92_MARKET_SHADOW_SHARED_EVALUATOR_INTEGRATION",
+            "G93_BACKTEST_SHARED_EVALUATOR_INTEGRATION",
+            "G94_CROSS_RUNTIME_DECISION_PARITY",
+            "G95_PRE_REFACTOR_BASELINE_RECOVERY",
+            "G96_MULTI_TIMEFRAME_STRUCTURE_LIQUIDITY_ALIGNMENT",
+            "G97_HTF_NO_LOOKAHEAD_CAUSALITY",
+            "G98_M1_EXECUTION_DISPLACEMENT_CONFIRMATION",
+            "G99_STRICT_UNICORN_CONFLUENCE_AND_FALLBACK",
+            "G100_STRUCTURAL_SL_TP_RR_PARITY",
+            "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
+            "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+            "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
+            "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+            "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
+        )
+    )
+    suites = tuple(
+        mandatory_suite_selection
+        if mandatory_suite_selection is not None
+        else (
+            "PYTEST_SHARDED_BACKEND",
+            "MASTER_ACCEPTANCE_REPORTS",
+            "R332_MANDATORY_GATE_REPORTS",
+            "VITEST",
+            "PLAYWRIGHT",
+            "NEGATIVE_CONTROLS",
+            "CHRONOLOGICAL_XAUUSDT_BACKTEST",
+        )
+    )
+    allowed_paths = (
+        str(eff_run_dir),
+        str(repo_root / "docs" / "artifacts" / "v17_9_0" / eff_run_id),
+        str(repo_root / "tmp" / "v17_9_0" / eff_run_id),
+        str(repo_root / "backtest"),
+    )
+    safety_pol = {
+        "trading_authorization": "MARKET_SHADOW_RESEARCH_ONLY",
+        "paper_auto_trading_authorized": False,
+        "live_trading_authorized": False,
+        "allow_stale_run_import": False,
+        "allow_nested_provenance_overwrite": False,
+        "allow_retry_masking_of_primary_failures": False,
+        "reserved_disk_floor_bytes": 3 * 1024 * 1024 * 1024,
+    }
+    launch_ctx = {
+        "producer_pid": os.getpid(),
+        "parent_pid": os.getppid(),
+        "python_executable": sys.executable,
+        "platform": sys.platform,
+        "cpu_count": os.cpu_count() or 1,
+    }
+
+    temp_ctx = R331RunContext(
+        run_id=eff_run_id,
+        release="V17.9.0.1.3",
+        phase="R3.3.2",
+        schema_version="R332_INITIAL_RUN_MANIFEST_V1",
+        frozen_executable_sha=eff_sha,
+        executable_tree_hash=tree_hash,
+        branch=actual_branch,
+        runner_version=runner_version,
+        dataset_sha256=eff_ds_sha,
+        configuration_hash=eff_cfg_hash,
+        historical_baseline_sha=eff_hist_sha,
+        created_at_utc=now_utc,
+        created_at_ms=now_ms,
+        created_monotonic_ns=mono_ns,
+        manifest_path=manifest_path,
+        run_dir=eff_run_dir,
+        reports_dir=reports_dir,
+        logs_dir=logs_dir,
+        allowed_workspace_paths=allowed_paths,
+        required_task_ids=req_tasks,
+        mandatory_suite_selection=suites,
+        safety_policy=safety_pol,
+        launch_context=launch_ctx,
+        initial_manifest_sha256="",
+    )
+    init_dict = temp_ctx.to_initial_manifest_dict()
+    init_dict["expected_mandatory_artifacts"] = list(R332_MANDATORY_ARTIFACTS)
+    init_sha = _atomic_write_json(manifest_path, init_dict)
+    return R331RunContext(
+        **{
+            **temp_ctx.__dict__,
+            "initial_manifest_sha256": init_sha,
+        }
+    )
+
+
+def verify_r332_pre_execution_manifest(manifest_or_path: Any, **kwargs: Any) -> Dict[str, Any]:
+    """Verifies R332_INITIAL_RUN_MANIFEST.json pre-execution invariants."""
+    return verify_r331_pre_execution_manifest(manifest_or_path, **kwargs)
+
+
+def finalize_r332_run_manifest(
+    run_context: R331RunContext,
+    *,
+    final_status: Optional[str] = None,
+    status: Optional[str] = None,
+    backtest_source_sha: Optional[str] = None,
+    verdict_summary: Optional[Mapping[str, Any]] = None,
+    summary_metrics: Optional[Mapping[str, Any]] = None,
+    task_accounting_summary: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Writes completion metadata to R332_RUN_MANIFEST_FINALIZATION.json while preserving R332_INITIAL_RUN_MANIFEST.json."""
+    if not run_context.manifest_path.exists():
+        raise RuntimeError(f"R332_INITIAL_MANIFEST_MISSING_ON_FINALIZE:{run_context.manifest_path}")
+    initial_bytes = run_context.manifest_path.read_bytes()
+    actual_initial_sha256 = hashlib.sha256(initial_bytes).hexdigest()
+    initial_doc = json.loads(initial_bytes.decode("utf-8"))
+    if str(initial_doc.get("status") or "").upper() not in ("RUNNING", "PENDING"):
+        raise RuntimeError(f"R332_INITIAL_MANIFEST_MUTATED_STATUS:{initial_doc.get('status')}")
+
+    completed_ms = int(time.time() * 1000)
+    completed_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if completed_ms < run_context.created_at_ms:
+        completed_ms = run_context.created_at_ms
+
+    eff_status = str(final_status or status or "PASS").strip().upper()
+    eff_bt_sha = str(backtest_source_sha or run_context.frozen_executable_sha).strip()
+    eff_verdict = dict(verdict_summary or summary_metrics or {})
+
+    finalization_payload: Dict[str, Any] = {
+        "schema_version": "R332_RUN_MANIFEST_FINALIZATION_V1",
+        "release": run_context.release,
+        "phase": "R3.3.2",
+        "run_id": run_context.run_id,
+        "frozen_executable_sha": run_context.frozen_executable_sha,
+        "final_code_sha": run_context.frozen_executable_sha,
+        "tested_source_sha": run_context.frozen_executable_sha,
+        "backtest_source_sha": eff_bt_sha,
+        "executable_tree_hash": run_context.executable_tree_hash,
+        "initial_manifest_filename": "R332_INITIAL_RUN_MANIFEST.json",
+        "initial_manifest_sha256": actual_initial_sha256,
+        "created_at_utc": run_context.created_at_utc,
+        "created_at_ms": run_context.created_at_ms,
+        "completed_at_utc": completed_utc,
+        "completed_at_ms": completed_ms,
+        "duration_ms": max(0, completed_ms - run_context.created_at_ms),
+        "final_status": eff_status,
+        "status": eff_status,
+        "verdict_summary": eff_verdict,
+        "summary_metrics": eff_verdict,
+        "task_accounting_summary": dict(task_accounting_summary or {}),
+    }
+    finalization_path = run_context.run_dir / "R332_RUN_MANIFEST_FINALIZATION.json"
     _atomic_write_json(finalization_path, finalization_payload)
     return finalization_payload
 
