@@ -1,8 +1,8 @@
 # V17.9.0.1.2 — Strict Eligibility Invariant Report (`DEF-179012-01` & `DEF-179012-02`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Evaluator Version:** `17.9.0.1.1`
-- **Negative Controls Verified (`N01`–`N50`):** `198/198` (`status=PASS`)
+- **Negative Controls Verified (`N01`–`N50`):** `234/234` (`status=PASS`)
 
 ## 1. Global Positive Eligibility Contract (`validate_canonical_executability`)
 A strategy decision is executable **ONLY** when:

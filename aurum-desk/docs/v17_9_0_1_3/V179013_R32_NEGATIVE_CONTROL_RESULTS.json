@@ -1,9 +1,9 @@
 {
   "release": "V17.9.0.1.3",
   "phase": "R3.2",
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
-  "total_negative_controls": 198,
-  "passed_negative_controls": 198,
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "total_negative_controls": 234,
+  "passed_negative_controls": 234,
   "failed_negative_controls": 0,
   "status": "PASS",
   "controls": [
@@ -1590,6 +1590,294 @@
       "passed": true,
       "status": "PASS",
       "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-01",
+      "injected_condition": "R3.3.2: Primary subprocess exit_code=1 + retry=0 rejected as non-clean",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-02",
+      "injected_condition": "R3.3.2: Original JUnit has 1 failing testcase + derived XML all PASS rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-03",
+      "injected_condition": "R3.3.2: Mutated primary_exit_code 1 to 0 detected against raw log",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-04",
+      "injected_condition": "R3.3.2: Missing original raw shard XML fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-05",
+      "injected_condition": "R3.3.2: Missing original raw shard log fails closed",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-06",
+      "injected_condition": "R3.3.2: Altered raw XML without manifest SHA update rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-07",
+      "injected_condition": "R3.3.2: Altered retry XML with matching metadata only rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-08",
+      "injected_condition": "R3.3.2: Duplicate attempt ID rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-09",
+      "injected_condition": "R3.3.2: Duplicate testcase ID collapsed rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-10",
+      "injected_condition": "R3.3.2: Retry reusing primary attempt ID rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-11",
+      "injected_condition": "R3.3.2: Retry claiming ACTUAL_SUBPROCESS without PID/argv/timestamps rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-12",
+      "injected_condition": "R3.3.2: Derived projection claiming independently executed pytest rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-13",
+      "injected_condition": "R3.3.2: Derived JUnit sidecar exit 0 while linked raw attempt exit 1 rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-14",
+      "injected_condition": "R3.3.2: Master worker ledger 22/20/2 failed with Phase-H 17/17 rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-15",
+      "injected_condition": "R3.3.2: Missing master worker ledger rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-16",
+      "injected_condition": "R3.3.2: Empty master worker ledger rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-17",
+      "injected_condition": "R3.3.2: Missing primary shard started_at_ms rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-18",
+      "injected_condition": "R3.3.2: Missing worker source SHA rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-19",
+      "injected_condition": "R3.3.2: Cross-run retry XML sidecar rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-20",
+      "injected_condition": "R3.3.2: Cross-commit XML with same testcase name rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-21",
+      "injected_condition": "R3.3.2: Missing backend tests in shard inventory rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-22",
+      "injected_condition": "R3.3.2: Interrupted worker/timeout reported PASS rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-23",
+      "injected_condition": "R3.3.2: Orphaned worker after run rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-24",
+      "injected_condition": "R3.3.2: Actual peak concurrency > limit rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-25",
+      "injected_condition": "R3.3.2: Disk guard threshold breached but report PASS rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-26",
+      "injected_condition": "R3.3.2: Memory sampling failed but numeric default PASS rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-27",
+      "injected_condition": "R3.3.2: One negative control absent from registry/execution rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-28",
+      "injected_condition": "R3.3.2: Bad backtest source SHA rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-29",
+      "injected_condition": "R3.3.2: Bad dataset SHA rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-30",
+      "injected_condition": "R3.3.2: Separate historical baseline SHA identity preserved",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-31",
+      "injected_condition": "R3.3.2: Rerun file passes after original fail classified FLAKY and blocks",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-32",
+      "injected_condition": "R3.3.2: Two formerly failing tests pass in former shard neighbor layout",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-33",
+      "injected_condition": "R3.3.2: Attempt artifact deleted by cleanup rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-34",
+      "injected_condition": "R3.3.2: Apparent 0 failures but raw worker ledger nonzero rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-35",
+      "injected_condition": "R3.3.2: Run manifest created after first mandatory worker rejected",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
+    },
+    {
+      "test_id": "R332-36",
+      "injected_condition": "R3.3.2: Positive control with primary zero failures accepted",
+      "expected_result": "Fail-closed rejection / block",
+      "passed": true,
+      "status": "PASS",
+      "details": "VERIFIED_FAIL_CLOSED"
     }
   ],
   "results": [
@@ -2778,6 +3066,222 @@
     {
       "test_id": "R331-30",
       "description": "R3.3.1 (P0-F): Post-manifest byte mutation in R331 deliverable fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-01",
+      "description": "R3.3.2: Primary subprocess exit_code=1 + retry=0 rejected as non-clean",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-02",
+      "description": "R3.3.2: Original JUnit has 1 failing testcase + derived XML all PASS rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-03",
+      "description": "R3.3.2: Mutated primary_exit_code 1 to 0 detected against raw log",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-04",
+      "description": "R3.3.2: Missing original raw shard XML fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-05",
+      "description": "R3.3.2: Missing original raw shard log fails closed",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-06",
+      "description": "R3.3.2: Altered raw XML without manifest SHA update rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-07",
+      "description": "R3.3.2: Altered retry XML with matching metadata only rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-08",
+      "description": "R3.3.2: Duplicate attempt ID rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-09",
+      "description": "R3.3.2: Duplicate testcase ID collapsed rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-10",
+      "description": "R3.3.2: Retry reusing primary attempt ID rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-11",
+      "description": "R3.3.2: Retry claiming ACTUAL_SUBPROCESS without PID/argv/timestamps rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-12",
+      "description": "R3.3.2: Derived projection claiming independently executed pytest rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-13",
+      "description": "R3.3.2: Derived JUnit sidecar exit 0 while linked raw attempt exit 1 rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-14",
+      "description": "R3.3.2: Master worker ledger 22/20/2 failed with Phase-H 17/17 rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-15",
+      "description": "R3.3.2: Missing master worker ledger rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-16",
+      "description": "R3.3.2: Empty master worker ledger rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-17",
+      "description": "R3.3.2: Missing primary shard started_at_ms rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-18",
+      "description": "R3.3.2: Missing worker source SHA rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-19",
+      "description": "R3.3.2: Cross-run retry XML sidecar rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-20",
+      "description": "R3.3.2: Cross-commit XML with same testcase name rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-21",
+      "description": "R3.3.2: Missing backend tests in shard inventory rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-22",
+      "description": "R3.3.2: Interrupted worker/timeout reported PASS rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-23",
+      "description": "R3.3.2: Orphaned worker after run rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-24",
+      "description": "R3.3.2: Actual peak concurrency > limit rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-25",
+      "description": "R3.3.2: Disk guard threshold breached but report PASS rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-26",
+      "description": "R3.3.2: Memory sampling failed but numeric default PASS rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-27",
+      "description": "R3.3.2: One negative control absent from registry/execution rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-28",
+      "description": "R3.3.2: Bad backtest source SHA rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-29",
+      "description": "R3.3.2: Bad dataset SHA rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-30",
+      "description": "R3.3.2: Separate historical baseline SHA identity preserved",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-31",
+      "description": "R3.3.2: Rerun file passes after original fail classified FLAKY and blocks",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-32",
+      "description": "R3.3.2: Two formerly failing tests pass in former shard neighbor layout",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-33",
+      "description": "R3.3.2: Attempt artifact deleted by cleanup rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-34",
+      "description": "R3.3.2: Apparent 0 failures but raw worker ledger nonzero rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-35",
+      "description": "R3.3.2: Run manifest created after first mandatory worker rejected",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "test_id": "R332-36",
+      "description": "R3.3.2: Positive control with primary zero failures accepted",
       "status": "PASS",
       "error": null
     }

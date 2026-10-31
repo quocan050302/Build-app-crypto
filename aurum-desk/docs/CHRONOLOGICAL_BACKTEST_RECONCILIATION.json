@@ -2,7 +2,7 @@
   "authoritative_chronological_ledger_trades_count": 18,
   "evaluated_windows_count": 150,
   "fabricated_forward_candles_total": 0,
-  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "inspected_windows_count": 150,
   "is_valid": true,
   "matched_chronological_trades_count": 58,

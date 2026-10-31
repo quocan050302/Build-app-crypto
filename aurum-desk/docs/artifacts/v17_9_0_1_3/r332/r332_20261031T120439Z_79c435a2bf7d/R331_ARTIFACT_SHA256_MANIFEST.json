@@ -1,0 +1,143 @@
+{
+  "artifacts": {
+    "R331_ASYNC_WORKER_TELEMETRY.json": {
+      "filename": "R331_ASYNC_WORKER_TELEMETRY.json",
+      "sha256": "aaf07313a996fe526e8edc11c58db1aaecd745765a59e090275a16bd799165c8",
+      "size_bytes": 732
+    },
+    "R331_BACKTEST_TRADE_LINEAGE.jsonl": {
+      "filename": "R331_BACKTEST_TRADE_LINEAGE.jsonl",
+      "sha256": "387840b389943ac0de87e58c5bbda59e4a639b6bb2dc90c0485d5fca8c0b4224",
+      "size_bytes": 226998
+    },
+    "R331_BACKTEST_VARIANTS_ABCD.json": {
+      "filename": "R331_BACKTEST_VARIANTS_ABCD.json",
+      "sha256": "01660a5ed87ff4713ca6e221e0bc1b7e413e88520b2742b94d0cf75b9a29e3c8",
+      "size_bytes": 282403
+    },
+    "R331_COMMAND_AND_SOURCE_EXECUTIONS.jsonl": {
+      "filename": "R331_COMMAND_AND_SOURCE_EXECUTIONS.jsonl",
+      "sha256": "4e4558d755e9434c4d6d11eb1409bde072e6f173412fe0a883aa240e79f3f34f",
+      "size_bytes": 10820
+    },
+    "R331_DISK_BUDGET_AND_CLEANUP.json": {
+      "filename": "R331_DISK_BUDGET_AND_CLEANUP.json",
+      "sha256": "4eb8c56b9382ffaad35d31c016e4ab5e70cfa780d553ecd45497503b1912a15a",
+      "size_bytes": 1186151
+    },
+    "R331_EXACT_SOURCE_BACKTEST_MANIFEST.json": {
+      "filename": "R331_EXACT_SOURCE_BACKTEST_MANIFEST.json",
+      "sha256": "291fbe2858805b10f53a1c8d79bee9c1b97cce727b9be1cc701dc8166dc83d2a",
+      "size_bytes": 1553
+    },
+    "R331_FINAL_ACCEPTANCE_AUDIT.md": {
+      "filename": "R331_FINAL_ACCEPTANCE_AUDIT.md",
+      "sha256": "7c654d3e0691e95a87f1cb4b4cf212ce26525ef0d50ebec2068061746016500f",
+      "size_bytes": 4949
+    },
+    "R331_FIVE_WAY_PARITY.json": {
+      "filename": "R331_FIVE_WAY_PARITY.json",
+      "sha256": "1c429d0386d2307415168d84f0d47c8f2445b578aa299cf513c1dc22af0f747d",
+      "size_bytes": 2522
+    },
+    "R331_HISTORICAL_PRODUCTION_LINEAGE.jsonl": {
+      "filename": "R331_HISTORICAL_PRODUCTION_LINEAGE.jsonl",
+      "sha256": "11f8d809b46d93d39ab74521c8a0db69ae1ecb0ea1ae909331fe70b491fb9e30",
+      "size_bytes": 183446
+    },
+    "R331_INDEPENDENT_VERIFICATION.json": {
+      "filename": "R331_INDEPENDENT_VERIFICATION.json",
+      "sha256": "884d89ab5531db2ad714b93ffd309fc01cde285571cf3ac427dd679cfadbb0e8",
+      "size_bytes": 2646
+    },
+    "R331_INITIAL_RUN_MANIFEST.json": {
+      "filename": "R331_INITIAL_RUN_MANIFEST.json",
+      "sha256": "952cdb8a67ed262283fb58b6d7da96b99d97e612b8bf7d049f4071fa6cee398b",
+      "size_bytes": 4663
+    },
+    "R331_JUNIT_OVERLAP_AND_RECONCILIATION.json": {
+      "filename": "R331_JUNIT_OVERLAP_AND_RECONCILIATION.json",
+      "sha256": "8a83fb8be2230b81d52c5f245507fcbf54b58297234a4f9ae2e9667a3c6d319e",
+      "size_bytes": 651
+    },
+    "R331_JUNIT_PER_XML_RECALCULATION.json": {
+      "filename": "R331_JUNIT_PER_XML_RECALCULATION.json",
+      "sha256": "c6a6dbce2b59ba7a6cd8f7baba8c6de5260c72d8b90a7296fbaae30507fb73d3",
+      "size_bytes": 38216
+    },
+    "R331_JUNIT_SCOPE_INVENTORY.json": {
+      "filename": "R331_JUNIT_SCOPE_INVENTORY.json",
+      "sha256": "f790267c9ae0e5da4868298570d15cd8e1c1dbaf80a58bd28370a1760111fb02",
+      "size_bytes": 684
+    },
+    "R331_MATCHED_COHORT_AND_OOS.json": {
+      "filename": "R331_MATCHED_COHORT_AND_OOS.json",
+      "sha256": "0dd48b5cf6d6ed566b2134a6b1f8c34f493e9cbff5983e8eb2dc700ce9c5b82d",
+      "size_bytes": 95028
+    },
+    "R331_MEMORY_UNIT_AND_SCOPE_REPORT.json": {
+      "filename": "R331_MEMORY_UNIT_AND_SCOPE_REPORT.json",
+      "sha256": "0a0c811a707c968203f61a1ab209ba12fbb6153f78804bdb3f3e264859b433ee",
+      "size_bytes": 862435
+    },
+    "R331_NEGATIVE_COLLECTION.json": {
+      "filename": "R331_NEGATIVE_COLLECTION.json",
+      "sha256": "4eb2693622f51bd0b373e8b3f9b1719187b93b79b0e3462e4797ae9afe05affe",
+      "size_bytes": 3259
+    },
+    "R331_NEGATIVE_RESULTS.json": {
+      "filename": "R331_NEGATIVE_RESULTS.json",
+      "sha256": "394fbdaab4125d09f98f1491d1a983fe611c54027fbe59200ed2d476e90d7b30",
+      "size_bytes": 109042
+    },
+    "R331_ROOT_CAUSE_AND_FUNCTION_CLOSURE.md": {
+      "filename": "R331_ROOT_CAUSE_AND_FUNCTION_CLOSURE.md",
+      "sha256": "61a65dc162fa68de1051b905ca0d6780faa2904cf2f3f528ebbe3e5a70eea0a1",
+      "size_bytes": 3271
+    },
+    "R331_RUNTIME_INPUT_CAPTURES.jsonl": {
+      "filename": "R331_RUNTIME_INPUT_CAPTURES.jsonl",
+      "sha256": "10c4f4f3e8bcdb42c8aefff134734760541842532fb9ccab82a132d268026d43",
+      "size_bytes": 1531044
+    },
+    "R331_RUNTIME_INPUT_SNAPSHOTS.jsonl": {
+      "filename": "R331_RUNTIME_INPUT_SNAPSHOTS.jsonl",
+      "sha256": "b705dbdad2d3ca9c3e7315d2970bf28c1c38acc81c3a85d2ca127bcf07f7fe17",
+      "size_bytes": 8050618
+    },
+    "R331_RUNTIME_INVOCATION_EVENTS.jsonl": {
+      "filename": "R331_RUNTIME_INVOCATION_EVENTS.jsonl",
+      "sha256": "dffccc30663bc36075e80df82d3203d0242dd4de71b7a6e48ca6c53fdb9e3af0",
+      "size_bytes": 3387825
+    },
+    "R331_RUNTIME_PROVENANCE_VERIFICATION.json": {
+      "filename": "R331_RUNTIME_PROVENANCE_VERIFICATION.json",
+      "sha256": "981f7f91021851aa891a147d5a71e2383e7fe26052e93ad2902fd7dea44660c6",
+      "size_bytes": 965
+    },
+    "R331_RUN_MANIFEST_FINALIZATION.json": {
+      "filename": "R331_RUN_MANIFEST_FINALIZATION.json",
+      "sha256": "4b96aa3d6734cb1804de1ab145073970d1c396aaeed7254d00bdbeeb20f4500a",
+      "size_bytes": 1488
+    },
+    "R331_TASK_ACCOUNTING.json": {
+      "filename": "R331_TASK_ACCOUNTING.json",
+      "sha256": "27f526139c811d4fc802e6fbd73a5493ae14c227809eea3c356a703bec6b8b69",
+      "size_bytes": 888
+    },
+    "R331_WORKER_EXECUTIONS.jsonl": {
+      "filename": "R331_WORKER_EXECUTIONS.jsonl",
+      "sha256": "88b7e487a22d11486594996896b4862a34079b8d52945a7bc5fefa00c0d2af6b",
+      "size_bytes": 10073
+    }
+  },
+  "backtest_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "frozen_executable_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "generated_at_utc": "2026-10-31T12:09:07.479489+00:00",
+  "phase": "R3.3.1",
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "R331_ARTIFACT_SHA256_MANIFEST_V1",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
+}

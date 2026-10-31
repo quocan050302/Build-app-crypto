@@ -1,5 +1,5 @@
 {
-  "acceptance_run_id": "r331_20261031T102132Z_c30288f198f2",
+  "acceptance_run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "all_valid_setups_matched_comparison": {
     "A": {
       "MAE": 2.7428,
@@ -816,10 +816,10 @@
     "variant_name": "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)",
     "win_rate": 0.3889
   },
-  "backtest_run_id": "r331_20261031T102132Z_c30288f198f2",
+  "backtest_run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "cache_provenance": {
     "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
+    "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
     "cost_spread_assumptions": {
       "default_slippage_usd": 0.1,
       "default_spread_usd": 0.25,
@@ -842,31 +842,31 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-    "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93"
+    "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+    "source_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad"
   },
-  "completed_at_ms": 1793442131370,
-  "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
+  "completed_at_ms": 1793448317106,
+  "completed_at_utc": "2026-10-31T12:05:17.106000+00:00",
   "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-  "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
+  "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "evaluator_version": "17.9.0.1.1",
   "execution_provenance": {
     "command": [
       "-c"
     ],
-    "completed_at_ms": 1793442131370,
-    "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
-    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
-    "duration_ms": 36876,
-    "executable_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
-    "pid": 69556,
-    "ppid": 69537,
-    "run_id": "r331_20261031T102132Z_c30288f198f2",
-    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-    "started_at_ms": 1793442094494,
-    "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
-    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+    "completed_at_ms": 1793448317106,
+    "completed_at_utc": "2026-10-31T12:05:17.106000+00:00",
+    "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
+    "duration_ms": 34924,
+    "executable_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad",
+    "pid": 86350,
+    "ppid": 86347,
+    "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+    "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+    "started_at_ms": 1793448282182,
+    "started_at_utc": "2026-10-31T12:04:42.182000+00:00",
+    "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
   },
   "experiment_1_matched_sl_only_comparison": {
     "eligibility_transition_matrix": {
@@ -2954,19 +2954,19 @@
   "release": "V17.9.0.1.3",
   "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED",
   "research_scope_variants_abcd": "SL_VARIANT_COMPARISON_RESEARCH_ABCD",
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "runner_version": "V17.9.0.1.2_CHRONOLOGICAL_PARITY_RUNNER_V1",
   "schema_version": "V17.8.0.4",
-  "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-  "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
-  "started_at_ms": 1793442094494,
-  "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
-  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "source_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad",
+  "started_at_ms": 1793448282182,
+  "started_at_utc": "2026-10-31T12:04:42.182000+00:00",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "trade_decision_lineage_reconciliation": {
     "authoritative_rejections_count": 5758,
     "cache_provenance": {
       "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
-      "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
+      "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
       "cost_spread_assumptions": {
         "default_slippage_usd": 0.1,
         "default_spread_usd": 0.25,
@@ -2989,12 +2989,12 @@
         "risk_budget_usdt": 2.5,
         "synthetic_forward_candles_allowed": false
       },
-      "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-      "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93"
+      "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+      "source_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad"
     },
     "configuration_hash": "d39f133320605229cb89e7f6b309ad65f03cc6197ee9f58febe07e27b31f6b3f",
     "coordinate_mismatch_trades_count": 0,
-    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
+    "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
     "cost_spread_assumptions": {
       "default_slippage_usd": 0.1,
       "default_spread_usd": 0.25,
@@ -3023,8 +3023,8 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-    "source_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
+    "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+    "source_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad",
     "status": "PASS",
     "trade_decision_links": [
       {

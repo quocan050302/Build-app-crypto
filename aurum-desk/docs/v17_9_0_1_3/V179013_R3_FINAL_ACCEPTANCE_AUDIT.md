@@ -4,10 +4,10 @@
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
 - **Starting HEAD:** `03c12313ccf4d107692578f2aa3dda7716ad0f3d`
-- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Evidence Commit SHA:** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Frozen Executable Code SHA (`FINAL_CODE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Evidence Commit SHA:** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Exact Source Tree Equality:** Verified bitwise identical (`FINAL_CODE_SHA == TESTED_SOURCE_SHA == BACKTEST_SOURCE_SHA`)
 - **Working Tree Status:** Clean, all repairs committed on existing branch
 
@@ -30,11 +30,11 @@
 
 ## D. Regression & Negative Acceptance Controls
 - **Total Mandatory Gates:** `107` (107/107 PASSED)
-- **Unique Test Cases Count:** `4451`
-- **Total Reconciled Test Executions:** `5846`
-- **Passed / Failed / Errors / Skipped:** `5846` passed, `0` failed, `0` errors, `0` skipped
+- **Unique Test Cases Count:** `4487`
+- **Total Reconciled Test Executions:** `5882`
+- **Passed / Failed / Errors / Skipped:** `5882` passed, `0` failed, `0` errors, `0` skipped
 - **JUnit XML Files:** 93 suites dynamically aggregated from disk
-- **Negative Acceptance Controls:** `198/198` PASSED (N01–N145)
+- **Negative Acceptance Controls:** `234/234` PASSED (N01–N145)
 
 ## E. Real Historical Backtest
 - **A/B/C/D Variants Evaluated:** Real chronological XAUUSDT backtest
@@ -43,7 +43,7 @@
 - **Net Expectancy (R):** Variant C=-0.3796R
 - **Matched Cohort:** `3` trades saved from SL by Unicorn Variant C
 - **OOS Verdict:** `OUT_OF_SAMPLE_INCONCLUSIVE`
-- **Exact Backtest Executed SHA:** `c30288f198f2cd636f334aa4d257ccadd3ca9e13` (Identical to `FINAL_CODE_SHA`)
+- **Exact Backtest Executed SHA:** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030` (Identical to `FINAL_CODE_SHA`)
 
 ## F. Async Performance & Disk Safety
 - **Actual Workers:** 10 parallel sharded workers, peak concurrency 4

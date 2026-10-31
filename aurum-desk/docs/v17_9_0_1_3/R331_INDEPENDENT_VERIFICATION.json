@@ -1,5 +1,5 @@
 {
-  "expected_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "expected_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "hash_coverage_verification": {
     "is_valid": true,
     "status": "PASS",
@@ -12,23 +12,31 @@
       "overlapping_test_executions": 1395,
       "raw_total_errors": 0,
       "raw_total_failures": 0,
-      "raw_total_passed": 5846,
+      "raw_total_passed": 5882,
       "raw_total_skipped": 0,
-      "raw_total_tests": 5846,
-      "unique_test_node_count": 4451,
+      "raw_total_tests": 5882,
+      "unique_test_node_count": 4487,
       "xml_files_count": 93
     },
     "is_valid": true,
     "status": "PASS",
-    "suite_scope": null,
+    "suite_scope": {
+      "raw_total_errors": 0,
+      "raw_total_failures": 0,
+      "raw_total_passed": 5046,
+      "raw_total_skipped": 0,
+      "raw_total_tests": 5046,
+      "unique_test_node_count": 5046,
+      "xml_files_count": 12
+    },
     "violations": []
   },
   "manifest_lifecycle_verification": {
-    "created_at_ms": 1793442092793,
+    "created_at_ms": 1793448281608,
     "is_valid": true,
-    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "run_id": "r332_20261031T120439Z_79c435a2bf7d",
     "status": "PASS",
-    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
     "violations": []
   },
   "recalculated_verdict": "VERIFIED_FOUNDATION_CLOSURE \u2014 READY_TO_PROCEED_TO_V17_9_1",
@@ -37,7 +45,7 @@
     "status": "PASS",
     "violations": []
   },
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "runtime_capture_verification": {
     "cross_runtime_config_hash_mismatches_count": 0,
     "cross_runtime_input_hash_mismatches_count": 0,
@@ -51,20 +59,20 @@
     "model_evaluations_count": 750,
     "model_scenarios_count": 150,
     "non_monotonic_invocations_count": 0,
-    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "run_id": "r332_20261031T120439Z_79c435a2bf7d",
     "runtime_captures_count": 750,
     "schema_version": "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION_V1",
     "snapshots_count": 840,
     "snapshots_hash_recomputed_verified_count": 840,
     "status": "PASS",
-    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
     "timestamps_evaluated_count": 30,
     "uncompleted_invocations_count": 0,
     "violations": []
   },
   "schema_version": "R331_INDEPENDENT_VERIFICATION_V1",
   "status": "PASS",
-  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "violations": [],
   "worker_accounting_verification": {
     "is_valid": true,

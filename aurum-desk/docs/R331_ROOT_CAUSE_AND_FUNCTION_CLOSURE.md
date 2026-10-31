@@ -1,9 +1,9 @@
 # AURUM DESK V17.9.0.1.3 R3.3.1 — Root-Cause & Exact-Function Closure Matrix (`P0-A` through `P0-F`)
 
-- **Run ID:** `r331_20261031T102132Z_c30288f198f2`
+- **Run ID:** `r332_20261031T120439Z_79c435a2bf7d`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
-- **Frozen Executable Code SHA (`FROZEN_EXECUTABLE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Backtest Source SHA (`BACKTEST_SOURCE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Frozen Executable Code SHA (`FROZEN_EXECUTABLE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Backtest Source SHA (`BACKTEST_SOURCE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Pinned Historical Pre-Refactor Baseline SHA:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 
 ## 1. Exact Root-Cause & Function-Level Closure Matrix

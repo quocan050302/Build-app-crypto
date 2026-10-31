@@ -1,18 +1,18 @@
 {
   "allowed_workspace_paths": [
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2",
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2",
-    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tmp/v17_9_0/r331_20261031T102132Z_c30288f198f2",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r332_20261031T120439Z_79c435a2bf7d",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r332_20261031T120439Z_79c435a2bf7d",
+    "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tmp/v17_9_0/r332_20261031T120439Z_79c435a2bf7d",
     "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backtest"
   ],
-  "backtest_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "backtest_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "branch": "fix/v17-9-0-1-3-historical-parity-hardening",
   "configuration_hash": "7b9283947d71bcf2795ceebe64b39f6052f2e6029c7f6ee8a66e49b281b4db57",
-  "created_at_ms": 1793442092793,
-  "created_at_utc": "2026-10-31T10:21:32Z",
-  "created_monotonic_ns": 297989402286125,
+  "created_at_ms": 1793448281608,
+  "created_at_utc": "2026-10-31T12:04:41Z",
+  "created_monotonic_ns": 304178211682000,
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
-  "executable_tree_hash": "cbd344ba624fa79ac9b9a0733f86c80878efb291ca09174a972d446465a2c783",
+  "executable_tree_hash": "f357adba9bfbe0416a7b0acc566c743cd5d45a93b122dfdbb9b3af937eb78c0c",
   "expected_mandatory_artifacts": [
     "R331_INITIAL_RUN_MANIFEST.json",
     "R331_RUN_MANIFEST_FINALIZATION.json",
@@ -42,14 +42,14 @@
     "R331_INDEPENDENT_VERIFICATION.json",
     "R331_FINAL_ACCEPTANCE_AUDIT.md"
   ],
-  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-  "frozen_executable_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "frozen_executable_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "historical_baseline_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
   "launch_context": {
     "cpu_count": 8,
-    "parent_pid": 69537,
+    "parent_pid": 86347,
     "platform": "darwin",
-    "producer_pid": 69550,
+    "producer_pid": 86350,
     "python_executable": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3"
   },
   "mandatory_suite_selection": [
@@ -61,10 +61,10 @@
     "NEGATIVE_CONTROLS",
     "CHRONOLOGICAL_XAUUSDT_BACKTEST"
   ],
-  "manifest_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2/R331_INITIAL_RUN_MANIFEST.json",
+  "manifest_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r332_20261031T120439Z_79c435a2bf7d/R331_INITIAL_RUN_MANIFEST.json",
   "phase": "R3.3.1",
-  "pid": 69550,
-  "ppid": 69537,
+  "pid": 86350,
+  "ppid": 86347,
   "release": "V17.9.0.1.3",
   "required_task_ids": [
     "G89_SHARED_STRATEGY_EVALUATOR_FOUNDATION",
@@ -85,8 +85,8 @@
     "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY"
   ],
-  "run_directory": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r331_20261031T102132Z_c30288f198f2",
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "run_directory": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0_1_3/r331/r332_20261031T120439Z_79c435a2bf7d",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "runner_version": "17.9.0.1.3-R3.3.1",
   "safety_policy": {
     "allow_nested_provenance_overwrite": false,
@@ -98,5 +98,5 @@
   },
   "schema_version": "R331_INITIAL_RUN_MANIFEST_V1",
   "status": "RUNNING",
-  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
 }

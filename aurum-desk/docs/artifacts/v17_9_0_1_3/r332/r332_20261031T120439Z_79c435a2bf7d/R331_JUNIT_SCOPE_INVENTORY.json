@@ -1,0 +1,16 @@
+{
+  "cross_directory_identical": true,
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "gate_xml_files_count": 93,
+  "gate_xml_overlapping_executions": 1395,
+  "gate_xml_raw_total_tests": 5882,
+  "gate_xml_unique_test_nodes": 4487,
+  "phase": "R3.3.1",
+  "r331_reports_dir": "docs/artifacts/v17_9_0_1_3/r331/r332_20261031T120439Z_79c435a2bf7d/reports",
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "R331_JUNIT_SCOPE_INVENTORY_V1",
+  "status": "PASS",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "v17_9_0_reports_dir": "docs/artifacts/v17_9_0/r332_20261031T120439Z_79c435a2bf7d/reports"
+}

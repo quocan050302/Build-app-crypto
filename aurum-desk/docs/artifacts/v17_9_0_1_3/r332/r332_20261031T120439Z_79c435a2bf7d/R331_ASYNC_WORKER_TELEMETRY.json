@@ -1,0 +1,20 @@
+{
+  "cpu_pool_workers": 8,
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "free_disk_bytes_postflight": 17667055616,
+  "max_active_workers_observed": 8,
+  "max_configured_workers": 8,
+  "orphan_processes_remaining": 0,
+  "peak_process_rss_bytes": 618053632,
+  "peak_process_tree_rss_bytes": 1966505984,
+  "phase": "R3.3.1",
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "R331_ASYNC_WORKER_TELEMETRY_V1",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "speedup_measured": false,
+  "speedup_vs_serial": "SPEEDUP_NOT_MEASURED",
+  "status": "PASS",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "wall_clock_seconds": 292.736
+}

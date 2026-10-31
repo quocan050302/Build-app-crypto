@@ -3,14 +3,14 @@
 ## A. Git Identity & Exact Frozen Commit Invariants (`P0-04`)
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
-- **Run ID:** `r331_20261031T102132Z_c30288f198f2`
-- **Run Directory:** `docs/artifacts/v17_9_0_1_3/r33/r331_20261031T102132Z_c30288f198f2`
-- **Frozen Executable Code SHA (`FROZEN_EXECUTABLE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Final Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Run ID:** `r332_20261031T120439Z_79c435a2bf7d`
+- **Run Directory:** `docs/artifacts/v17_9_0_1_3/r33/r332_20261031T120439Z_79c435a2bf7d`
+- **Frozen Executable Code SHA (`FROZEN_EXECUTABLE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Acceptance Tested Source SHA (`TESTED_SOURCE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Backtest Source Executable SHA (`BACKTEST_SOURCE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Historical Pre-Refactor Reference Commit:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
-- **Executable Source Tree SHA-256:** `242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93`
+- **Executable Source Tree SHA-256:** `e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad`
 - **Exact Commit Invariant (`FROZEN_EXECUTABLE_SHA == FINAL_CODE_SHA == TESTED_SOURCE_SHA == BACKTEST_SOURCE_SHA`):** `True`
 
 ## B. R3.3 P0 Root-Cause Closures (`P0-01` through `P0-08`)
@@ -44,11 +44,11 @@
 
 ## E. Full Regression, JUnit Sidecar Reconciliation & Negative Controls (`N01`–`N148` + `F01`–`F20`)
 - **Mandatory Release Gates (`G01`–`G107`):** `107/107` PASSED
-- **Negative & Fault-Injection Controls:** `198/198` PASSED (`failed=0`)
-- **JUnit XML Suites Reconciled (with `.xml.meta.json` sidecars):** `93` files, `5846` test executions (`5846` passed, `0` skipped, `0` failed, `0` errors), `4451` unique test cases
+- **Negative & Fault-Injection Controls:** `234/234` PASSED (`failed=0`)
+- **JUnit XML Suites Reconciled (with `.xml.meta.json` sidecars):** `93` files, `5882` test executions (`5882` passed, `0` skipped, `0` failed, `0` errors), `4487` unique test cases
 
 ## F. Real Historical XAUUSDT Backtest & Financial Disclosure
-- **Backtest Source SHA:** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Backtest Source SHA:** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Dataset SHA-256:** `6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5` (`M1=22376`, `M5=31609`, `M15=15090`, `H1=3863`, `H4=965`, `1D=181`)
 - **Variant A (Baseline):** `41` trades, Win Rate = `14.63%`, Net PnL = `$-69.6`, Expectancy = `-0.7032R`
 - **Variant B:** `25` trades, Win Rate = `28.00%`, Net PnL = `$-31.2265`, Expectancy = `-0.5179R`
@@ -59,9 +59,9 @@
 
 ## G. Bounded Async Execution & Resource Telemetry
 - **Max Configured / Active Observed Workers:** `8` / `8` (`orphan_processes_remaining=0`)
-- **Wall-Clock Duration:** `152.836s`
-- **Peak RSS Memory:** `599.12 MB`
-- **Postflight Free Disk Space:** `15 GB` (`status=PASS`)
+- **Wall-Clock Duration:** `292.736s`
+- **Peak RSS Memory:** `589.42 MB`
+- **Postflight Free Disk Space:** `16 GB` (`status=PASS`)
 
 ## H. Independent R3.3 Bundle Verification & Final Release Decision (`verify_r33_evidence_bundle`)
 - **Independent Verifier Status:** `PASS` (`is_valid=True`, `violations=0`)

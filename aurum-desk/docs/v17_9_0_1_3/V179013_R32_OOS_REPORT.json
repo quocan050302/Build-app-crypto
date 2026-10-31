@@ -1,7 +1,7 @@
 {
   "schema_version": "V17.8.0.4",
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
-  "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "split_protocol": "CHRONOLOGICAL_60_20_20_ZERO_LOOKAHEAD",
   "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",
@@ -4266,24 +4266,24 @@
     "hindsight_tp_optimization_forbidden": true,
     "hindsight_unicorn_classification_forbidden": true
   },
-  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "execution_provenance": {
-    "run_id": "r331_20261031T102132Z_c30288f198f2",
-    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-    "executable_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
-    "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
-    "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
-    "started_at_ms": 1793442094494,
-    "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
-    "completed_at_ms": 1793442131370,
-    "duration_ms": 36876,
-    "pid": 69556,
-    "ppid": 69537,
+    "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+    "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+    "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+    "executable_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad",
+    "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
+    "started_at_utc": "2026-10-31T12:04:42.182000+00:00",
+    "started_at_ms": 1793448282182,
+    "completed_at_utc": "2026-10-31T12:05:17.106000+00:00",
+    "completed_at_ms": 1793448317106,
+    "duration_ms": 34924,
+    "pid": 86350,
+    "ppid": 86347,
     "command": [
       "-c"
     ]
   },
-  "acceptance_run_id": "r331_20261031T102132Z_c30288f198f2",
-  "backtest_run_id": "r331_20261031T102132Z_c30288f198f2"
+  "acceptance_run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "backtest_run_id": "r332_20261031T120439Z_79c435a2bf7d"
 }

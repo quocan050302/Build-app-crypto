@@ -2,17 +2,17 @@
   "artifacts": {
     "R33_ASYNC_RESOURCE_TELEMETRY.json": {
       "filename": "R33_ASYNC_RESOURCE_TELEMETRY.json",
-      "sha256": "baaa2476516b321c9d12ba2a3e34531ab67a34ad6005a78ddf2a5928a8979ca3",
+      "sha256": "2c2587365702d1b2f8c8b488e50c6986eb2380214d4e5fbcbbfbfcdf63adf62e",
       "size_bytes": 547
     },
     "R33_BACKTEST_A_B_C_D_METRICS.json": {
       "filename": "R33_BACKTEST_A_B_C_D_METRICS.json",
-      "sha256": "4f7363395c20b97ff701ba2f5c859a158ae572c4983330a3dfb6a6f06db17342",
+      "sha256": "abc8af380f6e35ecb564fbeae8c75911824f5505b406327251d3952cb8fb49d3",
       "size_bytes": 282347
     },
     "R33_BACKTEST_TRADE_LEDGER.jsonl": {
       "filename": "R33_BACKTEST_TRADE_LEDGER.jsonl",
-      "sha256": "b1858cbca79fa22afef34124d617b6f5d6051bc8ae98f27aff1a4e16f1bed27b",
+      "sha256": "46e430367ab7f63609e1bc2fcc5f238d559c1223869180d9a8116be104a536b7",
       "size_bytes": 216078
     },
     "R33_DEFECT_ROOT_CAUSE_MATRIX.md": {
@@ -22,22 +22,22 @@
     },
     "R33_DISK_GUARD.json": {
       "filename": "R33_DISK_GUARD.json",
-      "sha256": "3667b6d37647d4182dd0221e63c15e4dd1c7d9de63703dd64974b82d2d7ae53e",
-      "size_bytes": 677096
+      "sha256": "088b7cc41a709ee9e12d95c1b5abbdb4c79ac8f84fede378f260066daf0304b1",
+      "size_bytes": 1184617
     },
     "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json": {
       "filename": "R33_EXACT_SOURCE_BACKTEST_MANIFEST.json",
-      "sha256": "4fd28c1e174b829e484fcb2700ab990991f8e69ad347677c4964bd7b20f5334e",
+      "sha256": "efd0bea688814cf088601fe730d37f43956e2759f8519a63bf28792879aa7e7d",
       "size_bytes": 709
     },
     "R33_FINAL_ACCEPTANCE_AUDIT.md": {
       "filename": "R33_FINAL_ACCEPTANCE_AUDIT.md",
-      "sha256": "bf73c6871461275436041df95edc048981f447ee41f57df7a9e6260068426e84",
+      "sha256": "81c61231692de4d0970d6f55341fffb8e50f137c9aabb40211ec2930f252948e",
       "size_bytes": 6717
     },
     "R33_FIVE_WAY_PARITY.json": {
       "filename": "R33_FIVE_WAY_PARITY.json",
-      "sha256": "5cdacfe9bd2d97307f305d7518456188ef72ff12875e860e9bcf022708a38ddd",
+      "sha256": "f5b693127da2eca4015e4d0d5fdef6bc7639ae17057cddf10b05e9f46ab988a5",
       "size_bytes": 2229
     },
     "R33_HISTORICAL_PRODUCTION_LINEAGE.jsonl": {
@@ -47,87 +47,87 @@
     },
     "R33_INDEPENDENT_VERIFIER_REPORT.json": {
       "filename": "R33_INDEPENDENT_VERIFIER_REPORT.json",
-      "sha256": "b381d303846f9327e90ded1f3ff86172394ae32faa506e4b71d23375aded88a2",
+      "sha256": "823187262881be91a04b0d3970bfde0d212db7d3227503b1de5eb40f68581ddd",
       "size_bytes": 1291
     },
     "R33_JUNIT_RECONCILIATION.json": {
       "filename": "R33_JUNIT_RECONCILIATION.json",
-      "sha256": "9cf68509b9647c860a0e2a1fa32e33b660d915a2832c1bdf2164b73839998d52",
+      "sha256": "167715704bfada76b660504fdc08170a87dbb5e634157412ee105049b18e45a2",
       "size_bytes": 14461
     },
     "R33_MATCHED_COHORT.json": {
       "filename": "R33_MATCHED_COHORT.json",
-      "sha256": "d56e0462de0f66dffb525eb22b39c1b862b4daf436e8490d45ca7a27bc11facf",
+      "sha256": "0a03b16a3840b202eb5587b075adf5d6cecafac44e8d48143c3eaca8abc59901",
       "size_bytes": 236036
     },
     "R33_NEGATIVE_TEST_COLLECTION.json": {
       "filename": "R33_NEGATIVE_TEST_COLLECTION.json",
-      "sha256": "5e689351c23389629a6e689a74101b4142762353e97671f63f7928b573256979",
-      "size_bytes": 2666
+      "sha256": "c71cc2decd547103b99f0763939ec761e91822415539e8f8904df83856a5bc5b",
+      "size_bytes": 3206
     },
     "R33_NEGATIVE_TEST_RESULTS.json": {
       "filename": "R33_NEGATIVE_TEST_RESULTS.json",
-      "sha256": "6fcea680907a863618eeb67b74e1bd41b53d0d4e014c370c1a919fd5ed15c920",
-      "size_bytes": 93082
+      "sha256": "f6377e7dfccd4bb88c831ccae45c3388c7452171db9c3658e4d05f474a47e933",
+      "size_bytes": 108992
     },
     "R33_OOS_REPORT.json": {
       "filename": "R33_OOS_REPORT.json",
-      "sha256": "8765dca96d13bcbbff2d03d763c21ce8a226d9eab6f609a9c5ce95281e240054",
+      "sha256": "19b02144b0008d335125fb4e9a00adb59f6c27dea4e0baaae6ddf716dbe5d9d8",
       "size_bytes": 171844
     },
     "R33_PARITY_CLASSIFICATION.json": {
       "filename": "R33_PARITY_CLASSIFICATION.json",
-      "sha256": "f72cabb826d7dc7882d375c51fe4935a7146472a8e73cedaea136be9f47dc804",
+      "sha256": "6fbaa4fc3f76de023b6e2f7a7ac0bd49ccd249d5b8c5530a9af2e15d065932e2",
       "size_bytes": 650
     },
     "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json": {
       "filename": "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION.json",
-      "sha256": "7d5ede370c9916b1087cf828e7c4bcbf4e7a98e66b3d51a6ad4607abcbf808c8",
+      "sha256": "d76b5b9f2fb6b2c7bf611c65533f16ba7f7800c1bfd5dc838eb1d1a965c9ae98",
       "size_bytes": 880
     },
     "R33_RUNTIME_INPUT_CAPTURES.jsonl": {
       "filename": "R33_RUNTIME_INPUT_CAPTURES.jsonl",
-      "sha256": "d3d56f3f6633378ee9c5f9d6701849541ff42ef77729c9b2eada0149e860b0b5",
-      "size_bytes": 1531046
+      "sha256": "10c4f4f3e8bcdb42c8aefff134734760541842532fb9ccab82a132d268026d43",
+      "size_bytes": 1531044
     },
     "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl": {
       "filename": "R33_RUNTIME_INPUT_SNAPSHOTS.jsonl",
-      "sha256": "e9ab33dd4d462c88b43a3223a4b7a55679323c8977b40097e7670116b75682f7",
+      "sha256": "b705dbdad2d3ca9c3e7315d2970bf28c1c38acc81c3a85d2ca127bcf07f7fe17",
       "size_bytes": 8050618
     },
     "R33_RUNTIME_INVOCATION_EVENTS.jsonl": {
       "filename": "R33_RUNTIME_INVOCATION_EVENTS.jsonl",
-      "sha256": "287d3866a54676f0506a2f6a898f33b00ffd2ec9e13b162690ed38ff816b6c19",
-      "size_bytes": 3387832
+      "sha256": "dffccc30663bc36075e80df82d3203d0242dd4de71b7a6e48ca6c53fdb9e3af0",
+      "size_bytes": 3387825
     },
     "R33_RUN_MANIFEST.json": {
       "filename": "R33_RUN_MANIFEST.json",
-      "sha256": "c27b1195d956bbfbba0819b5c731fb646d13fe90f61f0a153f88d2c1b1d9d52b",
+      "sha256": "b2f1bd7ac62cb3897a8f23567e7ed72c6e0db8e5931aa7b86b591235f01fb02a",
       "size_bytes": 848
     },
     "R33_RUN_TASK_ACCOUNTING.json": {
       "filename": "R33_RUN_TASK_ACCOUNTING.json",
-      "sha256": "a3d0a7d2399e07681904a153c8b53882fb0804d1de22c70b6249c558b09597fd",
+      "sha256": "cac6c1557f3907e5bf2679a2f72d5431885824f08577846f31f16f97e7e50d6e",
       "size_bytes": 810
     },
     "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl": {
       "filename": "R33_SOURCE_AND_COMMAND_EXECUTIONS.jsonl",
-      "sha256": "1264b77fc014cd3f166ac2daeed2e6a70ab83a8bb675abc5b9d845fd3665964f",
+      "sha256": "2cd07aca2fda22142156d0b65afeeef5b46d6c2efb9f74312361292f3c86cdec",
       "size_bytes": 5219
     },
     "R33_WORKER_EXECUTIONS.jsonl": {
       "filename": "R33_WORKER_EXECUTIONS.jsonl",
-      "sha256": "ad5ccef234d62cdd186565af2a1d0879be4bc34dc8f5af1369e52672636f5904",
-      "size_bytes": 7029
+      "sha256": "d4021f1cd20bd8dfe5d05ee5107f73665162482c35c0f4d5e33faaf90125a354",
+      "size_bytes": 7030
     }
   },
-  "backtest_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-  "frozen_executable_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-  "generated_at_utc": "2026-10-31T10:25:47.042813+00:00",
+  "backtest_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "frozen_executable_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "generated_at_utc": "2026-10-31T12:09:07.479489+00:00",
   "phase": "R3.3",
   "release": "V17.9.0.1.3",
-  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
   "schema_version": "R33_ARTIFACT_SHA256_MANIFEST_V1",
-  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
 }

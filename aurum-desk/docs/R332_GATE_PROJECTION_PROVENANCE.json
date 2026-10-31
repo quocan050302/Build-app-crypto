@@ -1,0 +1,2765 @@
+{
+  "actual_subprocess_gates_count": 0,
+  "derived_projections_count": 93,
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "phase": "R3.3.2",
+  "projections": {
+    "g02_test_db_bootstrap.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_dbs_01 or test_dbs_09",
+      "filter_targets": [
+        "backend/tests/test_v17_7_database_safety.py"
+      ],
+      "gate_xml": "g02_test_db_bootstrap.xml",
+      "log_name": "g02_test_db_bootstrap",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "34e571ba08c7ef3034e0cb533d9f6dd049d18c46d1c6e095e4a1fbf7a55166bd"
+    },
+    "g03_unsafe_path_rejection.xml": {
+      "counts": {
+        "collected": 9,
+        "errors": 0,
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_dbs_02 or test_dbs_03 or test_dbs_04 or test_dbs_05 or test_dbs_05b or test_dbs_06 or test_dbs_07 or test_dbs_08 or test_dbs_10",
+      "filter_targets": [
+        "backend/tests/test_v17_7_database_safety.py"
+      ],
+      "gate_xml": "g03_unsafe_path_rejection.xml",
+      "log_name": "g03_unsafe_path_rejection",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "54c95f8dcaadd35d01e8a7c376833a783374b44d699b58baa607314f4d621da6"
+    },
+    "g04_destructive_fixture_isolation.xml": {
+      "counts": {
+        "collected": 5,
+        "errors": 0,
+        "failed": 0,
+        "passed": 5,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_dbs_11 or test_dbs_12 or test_dbs_13 or test_dbs_14 or test_dbs_15",
+      "filter_targets": [
+        "backend/tests/test_v17_7_database_safety.py"
+      ],
+      "gate_xml": "g04_destructive_fixture_isolation.xml",
+      "log_name": "g04_destructive_fixture_isolation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "b5d686382724e570367f5fc4b6904acea734411d4e68f077aa7ca1a60f8d64b7"
+    },
+    "g05_raw_atr_provenance.xml": {
+      "counts": {
+        "collected": 8,
+        "errors": 0,
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_atr_01 or test_atr_04 or test_atr_05 or test_atr_06 or test_atr_08 or test_atr_09 or test_atr_13 or test_atr_14",
+      "filter_targets": [
+        "backend/tests/test_v17_7_atr_provenance.py"
+      ],
+      "gate_xml": "g05_raw_atr_provenance.xml",
+      "log_name": "g05_raw_atr_provenance",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "377a8d80d6f77cca4e904b59d015acc7066f8a7a0cb87180ed7f5a8655277ec0"
+    },
+    "g06_required_m1_atr_fail_closed.xml": {
+      "counts": {
+        "collected": 7,
+        "errors": 0,
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_atr_02 or test_atr_03 or test_atr_07 or test_atr_10 or test_atr_11 or test_atr_12 or test_atr_20",
+      "filter_targets": [
+        "backend/tests/test_v17_7_atr_provenance.py"
+      ],
+      "gate_xml": "g06_required_m1_atr_fail_closed.xml",
+      "log_name": "g06_required_m1_atr_fail_closed",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "1cc696b078073c3387e4cdae7409dbc3df9bdbaea4d5d0a5da8e20d81a7039a9"
+    },
+    "g07_atr_buffer_math_correctness.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_atr_15 or test_atr_16 or test_atr_19",
+      "filter_targets": [
+        "backend/tests/test_v17_7_atr_provenance.py"
+      ],
+      "gate_xml": "g07_atr_buffer_math_correctness.xml",
+      "log_name": "g07_atr_buffer_math_correctness",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "4d6b9f70eaa6c15a21aa5e26eb8089e9490a7e9563024f23ebbae495dd093586"
+    },
+    "g08_structural_anchor_causal.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_ce_06 or test_ce_07 or test_ce_08 or test_sl_58",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g08_structural_anchor_causal.xml",
+      "log_name": "g08_structural_anchor_causal",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "a4809713c4b28c02cafb3876e924065f602c94d582998f48951fac2e3b88a865"
+    },
+    "g09_distant_sl_financial_integrity.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_dsl_01 or test_dsl_02 or test_dsl_07 or test_ce_11",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g09_distant_sl_financial_integrity.xml",
+      "log_name": "g09_distant_sl_financial_integrity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "60aae1a726a939f85e95fd496d0a83efd35877f9abdf02099bd674657da2882a"
+    },
+    "g100_structural_sl_tp_rr_parity.xml": {
+      "counts": {
+        "collected": 5,
+        "errors": 0,
+        "failed": 0,
+        "passed": 5,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g100_structural_sl_tp_rr_parity.xml",
+      "log_name": "g100_structural_sl_tp_rr_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "aee49c7e5c3d621139e04f046bba9bcac615fcd18b9641dba0a43138624f8f15"
+    },
+    "g101_bounded_async_test_runner_integrity.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_39 or test_v17_9_0_1_async_orchestrator",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g101_bounded_async_test_runner_integrity.xml",
+      "log_name": "g101_bounded_async_test_runner_integrity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "ea78d6b72716e35ff5768ca8a2bd85cda286e3b12b83ffbf587bf855e6eb22bf"
+    },
+    "g102_disk_budget_guard_and_temp_cleanup.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_33 or test_34 or test_35 or test_v17_9_0_1_disk_guard",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g102_disk_budget_guard_and_temp_cleanup.xml",
+      "log_name": "g102_disk_budget_guard_and_temp_cleanup",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "bd380671c79f24cceaa8dffdd516d2067f483ae84c4227e13796080c5fa2c921"
+    },
+    "g103_checkpoint_resume_and_invalidation.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_36 or test_37 or test_38",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py"
+      ],
+      "gate_xml": "g103_checkpoint_resume_and_invalidation.xml",
+      "log_name": "g103_checkpoint_resume_and_invalidation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "841a7568750cb2950690832417d1adc8be076cc1e9d2a9296cfbdb652e960f69"
+    },
+    "g104_real_historical_backtest_shared_evaluator.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_30 or test_31 or test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g104_real_historical_backtest_shared_evaluator.xml",
+      "log_name": "g104_real_historical_backtest_shared_evaluator",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "6a9920b8d9405c244c3f43a9a292e82f4ba9f1fca931564c1e95b62f63207818"
+    },
+    "g105_matched_vs_full_strategy_cohort_integrity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_32 or test_40 or test_v17_9_0_1_phase_b_55_scenario_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g105_matched_vs_full_strategy_cohort_integrity.xml",
+      "log_name": "g105_matched_vs_full_strategy_cohort_integrity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "1feea33eb3738c6a53be2a5b8b71a1057c1c46e137ff4cdb690ec5a89115e596"
+    },
+    "g10_cg01_evaluator_integration.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_36 or test_ce_10 or test_atr_17",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py",
+        "backend/tests/test_v17_7_atr_provenance.py"
+      ],
+      "gate_xml": "g10_cg01_evaluator_integration.xml",
+      "log_name": "g10_cg01_evaluator_integration",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "83095806b1cc67eb43648011a5c129fb785436bb1b4914587165226db9d284bc"
+    },
+    "g11_m1_evaluator_integration.xml": {
+      "counts": {
+        "collected": 7,
+        "errors": 0,
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_37 or test_sl_38 or test_sl_39 or test_sl_40 or test_ce_12 or test_atr_18 or test_atr_21",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py",
+        "backend/tests/test_v17_7_atr_provenance.py"
+      ],
+      "gate_xml": "g11_m1_evaluator_integration.xml",
+      "log_name": "g11_m1_evaluator_integration",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "960734aaa856af6d511acbde9e623c6b1887dfbe92b9a3d578cc4f65558e76de"
+    },
+    "g12_orchestrator_real_arm.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_43 or test_ce_13",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g12_orchestrator_real_arm.xml",
+      "log_name": "g12_orchestrator_real_arm",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "10cf7e8b54ced17a754b6b23265b83ac350cfd449c88235803a1648ec88dba7d"
+    },
+    "g13_real_arm_concurrency.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_ce_16 or test_sl_57 or test_dsl_18",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g13_real_arm_concurrency.xml",
+      "log_name": "g13_real_arm_concurrency",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "fd544ae6176aeea4980c5ae3de0f74f8da0a4aa548101557a1b8febcc98a8d6c"
+    },
+    "g14_fill_time_financial_invariants.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_46 or test_ce_14",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g14_fill_time_financial_invariants.xml",
+      "log_name": "g14_fill_time_financial_invariants",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "2759769a5754109f13442e8dea366264b27d3ce32ff0b3030b75e0bd0981abbf"
+    },
+    "g15_paper_exit_and_persistence.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_47 or test_sl_48 or test_sl_60 or test_ce_15",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g15_paper_exit_and_persistence.xml",
+      "log_name": "g15_paper_exit_and_persistence",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "cc3503094d833b012c4521ea32528854c7ad8cbfab94a6c9137f2cd9328b8817"
+    },
+    "g16.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_50 or test_dsl_19 or test_ce_18",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g16.xml",
+      "log_name": "g16_live_safety",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "0e08636dad29cccd94487c534653488f6080c4594c47acbe894f8f38b549019d"
+    },
+    "g17_existing_sl_dsl_ce_regression.xml": {
+      "counts": {
+        "collected": 102,
+        "errors": 0,
+        "failed": 0,
+        "passed": 102,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g17_existing_sl_dsl_ce_regression.xml",
+      "log_name": "g17_existing_sl_dsl_ce_regression",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "510f164513ce4dd66f7c6410aca86f363ac10c535d67387c91278a5ae958b725"
+    },
+    "g18_v17_5_regression.xml": {
+      "counts": {
+        "collected": 278,
+        "errors": 0,
+        "failed": 0,
+        "passed": 278,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "",
+      "filter_targets": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_anchor_leg.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_atr_timeframe.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_guard_matrix.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_policy_cas.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_production_flow.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_red_probes.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_research_runtime.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_stop_costs.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_1_structural_gate.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_2_boundary_probes.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_2_detector_to_exit.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_3_boundary_probes.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_3_cycle_to_review.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_4_anchor_proof.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_4_context_binding.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_4_cost_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_4_cycle_reconciliation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_5_cost_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_5_cycle_to_chart_contract.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_5_entry_context_gate.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_5_origin_bridge.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_6_actual_order_cost_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_6_break_time_contract.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_6_cycle_regression.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_6_episode_origin_binding.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_7_episode_derivation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_7_true_cycle_cost_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_8_break_fail_closed.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_8_cost_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_8_episode_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_8_full_cycle.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_8_reference_provenance.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_acceptance_runner_self_test.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_arm_production_wiring.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_break_source_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_cost_fail_closed.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_financial_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_real_cycle_regression.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_9_reference_source_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_anchor_binding.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_exit_evidence.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_model_integration.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_policy_api.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_production_flow.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_risk_invariants.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_stop_placement.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_stop_research.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_5_stop_review.py"
+      ],
+      "gate_xml": "g18_v17_5_regression.xml",
+      "log_name": "g18_v17_5_regression",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1",
+        "primary_pytest_shard_2",
+        "primary_pytest_shard_3",
+        "primary_pytest_shard_4",
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_6",
+        "primary_pytest_shard_7",
+        "primary_pytest_shard_8",
+        "primary_pytest_shard_9"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d",
+        "primary_pytest_shard_2": "b131f0105e0319f68b53b5653a9b0071a9c3d74c5a810a802003fee409f3f310",
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0",
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d",
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea",
+        "primary_pytest_shard_7": "8a317d5b83076ae340ff0963e061c437fc8cffb9fea9024e08b16e6f29d23cba",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c",
+        "primary_pytest_shard_9": "8519e9aff4ff75177e6793e7b33cc3205024a4d6dcd2ceb943d9dee9cc433966"
+      },
+      "xml_sha256": "1f65f9ce0a17d765a3118cf5a7e5ccbc44fe1881d5ec954cb48d42d731b6ff94"
+    },
+    "g19_v17_6_regression.xml": {
+      "counts": {
+        "collected": 776,
+        "errors": 0,
+        "failed": 0,
+        "passed": 776,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "",
+      "filter_targets": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_1_market_hours_dst.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_1_quote_timestamps.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_1_run_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_1_telemetry_resilience.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_acceptance_runner.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_coverage_intervals.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_cycle_durability.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_decision_pagination.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_defects_reproduction.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_feed_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_financial_run_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_2_transaction_ownership.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_3_market_eligible_coverage.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_3_production_persistence.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_acceptance_runner.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_cycle_commit_consistency.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_engine_market_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_feed_evidence_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_interval_durability.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_origin_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_quality_transitions.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_1_real_db_integration.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_24_7_coverage.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_acceptance_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_cycle_commit_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_metadata_good_bypass.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_paper_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_pending_interval_commit.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_persistence_status.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_quote_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_2_watcher_integration.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_acceptance_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_current_evidence_health.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_database_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_evidence_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_interval_identity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_transaction_boundaries.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3a_acceptance_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3a_authoritative_good.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3a_commit_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3a_discovery_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3a_health_db_scoping.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_acceptance_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_feed_provenance.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_health_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_scheduler_runtime.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_unique_commit_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_acceptance_integrity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_epoch_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_scheduler_durability.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_source_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_timestamp_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_transport_authority.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3c_zero_live_orders_runtime.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3d_db_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3d_live_order_boundary.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3d_observation_soak.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3d_scheduler_durable_evidence.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3d_scheduler_run_loop.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_contract_calendar.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_cycle_run_identity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_engine_owner_truth.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_interval_producer.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_observation_api.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_telemetry_database_isolation.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_api_contract.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_cycle_telemetry.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_decision_parity.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_decision_timeline.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_engine_heartbeat.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_financial_summary.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_market_freshness.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_observation_run.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_recovery.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_soak.py"
+      ],
+      "gate_xml": "g19_v17_6_regression.xml",
+      "log_name": "g19_v17_6_regression",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1",
+        "primary_pytest_shard_2",
+        "primary_pytest_shard_3",
+        "primary_pytest_shard_4",
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_6",
+        "primary_pytest_shard_7",
+        "primary_pytest_shard_8",
+        "primary_pytest_shard_9"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d",
+        "primary_pytest_shard_2": "b131f0105e0319f68b53b5653a9b0071a9c3d74c5a810a802003fee409f3f310",
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0",
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d",
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea",
+        "primary_pytest_shard_7": "8a317d5b83076ae340ff0963e061c437fc8cffb9fea9024e08b16e6f29d23cba",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c",
+        "primary_pytest_shard_9": "8519e9aff4ff75177e6793e7b33cc3205024a4d6dcd2ceb943d9dee9cc433966"
+      },
+      "xml_sha256": "06737186be3e7bc4cbbc299f15951d18dab9a16b5e069c382d9e408c4089546a"
+    },
+    "g20_full_backend_pytest.xml": {
+      "counts": {
+        "collected": 4487,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4487,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "",
+      "filter_targets": [
+        "backend/tests"
+      ],
+      "gate_xml": "g20_full_backend_pytest.xml",
+      "log_name": "g20_full_backend_pytest",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1",
+        "primary_pytest_shard_2",
+        "primary_pytest_shard_3",
+        "primary_pytest_shard_4",
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_6",
+        "primary_pytest_shard_7",
+        "primary_pytest_shard_8",
+        "primary_pytest_shard_9"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d",
+        "primary_pytest_shard_2": "b131f0105e0319f68b53b5653a9b0071a9c3d74c5a810a802003fee409f3f310",
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0",
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d",
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea",
+        "primary_pytest_shard_7": "8a317d5b83076ae340ff0963e061c437fc8cffb9fea9024e08b16e6f29d23cba",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c",
+        "primary_pytest_shard_9": "8519e9aff4ff75177e6793e7b33cc3205024a4d6dcd2ceb943d9dee9cc433966"
+      },
+      "xml_sha256": "aabd9cc65457bf514f8ef2ecf7c9a6ec6e2b551625c62306cb10446b92b601a5"
+    },
+    "g25_deterministic_replay.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_53 or test_dsl_15",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g25_deterministic_replay.xml",
+      "log_name": "g25_deterministic_replay",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "25f35f94b8e596f509f5002584765330dbbb2e0ed68b4005114d4a4792bf89cb"
+    },
+    "g26_acceptance_runner_negative_tests.xml": {
+      "counts": {
+        "collected": 9,
+        "errors": 0,
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_ce_19 or test_verdict_",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py",
+        "backend/tests/test_v17_8_acceptance_runner.py"
+      ],
+      "gate_xml": "g26_acceptance_runner_negative_tests.xml",
+      "log_name": "g26_acceptance_runner_negative_tests",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "5618ccb3a9a5d3fd5c31b6ee1a02693752ef9854a1a1e5fbf7d6ed6e1aa746a5"
+    },
+    "g27.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_ce_20",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g27.xml",
+      "log_name": "g27_ce20",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "88afc3d5a940f18d18c222dd90d4d85bf21433fba82245a031117de9ac7fcd6d"
+    },
+    "g29_unicorn_breaker_detection.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_positive_bullish_unicorn_detection or test_positive_bearish_unicorn_detection",
+      "filter_targets": [
+        "backend/tests/test_v17_8_unicorn_evidence.py"
+      ],
+      "gate_xml": "g29_unicorn_breaker_detection.xml",
+      "log_name": "g29_unicorn_breaker_detection",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_3"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0"
+      },
+      "xml_sha256": "df319237f9e4b1dc7d9ec4a6909a9bc4b036e5ca4b7610e5d8159b1f434ce77b"
+    },
+    "g30_unicorn_fvg_overlap.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_negative_breaker_without_fvg or test_negative_no_geometric_overlap",
+      "filter_targets": [
+        "backend/tests/test_v17_8_unicorn_evidence.py"
+      ],
+      "gate_xml": "g30_unicorn_fvg_overlap.xml",
+      "log_name": "g30_unicorn_fvg_overlap",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_3"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0"
+      },
+      "xml_sha256": "6dad0bdb025088a0e759af94966fc0698957943b08c82280d5538bb2270659df"
+    },
+    "g31_cross_timeframe_causality.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_negative_unicorn_invalidated_by_distal_breach or test_negative_waiting_retest",
+      "filter_targets": [
+        "backend/tests/test_v17_8_unicorn_evidence.py"
+      ],
+      "gate_xml": "g31_cross_timeframe_causality.xml",
+      "log_name": "g31_cross_timeframe_causality",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_3"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_3": "76973f2969968249ed157249b3247b7d88005f03d4082a468ef6c24a20c090d0"
+      },
+      "xml_sha256": "1484e6b4671718a5db4fbfaf311ac3494cde91ae520ca7b89362b83e8353d82a"
+    },
+    "g32_structural_invalidation_authority.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_unicorn_breaker_distal_invalidation_authority",
+      "filter_targets": [
+        "backend/tests/test_v17_8_structural_sl.py"
+      ],
+      "gate_xml": "g32_structural_invalidation_authority.xml",
+      "log_name": "g32_structural_invalidation_authority",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_6"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea"
+      },
+      "xml_sha256": "09423d115056177b272165127e285aba8c47014b6a683a04bc568ce8a04376ee"
+    },
+    "g33_model_specific_sl_selection.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_fvg_displacement_origin_fallback_when_bound_leg_invalidated",
+      "filter_targets": [
+        "backend/tests/test_v17_8_structural_sl.py"
+      ],
+      "gate_xml": "g33_model_specific_sl_selection.xml",
+      "log_name": "g33_model_specific_sl_selection",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_6"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea"
+      },
+      "xml_sha256": "9205d40a1f6188f51ddc18f030e9a5a1e8dd796eace0f361fc483cacf9813e7b"
+    },
+    "g34_atr_spread_noise_protection.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_short_stop_too_close_to_executable_ask or test_long_stop_too_close_to_executable_bid",
+      "filter_targets": [
+        "backend/tests/test_v17_8_quote_noise_guard.py"
+      ],
+      "gate_xml": "g34_atr_spread_noise_protection.xml",
+      "log_name": "g34_atr_spread_noise_protection",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90"
+      },
+      "xml_sha256": "47f0c47fcf5a1a7dfd5af60bf429205061ab42145f50c89d15fcee31a34c8bfd"
+    },
+    "g35_liquidity_tp_independence.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_fail_closed_when_wide_sl_causes_insufficient_net_rr",
+      "filter_targets": [
+        "backend/tests/test_v17_8_structural_sl.py"
+      ],
+      "gate_xml": "g35_liquidity_tp_independence.xml",
+      "log_name": "g35_liquidity_tp_independence",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_6"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea"
+      },
+      "xml_sha256": "437cf70bae2592329d6375993c7d7e8e7a7817486cf600ee80cf114ad0e75282"
+    },
+    "g36_entry_quote_proximity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_short_stop_breached_by_executable_ask or test_long_stop_breached_by_executable_bid or test_safe_executable_quote_distance_passes_geometry",
+      "filter_targets": [
+        "backend/tests/test_v17_8_quote_noise_guard.py"
+      ],
+      "gate_xml": "g36_entry_quote_proximity.xml",
+      "log_name": "g36_entry_quote_proximity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90"
+      },
+      "xml_sha256": "82d6b2452d914cf6f4a8053a16088ae44d5b3ac69b30d03bc5bb25dd0d3d9e92"
+    },
+    "g37_risk_budget_and_net_rr.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_financial_risk_conservation_and_quantity_downscaling or test_legitimate_distant_structural_sl_over_4x_and_10x_atr",
+      "filter_targets": [
+        "backend/tests/test_v17_8_structural_sl.py"
+      ],
+      "gate_xml": "g37_risk_budget_and_net_rr.xml",
+      "log_name": "g37_risk_budget_and_net_rr",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_6"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_6": "a440faad1ec2f29bdcc00a7cc44b779f21d91cdfbc0c07e7d322b1682ff719ea"
+      },
+      "xml_sha256": "7056b2b974255a916432674bbd3fd3bd6fdbc8cba8d92614f3518b8ea4411110"
+    },
+    "g38_complete_arm_fill_exit.xml": {
+      "counts": {
+        "collected": 7,
+        "errors": 0,
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_43 or test_sl_46 or test_sl_47 or test_ce_13 or test_ce_14 or test_ce_15 or test_def_178_11",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py",
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g38_complete_arm_fill_exit.xml",
+      "log_name": "g38_complete_arm_fill_exit",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "3f34c2b158a017eebdb6373b7b38dd23a0c5f1a7b45408564c59d2ce1c52c258"
+    },
+    "g39_historical_replay_determinism.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_variant_a_tight_stop_early_stop_out_vs_variant_c_survival or test_matched_comparison_determinism or test_intrabar_ambiguity_conservative_sl_first",
+      "filter_targets": [
+        "backend/tests/test_v17_8_replay_comparison.py"
+      ],
+      "gate_xml": "g39_historical_replay_determinism.xml",
+      "log_name": "g39_historical_replay_determinism",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_7"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_7": "8a317d5b83076ae340ff0963e061c437fc8cffb9fea9024e08b16e6f29d23cba"
+      },
+      "xml_sha256": "2756b0d27df92529779339062ed270004896acd144da96e868e26e6ee4770889"
+    },
+    "g40_feature_flag_and_legacy_parity.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_sl_01 or test_sl_02 or test_sl_03 or test_sl_04",
+      "filter_targets": [
+        "backend/tests/test_v17_7_adaptive_stop_loss.py"
+      ],
+      "gate_xml": "g40_feature_flag_and_legacy_parity.xml",
+      "log_name": "g40_feature_flag_and_legacy_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "12b38fbbae44a94094c4ccfa6722b21cd2e70e99f208344b15c62a8344318caf"
+    },
+    "g41_negative_controls_and_anti_fabrication.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_unicorn_invalidation_guard_blocks_when_distal_breached or test_stale_or_invalid_quote_fails_closed or test_unverifiable_data_rejected_or_flagged",
+      "filter_targets": [
+        "backend/tests/test_v17_8_quote_noise_guard.py",
+        "backend/tests/test_v17_8_replay_comparison.py"
+      ],
+      "gate_xml": "g41_negative_controls_and_anti_fabrication.xml",
+      "log_name": "g41_negative_controls_and_anti_fabrication",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_7"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_7": "8a317d5b83076ae340ff0963e061c437fc8cffb9fea9024e08b16e6f29d23cba"
+      },
+      "xml_sha256": "e84b0c9dee22e3ef971ff736ccb217bcb888dd70df3ef4523b0b50f62c9d29cc"
+    },
+    "g43_unicorn_runtime_interface_contract.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_07",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g43_unicorn_runtime_interface_contract.xml",
+      "log_name": "g43_unicorn_runtime_interface_contract",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "388098e26e038f8a104cd4be7096e25d35c9516e37f2bdbb75684d376156c03c"
+    },
+    "g44_feature_flag_persistence_and_reload.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_08",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g44_feature_flag_persistence_and_reload.xml",
+      "log_name": "g44_feature_flag_persistence_and_reload",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "e5cc2ca1b1ac558ab03ddcbeb43b61805017304e2d85c3c2b7490ac1be79d2c2"
+    },
+    "g45_fill_time_protective_distance_guard.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_09 or test_short_stop_too_close or test_long_stop_too_close",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py",
+        "backend/tests/test_v17_8_quote_noise_guard.py"
+      ],
+      "gate_xml": "g45_fill_time_protective_distance_guard.xml",
+      "log_name": "g45_fill_time_protective_distance_guard",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "d608fd95b491d6f351c511d8474f10215d1e4c7f1047caf5954cbef763914d35"
+    },
+    "g46_fill_time_stop_breach_quote_guard.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_09 or test_short_stop_breached or test_long_stop_breached",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py",
+        "backend/tests/test_v17_8_quote_noise_guard.py"
+      ],
+      "gate_xml": "g46_fill_time_stop_breach_quote_guard.xml",
+      "log_name": "g46_fill_time_stop_breach_quote_guard",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5",
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90",
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "c0202600898c1905b1a7e4a1217c63246bd46ca6450f38002440cefc767704f8"
+    },
+    "g47_causal_unicorn_episode_binding.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_10",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g47_causal_unicorn_episode_binding.xml",
+      "log_name": "g47_causal_unicorn_episode_binding",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "c9dc52712ced22ce975d346b64097c0243c3c5fcd9b8e789129e0a77b82b5e9e"
+    },
+    "g48_anti_lookahead_and_unclosed_candle_rejection.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_10",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g48_anti_lookahead_and_unclosed_candle_rejection.xml",
+      "log_name": "g48_anti_lookahead_and_unclosed_candle_rejection",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "781fec42bb19579a00bc4b342dd86f7eab7e4579356ca66b24a223f9cc725766"
+    },
+    "g49_end_to_end_runtime_integration.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_11 or test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g49_end_to_end_runtime_integration.xml",
+      "log_name": "g49_end_to_end_runtime_integration",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "136d05241c9ccf2bba6f8531dc5117a72f253ea2cd9432f0740fe831f20219ee"
+    },
+    "g51_forensic_audit_truth_reconciliation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_14",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g51_forensic_audit_truth_reconciliation.xml",
+      "log_name": "g51_forensic_audit_truth_reconciliation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "3d619b9ebec4e33412d89d077c829084bdfee222e74daff8fa77d24351e4abe1"
+    },
+    "g52_honest_replay_comparison_disclosure.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_def_178_13",
+      "filter_targets": [
+        "backend/tests/test_v17_8_runtime_integration.py"
+      ],
+      "gate_xml": "g52_honest_replay_comparison_disclosure.xml",
+      "log_name": "g52_honest_replay_comparison_disclosure",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_8"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_8": "358e68a6b8b7e1cd1082715fad090454eb38f5cdd8082903b265d0f208f7219c"
+      },
+      "xml_sha256": "6919ff9627b180f0678ad680b3935ad66f9452c6afd6938657b351a0237c1789"
+    },
+    "g53_observe_only_startup_isolation.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_runtime_profile_resolution or test_observe_only_lifespan_startup",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py"
+      ],
+      "gate_xml": "g53_observe_only_startup_isolation.xml",
+      "log_name": "g53_observe_only_startup_isolation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "73cd63bc0684602ad5877d4880b037345871a931343723119b6c6d8ddb76fcc3"
+    },
+    "g54_zero_background_order_mutations.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_observe_only_lifespan_startup or test_observe_only_blocks_worker",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py"
+      ],
+      "gate_xml": "g54_zero_background_order_mutations.xml",
+      "log_name": "g54_zero_background_order_mutations",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "1030c5638f5dd9d81cc74095b1e254ca407fb86c900436b408213b015b569e06"
+    },
+    "g55_zero_live_exchange_dispatch.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_observe_only_blocks_worker or test_observe_only_api_read_allowlist",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py"
+      ],
+      "gate_xml": "g55_zero_live_exchange_dispatch.xml",
+      "log_name": "g55_zero_live_exchange_dispatch",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "df50385fdecdf508fdbc9debba8f170136271b9420a2da444d44913cc217b98f"
+    },
+    "g56_observation_database_immutability.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_observe_only_blocks_worker or test_observe_only_api_read_allowlist",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py"
+      ],
+      "gate_xml": "g56_observation_database_immutability.xml",
+      "log_name": "g56_observation_database_immutability",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "1a7a826c40f9638a24278f8b2839aae6684aa0530044cbce5c3aa1f2ac1b541d"
+    },
+    "g57_observation_startup_shutdown.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_observe_only_lifespan_startup or test_observe_only_api_read_allowlist",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py"
+      ],
+      "gate_xml": "g57_observation_startup_shutdown.xml",
+      "log_name": "g57_observation_startup_shutdown",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "6a1e0e6ba9b2b9021239f38cc65437999497833bf1fa0661e37e47787920e633"
+    },
+    "g58_release_artifact_truth.xml": {
+      "counts": {
+        "collected": 8,
+        "errors": 0,
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "",
+      "filter_targets": [
+        "backend/tests/test_v17_8_acceptance_runner.py"
+      ],
+      "gate_xml": "g58_release_artifact_truth.xml",
+      "log_name": "g58_release_artifact_truth",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_5"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_5": "6b271575760e33cefa6a2e0c0554a2e587b6a9422d689cac7e79ec9972472a90"
+      },
+      "xml_sha256": "63b8d139db58a92707151a15467f3882766b9a163bd8d57c5373fbad6293dd04"
+    },
+    "g59_market_shadow_profile_contract.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc27_invalid_runtime_profile_fails_closed or test_market_shadow_capability_matrix",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g59_market_shadow_profile_contract.xml",
+      "log_name": "g59_market_shadow_profile_contract",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "ee9cc589990bf58c80babf2472a797f5ec66852221077c7388ddffceff1eaad4"
+    },
+    "g60_market_shadow_execution_forbidden.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow or test_nc08_to_nc13_worker_allowlist_boundaries",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g60_market_shadow_execution_forbidden.xml",
+      "log_name": "g60_market_shadow_execution_forbidden",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "7845a0b76538d92c28113de09ea48290f70d6aaea9d7dcb1a0e72c6add9eead1"
+    },
+    "g61_public_market_feed_connected_or_explicit_blocker.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g61_public_market_feed_connected_or_explicit_blocker.xml",
+      "log_name": "g61_public_market_feed_connected_or_explicit_blocker",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "f751bcaf7f0f55a3442cb368dd6a4c3ed449c736d336f35988d42c021317c90d"
+    },
+    "g62_canonical_quote_validation_and_ordering.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc22_nc28_nc29_quote_and_rest_fallback_controls",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g62_canonical_quote_validation_and_ordering.xml",
+      "log_name": "g62_canonical_quote_validation_and_ordering",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "4eddc9aec5980c892bea96e74407b7bd161bfb4bbacb16ce530d9477b79823da"
+    },
+    "g63_shadow_candle_finality_and_cache.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc22_nc28_nc29_quote_and_rest_fallback_controls or test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g63_shadow_candle_finality_and_cache.xml",
+      "log_name": "g63_shadow_candle_finality_and_cache",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "50d8f686fc22fc5f9083e490bc0d1d3799b3d357e6476b1934e0281bfa5376f8"
+    },
+    "g64_shadow_database_isolation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc19_to_nc21_shadow_storage_isolation_and_path_guards",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g64_shadow_database_isolation.xml",
+      "log_name": "g64_shadow_database_isolation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "26bae605eb6984a986cc10cdfbfadade9b1518d7cefbd338ecf9b894a2f67f95"
+    },
+    "g65_continuous_unicorn_shadow_evaluation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc14_to_nc18_shadow_analysis_fail_closed_controls",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g65_continuous_unicorn_shadow_evaluation.xml",
+      "log_name": "g65_continuous_unicorn_shadow_evaluation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "e809ed53364ae99a1fc0d7ff6f933fa68ebb5f4c83ae655931f3537294ec54c6"
+    },
+    "g66_structural_sl_tp_shadow_decisions.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc14_to_nc18_shadow_analysis_fail_closed_controls or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g66_structural_sl_tp_shadow_decisions.xml",
+      "log_name": "g66_structural_sl_tp_shadow_decisions",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "ec9c0672282005a32b335e4e46a23a71425cada85fffbb33666c38cad4d30348"
+    },
+    "g67_historical_data_quality_gate.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g67_historical_data_quality_gate.xml",
+      "log_name": "g67_historical_data_quality_gate",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "ae57af7a9f66af45ee6ee5ccd7d6a23bf65116883f1069c9bc2f652170e2bbe4"
+    },
+    "g68_real_historical_backtest_execution.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g68_real_historical_backtest_execution.xml",
+      "log_name": "g68_real_historical_backtest_execution",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "e39f3f547de9aed6d93d427ef8263638cfc3b90e8b15ae2d5d7de07dc9a424b2"
+    },
+    "g69_matched_abcd_comparison_completeness.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g69_matched_abcd_comparison_completeness.xml",
+      "log_name": "g69_matched_abcd_comparison_completeness",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "5c6a144c0532fd160cdc141b425279714a3a72aea493108224f5e63555220d4c"
+    },
+    "g70_out_of_sample_and_stress_validation.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls or test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g70_out_of_sample_and_stress_validation.xml",
+      "log_name": "g70_out_of_sample_and_stress_validation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "4c5d602faacaf3e90d74c5ed80687f031aee43c8c27ab332a5c9f4ae4acf2f9c"
+    },
+    "g71_shadow_api_read_only_contract.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_end_to_end_ws_to_shadow_storage_and_shadow_api",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g71_shadow_api_read_only_contract.xml",
+      "log_name": "g71_shadow_api_read_only_contract",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "90e73ef218874475da303ddd7e6da7ef5889836635c74009e92b7ad6260da1ab"
+    },
+    "g73_operational_db_zero_mutation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_end_to_end_ws_to_shadow_storage_and_shadow_api",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g73_operational_db_zero_mutation.xml",
+      "log_name": "g73_operational_db_zero_mutation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "62853586766143d43b1b62cbe7e059202a9590d2f2abcde7bb217acdede4d394"
+    },
+    "g74_market_shadow_startup_shutdown.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_market_shadow_capability_matrix or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_3_market_shadow.py"
+      ],
+      "gate_xml": "g74_market_shadow_startup_shutdown.xml",
+      "log_name": "g74_market_shadow_startup_shutdown",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_4"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_4": "1ccb8645826b40799181b5d0455964919766f1f99ec610914beb321c54a40b4d"
+      },
+      "xml_sha256": "8e0bb6a5f9c25ba2ac6e6cd43f2fb709d2267e213c3fe30e7157c2acae60ec56"
+    },
+    "g76_remote_acceptance_log_completeness.xml": {
+      "counts": {
+        "collected": 2,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "TestG76AcceptanceLogCompleteness",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g76_remote_acceptance_log_completeness.xml",
+      "log_name": "g76_remote_acceptance_log_completeness",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "57f7d210a9d3af98e6ff2c1f1895d4f1be0a4cfae9f3737e3c19aa2b1bbda8ff"
+    },
+    "g77_git_reproducible_source_manifest.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g77_source_manifest_is_git_tree_reproducible_and_excludes_os_noise",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g77_git_reproducible_source_manifest.xml",
+      "log_name": "g77_git_reproducible_source_manifest",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "6cc838f7729b51f03425fab8e9ba7895c33170e0e70dcf546a79c1d30f8dc12c"
+    },
+    "g78_source_manifest_negative_controls.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g78_all_7_source_manifest_negative_controls",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g78_source_manifest_negative_controls.xml",
+      "log_name": "g78_source_manifest_negative_controls",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "d5782441f2629c11291311047bc0f3fd392ff3b903e5134fb1ae382191f8db58"
+    },
+    "g79_production_backtest_shadow_decision_parity.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g79_five_model_production_replay_shadow_decision_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g79_production_backtest_shadow_decision_parity.xml",
+      "log_name": "g79_production_backtest_shadow_decision_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "67922c90d6962af421f80294f0361a99b7668cc1118e08e8bdd72514a56503ea"
+    },
+    "g80_unicorn_causal_chain_strict_validation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g80_all_10_mandatory_unicorn_causal_cases",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g80_unicorn_causal_chain_strict_validation.xml",
+      "log_name": "g80_unicorn_causal_chain_strict_validation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "75aeac919fed4e04e6cfd56cf518713f0d9c0f466b62107bfc0049d20652036e"
+    },
+    "g81_atr_m1_m5_provenance_integrity.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g81_atr_m1_m5_provenance_no_synthetic_2_1_multiplier",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g81_atr_m1_m5_provenance_integrity.xml",
+      "log_name": "g81_atr_m1_m5_provenance_integrity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "b15d0409c4f9f459ed31a1dc9a94d214443f6bd3bedf50c18502ffc80254709b"
+    },
+    "g82_matched_cohort_stop_out_analysis.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g82_matched_cohort_and_three_layer_experiment_artifacts",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g82_matched_cohort_stop_out_analysis.xml",
+      "log_name": "g82_matched_cohort_stop_out_analysis",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "ed58cd867d644c1638a8fb8ee8674f8201b58daec44533160f2f1ce9324f523b"
+    },
+    "g83_oos_zero_trade_insufficient_sample_handling.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g83_oos_zero_trade_insufficient_sample_handling.xml",
+      "log_name": "g83_oos_zero_trade_insufficient_sample_handling",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "f365efb17bca475e214b17ca5413f7c3ee2479a6fc5d84ea1a774e0f16c21d9d"
+    },
+    "g84_trade_level_pnl_reconciliation.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g84_trade_level_and_aggregate_financial_reconciliation",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g84_trade_level_pnl_reconciliation.xml",
+      "log_name": "g84_trade_level_pnl_reconciliation",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "1531049d833422387619b2fdbbfc6520a5b4f97e616e0da4f444a0abfecf706f"
+    },
+    "g85_market_shadow_routing_regression.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g85_market_shadow_routing_regression.xml",
+      "log_name": "g85_market_shadow_routing_regression",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "36827d091a5d5f34aee45115e959b830f34dc0f7baab91341e38d509172d35df"
+    },
+    "g86_backtest_anti_bias_negative_controls.xml": {
+      "counts": {
+        "collected": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "TestG86All20BacktestAntiBiasNegativeControls or test_g86_all_20_mandatory_backtest_negative_controls",
+      "filter_targets": [
+        "backend/tests/test_v17_8_0_4_parity_and_integrity.py"
+      ],
+      "gate_xml": "g86_backtest_anti_bias_negative_controls.xml",
+      "log_name": "g86_backtest_anti_bias_negative_controls",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "b9ba58d1004c3cea620160de84b3e11e443a6fb11a91675829b3ce87b6e9adcf"
+    },
+    "g89_shared_decision_context_contract.xml": {
+      "counts": {
+        "collected": 6,
+        "errors": 0,
+        "failed": 0,
+        "passed": 6,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_01 or test_02 or test_03 or test_04 or test_05 or test_v17_9_0_1_htf",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g89_shared_decision_context_contract.xml",
+      "log_name": "g89_shared_decision_context_contract",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "61f3c4d49e594a2750ea2cc03a26e5e8a6218f0f37ed0786ad4c77c06b48160f"
+    },
+    "g90_shared_decision_snapshot_contract.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g90_shared_decision_snapshot_contract.xml",
+      "log_name": "g90_shared_decision_snapshot_contract",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "505b332d815d0d389400ac91180f172fe017eda957dd33e5667f0690044ab9a2"
+    },
+    "g91_production_m1_reversal_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_09 or test_14 or test_v17_9_0_1_reversal_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g91_production_m1_reversal_parity.xml",
+      "log_name": "g91_production_m1_reversal_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "6afa806c2f6e00e1c3f55340d16a40188523e8bfaa48561c1be6aafd11b1dddc"
+    },
+    "g92_production_m1_continuation_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_10 or test_14 or test_v17_9_0_1_continuation_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g92_production_m1_continuation_parity.xml",
+      "log_name": "g92_production_m1_continuation_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "973a6ae1dfdb6356c8e688edfbf9b89fc59cfaa0d6c649e6fb81a842823bc82c"
+    },
+    "g93_production_m1_fvg_continuation_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_11 or test_14 or test_v17_9_0_1_fvg_continuation_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g93_production_m1_fvg_continuation_parity.xml",
+      "log_name": "g93_production_m1_fvg_continuation_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "542f6c35a9c42b022b82a7c5359bc475056509c830b35593488d678bea31ffbc"
+    },
+    "g94_production_m1_sweep_reclaim_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_12 or test_14 or test_v17_9_0_1_sweep_reclaim_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g94_production_m1_sweep_reclaim_parity.xml",
+      "log_name": "g94_production_m1_sweep_reclaim_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "83f9abc5607a8cff9e6148359c287db00dddec0e98ef7d2b0d180ff78ba5c8c2"
+    },
+    "g95_production_cg01_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_13 or test_14 or test_v17_9_0_1_cg01_parity",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g95_production_cg01_parity.xml",
+      "log_name": "g95_production_cg01_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "1f6ba8dff78a724a48ff33e5d96dddae9faef0cf356cd3b09e3e2502bfc08240"
+    },
+    "g96_production_shadow_decision_parity.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_15 or test_17 or test_v17_9_0_1_runtime_spy_production_and_shadow",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g96_production_shadow_decision_parity.xml",
+      "log_name": "g96_production_shadow_decision_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "34d2dbdf38fb069f1a6a12ff3bdcdea865d7280bc743d2697a6debbcf6456b5a"
+    },
+    "g97_production_backtest_decision_parity.xml": {
+      "counts": {
+        "collected": 4,
+        "errors": 0,
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_16 or test_17 or test_18 or test_v17_9_0_1_runtime_spy_backtest",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g97_production_backtest_decision_parity.xml",
+      "log_name": "g97_production_backtest_decision_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "bbbc7648325aae9308db98afc58a8803a4500de81a60b59d8b32f412f11f4235"
+    },
+    "g98_synthetic_index_signal_removal.xml": {
+      "counts": {
+        "collected": 3,
+        "errors": 0,
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_21 or test_22 or test_29",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py"
+      ],
+      "gate_xml": "g98_synthetic_index_signal_removal.xml",
+      "log_name": "g98_synthetic_index_signal_removal",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2"
+      },
+      "xml_sha256": "19768b2e925a67adad4dc1ad62d54b56e4d2ea6a6e847395d02dfd5f4ac979b1"
+    },
+    "g99_unicorn_causal_chain_parity.xml": {
+      "counts": {
+        "collected": 6,
+        "errors": 0,
+        "failed": 0,
+        "passed": 6,
+        "skipped": 0
+      },
+      "effective_gate_status": "PASS",
+      "execution_mode": "DERIVED_PROJECTION",
+      "exit_code": "not_applicable",
+      "filter_expr": "test_19 or test_20 or test_23 or test_24 or test_25 or test_v17_9_0_1_non_self_referential_oracle",
+      "filter_targets": [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py"
+      ],
+      "gate_xml": "g99_unicorn_causal_chain_parity.xml",
+      "log_name": "g99_unicorn_causal_chain_parity",
+      "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+      "source_attempt_ids": [
+        "primary_pytest_shard_0",
+        "primary_pytest_shard_1"
+      ],
+      "source_primary_exit_code": 0,
+      "source_xml_hashes": {
+        "primary_pytest_shard_0": "dde08cf1a42801cdbd9382bcb5df9f5ce2588805229d85613c234abdc45885a2",
+        "primary_pytest_shard_1": "eaddbcc15ce7572e2b43355de6f71ced54d111c19ae5678ea3f26bccf16d518d"
+      },
+      "xml_sha256": "dedf8de9c35cadd2402b0cf52524e1757a4044f46996b162cf6e0cdf6135f842"
+    }
+  },
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "1.0.0-r3.3.2",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "total_gate_xml_files": 93
+}

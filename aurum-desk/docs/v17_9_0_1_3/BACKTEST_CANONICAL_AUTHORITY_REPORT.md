@@ -1,7 +1,7 @@
 # V17.9.0.1.2 — Historical Backtest Canonical Authority Report (`DEF-179012-02` & `DEF-179012-C02`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
-- **Backtest Executed Source SHA:** `c30288f198f2cd636f334aa4d257ccadd3ca9e13`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
+- **Backtest Executed Source SHA:** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Authoritative Simulated Trades:** `18` (`Win Rate=38.89%`, `Net PnL=$-16.3506`)
 
 ## 1. Two-Stage Positive Eligibility Gate & Chronological Trade Lineage in `v17_8_backtest_runner.py`

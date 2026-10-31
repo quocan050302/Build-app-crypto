@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g02_test_db_bootstrap" execution_mode="DERIVED_PROJECTION" provenance="DERIVED_VIEW_FROM_PRIMARY_EXECUTION" source_attempt_ids="primary_pytest_shard_0" tests="2" errors="0" failures="0" skipped="0" time="0.013"><testcase classname="backend.tests.test_v17_7_database_safety" name="test_dbs_01_default_isolated_test_path_succeeds" time="0.007" /><testcase classname="backend.tests.test_v17_7_database_safety" name="test_dbs_09_test_bootstrap_occurs_before_engine_binding" time="0.006" /></testsuite></testsuites>

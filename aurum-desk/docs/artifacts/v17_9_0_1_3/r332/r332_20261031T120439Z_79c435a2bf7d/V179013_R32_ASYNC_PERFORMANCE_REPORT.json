@@ -1,0 +1,12 @@
+{
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "max_parallel_workers": 4,
+  "cpu_pool_workers": 8,
+  "wall_clock_seconds": 292.736,
+  "orphan_processes_remaining": 0,
+  "speedup_vs_serial": "SPEEDUP_NOT_MEASURED",
+  "speedup_measured": false,
+  "status": "PASS"
+}

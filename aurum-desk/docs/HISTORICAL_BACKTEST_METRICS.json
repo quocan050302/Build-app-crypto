@@ -551,7 +551,7 @@
     "variant_name": "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)",
     "win_rate": 0.3889
   },
-  "backtest_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "backtest_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "d1_bars_count": 181,
   "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
@@ -2274,7 +2274,7 @@
     }
   },
   "fabricated_candles_count": 0,
-  "final_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
   "h1_bars_count": 3863,
   "h4_bars_count": 965,
   "m15_bars_count": 15090,
@@ -2293,18 +2293,18 @@
       "command": [
         "-c"
       ],
-      "completed_at_ms": 1793442131370,
-      "completed_at_utc": "2026-10-31T10:22:11.370000+00:00",
-      "core_backtest_evaluator_tree_hash": "ce2858680fc11b3c80b4abb80daf8bc0f7e6af4b6f21e95d7a7a334ad5a0b2d9",
-      "duration_ms": 36876,
-      "executable_tree_hash": "242645af5ae6e8fffa429362ca4a20feaaa03e1716f9b6bd81442c1cddc43f93",
-      "pid": 69556,
-      "ppid": 69537,
-      "run_id": "r331_20261031T102132Z_c30288f198f2",
-      "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
-      "started_at_ms": 1793442094494,
-      "started_at_utc": "2026-10-31T10:21:34.494000+00:00",
-      "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13"
+      "completed_at_ms": 1793448317106,
+      "completed_at_utc": "2026-10-31T12:05:17.106000+00:00",
+      "core_backtest_evaluator_tree_hash": "1ae95b63f88a03f8248b9555cb6ba4578f6adea66890328569fa2eda34c05742",
+      "duration_ms": 34924,
+      "executable_tree_hash": "e6a94d3b8c4b8b3cc7584ccf1bf9641e83953aa753ae2abd01d00248a18e37ad",
+      "pid": 86350,
+      "ppid": 86347,
+      "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+      "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+      "started_at_ms": 1793448282182,
+      "started_at_utc": "2026-10-31T12:04:42.182000+00:00",
+      "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
     },
     "minimum_trades_required_for_conclusive_oos": 10,
     "out_of_sample_20_pct": {
@@ -3088,7 +3088,7 @@
       }
     },
     "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",
-    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "run_id": "r332_20261031T120439Z_79c435a2bf7d",
     "schema_version": "V17.8.0.4",
     "secondary_opportunity_balanced_split_50_25_25": {
       "description": "Chronological 50% / 25% / 25% split over opportunities with at least one eligible variant.",
@@ -4121,9 +4121,9 @@
       "train_50_pct_count": 20,
       "validation_25_pct_count": 11
     },
-    "source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
     "split_protocol": "CHRONOLOGICAL_60_20_20_ZERO_LOOKAHEAD",
-    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
     "train_60_pct": {
       "end_ms": 1792690620000,
       "matched_cohort_analysis": {
