@@ -1047,14 +1047,126 @@
       "passed": true,
       "status": "PASS",
       "test_id": "N131"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Empty top-level backtest source SHA in backtest metrics rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N132"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Missing top-level and nested backtest source SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N133"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Mismatched top-level backtest source SHA rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N134"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Contradictory backtest source SHAs between top-level and nested rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N135"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Backtest source manifest with mismatched SHA cannot claim PASS",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N136"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Backtest source manifest with empty SHA cannot claim PASS",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N137"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Historical production capture point mislabeled as Market Shadow rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N138"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Missing any of 5 required runtime boundaries rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N139"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Empty runtime input capture file rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N140"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Claiming 210 exact matches when breakdown has 189 changes rejected",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N141"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Parity classification with unexpected divergences fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N142"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Missing R3 mandatory deliverables rejected by disk verifier",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N143"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Zero simulated trades in backtest metrics fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N144"
+    },
+    {
+      "details": "VERIFIED_FAIL_CLOSED",
+      "expected_result": "Fail-closed rejection / block",
+      "injected_condition": "DEF-179013-R03: Missing final code SHA in acceptance verdict fails closed",
+      "passed": true,
+      "status": "PASS",
+      "test_id": "N145"
     }
   ],
   "evaluator_version": "17.9.0.1.1",
   "failed_negative_controls": 0,
   "failed_negative_tests": 0,
-  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
-  "passed_negative_controls": 131,
-  "passed_negative_tests": 131,
+  "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "passed_negative_controls": 145,
+  "passed_negative_tests": 145,
   "release": "V17.9.0.1.3",
   "results": [
     {
@@ -1842,9 +1954,93 @@
       "error": null,
       "status": "PASS",
       "test_id": "N131"
+    },
+    {
+      "description": "DEF-179013-R03: Empty top-level backtest source SHA in backtest metrics rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N132"
+    },
+    {
+      "description": "DEF-179013-R03: Missing top-level and nested backtest source SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N133"
+    },
+    {
+      "description": "DEF-179013-R03: Mismatched top-level backtest source SHA rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N134"
+    },
+    {
+      "description": "DEF-179013-R03: Contradictory backtest source SHAs between top-level and nested rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N135"
+    },
+    {
+      "description": "DEF-179013-R03: Backtest source manifest with mismatched SHA cannot claim PASS",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N136"
+    },
+    {
+      "description": "DEF-179013-R03: Backtest source manifest with empty SHA cannot claim PASS",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N137"
+    },
+    {
+      "description": "DEF-179013-R03: Historical production capture point mislabeled as Market Shadow rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N138"
+    },
+    {
+      "description": "DEF-179013-R03: Missing any of 5 required runtime boundaries rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N139"
+    },
+    {
+      "description": "DEF-179013-R03: Empty runtime input capture file rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N140"
+    },
+    {
+      "description": "DEF-179013-R03: Claiming 210 exact matches when breakdown has 189 changes rejected",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N141"
+    },
+    {
+      "description": "DEF-179013-R03: Parity classification with unexpected divergences fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N142"
+    },
+    {
+      "description": "DEF-179013-R03: Missing R3 mandatory deliverables rejected by disk verifier",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N143"
+    },
+    {
+      "description": "DEF-179013-R03: Zero simulated trades in backtest metrics fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N144"
+    },
+    {
+      "description": "DEF-179013-R03: Missing final code SHA in acceptance verdict fails closed",
+      "error": null,
+      "status": "PASS",
+      "test_id": "N145"
     }
   ],
   "status": "PASS",
-  "total_negative_controls": 131,
-  "total_negative_tests": 131
+  "total_negative_controls": 145,
+  "total_negative_tests": 145
 }

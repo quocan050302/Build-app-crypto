@@ -1,18 +1,18 @@
 {
   "async_orchestration_summary": {
     "node_accounting_invariant_holds": true,
-    "peak_concurrent_workers": 4,
-    "speedup_ratio": 3.54,
-    "sum_of_group_durations_sec": 313.226,
-    "total_completed_nodes": 60,
+    "peak_concurrent_workers": 0,
+    "speedup_ratio": 0.0,
+    "sum_of_group_durations_sec": 0.0,
+    "total_completed_nodes": 206,
     "total_failed_nodes": 0,
-    "wall_clock_duration_sec": 88.567
+    "wall_clock_duration_sec": 0.006
   },
   "blocked_gates_count": 0,
   "failed_gates_count": 0,
-  "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+  "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
   "gate_provenance_integrity": {
-    "final_code_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+    "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
     "is_valid": true,
     "missing_gates": [],
     "stale_gates": [],
@@ -22,14 +22,14 @@
   "gates": {
     "G01_BRANCH_INTEGRITY": {
       "counts": null,
-      "duration_ms": 33,
+      "duration_ms": 34,
       "exit_code": 0,
       "gate_id": "G01_BRANCH_INTEGRITY",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G02_TEST_DB_BOOTSTRAP": {
       "counts": {
@@ -39,14 +39,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 20,
+      "duration_ms": 31,
       "exit_code": 0,
       "gate_id": "G02_TEST_DB_BOOTSTRAP",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g02_test_db_bootstrap.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g02_test_db_bootstrap.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g02_test_db_bootstrap.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g02_test_db_bootstrap.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G03_UNSAFE_PATH_REJECTION": {
       "counts": {
@@ -56,14 +56,14 @@
         "passed": 7,
         "skipped": 2
       },
-      "duration_ms": 1158,
+      "duration_ms": 763,
       "exit_code": 0,
       "gate_id": "G03_UNSAFE_PATH_REJECTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g03_unsafe_path_rejection.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g03_unsafe_path_rejection.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g03_unsafe_path_rejection.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g03_unsafe_path_rejection.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G04_DESTRUCTIVE_FIXTURE_ISOLATION": {
       "counts": {
@@ -73,14 +73,14 @@
         "passed": 5,
         "skipped": 0
       },
-      "duration_ms": 1573,
+      "duration_ms": 1525,
       "exit_code": 0,
       "gate_id": "G04_DESTRUCTIVE_FIXTURE_ISOLATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g04_destructive_fixture_isolation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g04_destructive_fixture_isolation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g04_destructive_fixture_isolation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g04_destructive_fixture_isolation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G05_RAW_ATR_PROVENANCE": {
       "counts": {
@@ -90,14 +90,14 @@
         "passed": 8,
         "skipped": 0
       },
-      "duration_ms": 115,
+      "duration_ms": 119,
       "exit_code": 0,
       "gate_id": "G05_RAW_ATR_PROVENANCE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g05_raw_atr_provenance.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g05_raw_atr_provenance.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g05_raw_atr_provenance.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g05_raw_atr_provenance.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G06_REQUIRED_M1_ATR_FAIL_CLOSED": {
       "counts": {
@@ -107,14 +107,14 @@
         "passed": 7,
         "skipped": 0
       },
-      "duration_ms": 168,
+      "duration_ms": 162,
       "exit_code": 0,
       "gate_id": "G06_REQUIRED_M1_ATR_FAIL_CLOSED",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g06_required_m1_atr_fail_closed.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g06_required_m1_atr_fail_closed.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g06_required_m1_atr_fail_closed.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g06_required_m1_atr_fail_closed.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G07_ATR_BUFFER_MATH_CORRECTNESS": {
       "counts": {
@@ -124,14 +124,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 44,
+      "duration_ms": 43,
       "exit_code": 0,
       "gate_id": "G07_ATR_BUFFER_MATH_CORRECTNESS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g07_atr_buffer_math_correctness.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g07_atr_buffer_math_correctness.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g07_atr_buffer_math_correctness.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g07_atr_buffer_math_correctness.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G08_STRUCTURAL_ANCHOR_CAUSAL": {
       "counts": {
@@ -141,14 +141,14 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 267,
+      "duration_ms": 419,
       "exit_code": 0,
       "gate_id": "G08_STRUCTURAL_ANCHOR_CAUSAL",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g08_structural_anchor_causal.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g08_structural_anchor_causal.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g08_structural_anchor_causal.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g08_structural_anchor_causal.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G09_DISTANT_SL_FINANCIAL_INTEGRITY": {
       "counts": {
@@ -158,32 +158,32 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 308,
+      "duration_ms": 1902,
       "exit_code": 0,
       "gate_id": "G09_DISTANT_SL_FINANCIAL_INTEGRITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g09_distant_sl_financial_integrity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g09_distant_sl_financial_integrity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g09_distant_sl_financial_integrity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g09_distant_sl_financial_integrity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G100_STRUCTURAL_SL_TP_RR_PARITY": {
       "counts": {
-        "collected": 5,
+        "collected": 151,
         "collection_errors": 0,
         "errors": 0,
         "failed": 0,
-        "passed": 5,
+        "passed": 151,
         "skipped": 0
       },
-      "duration_ms": 42538,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G100_STRUCTURAL_SL_TP_RR_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g100_structural_sl_tp_rr_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g100_structural_sl_tp_rr_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g100_structural_sl_tp_rr_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g100_structural_sl_tp_rr_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
       "counts": {
@@ -194,14 +194,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 10697,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g101_bounded_async_test_runner_integrity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g101_bounded_async_test_runner_integrity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g101_bounded_async_test_runner_integrity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g101_bounded_async_test_runner_integrity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
       "counts": {
@@ -212,14 +212,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 10690,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g102_disk_budget_guard_and_temp_cleanup.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g102_disk_budget_guard_and_temp_cleanup.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g102_disk_budget_guard_and_temp_cleanup.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g102_disk_budget_guard_and_temp_cleanup.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
       "counts": {
@@ -230,14 +230,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 10286,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g103_checkpoint_resume_and_invalidation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g103_checkpoint_resume_and_invalidation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g103_checkpoint_resume_and_invalidation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g103_checkpoint_resume_and_invalidation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
       "counts": {
@@ -248,14 +248,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 10178,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g104_real_historical_backtest_shared_evaluator.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g104_real_historical_backtest_shared_evaluator.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g104_real_historical_backtest_shared_evaluator.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g104_real_historical_backtest_shared_evaluator.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
       "counts": {
@@ -266,36 +266,36 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 17655,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g105_matched_vs_full_strategy_cohort_integrity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g105_matched_vs_full_strategy_cohort_integrity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g105_matched_vs_full_strategy_cohort_integrity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g105_matched_vs_full_strategy_cohort_integrity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION": {
       "counts": null,
-      "duration_ms": 110,
+      "duration_ms": 115,
       "exit_code": 0,
       "gate_id": "G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g88_exact_commit_evidence.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g88_exact_commit_evidence.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS": {
       "counts": null,
-      "duration_ms": 110,
+      "duration_ms": 115,
       "exit_code": 0,
       "gate_id": "G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g88_exact_commit_evidence.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g88_exact_commit_evidence.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G10_CG01_EVALUATOR_INTEGRATION": {
       "counts": {
@@ -305,14 +305,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 165,
+      "duration_ms": 249,
       "exit_code": 0,
       "gate_id": "G10_CG01_EVALUATOR_INTEGRATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g10_cg01_evaluator_integration.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g10_cg01_evaluator_integration.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g10_cg01_evaluator_integration.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g10_cg01_evaluator_integration.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G11_M1_EVALUATOR_INTEGRATION": {
       "counts": {
@@ -322,14 +322,14 @@
         "passed": 7,
         "skipped": 0
       },
-      "duration_ms": 400,
+      "duration_ms": 1004,
       "exit_code": 0,
       "gate_id": "G11_M1_EVALUATOR_INTEGRATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g11_m1_evaluator_integration.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g11_m1_evaluator_integration.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g11_m1_evaluator_integration.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g11_m1_evaluator_integration.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G12_ORCHESTRATOR_REAL_ARM": {
       "counts": {
@@ -339,14 +339,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 513,
+      "duration_ms": 412,
       "exit_code": 0,
       "gate_id": "G12_ORCHESTRATOR_REAL_ARM",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g12_orchestrator_real_arm.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g12_orchestrator_real_arm.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g12_orchestrator_real_arm.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g12_orchestrator_real_arm.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G13_REAL_ARM_CONCURRENCY": {
       "counts": {
@@ -356,14 +356,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 330,
+      "duration_ms": 508,
       "exit_code": 0,
       "gate_id": "G13_REAL_ARM_CONCURRENCY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g13_real_arm_concurrency.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g13_real_arm_concurrency.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g13_real_arm_concurrency.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g13_real_arm_concurrency.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G14_FILL_TIME_FINANCIAL_INVARIANTS": {
       "counts": {
@@ -373,14 +373,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 243,
+      "duration_ms": 420,
       "exit_code": 0,
       "gate_id": "G14_FILL_TIME_FINANCIAL_INVARIANTS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g14_fill_time_financial_invariants.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g14_fill_time_financial_invariants.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g14_fill_time_financial_invariants.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g14_fill_time_financial_invariants.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G15_PAPER_EXIT_AND_PERSISTENCE": {
       "counts": {
@@ -390,14 +390,14 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 480,
+      "duration_ms": 781,
       "exit_code": 0,
       "gate_id": "G15_PAPER_EXIT_AND_PERSISTENCE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g15_paper_exit_and_persistence.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g15_paper_exit_and_persistence.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g15_paper_exit_and_persistence.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g15_paper_exit_and_persistence.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G16_LIVE_ORDER_SAFETY_BOUNDARY": {
       "counts": {
@@ -407,14 +407,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 579,
+      "duration_ms": 1416,
       "exit_code": 0,
       "gate_id": "G16_LIVE_ORDER_SAFETY_BOUNDARY",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g16.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793411200786_34380\\reports\\g16.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G17_EXISTING_SL_DSL_CE_REGRESSION": {
       "counts": {
@@ -424,14 +424,14 @@
         "passed": 102,
         "skipped": 0
       },
-      "duration_ms": 11527,
+      "duration_ms": 19764,
       "exit_code": 0,
       "gate_id": "G17_EXISTING_SL_DSL_CE_REGRESSION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g17_existing_sl_dsl_ce_regression.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g17_existing_sl_dsl_ce_regression.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g17_existing_sl_dsl_ce_regression.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g17_existing_sl_dsl_ce_regression.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G18_V17_5_REGRESSION": {
       "counts": {
@@ -441,14 +441,14 @@
         "passed": 278,
         "skipped": 0
       },
-      "duration_ms": 57885,
+      "duration_ms": 71674,
       "exit_code": 0,
       "gate_id": "G18_V17_5_REGRESSION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g18_v17_5_regression.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g18_v17_5_regression.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g18_v17_5_regression.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g18_v17_5_regression.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G19_V17_6_REGRESSION": {
       "counts": {
@@ -458,31 +458,31 @@
         "passed": 776,
         "skipped": 0
       },
-      "duration_ms": 882107,
+      "duration_ms": 1006146,
       "exit_code": 0,
       "gate_id": "G19_V17_6_REGRESSION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g19_v17_6_regression.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g19_v17_6_regression.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g19_v17_6_regression.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g19_v17_6_regression.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G20_FULL_BACKEND_PYTEST": {
       "counts": {
-        "collected": 4384,
+        "collected": 4398,
         "errors": 0,
         "failed": 0,
-        "passed": 4376,
+        "passed": 4390,
         "skipped": 8
       },
-      "duration_ms": 2905575,
+      "duration_ms": 3529856,
       "exit_code": 0,
       "gate_id": "G20_FULL_BACKEND_PYTEST",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g20_full_backend_pytest.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g20_full_backend_pytest.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g20_full_backend_pytest.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g20_full_backend_pytest.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G21_FRONTEND_VITEST": {
       "counts": {
@@ -493,36 +493,36 @@
         "skipped": 0,
         "test_files_passed": 57
       },
-      "duration_ms": 18486,
+      "duration_ms": 23516,
       "exit_code": 0,
       "gate_id": "G21_FRONTEND_VITEST",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G22_FRONTEND_BUILD": {
       "counts": null,
-      "duration_ms": 28160,
+      "duration_ms": 35782,
       "exit_code": 0,
       "gate_id": "G22_FRONTEND_BUILD",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G23_FRONTEND_LINT": {
       "counts": null,
-      "duration_ms": 3627,
+      "duration_ms": 6378,
       "exit_code": 0,
       "gate_id": "G23_FRONTEND_LINT",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G24_PLAYWRIGHT_BROWSER_E2E": {
       "counts": {
@@ -532,14 +532,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 32474,
+      "duration_ms": 75161,
       "exit_code": 0,
       "gate_id": "G24_PLAYWRIGHT_BROWSER_E2E",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G25_DETERMINISTIC_REPLAY": {
       "counts": {
@@ -549,14 +549,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 163,
+      "duration_ms": 248,
       "exit_code": 0,
       "gate_id": "G25_DETERMINISTIC_REPLAY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g25_deterministic_replay.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g25_deterministic_replay.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g25_deterministic_replay.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g25_deterministic_replay.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS": {
       "counts": {
@@ -566,14 +566,14 @@
         "passed": 9,
         "skipped": 0
       },
-      "duration_ms": 181,
+      "duration_ms": 236,
       "exit_code": 0,
       "gate_id": "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g26_acceptance_runner_negative_tests.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g26_acceptance_runner_negative_tests.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g26_acceptance_runner_negative_tests.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g26_acceptance_runner_negative_tests.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G27_ARTIFACT_SOURCE_SHA_INTEGRITY": {
       "counts": {
@@ -583,14 +583,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 185,
+      "duration_ms": 240,
       "exit_code": 0,
       "gate_id": "G27_ARTIFACT_SOURCE_SHA_INTEGRITY",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G28_DOCS_DEFECT_REGISTER_CONSISTENCY": {
       "counts": null,
@@ -601,7 +601,7 @@
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G29_UNICORN_BREAKER_DETECTION": {
       "counts": {
@@ -611,14 +611,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 27,
+      "duration_ms": 22,
       "exit_code": 0,
       "gate_id": "G29_UNICORN_BREAKER_DETECTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g29_unicorn_breaker_detection.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g29_unicorn_breaker_detection.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g29_unicorn_breaker_detection.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g29_unicorn_breaker_detection.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G30_UNICORN_FVG_OVERLAP": {
       "counts": {
@@ -628,14 +628,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 27,
+      "duration_ms": 22,
       "exit_code": 0,
       "gate_id": "G30_UNICORN_FVG_OVERLAP",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g30_unicorn_fvg_overlap.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g30_unicorn_fvg_overlap.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g30_unicorn_fvg_overlap.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g30_unicorn_fvg_overlap.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G31_CROSS_TIMEFRAME_CAUSALITY": {
       "counts": {
@@ -645,14 +645,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 27,
+      "duration_ms": 22,
       "exit_code": 0,
       "gate_id": "G31_CROSS_TIMEFRAME_CAUSALITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g31_cross_timeframe_causality.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g31_cross_timeframe_causality.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g31_cross_timeframe_causality.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g31_cross_timeframe_causality.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G32_STRUCTURAL_INVALIDATION_AUTHORITY": {
       "counts": {
@@ -662,14 +662,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 13,
+      "duration_ms": 16,
       "exit_code": 0,
       "gate_id": "G32_STRUCTURAL_INVALIDATION_AUTHORITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g32_structural_invalidation_authority.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g32_structural_invalidation_authority.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g32_structural_invalidation_authority.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g32_structural_invalidation_authority.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G33_MODEL_SPECIFIC_SL_SELECTION": {
       "counts": {
@@ -679,14 +679,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 12,
+      "duration_ms": 18,
       "exit_code": 0,
       "gate_id": "G33_MODEL_SPECIFIC_SL_SELECTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g33_model_specific_sl_selection.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g33_model_specific_sl_selection.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g33_model_specific_sl_selection.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g33_model_specific_sl_selection.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G34_ATR_SPREAD_NOISE_PROTECTION": {
       "counts": {
@@ -696,14 +696,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 24,
+      "duration_ms": 22,
       "exit_code": 0,
       "gate_id": "G34_ATR_SPREAD_NOISE_PROTECTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g34_atr_spread_noise_protection.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g34_atr_spread_noise_protection.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g34_atr_spread_noise_protection.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g34_atr_spread_noise_protection.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G35_LIQUIDITY_TP_INDEPENDENCE": {
       "counts": {
@@ -713,14 +713,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 13,
+      "duration_ms": 8224,
       "exit_code": 0,
       "gate_id": "G35_LIQUIDITY_TP_INDEPENDENCE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g35_liquidity_tp_independence.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g35_liquidity_tp_independence.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g35_liquidity_tp_independence.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g35_liquidity_tp_independence.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G36_ENTRY_QUOTE_PROXIMITY": {
       "counts": {
@@ -730,14 +730,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 34,
+      "duration_ms": 33,
       "exit_code": 0,
       "gate_id": "G36_ENTRY_QUOTE_PROXIMITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g36_entry_quote_proximity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g36_entry_quote_proximity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g36_entry_quote_proximity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g36_entry_quote_proximity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G37_RISK_BUDGET_AND_NET_RR": {
       "counts": {
@@ -747,14 +747,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 24,
+      "duration_ms": 28,
       "exit_code": 0,
       "gate_id": "G37_RISK_BUDGET_AND_NET_RR",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g37_risk_budget_and_net_rr.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g37_risk_budget_and_net_rr.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g37_risk_budget_and_net_rr.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g37_risk_budget_and_net_rr.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G38_COMPLETE_ARM_FILL_EXIT": {
       "counts": {
@@ -764,14 +764,14 @@
         "passed": 7,
         "skipped": 0
       },
-      "duration_ms": 2025,
+      "duration_ms": 2502,
       "exit_code": 0,
       "gate_id": "G38_COMPLETE_ARM_FILL_EXIT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g38_complete_arm_fill_exit.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g38_complete_arm_fill_exit.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g38_complete_arm_fill_exit.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g38_complete_arm_fill_exit.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G39_HISTORICAL_REPLAY_DETERMINISM": {
       "counts": {
@@ -781,14 +781,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 37,
+      "duration_ms": 60,
       "exit_code": 0,
       "gate_id": "G39_HISTORICAL_REPLAY_DETERMINISM",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g39_historical_replay_determinism.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g39_historical_replay_determinism.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g39_historical_replay_determinism.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g39_historical_replay_determinism.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G40_FEATURE_FLAG_AND_LEGACY_PARITY": {
       "counts": {
@@ -798,14 +798,14 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 332,
+      "duration_ms": 990,
       "exit_code": 0,
       "gate_id": "G40_FEATURE_FLAG_AND_LEGACY_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g40_feature_flag_and_legacy_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g40_feature_flag_and_legacy_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g40_feature_flag_and_legacy_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g40_feature_flag_and_legacy_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G41_NEGATIVE_CONTROLS_AND_ANTI_FABRICATION": {
       "counts": {
@@ -815,14 +815,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 36,
+      "duration_ms": 39,
       "exit_code": 0,
       "gate_id": "G41_NEGATIVE_CONTROLS_AND_ANTI_FABRICATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g41_negative_controls_and_anti_fabrication.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g41_negative_controls_and_anti_fabrication.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g41_negative_controls_and_anti_fabrication.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g41_negative_controls_and_anti_fabrication.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY": {
       "counts": null,
@@ -833,7 +833,7 @@
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G43_UNICORN_RUNTIME_INTERFACE_CONTRACT": {
       "counts": {
@@ -843,14 +843,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 150,
+      "duration_ms": 745,
       "exit_code": 0,
       "gate_id": "G43_UNICORN_RUNTIME_INTERFACE_CONTRACT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g43_unicorn_runtime_interface_contract.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g43_unicorn_runtime_interface_contract.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g43_unicorn_runtime_interface_contract.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g43_unicorn_runtime_interface_contract.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G44_FEATURE_FLAG_PERSISTENCE_AND_RELOAD": {
       "counts": {
@@ -860,14 +860,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 301,
+      "duration_ms": 289,
       "exit_code": 0,
       "gate_id": "G44_FEATURE_FLAG_PERSISTENCE_AND_RELOAD",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g44_feature_flag_persistence_and_reload.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g44_feature_flag_persistence_and_reload.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g44_feature_flag_persistence_and_reload.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g44_feature_flag_persistence_and_reload.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G45_FILL_TIME_PROTECTIVE_DISTANCE_GUARD": {
       "counts": {
@@ -877,14 +877,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 121,
+      "duration_ms": 137,
       "exit_code": 0,
       "gate_id": "G45_FILL_TIME_PROTECTIVE_DISTANCE_GUARD",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g45_fill_time_protective_distance_guard.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g45_fill_time_protective_distance_guard.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g45_fill_time_protective_distance_guard.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g45_fill_time_protective_distance_guard.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G46_FILL_TIME_STOP_BREACH_QUOTE_GUARD": {
       "counts": {
@@ -894,14 +894,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 120,
+      "duration_ms": 137,
       "exit_code": 0,
       "gate_id": "G46_FILL_TIME_STOP_BREACH_QUOTE_GUARD",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g46_fill_time_stop_breach_quote_guard.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g46_fill_time_stop_breach_quote_guard.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g46_fill_time_stop_breach_quote_guard.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g46_fill_time_stop_breach_quote_guard.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G47_CAUSAL_UNICORN_EPISODE_BINDING": {
       "counts": {
@@ -911,14 +911,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 61,
+      "duration_ms": 72,
       "exit_code": 0,
       "gate_id": "G47_CAUSAL_UNICORN_EPISODE_BINDING",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g47_causal_unicorn_episode_binding.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g47_causal_unicorn_episode_binding.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g47_causal_unicorn_episode_binding.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g47_causal_unicorn_episode_binding.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G48_ANTI_LOOKAHEAD_AND_UNCLOSED_CANDLE_REJECTION": {
       "counts": {
@@ -928,14 +928,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 61,
+      "duration_ms": 72,
       "exit_code": 0,
       "gate_id": "G48_ANTI_LOOKAHEAD_AND_UNCLOSED_CANDLE_REJECTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g48_anti_lookahead_and_unclosed_candle_rejection.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g48_anti_lookahead_and_unclosed_candle_rejection.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g48_anti_lookahead_and_unclosed_candle_rejection.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g48_anti_lookahead_and_unclosed_candle_rejection.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G49_END_TO_END_RUNTIME_INTEGRATION": {
       "counts": {
@@ -945,14 +945,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 1549,
+      "duration_ms": 1842,
       "exit_code": 0,
       "gate_id": "G49_END_TO_END_RUNTIME_INTEGRATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g49_end_to_end_runtime_integration.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g49_end_to_end_runtime_integration.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g49_end_to_end_runtime_integration.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g49_end_to_end_runtime_integration.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E": {
       "counts": {
@@ -962,14 +962,14 @@
         "passed": 5,
         "skipped": 0
       },
-      "duration_ms": 28828,
+      "duration_ms": 37622,
       "exit_code": 0,
       "gate_id": "G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G51_FORENSIC_AUDIT_TRUTH_RECONCILIATION": {
       "counts": {
@@ -979,14 +979,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 56,
+      "duration_ms": 71,
       "exit_code": 0,
       "gate_id": "G51_FORENSIC_AUDIT_TRUTH_RECONCILIATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g51_forensic_audit_truth_reconciliation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g51_forensic_audit_truth_reconciliation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g51_forensic_audit_truth_reconciliation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g51_forensic_audit_truth_reconciliation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G52_HONEST_REPLAY_COMPARISON_DISCLOSURE": {
       "counts": {
@@ -996,14 +996,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 76,
+      "duration_ms": 85,
       "exit_code": 0,
       "gate_id": "G52_HONEST_REPLAY_COMPARISON_DISCLOSURE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g52_honest_replay_comparison_disclosure.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g52_honest_replay_comparison_disclosure.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g52_honest_replay_comparison_disclosure.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g52_honest_replay_comparison_disclosure.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G53_OBSERVE_ONLY_STARTUP_ISOLATION": {
       "counts": {
@@ -1013,14 +1013,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 2264,
+      "duration_ms": 2306,
       "exit_code": 0,
       "gate_id": "G53_OBSERVE_ONLY_STARTUP_ISOLATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g53_observe_only_startup_isolation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g53_observe_only_startup_isolation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g53_observe_only_startup_isolation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g53_observe_only_startup_isolation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G54_ZERO_BACKGROUND_ORDER_MUTATIONS": {
       "counts": {
@@ -1030,14 +1030,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 2511,
+      "duration_ms": 2551,
       "exit_code": 0,
       "gate_id": "G54_ZERO_BACKGROUND_ORDER_MUTATIONS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g54_zero_background_order_mutations.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g54_zero_background_order_mutations.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g54_zero_background_order_mutations.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g54_zero_background_order_mutations.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G55_ZERO_LIVE_EXCHANGE_DISPATCH": {
       "counts": {
@@ -1047,14 +1047,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 647,
+      "duration_ms": 625,
       "exit_code": 0,
       "gate_id": "G55_ZERO_LIVE_EXCHANGE_DISPATCH",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g55_zero_live_exchange_dispatch.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g55_zero_live_exchange_dispatch.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g55_zero_live_exchange_dispatch.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g55_zero_live_exchange_dispatch.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G56_OBSERVATION_DATABASE_IMMUTABILITY": {
       "counts": {
@@ -1064,14 +1064,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 647,
+      "duration_ms": 625,
       "exit_code": 0,
       "gate_id": "G56_OBSERVATION_DATABASE_IMMUTABILITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g56_observation_database_immutability.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g56_observation_database_immutability.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g56_observation_database_immutability.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g56_observation_database_immutability.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G57_OBSERVATION_STARTUP_SHUTDOWN": {
       "counts": {
@@ -1081,14 +1081,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 12649,
+      "duration_ms": 12331,
       "exit_code": 0,
       "gate_id": "G57_OBSERVATION_STARTUP_SHUTDOWN",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g57_observation_startup_shutdown.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793411200786_34380\\reports\\g57_observation_startup_shutdown.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY": {
       "counts": {
@@ -1098,14 +1098,14 @@
         "passed": 8,
         "skipped": 0
       },
-      "duration_ms": 110,
+      "duration_ms": 115,
       "exit_code": 0,
       "gate_id": "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g58_release_artifact_truth.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g58_release_artifact_truth.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g58_release_artifact_truth.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g58_release_artifact_truth.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G59_MARKET_SHADOW_PROFILE_CONTRACT": {
       "counts": {
@@ -1115,14 +1115,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 27,
+      "duration_ms": 22,
       "exit_code": 0,
       "gate_id": "G59_MARKET_SHADOW_PROFILE_CONTRACT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g59_market_shadow_profile_contract.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g59_market_shadow_profile_contract.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g59_market_shadow_profile_contract.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g59_market_shadow_profile_contract.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G60_MARKET_SHADOW_EXECUTION_FORBIDDEN": {
       "counts": {
@@ -1135,11 +1135,11 @@
       "duration_ms": 26,
       "exit_code": 0,
       "gate_id": "G60_MARKET_SHADOW_EXECUTION_FORBIDDEN",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g60_market_shadow_execution_forbidden.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g60_market_shadow_execution_forbidden.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g60_market_shadow_execution_forbidden.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g60_market_shadow_execution_forbidden.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G61_PUBLIC_MARKET_FEED_CONNECTED_OR_EXPLICIT_BLOCKER": {
       "counts": {
@@ -1149,14 +1149,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 1803,
+      "duration_ms": 4266,
       "exit_code": 0,
       "gate_id": "G61_PUBLIC_MARKET_FEED_CONNECTED_OR_EXPLICIT_BLOCKER",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g61_public_market_feed_connected_or_explicit_blocker.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g61_public_market_feed_connected_or_explicit_blocker.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g61_public_market_feed_connected_or_explicit_blocker.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g61_public_market_feed_connected_or_explicit_blocker.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G62_CANONICAL_QUOTE_VALIDATION_AND_ORDERING": {
       "counts": {
@@ -1166,14 +1166,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 12,
+      "duration_ms": 13,
       "exit_code": 0,
       "gate_id": "G62_CANONICAL_QUOTE_VALIDATION_AND_ORDERING",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g62_canonical_quote_validation_and_ordering.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g62_canonical_quote_validation_and_ordering.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g62_canonical_quote_validation_and_ordering.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g62_canonical_quote_validation_and_ordering.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G63_SHADOW_CANDLE_FINALITY_AND_CACHE": {
       "counts": {
@@ -1186,11 +1186,11 @@
       "duration_ms": 27,
       "exit_code": 0,
       "gate_id": "G63_SHADOW_CANDLE_FINALITY_AND_CACHE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g63_shadow_candle_finality_and_cache.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g63_shadow_candle_finality_and_cache.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g63_shadow_candle_finality_and_cache.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g63_shadow_candle_finality_and_cache.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G64_SHADOW_DATABASE_ISOLATION": {
       "counts": {
@@ -1200,14 +1200,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 207,
+      "duration_ms": 176,
       "exit_code": 0,
       "gate_id": "G64_SHADOW_DATABASE_ISOLATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g64_shadow_database_isolation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g64_shadow_database_isolation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g64_shadow_database_isolation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g64_shadow_database_isolation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G65_CONTINUOUS_UNICORN_SHADOW_EVALUATION": {
       "counts": {
@@ -1217,14 +1217,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 102,
+      "duration_ms": 84,
       "exit_code": 0,
       "gate_id": "G65_CONTINUOUS_UNICORN_SHADOW_EVALUATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g65_continuous_unicorn_shadow_evaluation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g65_continuous_unicorn_shadow_evaluation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g65_continuous_unicorn_shadow_evaluation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g65_continuous_unicorn_shadow_evaluation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G66_STRUCTURAL_SL_TP_SHADOW_DECISIONS": {
       "counts": {
@@ -1234,14 +1234,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 1891,
+      "duration_ms": 4335,
       "exit_code": 0,
       "gate_id": "G66_STRUCTURAL_SL_TP_SHADOW_DECISIONS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g66_structural_sl_tp_shadow_decisions.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g66_structural_sl_tp_shadow_decisions.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g66_structural_sl_tp_shadow_decisions.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g66_structural_sl_tp_shadow_decisions.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G67_HISTORICAL_DATA_QUALITY_GATE": {
       "counts": {
@@ -1251,14 +1251,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 16,
+      "duration_ms": 17,
       "exit_code": 0,
       "gate_id": "G67_HISTORICAL_DATA_QUALITY_GATE",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g67_historical_data_quality_gate.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g67_historical_data_quality_gate.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g67_historical_data_quality_gate.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g67_historical_data_quality_gate.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G68_REAL_HISTORICAL_BACKTEST_EXECUTION": {
       "counts": {
@@ -1268,14 +1268,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 26,
+      "duration_ms": 21,
       "exit_code": 0,
       "gate_id": "G68_REAL_HISTORICAL_BACKTEST_EXECUTION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g68_real_historical_backtest_execution.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g68_real_historical_backtest_execution.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g68_real_historical_backtest_execution.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g68_real_historical_backtest_execution.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G69_MATCHED_ABCD_COMPARISON_COMPLETENESS": {
       "counts": {
@@ -1285,14 +1285,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 26,
+      "duration_ms": 21,
       "exit_code": 0,
       "gate_id": "G69_MATCHED_ABCD_COMPARISON_COMPLETENESS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g69_matched_abcd_comparison_completeness.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g69_matched_abcd_comparison_completeness.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g69_matched_abcd_comparison_completeness.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g69_matched_abcd_comparison_completeness.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G70_OUT_OF_SAMPLE_AND_STRESS_VALIDATION": {
       "counts": {
@@ -1302,14 +1302,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 41,
+      "duration_ms": 38,
       "exit_code": 0,
       "gate_id": "G70_OUT_OF_SAMPLE_AND_STRESS_VALIDATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g70_out_of_sample_and_stress_validation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g70_out_of_sample_and_stress_validation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g70_out_of_sample_and_stress_validation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g70_out_of_sample_and_stress_validation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G71_SHADOW_API_READ_ONLY_CONTRACT": {
       "counts": {
@@ -1319,14 +1319,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 1789,
+      "duration_ms": 4251,
       "exit_code": 0,
       "gate_id": "G71_SHADOW_API_READ_ONLY_CONTRACT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g71_shadow_api_read_only_contract.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g71_shadow_api_read_only_contract.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g71_shadow_api_read_only_contract.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g71_shadow_api_read_only_contract.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G72_FRONTEND_SHADOW_OBSERVATION_E2E": {
       "counts": {
@@ -1336,14 +1336,14 @@
         "passed": 11,
         "skipped": 0
       },
-      "duration_ms": 5742,
+      "duration_ms": 6417,
       "exit_code": 0,
       "gate_id": "G72_FRONTEND_SHADOW_OBSERVATION_E2E",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G73_OPERATIONAL_DB_ZERO_MUTATION": {
       "counts": {
@@ -1353,14 +1353,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 1789,
+      "duration_ms": 4251,
       "exit_code": 0,
       "gate_id": "G73_OPERATIONAL_DB_ZERO_MUTATION",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g73_operational_db_zero_mutation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793411200786_34380\\reports\\g73_operational_db_zero_mutation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G74_MARKET_SHADOW_STARTUP_SHUTDOWN": {
       "counts": {
@@ -1370,14 +1370,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 19627,
+      "duration_ms": 59179,
       "exit_code": 0,
       "gate_id": "G74_MARKET_SHADOW_STARTUP_SHUTDOWN",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g74_market_shadow_startup_shutdown.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs\\artifacts\\v17_9_0\\run_v17_9_0_1793411200786_34380\\reports\\g74_market_shadow_startup_shutdown.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION": {
       "counts": {
@@ -1387,14 +1387,14 @@
         "passed": 8,
         "skipped": 0
       },
-      "duration_ms": 110,
+      "duration_ms": 115,
       "exit_code": 0,
       "gate_id": "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
       "log_path": null,
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G76_REMOTE_ACCEPTANCE_LOG_COMPLETENESS": {
       "counts": {
@@ -1404,14 +1404,14 @@
         "passed": 2,
         "skipped": 0
       },
-      "duration_ms": 191,
+      "duration_ms": 184,
       "exit_code": 0,
       "gate_id": "G76_REMOTE_ACCEPTANCE_LOG_COMPLETENESS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g76_remote_acceptance_log_completeness.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g76_remote_acceptance_log_completeness.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g76_remote_acceptance_log_completeness.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g76_remote_acceptance_log_completeness.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G77_GIT_REPRODUCIBLE_SOURCE_MANIFEST": {
       "counts": {
@@ -1421,14 +1421,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 1083,
+      "duration_ms": 1309,
       "exit_code": 0,
       "gate_id": "G77_GIT_REPRODUCIBLE_SOURCE_MANIFEST",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g77_git_reproducible_source_manifest.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g77_git_reproducible_source_manifest.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g77_git_reproducible_source_manifest.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g77_git_reproducible_source_manifest.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G78_SOURCE_MANIFEST_NEGATIVE_CONTROLS": {
       "counts": {
@@ -1438,14 +1438,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 1874,
+      "duration_ms": 2756,
       "exit_code": 0,
       "gate_id": "G78_SOURCE_MANIFEST_NEGATIVE_CONTROLS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g78_source_manifest_negative_controls.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g78_source_manifest_negative_controls.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g78_source_manifest_negative_controls.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g78_source_manifest_negative_controls.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G79_PRODUCTION_BACKTEST_SHADOW_DECISION_PARITY": {
       "counts": {
@@ -1455,14 +1455,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 71,
+      "duration_ms": 125,
       "exit_code": 0,
       "gate_id": "G79_PRODUCTION_BACKTEST_SHADOW_DECISION_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g79_production_backtest_shadow_decision_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g79_production_backtest_shadow_decision_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g79_production_backtest_shadow_decision_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g79_production_backtest_shadow_decision_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G80_UNICORN_CAUSAL_CHAIN_STRICT_VALIDATION": {
       "counts": {
@@ -1472,14 +1472,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 15,
+      "duration_ms": 19,
       "exit_code": 0,
       "gate_id": "G80_UNICORN_CAUSAL_CHAIN_STRICT_VALIDATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g80_unicorn_causal_chain_strict_validation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g80_unicorn_causal_chain_strict_validation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g80_unicorn_causal_chain_strict_validation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g80_unicorn_causal_chain_strict_validation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G81_ATR_M1_M5_PROVENANCE_INTEGRITY": {
       "counts": {
@@ -1489,14 +1489,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 30,
+      "duration_ms": 37,
       "exit_code": 0,
       "gate_id": "G81_ATR_M1_M5_PROVENANCE_INTEGRITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g81_atr_m1_m5_provenance_integrity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g81_atr_m1_m5_provenance_integrity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g81_atr_m1_m5_provenance_integrity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g81_atr_m1_m5_provenance_integrity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G82_MATCHED_COHORT_STOP_OUT_ANALYSIS": {
       "counts": {
@@ -1506,14 +1506,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 16,
+      "duration_ms": 17,
       "exit_code": 0,
       "gate_id": "G82_MATCHED_COHORT_STOP_OUT_ANALYSIS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g82_matched_cohort_stop_out_analysis.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g82_matched_cohort_stop_out_analysis.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g82_matched_cohort_stop_out_analysis.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g82_matched_cohort_stop_out_analysis.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G83_OOS_ZERO_TRADE_INSUFFICIENT_SAMPLE_HANDLING": {
       "counts": {
@@ -1523,14 +1523,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 14,
+      "duration_ms": 18,
       "exit_code": 0,
       "gate_id": "G83_OOS_ZERO_TRADE_INSUFFICIENT_SAMPLE_HANDLING",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g83_oos_zero_trade_insufficient_sample_handling.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g83_oos_zero_trade_insufficient_sample_handling.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g83_oos_zero_trade_insufficient_sample_handling.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g83_oos_zero_trade_insufficient_sample_handling.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G84_TRADE_LEVEL_PNL_RECONCILIATION": {
       "counts": {
@@ -1540,14 +1540,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 16,
+      "duration_ms": 21,
       "exit_code": 0,
       "gate_id": "G84_TRADE_LEVEL_PNL_RECONCILIATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g84_trade_level_pnl_reconciliation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g84_trade_level_pnl_reconciliation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g84_trade_level_pnl_reconciliation.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g84_trade_level_pnl_reconciliation.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G85_MARKET_SHADOW_ROUTING_REGRESSION": {
       "counts": {
@@ -1557,14 +1557,14 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 14,
+      "duration_ms": 18,
       "exit_code": 0,
       "gate_id": "G85_MARKET_SHADOW_ROUTING_REGRESSION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g85_market_shadow_routing_regression.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g85_market_shadow_routing_regression.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g85_market_shadow_routing_regression.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g85_market_shadow_routing_regression.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G86_BACKTEST_ANTI_BIAS_NEGATIVE_CONTROLS": {
       "counts": {
@@ -1574,36 +1574,36 @@
         "passed": 1,
         "skipped": 0
       },
-      "duration_ms": 18,
+      "duration_ms": 21,
       "exit_code": 0,
       "gate_id": "G86_BACKTEST_ANTI_BIAS_NEGATIVE_CONTROLS",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g86_backtest_anti_bias_negative_controls.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g86_backtest_anti_bias_negative_controls.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g86_backtest_anti_bias_negative_controls.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g86_backtest_anti_bias_negative_controls.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION": {
       "counts": null,
       "duration_ms": 5,
       "exit_code": 0,
       "gate_id": "G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g87_junit_reconciliation.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g87_junit_reconciliation.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/junit_reconciliation.json",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/junit_reconciliation.json",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION": {
       "counts": null,
-      "duration_ms": 110,
+      "duration_ms": 115,
       "exit_code": 0,
       "gate_id": "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g88_exact_commit_evidence.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g88_exact_commit_evidence.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
       "report_path": null,
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
       "counts": {
@@ -1614,14 +1614,14 @@
         "passed": 6,
         "skipped": 0
       },
-      "duration_ms": 20569,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G89_SHARED_DECISION_CONTEXT_CONTRACT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g89_shared_decision_context_contract.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g89_shared_decision_context_contract.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g89_shared_decision_context_contract.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g89_shared_decision_context_contract.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
       "counts": {
@@ -1632,14 +1632,14 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 20503,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g90_shared_decision_snapshot_contract.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g90_shared_decision_snapshot_contract.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g90_shared_decision_snapshot_contract.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g90_shared_decision_snapshot_contract.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G91_PRODUCTION_M1_REVERSAL_PARITY": {
       "counts": {
@@ -1650,14 +1650,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 20326,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G91_PRODUCTION_M1_REVERSAL_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g91_production_m1_reversal_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g91_production_m1_reversal_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g91_production_m1_reversal_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g91_production_m1_reversal_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
       "counts": {
@@ -1668,14 +1668,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 20342,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G92_PRODUCTION_M1_CONTINUATION_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g92_production_m1_continuation_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g92_production_m1_continuation_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g92_production_m1_continuation_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g92_production_m1_continuation_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
       "counts": {
@@ -1686,14 +1686,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 17376,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g93_production_m1_fvg_continuation_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g93_production_m1_fvg_continuation_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g93_production_m1_fvg_continuation_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g93_production_m1_fvg_continuation_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
       "counts": {
@@ -1704,14 +1704,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 17332,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g94_production_m1_sweep_reclaim_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g94_production_m1_sweep_reclaim_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g94_production_m1_sweep_reclaim_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g94_production_m1_sweep_reclaim_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G95_PRODUCTION_CG01_PARITY": {
       "counts": {
@@ -1722,14 +1722,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 17123,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G95_PRODUCTION_CG01_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g95_production_cg01_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g95_production_cg01_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g95_production_cg01_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g95_production_cg01_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
       "counts": {
@@ -1740,14 +1740,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 17300,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G96_PRODUCTION_SHADOW_DECISION_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g96_production_shadow_decision_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g96_production_shadow_decision_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g96_production_shadow_decision_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g96_production_shadow_decision_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
       "counts": {
@@ -1758,14 +1758,14 @@
         "passed": 4,
         "skipped": 0
       },
-      "duration_ms": 13724,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g97_production_backtest_decision_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g97_production_backtest_decision_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g97_production_backtest_decision_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g97_production_backtest_decision_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
       "counts": {
@@ -1776,14 +1776,14 @@
         "passed": 3,
         "skipped": 0
       },
-      "duration_ms": 32864,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g98_synthetic_index_signal_removal.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g98_synthetic_index_signal_removal.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g98_synthetic_index_signal_removal.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g98_synthetic_index_signal_removal.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     },
     "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
       "counts": {
@@ -1794,14 +1794,14 @@
         "passed": 6,
         "skipped": 0
       },
-      "duration_ms": 13723,
+      "duration_ms": 0,
       "exit_code": 0,
       "gate_id": "G99_UNICORN_CAUSAL_CHAIN_PARITY",
-      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/logs/g99_unicorn_causal_chain_parity.log",
+      "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/logs/g99_unicorn_causal_chain_parity.log",
       "normalized_status": "PASS",
       "raw_status": "PASS",
-      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793354345299_1348/reports/g99_unicorn_causal_chain_parity.xml",
-      "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+      "report_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380/reports/g99_unicorn_causal_chain_parity.xml",
+      "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     }
   },
   "incomplete_gates_count": 0,
@@ -1979,8 +1979,8 @@
       ]
     }
   },
-  "run_id": "run_v17_9_0_1793354345299_1348",
-  "tested_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+  "run_id": "run_v17_9_0_1793411200786_34380",
+  "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
   "top_level_verdict": "PASS",
   "total_mandatory_gates": 107
 }

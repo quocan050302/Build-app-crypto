@@ -10,7 +10,7 @@
 - **Characterization Scenarios Evaluated (`55`):** `EXACT_MATCH=11`, `EXPECTED_DOCUMENTED_CHANGE=44`, `UNEXPECTED_DIVERGENCE=0`
 - **Real Historical Dataset Scenarios Evaluated (`150`):** `EXACT_MATCH=5`, `EXPECTED_DOCUMENTED_CHANGE=145`, `UNEXPECTED_DIVERGENCE=0`
 - **Combined Historical Scenarios Evaluated (`205`):** `EXACT_MATCH=16`, `EXPECTED_DOCUMENTED_CHANGE=189`, `UNEXPECTED_DIVERGENCE=0`, `INPUT_MISMATCH=0`, `NOT_COMPARABLE=0`, `NOT_EXECUTED=0`
-- **Real Historical Scenarios JSONL SHA-256:** `02c6ace6291d11b9769cbc433596e7505291fcf803ef43c0b24a6770b66aa427` (`829059` bytes)
+- **Real Historical Scenarios JSONL SHA-256:** `896062d8eada3dfa57c4bba127e1cd347420703de14ee3684d36d98bf50556bd` (`829209` bytes)
 
 ## 1. Executed Original Historical Callables at Commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 
@@ -29,18 +29,18 @@
 
 | Module | Resolved File in Isolated Historical Tree | On-Disk SHA-256 |
 |---|---|---|
-| `domain_calculator` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\domain_calculator.py` | `1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f` |
-| `services.cg01_engine` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\cg01_engine.py` | `e96b3ab54cf80a4c984d666435875ff8b4c0ff0e7118c1a55680e72aba9a4e5a` |
-| `services.liquidity_scenario_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\liquidity_scenario_service.py` | `4e0800f300239cd625ac5b2412162623fe1173c7de900f2e07c22062cdfd3e05` |
-| `services.market_shadow_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\market_shadow_service.py` | `59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea` |
-| `services.scalp_m1_model_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\scalp_m1_model_service.py` | `c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99` |
-| `services.scalp_watcher_orchestrator` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\scalp_watcher_orchestrator.py` | `efd1dec4b38843583652101a6227c41255b992f8c13a54898a0ba3036c60056f` |
-| `services.smc_liquidity_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\smc_liquidity_service.py` | `4fd49d4c6e93f3dd6cd35fa00a8bee33a0c06ab19e4a7e12437dd403935ddb2e` |
-| `services.stop_placement_research_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\stop_placement_research_service.py` | `9bd9a4222f4933e7274b120063082205cf35010a3d72dbccca722aac1e129842` |
-| `services.stop_placement_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\stop_placement_service.py` | `7c4371b6aa80d2977c5b80b498c3095b341e20f1f609714b0dd7323eeb07256f` |
-| `services.unicorn_evidence_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\unicorn_evidence_service.py` | `6e6225b7243cf734674599e18798bef1d773ee7a2aa78eb8c26d0abffca6dc78` |
-| `services.v17_8_backtest_runner` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\services\v17_8_backtest_runner.py` | `f0f017d8dc2750b334dbbc4309c1534816b94cee4e3dfc9044a00aa43e9c9872` |
-| `smc_engine` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_13520\aurum-desk\backend\smc_engine.py` | `aff32b03f7938b98c7300a84aa0ba4ec3623e9ef0a1fa5d9281693b818b9ca7b` |
+| `domain_calculator` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\domain_calculator.py` | `1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f` |
+| `services.cg01_engine` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\cg01_engine.py` | `e96b3ab54cf80a4c984d666435875ff8b4c0ff0e7118c1a55680e72aba9a4e5a` |
+| `services.liquidity_scenario_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\liquidity_scenario_service.py` | `4e0800f300239cd625ac5b2412162623fe1173c7de900f2e07c22062cdfd3e05` |
+| `services.market_shadow_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\market_shadow_service.py` | `59b85954be4fe826ccc93f877a6745651cdb82ffdb25919bf6ac7d5590541dea` |
+| `services.scalp_m1_model_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\scalp_m1_model_service.py` | `c538eab1f753e5ef0b9a97c6114e4b9920251777a75866f9465972f8313aab99` |
+| `services.scalp_watcher_orchestrator` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\scalp_watcher_orchestrator.py` | `efd1dec4b38843583652101a6227c41255b992f8c13a54898a0ba3036c60056f` |
+| `services.smc_liquidity_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\smc_liquidity_service.py` | `4fd49d4c6e93f3dd6cd35fa00a8bee33a0c06ab19e4a7e12437dd403935ddb2e` |
+| `services.stop_placement_research_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\stop_placement_research_service.py` | `9bd9a4222f4933e7274b120063082205cf35010a3d72dbccca722aac1e129842` |
+| `services.stop_placement_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\stop_placement_service.py` | `7c4371b6aa80d2977c5b80b498c3095b341e20f1f609714b0dd7323eeb07256f` |
+| `services.unicorn_evidence_service` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\unicorn_evidence_service.py` | `6e6225b7243cf734674599e18798bef1d773ee7a2aa78eb8c26d0abffca6dc78` |
+| `services.v17_8_backtest_runner` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\services\v17_8_backtest_runner.py` | `f0f017d8dc2750b334dbbc4309c1534816b94cee4e3dfc9044a00aa43e9c9872` |
+| `smc_engine` | `C:\Users\ADMIN\AppData\Local\Temp\aurum_v179012_hist_baseline_c356d6551e13_24316\aurum-desk\backend\smc_engine.py` | `aff32b03f7938b98c7300a84aa0ba4ec3623e9ef0a1fa5d9281693b818b9ca7b` |
 
 ## 3. Honest Classification of Pre-Refactor vs Post-Refactor Differences (`EXPECTED_DOCUMENTED_CHANGE`)
 

@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g98_synthetic_index_signal_removal.xml -k test_21 or test_22 or test_29
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 25338
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_21_anti_fake_control_03_synthetic_modulo_15_index_signal_rejected_by_ast_auditor (0.015s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_22_anti_fake_control_04_synthetic_modulo_alternating_model_rejected_by_ast_auditor (0.015s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_29_v17_8_backtest_runner_source_has_zero_synthetic_modulo_signals (25.308s)
+3 passed in 25.34s
+
+--- STDERR ---

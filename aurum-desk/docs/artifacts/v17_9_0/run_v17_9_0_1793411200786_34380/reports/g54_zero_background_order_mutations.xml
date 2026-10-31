@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g54_zero_background_order_mutations" tests="2" errors="0" failures="0" skipped="0" time="2.551"><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_observe_only_lifespan_startup_shutdown_and_negative_control" time="2.295" /><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_observe_only_blocks_worker_and_order_execution_boundaries" time="0.256" /></testsuite></testsuites>

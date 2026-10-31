@@ -1,231 +1,231 @@
 {
   "schema_version": "V17.9.0",
-  "run_id": "run_v17_9_0_1793354345299_1348_v17_9_0_1_1_gates",
-  "source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
-  "started_at": "2026-10-30T10:06:24.924794+00:00",
-  "updated_at": "2026-10-30T10:07:53.491055+00:00",
+  "run_id": "run_v17_9_0_1793410230193_3756_v17_9_0_1_1_gates",
+  "source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "started_at": "2026-10-31T01:43:04.999168+00:00",
+  "updated_at": "2026-10-31T01:55:23.532791+00:00",
   "current_stage": "INITIALIZED",
   "completed_stages": [],
   "completed_test_groups": [
-    "G91_PRODUCTION_M1_REVERSAL_PARITY",
     "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+    "G91_PRODUCTION_M1_REVERSAL_PARITY",
     "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
     "G89_SHARED_DECISION_CONTEXT_CONTRACT",
-    "G95_PRODUCTION_CG01_PARITY",
     "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
+    "G95_PRODUCTION_CG01_PARITY",
     "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
     "G96_PRODUCTION_SHADOW_DECISION_PARITY",
     "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
     "G99_UNICORN_CAUSAL_CHAIN_PARITY",
-    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
     "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
-    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
     "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
     "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
     "G100_STRUCTURAL_SL_TP_RR_PARITY",
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY"
   ],
   "pending_test_groups": [],
   "failed_test_groups": [],
   "verified_artifacts": {
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g91_production_m1_reversal_parity.log": {
-      "sha256": "fc3460ddf60d5c0d1a8b8c56b4c1bee869eab02e31e0bb4dd0b4f7125675be62",
-      "size_bytes": 1172,
-      "verified_at": "2026-10-30T10:06:45.380802+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g91_production_m1_reversal_parity.xml": {
-      "sha256": "b1353f8bfaa57f9fa28ff3ae860548c99f1611b8c9a4d00134392a74fe24e4ca",
-      "size_bytes": 691,
-      "verified_at": "2026-10-30T10:06:45.381802+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g92_production_m1_continuation_parity.log": {
-      "sha256": "f169902db8b0592564999d5214184a9be476975d99e90735a63d53752bdec6b0",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g92_production_m1_continuation_parity.log": {
+      "sha256": "2d4bbe9bd941ac2e37a655e5214238cfcb9e11babdf86a1bba674c142fda9fc6",
       "size_bytes": 1188,
-      "verified_at": "2026-10-30T10:06:45.446565+00:00"
+      "verified_at": "2026-10-31T01:43:29.729029+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g92_production_m1_continuation_parity.xml": {
-      "sha256": "44555422979ab15f7415ccde47d9823e6cf187a8a08e5e2dcc4339b8f13d5f48",
-      "size_bytes": 699,
-      "verified_at": "2026-10-30T10:06:45.446565+00:00"
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g92_production_m1_continuation_parity.xml": {
+      "sha256": "56c812af35cdf994f53735a4d0a91b379475e4304132683e92535d7f83094396",
+      "size_bytes": 700,
+      "verified_at": "2026-10-31T01:43:29.729029+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g90_shared_decision_snapshot_contract.log": {
-      "sha256": "2589b3484d49bf7551fe73b1d1477fbc669b685dfd3d4bc793d36f617152047e",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g91_production_m1_reversal_parity.log": {
+      "sha256": "f3f60b3fef1acfb85c77c68f83a76695754d2d451a99957d6ffa3cd03b76657c",
+      "size_bytes": 1172,
+      "verified_at": "2026-10-31T01:43:29.810041+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g91_production_m1_reversal_parity.xml": {
+      "sha256": "e8cd9399000fcec28e1c4536c6d17c8df1b84955675b36939c218b225af5a3d7",
+      "size_bytes": 692,
+      "verified_at": "2026-10-31T01:43:29.811042+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g90_shared_decision_snapshot_contract.log": {
+      "sha256": "a3cb1508870c39497b023dd55a452c327c80796234c991745752d0c9fbed3135",
       "size_bytes": 1228,
-      "verified_at": "2026-10-30T10:06:45.517300+00:00"
+      "verified_at": "2026-10-31T01:43:29.837683+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g90_shared_decision_snapshot_contract.xml": {
-      "sha256": "f21fc2f229e8d3261ecfcf903c64cebe44292feb35de9d08a4fd89c8244020c3",
-      "size_bytes": 910,
-      "verified_at": "2026-10-30T10:06:45.518300+00:00"
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g90_shared_decision_snapshot_contract.xml": {
+      "sha256": "621075003e9873c3dae9fd222aa150316d2c1251f408862d1cb3daa807817cb2",
+      "size_bytes": 911,
+      "verified_at": "2026-10-31T01:43:29.838682+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g89_shared_decision_context_contract.log": {
-      "sha256": "8158f70eac58637bde81aedb367d87cff1ff9e7a9b5133c7bb4e8d73b9f04b6b",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g89_shared_decision_context_contract.log": {
+      "sha256": "02206edd2392e2c2b8b77b4552de7c69a660a1c25ee767f951f33bf416cc8775",
       "size_bytes": 1218,
-      "verified_at": "2026-10-30T10:06:45.545090+00:00"
+      "verified_at": "2026-10-31T01:43:29.973547+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g89_shared_decision_context_contract.xml": {
-      "sha256": "9f0339cdbc532ce89e5235e5088c36b6b4807e1b9322ffe35805b0e96d02625e",
-      "size_bytes": 1223,
-      "verified_at": "2026-10-30T10:06:45.545090+00:00"
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g89_shared_decision_context_contract.xml": {
+      "sha256": "a28b56fd1cf3d3fef878245732477b2803cc3d4b8494d669f5aafba9d0b03b46",
+      "size_bytes": 1224,
+      "verified_at": "2026-10-31T01:43:29.974545+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g95_production_cg01_parity.log": {
-      "sha256": "fc577da16e59d49f782c07ee2ac74226c5f14d8dfe4ebdc9039c955cb0effdfb",
-      "size_bytes": 1157,
-      "verified_at": "2026-10-30T10:07:02.703621+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g95_production_cg01_parity.xml": {
-      "sha256": "5ad0118182de55ce556a488bc1136baebf1744de8afd73636fdfca5104c1a1cf",
-      "size_bytes": 690,
-      "verified_at": "2026-10-30T10:07:02.703621+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g93_production_m1_fvg_continuation_parity.log": {
-      "sha256": "62a1d17f8b07b855bf12643b63d1a97f9b2eecf7619b8d33b3bfdcf262dfcacd",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g93_production_m1_fvg_continuation_parity.log": {
+      "sha256": "1ae15ba0ecc423083f5fd0a9d764774a45189661e303f62ea3aed6c3d0be8425",
       "size_bytes": 1204,
-      "verified_at": "2026-10-30T10:07:02.793922+00:00"
+      "verified_at": "2026-10-31T01:43:48.520628+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g93_production_m1_fvg_continuation_parity.xml": {
-      "sha256": "bbdd242983b6dfb6af28b3c47a8d2f034a0cd2fe16f439c9c1aa499611250cc3",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g93_production_m1_fvg_continuation_parity.xml": {
+      "sha256": "8789b0cf84e0ad2ef08a8eecf1a67a0c327173260fb5caed2603f20b4324520e",
       "size_bytes": 707,
-      "verified_at": "2026-10-30T10:07:02.793922+00:00"
+      "verified_at": "2026-10-31T01:43:48.520628+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g94_production_m1_sweep_reclaim_parity.log": {
-      "sha256": "548f642ad0d6199bf7d5918447952d67023f2c1840adf2a8972d99e6e56bae12",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g95_production_cg01_parity.log": {
+      "sha256": "f37d29e209bae699f8cc0d52e3b17028c19b8c8f0d2a2ba5c8975ee4cc810264",
+      "size_bytes": 1157,
+      "verified_at": "2026-10-31T01:43:48.593652+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g95_production_cg01_parity.xml": {
+      "sha256": "c30389043e66ce575e30fad4bb52a2e50e4d2fccebb2cd70c3e4931401bfafed",
+      "size_bytes": 690,
+      "verified_at": "2026-10-31T01:43:48.594651+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g94_production_m1_sweep_reclaim_parity.log": {
+      "sha256": "021882a9e45e7d7d4464e4f6f39a61bd3084fa8966d6d0613a4ddbd36a6c928d",
       "size_bytes": 1192,
-      "verified_at": "2026-10-30T10:07:02.819659+00:00"
+      "verified_at": "2026-10-31T01:43:48.661602+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g94_production_m1_sweep_reclaim_parity.xml": {
-      "sha256": "0a43dc07bbfe077e554790830a5cf27da7e87f5cac45cbb88f0ac6563697f7f4",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g94_production_m1_sweep_reclaim_parity.xml": {
+      "sha256": "34ba966280657f683a4ca7bc95c8fa5e26821b5913ccfcba071b261602615b13",
       "size_bytes": 701,
-      "verified_at": "2026-10-30T10:07:02.819659+00:00"
+      "verified_at": "2026-10-31T01:43:48.662609+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g96_production_shadow_decision_parity.log": {
-      "sha256": "aa2c8ebdaefc56abe845550d39d4fe66ed9f151a1df3d6561cde35e54a1e5319",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g96_production_shadow_decision_parity.log": {
+      "sha256": "d21e76178935e22f89bbb962dece3c33f2174af32be36b6bce6696367d41e537",
       "size_bytes": 1243,
-      "verified_at": "2026-10-30T10:07:02.926302+00:00"
+      "verified_at": "2026-10-31T01:43:48.688785+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g96_production_shadow_decision_parity.xml": {
-      "sha256": "f5fafd1dfc3382c37d95f04c50840be47e10275b19a27e22b3d5e5d06f8301aa",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g96_production_shadow_decision_parity.xml": {
+      "sha256": "6d93f9982eb12a42a2ad17cc8176e99a0475d06c6b1a14e8e339c3e8cdb56f92",
       "size_bytes": 717,
-      "verified_at": "2026-10-30T10:07:02.926302+00:00"
+      "verified_at": "2026-10-31T01:43:48.689792+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g97_production_backtest_decision_parity.log": {
-      "sha256": "b362c4e3709f0c6d44706a9669e27df3e89a49e0acca17f43b16fe03761fabe1",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g97_production_backtest_decision_parity.log": {
+      "sha256": "9d3a289f94cb09530210273726791677077c753d26d43dacb6f21cd68f681ac7",
       "size_bytes": 1213,
-      "verified_at": "2026-10-30T10:07:16.479728+00:00"
+      "verified_at": "2026-10-31T01:44:04.021879+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g97_production_backtest_decision_parity.xml": {
-      "sha256": "c9758296807fa675d61b0bfd13047126618cbf3d3b987d8936e810d1a841a8cd",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g97_production_backtest_decision_parity.xml": {
+      "sha256": "7b04fceaf2a5f894e4e2a0021ac7a2651baf2a290c7ac65dda0a0589c965b227",
       "size_bytes": 888,
-      "verified_at": "2026-10-30T10:07:16.480725+00:00"
+      "verified_at": "2026-10-31T01:44:04.022879+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g99_unicorn_causal_chain_parity.log": {
-      "sha256": "9b5b3c4ebd77690c6d942b2295b59597506fc5410975f08ce8c821c370822381",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g99_unicorn_causal_chain_parity.log": {
+      "sha256": "584d861697dcb9ec4d53a2ce2ffa27986454ad187329c1b9e237d289d1282537",
       "size_bytes": 1233,
-      "verified_at": "2026-10-30T10:07:16.623006+00:00"
+      "verified_at": "2026-10-31T01:44:04.179304+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g99_unicorn_causal_chain_parity.xml": {
-      "sha256": "50ca881249c521d8efbb54ae9472d058b3c99176046ff2b5c3b76d75b930f92e",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g99_unicorn_causal_chain_parity.xml": {
+      "sha256": "49c1d74d845243087b478b1e473b50ec677a724642b4cb3133bf46f244359fca",
       "size_bytes": 1238,
-      "verified_at": "2026-10-30T10:07:16.623006+00:00"
+      "verified_at": "2026-10-31T01:44:04.179912+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g101_bounded_async_test_runner_integrity.log": {
-      "sha256": "8a2851c3325c96616f33e6aa3ebeaa56114cd0842330265fcb57a5cb73a200a9",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g102_disk_budget_guard_and_temp_cleanup.log": {
+      "sha256": "630203bfa7074bec8c67bd616f8e14447debf5c738f9aa069a4767c657776757",
       "size_bytes": 1195,
-      "verified_at": "2026-10-30T10:07:27.264178+00:00"
+      "verified_at": "2026-10-31T01:44:14.622282+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g101_bounded_async_test_runner_integrity.xml": {
-      "sha256": "22acb4419fe603549a5fcdb122e051704711ae7badb155dc0404525c39427b8b",
-      "size_bytes": 582,
-      "verified_at": "2026-10-30T10:07:27.264178+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g102_disk_budget_guard_and_temp_cleanup.log": {
-      "sha256": "758779e3b92b99f7b6cab870f7c77c7cba6599f4442a75f4697eb9facc6281de",
-      "size_bytes": 1195,
-      "verified_at": "2026-10-30T10:07:27.404903+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g102_disk_budget_guard_and_temp_cleanup.xml": {
-      "sha256": "b67d603d54d4ce0488e059ec17172f72771f64eda2dec52d8ee0bdd2e8af6e90",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g102_disk_budget_guard_and_temp_cleanup.xml": {
+      "sha256": "2ecbe2bae3c791bc1d3af13e4e6be33d91e9622bc2f6e2681e9f2851863eb373",
       "size_bytes": 765,
-      "verified_at": "2026-10-30T10:07:27.404903+00:00"
+      "verified_at": "2026-10-31T01:44:14.622282+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g98_synthetic_index_signal_removal.log": {
-      "sha256": "bb5f5f03308aedb67f3162166a2b318f90ef1d567e9c7a425d930088b9dbd833",
-      "size_bytes": 1098,
-      "verified_at": "2026-10-30T10:07:35.715437+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g98_synthetic_index_signal_removal.xml": {
-      "sha256": "1f426566a21b9fbac80cf29adf3b16b458d4a750bb5ba63b0cc31b5a2dbf36da",
-      "size_bytes": 789,
-      "verified_at": "2026-10-30T10:07:35.715437+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g103_checkpoint_resume_and_invalidation.log": {
-      "sha256": "403282cedd523b4b65c984fd96b3bf7be8bc15f79636526d6184c1b0af6e15f7",
-      "size_bytes": 1106,
-      "verified_at": "2026-10-30T10:07:37.633307+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g103_checkpoint_resume_and_invalidation.xml": {
-      "sha256": "e668f72e6185166832661f2cf731a79f363f465993ae3a4e6555e508f6a6aec4",
-      "size_bytes": 751,
-      "verified_at": "2026-10-30T10:07:37.634424+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g104_real_historical_backtest_shared_evaluator.log": {
-      "sha256": "7b1a4678777b93bceb445e0ff6b021b3965d0f8ca0be2ee4281da85208809841",
-      "size_bytes": 1248,
-      "verified_at": "2026-10-30T10:07:37.677569+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g104_real_historical_backtest_shared_evaluator.xml": {
-      "sha256": "2232ae78d50cb6cffd9c03f4737f572f8d4c85a4a355e44740b6c930dd3d3c73",
-      "size_bytes": 758,
-      "verified_at": "2026-10-30T10:07:37.678570+00:00"
-    },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g100_structural_sl_tp_rr_parity.log": {
-      "sha256": "0837e695a2609b65bf0d6e1fdf77cbaaf75ca7de3340e3af4018627a5c5d5831",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g101_bounded_async_test_runner_integrity.log": {
+      "sha256": "9a1c9087702fd793920dd2e87e14f09e9ac7ea157fd5b8674b29278e6912a6df",
       "size_bytes": 1195,
-      "verified_at": "2026-10-30T10:07:45.506519+00:00"
+      "verified_at": "2026-10-31T01:44:14.786936+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g100_structural_sl_tp_rr_parity.xml": {
-      "sha256": "dca4c1f07fe3312f404c91d09861b3189a254a6a881fe389fb3d4898dcf73c79",
-      "size_bytes": 1136,
-      "verified_at": "2026-10-30T10:07:45.507519+00:00"
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g101_bounded_async_test_runner_integrity.xml": {
+      "sha256": "153cb612848f83bb99315fd1d6cd82d067b9fb2dc4c2348c11e8d9bb683835d0",
+      "size_bytes": 582,
+      "verified_at": "2026-10-31T01:44:14.787937+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g105_matched_vs_full_strategy_cohort_integrity.log": {
-      "sha256": "b41c7574830ec2d4c2c5645defcfd177f8666b0835dcf36cedcf1e6467a44ab4",
-      "size_bytes": 1235,
-      "verified_at": "2026-10-30T10:07:53.490050+00:00"
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g103_checkpoint_resume_and_invalidation.log": {
+      "sha256": "e7230cccc454f38b25d131487f99617762cf5fda0dc423a05a5c6890126c5c4a",
+      "size_bytes": 1106,
+      "verified_at": "2026-10-31T01:44:24.102229+00:00"
     },
-    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g105_matched_vs_full_strategy_cohort_integrity.xml": {
-      "sha256": "9aff3ca81c5a2abc4c7563c83394db983365d0d81e31e87b102eaef1a764ef6f",
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g103_checkpoint_resume_and_invalidation.xml": {
+      "sha256": "735296f4170ba7d2f0a9454b007678e76e1bc3fa9bc7f38eed4f2274c1bf5aad",
       "size_bytes": 751,
-      "verified_at": "2026-10-30T10:07:53.490050+00:00"
+      "verified_at": "2026-10-31T01:44:24.103228+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g104_real_historical_backtest_shared_evaluator.log": {
+      "sha256": "a85bc28c9e550cc7faf80736f8950aec2a40b99346a30290c6194fa4d8782635",
+      "size_bytes": 1248,
+      "verified_at": "2026-10-31T01:44:24.972212+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g104_real_historical_backtest_shared_evaluator.xml": {
+      "sha256": "c9b766e48aa055863d6e7435a594f6bc6e242fbf45b34ab7245b77f00e1fb816",
+      "size_bytes": 758,
+      "verified_at": "2026-10-31T01:44:24.972212+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g98_synthetic_index_signal_removal.log": {
+      "sha256": "6ddd7febb0810872de76622f557bfdfe88a763ddc218e06a4dc5bb97ef193d6d",
+      "size_bytes": 1098,
+      "verified_at": "2026-10-31T01:44:26.725264+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g98_synthetic_index_signal_removal.xml": {
+      "sha256": "55b3bd8b74aa8212da5014d985d176d664111531c6bf1087302e71b57ee51734",
+      "size_bytes": 789,
+      "verified_at": "2026-10-31T01:44:26.726271+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g100_structural_sl_tp_rr_parity.log": {
+      "sha256": "1aa8f90da68405cec0c4846907e193cbc9c538f9f32a15772ec47649dbbbcfb4",
+      "size_bytes": 1195,
+      "verified_at": "2026-10-31T01:44:35.197165+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g100_structural_sl_tp_rr_parity.xml": {
+      "sha256": "93635141ecdaca17af79ce4a8cc2ed9bfa371773a07f1cb0f6d8b9f15d8a4849",
+      "size_bytes": 1136,
+      "verified_at": "2026-10-31T01:44:35.198166+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g105_matched_vs_full_strategy_cohort_integrity.log": {
+      "sha256": "31439ea83ca9150a1de70c1f4085438b8b5024d34654b2ee47940bdbf9c1a0e1",
+      "size_bytes": 1235,
+      "verified_at": "2026-10-31T01:44:42.829320+00:00"
+    },
+    "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g105_matched_vs_full_strategy_cohort_integrity.xml": {
+      "sha256": "035447b518148ccf2c3ec0e322792345d789cc97abf0ecbd6f92db69fc144cad",
+      "size_bytes": 751,
+      "verified_at": "2026-10-31T01:44:42.830320+00:00"
     }
   },
   "group_records": {
-    "G91_PRODUCTION_M1_REVERSAL_PARITY": {
-      "group_id": "G91_PRODUCTION_M1_REVERSAL_PARITY",
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
+      "group_id": "G92_PRODUCTION_M1_CONTINUATION_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:06:45.381802+00:00",
+      "completed_at": "2026-10-31T01:43:29.729029+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g91_production_m1_reversal_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g91_production_m1_reversal_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g92_production_m1_continuation_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g92_production_m1_continuation_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 20.326,
+        "duration_sec": 24.531,
         "tests": 3,
         "passed": 3,
         "failures": 0,
         "skipped": 0
       }
     },
-    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
-      "group_id": "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+    "G91_PRODUCTION_M1_REVERSAL_PARITY": {
+      "group_id": "G91_PRODUCTION_M1_REVERSAL_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:06:45.446565+00:00",
+      "completed_at": "2026-10-31T01:43:29.811042+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g92_production_m1_continuation_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g92_production_m1_continuation_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g91_production_m1_reversal_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g91_production_m1_reversal_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 20.342,
+        "duration_sec": 24.664,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -235,13 +235,13 @@
     "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
       "group_id": "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:06:45.518300+00:00",
+      "completed_at": "2026-10-31T01:43:29.838682+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g90_shared_decision_snapshot_contract.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g90_shared_decision_snapshot_contract.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g90_shared_decision_snapshot_contract.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g90_shared_decision_snapshot_contract.xml"
       ],
       "metrics": {
-        "duration_sec": 20.503,
+        "duration_sec": 24.739,
         "tests": 4,
         "passed": 4,
         "failures": 0,
@@ -251,31 +251,15 @@
     "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
       "group_id": "G89_SHARED_DECISION_CONTEXT_CONTRACT",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:06:45.545090+00:00",
+      "completed_at": "2026-10-31T01:43:29.974545+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g89_shared_decision_context_contract.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g89_shared_decision_context_contract.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g89_shared_decision_context_contract.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g89_shared_decision_context_contract.xml"
       ],
       "metrics": {
-        "duration_sec": 20.569,
+        "duration_sec": 24.919,
         "tests": 6,
         "passed": 6,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G95_PRODUCTION_CG01_PARITY": {
-      "group_id": "G95_PRODUCTION_CG01_PARITY",
-      "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:02.703621+00:00",
-      "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g95_production_cg01_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g95_production_cg01_parity.xml"
-      ],
-      "metrics": {
-        "duration_sec": 17.123,
-        "tests": 3,
-        "passed": 3,
         "failures": 0,
         "skipped": 0
       }
@@ -283,13 +267,29 @@
     "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
       "group_id": "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:02.793922+00:00",
+      "completed_at": "2026-10-31T01:43:48.520628+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g93_production_m1_fvg_continuation_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g93_production_m1_fvg_continuation_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g93_production_m1_fvg_continuation_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g93_production_m1_fvg_continuation_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 17.376,
+        "duration_sec": 18.739,
+        "tests": 3,
+        "passed": 3,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G95_PRODUCTION_CG01_PARITY": {
+      "group_id": "G95_PRODUCTION_CG01_PARITY",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T01:43:48.594651+00:00",
+      "artifacts": [
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g95_production_cg01_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g95_production_cg01_parity.xml"
+      ],
+      "metrics": {
+        "duration_sec": 18.648,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -299,13 +299,13 @@
     "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
       "group_id": "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:02.819659+00:00",
+      "completed_at": "2026-10-31T01:43:48.662609+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g94_production_m1_sweep_reclaim_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g94_production_m1_sweep_reclaim_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g94_production_m1_sweep_reclaim_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g94_production_m1_sweep_reclaim_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 17.332,
+        "duration_sec": 18.762,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -315,13 +315,13 @@
     "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
       "group_id": "G96_PRODUCTION_SHADOW_DECISION_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:02.926302+00:00",
+      "completed_at": "2026-10-31T01:43:48.689792+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g96_production_shadow_decision_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g96_production_shadow_decision_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g96_production_shadow_decision_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g96_production_shadow_decision_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 17.3,
+        "duration_sec": 18.664,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -331,13 +331,13 @@
     "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
       "group_id": "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:16.480725+00:00",
+      "completed_at": "2026-10-31T01:44:04.022879+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g97_production_backtest_decision_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g97_production_backtest_decision_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g97_production_backtest_decision_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g97_production_backtest_decision_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 13.724,
+        "duration_sec": 15.454,
         "tests": 4,
         "passed": 4,
         "failures": 0,
@@ -347,31 +347,15 @@
     "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
       "group_id": "G99_UNICORN_CAUSAL_CHAIN_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:16.623006+00:00",
+      "completed_at": "2026-10-31T01:44:04.179912+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g99_unicorn_causal_chain_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g99_unicorn_causal_chain_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g99_unicorn_causal_chain_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g99_unicorn_causal_chain_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 13.723,
+        "duration_sec": 15.451,
         "tests": 6,
         "passed": 6,
-        "failures": 0,
-        "skipped": 0
-      }
-    },
-    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
-      "group_id": "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
-      "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:27.264178+00:00",
-      "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g101_bounded_async_test_runner_integrity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g101_bounded_async_test_runner_integrity.xml"
-      ],
-      "metrics": {
-        "duration_sec": 10.697,
-        "tests": 2,
-        "passed": 2,
         "failures": 0,
         "skipped": 0
       }
@@ -379,31 +363,31 @@
     "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
       "group_id": "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:27.404903+00:00",
+      "completed_at": "2026-10-31T01:44:14.622282+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g102_disk_budget_guard_and_temp_cleanup.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g102_disk_budget_guard_and_temp_cleanup.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g102_disk_budget_guard_and_temp_cleanup.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g102_disk_budget_guard_and_temp_cleanup.xml"
       ],
       "metrics": {
-        "duration_sec": 10.69,
+        "duration_sec": 10.332,
         "tests": 3,
         "passed": 3,
         "failures": 0,
         "skipped": 0
       }
     },
-    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
-      "group_id": "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
+      "group_id": "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:35.715437+00:00",
+      "completed_at": "2026-10-31T01:44:14.787937+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g98_synthetic_index_signal_removal.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g98_synthetic_index_signal_removal.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g101_bounded_async_test_runner_integrity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g101_bounded_async_test_runner_integrity.xml"
       ],
       "metrics": {
-        "duration_sec": 32.864,
-        "tests": 3,
-        "passed": 3,
+        "duration_sec": 10.665,
+        "tests": 2,
+        "passed": 2,
         "failures": 0,
         "skipped": 0
       }
@@ -411,13 +395,13 @@
     "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
       "group_id": "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:37.634424+00:00",
+      "completed_at": "2026-10-31T01:44:24.103228+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g103_checkpoint_resume_and_invalidation.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g103_checkpoint_resume_and_invalidation.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g103_checkpoint_resume_and_invalidation.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g103_checkpoint_resume_and_invalidation.xml"
       ],
       "metrics": {
-        "duration_sec": 10.286,
+        "duration_sec": 9.378,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -427,13 +411,29 @@
     "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
       "group_id": "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:37.678570+00:00",
+      "completed_at": "2026-10-31T01:44:24.972212+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g104_real_historical_backtest_shared_evaluator.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g104_real_historical_backtest_shared_evaluator.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g104_real_historical_backtest_shared_evaluator.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g104_real_historical_backtest_shared_evaluator.xml"
       ],
       "metrics": {
-        "duration_sec": 10.178,
+        "duration_sec": 10.03,
+        "tests": 3,
+        "passed": 3,
+        "failures": 0,
+        "skipped": 0
+      }
+    },
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
+      "group_id": "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+      "exit_code": 0,
+      "completed_at": "2026-10-31T01:44:26.726271+00:00",
+      "artifacts": [
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g98_synthetic_index_signal_removal.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g98_synthetic_index_signal_removal.xml"
+      ],
+      "metrics": {
+        "duration_sec": 38.09,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -443,13 +443,13 @@
     "G100_STRUCTURAL_SL_TP_RR_PARITY": {
       "group_id": "G100_STRUCTURAL_SL_TP_RR_PARITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:45.507519+00:00",
+      "completed_at": "2026-10-31T01:44:35.198166+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g100_structural_sl_tp_rr_parity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g100_structural_sl_tp_rr_parity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g100_structural_sl_tp_rr_parity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g100_structural_sl_tp_rr_parity.xml"
       ],
       "metrics": {
-        "duration_sec": 42.538,
+        "duration_sec": 46.425,
         "tests": 5,
         "passed": 5,
         "failures": 0,
@@ -459,13 +459,13 @@
     "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
       "group_id": "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
       "exit_code": 0,
-      "completed_at": "2026-10-30T10:07:53.490050+00:00",
+      "completed_at": "2026-10-31T01:44:42.830320+00:00",
       "artifacts": [
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\logs\\g105_matched_vs_full_strategy_cohort_integrity.log",
-        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793354345299_1348\\reports\\g105_matched_vs_full_strategy_cohort_integrity.xml"
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\logs\\g105_matched_vs_full_strategy_cohort_integrity.log",
+        "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\v17_9_0\\run_v17_9_0_1793410230193_3756\\reports\\g105_matched_vs_full_strategy_cohort_integrity.xml"
       ],
       "metrics": {
-        "duration_sec": 17.655,
+        "duration_sec": 18.629,
         "tests": 3,
         "passed": 3,
         "failures": 0,
@@ -475,7 +475,7 @@
   },
   "disk_budget_status": "PASS",
   "interrupted": false,
-  "resume_count": 0,
+  "resume_count": 1,
   "invalidation_history": [
     {
       "timestamp": "2026-10-29T11:05:09.997436+00:00",
@@ -554,6 +554,18 @@
       "reason": "CHECKPOINT_INVALIDATED_SOURCE_SHA_MISMATCH",
       "previous_source_sha": "662143ff2b6fd4db2c807fb88321c9d04cbf8afd",
       "new_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c"
+    },
+    {
+      "timestamp": "2026-10-31T01:38:47.583106+00:00",
+      "reason": "CHECKPOINT_INVALIDATED_SOURCE_SHA_MISMATCH",
+      "previous_source_sha": "a499f06951d50779a143828a10fb5ca48944d87c",
+      "new_source_sha": "59e8864e6eba18125680950fc722e34e727ae91c"
+    },
+    {
+      "timestamp": "2026-10-31T01:43:04.999168+00:00",
+      "reason": "CHECKPOINT_INVALIDATED_SOURCE_SHA_MISMATCH",
+      "previous_source_sha": "59e8864e6eba18125680950fc722e34e727ae91c",
+      "new_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643"
     }
   ]
 }

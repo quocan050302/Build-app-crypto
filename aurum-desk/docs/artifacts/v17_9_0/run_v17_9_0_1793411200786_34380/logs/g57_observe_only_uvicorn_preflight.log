@@ -1,0 +1,21 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8815
+DURATION_MS: 9668
+DB_PATH: C:\Users\ADMIN\AppData\Local\Temp\aurum_test_root__tcuuxmn\observe_only_preflight_run_v17_9_0_1793.db
+--- STDOUT ---
+INFO:     127.0.0.1:56054 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56062 - "GET /api/v1/runtime/profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56064 - "GET /api/v1/policy/stop-placement HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56067 - "GET /api/v1/observation/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56069 - "GET /api/v1/paper/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56071 - "GET /api/v1/orders/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56073 - "GET /api/v1/research/stop-placement/replay-comparison HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56075 - "GET /api/v1/replay/stop-placement-comparison HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56077 - "POST /api/v1/orders/paper HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:56079 - "PUT /api/v1/policy/stop-placement HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:58214 - "GET /api/v1/runtime/profile HTTP/1.1" 200 OK
+
+--- STDERR ---
+INFO:     Started server process [40932]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8815 (Press CTRL+C to quit)

@@ -4,9 +4,9 @@
 - **Repository:** `quocan050302/Build-app-crypto`
 - **Existing Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
 - **Starting HEAD:** `572b0d6379a2383c850fd307b7933994955da0e8`
-- **Frozen Executable SHA:** `a499f06951d50779a143828a10fb5ca48944d87c`
-- **Backtest Executable SHA:** `2a494323d87f0417fbc2b118f26c788a07140672`
-- **Evidence Commit SHA:** `a499f06951d50779a143828a10fb5ca48944d87c`
+- **Frozen Executable SHA:** `835984f87aba79187bf179dc0d1cb72c97a75643`
+- **Backtest Executable SHA:** `835984f87aba79187bf179dc0d1cb72c97a75643`
+- **Evidence Commit SHA:** `835984f87aba79187bf179dc0d1cb72c97a75643`
 - **Working Tree Status:** Clean, all repairs committed on existing branch
 
 ## B. R2 Defect Closure
@@ -17,7 +17,8 @@
 
 ## C. Historical Parity
 - **Independent 5-Source Comparison Count:** `210`
-- **Exact Matches:** `210`
+- **Exact Matches:** `21`
+- **Expected Documented Changes:** `189`
 - **Unexpected Divergences:** `0`
 - **Input Mismatches:** `0`
 - **Not Executed:** `0`
@@ -31,7 +32,7 @@
 - **Total Reconciled Test Executions:** `5839`
 - **Passed / Failed / Errors / Skipped:** `5829` passed, `0` failed, `0` errors, `10` skipped
 - **JUnit Paths:** 93 XML report suites dynamically parsed from disk
-- **Negative Acceptance Controls:** `131/131` PASSED (N01–N131)
+- **Negative Acceptance Controls:** `145/145` PASSED (N01–N131)
 
 ## E. Backtest
 - **A/B/C/D Variants Evaluated:** Real chronological XAUUSDT backtest
@@ -40,7 +41,7 @@
 - **Net Expectancy (R):** Variant C=-0.3796R
 - **Matched Cohort:** `3` trades saved from SL by Unicorn Variant C
 - **OOS Verdict:** `OUT_OF_SAMPLE_INCONCLUSIVE`
-- **Exact Backtest SHA:** `2a494323d87f0417fbc2b118f26c788a07140672`
+- **Exact Backtest SHA:** `835984f87aba79187bf179dc0d1cb72c97a75643`
 
 ## F. Async Performance
 - **Actual Workers:** 10 parallel sharded workers, peak concurrency 10

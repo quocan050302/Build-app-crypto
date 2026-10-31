@@ -1,0 +1,10 @@
+{
+  "release": "V17.9.0.1.3",
+  "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "max_parallel_workers": 10,
+  "cpu_pool_workers": 12,
+  "wall_clock_seconds": 500.7,
+  "speedup_vs_serial": "SPEEDUP_NOT_MEASURED",
+  "speedup_measured": false,
+  "status": "PASS"
+}

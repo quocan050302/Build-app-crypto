@@ -1,0 +1,14 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g89_shared_decision_context_contract.xml -k test_01 or test_02 or test_03 or test_04 or test_05 or test_v17_9_0_1_htf
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 73
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_01_market_decision_context_immutability_and_frozen_fields (0.014s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_02_market_decision_context_rejects_unclosed_m1_candles (0.011s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_03_market_decision_context_rejects_unclosed_m5_candles (0.011s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_04_market_decision_context_rejects_lookahead_future_candles (0.011s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_05_market_decision_context_rejects_missing_evidence_or_invalid_quote (0.012s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_htf_candle_validation_and_utc_aggregation (0.014s)
+6 passed in 0.07s
+
+--- STDERR ---

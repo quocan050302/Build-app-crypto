@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g49_end_to_end_runtime_integration" tests="2" errors="0" failures="0" skipped="0" time="1.842"><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_11_scenarios_01_to_12_end_to_end_runtime" time="1.312" /><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers" time="0.530" /></testsuite></testsuites>
