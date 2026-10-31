@@ -2393,43 +2393,149 @@ def test_n137_backtest_source_manifest_empty_sha_cannot_claim_pass():
 
 
 def test_n138_historical_production_capture_point_mislabeled_as_market_shadow_rejected():
-    """N138: DEF-179013-R03 (P0-03): Historical production capture point mislabeled as Market Shadow rejected."""
+    """N138: DEF-179013-R31 (P0-B): Historical production capture point mislabeled as Market Shadow rejected by real verifier."""
+    from tools.acceptance_verdict import verify_runtime_input_captures
     bad_record = {
+        "schema_version": "R31_RUNTIME_CAPTURE_V1",
+        "scenario_id": "HIST_1791438480000_SMC_M1_REVERSAL",
         "runtime_name": "HISTORICAL_PRODUCTION",
+        "execution_id": "exec_test_01",
         "capture_point": "services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow",
+        "raw_input_hash": "a" * 64,
+        "canonical_input_hash": "b" * 64,
+        "invocation_completed": True,
     }
-    is_valid = not (bad_record["runtime_name"] == "HISTORICAL_PRODUCTION" and "MarketShadow" in bad_record["capture_point"])
-    assert is_valid is False
+    res = verify_runtime_input_captures([bad_record])
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("MISLABELED_CAPTURE_POINT" in v for v in res["violations"])
 
 
 def test_n139_cross_runtime_input_capture_missing_runtime_boundaries_rejected():
-    """N139: DEF-179013-R03 (P0-03): Missing any of 5 required runtime boundaries rejected."""
-    runtimes = ["HISTORICAL_PRODUCTION", "SHARED_STRATEGY_EVALUATOR", "PRODUCTION", "MARKET_SHADOW"]  # missing CHRONOLOGICAL_BACKTEST
-    required = {"HISTORICAL_PRODUCTION", "SHARED_STRATEGY_EVALUATOR", "PRODUCTION", "MARKET_SHADOW", "CHRONOLOGICAL_BACKTEST"}
-    missing = required - set(runtimes)
-    assert len(missing) == 1 and "CHRONOLOGICAL_BACKTEST" in missing
+    """N139: DEF-179013-R31 (P0-B): Missing any of 5 required runtime boundaries rejected by real verifier."""
+    from tools.acceptance_verdict import verify_runtime_input_captures
+    scen = "HIST_1791438480000_SMC_M1_REVERSAL"
+    # Only 4 runtimes, omitting CHRONOLOGICAL_BACKTEST
+    records = [
+        {
+            "schema_version": "R31_RUNTIME_CAPTURE_V1",
+            "scenario_id": scen,
+            "runtime_name": rt,
+            "execution_id": f"exec_{rt}",
+            "capture_point": f"services.{rt}.call",
+            "raw_input_hash": "a" * 64,
+            "canonical_input_hash": "b" * 64,
+            "invocation_completed": True,
+        }
+        for rt in ["HISTORICAL_PRODUCTION", "SHARED_STRATEGY_EVALUATOR", "PRODUCTION", "MARKET_SHADOW"]
+    ]
+    res = verify_runtime_input_captures(records)
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("MISSING_RUNTIME_CAPTURE" in v and "CHRONOLOGICAL_BACKTEST" in v for v in res["violations"])
 
 
 def test_n140_empty_runtime_input_capture_file_rejected():
-    """N140: DEF-179013-R03 (P0-03): Empty runtime input capture file rejected."""
-    content = ""
-    lines = [l for l in content.splitlines() if l.strip()]
-    assert len(lines) == 0
+    """N140: DEF-179013-R31 (P0-B): Empty runtime input capture file rejected by disk verifier."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        # Create an empty capture file
+        (tdp / "V179013_R31_RUNTIME_INPUT_CAPTURE.jsonl").write_text("", encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(target_dir=tdp, expected_code_sha="a" * 40)
+        assert res["status"] == "FAIL"
+        assert any("EMPTY_MANDATORY_ARTIFACT:V179013_R31_RUNTIME_INPUT_CAPTURE.jsonl" in v for v in res["violations"])
 
 
 def test_n141_parity_report_claiming_210_exact_matches_when_breakdown_differs_rejected():
-    """N141: DEF-179013-R03 (P0-04): Claiming 210 exact matches when breakdown has 189 changes rejected."""
-    breakdown = {"EXACT_MATCH": 21, "EXPECTED_DOCUMENTED_CHANGE": 189, "UNEXPECTED_DIVERGENCE": 0}
-    claimed_exact = 210
-    has_contradiction = claimed_exact != breakdown["EXACT_MATCH"]
-    assert has_contradiction is True
+    """N141: DEF-179013-R31 (P0-B): Claiming 210 exact matches when breakdown has 189 changes rejected by real verifier."""
+    from tools.acceptance_verdict import verify_parity_classification_report
+    contradictory_doc = {
+        "release": "V17.9.0.1.3",
+        "status": "PASS",
+        "total_comparisons": 210,
+        "exact_matches": 210,  # Contradicts breakdown
+        "expected_documented_changes": 189,
+        "unexpected_divergences": 0,
+        "breakdown_by_category": {
+            "EXACT_MATCH": 21,
+            "EXPECTED_DOCUMENTED_CHANGE": 189,
+            "UNEXPECTED_DIVERGENCE": 0,
+        },
+    }
+    res = verify_parity_classification_report(contradictory_doc)
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("PARITY_CLASSIFICATION_CONTRADICTION" in v for v in res["violations"])
 
 
 def test_n142_parity_classification_unexpected_divergence_fails_closed():
-    """N142: DEF-179013-R03 (P0-04): Parity classification with unexpected divergences fails closed."""
-    doc = {"total_comparisons": 210, "unexpected_divergences": 1}
-    status = "PASS" if doc["unexpected_divergences"] == 0 else "FAIL"
-    assert status == "FAIL"
+    """N142: DEF-179013-R31 (P0-B): Parity classification with unexpected divergences fails closed in real verifier."""
+    from tools.acceptance_verdict import verify_parity_classification_report
+    divergent_doc = {
+        "release": "V17.9.0.1.3",
+        "status": "PASS",
+        "total_comparisons": 210,
+        "exact_matches": 20,
+        "expected_documented_changes": 189,
+        "unexpected_divergences": 1,
+        "breakdown_by_category": {
+            "EXACT_MATCH": 20,
+            "EXPECTED_DOCUMENTED_CHANGE": 189,
+            "UNEXPECTED_DIVERGENCE": 1,
+        },
+    }
+    res = verify_parity_classification_report(divergent_doc)
+    assert res["is_valid"] is False
+    assert res["status"] == "FAIL"
+    assert any("PARITY_CLASSIFICATION_HAS_UNEXPECTED_DIVERGENCES:1" in v for v in res["violations"])
+
+
+def test_n146_missing_r31_mandatory_deliverable_fails_closed():
+    """N146: DEF-179013-R31 (P0-E): Missing any of 19 R3.1 mandatory deliverables fails closed."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        (tdp / "V179013_R31_ROOT_CAUSE_AUDIT.md").write_text("sample", encoding="utf-8")
+        res = verify_persisted_acceptance_artifacts(target_dir=tdp, expected_code_sha="a" * 40)
+        assert res["status"] == "FAIL"
+        assert any("MISSING_MANDATORY_ARTIFACT:V179013_R31_EXACT_SOURCE_MANIFEST.json" in v for v in res["violations"])
+
+
+def test_n147_r31_exact_source_manifest_sha_mismatch_fails_closed():
+    """N147: DEF-179013-R31: R3.1 exact source manifest SHA mismatch fails closed."""
+    from tools.acceptance_verdict import verify_persisted_acceptance_artifacts
+    import tempfile, json
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        (tdp / "V179013_R31_ROOT_CAUSE_AUDIT.md").write_text("sample", encoding="utf-8")
+        (tdp / "V179013_R31_EXACT_SOURCE_MANIFEST.json").write_text(
+            json.dumps({"status": "PASS", "final_code_sha": "a" * 40, "backtest_source_sha": "b" * 40}),
+            encoding="utf-8",
+        )
+        res = verify_persisted_acceptance_artifacts(target_dir=tdp, expected_code_sha="a" * 40)
+        assert res["status"] == "FAIL"
+        assert any("R31_EXACT_SOURCE_MANIFEST_SHA_MISMATCH" in v for v in res["violations"])
+
+
+def test_n148_uncompleted_runtime_capture_invocation_fails_closed():
+    """N148: DEF-179013-R31 (P0-A): Uncompleted invocation in runtime capture fails closed."""
+    from tools.acceptance_verdict import verify_runtime_input_captures
+    record = {
+        "schema_version": "R31_RUNTIME_CAPTURE_V1",
+        "scenario_id": "HIST_01",
+        "runtime_name": "PRODUCTION",
+        "execution_id": "exec_01",
+        "capture_point": "ScalpWatcherOrchestrator.evaluate_cycle",
+        "raw_input_hash": "a" * 64,
+        "canonical_input_hash": "b" * 64,
+        "invocation_completed": False,  # Fault injection
+    }
+    res = verify_runtime_input_captures([record])
+    assert res["is_valid"] is False
+    assert any("INVOCATION_NOT_COMPLETED" in v for v in res["violations"])
 
 
 def test_n143_artifact_verifier_rejects_missing_r3_mandatory_deliverables():

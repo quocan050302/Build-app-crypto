@@ -2013,6 +2013,157 @@ def derive_authoritative_acceptance_verdicts(
     }
 
 
+def verify_runtime_input_captures(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    DEF-179013-R31-01 & DEF-179013-R31-02: Fail-closed validator for R3.1 runtime input capture records.
+    Requires:
+    1. Non-empty sequence of captures.
+    2. Every record has valid schema R31_RUNTIME_CAPTURE_V1.
+    3. No HISTORICAL_PRODUCTION capture point contains MarketShadow or market_shadow.
+    4. Each scenario contains all 5 mandatory runtime boundaries:
+       HISTORICAL_PRODUCTION, SHARED_STRATEGY_EVALUATOR, PRODUCTION, MARKET_SHADOW, CHRONOLOGICAL_BACKTEST.
+    5. Each record has invocation_completed is True.
+    6. Non-empty raw_input_hash and canonical_input_hash.
+    """
+    violations: List[str] = []
+    if not records:
+        return {
+            "status": "FAIL",
+            "is_valid": False,
+            "violations": ["EMPTY_RUNTIME_INPUT_CAPTURES"],
+            "records_count": 0,
+        }
+
+    required_runtimes = {
+        "HISTORICAL_PRODUCTION",
+        "SHARED_STRATEGY_EVALUATOR",
+        "PRODUCTION",
+        "MARKET_SHADOW",
+        "CHRONOLOGICAL_BACKTEST",
+    }
+    runtimes_by_scenario: Dict[str, set] = {}
+
+    for idx, rec in enumerate(records):
+        if not isinstance(rec, dict):
+            violations.append(f"INVALID_RECORD_FORMAT:index_{idx}")
+            continue
+
+        scen_id = str(rec.get("scenario_id") or f"unknown_{idx}")
+        rt_name = str(rec.get("runtime_name") or "")
+        cp = str(rec.get("capture_point") or "")
+        exec_id = str(rec.get("execution_id") or "")
+        inv_comp = rec.get("invocation_completed")
+        raw_in_h = str(rec.get("raw_input_hash") or "")
+        canon_in_h = str(rec.get("canonical_input_hash") or "")
+
+        if rt_name:
+            runtimes_by_scenario.setdefault(scen_id, set()).add(rt_name)
+
+        if not exec_id:
+            violations.append(f"MISSING_EXECUTION_ID:{scen_id}:{rt_name}")
+
+        if inv_comp is not True:
+            violations.append(f"INVOCATION_NOT_COMPLETED:{scen_id}:{rt_name}")
+
+        if not raw_in_h:
+            violations.append(f"MISSING_RAW_INPUT_HASH:{scen_id}:{rt_name}")
+
+        if not canon_in_h:
+            violations.append(f"MISSING_CANONICAL_INPUT_HASH:{scen_id}:{rt_name}")
+
+        if rt_name == "HISTORICAL_PRODUCTION":
+            if "marketshadow" in cp.lower():
+                violations.append(f"MISLABELED_CAPTURE_POINT:{scen_id}:{cp}")
+
+    # Check that each scenario has all 5 runtimes
+    for scen_id, found_runtimes in runtimes_by_scenario.items():
+        missing = required_runtimes - found_runtimes
+        if missing:
+            for m in sorted(list(missing)):
+                violations.append(f"MISSING_RUNTIME_CAPTURE:{scen_id}:{m}")
+
+    return {
+        "status": "PASS" if not violations else "FAIL",
+        "is_valid": len(violations) == 0,
+        "violations": violations,
+        "records_count": len(records),
+        "scenarios_count": len(runtimes_by_scenario),
+    }
+
+
+def verify_parity_classification_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    DEF-179013-R31-02: Fail-closed validator for R3.1 parity classification report.
+    Enforces that exact matches, documented changes, and unexpected divergences
+    are logically consistent and that any unexpected divergence fails closed.
+    """
+    violations: List[str] = []
+    if not isinstance(report, dict) or not report:
+        return {
+            "status": "FAIL",
+            "is_valid": False,
+            "violations": ["EMPTY_PARITY_CLASSIFICATION_REPORT"],
+        }
+
+    total = int(report.get("total_comparisons", 0))
+    exact = int(report.get("exact_matches", 0))
+    expected_doc = int(report.get("expected_documented_changes", 0))
+    unexp = int(report.get("unexpected_divergences", 0))
+    status = str(report.get("status") or "").upper()
+
+    if status != "PASS":
+        violations.append("PARITY_CLASSIFICATION_STATUS_NOT_PASS")
+
+    if unexp > 0:
+        violations.append(f"PARITY_CLASSIFICATION_HAS_UNEXPECTED_DIVERGENCES:{unexp}")
+
+    breakdown = report.get("breakdown_by_category") or {}
+    b_exact = int(breakdown.get("EXACT_MATCH", 0))
+    b_doc = int(breakdown.get("EXPECTED_DOCUMENTED_CHANGE", 0))
+    b_unexp = int(breakdown.get("UNEXPECTED_DIVERGENCE", 0))
+
+    if exact != b_exact:
+        violations.append(f"PARITY_CLASSIFICATION_CONTRADICTION:exact_mismatch:{exact}!={b_exact}")
+
+    if expected_doc != b_doc:
+        violations.append(f"PARITY_CLASSIFICATION_CONTRADICTION:documented_mismatch:{expected_doc}!={b_doc}")
+
+    if unexp != b_unexp:
+        violations.append(f"PARITY_CLASSIFICATION_CONTRADICTION:divergence_mismatch:{unexp}!={b_unexp}")
+
+    if exact + expected_doc + unexp != total:
+        violations.append(f"PARITY_CLASSIFICATION_CONTRADICTION:sum_mismatch:{exact}+{expected_doc}+{unexp}!={total}")
+
+    return {
+        "status": "PASS" if not violations else "FAIL",
+        "is_valid": len(violations) == 0,
+        "violations": violations,
+    }
+
+
+R31_MANDATORY_ARTIFACTS = [
+    "V179013_R31_ROOT_CAUSE_AUDIT.md",
+    "V179013_R31_DEFECT_CLOSURE_MATRIX.md",
+    "V179013_R31_RUNTIME_INPUT_CAPTURE.jsonl",
+    "V179013_R31_INDEPENDENT_RUNTIME_INPUT_HASHES.json",
+    "V179013_R31_RUNTIME_CAPTURE_VERIFICATION.json",
+    "V179013_R31_NEGATIVE_FAULT_INJECTION.json",
+    "V179013_R31_JUNIT_AGGREGATION.json",
+    "V179013_R31_ASYNC_WORKER_REPORT.json",
+    "V179013_R31_RESOURCE_TELEMETRY.json",
+    "V179013_R31_FIVE_WAY_PARITY_REPORT.json",
+    "V179013_R31_PARITY_CLASSIFICATION_REPORT.json",
+    "V179013_R31_HISTORICAL_LINEAGE.jsonl",
+    "V179013_R31_EXACT_SOURCE_MANIFEST.json",
+    "V179013_R31_BACKTEST_METRICS.json",
+    "V179013_R31_MATCHED_COHORT_REPORT.json",
+    "V179013_R31_OOS_REPORT.json",
+    "V179013_R31_ARTIFACT_MANIFEST.json",
+    "V179013_R31_INDEPENDENT_VERIFICATION.json",
+    "V179013_R31_FINAL_ACCEPTANCE_AUDIT.md",
+]
+
+
 def verify_persisted_acceptance_artifacts(
     target_dir: Path,
     expected_code_sha: str,
@@ -2104,6 +2255,59 @@ def verify_persisted_acceptance_artifacts(
                     loaded_docs[r2_f] = r2_doc
                 except Exception as ex:
                     violations.append(f"CORRUPT_JSON_ARTIFACT:{r2_f}:{ex}")
+
+    # Check R3.1 mandatory deliverables (Fail-Closed: all 19 files must exist and be valid)
+    is_r31_context = (
+        (target_dir / "V179013_R31_ROOT_CAUSE_AUDIT.md").exists()
+        or (target_dir.exists() and any(f.name.startswith("V179013_R31_") for f in target_dir.iterdir() if f.is_file()))
+        or target_dir.name in ("v17_9_0_1_3", "docs")
+    )
+    if is_r31_context:
+        for r31_f in R31_MANDATORY_ARTIFACTS:
+            fpath = target_dir / r31_f
+            if not fpath.exists():
+                violations.append(f"MISSING_MANDATORY_ARTIFACT:{r31_f}")
+            elif fpath.stat().st_size == 0:
+                violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r31_f}")
+            elif r31_f.endswith(".json"):
+                try:
+                    r31_doc = json.loads(fpath.read_text(encoding="utf-8"))
+                    if isinstance(r31_doc, dict) and len(r31_doc) == 0:
+                        violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r31_f}")
+                    loaded_docs[r31_f] = r31_doc
+                    if r31_f == "V179013_R31_PARITY_CLASSIFICATION_REPORT.json":
+                        p_res = verify_parity_classification_report(r31_doc)
+                        if not p_res["is_valid"]:
+                            violations.extend(p_res["violations"])
+                    elif r31_f == "V179013_R31_EXACT_SOURCE_MANIFEST.json":
+                        if str(r31_doc.get("status") or "").upper() != "PASS":
+                            violations.append("R31_EXACT_SOURCE_MANIFEST_STATUS_NOT_PASS")
+                        bt_sha = str(r31_doc.get("backtest_source_sha") or "").strip()
+                        final_sha = str(r31_doc.get("final_code_sha") or "").strip()
+                        if not bt_sha:
+                            violations.append("R31_EXACT_SOURCE_MANIFEST_MISSING_BACKTEST_SHA")
+                        if not final_sha:
+                            violations.append("R31_EXACT_SOURCE_MANIFEST_MISSING_FINAL_SHA")
+                        if bt_sha and final_sha and bt_sha != final_sha:
+                            violations.append(f"R31_EXACT_SOURCE_MANIFEST_SHA_MISMATCH:{bt_sha}!={final_sha}")
+                        if expected_code_sha and bt_sha != expected_code_sha.strip():
+                            violations.append(f"R31_EXACT_SOURCE_MANIFEST_EXPECTED_SHA_MISMATCH:{bt_sha}!={expected_code_sha}")
+                except Exception as ex_j:
+                    violations.append(f"CORRUPT_JSON_ARTIFACT:{r31_f}:{ex_j}")
+            elif r31_f.endswith(".jsonl"):
+                lines = [l.strip() for l in fpath.read_text(encoding="utf-8").splitlines() if l.strip()]
+                if not lines:
+                    violations.append(f"EMPTY_MANDATORY_ARTIFACT:{r31_f}")
+                elif r31_f == "V179013_R31_RUNTIME_INPUT_CAPTURE.jsonl":
+                    parsed_captures = []
+                    for line_idx, line in enumerate(lines):
+                        try:
+                            parsed_captures.append(json.loads(line))
+                        except Exception as ex_l:
+                            violations.append(f"CORRUPT_JSONL_LINE:{r31_f}:{line_idx}:{ex_l}")
+                    c_res = verify_runtime_input_captures(parsed_captures)
+                    if not c_res["is_valid"]:
+                        violations.extend(c_res["violations"])
 
     # Check R3 mandatory files if present or if checking R3 delivery
     for r3_f in r3_mandatory_files:
