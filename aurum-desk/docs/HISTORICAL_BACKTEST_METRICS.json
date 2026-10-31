@@ -551,7 +551,7 @@
     "variant_name": "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)",
     "win_rate": 0.3889
   },
-  "backtest_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "backtest_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
   "d1_bars_count": 181,
   "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
@@ -2274,7 +2274,7 @@
     }
   },
   "fabricated_candles_count": 0,
-  "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "final_code_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
   "h1_bars_count": 3863,
   "h4_bars_count": 965,
   "m15_bars_count": 15090,
@@ -3071,7 +3071,7 @@
       }
     },
     "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",
-    "run_id": "v17_8_0_4_bt_1793410908",
+    "run_id": "v17_8_0_4_bt_1793414347",
     "schema_version": "V17.8.0.4",
     "secondary_opportunity_balanced_split_50_25_25": {
       "description": "Chronological 50% / 25% / 25% split over opportunities with at least one eligible variant.",
@@ -4104,7 +4104,7 @@
       "train_50_pct_count": 20,
       "validation_25_pct_count": 11
     },
-    "source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+    "source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
     "split_protocol": "CHRONOLOGICAL_60_20_20_ZERO_LOOKAHEAD",
     "train_60_pct": {
       "end_ms": 1792690620000,

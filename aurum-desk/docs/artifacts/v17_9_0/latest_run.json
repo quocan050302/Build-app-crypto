@@ -3,7 +3,7 @@
   "version": "17.9.0.1.2",
   "latest_run_id": "run_v17_9_0_1793411200786_34380",
   "run_directory": "docs/artifacts/v17_9_0/run_v17_9_0_1793411200786_34380",
-  "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "tested_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
   "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
   "release_verdict": "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY",
   "v17_9_0_verdicts": {

@@ -1,6 +1,6 @@
 # V17.9.0.1.2 — Consumed Decision Authority & Lifecycle Report (`DEF-179012-C01`)
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `835984f87aba79187bf179dc0d1cb72c97a75643`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `1572393c130bec73a3e4a9d089d664a7705ab431`
 - **Evaluator Version:** `17.9.0.1.1`
 - **Historical Cycles Verified:** `30` (`failed=0`)
 - **Downstream Consumed Decisions (`is_consumed=True`):** `139`

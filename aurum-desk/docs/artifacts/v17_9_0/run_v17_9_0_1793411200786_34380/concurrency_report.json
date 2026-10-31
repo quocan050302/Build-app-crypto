@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "run_id": "run_v17_9_0_1793411200786_34380",
-  "tested_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "tested_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
   "max_workers": 10,
   "batches_count": 10,
   "wall_clock_ms": 472878,

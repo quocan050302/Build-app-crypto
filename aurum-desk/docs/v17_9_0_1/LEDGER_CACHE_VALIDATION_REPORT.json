@@ -23,7 +23,7 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+    "source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
     "source_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6"
   },
   "expected_provenance": {
@@ -51,10 +51,10 @@
       "risk_budget_usdt": 2.5,
       "synthetic_forward_candles_allowed": false
     },
-    "source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+    "source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
     "source_tree_hash": "68a59ca55d981c304af1f4f58f11fb2f6f5bd62456b344a4d4669e34882a1db6"
   },
-  "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+  "final_code_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
   "inspected_invariants_count": 11,
   "is_valid": true,
   "regeneration_required": false,

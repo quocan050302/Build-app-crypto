@@ -1,18 +1,18 @@
 {
   "derived_verdicts": {
     "engineering_acceptance_verdict": "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY",
-    "final_code_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+    "final_code_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
     "overall_status": "PASS",
     "release": "V17.9.0.1.3",
     "release_readiness_verdict": "VERIFIED_FOUNDATION_CLOSURE \u2014 READY_TO_PROCEED_TO_V17_9_1",
     "trading_authorization_verdict": "MARKET_SHADOW_RESEARCH_ONLY (PAPER_AUTO_TRADING_NOT_AUTHORIZED, LIVE_TRADING_NOT_AUTHORIZED)",
     "verdicts": {
       "VERDICT_ASYNC_AND_DISK_SAFETY": {
-        "actual_observation": "disk_status=PASS, free_bytes=54406389760",
+        "actual_observation": "disk_status=PASS, free_bytes=54384107520",
         "evaluation_rule": "disk_guard_status == PASS and free_bytes_postflight > 8GB and orphan_workers == 0",
         "expected_threshold": "disk_status == PASS, free > 8GB",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "V179013_DISK_GUARD_REPORT.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_ASYNC_AND_DISK_SAFETY"
@@ -22,17 +22,17 @@
         "evaluation_rule": "fabricated_forward_candles_count == 0 and synthetic_forward_candles_used == False",
         "expected_threshold": "fabricated == 0, synthetic == False",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "REAL_FORWARD_CANDLE_PROVENANCE.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_CAUSAL_FORWARD_CANDLES"
       },
       "VERDICT_CODE_AUTHORITY": {
-        "actual_observation": "tested_sha=835984f87aba79187bf179dc0d1cb72c97a75643, final_code_sha=835984f87aba79187bf179dc0d1cb72c97a75643",
+        "actual_observation": "tested_sha=1572393c130bec73a3e4a9d089d664a7705ab431, final_code_sha=1572393c130bec73a3e4a9d089d664a7705ab431",
         "evaluation_rule": "tested_source_sha == FINAL_CODE_SHA and no uncommitted code diffs",
         "expected_threshold": "tested_sha == final_code_sha",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "ACCEPTANCE_GATE_RESULTS.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_CODE_AUTHORITY"
@@ -42,7 +42,7 @@
         "evaluation_rule": "status == PASS and divergences_count == 0 and five_way_verified_count >= 210",
         "expected_threshold": "divergences == 0, five_way_verified >= 210",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "V179013_FIVE_WAY_PARITY_REPORT.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_FIVE_WAY_PARITY"
@@ -52,7 +52,7 @@
         "evaluation_rule": "passed_gates_count >= 107 and failed_gates_count == 0 and blocked_gates_count == 0",
         "expected_threshold": "107/107 passed",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "ACCEPTANCE_GATE_RESULTS.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_FULL_REGRESSION_GATES"
@@ -62,7 +62,7 @@
         "evaluation_rule": "isolated_historical_execution_status == PASS and callable_authority_valid == True and copied_current_oracle_entry == False",
         "expected_threshold": "status == PASS, callable_valid == True, copied == False",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "HISTORICAL_BASELINE_PROVENANCE.json & BASELINE_MANIFEST.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_HISTORICAL_BASELINE"
@@ -72,17 +72,17 @@
         "evaluation_rule": "passed_negative_controls == total_negative_controls and total >= 131 and failed == 0",
         "expected_threshold": ">=131/131 passed",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "V179013_NEGATIVE_CONTROLS.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_NEGATIVE_CONTROLS"
       },
       "VERDICT_STRATEGY_PERFORMANCE": {
-        "actual_observation": "simulated_trades=18, net_pnl=-16.3506, bt_source_sha=835984f87aba79187bf179dc0d1cb72c97a75643",
+        "actual_observation": "simulated_trades=18, net_pnl=-16.3506, bt_source_sha=1572393c130bec73a3e4a9d089d664a7705ab431",
         "evaluation_rule": "authoritative backtest metrics present, sim_trades > 0, backtest source_sha == final_code_sha",
         "expected_threshold": "valid metrics, exact source sha match, truthful financial disclosure",
         "failure_explanation": null,
-        "frozen_source_sha": "835984f87aba79187bf179dc0d1cb72c97a75643",
+        "frozen_source_sha": "1572393c130bec73a3e4a9d089d664a7705ab431",
         "provenance": "HISTORICAL_BACKTEST_METRICS.json",
         "validation_result": "PASS",
         "verdict_id": "VERDICT_STRATEGY_PERFORMANCE"
