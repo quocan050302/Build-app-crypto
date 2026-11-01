@@ -1053,6 +1053,10 @@ class StrategyDecisionSnapshot:
     mtf_liquidity_summary: Optional[Dict[str, Any]] = None
     mtf_diagnostic_error: Optional[str] = None
     adapter_call_id: Optional[str] = None
+    # V17.9.2 Additive Structural SL/TP & Invalidation Intelligence Fields
+    v1792_mode: str = "OFF"
+    v1792_stop_plan_dict: Optional[Dict[str, Any]] = None
+    v1792_target_plan_dict: Optional[Dict[str, Any]] = None
 
     @property
     def trade_action_fingerprint(self) -> str:
@@ -1060,14 +1064,21 @@ class StrategyDecisionSnapshot:
 
     @property
     def metadata_fingerprint(self) -> str:
-        return _canonical_hash({
+        payload: Dict[str, Any] = {
             "evaluator_version": self.evaluator_version,
             "mtf_context_id": self.mtf_context_id,
             "mtf_context_hash": self.mtf_context_hash,
             "mtf_algorithm_version": self.mtf_algorithm_version,
             "mtf_quality_state": self.mtf_quality_state,
             "mtf_diagnostic_error": self.mtf_diagnostic_error,
-        })
+        }
+        if self.v1792_mode and self.v1792_mode != "OFF":
+            payload["v1792_mode"] = self.v1792_mode
+            if isinstance(self.v1792_stop_plan_dict, dict):
+                payload["v1792_observe_metadata_fingerprint"] = self.v1792_stop_plan_dict.get(
+                    "observe_metadata_fingerprint"
+                )
+        return _canonical_hash(payload)
 
     @property
     def decision_id(self) -> str:
@@ -1176,6 +1187,9 @@ class StrategyDecisionSnapshot:
             "mtf_structure_bias_summary": self.mtf_structure_bias_summary,
             "mtf_liquidity_summary": self.mtf_liquidity_summary,
             "mtf_diagnostic_error": self.mtf_diagnostic_error,
+            "v1792_mode": self.v1792_mode,
+            "v1792_stop_plan_dict": self.v1792_stop_plan_dict,
+            "v1792_target_plan_dict": self.v1792_target_plan_dict,
         }
 
 
@@ -2088,6 +2102,20 @@ class SharedStrategyEvaluator:
         call_id = cls.record_runtime_invocation(adapter_origin)
         policy_dict = context.get_policy_dict()
 
+        raw_v1792_mode = str(policy_dict.get("v17_9_2_mode", "") or "").strip()
+        v1792_struct_en = bool(policy_dict.get("v17_9_2_structural_sl_enabled", False))
+        v1792_obs_en = bool(policy_dict.get("v17_9_2_observe_only", False))
+        if raw_v1792_mode and raw_v1792_mode != "OFF":
+            eff_v1792_mode = raw_v1792_mode
+        elif v1792_struct_en:
+            eff_v1792_mode = "STRUCTURAL_SL_ON"
+        elif v1792_obs_en:
+            eff_v1792_mode = "OBSERVE_ONLY"
+        else:
+            eff_v1792_mode = "OFF"
+        eff_v1792_buffer_mode = str(policy_dict.get("v17_9_2_buffer_mode", "STRUCTURE_PLUS_NOISE") or "STRUCTURE_PLUS_NOISE")
+        eff_v1792_target_mode = str(policy_dict.get("v17_9_2_target_mode", "FROZEN_BASELINE_NEAREST") or "FROZEN_BASELINE_NEAREST")
+
         ctx_mtf_obj = getattr(context, "mtf_context", None)
         ctx_mtf_q = getattr(context, "mtf_quality_state", None)
         if ctx_mtf_obj is None and ctx_mtf_q == "VALID":
@@ -2180,6 +2208,7 @@ class SharedStrategyEvaluator:
                 mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
+                v1792_mode=eff_v1792_mode,
             )
 
         min_h1_bars = int(policy_dict.get("min_h1_bars", 0) or 0)
@@ -2279,6 +2308,7 @@ class SharedStrategyEvaluator:
                 mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
+                v1792_mode=eff_v1792_mode,
             )
 
         closed_1m = list(context.closed_m1_candles)
@@ -2367,6 +2397,7 @@ class SharedStrategyEvaluator:
                     mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                     mtf_diagnostic_error=eff_mtf_diag,
                     adapter_call_id=call_id,
+                    v1792_mode=eff_v1792_mode,
                 )
 
         # 3. Fail closed if ATR M1 is missing/unavailable (e.g. M1 cadence gap)
@@ -2452,6 +2483,7 @@ class SharedStrategyEvaluator:
                 mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
+                v1792_mode=eff_v1792_mode,
             )
 
         atr_m1_val = round(float(atr_m1_obj.value), 6)
@@ -2601,6 +2633,7 @@ class SharedStrategyEvaluator:
                 mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
+                v1792_mode=eff_v1792_mode,
             )
 
         selected_fvg = setup_info.get("selected_fvg")
@@ -2823,13 +2856,6 @@ class SharedStrategyEvaluator:
             )
             comp_plan_dict = comp_plan.to_dict() if hasattr(comp_plan, "to_dict") else None
 
-        is_eligible = len(rejection_reasons) == 0 and has_valid_target
-        decision_status = (
-            DecisionStatus.ELIGIBLE.value
-            if is_eligible
-            else DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
-        )
-
         selected_fvg_id = str(selected_fvg.get("id")) if isinstance(selected_fvg, dict) and selected_fvg.get("id") else None
         selected_break_id = str(selected_break.get("break_id")) if isinstance(selected_break, dict) and selected_break.get("break_id") else None
         selected_sweep_id = str(selected_sweep.get("id")) if isinstance(selected_sweep, dict) and selected_sweep.get("id") else None
@@ -2837,6 +2863,128 @@ class SharedStrategyEvaluator:
         anchor_kind = str(anchor_res.anchor.kind) if anchor_res.anchor else None
         invalidation_px = round(float(anchor_res.anchor.price), 2) if anchor_res.anchor else None
         buffer_px = round(float(buffer_res.buffer_price), 4) if buffer_res and getattr(buffer_res, "buffer_price", None) is not None else None
+
+        v1792_stop_plan_dict: Optional[Dict[str, Any]] = None
+        v1792_target_plan_dict: Optional[Dict[str, Any]] = None
+
+        if eff_v1792_mode != "OFF":
+            from services.v17_9_2_structural_stop_intelligence import (
+                plan_v17_9_2_structural_stop_and_target,
+            )
+
+            v1792_plan = plan_v17_9_2_structural_stop_and_target(
+                model_id=model_id,
+                symbol=context.symbol,
+                direction=direction,
+                entry_price=entry_ref,
+                decision_timestamp_ms=now_ms,
+                closed_m1=closed_1m,
+                closed_m5=list(context.closed_m5_candles),
+                closed_m15=list(context.closed_m15_candles),
+                closed_h1=list(context.closed_h1_candles),
+                closed_h4=list(context.closed_h4_candles),
+                closed_d1=list(context.closed_d1_candles),
+                sh_1m=sh_1m,
+                sl_1m=sl_1m,
+                selected_fvg=selected_fvg,
+                selected_break=selected_break,
+                selected_sweep=selected_sweep,
+                selected_reference=selected_reference,
+                unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+                liquidity_pools=list(context.liquidity_pools),
+                baseline_anchor=anchor_res.anchor,
+                baseline_sl=structural_sl,
+                baseline_buffer_price=buffer_px if buffer_px is not None else 0.05,
+                baseline_target_price=target_price,
+                baseline_target_id=target_ev_id,
+                atr_m1=atr_m1_val,
+                atr_m5=atr_m5_val,
+                spread=context.spread,
+                tick_size=cfg.tick_size,
+                capital_usdt=policy_settings["capital_usdt"],
+                risk_pct=policy_settings["risk_pct"],
+                leverage=policy_settings["leverage"],
+                margin_mode=policy_settings["margin_mode"],
+                min_net_rr=min_net_rr,
+                costs=policy_settings["costs"],
+                v1792_mode=eff_v1792_mode,
+                buffer_mode=eff_v1792_buffer_mode,
+                target_mode=eff_v1792_target_mode,
+            )
+            v1792_stop_plan_dict = v1792_plan.to_dict()
+            v1792_target_plan_dict = (
+                v1792_plan.target_plan.to_dict() if v1792_plan.target_plan is not None else None
+            )
+
+            if eff_v1792_mode != "OBSERVE_ONLY":
+                if eff_v1792_mode != "TP_POLICY_ONLY":
+                    selected_sl = v1792_plan.proposed_sl
+                    structural_sl = v1792_plan.proposed_sl
+                    selected_anchor_id = v1792_plan.frozen_anchor_id or (
+                        v1792_plan.selected_anchor.anchor_id if v1792_plan.selected_anchor else None
+                    )
+                    anchor_kind = (
+                        v1792_plan.selected_anchor.anchor_kind if v1792_plan.selected_anchor else None
+                    )
+                    invalidation_px = (
+                        round(float(v1792_plan.invalidation_price), 2)
+                        if v1792_plan.invalidation_price is not None
+                        else None
+                    )
+                    buffer_px = round(float(v1792_plan.noise_buffer_price), 4)
+
+                t_plan = v1792_plan.target_plan
+                has_valid_target = bool(
+                    t_plan is not None
+                    and t_plan.status == "VALID"
+                    and t_plan.target_price is not None
+                    and (
+                        (direction == "LONG" and float(t_plan.target_price) > entry_ref)
+                        or (direction == "SHORT" and float(t_plan.target_price) < entry_ref)
+                    )
+                )
+                target_price = round(float(t_plan.target_price), 2) if has_valid_target and t_plan is not None else None
+                target_ev_id = (
+                    str(t_plan.selected_target_id)
+                    if has_valid_target and t_plan is not None and t_plan.selected_target_id
+                    else None
+                )
+                hypothetical_qty = round(float(v1792_plan.hypothetical_quantity or 0.0), 6)
+                gross_rr = round(float(v1792_plan.gross_rr or 0.0), 4)
+                net_rr = round(float(v1792_plan.net_rr or 0.0), 4)
+
+                new_rej: List[str] = list(v1792_plan.rejection_reasons)
+                if not has_valid_target and "SHADOW_REJECTED_NO_VALID_TARGET" not in new_rej:
+                    new_rej.append("SHADOW_REJECTED_NO_VALID_TARGET")
+                if bool(policy_dict.get("session_restricted", False)) or bool(context.session_restricted):
+                    sess_r = str(
+                        policy_dict.get("session_restriction_reason")
+                        or context.session_restriction_reason
+                        or "SESSION_TIME_RESTRICTED"
+                    )
+                    if sess_r not in new_rej:
+                        new_rej.append(sess_r)
+                if mtf_elig_enabled and early_mtf_rej_code and early_mtf_rej_code not in new_rej:
+                    new_rej.append(early_mtf_rej_code)
+                if m5_optional_legacy_spec and isinstance(production_eval_spec, Mapping):
+                    dom_cand, dom_payload = precomputed_domain_cand, precomputed_domain_payload
+                    if dom_cand is None or not bool(getattr(dom_cand, "is_eligible", False)):
+                        dom_reason = str(
+                            getattr(dom_cand, "reason_code", None)
+                            or getattr(dom_payload, "reason_code", None)
+                            or "DOMAIN_SPEC_REJECTED"
+                        )
+                        if dom_reason not in new_rej:
+                            new_rej.append(dom_reason)
+                rejection_reasons = list(dict.fromkeys(new_rej))
+
+        is_eligible = len(rejection_reasons) == 0 and has_valid_target
+        decision_status = (
+            DecisionStatus.ELIGIBLE.value
+            if is_eligible
+            else DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+        )
+
         stop_dist_px = round(abs(entry_ref - selected_sl), 4) if selected_sl is not None else None
         target_dist_px = round(abs(target_price - entry_ref), 4) if target_price is not None else None
         opp_id = f"shopp_{model_id}_{context.symbol}_{direction}_{episode_id}"
@@ -2916,6 +3064,9 @@ class SharedStrategyEvaluator:
             mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
             mtf_diagnostic_error=eff_mtf_diag,
             adapter_call_id=call_id,
+            v1792_mode=eff_v1792_mode,
+            v1792_stop_plan_dict=v1792_stop_plan_dict,
+            v1792_target_plan_dict=v1792_target_plan_dict,
         )
 
     @staticmethod

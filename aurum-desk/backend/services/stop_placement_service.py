@@ -853,7 +853,7 @@ def validate_anchor_not_invalidated(
     return True
 
 
-def resolve_stop_anchor(
+def _resolve_stop_anchor_baseline(
     *,
     model_id: str,
     direction: str,
@@ -868,14 +868,7 @@ def resolve_stop_anchor(
     policy: Optional[StopPlacementPolicy] = None,
 ) -> StopAnchorResult:
     """
-    Identifies the model-specific structural protective anchor.
-    - Unicorn: Verified Breaker distal boundary / invalidation price (only when Unicorn is VALID
-      and V17.8 structural intelligence is enabled or directly invoked).
-    - Continuation: Protective swing high (for SHORT) or low (for LONG) originating the break leg.
-    - FVG Continuation: Protected origin extreme of the leg producing the break and FVG,
-      falling back to displacement origin swing prior to FVG formation if bound leg is stale/breached
-      (when V17.8 structural intelligence is enabled).
-    - Sweep Reclaim / Reversal / CG01: True extreme of the swept episode.
+    Baseline V17.8 structural protective anchor resolution.
     """
     norm_dir = direction.upper()
     v18_enabled = (
@@ -1137,6 +1130,120 @@ def resolve_stop_anchor(
         status="WAITING_EVIDENCE",
         anchor=None,
         reasons=("STRUCTURAL_ANCHOR_NOT_FOUND",),
+    )
+
+
+def resolve_stop_anchor(
+    *,
+    model_id: str,
+    direction: str,
+    closed_bars: Sequence[Any],
+    as_of_ms: int,
+    selected_break: Optional[Dict[str, Any]] = None,
+    selected_fvg: Optional[Dict[str, Any]] = None,
+    selected_sweep: Optional[Dict[str, Any]] = None,
+    confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
+    tick_size: float = 0.01,
+    unicorn_evidence: Optional[Any] = None,
+    policy: Optional[StopPlacementPolicy] = None,
+    entry_price: Optional[float] = None,
+    closed_m5: Sequence[Any] = (),
+    closed_m15: Sequence[Any] = (),
+) -> StopAnchorResult:
+    """
+    Identifies the model-specific structural protective anchor, supporting V17.9.2
+    causal anchor hierarchy and observe-only diagnostics when configured on `policy`.
+    When V17.9.2 flags are False (default), preserves 100% identical V17.8 behavior.
+    """
+    base_res = _resolve_stop_anchor_baseline(
+        model_id=model_id,
+        direction=direction,
+        closed_bars=closed_bars,
+        as_of_ms=as_of_ms,
+        selected_break=selected_break,
+        selected_fvg=selected_fvg,
+        selected_sweep=selected_sweep,
+        confirmed_swings=confirmed_swings,
+        tick_size=tick_size,
+        unicorn_evidence=unicorn_evidence,
+        policy=policy,
+    )
+    v1792_enabled = bool(policy is not None and getattr(policy, "v17_9_2_structural_sl_enabled", False))
+    v1792_obs = bool(policy is not None and getattr(policy, "v17_9_2_observe_only", False))
+    if not v1792_enabled and not v1792_obs:
+        return base_res
+
+    from services.v17_9_2_structural_stop_intelligence import (
+        collect_causal_stop_anchor_candidates,
+        rank_structure_valid_anchors,
+    )
+
+    sh_list, sl_list = confirmed_swings if confirmed_swings else ((), ())
+    eff_entry = float(entry_price) if (entry_price is not None and math.isfinite(float(entry_price)) and float(entry_price) > 0.0) else (
+        float(_candle_ohlc(closed_bars[-1])[3]) if closed_bars else 0.0
+    )
+    candidates = collect_causal_stop_anchor_candidates(
+        model_id=model_id,
+        direction=direction,
+        entry_price=eff_entry,
+        decision_timestamp_ms=as_of_ms,
+        closed_m1=closed_bars,
+        closed_m5=closed_m5,
+        closed_m15=closed_m15,
+        sh_1m=sh_list,
+        sl_1m=sl_list,
+        selected_fvg=selected_fvg,
+        selected_break=selected_break,
+        selected_sweep=selected_sweep,
+        unicorn_evidence=unicorn_evidence,
+        baseline_anchor=base_res.anchor,
+        tick_size=tick_size,
+    )
+    selected_cand, ranked_cands, rej_reasons = rank_structure_valid_anchors(
+        candidates,
+        model_id=model_id,
+        direction=direction,
+        entry_price=eff_entry,
+        decision_timestamp_ms=as_of_ms,
+        tick_size=tick_size,
+    )
+    cand_dicts = tuple(c.to_dict() for c in ranked_cands)
+
+    if v1792_obs and not v1792_enabled:
+        return StopAnchorResult(
+            status=base_res.status,
+            anchor=base_res.anchor,
+            bound_leg=base_res.bound_leg,
+            reasons=base_res.reasons,
+            v1792_candidates=cand_dicts,
+        )
+
+    if selected_cand is None:
+        return StopAnchorResult(
+            status="INVALID_DATA",
+            anchor=None,
+            bound_leg=base_res.bound_leg,
+            reasons=tuple(rej_reasons) if rej_reasons else ("STRUCTURAL_ANCHOR_MISSING",),
+            v1792_candidates=cand_dicts,
+        )
+
+    v1792_anchor = StopAnchor(
+        id=selected_cand.anchor_id,
+        kind=selected_cand.anchor_kind,
+        price=selected_cand.anchor_price,
+        timeframe=selected_cand.timeframe,
+        occurred_at_ms=selected_cand.occurred_at_ms,
+        known_at_ms=selected_cand.known_at_ms,
+        source_leg_id=selected_cand.source_leg_id or selected_cand.anchor_id,
+        source_break_id=selected_cand.source_break_id,
+        price_basis=PriceBasis.CANDLE_LAST.value,
+    )
+    return StopAnchorResult(
+        status="AVAILABLE",
+        anchor=v1792_anchor,
+        bound_leg=base_res.bound_leg,
+        reasons=(),
+        v1792_candidates=cand_dicts,
     )
 
 

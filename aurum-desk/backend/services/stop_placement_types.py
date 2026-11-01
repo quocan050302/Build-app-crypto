@@ -23,6 +23,8 @@ class StopAnchorKind(str, Enum):
     SWEEP_EXTREME = "SWEEP_EXTREME"
     PROTECTED_LEG_HIGH = "PROTECTED_LEG_HIGH"
     PROTECTED_LEG_LOW = "PROTECTED_LEG_LOW"
+    PROTECTED_SWING_HIGH = "PROTECTED_LEG_HIGH"
+    PROTECTED_SWING_LOW = "PROTECTED_LEG_LOW"
     FVG_LEG_ORIGIN = "FVG_LEG_ORIGIN"
     DISPLACEMENT_ORIGIN = "DISPLACEMENT_ORIGIN"
     BREAKER_DISTAL_BOUNDARY = "BREAKER_DISTAL_BOUNDARY"
@@ -86,14 +88,18 @@ class StopAnchorResult:
     anchor: Optional[StopAnchor] = None
     bound_leg: Optional[Any] = None
     reasons: Tuple[str, ...] = ()
+    v1792_candidates: Tuple[Dict[str, Any], ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out: Dict[str, Any] = {
             "status": self.status,
             "anchor": self.anchor.to_dict() if self.anchor else None,
             "bound_leg": self.bound_leg.to_dict() if (self.bound_leg and hasattr(self.bound_leg, "to_dict")) else None,
             "reasons": list(self.reasons),
         }
+        if self.v1792_candidates:
+            out["v1792_candidates"] = list(self.v1792_candidates)
+        return out
 
 
 @dataclass(frozen=True)
@@ -136,6 +142,9 @@ class StopPlacementPolicy:
     v18_unicorn_detection_enabled: bool = False
     v18_noise_research_enabled: bool = False
     v18_execution_policy_version: int = 1
+    v17_9_2_structural_sl_enabled: bool = False
+    v17_9_2_observe_only: bool = False
+    v17_9_2_mode: str = "OFF"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -159,6 +168,9 @@ class StopPlacementPolicy:
             "v18_unicorn_detection_enabled": self.v18_unicorn_detection_enabled,
             "v18_noise_research_enabled": self.v18_noise_research_enabled,
             "v18_execution_policy_version": self.v18_execution_policy_version,
+            "v17_9_2_structural_sl_enabled": self.v17_9_2_structural_sl_enabled,
+            "v17_9_2_observe_only": self.v17_9_2_observe_only,
+            "v17_9_2_mode": self.v17_9_2_mode,
         }
 
 
@@ -369,9 +381,10 @@ class StopPlacementDecision:
     legacy_sl: Optional[float] = None
     structural_sl: Optional[float] = None
     buffer_components: Optional[Dict[str, Any]] = None
+    v1792_plan: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out: Dict[str, Any] = {
             "status": self.status,
             "selected_sl": round(self.selected_sl, 2) if self.selected_sl is not None else None,
             "anchor": self.anchor.to_dict() if self.anchor else None,
@@ -396,6 +409,9 @@ class StopPlacementDecision:
             "structural_sl": round(self.structural_sl, 2) if self.structural_sl is not None else None,
             "buffer_components": self.buffer_components,
         }
+        if self.v1792_plan is not None:
+            out["v1792_plan"] = self.v1792_plan
+        return out
 
 
 @dataclass(frozen=True)
