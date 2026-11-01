@@ -1209,7 +1209,8 @@ def build_v17931_resource_bounded_shards() -> List[Dict[str, Any]]:
             "backend/tests/test_smc_engine.py",
         )
     ]
-    assigned = set(s00 + s01 + s02 + s03)
+    s04 = [f for f in all_files if f == "backend/tests/test_v16_23_red_reproductions.py"]
+    assigned = set(s00 + s01 + s02 + s03 + s04)
     remaining = [f for f in all_files if f not in assigned]
 
     shards: List[Dict[str, Any]] = [
@@ -1222,6 +1223,7 @@ def build_v17931_resource_bounded_shards() -> List[Dict[str, Any]]:
             {"shard_id": "SHARD_01A_V17_9_2", "files": s01[: max(1, len(s01) // 2)]},
             {"shard_id": "SHARD_01B_V17_9_2_1", "files": s01[max(1, len(s01) // 2) :]},
             {"shard_id": "SHARD_03_EVALUATOR_MTF_UNICORN_SMC", "files": s03},
+            {"shard_id": "SHARD_04_V16_23_RED_ISOLATED", "files": s04},
         ]
     )
 
