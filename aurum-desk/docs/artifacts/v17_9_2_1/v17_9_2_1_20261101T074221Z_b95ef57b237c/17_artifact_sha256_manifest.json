@@ -1,0 +1,423 @@
+{
+  "artifacts": [
+    {
+      "relative_path": "01_preflight_git_and_function_map.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/01_preflight_git_and_function_map.json",
+      "sha256": "8e5ad980200f6ce6e8dc132df77b36e7c541a08cee0167b658e21ee7529a2f81",
+      "size_bytes": 1491
+    },
+    {
+      "relative_path": "02_verified_dataset_coverage_and_gaps.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/02_verified_dataset_coverage_and_gaps.json",
+      "sha256": "6c304e50dd7f52a90b40ea5cc609954894a3f603a6c070bdda3808dd51ec27fd",
+      "size_bytes": 18894
+    },
+    {
+      "relative_path": "03_candidate_selection_bias_audit.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/03_candidate_selection_bias_audit.json",
+      "sha256": "cbaf9dd3b69a7c65dc5e805f4f196bd2c0c6707b844fea68bb8a1ab28a36d434",
+      "size_bytes": 1327
+    },
+    {
+      "relative_path": "04_unbiased_chronological_replay.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/04_unbiased_chronological_replay.json",
+      "sha256": "6fb299ac5240e1fb7fb9e8f61c77ee7e1a376a72290e37655b284a90cf20c388",
+      "size_bytes": 23588
+    },
+    {
+      "relative_path": "05_matched_decision_trade_cohorts.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/05_matched_decision_trade_cohorts.json",
+      "sha256": "7064fbc8b2e75b59ed5a52294774da0afca27964b3ec926d382b457934708aa2",
+      "size_bytes": 179635
+    },
+    {
+      "relative_path": "06_loss_attribution_by_episode.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/06_loss_attribution_by_episode.json",
+      "sha256": "828b54a5bce55709195907ed88fa5ac3e0333d0fe688673eb88d89f64e1023a9",
+      "size_bytes": 66323
+    },
+    {
+      "relative_path": "07_stop_hit_and_target_counterfactuals.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/07_stop_hit_and_target_counterfactuals.json",
+      "sha256": "f8326da2e7dfea1bea0e0ddfdf05a07c870bfa121a69d3cfea95d54faccca4e5",
+      "size_bytes": 278428
+    },
+    {
+      "relative_path": "08_fill_model_and_quote_sensitivity.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/08_fill_model_and_quote_sensitivity.json",
+      "sha256": "5f06252f07463f436682ff4b2492ba51b823e42cd0c5da2744ab11a170592568",
+      "size_bytes": 101631
+    },
+    {
+      "relative_path": "09_historical_ablation_variants.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/09_historical_ablation_variants.json",
+      "sha256": "f35d3b546fee349ed56d8ed5f90b9ac6296e56ebeea92022476f4c0a64942f85",
+      "size_bytes": 64757
+    },
+    {
+      "relative_path": "10_chronological_oos_and_walkforward.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/10_chronological_oos_and_walkforward.json",
+      "sha256": "696ceccd5b8c3eea0da7469e49032a13f348b75dd3f421756486c42746457365",
+      "size_bytes": 168334
+    },
+    {
+      "relative_path": "11_three_adapter_consumed_parity.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/11_three_adapter_consumed_parity.json",
+      "sha256": "3623e1b2ce96327886e4b545b6f4608a2c9e517774cde020fae6523f6f6cfd5f",
+      "size_bytes": 73362
+    },
+    {
+      "relative_path": "12_frozen_oracle_baseline_comparison.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/12_frozen_oracle_baseline_comparison.json",
+      "sha256": "6ecbaebdecb4aecdecb690229c80008d6890e083b172a320769ccddfaa38c612",
+      "size_bytes": 18444
+    },
+    {
+      "relative_path": "13_negative_controls_red_green.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/13_negative_controls_red_green.json",
+      "sha256": "4a28d372048d827e32039763a9f49d3452f5ec348eb10f1a1ccca1efabe97126",
+      "size_bytes": 5311
+    },
+    {
+      "relative_path": "14_full_regression_inventory.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/14_full_regression_inventory.json",
+      "sha256": "3dfb2efbf12d2c145e292684de2f8d1a6f33d4cbf41506e998adf613bd3957d3",
+      "size_bytes": 307741
+    },
+    {
+      "relative_path": "15_parallel_determinism_report.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/15_parallel_determinism_report.json",
+      "sha256": "fc606d627029b113a31caf5b10d12488de2e21bb7f103b9776b4e8c702facdbe",
+      "size_bytes": 1533
+    },
+    {
+      "relative_path": "16_disk_ram_cpu_guard.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/16_disk_ram_cpu_guard.json",
+      "sha256": "bc30492b31709b7a264a4f2dc5674332d88c985f715b07fe9f3ef81c7cd9e76e",
+      "size_bytes": 3059344
+    },
+    {
+      "relative_path": "18_acceptance_gates.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/18_acceptance_gates.json",
+      "sha256": "7e9999f4f6d872285b2a9a5a35b24a10b325c7b469f92932d23d0ff16417f7e3",
+      "size_bytes": 7189
+    },
+    {
+      "relative_path": "19_v17_9_2_1_final_verification_report.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/19_v17_9_2_1_final_verification_report.json",
+      "sha256": "98491f58b7cdb7fab78195a74659076dfc95e6eaf4177689b6bb1db49c79d2e1",
+      "size_bytes": 15415
+    },
+    {
+      "relative_path": "20_v17_9_3_readiness_and_function_contract.md",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/20_v17_9_3_readiness_and_function_contract.md",
+      "sha256": "68e958b8cb5511cad1d72ae46d71c1c184a8b042a7542367f456ffd1e9784e19",
+      "size_bytes": 5229
+    },
+    {
+      "relative_path": "execution_state.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/execution_state.json",
+      "sha256": "d15de1632a21b215491f25ecbefa777afb98f682a5a65af539451da5c7f6d255",
+      "size_bytes": 12587
+    },
+    {
+      "relative_path": "function_truth_map_v17921.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/function_truth_map_v17921.json",
+      "sha256": "4e60daa81a3896cd114a29b09255d0334e6169934d50a47268e20055164da76f",
+      "size_bytes": 63261
+    },
+    {
+      "relative_path": "implementation_diff_summary.md",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/implementation_diff_summary.md",
+      "sha256": "3d0ce8a8283e94bd05f84c6f0edec8e161492ecbed0827bcaf51f4e71dff0204",
+      "size_bytes": 2775
+    },
+    {
+      "relative_path": "junit/negative_controls_green.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_green.xml",
+      "sha256": "770abf0b609cb64422297670dff89389d1c783842cf6bec473c767245fa4e045",
+      "size_bytes": 452
+    },
+    {
+      "relative_path": "junit/negative_controls_red.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_red.xml",
+      "sha256": "1d1f2130d864c1e7cff5ba6773fa3ab34c3f93a843ac1270d4b3c02599887409",
+      "size_bytes": 1956
+    },
+    {
+      "relative_path": "junit/shard_01_v17_9_2_structural_stop.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_01_v17_9_2_structural_stop.xml",
+      "sha256": "7d46a24fbceee7e7ded4b66ba81676b222a7595c989252c76a6b8826a3d15dbb",
+      "size_bytes": 7757
+    },
+    {
+      "relative_path": "junit/shard_01_v17_9_2_structural_stop.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_01_v17_9_2_structural_stop.xml.meta.json",
+      "sha256": "66b53fe316521e0b6e375c3efe5de534208cc8763d5ae14258bde9f7ddc325f1",
+      "size_bytes": 683
+    },
+    {
+      "relative_path": "junit/shard_02_v17_9_1_mtf_suite.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_02_v17_9_1_mtf_suite.xml",
+      "sha256": "63fd4c5ed1f3f670020a5b68d99b95a752b610f035362cc2baa93394fa63f805",
+      "size_bytes": 4280
+    },
+    {
+      "relative_path": "junit/shard_02_v17_9_1_mtf_suite.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_02_v17_9_1_mtf_suite.xml.meta.json",
+      "sha256": "25653e3d46197ec10d88fc8de8c575997bc3c65255ea56dc50063c5270277ce4",
+      "size_bytes": 665
+    },
+    {
+      "relative_path": "junit/shard_03_v17_9_1_positive_path.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_03_v17_9_1_positive_path.xml",
+      "sha256": "2d1b18c3ec3610dad0170698b0c7c3347c47b6cbfdc7bbce4ba79aaa9ed11fbb",
+      "size_bytes": 1505
+    },
+    {
+      "relative_path": "junit/shard_03_v17_9_1_positive_path.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_03_v17_9_1_positive_path.xml.meta.json",
+      "sha256": "7787feefb37e3a88f12b759a7bcca14f4a799d4cbf6ec86add5e15958f87bf8e",
+      "size_bytes": 676
+    },
+    {
+      "relative_path": "junit/shard_04_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_04_backend_regression.xml",
+      "sha256": "60fbcdf2a047858def9a89d54887fcc00b2c7df1433a93968098a611a920aeec",
+      "size_bytes": 83737
+    },
+    {
+      "relative_path": "junit/shard_04_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_04_backend_regression.xml.meta.json",
+      "sha256": "1d07de4151dc0f3e92106254594b683580b1b61855a492f3434d04319ddfe542",
+      "size_bytes": 672
+    },
+    {
+      "relative_path": "junit/shard_05_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_05_backend_regression.xml",
+      "sha256": "d31adcd14b95990028f5df8d8a2142117ac2e7767269afd71239cc887373b381",
+      "size_bytes": 61263
+    },
+    {
+      "relative_path": "junit/shard_05_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_05_backend_regression.xml.meta.json",
+      "sha256": "ebd45857f99263e060e568fb249dda857adc34b21e622349d0f277e23385bb7b",
+      "size_bytes": 672
+    },
+    {
+      "relative_path": "junit/shard_06_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_06_backend_regression.xml",
+      "sha256": "8c39b1bbdd56a6351e834a08ed5ebe2cedc95514757c9ca9a38d2c5109cf3e07",
+      "size_bytes": 58624
+    },
+    {
+      "relative_path": "junit/shard_06_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_06_backend_regression.xml.meta.json",
+      "sha256": "81d3fd9db070d6c266cc732171a8bcd74cba8884f0c8c411a80c3e599a9ca4e4",
+      "size_bytes": 670
+    },
+    {
+      "relative_path": "junit/shard_07_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_07_backend_regression.xml",
+      "sha256": "b87b79c55cd810804b644b39db561bbb64d33b1c0a3429ea75a227449a763768",
+      "size_bytes": 41437
+    },
+    {
+      "relative_path": "junit/shard_07_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_07_backend_regression.xml.meta.json",
+      "sha256": "08e696f45b02a92c299f7f711cc1e3f0bca627621cd2401acf5d8e6b81e790a8",
+      "size_bytes": 672
+    },
+    {
+      "relative_path": "junit/shard_08_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_08_backend_regression.xml",
+      "sha256": "f92a92ec57f4a103914bc3b553b27e2043e94acbc7444ba7af5d55e6f8f45920",
+      "size_bytes": 65297
+    },
+    {
+      "relative_path": "junit/shard_08_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_08_backend_regression.xml.meta.json",
+      "sha256": "a4e7fb82b2e243873ae1a23ad2867884f77add3203a535e2ea2dedf0ffbea7d1",
+      "size_bytes": 670
+    },
+    {
+      "relative_path": "junit/shard_09_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_09_backend_regression.xml",
+      "sha256": "cb91f55f1c283382dc2c5ae350fd5cfb4a27ed6f62ba9a45b30bdbcf970647de",
+      "size_bytes": 50966
+    },
+    {
+      "relative_path": "junit/shard_09_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_09_backend_regression.xml.meta.json",
+      "sha256": "45fc62d9a12db09c4152a102593f3d0ff83a9da04f2b4eccde9a2ed25ef0c20e",
+      "size_bytes": 671
+    },
+    {
+      "relative_path": "junit/shard_10_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_10_backend_regression.xml",
+      "sha256": "146df20e33e573e4ad7a78c49794163f5bf767346e2a73b5bb96f4d966641548",
+      "size_bytes": 60827
+    },
+    {
+      "relative_path": "junit/shard_10_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_10_backend_regression.xml.meta.json",
+      "sha256": "da2c33376251770618413ce4ba041b56b694d166c4dcbb754fc57c550fe237e8",
+      "size_bytes": 671
+    },
+    {
+      "relative_path": "junit/shard_11_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_11_backend_regression.xml",
+      "sha256": "cbdfc4a6d16800e2feb74fa49d1227ffda519d7c774c40b499865d0e8b1d48b7",
+      "size_bytes": 70467
+    },
+    {
+      "relative_path": "junit/shard_11_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_11_backend_regression.xml.meta.json",
+      "sha256": "eea864f3260911d1ac62d1e4ce8f835bca73a297cde4b362894d4d004032876d",
+      "size_bytes": 671
+    },
+    {
+      "relative_path": "junit/shard_12_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_12_backend_regression.xml",
+      "sha256": "5919be2b4aebe1cf668847bb7d3edf7963d7a07b32b336953b706dda6e0adbe5",
+      "size_bytes": 72922
+    },
+    {
+      "relative_path": "junit/shard_12_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_12_backend_regression.xml.meta.json",
+      "sha256": "3d4fe41e80e9b4e6567240ea368786125cc8acb5d8eee09677d475ded73d0bdc",
+      "size_bytes": 671
+    },
+    {
+      "relative_path": "junit/shard_13_backend_regression.xml",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_13_backend_regression.xml",
+      "sha256": "9efc8ea292475de4c40930020e3c3552a5025fe7e734eec3b1e14485b164e157",
+      "size_bytes": 65762
+    },
+    {
+      "relative_path": "junit/shard_13_backend_regression.xml.meta.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/shard_13_backend_regression.xml.meta.json",
+      "sha256": "9591b8c9bafe263ec8aa394e308aac77c18cb6ce408ed9160c68708d943f1d7e",
+      "size_bytes": 671
+    },
+    {
+      "relative_path": "logs/negative_controls_green.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_green.log",
+      "sha256": "a80d4fcd3843d544a18a7fb6b7d3c11c41e0f7ca08452cbcb9b2abcaa78daab0",
+      "size_bytes": 99
+    },
+    {
+      "relative_path": "logs/negative_controls_red.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_red.log",
+      "sha256": "4a80e16451794e5e71c46d979f4e67812ed64231f389f72ca034ba94a5e77ee4",
+      "size_bytes": 1830
+    },
+    {
+      "relative_path": "logs/shard_01_v17_9_2_structural_stop.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_01_v17_9_2_structural_stop.log",
+      "sha256": "1951bcbf1e57246e6656ec3135c684af5ea86b0226835837c5bbd7303c109f61",
+      "size_bytes": 1194
+    },
+    {
+      "relative_path": "logs/shard_02_v17_9_1_mtf_suite.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_02_v17_9_1_mtf_suite.log",
+      "sha256": "d0b3e93b0be1696c895f426ebaa7ba86006fc864921df24c7a2ccf67ac1609ab",
+      "size_bytes": 1135
+    },
+    {
+      "relative_path": "logs/shard_03_v17_9_1_positive_path.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_03_v17_9_1_positive_path.log",
+      "sha256": "13b6b943eb1c6c9e7087f36989655f2d1d42cd4580e5454f075d7c677daaa4c7",
+      "size_bytes": 1131
+    },
+    {
+      "relative_path": "logs/shard_04_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_04_backend_regression.log",
+      "sha256": "b1e6746f72d6b3d7e041d4075b9aa5ffdddf68116964c7f7ed2afccb3996d186",
+      "size_bytes": 5263
+    },
+    {
+      "relative_path": "logs/shard_05_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_05_backend_regression.log",
+      "sha256": "f342355e5a78d1143f422c62b1683a48f1a825cdd44de9876840967aa984f5a0",
+      "size_bytes": 3968
+    },
+    {
+      "relative_path": "logs/shard_06_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_06_backend_regression.log",
+      "sha256": "add6d65079c930540d5217fc8eda67c1c098d774027df7428851ca187bf38832",
+      "size_bytes": 7177
+    },
+    {
+      "relative_path": "logs/shard_07_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_07_backend_regression.log",
+      "sha256": "4ca5272682f16e82df687dd3a4575f01af21a4c1aa9cd688b64d72238bf4a9fa",
+      "size_bytes": 3806
+    },
+    {
+      "relative_path": "logs/shard_08_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_08_backend_regression.log",
+      "sha256": "84d7f8f99008b369e4bec843aa4babb5a6b16ce516e313ecc5e875adbeadebf6",
+      "size_bytes": 3692
+    },
+    {
+      "relative_path": "logs/shard_09_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_09_backend_regression.log",
+      "sha256": "3b9941d124cb2eca0751817d84b7f493a1b2f116093517c90d9f59ec6f1b4944",
+      "size_bytes": 3631
+    },
+    {
+      "relative_path": "logs/shard_10_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_10_backend_regression.log",
+      "sha256": "d6ff3de05bf537a64cdc78055a78151cf19c52167a36d6c278063e43a59c509f",
+      "size_bytes": 3674
+    },
+    {
+      "relative_path": "logs/shard_11_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_11_backend_regression.log",
+      "sha256": "5d4265a0f42175b4be8a923072e8282dd6e89a6fcb0abbebb5588233c74fe495",
+      "size_bytes": 3779
+    },
+    {
+      "relative_path": "logs/shard_12_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_12_backend_regression.log",
+      "sha256": "0431dac86608ef27996a6de5d1a66ba5b0340213ebc446b3e91bfdf37694f1ca",
+      "size_bytes": 3800
+    },
+    {
+      "relative_path": "logs/shard_13_backend_regression.log",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/shard_13_backend_regression.log",
+      "sha256": "9b745233273124d1ff331a48ded0e7e048543e3861c472d65c5747c2d30cdfe7",
+      "size_bytes": 3741
+    },
+    {
+      "relative_path": "loss_attribution_root_cause_matrix.md",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/loss_attribution_root_cause_matrix.md",
+      "sha256": "d192daca150f200534d028114340568beb63b84b91bceab37527b3adb4feda64",
+      "size_bytes": 7174
+    },
+    {
+      "relative_path": "root_cause_evidence_matrix.md",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/root_cause_evidence_matrix.md",
+      "sha256": "d192daca150f200534d028114340568beb63b84b91bceab37527b3adb4feda64",
+      "size_bytes": 7174
+    },
+    {
+      "relative_path": "traces/decision_traces.jsonl.gz",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/traces/decision_traces.jsonl.gz",
+      "sha256": "74f0aa3cea4795891e532d9de9cf26fb9c03e77e5f798e218602185f64583cf8",
+      "size_bytes": 13533
+    },
+    {
+      "relative_path": "traces/trade_episodes.jsonl.gz",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/traces/trade_episodes.jsonl.gz",
+      "sha256": "08d24bcb5c4f7568bac223af5112bc4fa611c4a22075edc0097fd961d99d08ff",
+      "size_bytes": 44385
+    }
+  ],
+  "files_count": 69,
+  "run_id": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
+  "schema_version": "17.9.2.1",
+  "tested_executable_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "total_size_bytes": 5252772
+}

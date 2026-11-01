@@ -1,0 +1,147 @@
+{
+  "active_negative_controls": [
+    {
+      "blocked": true,
+      "control_id": "NC1_FUTURE_ANCHOR_REJECTED",
+      "reasons": [
+        "FUTURE_ANCHOR_REJECTED"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC2_STOP_INSIDE_INVALIDATION_REJECTED",
+      "reasons": [
+        "SL_INSIDE_PROTECTED_INVALIDATION"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC3_NO_INVENTED_RR_TARGET_WHEN_UNVIABLE",
+      "reasons": [
+        "NET_RR_TOO_LOW",
+        "SHADOW_REJECTED_INSUFFICIENT_NET_RR"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC4_WIDE_STOP_MIN_LOT_RISK_BUDGET_REJECTED",
+      "reasons": [
+        "POSITION_SIZE_BELOW_MIN_LOT",
+        "MIN_QTY_EXCEEDS_BUDGET: Kh\u1ed1i l\u01b0\u1ee3ng t\u1ed1i thi\u1ec3u 0.01 oz c\u00f3 r\u1ee7i ro $3.03 v\u01b0\u1ee3t ng\u00e2n s\u00e1ch r\u1ee7i ro $2.50"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC5_SPOOFED_ADAPTER_CALL_ID_REJECTED",
+      "reasons": [
+        "UNREGISTERED_CALL_ID"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC6_SYNTHETIC_PROVENANCE_CONTAMINATION_REJECTED",
+      "reasons": [
+        "SYNTHETIC_PROVENANCE_CONTAMINATION_DETECTED"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC7_DEFECT1_CROSS_TF_SWEPT_TARGET_POOL_BLOCKED",
+      "reasons": [
+        "LIQUIDITY_TARGET_ALREADY_SWEPT"
+      ]
+    }
+  ],
+  "all_controls_blocked": true,
+  "controls": [
+    {
+      "blocked": true,
+      "control_id": "NC1_FUTURE_ANCHOR_REJECTED",
+      "reasons": [
+        "FUTURE_ANCHOR_REJECTED"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC2_STOP_INSIDE_INVALIDATION_REJECTED",
+      "reasons": [
+        "SL_INSIDE_PROTECTED_INVALIDATION"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC3_NO_INVENTED_RR_TARGET_WHEN_UNVIABLE",
+      "reasons": [
+        "NET_RR_TOO_LOW",
+        "SHADOW_REJECTED_INSUFFICIENT_NET_RR"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC4_WIDE_STOP_MIN_LOT_RISK_BUDGET_REJECTED",
+      "reasons": [
+        "POSITION_SIZE_BELOW_MIN_LOT",
+        "MIN_QTY_EXCEEDS_BUDGET: Kh\u1ed1i l\u01b0\u1ee3ng t\u1ed1i thi\u1ec3u 0.01 oz c\u00f3 r\u1ee7i ro $3.03 v\u01b0\u1ee3t ng\u00e2n s\u00e1ch r\u1ee7i ro $2.50"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC5_SPOOFED_ADAPTER_CALL_ID_REJECTED",
+      "reasons": [
+        "UNREGISTERED_CALL_ID"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC6_SYNTHETIC_PROVENANCE_CONTAMINATION_REJECTED",
+      "reasons": [
+        "SYNTHETIC_PROVENANCE_CONTAMINATION_DETECTED"
+      ]
+    },
+    {
+      "blocked": true,
+      "control_id": "NC7_DEFECT1_CROSS_TF_SWEPT_TARGET_POOL_BLOCKED",
+      "reasons": [
+        "LIQUIDITY_TARGET_ALREADY_SWEPT"
+      ]
+    }
+  ],
+  "mutation_probe": {
+    "gate": "G08",
+    "green_failures": 0,
+    "green_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_green.xml",
+    "green_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_green.log",
+    "green_passed": 1,
+    "green_passed_as_expected": true,
+    "red_exit_code": 1,
+    "red_failed_as_expected": true,
+    "red_failures": 1,
+    "red_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_red.xml",
+    "red_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_red.log",
+    "reverted_green_exit_code": 0,
+    "status": "VERIFIED",
+    "test_name": "test_v1792_intentional_red_mutation_probe"
+  },
+  "negative_controls_blocked": 7,
+  "negative_controls_total": 7,
+  "new_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "qa_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
+  "run_id": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
+  "schema_version": "V17_9_2",
+  "status": "PASS",
+  "subprocess_red_green_probe": {
+    "gate": "G08",
+    "green_failures": 0,
+    "green_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_green.xml",
+    "green_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_green.log",
+    "green_passed": 1,
+    "red_exit_code": 1,
+    "red_failures": 1,
+    "red_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/junit/negative_controls_red.xml",
+    "red_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/logs/negative_controls_red.log",
+    "reverted_green_exit_code": 0,
+    "status": "VERIFIED",
+    "test_name": "test_v1792_intentional_red_mutation_probe"
+  },
+  "tested_executable_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8"
+}
