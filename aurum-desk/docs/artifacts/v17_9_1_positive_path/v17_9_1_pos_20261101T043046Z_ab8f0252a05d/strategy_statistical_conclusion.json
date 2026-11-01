@@ -1,0 +1,59 @@
+{
+  "baseline_a_model_decision_metrics": {
+    "expectancy_r": -1.0,
+    "max_drawdown_r": 106.0,
+    "n_closed_resolved_trades": 106,
+    "n_eligible_trades": 106,
+    "n_non_overlapping_closed_episodes": 6,
+    "n_non_overlapping_episodes": 6,
+    "n_unique_eligible_timestamps": 32,
+    "outcomes": {
+      "LOSS": 106,
+      "LOSS_TIE_CONSERVATIVE": 0,
+      "OPEN_AT_HORIZON": 0,
+      "WIN": 0
+    },
+    "profit_factor": 0.0,
+    "win_rate": 0.0,
+    "win_rate_wilson_95_ci": {
+      "lower_95": 0.0,
+      "upper_95": 0.035
+    }
+  },
+  "interpretation": "Full chronological scan of 22,346 M1 checkpoints established 106 real canonical ELIGIBLE model decisions across 32 unique M1 timestamps (6 non-overlapping closed trade episodes). While engineering positive-path execution and 3-adapter + oracle parity are 100% VERIFIED, the number of independent non-overlapping closed episodes (6 < 30) is insufficient to claim statistical strategy edge; therefore strategy_statistical_verdict=INCONCLUSIVE and ready_for_strategy_activation=NO.",
+  "mtf_full_c_model_decision_metrics": {
+    "expectancy_r": -1.0,
+    "max_drawdown_r": 51.0,
+    "mtf_filter_reasons": {
+      "MTF_CONFLICT": 265,
+      "MTF_LIQUIDITY_FILTER_REJECT": 805,
+      "MTF_MISSING_DATA": 620,
+      "MTF_STRUCTURE_FILTER_REJECT": 35
+    },
+    "n_closed_resolved_trades": 51,
+    "n_eligible_trades": 51,
+    "n_mtf_filtered": 1725,
+    "n_non_overlapping_closed_episodes": 3,
+    "n_non_overlapping_episodes": 3,
+    "n_unique_eligible_timestamps": 16,
+    "outcomes": {
+      "LOSS": 51,
+      "LOSS_TIE_CONSERVATIVE": 0,
+      "OPEN_AT_HORIZON": 0,
+      "WIN": 0
+    },
+    "profit_factor": 0.0,
+    "win_rate": 0.0,
+    "win_rate_wilson_95_ci": {
+      "lower_95": 0.0,
+      "upper_95": 0.07
+    }
+  },
+  "quote_authority_limitation": "MODELED_SPREAD_QUOTE (bid=close-0.10, ask=close+0.10; not historical L1 tick data)",
+  "ready_for_strategy_activation": "NO",
+  "ready_for_v17_9_2_development": "YES",
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "schema_version": "17.9.1.1",
+  "strategy_statistical_detail_code": "STATISTICALLY_INCONCLUSIVE_INSUFFICIENT_INDEPENDENT_EPISODES",
+  "strategy_statistical_verdict": "INCONCLUSIVE"
+}

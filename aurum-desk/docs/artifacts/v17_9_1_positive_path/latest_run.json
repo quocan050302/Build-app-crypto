@@ -1,0 +1,14 @@
+{
+  "schema_version": "17.9.1.1",
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "tested_commit_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "executable_source_tree_hash": "cad066c9c027706657d4c385f0fa748588d38fbd197c3576291e198fdc3345ae",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "artifact_dir": "docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "final_report_path": "docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d/final_verification_report.json",
+  "engineering_verdict": "PASS",
+  "positive_path_verdict": "VERIFIED",
+  "strategy_statistical_verdict": "INCONCLUSIVE",
+  "ready_for_v17_9_2_development": "YES",
+  "ready_for_strategy_activation": "NO"
+}

@@ -1,0 +1,28 @@
+{
+  "commit_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "status": "PASS",
+  "audited_checkpoints": 17,
+  "future_candle_leaks": 0,
+  "partial_htf_candle_leaks": 0,
+  "unconfirmed_swing_leaks": 0,
+  "same_bar_wick_false_sweeps": 0,
+  "pdh_pdl_current_day_contamination": 0,
+  "negative_controls_total": 6,
+  "negative_controls_blocked": 6,
+  "failure_sensitivity_probe": {
+    "gate": "G07",
+    "test_name": "test_g07_intentional_failure_sensitivity_probe",
+    "injected_mutation": "assert res.is_valid, 'INTENTIONAL_FAILURE_SENSITIVITY_PROBE_FOR_GATE_G07'",
+    "red_exit_code": 1,
+    "red_failures": 1,
+    "red_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d/junit/g07_failure_sensitivity_red.xml",
+    "red_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d/logs/g07_failure_sensitivity_red.log",
+    "reverted_green_exit_code": 0,
+    "green_failures": 0,
+    "green_passed": 1,
+    "green_junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d/junit/g07_failure_sensitivity_green.xml",
+    "green_log_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1_positive_path/v17_9_1_pos_20261101T043046Z_ab8f0252a05d/logs/g07_failure_sensitivity_green.log",
+    "status": "VERIFIED"
+  }
+}

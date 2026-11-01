@@ -1,0 +1,760 @@
+{
+  "expanded_stage2_baseline_a_by_direction": {
+    "LONG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 347,
+        "NON_CONTIGUOUS_BARS": 5,
+        "NO_VALID_FVG_SETUP": 18,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 40,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 10,
+        "WAITING_M1_BOS": 114,
+        "WAITING_SWEEP_RECLAIM": 166
+      },
+      "eligible": 0,
+      "evaluated": 690,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 335,
+        "NO_VALID_FVG_SETUP": 18,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 39,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 10,
+        "WAITING_M1_BOS": 114,
+        "WAITING_SWEEP_RECLAIM": 166
+      },
+      "valid_setups": 392
+    },
+    "SHORT": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 10,
+        "NET_RR_TOO_LOW": 812,
+        "NON_CONTIGUOUS_BARS": 10,
+        "NO_VALID_FVG_SETUP": 88,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 61,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 6,
+        "WAITING_M1_BOS": 258,
+        "WAITING_SWEEP_RECLAIM": 429
+      },
+      "eligible": 106,
+      "evaluated": 1765,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 10,
+        "NET_RR_TOO_LOW": 805,
+        "NO_VALID_FVG_SETUP": 88,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 61,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 6,
+        "WAITING_M1_BOS": 258,
+        "WAITING_SWEEP_RECLAIM": 429
+      },
+      "valid_setups": 990
+    }
+  },
+  "expanded_stage2_baseline_a_by_model": {
+    "CG01_SWEEP_MSS_FVG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 374,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32
+      },
+      "eligible": 29,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 371,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32
+      },
+      "stop_valid": 400,
+      "target_valid": 403,
+      "valid_setups": 438
+    },
+    "SMC_M1_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 81,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 18,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 8,
+        "WAITING_M1_BOS": 372
+      },
+      "eligible": 16,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 73,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 17,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 8,
+        "WAITING_M1_BOS": 372
+      },
+      "stop_valid": 89,
+      "target_valid": 98,
+      "valid_setups": 119
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 374,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3
+      },
+      "eligible": 29,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 371,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3
+      },
+      "stop_valid": 400,
+      "target_valid": 403,
+      "valid_setups": 438
+    },
+    "SMC_M1_REVERSAL": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 175,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 10,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_SWEEP_RECLAIM": 287
+      },
+      "eligible": 16,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 172,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 10,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_SWEEP_RECLAIM": 287
+      },
+      "stop_valid": 188,
+      "target_valid": 191,
+      "valid_setups": 204
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 155,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 9,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_SWEEP_RECLAIM": 308
+      },
+      "eligible": 16,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 153,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 9,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_SWEEP_RECLAIM": 308
+      },
+      "stop_valid": 169,
+      "target_valid": 171,
+      "valid_setups": 183
+    }
+  },
+  "expanded_stage2_baseline_a_by_session": {
+    "ASIA": {
+      "eligible": 100,
+      "evaluated": 920,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 338,
+        "NO_VALID_FVG_SETUP": 56,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 41,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 8,
+        "WAITING_M1_BOS": 133,
+        "WAITING_SWEEP_RECLAIM": 237
+      },
+      "valid_setups": 494
+    },
+    "LONDON": {
+      "eligible": 0,
+      "evaluated": 540,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "ATR_MISSING": 10,
+        "NET_RR_TOO_LOW": 297,
+        "NO_VALID_FVG_SETUP": 10,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 28,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_M1_BOS": 79,
+        "WAITING_SWEEP_RECLAIM": 113
+      },
+      "valid_setups": 338
+    },
+    "NY": {
+      "eligible": 6,
+      "evaluated": 745,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "NET_RR_TOO_LOW": 366,
+        "NO_VALID_FVG_SETUP": 34,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 29,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 120,
+        "WAITING_SWEEP_RECLAIM": 186
+      },
+      "valid_setups": 405
+    },
+    "OFF_HOURS": {
+      "eligible": 0,
+      "evaluated": 250,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "NET_RR_TOO_LOW": 139,
+        "NO_VALID_FVG_SETUP": 6,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 2,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 40,
+        "WAITING_SWEEP_RECLAIM": 59
+      },
+      "valid_setups": 145
+    }
+  },
+  "expanded_stage2_mtf_full_c_by_model": {
+    "CG01_SWEEP_MSS_FVG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 53,
+        "MTF_LIQUIDITY_FILTER_REJECT": 161,
+        "MTF_MISSING_DATA": 124,
+        "MTF_STRUCTURE_FILTER_REJECT": 7,
+        "NET_RR_TOO_LOW": 374,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32
+      },
+      "eligible": 15,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 3,
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 45,
+        "MTF_LIQUIDITY_FILTER_REJECT": 136,
+        "MTF_MISSING_DATA": 83,
+        "MTF_STRUCTURE_FILTER_REJECT": 6,
+        "NET_RR_TOO_LOW": 115,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32
+      },
+      "stop_valid": 400,
+      "target_valid": 403,
+      "valid_setups": 438
+    },
+    "SMC_M1_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 53,
+        "MTF_LIQUIDITY_FILTER_REJECT": 161,
+        "MTF_MISSING_DATA": 124,
+        "MTF_STRUCTURE_FILTER_REJECT": 7,
+        "NET_RR_TOO_LOW": 81,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 18,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 8,
+        "WAITING_M1_BOS": 372
+      },
+      "eligible": 5,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 8,
+        "MTF_LIQUIDITY_FILTER_REJECT": 25,
+        "MTF_MISSING_DATA": 22,
+        "MTF_STRUCTURE_FILTER_REJECT": 2,
+        "NET_RR_TOO_LOW": 27,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 17,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 8,
+        "WAITING_M1_BOS": 372
+      },
+      "stop_valid": 89,
+      "target_valid": 98,
+      "valid_setups": 119
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 53,
+        "MTF_LIQUIDITY_FILTER_REJECT": 161,
+        "MTF_MISSING_DATA": 124,
+        "MTF_STRUCTURE_FILTER_REJECT": 7,
+        "NET_RR_TOO_LOW": 374,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3
+      },
+      "eligible": 15,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 44,
+        "MTF_LIQUIDITY_FILTER_REJECT": 136,
+        "MTF_MISSING_DATA": 84,
+        "MTF_STRUCTURE_FILTER_REJECT": 6,
+        "NET_RR_TOO_LOW": 115,
+        "NO_VALID_FVG_SETUP": 53,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 32,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3
+      },
+      "stop_valid": 400,
+      "target_valid": 403,
+      "valid_setups": 438
+    },
+    "SMC_M1_REVERSAL": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 53,
+        "MTF_LIQUIDITY_FILTER_REJECT": 161,
+        "MTF_MISSING_DATA": 124,
+        "MTF_STRUCTURE_FILTER_REJECT": 7,
+        "NET_RR_TOO_LOW": 175,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 10,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_SWEEP_RECLAIM": 287
+      },
+      "eligible": 8,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 18,
+        "MTF_LIQUIDITY_FILTER_REJECT": 56,
+        "MTF_MISSING_DATA": 56,
+        "MTF_STRUCTURE_FILTER_REJECT": 3,
+        "NET_RR_TOO_LOW": 47,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 10,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_SWEEP_RECLAIM": 287
+      },
+      "stop_valid": 188,
+      "target_valid": 191,
+      "valid_setups": 204
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 53,
+        "MTF_LIQUIDITY_FILTER_REJECT": 161,
+        "MTF_MISSING_DATA": 124,
+        "MTF_STRUCTURE_FILTER_REJECT": 7,
+        "NET_RR_TOO_LOW": 155,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 9,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_SWEEP_RECLAIM": 308
+      },
+      "eligible": 8,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "MTF_CONFLICT": 17,
+        "MTF_LIQUIDITY_FILTER_REJECT": 52,
+        "MTF_MISSING_DATA": 44,
+        "MTF_STRUCTURE_FILTER_REJECT": 3,
+        "NET_RR_TOO_LOW": 45,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 9,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_SWEEP_RECLAIM": 308
+      },
+      "stop_valid": 169,
+      "target_valid": 171,
+      "valid_setups": 183
+    }
+  },
+  "opposite_direction_research_only_by_direction": {
+    "LONG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 5,
+        "ATR_MISSING": 10,
+        "NET_RR_TOO_LOW": 776,
+        "NON_CONTIGUOUS_BARS": 10,
+        "NO_VALID_FVG_SETUP": 244,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 41,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 17,
+        "WAITING_M1_BOS": 284,
+        "WAITING_SWEEP_RECLAIM": 403
+      },
+      "eligible": 7,
+      "evaluated": 1765,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 5,
+        "ATR_MISSING": 10,
+        "NET_RR_TOO_LOW": 754,
+        "NO_VALID_FVG_SETUP": 244,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 41,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 17,
+        "WAITING_M1_BOS": 284,
+        "WAITING_SWEEP_RECLAIM": 403
+      },
+      "valid_setups": 834
+    },
+    "SHORT": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 339,
+        "NON_CONTIGUOUS_BARS": 5,
+        "NO_VALID_FVG_SETUP": 84,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+        "WAITING_M1_BOS": 107,
+        "WAITING_SWEEP_RECLAIM": 155
+      },
+      "eligible": 0,
+      "evaluated": 690,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 333,
+        "NO_VALID_FVG_SETUP": 84,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+        "WAITING_M1_BOS": 107,
+        "WAITING_SWEEP_RECLAIM": 155
+      },
+      "valid_setups": 344
+    }
+  },
+  "opposite_direction_research_only_by_model": {
+    "CG01_SWEEP_MSS_FVG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 5,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 308,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 164,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 14
+      },
+      "eligible": 2,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 5,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 303,
+        "NO_VALID_FVG_SETUP": 164,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 14
+      },
+      "stop_valid": 305,
+      "target_valid": 310,
+      "valid_setups": 327
+    },
+    "SMC_M1_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 83,
+        "NON_CONTIGUOUS_BARS": 3,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 13,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_M1_BOS": 391
+      },
+      "eligible": 1,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 2,
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 76,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 13,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_M1_BOS": 391
+      },
+      "stop_valid": 77,
+      "target_valid": 84,
+      "valid_setups": 100
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 308,
+        "NON_CONTIGUOUS_BARS": 3,
+        "NO_VALID_FVG_SETUP": 164,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 14,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 7
+      },
+      "eligible": 2,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 301,
+        "NO_VALID_FVG_SETUP": 164,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 14,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 7
+      },
+      "stop_valid": 303,
+      "target_valid": 310,
+      "valid_setups": 327
+    },
+    "SMC_M1_REVERSAL": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 236,
+        "NON_CONTIGUOUS_BARS": 3,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_SWEEP_RECLAIM": 251
+      },
+      "eligible": 1,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 231,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_SWEEP_RECLAIM": 251
+      },
+      "stop_valid": 232,
+      "target_valid": 237,
+      "valid_setups": 240
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 180,
+        "NON_CONTIGUOUS_BARS": 3,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+        "WAITING_SWEEP_RECLAIM": 307
+      },
+      "eligible": 1,
+      "evaluated": 491,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 3,
+        "NET_RR_TOO_LOW": 176,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+        "WAITING_SWEEP_RECLAIM": 307
+      },
+      "stop_valid": 177,
+      "target_valid": 181,
+      "valid_setups": 184
+    }
+  },
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "schema_version": "17.9.1.1",
+  "sparse_121_by_direction": {
+    "LONG": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "NET_RR_TOO_LOW": 98,
+        "NO_VALID_FVG_SETUP": 4,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 24,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 37,
+        "WAITING_SWEEP_RECLAIM": 52
+      },
+      "eligible": 0,
+      "evaluated": 215,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "NET_RR_TOO_LOW": 95,
+        "NO_VALID_FVG_SETUP": 4,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 23,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 37,
+        "WAITING_SWEEP_RECLAIM": 52
+      },
+      "valid_setups": 122
+    },
+    "SHORT": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 204,
+        "NON_CONTIGUOUS_BARS": 5,
+        "NO_VALID_FVG_SETUP": 20,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 18,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 57,
+        "WAITING_SWEEP_RECLAIM": 86
+      },
+      "eligible": 0,
+      "evaluated": 390,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 201,
+        "NO_VALID_FVG_SETUP": 20,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 18,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 57,
+        "WAITING_SWEEP_RECLAIM": 86
+      },
+      "valid_setups": 227
+    }
+  },
+  "sparse_121_by_model": {
+    "CG01_SWEEP_MSS_FVG": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 96,
+        "NON_CONTIGUOUS_BARS": 1,
+        "NO_VALID_FVG_SETUP": 12,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 12
+      },
+      "eligible": 0,
+      "evaluated": 121,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 96,
+        "NO_VALID_FVG_SETUP": 12,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 12
+      },
+      "stop_valid": 96,
+      "target_valid": 96,
+      "valid_setups": 109
+    },
+    "SMC_M1_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 18,
+        "NON_CONTIGUOUS_BARS": 1,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 8,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_M1_BOS": 94
+      },
+      "eligible": 0,
+      "evaluated": 121,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 13,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 7,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+        "WAITING_M1_BOS": 94
+      },
+      "stop_valid": 13,
+      "target_valid": 18,
+      "valid_setups": 27
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 96,
+        "NON_CONTIGUOUS_BARS": 1,
+        "NO_VALID_FVG_SETUP": 12,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 12
+      },
+      "eligible": 0,
+      "evaluated": 121,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 96,
+        "NO_VALID_FVG_SETUP": 12,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 12
+      },
+      "stop_valid": 96,
+      "target_valid": 96,
+      "valid_setups": 109
+    },
+    "SMC_M1_REVERSAL": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 49,
+        "NON_CONTIGUOUS_BARS": 1,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 5,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 1,
+        "WAITING_SWEEP_RECLAIM": 66
+      },
+      "eligible": 0,
+      "evaluated": 121,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 48,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 5,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 1,
+        "WAITING_SWEEP_RECLAIM": 66
+      },
+      "stop_valid": 48,
+      "target_valid": 49,
+      "valid_setups": 55
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "all_rejection_occurrences": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 43,
+        "NON_CONTIGUOUS_BARS": 1,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 5,
+        "WAITING_SWEEP_RECLAIM": 72
+      },
+      "eligible": 0,
+      "evaluated": 121,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 1,
+        "NET_RR_TOO_LOW": 43,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 5,
+        "WAITING_SWEEP_RECLAIM": 72
+      },
+      "stop_valid": 43,
+      "target_valid": 43,
+      "valid_setups": 49
+    }
+  },
+  "sparse_121_by_session": {
+    "ASIA": {
+      "eligible": 0,
+      "evaluated": 205,
+      "first_blocking_reasons": {
+        "ANCHOR_ALREADY_INVALIDATED": 1,
+        "NET_RR_TOO_LOW": 96,
+        "NO_VALID_FVG_SETUP": 8,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 10,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 3,
+        "WAITING_M1_BOS": 32,
+        "WAITING_SWEEP_RECLAIM": 55
+      },
+      "valid_setups": 110
+    },
+    "LONDON": {
+      "eligible": 0,
+      "evaluated": 140,
+      "first_blocking_reasons": {
+        "ATR_MISSING": 5,
+        "NET_RR_TOO_LOW": 70,
+        "NO_VALID_FVG_SETUP": 6,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 12,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 1,
+        "WAITING_M1_BOS": 21,
+        "WAITING_SWEEP_RECLAIM": 25
+      },
+      "valid_setups": 88
+    },
+    "NY": {
+      "eligible": 0,
+      "evaluated": 180,
+      "first_blocking_reasons": {
+        "NET_RR_TOO_LOW": 84,
+        "NO_VALID_FVG_SETUP": 8,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 17,
+        "STRUCTURAL_ANCHOR_NOT_FOUND": 2,
+        "WAITING_M1_BOS": 29,
+        "WAITING_SWEEP_RECLAIM": 40
+      },
+      "valid_setups": 103
+    },
+    "OFF_HOURS": {
+      "eligible": 0,
+      "evaluated": 80,
+      "first_blocking_reasons": {
+        "NET_RR_TOO_LOW": 46,
+        "NO_VALID_FVG_SETUP": 2,
+        "SHADOW_REJECTED_NO_VALID_TARGET": 2,
+        "WAITING_M1_BOS": 12,
+        "WAITING_SWEEP_RECLAIM": 18
+      },
+      "valid_setups": 48
+    }
+  }
+}

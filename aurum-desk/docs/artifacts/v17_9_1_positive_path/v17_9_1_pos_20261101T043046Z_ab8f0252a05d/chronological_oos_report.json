@@ -1,0 +1,1651 @@
+{
+  "embargo_verified": true,
+  "no_oos_threshold_tuning": true,
+  "partition_scheme": "CHRONOLOGICAL_CONTIGUOUS_50_25_25_WITH_180M_FORWARD_HORIZON_EMBARGO_CHECK",
+  "partitions_by_variant": {
+    "A_BASELINE_OFF": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "870ee9b2555c2c14399588b8",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "29270475598b0bd03b7d437c",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "ca8a702630d9a821f373e6ca",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "870ee9b2555c2c14399588b8",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "7c5fce6c2e425f7112863380",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 55.0,
+        "mean_planned_net_rr": 3.4157,
+        "metadata_set_hash": "bbb7f91bbcd7c313dc915939",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 55,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 55,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1130,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 55,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "aaaa6fd0e1525852b1c3fc29",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "7c5fce6c2e425f7112863380",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.0653
+        }
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "b0d3371e2c9f21623ac7325e",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "fa726f022e0b2ea971ef94cc",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "9b441db025f2c71ed61009a9",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "b0d3371e2c9f21623ac7325e",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "B_OBSERVE_ONLY_DEFAULT": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "870ee9b2555c2c14399588b8",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "0c4305dc94d7b6c57cec6673",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": true
+        },
+        "policy_set_hash": "f4115f2604a6b6a47d3c2492",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "870ee9b2555c2c14399588b8",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "7c5fce6c2e425f7112863380",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 55.0,
+        "mean_planned_net_rr": 3.4157,
+        "metadata_set_hash": "7545370849f8db56864e2776",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 55,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 55,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1130,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 55,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": true
+        },
+        "policy_set_hash": "15d33969597bb6eed754edc2",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "7c5fce6c2e425f7112863380",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.0653
+        }
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "b0d3371e2c9f21623ac7325e",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "394e3e7dd8ea6b81570e1a9d",
+        "mtf_filter_reasons": {},
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 0,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": false,
+          "mtf_structure_observe_only": true
+        },
+        "policy_set_hash": "fe2122a42bf9d992f716ac5a",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "b0d3371e2c9f21623ac7325e",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "C_MTF_ELIGIBILITY_ON_FULL": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "1ba4de588454da2d97c06c03",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "86dda7c2b1a5e72d7619c0d4",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 40,
+          "MTF_LIQUIDITY_FILTER_REJECT": 225,
+          "MTF_STRUCTURE_FILTER_REJECT": 20
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 285,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "636aeab8c6eb8a75c2cdced6",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_CONFLICT": 40,
+          "MTF_LIQUIDITY_FILTER_REJECT": 225,
+          "MTF_STRUCTURE_FILTER_REJECT": 20,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "1ba4de588454da2d97c06c03",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "11343e6b4b12d20ed18a70eb",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "152a088b958c3e5c5edbd117",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 120,
+          "MTF_LIQUIDITY_FILTER_REJECT": 220,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 5
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 965,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "482acf816006d7c718c75253",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_CONFLICT": 120,
+          "MTF_LIQUIDITY_FILTER_REJECT": 220,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 5,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "11343e6b4b12d20ed18a70eb",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "34755408964e2c60ac5e0463",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "6b8479cc1936c74311d161eb",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 105,
+          "MTF_LIQUIDITY_FILTER_REJECT": 360,
+          "MTF_STRUCTURE_FILTER_REJECT": 10
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 475,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "FULL",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "6051824aace8cf59ba340331",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_CONFLICT": 105,
+          "MTF_LIQUIDITY_FILTER_REJECT": 360,
+          "MTF_STRUCTURE_FILTER_REJECT": 10,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "34755408964e2c60ac5e0463",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D1_ABLATION_H4_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "9df1c49d60ec6fee48be7289",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "39aa7a1709c7e60eec966015",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 210
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 210,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "H4_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "9dc5f6e32c7240ead121657f",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_STRUCTURE_FILTER_REJECT": 210,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "9df1c49d60ec6fee48be7289",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "913f8cda77563b8296e3f0d2",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "4b4bc5cdeebbc378aa745f84",
+        "mtf_filter_reasons": {
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 325
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 945,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "H4_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "71237aced2e5dce7aab45e99",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 325,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "913f8cda77563b8296e3f0d2",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "2233ae6b4d5c67ff5fca036f",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "8ae6e0274f8791cc4cfe7025",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 190
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 190,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "H4_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "43b4833c26ad38aeb597f831",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_STRUCTURE_FILTER_REJECT": 190,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "2233ae6b4d5c67ff5fca036f",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D2_ABLATION_H1_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "732d498c4bdb8d8a7508f0d1",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "995eb01eb670d5c0d922740e",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 175
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 175,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "28793c1f46dd8e79850d10da",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_STRUCTURE_FILTER_REJECT": 175,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "732d498c4bdb8d8a7508f0d1",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "5ec56fb5b4954cddc374c5d2",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "13e9f87f43b0fb7091f4d195",
+        "mtf_filter_reasons": {
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 280
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 900,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "06d96ac24059224213bea6d8",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 280,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "5ec56fb5b4954cddc374c5d2",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "8ef35c7f28cb84759dbb24f0",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "a2c3fd420153033f169aa658",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 180
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 180,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "983d338c3786421048284740",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_STRUCTURE_FILTER_REJECT": 180,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "8ef35c7f28cb84759dbb24f0",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D3_ABLATION_M15_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "283b6dc6c4592e5bce647c3c",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "c66bb24c960f3f1cc9460822",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 120
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 120,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "eab7e54605b483728ef3176f",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_STRUCTURE_FILTER_REJECT": 120,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "283b6dc6c4592e5bce647c3c",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "c2a1a56a17d16d65c0a1bcaa",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "a7ddc08f36b6ab50acbe7ad8",
+        "mtf_filter_reasons": {
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 120
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 740,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "ec596a5159408504762604c9",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 120,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "c2a1a56a17d16d65c0a1bcaa",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "73d3fddd2a6d2561a3931f20",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "2f3cc59e2ccc604a332baf54",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 185
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 185,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "060bfcb3bc8ca6668cc8c42e",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_STRUCTURE_FILTER_REJECT": 185,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "73d3fddd2a6d2561a3931f20",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D4_ABLATION_STRUCTURE_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "e71d5145b900f8dc4ef74c95",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "9cc8cb16607e86870510161e",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 40,
+          "MTF_STRUCTURE_FILTER_REJECT": 20
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 60,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "STRUCTURE_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "2654e8238c8d7262f7bea783",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_CONFLICT": 40,
+          "MTF_STRUCTURE_FILTER_REJECT": 20,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "e71d5145b900f8dc4ef74c95",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "aa27ccc9b9636be85857a6ee",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "05876f69ec36642cf72a01e0",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 120,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 5
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 745,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "STRUCTURE_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "16493815e98e3a819a0b8bdc",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_CONFLICT": 120,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 5,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "aa27ccc9b9636be85857a6ee",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "5613b44c2755ae7d65c0b29c",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "31ac1e0a21c481288423b91f",
+        "mtf_filter_reasons": {
+          "MTF_CONFLICT": 105,
+          "MTF_STRUCTURE_FILTER_REJECT": 10
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 115,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "STRUCTURE_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "943ecaa9b02737e760ac222f",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_CONFLICT": 105,
+          "MTF_STRUCTURE_FILTER_REJECT": 10,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "5613b44c2755ae7d65c0b29c",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D5_ABLATION_LIQUIDITY_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "69b67c65a440a3605c966bae",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "d05e7a330fa2b7e99d4fe651",
+        "mtf_filter_reasons": {
+          "MTF_LIQUIDITY_FILTER_REJECT": 255
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 255,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "LIQUIDITY_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "f0ab313c99556c65995b682b",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_LIQUIDITY_FILTER_REJECT": 255,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "69b67c65a440a3605c966bae",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "5600bd2c91abcda2c997031d",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "74f69acfb75c7c662e4f4d9b",
+        "mtf_filter_reasons": {
+          "MTF_LIQUIDITY_FILTER_REJECT": 285,
+          "MTF_MISSING_DATA": 620
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 905,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "LIQUIDITY_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "922e408c21ad1582f9818bbe",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_LIQUIDITY_FILTER_REJECT": 285,
+          "MTF_MISSING_DATA": 620,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "5600bd2c91abcda2c997031d",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "6809747b19ab18e41c680417",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "ef1a250544dbaea77b6ff809",
+        "mtf_filter_reasons": {
+          "MTF_LIQUIDITY_FILTER_REJECT": 405
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 405,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "LIQUIDITY_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "ef4158daea76bb2f43b88281",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_LIQUIDITY_FILTER_REJECT": 405,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "6809747b19ab18e41c680417",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    },
+    "D6_ABLATION_M15_H1_ONLY": {
+      "OUT_OF_SAMPLE": {
+        "decisions_Set_hash": "a78d68706fd9551b4ac807fa",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "16f878e318eba586587e6954",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 35
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 455,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 35,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 455,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 279,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 455,
+          "TRAIN": 0,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "8125297b85fb78731c38f29e",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 1,
+          "ATR_MISSING": 10,
+          "MTF_STRUCTURE_FILTER_REJECT": 35,
+          "NET_RR_TOO_LOW": 236,
+          "NON_CONTIGUOUS_BARS": 10,
+          "NO_VALID_FVG_SETUP": 6,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 33,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 4,
+          "WAITING_M1_BOS": 73,
+          "WAITING_SWEEP_RECLAIM": 97
+        },
+        "trade_actions_set_hash": "a78d68706fd9551b4ac807fa",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "TRAIN": {
+        "decisions_Set_hash": "ef25719fcbb2e19f840a5282",
+        "expectancy_r": null,
+        "max_drawdown_r": 0.0,
+        "mean_planned_net_rr": null,
+        "metadata_set_hash": "c3f573094dccabb0e7afb37d",
+        "mtf_filter_reasons": {
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 65
+        },
+        "n_closed_resolved_trades": 0,
+        "n_decisions_evaluated": 1185,
+        "n_eligible_trades": 0,
+        "n_mtf_filtered": 685,
+        "n_non_overlapping_closed_episodes": 0,
+        "n_non_overlapping_episodes": 0,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 1185,
+        "n_unique_eligible_timestamps": 0,
+        "n_valid_setups": 605,
+        "non_overlapping_expectancy_r": null,
+        "non_overlapping_losses": 0,
+        "non_overlapping_win_rate": null,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 0,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 1185,
+          "VALIDATION": 0
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "e2ef754a52846395d27c101a",
+        "profit_factor": null,
+        "profit_factor_null_reason": "ZERO_CLOSED_TRADES",
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "ATR_MISSING": 5,
+          "MTF_MISSING_DATA": 620,
+          "MTF_STRUCTURE_FILTER_REJECT": 65,
+          "NET_RR_TOO_LOW": 498,
+          "NON_CONTIGUOUS_BARS": 5,
+          "NO_VALID_FVG_SETUP": 90,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 47,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 7,
+          "WAITING_M1_BOS": 191,
+          "WAITING_SWEEP_RECLAIM": 299
+        },
+        "trade_actions_set_hash": "ef25719fcbb2e19f840a5282",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null
+      },
+      "VALIDATION": {
+        "decisions_Set_hash": "a0e45b7e350513d3c5110f7b",
+        "expectancy_r": -1.0,
+        "max_drawdown_r": 51.0,
+        "mean_planned_net_rr": 2.8513,
+        "metadata_set_hash": "16c5e131d99becde9d74512c",
+        "mtf_filter_reasons": {
+          "MTF_STRUCTURE_FILTER_REJECT": 55
+        },
+        "n_closed_resolved_trades": 51,
+        "n_decisions_evaluated": 815,
+        "n_eligible_trades": 51,
+        "n_mtf_filtered": 55,
+        "n_non_overlapping_closed_episodes": 3,
+        "n_non_overlapping_episodes": 3,
+        "n_open_at_horizon_trades": 0,
+        "n_rejected": 764,
+        "n_unique_eligible_timestamps": 16,
+        "n_valid_setups": 498,
+        "non_overlapping_expectancy_r": -1.0,
+        "non_overlapping_losses": 3,
+        "non_overlapping_win_rate": 0.0,
+        "non_overlapping_wins": 0,
+        "open_mark_to_market_expectancy_r": null,
+        "outcomes": {
+          "LOSS": 51,
+          "LOSS_TIE_CONSERVATIVE": 0,
+          "OPEN_AT_HORIZON": 0,
+          "WIN": 0
+        },
+        "partition_counts": {
+          "OUT_OF_SAMPLE": 0,
+          "TRAIN": 0,
+          "VALIDATION": 815
+        },
+        "policy": {
+          "mtf_ablation_mode": "M15_H1_ONLY",
+          "mtf_structure_eligibility_enabled": true,
+          "mtf_structure_observe_only": false
+        },
+        "policy_set_hash": "e1930c05b7a357818a72113d",
+        "profit_factor": 0.0,
+        "profit_factor_null_reason": null,
+        "rejection_reasons": {
+          "ANCHOR_ALREADY_INVALIDATED": 2,
+          "MTF_STRUCTURE_FILTER_REJECT": 55,
+          "NET_RR_TOO_LOW": 425,
+          "NO_VALID_FVG_SETUP": 10,
+          "SHADOW_REJECTED_NO_VALID_TARGET": 21,
+          "STRUCTURAL_ANCHOR_NOT_FOUND": 5,
+          "WAITING_M1_BOS": 108,
+          "WAITING_SWEEP_RECLAIM": 199
+        },
+        "trade_actions_set_hash": "a0e45b7e350513d3c5110f7b",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.07
+        }
+      }
+    }
+  },
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "schema_version": "17.9.1.1",
+  "strategy_statistical_detail_code": "STATISTICALLY_INCONCLUSIVE_INSUFFICIENT_INDEPENDENT_EPISODES",
+  "strategy_statistical_verdict": "INCONCLUSIVE"
+}

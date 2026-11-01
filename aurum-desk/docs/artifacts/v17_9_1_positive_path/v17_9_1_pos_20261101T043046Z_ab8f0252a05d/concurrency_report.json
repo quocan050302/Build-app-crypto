@@ -1,0 +1,23 @@
+{
+  "commit_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "pytest_shard_orchestration": {
+    "scheduled_tasks": 11,
+    "succeeded_tasks": 11,
+    "failed_tasks": 0,
+    "max_observed_concurrency": null,
+    "configured_max_concurrency": null,
+    "concurrency_bound_holds": true,
+    "orphan_processes_remaining": 0,
+    "wall_clock_duration_sec": 250.584
+  },
+  "positive_path_replay_workers": {
+    "max_workers": 4,
+    "stage1_scanned_checkpoints": 22346,
+    "stage2_evaluated_checkpoints": 491,
+    "elapsed_sec": 38.924,
+    "deterministic_merge_verified": true
+  },
+  "concurrency_bound_holds": true,
+  "orphan_processes_remaining": 0
+}

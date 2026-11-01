@@ -1,0 +1,1515 @@
+{
+  "all_verified": true,
+  "entries": [
+    {
+      "actual_consumption_path": "Raw candle dicts -> NormalizedBar tuple + BarSeriesValidationReport",
+      "caller": "get_closed_bars_asof, build_mtf_bar_snapshot",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "data_coverage_report.json",
+      "existing_behavior": "Normalizes Bitget OHLCV bars, detects gaps/duplicates/out-of-order without silent backfill",
+      "exists_in_ast": true,
+      "input_fields": [
+        "symbol",
+        "timeframe",
+        "raw_bars",
+        "source_metadata"
+      ],
+      "line_number": 406,
+      "output_fields": [
+        "bars",
+        "report.missing_gaps",
+        "report.duplicates_removed",
+        "report.quality_state"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None; fail-closed on malformed timestamps",
+      "section": "02.A",
+      "signature": "normalize_market_bars(symbol, timeframe, raw_bars, source_metadata)",
+      "symbol": "normalize_market_bars",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_01_normalize_market_bars_and_gap_detection"
+      ]
+    },
+    {
+      "actual_consumption_path": "Normalized bars + decision_timestamp -> causal closed bars",
+      "caller": "build_mtf_bar_snapshot",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Enforces close_time <= decision_timestamp and open_time < close_time",
+      "exists_in_ast": true,
+      "input_fields": [
+        "symbol",
+        "timeframe",
+        "raw_bars",
+        "decision_timestamp",
+        "lookback"
+      ],
+      "line_number": 664,
+      "output_fields": [
+        "CausalTimeframeWindow.bars",
+        "excluded_future_or_open_bars"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Lookahead leak if close_time boundary violated (guarded by validate_causal_window)",
+      "section": "02.A",
+      "signature": "get_closed_bars_asof(snapshot, timeframe, decision_time)",
+      "symbol": "get_closed_bars_asof",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_02_closed_candle_cutoff_and_no_partial_htf"
+      ]
+    },
+    {
+      "actual_consumption_path": "Closed LTF bars -> exact full-bucket HTF bars",
+      "caller": "build_mtf_bar_snapshot",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "data_coverage_report.json",
+      "existing_behavior": "Aggregates complete closed LTF buckets into HTF bars, dropping incomplete buckets",
+      "exists_in_ast": true,
+      "input_fields": [
+        "closed_ltf_bars",
+        "target_timeframe",
+        "decision_timestamp",
+        "symbol"
+      ],
+      "line_number": 767,
+      "output_fields": [
+        "Tuple[NormalizedBar, ...]",
+        "BarSeriesValidationReport"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Incomplete bucket contamination (prevented by strict constituent count check)",
+      "section": "02.A",
+      "signature": "resample_closed_bars_to_htf(ltf_window, target_timeframe)",
+      "symbol": "resample_closed_bars_to_htf",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_04_resample_ltf_to_htf_equivalence_and_gap_rejection"
+      ]
+    },
+    {
+      "actual_consumption_path": "Multi-TF market_data_source -> MtfBarSnapshot",
+      "caller": "build_mtf_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Synchronizes H4/H1/M15/M5/M1/D1 causal closed windows at decision_time",
+      "exists_in_ast": true,
+      "input_fields": [
+        "decision_time",
+        "market_data_source",
+        "config"
+      ],
+      "line_number": 841,
+      "output_fields": [
+        "MtfBarSnapshot.windows",
+        "MtfBarSnapshot.causal_audit",
+        "MtfBarSnapshot.quality_state"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Missing HTF history flagged via quality_state",
+      "section": "02.A",
+      "signature": "build_mtf_bar_snapshot(decision_time, bar_store, settings)",
+      "symbol": "build_mtf_bar_snapshot",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_02_closed_candle_cutoff_and_no_partial_htf"
+      ]
+    },
+    {
+      "actual_consumption_path": "Windows + decision_timestamp -> CausalValidationResult",
+      "caller": "build_mtf_bar_snapshot, run_causal_audit_and_failure_sensitivity_probe",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Fails closed when any bar, swing confirmation, or reference level exceeds decision_timestamp",
+      "exists_in_ast": true,
+      "input_fields": [
+        "windows",
+        "decision_timestamp",
+        "swings_by_tf",
+        "reference_levels"
+      ],
+      "line_number": 1014,
+      "output_fields": [
+        "is_valid",
+        "quality_state",
+        "violations"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None; tested via active RED/GREEN mutation probe",
+      "section": "02.A",
+      "signature": "validate_causal_window(snapshot, decision_time)",
+      "symbol": "validate_causal_window",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_18_causal_window_negative_controls"
+      ]
+    },
+    {
+      "actual_consumption_path": "Closed bars + left/right -> Tuple[ConfirmedSwingPoint, ...]",
+      "caller": "update_structure_state, build_mtf_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Requires right closed candles after pivot before confirming swing",
+      "exists_in_ast": true,
+      "input_fields": [
+        "bars",
+        "left",
+        "right",
+        "min_prominence_atr",
+        "atr_series",
+        "as_of_timestamp"
+      ],
+      "line_number": 1408,
+      "output_fields": [
+        "ConfirmedSwingPoint.pivot_price",
+        "ConfirmedSwingPoint.confirmed_at"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Zero repaint guaranteed by pivot_index + right <= last_closed_idx",
+      "section": "02.A",
+      "signature": "detect_confirmed_swings(closed_bars, left, right, tolerance_ticks)",
+      "symbol": "detect_confirmed_swings",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_06_swing_confirmation_delay_and_no_repaint"
+      ]
+    },
+    {
+      "actual_consumption_path": "ConfirmedSwingPoint sequence -> HH/HL/LH/LL/EH/EL labels",
+      "caller": "update_structure_state",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Labels swing sequence causally",
+      "exists_in_ast": true,
+      "input_fields": [
+        "swings",
+        "equal_tolerance"
+      ],
+      "line_number": 1549,
+      "output_fields": [
+        "ConfirmedSwingPoint.sequence_label"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "classify_swing_sequence(swings, timeframe, previous_state, tick_size)",
+      "symbol": "classify_swing_sequence",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_07_hh_hl_lh_ll_and_bos_choch_transitions"
+      ]
+    },
+    {
+      "actual_consumption_path": "Bars + swings -> StructureBreakEvent (BOS/CHOCH)",
+      "caller": "update_structure_state",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Body close beyond swing required for BOS/CHoCH; wick-only rejected",
+      "exists_in_ast": true,
+      "input_fields": [
+        "bars",
+        "swings",
+        "atr_series",
+        "config",
+        "as_of_timestamp"
+      ],
+      "line_number": 1688,
+      "output_fields": [
+        "StructureBreakEvent.break_type",
+        "StructureBreakEvent.direction"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "detect_structure_break(closed_bars, state, break_policy)",
+      "symbol": "detect_structure_break",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_08_wick_only_poke_does_not_trigger_bos"
+      ]
+    },
+    {
+      "actual_consumption_path": "Window -> TimeframeStructureState",
+      "caller": "build_multi_timeframe_structure",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Computes per-timeframe trend, BOS/CHoCH, and protected swing levels",
+      "exists_in_ast": true,
+      "input_fields": [
+        "window",
+        "config",
+        "as_of_timestamp"
+      ],
+      "line_number": 1906,
+      "output_fields": [
+        "TimeframeStructureState.trend",
+        "protected_high",
+        "protected_low"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "update_structure_state(previous_state, swings, breaks, asof, total_bars_count)",
+      "symbol": "update_structure_state",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_07_hh_hl_lh_ll_and_bos_choch_transitions"
+      ]
+    },
+    {
+      "actual_consumption_path": "H4/H1/M15 states -> MultiTimeframeStructureSummary",
+      "caller": "build_mtf_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Synthesizes H4/H1/M15 alignment (FULL_ALIGNED_BULLISH/BEARISH, COUNTERTREND, MIXED)",
+      "exists_in_ast": true,
+      "input_fields": [
+        "h4_state",
+        "h1_state",
+        "m15_state",
+        "decision_timestamp"
+      ],
+      "line_number": 2010,
+      "output_fields": [
+        "alignment",
+        "regime_bias",
+        "execution_bias",
+        "bias_confidence"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "build_multi_timeframe_structure(h4, h1, m15, policy)",
+      "symbol": "build_multi_timeframe_structure",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_09_multi_timeframe_alignment_and_countertrend"
+      ]
+    },
+    {
+      "actual_consumption_path": "Confirmed swings -> EQH/EQL LiquidityLevel pools",
+      "caller": "update_liquidity_state",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Bounded-diameter complete-linkage clustering for EQH/EQL pools",
+      "exists_in_ast": true,
+      "input_fields": [
+        "swings",
+        "side",
+        "atr_value",
+        "config",
+        "decision_timestamp"
+      ],
+      "line_number": 2390,
+      "output_fields": [
+        "Tuple[LiquidityLevel, ...]"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "cluster_equal_high_low(swings, tolerance_ticks, min_touches, policy)",
+      "symbol": "cluster_equal_high_low",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_10_bounded_diameter_eqh_eql_clustering_no_chaining"
+      ]
+    },
+    {
+      "actual_consumption_path": "Snapshot -> PDH/PDL/Session High/Low LiquidityLevels",
+      "caller": "update_liquidity_state",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Extracts prior completed day PDH/PDL and completed session high/low causally",
+      "exists_in_ast": true,
+      "input_fields": [
+        "snapshot",
+        "config"
+      ],
+      "line_number": 2581,
+      "output_fields": [
+        "Tuple[LiquidityLevel, ...]"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "derive_reference_liquidity_levels(mtf_snapshot, structure, policy)",
+      "symbol": "derive_reference_liquidity_levels",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_11_prior_day_pdh_pdl_excludes_current_incomplete_day"
+      ]
+    },
+    {
+      "actual_consumption_path": "LiquidityLevel + subsequent bars -> updated LiquidityLevel + LiquiditySweepEvent",
+      "caller": "update_liquidity_state",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Distinguishes SWEPT_RECLAIMED vs BROKEN_THROUGH vs UNTOUCHED",
+      "exists_in_ast": true,
+      "input_fields": [
+        "level",
+        "bars",
+        "atr_value",
+        "config",
+        "decision_timestamp"
+      ],
+      "line_number": 2725,
+      "output_fields": [
+        "LiquidityLevel.status",
+        "LiquiditySweepEvent"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "detect_liquidity_sweep(closed_bars, levels, sweep_policy)",
+      "symbol": "detect_liquidity_sweep",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_12_liquidity_sweep_reclaim_vs_breakout_lifecycle"
+      ]
+    },
+    {
+      "actual_consumption_path": "Snapshot + swings -> pools + sweep_events",
+      "caller": "build_mtf_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Updates lifecycle state of all EQH/EQL/PDH/PDL/Session pools",
+      "exists_in_ast": true,
+      "input_fields": [
+        "snapshot",
+        "swings_by_tf",
+        "atr_by_tf",
+        "config"
+      ],
+      "line_number": 2953,
+      "output_fields": [
+        "Tuple[LiquidityLevel, ...]",
+        "Tuple[LiquiditySweepEvent, ...]"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "update_liquidity_state(previous, touches, sweeps, structure_breaks, asof)",
+      "symbol": "update_liquidity_state",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_12_liquidity_sweep_reclaim_vs_breakout_lifecycle"
+      ]
+    },
+    {
+      "actual_consumption_path": "Pools + sweeps + reference_price -> EvaluatorLiquiditySummary",
+      "caller": "build_mtf_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Summarizes nearest opposing liquidity pools and recent sweeps for evaluator",
+      "exists_in_ast": true,
+      "input_fields": [
+        "levels",
+        "sweep_events",
+        "reference_price",
+        "tick_size",
+        "decision_timestamp"
+      ],
+      "line_number": 3129,
+      "output_fields": [
+        "nearest_buy_side_level",
+        "nearest_sell_side_level",
+        "distance_to_buy_side_ticks"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "summarize_liquidity_for_evaluator(mtf_structure, liquidity, asof, reference_price, freshness_seconds, tick_size)",
+      "symbol": "summarize_liquidity_for_evaluator",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_14_eligibility_filter_on_blocks_opposing_structure_and_liquidity"
+      ]
+    },
+    {
+      "actual_consumption_path": "Market data + config -> MtfEvaluationContext",
+      "caller": "build_market_decision_context",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Constructs deterministic, content-hashed MTF structure & liquidity context",
+      "exists_in_ast": true,
+      "input_fields": [
+        "decision_time",
+        "market_data_source",
+        "config",
+        "cache",
+        "reference_price"
+      ],
+      "line_number": 3367,
+      "output_fields": [
+        "MtfEvaluationContext.mtf_context_hash",
+        "mtf_quality_state",
+        "mtf_structure",
+        "evaluator_liquidity"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "build_mtf_context(decision_time, market_data_source, config, cache, reference_price)",
+      "symbol": "build_mtf_context",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_13_observe_only_invariance_and_context_attachment"
+      ]
+    },
+    {
+      "actual_consumption_path": "MtfEvaluationContext + direction -> (allowed, reason_code, detail)",
+      "caller": "SharedStrategyEvaluator.evaluate_model_direction",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "backtest_variant_comparison.json",
+      "existing_behavior": "Enforces H4/H1/M15 structure & liquidity eligibility when enabled; fail-closed on invalid quality",
+      "exists_in_ast": true,
+      "input_fields": [
+        "mtf_context",
+        "direction",
+        "mtf_quality_state",
+        "eligibility_enabled",
+        "ablation_mode"
+      ],
+      "line_number": 3605,
+      "output_fields": [
+        "allowed",
+        "reason_code",
+        "detail"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Default mtf_structure_eligibility_enabled remains False",
+      "section": "02.A",
+      "signature": "evaluate_mtf_eligibility_for_direction(direction, mtf_context, ablation_mode, mtf_quality_state)",
+      "symbol": "evaluate_mtf_eligibility_for_direction",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_23_early_return_mtf_eligibility_consistency_and_invalid_direction"
+      ]
+    },
+    {
+      "actual_consumption_path": "Base market inputs + variant_policy -> isolated MarketDecisionContext",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "backtest_variant_comparison.json",
+      "existing_behavior": "Constructs isolated context per A/B/C/D1..D6 variant without sharing state",
+      "exists_in_ast": true,
+      "input_fields": [
+        "base_market_inputs",
+        "variant_policy",
+        "decision_time"
+      ],
+      "line_number": 3796,
+      "output_fields": [
+        "MarketDecisionContext"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "build_variant_market_context(base_market_inputs, variant_policy, decision_time, *, reference_context)",
+      "symbol": "build_variant_market_context",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance"
+      ]
+    },
+    {
+      "actual_consumption_path": "(ctx_a, snap_a, ctx_b, snap_b) -> A/B separation & action invariance dict",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Verifies distinct context/policy/metadata fingerprints and identical trade_action_fingerprint",
+      "exists_in_ast": true,
+      "input_fields": [
+        "ctx_a",
+        "snap_a",
+        "ctx_b",
+        "snap_b"
+      ],
+      "line_number": 3882,
+      "output_fields": [
+        "status",
+        "is_valid",
+        "distinct_context",
+        "trade_action_invariant",
+        "mismatches"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "compare_ab_variant_decisions(ctx_a, snap_a, ctx_b, snap_b)",
+      "symbol": "compare_ab_variant_decisions",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance"
+      ]
+    },
+    {
+      "actual_consumption_path": "Production + Shadow + Backtest + Oracle outputs -> parity verification dict",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "EXTENDED_ELIGIBLE_NON_NULL_CHECK",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Verifies 3-way consumed parity + oracle parity, distinct registered adapter_call_ids, and non-null mandatory fields",
+      "exists_in_ast": true,
+      "input_fields": [
+        "prod_output",
+        "shadow_output",
+        "backtest_output",
+        "oracle_output"
+      ],
+      "line_number": 4045,
+      "output_fields": [
+        "status",
+        "is_parity",
+        "adapter_call_ids",
+        "mismatches"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None; rejects cloned dicts, unregistered call IDs, and null mandatory fields",
+      "section": "02.A",
+      "signature": "compare_actual_consumed_decisions(prod_out, shadow_out, backtest_out, independent_oracle)",
+      "symbol": "compare_actual_consumed_decisions",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_21_cloned_dict_and_spoofed_lineage_fail_closed",
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_positive_path_eligible_parity_and_tamper_rejection"
+      ]
+    },
+    {
+      "actual_consumption_path": "StrategyDecisionSnapshot + MtfEvaluationContext -> serializable dict",
+      "caller": "run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "positive_path_decision_traces.jsonl.gz",
+      "existing_behavior": "Serializes decision snapshot and MTF provenance without PII/secrets",
+      "exists_in_ast": true,
+      "input_fields": [
+        "decision",
+        "mtf_context"
+      ],
+      "line_number": 4004,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "None",
+      "section": "02.A",
+      "signature": "serialize_decision_evidence(decision, mtf_context)",
+      "symbol": "serialize_decision_evidence",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_decision_funnel_and_trace_serialization"
+      ]
+    },
+    {
+      "actual_consumption_path": "Eligible trade entry/SL/TP + forward_m1_bars -> outcome dict",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "backtest_variant_comparison.json",
+      "existing_behavior": "Simulates forward outcome on future closed M1 bars with conservative same-bar SL/TP tie-breaking",
+      "exists_in_ast": true,
+      "input_fields": [
+        "direction",
+        "entry_price",
+        "stop_loss",
+        "take_profit",
+        "forward_m1_bars"
+      ],
+      "line_number": 4382,
+      "output_fields": [
+        "outcome",
+        "realized_r",
+        "bars_held"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Only invoked for canonical ELIGIBLE decisions; never feeds back into entry signal",
+      "section": "02.A",
+      "signature": "_simulate_forward_trade_outcome(direction, entry_price, stop_loss, take_profit, forward_m1_bars)",
+      "symbol": "_simulate_forward_trade_outcome",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_forward_outcome_tie_and_open_horizon_guards"
+      ]
+    },
+    {
+      "actual_consumption_path": "Historical dataset -> A/B/C/D1..D6 backtest & parity report",
+      "caller": "tools/run_v17_9_1_verification.py, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "EXTENDED_OPTIONAL_CANDIDATE_UNIVERSE_AND_SEPARATE_VERDICTS",
+      "evidence_file": "backtest_variant_comparison.json",
+      "existing_behavior": "Runs A/B/C/D1..D6 historical replay and 3-way + oracle parity checks",
+      "exists_in_ast": true,
+      "input_fields": [
+        "max_evaluation_points",
+        "evaluation_indices",
+        "include_candidate_universe"
+      ],
+      "line_number": 4426,
+      "output_fields": [
+        "variants",
+        "parity_summary",
+        "engineering_verdict",
+        "positive_path_verdict",
+        "strategy_statistical_verdict"
+      ],
+      "path": "backend/services/mtf_structure_liquidity_service.py",
+      "risks": "Backward-compatible when called with default max_evaluation_points=120",
+      "section": "02.A",
+      "signature": "run_v17_9_1_historical_ab_backtest(max_evaluation_points, *, evaluation_indices, include_candidate_universe)",
+      "symbol": "run_v17_9_1_historical_ab_backtest",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_19_real_historical_ab_backtest_and_ablations",
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_expanded_positive_path_historical_replay"
+      ]
+    },
+    {
+      "actual_consumption_path": "Raw candle series + quote + policy -> immutable MarketDecisionContext",
+      "caller": "build_variant_market_context, ScalpWatcherOrchestrator, MarketShadowService, V17_8_BacktestRunner",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "Filters closed causal candles, computes ATR/liquidity pools/MTF context, fails closed on MTF exception",
+      "exists_in_ast": true,
+      "input_fields": [
+        "symbol",
+        "decision_timestamp_ms",
+        "m1_candles",
+        "m5_candles",
+        "m15_candles",
+        "h1_candles",
+        "h4_candles",
+        "d1_candles",
+        "bid",
+        "ask",
+        "policy_config"
+      ],
+      "line_number": 537,
+      "output_fields": [
+        "MarketDecisionContext"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "build_market_decision_context(*, symbol, decision_timestamp_ms, m1_candles, m5_candles, m15_candles, h1_candles, h4_candles, d1_candles, bid, ask, quote_timestamp_ms, htf_zones, liquidity_pools, model_enablement, policy_config, risk_config, cost_config, strict_causal_validation, strict_htf_validation, htf_bias, h1_alignment, session_restricted, session_restriction_reason)",
+      "symbol": "build_market_decision_context",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_22_mtf_context_build_exception_fail_closed_and_invariant_guard"
+      ]
+    },
+    {
+      "actual_consumption_path": "MarketDecisionContext -> invariant check",
+      "caller": "MarketDecisionContext.__post_init__, evaluate_model_direction",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Forbids mtf_quality_state == VALID when mtf_context is None",
+      "exists_in_ast": true,
+      "input_fields": [
+        "self"
+      ],
+      "line_number": 477,
+      "output_fields": [
+        "None (raises ValueError on violation)"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "MarketDecisionContext.validate_mtf_context_invariant(self)",
+      "symbol": "MarketDecisionContext.validate_mtf_context_invariant",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_22_mtf_context_build_exception_fail_closed_and_invariant_guard"
+      ]
+    },
+    {
+      "actual_consumption_path": "(context, model_id, direction) -> StrategyDecisionSnapshot",
+      "caller": "ScalpWatcherOrchestrator, MarketShadowService, evaluate_production_parity_model_snapshot",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "per_model_direction_gate_attribution.json",
+      "existing_behavior": "Authoritative model-direction evaluation across setup, target, stop, RR, and MTF gates",
+      "exists_in_ast": true,
+      "input_fields": [
+        "context",
+        "model_id",
+        "direction",
+        "adapter_origin"
+      ],
+      "line_number": 2070,
+      "output_fields": [
+        "StrategyDecisionSnapshot"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None; zero side effects",
+      "section": "02.B",
+      "signature": "SharedStrategyEvaluator.evaluate_model_direction(cls, context, model_id, direction, *, adapter_origin, target_resolver, causal_setup_override, production_eval_spec)",
+      "symbol": "SharedStrategyEvaluator.evaluate_model_direction",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_23_early_return_mtf_eligibility_consistency_and_invalid_direction"
+      ]
+    },
+    {
+      "actual_consumption_path": "MarketDecisionContext -> 'LONG' | 'SHORT'",
+      "caller": "run_v17_9_1_historical_ab_backtest, evaluate_decision",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "zero_eligible_root_cause_report.json",
+      "existing_behavior": "Resolves single preferred direction per checkpoint from HTF bias or M1 close vs 6-bar mean",
+      "exists_in_ast": true,
+      "input_fields": [
+        "context"
+      ],
+      "line_number": 2922,
+      "output_fields": [
+        "direction"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "Single-direction routing can skip valid setups on opposite direction (quantified in counterfactuals)",
+      "section": "02.B",
+      "signature": "SharedStrategyEvaluator.resolve_canonical_preferred_direction(context, explicit_bias)",
+      "symbol": "SharedStrategyEvaluator.resolve_canonical_preferred_direction",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_preferred_vs_opposite_direction_attribution"
+      ]
+    },
+    {
+      "actual_consumption_path": "StrategyDecisionSnapshot -> canonical dict",
+      "caller": "compare_actual_consumed_decisions, serialize_decision_evidence",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Exports all action, policy, metadata, and lineage fields for parity comparison",
+      "exists_in_ast": true,
+      "input_fields": [
+        "self"
+      ],
+      "line_number": 1126,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "StrategyDecisionSnapshot.to_parity_dict(self)",
+      "symbol": "StrategyDecisionSnapshot.to_parity_dict",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance"
+      ]
+    },
+    {
+      "actual_consumption_path": "Snapshot fields -> (evidence_fp, policy_fp, decision_fp, trade_action_fp, metadata_fp)",
+      "caller": "SharedStrategyEvaluator.evaluate_model_direction",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Separates trade_action_fingerprint from policy_fingerprint and metadata_fingerprint",
+      "exists_in_ast": true,
+      "input_fields": [
+        "context",
+        "model_id",
+        "direction",
+        "setup_validity",
+        "entry_ref",
+        "selected_sl",
+        "take_profit",
+        "qty",
+        "gross_rr",
+        "net_rr",
+        "status",
+        "reasons"
+      ],
+      "line_number": 1185,
+      "output_fields": [
+        "Tuple[str, str, str, str, str]"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "_compute_snapshot_fingerprints(*, context, model_id, direction, setup_validity, entry_reference, selected_fvg_id, selected_break_id, selected_sweep_id, setup_episode_id, unicorn_validity, selected_anchor_id, structural_invalidation_price, selected_sl, take_profit, hypothetical_quantity, net_rr, decision_status, rejection_reason_codes)",
+      "symbol": "_compute_snapshot_fingerprints",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance"
+      ]
+    },
+    {
+      "actual_consumption_path": "StrategyDecisionSnapshot -> bool",
+      "caller": "validate_canonical_executability, v17_9_1_decision_funnel",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Returns True iff decision_status == ELIGIBLE and setup_validity == VALID and SL/TP/qty/net_rr valid",
+      "exists_in_ast": true,
+      "input_fields": [
+        "snapshot"
+      ],
+      "line_number": 1456,
+      "output_fields": [
+        "bool"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "canonical_is_executable(decision, context, *, expected_direction, strict_direction_match)",
+      "symbol": "canonical_is_executable",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_positive_path_eligible_parity_and_tamper_rejection"
+      ]
+    },
+    {
+      "actual_consumption_path": "(snapshot, context) -> (bool, Optional[str])",
+      "caller": "V17_8_BacktestRunner, ScalpWatcherOrchestrator",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Enforces strict price geometry, positive quantity, and min_net_rr before execution",
+      "exists_in_ast": true,
+      "input_fields": [
+        "snapshot",
+        "context"
+      ],
+      "line_number": 1246,
+      "output_fields": [
+        "is_executable",
+        "rejection_reason"
+      ],
+      "path": "backend/services/shared_strategy_evaluator.py",
+      "risks": "None",
+      "section": "02.B",
+      "signature": "validate_canonical_executability(decision, context, *, expected_direction, strict_direction_match)",
+      "symbol": "validate_canonical_executability",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_positive_path_eligible_parity_and_tamper_rejection"
+      ]
+    },
+    {
+      "actual_consumption_path": "(context, model_id, direction) -> StrategyDecisionSnapshot (PRODUCTION_ORCHESTRATOR_ADAPTER)",
+      "caller": "run_v17_9_1_historical_ab_backtest, Production evaluation path",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Invokes SharedStrategyEvaluator with adapter_origin=PRODUCTION_ORCHESTRATOR_ADAPTER",
+      "exists_in_ast": true,
+      "input_fields": [
+        "self",
+        "context",
+        "model_id",
+        "direction"
+      ],
+      "line_number": 4297,
+      "output_fields": [
+        "StrategyDecisionSnapshot"
+      ],
+      "path": "backend/services/scalp_watcher_orchestrator.py",
+      "risks": "Explicitly labeled OFFLINE_ADAPTER_REPLAY_PARITY in historical replay",
+      "section": "02.C",
+      "signature": "ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot(self, *, context, model_id, direction)",
+      "symbol": "ScalpWatcherOrchestrator.evaluate_shared_decision_snapshot",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_16_three_runtime_adapter_parity_and_baseline_oracle"
+      ]
+    },
+    {
+      "actual_consumption_path": "(context, model_id, direction) -> StrategyDecisionSnapshot (MARKET_SHADOW_SERVICE_ADAPTER)",
+      "caller": "run_v17_9_1_historical_ab_backtest, MarketShadow evaluation path",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Invokes SharedStrategyEvaluator with adapter_origin=MARKET_SHADOW_SERVICE_ADAPTER",
+      "exists_in_ast": true,
+      "input_fields": [
+        "self",
+        "context",
+        "model_id",
+        "direction"
+      ],
+      "line_number": 2772,
+      "output_fields": [
+        "StrategyDecisionSnapshot"
+      ],
+      "path": "backend/services/market_shadow_service.py",
+      "risks": "None",
+      "section": "02.D",
+      "signature": "MarketShadowService.evaluate_shared_decision_snapshot(self, *, context, model_id, direction)",
+      "symbol": "MarketShadowService.evaluate_shared_decision_snapshot",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_16_three_runtime_adapter_parity_and_baseline_oracle"
+      ]
+    },
+    {
+      "actual_consumption_path": "backtest/historical_dataset_XAUUSDT.json.gz",
+      "caller": "collect_or_load_verified_historical_dataset",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "data_coverage_report.json",
+      "existing_behavior": "Canonical compressed historical dataset path",
+      "exists_in_ast": true,
+      "input_fields": [],
+      "line_number": 83,
+      "output_fields": [
+        "Path"
+      ],
+      "path": "backend/services/v17_8_backtest_runner.py",
+      "risks": "SHA-256 verified before and after run",
+      "section": "02.E",
+      "signature": "SAVED_DATASET_GZ_PATH = ...",
+      "symbol": "SAVED_DATASET_GZ_PATH",
+      "symbol_kind": "constant",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_dataset_sha256_and_gap_classification"
+      ]
+    },
+    {
+      "actual_consumption_path": "SAVED_DATASET_GZ_PATH -> verified dict of closed candles per timeframe",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "data_coverage_report.json",
+      "existing_behavior": "Loads and validates saved canonical Bitget XAUUSDT dataset",
+      "exists_in_ast": true,
+      "input_fields": [
+        "symbol",
+        "allow_network_refresh"
+      ],
+      "line_number": 358,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "backend/services/v17_8_backtest_runner.py",
+      "risks": "None",
+      "section": "02.E",
+      "signature": "collect_or_load_verified_historical_dataset(*, symbol, cache_dir, allow_network_refresh)",
+      "symbol": "collect_or_load_verified_historical_dataset",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_dataset_sha256_and_gap_classification"
+      ]
+    },
+    {
+      "actual_consumption_path": "(context, model_id, direction) -> StrategyDecisionSnapshot (HISTORICAL_BACKTEST_PARITY_ADAPTER)",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Backtest adapter invoking SharedStrategyEvaluator with registered lineage",
+      "exists_in_ast": true,
+      "input_fields": [
+        "context",
+        "model_id",
+        "direction"
+      ],
+      "line_number": 191,
+      "output_fields": [
+        "StrategyDecisionSnapshot"
+      ],
+      "path": "backend/services/v17_8_backtest_runner.py",
+      "risks": "None",
+      "section": "02.E",
+      "signature": "evaluate_production_parity_model_snapshot(*, symbol, model_id, closed_1m, closed_5m, closed_15m, quote, as_of_ms, context, stop_policy, cfg, direction, closed_1h, closed_4h, closed_1d, htf_bias, h1_alignment, strict_htf_validation)",
+      "symbol": "evaluate_production_parity_model_snapshot",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_16_three_runtime_adapter_parity_and_baseline_oracle"
+      ]
+    },
+    {
+      "actual_consumption_path": "Executable Python files -> SHA-256 tree digest",
+      "caller": "tools/run_v17_9_1_verification.py, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Computes content hash over executable source files, independent of docs/artifacts commits",
+      "exists_in_ast": true,
+      "input_fields": [
+        "paths"
+      ],
+      "line_number": 2462,
+      "output_fields": [
+        "str"
+      ],
+      "path": "backend/services/v17_8_backtest_runner.py",
+      "risks": "None",
+      "section": "02.E",
+      "signature": "compute_executable_source_tree_hash(repo_root)",
+      "symbol": "compute_executable_source_tree_hash",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_function_truth_map_and_gate_evaluation"
+      ]
+    },
+    {
+      "actual_consumption_path": "(context, model_id, direction) -> independent baseline decision dict",
+      "caller": "run_v17_9_1_historical_ab_backtest, run_v17_9_1_positive_path_replay",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "matched_decision_parity.json",
+      "existing_behavior": "Evaluates pre-refactor V17.9.0 baseline logic independently for 0-drift verification",
+      "exists_in_ast": true,
+      "input_fields": [
+        "context",
+        "model_id",
+        "direction"
+      ],
+      "line_number": 368,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "backend/services/v17_9_0_1_baseline_oracle.py",
+      "risks": "None",
+      "section": "02.F",
+      "signature": "IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(cls, context, model_id, direction, *, target_resolver)",
+      "symbol": "IndependentPreRefactorBaselineOracle.evaluate_baseline_dict",
+      "symbol_kind": "method",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_16_three_runtime_adapter_parity_and_baseline_oracle"
+      ]
+    },
+    {
+      "actual_consumption_path": "pytest backend/tests --collect-only -q -> node_ids + inventory counts",
+      "caller": "tools/run_v17_9_1_verification.py::main, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "regression_inventory.json",
+      "existing_behavior": "Collects authoritative backend test inventory via pytest --collect-only",
+      "exists_in_ast": true,
+      "input_fields": [],
+      "line_number": 477,
+      "output_fields": [
+        "discovered_total",
+        "node_ids",
+        "per_file_counts"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "collect_pytest_inventory(repo_root)",
+      "symbol": "collect_pytest_inventory",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity"
+      ]
+    },
+    {
+      "actual_consumption_path": "per_file_counts -> Tuple[AsyncWorkerGroupSpec, ...]",
+      "caller": "tools/run_v17_9_1_verification.py::main",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "shard_manifest.json",
+      "existing_behavior": "Partitions all discovered test files into non-overlapping deterministic shards",
+      "exists_in_ast": true,
+      "input_fields": [
+        "per_file_counts",
+        "target_shards"
+      ],
+      "line_number": 513,
+      "output_fields": [
+        "Tuple[AsyncWorkerGroupSpec, ...]"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "build_full_regression_shards(repo_root, num_general_shards)",
+      "symbol": "build_full_regression_shards",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity"
+      ]
+    },
+    {
+      "actual_consumption_path": "Historical dataset + RED/GREEN subprocess -> causal_audit_report.json",
+      "caller": "tools/run_v17_9_1_verification.py::main",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Audits historical checkpoints for leaks and executes real RED/GREEN subprocess probe",
+      "exists_in_ast": true,
+      "input_fields": [
+        "out_dir",
+        "junit_dir",
+        "logs_dir"
+      ],
+      "line_number": 592,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "run_causal_audit_and_failure_sensitivity_probe(*, run_id, head_sha, junit_dir, logs_dir, temp_root)",
+      "symbol": "run_causal_audit_and_failure_sensitivity_probe",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_24_gate_evaluator_fail_closed_and_report_validation"
+      ]
+    },
+    {
+      "actual_consumption_path": "Artifact directory -> Dict[str, Any]",
+      "caller": "tools/run_v17_9_1_verification.py::main",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Loads raw JSON artifacts and JUnit XML results from disk for gate evaluation",
+      "exists_in_ast": true,
+      "input_fields": [
+        "out_dir"
+      ],
+      "line_number": 833,
+      "output_fields": [
+        "Dict[str, Any]"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "collect_gate_evidence(*, artifact_dir, head_sha, branch, remote_head_sha, dirty_tracked_files, impl_map, pytest_collection, async_summary, detailed_junit_by_shard, causal_audit, backtest_res, disk_report, artifact_hashes)",
+      "symbol": "collect_gate_evidence",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_24_gate_evaluator_fail_closed_and_report_validation"
+      ]
+    },
+    {
+      "actual_consumption_path": "(gate_id, evidence) -> Gate verdict dict",
+      "caller": "tools/run_v17_9_1_verification.py::main",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Computes G01..G13 verdicts dynamically from evidence, failing closed on missing proof",
+      "exists_in_ast": true,
+      "input_fields": [
+        "gate_id",
+        "evidence"
+      ],
+      "line_number": 870,
+      "output_fields": [
+        "verdict",
+        "status",
+        "reasons"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "evaluate_gate(gate_id, evidence)",
+      "symbol": "evaluate_gate",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_24_gate_evaluator_fail_closed_and_report_validation"
+      ]
+    },
+    {
+      "actual_consumption_path": "report dict -> (is_valid, errors)",
+      "caller": "tools/run_v17_9_1_verification.py::main",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "final_verification_report.json",
+      "existing_behavior": "Cross-checks report consistency against raw JUnit, inventory, and artifact hashes",
+      "exists_in_ast": true,
+      "input_fields": [
+        "report"
+      ],
+      "line_number": 1159,
+      "output_fields": [
+        "is_valid",
+        "errors"
+      ],
+      "path": "tools/run_v17_9_1_verification.py",
+      "risks": "None",
+      "section": "02.G",
+      "signature": "validate_final_verification_report(report)",
+      "symbol": "validate_final_verification_report",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py::test_24_gate_evaluator_fail_closed_and_report_validation"
+      ]
+    },
+    {
+      "actual_consumption_path": "AsyncWorkerGroupSpec sequence -> bounded parallel pytest execution",
+      "caller": "tools/run_v17_9_1_verification.py",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "concurrency_report.json",
+      "existing_behavior": "Executes pytest shards with bounded semaphore concurrency, per-worker tempdirs, and orphan cleanup",
+      "exists_in_ast": true,
+      "input_fields": [
+        "repo_root",
+        "artifact_root",
+        "max_workers",
+        "state_manager",
+        "resource_guard"
+      ],
+      "line_number": 118,
+      "output_fields": [
+        "OrchestratorRunSummary"
+      ],
+      "path": "tools/run_v17_9_async_regression.py",
+      "risks": "None",
+      "section": "02.H",
+      "signature": "class BoundedAsyncTestOrchestrator",
+      "symbol": "BoundedAsyncTestOrchestrator",
+      "symbol_kind": "class",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Shard specification dataclass",
+      "caller": "build_full_regression_shards",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "shard_manifest.json",
+      "existing_behavior": "Defines isolated worker group targets and timeout bounds",
+      "exists_in_ast": true,
+      "input_fields": [
+        "group_id",
+        "description",
+        "test_targets",
+        "timeout_seconds"
+      ],
+      "line_number": 50,
+      "output_fields": [
+        "AsyncWorkerGroupSpec"
+      ],
+      "path": "tools/run_v17_9_async_regression.py",
+      "risks": "None",
+      "section": "02.H",
+      "signature": "class AsyncWorkerGroupSpec",
+      "symbol": "AsyncWorkerGroupSpec",
+      "symbol_kind": "class",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Disk/CPU/RAM guard & ephemeral cleanup manager",
+      "caller": "BoundedAsyncTestOrchestrator, run_v17_9_1_verification.py",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "disk_budget_report.json",
+      "existing_behavior": "Monitors disk/CPU/RSS and prunes only registered ephemeral directories",
+      "exists_in_ast": true,
+      "input_fields": [
+        "repo_root",
+        "artifact_root",
+        "worker_temp_root"
+      ],
+      "line_number": 311,
+      "output_fields": [
+        "DiskBudgetReport",
+        "CleanupReport"
+      ],
+      "path": "tools/test_resource_guard.py",
+      "risks": "None",
+      "section": "02.I",
+      "signature": "class TestResourceGuard",
+      "symbol": "TestResourceGuard",
+      "symbol_kind": "class",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Path -> DiskBudgetStatus",
+      "caller": "TestResourceGuard.preflight_check",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "disk_budget_report.json",
+      "existing_behavior": "Samples total/free disk bytes before starting heavy workers",
+      "exists_in_ast": true,
+      "input_fields": [
+        "path",
+        "min_free_bytes"
+      ],
+      "line_number": 897,
+      "output_fields": [
+        "DiskBudgetStatus"
+      ],
+      "path": "tools/test_resource_guard.py",
+      "risks": "None",
+      "section": "02.I",
+      "signature": "probe_disk_budget(workdir, artifact_root)",
+      "symbol": "probe_disk_budget",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Reserves disk headroom for test run",
+      "caller": "TestResourceGuard.preflight_check",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "disk_budget_report.json",
+      "existing_behavior": "Fails closed if free disk < floor + estimated artifact footprint",
+      "exists_in_ast": true,
+      "input_fields": [
+        "path",
+        "estimated_artifact_bytes",
+        "min_free_floor_bytes"
+      ],
+      "line_number": 954,
+      "output_fields": [
+        "DiskReservationResult"
+      ],
+      "path": "tools/test_resource_guard.py",
+      "risks": "None",
+      "section": "02.I",
+      "signature": "reserve_test_artifact_budget(task, budget, requested_bytes)",
+      "symbol": "reserve_test_artifact_budget",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Mid-run disk pressure check",
+      "caller": "BoundedAsyncTestOrchestrator",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "disk_budget_report.json",
+      "existing_behavior": "Tracks peak temp and artifact bytes during execution",
+      "exists_in_ast": true,
+      "input_fields": [
+        "path",
+        "temp_root",
+        "artifact_root"
+      ],
+      "line_number": 988,
+      "output_fields": [
+        "DiskPressureSnapshot"
+      ],
+      "path": "tools/test_resource_guard.py",
+      "risks": "None",
+      "section": "02.I",
+      "signature": "monitor_disk_pressure(interval, thresholds, workdir, artifact_root)",
+      "symbol": "monitor_disk_pressure",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Cleans registered ephemeral worker dirs",
+      "caller": "TestResourceGuard.finalize",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "disk_budget_report.json",
+      "existing_behavior": "Safely deletes only owned ephemeral directories under allowed_parent_root",
+      "exists_in_ast": true,
+      "input_fields": [
+        "registered_ephemeral_paths",
+        "allowed_parent_root"
+      ],
+      "line_number": 1023,
+      "output_fields": [
+        "CleanupReport"
+      ],
+      "path": "tools/test_resource_guard.py",
+      "risks": "None",
+      "section": "02.I",
+      "signature": "finalize_and_prune_ephemeral_artifacts(run_id, retention_policy, guard)",
+      "symbol": "finalize_and_prune_ephemeral_artifacts",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "SHA-pinned resumable shard state",
+      "caller": "BoundedAsyncTestOrchestrator, run_v17_9_1_verification.py",
+      "change": "PRESERVED_UNCHANGED",
+      "evidence_file": "shard_manifest.json",
+      "existing_behavior": "Invalidates cached shard completion whenever code SHA, source tree hash, or dataset hash changes",
+      "exists_in_ast": true,
+      "input_fields": [
+        "state_file_path",
+        "git_head_sha",
+        "source_tree_hash",
+        "dataset_hash"
+      ],
+      "line_number": 81,
+      "output_fields": [
+        "ExecutionStateManifest"
+      ],
+      "path": "tools/v17_9_execution_state.py",
+      "risks": "None",
+      "section": "02.J",
+      "signature": "class ExecutionStateManager",
+      "symbol": "ExecutionStateManager",
+      "symbol_kind": "class",
+      "tests": [
+        "backend/tests/test_v17_9_async_infra.py"
+      ]
+    },
+    {
+      "actual_consumption_path": "Full 22,376 M1 bars -> Stage-1 candidate indices + baseline grid + control sample",
+      "caller": "run_v17_9_1_historical_ab_backtest, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "ADDED_V17_9_1_1",
+      "evidence_file": "chronological_decision_funnel.json",
+      "existing_behavior": "New in V17.9.1.1: Two-stage full chronological M1 scan with 100% mathematical recall for net_rr >= 1.0",
+      "exists_in_ast": true,
+      "input_fields": [
+        "datasets",
+        "baseline_grid_points",
+        "control_sample_points",
+        "min_candidate_target_distance_usd"
+      ],
+      "line_number": 500,
+      "output_fields": [
+        "stage1_candidate_indices",
+        "baseline_grid_indices",
+        "unbiased_control_indices",
+        "combined_indices"
+      ],
+      "path": "backend/services/v17_9_1_decision_funnel.py",
+      "risks": "Verified against brute-force scan and unbiased control sample",
+      "section": "05.K",
+      "signature": "scan_full_m1_candidate_universe(datasets, *, baseline_grid_points, control_sample_points, min_candidate_target_distance_usd)",
+      "symbol": "scan_full_m1_candidate_universe",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_two_stage_candidate_scan_100_percent_recall"
+      ]
+    },
+    {
+      "actual_consumption_path": "Decision records -> reconciled unique/overlapping funnel & rejection breakdown",
+      "caller": "run_v17_9_1_historical_ab_backtest, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "ADDED_V17_9_1_1",
+      "evidence_file": "zero_eligible_root_cause_report.json",
+      "existing_behavior": "New in V17.9.1.1: Reconciles unique decisions vs overlapping rejection occurrences and stage attribution",
+      "exists_in_ast": true,
+      "input_fields": [
+        "records",
+        "cohort_label"
+      ],
+      "line_number": 669,
+      "output_fields": [
+        "unique_decision_count",
+        "valid_setup_count",
+        "canonical_executable_eligible_count",
+        "rejection_reason_breakdown"
+      ],
+      "path": "backend/services/v17_9_1_decision_funnel.py",
+      "risks": "None",
+      "section": "05.K",
+      "signature": "build_decision_funnel_report(records, *, cohort_label)",
+      "symbol": "build_decision_funnel_report",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_decision_funnel_and_trace_serialization"
+      ]
+    },
+    {
+      "actual_consumption_path": "(snapshot, context) -> complete numerical RR & cost operands",
+      "caller": "build_per_decision_trace_record, tools/run_v17_9_1_positive_path_replay.py",
+      "change": "ADDED_V17_9_1_1",
+      "evidence_file": "zero_eligible_root_cause_report.json",
+      "existing_behavior": "New in V17.9.1.1: Decomposes round-trip taker fees, slippage, spread, stop/target distance, and shortfall",
+      "exists_in_ast": true,
+      "input_fields": [
+        "snapshot",
+        "context"
+      ],
+      "line_number": 276,
+      "output_fields": [
+        "entry_reference",
+        "selected_sl",
+        "take_profit",
+        "gross_rr",
+        "net_rr",
+        "required_target_distance_for_min_rr_usd"
+      ],
+      "path": "backend/services/v17_9_1_decision_funnel.py",
+      "risks": "Read-only diagnostic; never modifies risk gates",
+      "section": "05.K",
+      "signature": "extract_decision_numerical_operands(snapshot, context)",
+      "symbol": "extract_decision_numerical_operands",
+      "symbol_kind": "function",
+      "tests": [
+        "backend/tests/test_v17_9_1_positive_path_replay.py::test_net_rr_algebraic_decomposition_and_no_gate_loosening"
+      ]
+    }
+  ],
+  "missing_in_ast_count": 0,
+  "schema_version": "17.9.1.1",
+  "total_mapped_symbols": 55,
+  "verified_in_ast_count": 55
+}
