@@ -1330,6 +1330,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # 5. Execute Real Historical Bitget XAUUSDT A/B/C/D Backtest & 3-Mode Parity
     backtest_res = run_v17_9_1_historical_ab_backtest(max_evaluation_points=args.backtest_points)
+    _git_cmd(["checkout", "--", "backtest/trade_decision_lineage_reconciliation.json"], check=False)
     guard.sample_cpu_memory(stage="POST_HISTORICAL_BACKTEST", active_workers=0)
 
     # 6. Finalize Disk Guard & Prune Ephemeral Temp Directories
