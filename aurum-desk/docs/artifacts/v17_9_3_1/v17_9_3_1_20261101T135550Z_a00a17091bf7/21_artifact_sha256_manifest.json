@@ -1,7 +1,7 @@
 {
   "schema_version": "17.9.3.1",
   "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
-  "generated_at": "2026-11-01T14:00:59Z",
+  "generated_at": "2026-11-01T14:01:46Z",
   "verified_files_count": 23,
   "all_present_files_non_empty": true,
   "artifacts": [
@@ -127,8 +127,8 @@
     },
     {
       "filename": "22_acceptance_gates_26_of_26.json",
-      "size_bytes": 17104,
-      "sha256": "0408f53ceb9fc82a40032eea2919a76e918b01f721ac270f23c8d8bf6f3eaf93",
+      "size_bytes": 17074,
+      "sha256": "3de0381886741346a34eed0ef04ad9cb61427351629848e4203bb7da7af028fa",
       "non_empty": true
     },
     {
@@ -139,8 +139,8 @@
     },
     {
       "filename": "24_git_code_commit_and_remote_push_proof.json",
-      "size_bytes": 985,
-      "sha256": "dd19c2d561d5e789cabba7ac987d98038012639dec3989a95c7f30eda7bef814",
+      "size_bytes": 955,
+      "sha256": "33453126d618b2e1f189b9f0a1b7d894180b577ff8b70d581c1d34d2e5c44f88",
       "non_empty": true
     }
   ]

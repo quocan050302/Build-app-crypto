@@ -466,7 +466,7 @@
       "status": "PASS",
       "passed": true,
       "evidence": {
-        "verified_files_count": 21
+        "verified_files_count": 23
       }
     },
     {
@@ -494,13 +494,13 @@
         "previous_v17921_tested_code_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
         "base_master_sha": "650e4535777421077443cd3d95507cad1d99ed42",
         "tested_executable_code_sha": "a00a17091bf7991855aaeb3f718242354c244a08",
-        "final_local_sha": "a00a17091bf7991855aaeb3f718242354c244a08",
-        "remote_sha": "37ce4a2daf5ebfa0339ea219e57a81859bb568aa",
-        "local_equals_remote_sha": false,
+        "final_local_sha": "c5d32a7cd5a97060c3c35258c8244c323f7d5de3",
+        "remote_sha": "c5d32a7cd5a97060c3c35258c8244c323f7d5de3",
+        "local_equals_remote_sha": true,
         "tested_code_commit_is_ancestor_of_head": true,
         "starting_head_is_ancestor_of_head": true,
-        "git_status_short": "?? docs/artifacts/v17_9_3_1/",
-        "working_tree_clean": false
+        "git_status_short": "",
+        "working_tree_clean": true
       }
     }
   ]
