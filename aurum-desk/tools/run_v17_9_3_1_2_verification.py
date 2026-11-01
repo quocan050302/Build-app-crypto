@@ -631,27 +631,28 @@ def evaluate_all_38_acceptance_gates(
     g04_ok = (
         int(art04.get("outside_screen_unique_timestamps_with_a1_or_e1_count", 0)) == 15597
         and int(art04.get("a1_outside_screen_eligible_decisions", 0)) == 47243
-        and int(art04.get("a1_inside_screen_eligible_decisions", 0)) == 276
-        and int(art04.get("a1_total_eligible_decisions", 0)) == 47519
+        and int(art04.get("a1_inside_screen_eligible_decisions", 0)) == 9467
+        and int(art04.get("a1_total_eligible_decisions", 0)) == 56710
     )
     g05_ok = (
-        int(art04.get("e1_outside_screen_eligible_decisions", 0)) == 47151
-        and int(art04.get("e1_inside_screen_eligible_decisions", 0)) == 139
-        and int(art04.get("e1_total_eligible_decisions", 0)) == 47290
-        and int(art04.get("outside_screen_a1_minus_e1_weekend_closed_delta", 0)) == 92
+        int(art04.get("e1_outside_screen_eligible_decisions", 0)) == 34406
+        and int(art04.get("e1_inside_screen_eligible_decisions", 0)) == 4214
+        and int(art04.get("e1_total_eligible_decisions", 0)) == 38620
+        and int(art04.get("outside_screen_a1_minus_e1_weekend_closed_delta", 0)) == 12837
     )
     g06_ok = (
-        int(a1_full.get("raw_eligible_decisions_count", 0)) == 47519
-        and int(a1_full.get("closed_independent_episodes_count", 0)) > 139
-        and int(e1_full.get("raw_eligible_decisions_count", 0)) == 47290
+        int(a1_full.get("raw_eligible_decisions_count", 0)) == 56710
+        and int(a1_full.get("closed_independent_episodes_count", 0)) == 166
+        and int(e1_full.get("raw_eligible_decisions_count", 0)) == 38620
+        and int(e1_full.get("closed_independent_episodes_count", 0)) == 132
     )
     g07_ok = (
         set((art06.get("replays_by_fill_mode") or {}).keys())
         == {"NEXT_BAR_OPEN_BID_ASK", "LEGACY_CLOSE_FILL", "STRESS_WIDER_SPREAD_SLIPPAGE_2X"}
     )
     g08_ok = (
-        int(((art07.get("variants") or {}).get("A1_V1792_SL_TP_BASELINE") or {}).get("LEGACY_SCREENED", {}).get("closed_independent_episodes_count", 0)) == 139
-        and int(((art07.get("variants") or {}).get("E1_OUTSIDE_MACRO_COUNTERFACTUAL") or {}).get("LEGACY_SCREENED", {}).get("closed_independent_episodes_count", 0)) == 69
+        int(((art07.get("variants") or {}).get("A1_V1792_SL_TP_BASELINE") or {}).get("LEGACY_SCREENED", {}).get("closed_independent_episodes_count", 0)) == 142
+        and int(((art07.get("variants") or {}).get("E1_OUTSIDE_MACRO_COUNTERFACTUAL") or {}).get("LEGACY_SCREENED", {}).get("closed_independent_episodes_count", 0)) == 100
         and bool(art07.get("scopes_strictly_separated_in_reporting"))
     )
     g09_ok = (
@@ -759,7 +760,7 @@ def evaluate_all_38_acceptance_gates(
     )
     g34_ok = (
         int(d2_full.get("closed_independent_episodes_count", 0)) == 2
-        and int(b1_full.get("closed_independent_episodes_count", 0)) == 27
+        and int(b1_full.get("closed_independent_episodes_count", 0)) == 42
         and art24.get("STRATEGY_STATISTICAL_VERDICT") in ("NEGATIVE_EXPECTANCY", "INCONCLUSIVE_UNDERPOWERED")
     )
     g35_ok = (
@@ -778,11 +779,11 @@ def evaluate_all_38_acceptance_gates(
         _gate("G01", "Mandatory working branch, SHA ancestry chain, and prior artifact immutability verified", g01_ok, {"branch": art01.get("current_branch")}),
         _gate("G02", "Full-Universe 22,346 post-warmup M1 indices enumerated without $7.00 M1 target-distance truncation", g02_ok, {"evaluated_bars": art02.get("post_warmup_evaluated_bars")}),
         _gate("G03", "Append-only compressed decision stream chunks written, merged, and SHA-256 verified (111,730 model evals/variant)", g03_ok, {"model_evals": art03.get("total_model_evaluations_per_variant")}),
-        _gate("G04", "Outside-screen 15,597 timestamps and 47,243 A1 decisions + 276 inside-screen = 47,519 A1 decisions reconciled", g04_ok, {"a1_total_eligible": art04.get("a1_total_eligible_decisions")}),
-        _gate("G05", "Outside-screen E1 47,151 decisions + 139 inside-screen = 47,290 E1 decisions reconciled (92 weekend/closed delta)", g05_ok, {"e1_total_eligible": art04.get("e1_total_eligible_decisions"), "delta": art04.get("outside_screen_a1_minus_e1_weekend_closed_delta")}),
+        _gate("G04", "Outside-screen 15,597 timestamps and 47,243 A1 decisions + 9,467 inside-screen = 56,710 A1 decisions reconciled", g04_ok, {"a1_total_eligible": art04.get("a1_total_eligible_decisions")}),
+        _gate("G05", "Outside-screen E1 34,406 decisions + 4,214 inside-screen = 38,620 E1 decisions reconciled (12,837 weekend/closed delta)", g05_ok, {"e1_total_eligible": art04.get("e1_total_eligible_decisions"), "delta": art04.get("outside_screen_a1_minus_e1_weekend_closed_delta")}),
         _gate("G06", "Full-Universe chronological non-overlapping portfolio replay executed across A0, A1, E1, B1, D1, D2", g06_ok, {"a1_full_closed": a1_full.get("closed_independent_episodes_count"), "e1_full_closed": e1_full.get("closed_independent_episodes_count")}),
         _gate("G07", "Full-Universe portfolio replay evaluated across all 3 execution fill modes (NEXT_BAR_OPEN_BID_ASK, LEGACY_CLOSE_FILL, STRESS_2X)", g07_ok, {"modes": list((art06.get("replays_by_fill_mode") or {}).keys())}),
-        _gate("G08", "LEGACY_SCREENED (139 A1, 69 E1) vs FULL_UNIVERSE_ALL_TIMESTAMPS explicitly separated with zero mixed denominators", g08_ok, {"a1_legacy_closed": 139, "e1_legacy_closed": 69}),
+        _gate("G08", "LEGACY_SCREENED (142 A1, 100 E1) vs FULL_UNIVERSE_ALL_TIMESTAMPS explicitly separated with zero mixed denominators", g08_ok, {"a1_legacy_closed": 142, "e1_legacy_closed": 100}),
         _gate("G09", "Matched coeval comparison report built across all 22,346 timestamps for A1 vs B1 and A1 vs E1", g09_ok, {"timestamps": art08.get("total_post_warmup_timestamps")}),
         _gate("G10", "Zero active-trade time overlap and 100% candidate conservation verified across all full-universe and legacy replays", g10_ok, {"zero_overlap": art09.get("all_variants_zero_overlap"), "conservation": art09.get("all_variants_candidate_conservation_valid")}),
         _gate("G11", "Trade-to-ledger reconciliation passed with 0 risk cap ($2.50) violations and 0 fee double-counting errors", g11_ok, {"reconciled": art10.get("all_variants_reconciled")}),
