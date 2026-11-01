@@ -367,7 +367,7 @@ def build_v179311_resource_bounded_shards() -> List[Dict[str, Any]]:
         ]
     )
 
-    num_extra = 12
+    num_extra = 8
     buckets: List[List[str]] = [[] for _ in range(num_extra)]
     bucket_weights = [0 for _ in range(num_extra)]
     sized_remaining = sorted(
