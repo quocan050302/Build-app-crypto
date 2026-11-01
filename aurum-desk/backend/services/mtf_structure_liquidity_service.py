@@ -211,6 +211,7 @@ class MtfStructureLiquidityConfig:
             "H4_ONLY",
             "H1_ONLY",
             "M15_ONLY",
+            "M15_H1_ONLY",
             "STRUCTURE_ONLY",
             "LIQUIDITY_ONLY",
         }:
