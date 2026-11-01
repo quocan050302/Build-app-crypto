@@ -1,0 +1,31 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_g07_intentional_failure_sensitivity_probe ________________
+
+    def test_g07_intentional_failure_sensitivity_probe():
+        base_dt = datetime(2026, 3, 25, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            {
+                "open_time": base_dt + timedelta(minutes=15 * i),
+                "close_time": base_dt + timedelta(minutes=15 * (i + 1)),
+                "open": 2650.0,
+                "high": 2651.0,
+                "low": 2649.0,
+                "close": 2650.5,
+                "volume": 10.0,
+                "is_closed": True,
+            }
+            for i in range(4)
+        ]
+        snap = build_mtf_bar_snapshot(base_dt + timedelta(minutes=60), {"symbol": "XAUUSDT", "M15": bars})
+        res = validate_causal_window(snap, base_dt + timedelta(minutes=30))
+>       assert res.is_valid, "INTENTIONAL_FAILURE_SENSITIVITY_PROBE_FOR_GATE_G07"
+E       AssertionError: INTENTIONAL_FAILURE_SENSITIVITY_PROBE_FOR_GATE_G07
+E       assert False
+E        +  where False = CausalValidation(is_valid=False, decision_time=datetime.datetime(2026, 3, 25, 0, 30, tzinfo=datetime.timezone.utc), ma...iolating_ids=('mtfsnap_90dbc7728730880e', 'XAUUSDT:M15:1774398600', 'XAUUSDT:M15:1774399500', 'XAUUSDT:H1:1774396800')).is_valid
+
+.tmp_v17_9_1_workers/v17_9_1_20261101T023730Z_944b06defa67/g07_failure_sensitivity_probe/test_g07_failure_sensitivity_probe.py:21: AssertionError
+=========================== short test summary info ============================
+FAILED .tmp_v17_9_1_workers/v17_9_1_20261101T023730Z_944b06defa67/g07_failure_sensitivity_probe/test_g07_failure_sensitivity_probe.py::test_g07_intentional_failure_sensitivity_probe
+1 failed in 0.05s
+

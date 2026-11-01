@@ -1,0 +1,20 @@
+# Group: SHARD_05_BACKEND_REGRESSION (Full Backend Regression Balanced Shard 05 (42 test files))
+# Command: /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest backend/tests/test_v16_17_production_flow.py backend/tests/test_v16_17_red_reproductions.py backend/tests/test_v16_23_red_reproductions.py backend/tests/test_v16_25_red_reproductions.py backend/tests/test_entry_intent_closure.py backend/tests/test_news_service.py backend/tests/test_v13_5_accounting_acceptance.py backend/tests/test_v13_7_data_audit.py backend/tests/test_v13_7_ledger_idempotency.py backend/tests/test_v13_8_artifact_contract.py backend/tests/test_v13_8_ledger_idempotency.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_14_membership_transaction.py backend/tests/test_v14_4_18_repair_source_conflicts.py backend/tests/test_v14_4_20_copied_repair_provenance.py backend/tests/test_v14_4_4_policy_consistency.py backend/tests/test_v14_4_5_forecast_production.py backend/tests/test_v14_4_6_pagination_replay.py backend/tests/test_v14_4_scenario_pipeline.py backend/tests/test_v15_0_m1_scalp_models.py backend/tests/test_v15_0_scalp_orchestrator.py backend/tests/test_v16_14_cg01_scheduler_and_trace.py backend/tests/test_v16_35_rr_propagation_telegram_proximity.py backend/tests/test_v16_3_cg01_replay.py backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_api.py backend/tests/test_v17_5_1_red_probes.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_4_anchor_proof.py backend/tests/test_v17_5_6_break_time_contract.py backend/tests/test_v17_5_8_reference_provenance.py backend/tests/test_v17_5_9_arm_production_wiring.py backend/tests/test_v17_5_9_financial_parity.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_1_telemetry_resilience.py backend/tests/test_v17_6_4_1_origin_isolation.py backend/tests/test_v17_6_4_3_current_evidence_health.py backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py backend/tests/test_v17_6_recovery.py backend/tests/test_v17_8_unicorn_evidence.py backend/tests/test_v5_authoritative_lab.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1/v17_9_1_20261101T023730Z_944b06defa67/junit/shard_05_backend_regression.xml -q
+# Started: 1793500683296
+
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+............                                                             [100%]
+=============================== warnings summary ===============================
+../../../../../../Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v14_4_5_forecast_production.py::test_f03_genuine_producer_event_to_observer_and_summary
+  /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1180: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+300 passed, 2 warnings in 117.98s (0:01:57)

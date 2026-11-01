@@ -1,0 +1,34 @@
+# Group: SHARD_02_BACKEND_REGRESSION (Full Backend Regression Balanced Shard 02 (42 test files))
+# Command: /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest backend/tests/test_v16_21_red_reproductions.py backend/tests/test_final_reconciliation_chronology.py backend/tests/test_order_binding_integrity.py backend/tests/test_smc_engine.py backend/tests/test_v12_1_acceptance.py backend/tests/test_v12_2_repro_defects.py backend/tests/test_v13_4_accounting.py backend/tests/test_v13_8_engine_e2e.py backend/tests/test_v14_3_frequency_audit.py backend/tests/test_v14_4_12_reconciliation_fair_review.py backend/tests/test_v14_4_13_forward_membership.py backend/tests/test_v14_4_4_forecast_runtime.py backend/tests/test_v14_4_6_flow_preservation.py backend/tests/test_v15_10_quote_age_policy_parity.py backend/tests/test_v16_14_htf_pullback_correctness.py backend/tests/test_v16_16_owner_and_shadow.py backend/tests/test_v16_16_transaction_and_linkage.py backend/tests/test_v16_30_cg01_daily_bias.py backend/tests/test_v16_39_10_snapshot_readonly.py backend/tests/test_v16_39_11_score_display.py backend/tests/test_v16_39_8_production_lesson_arm_acceptance.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_4_cg01_replay_ledger.py backend/tests/test_v16_5_cost_consistency.py backend/tests/test_v17_0_opportunity_monitor_metrics.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_1_server_scope.py backend/tests/test_v17_4_entry_session_policy.py backend/tests/test_v17_4_guard_regression.py backend/tests/test_v17_5_7_true_cycle_cost_parity.py backend/tests/test_v17_6_1_market_hours_dst.py backend/tests/test_v17_6_2_cycle_durability.py backend/tests/test_v17_6_4_3c_source_authority.py backend/tests/test_v17_6_4_interval_producer.py backend/tests/test_v17_6_decision_timeline.py backend/tests/test_v17_6_financial_summary.py backend/tests/test_v17_7_atr_provenance.py backend/tests/test_v17_7_database_safety.py backend/tests/test_v17_8_0_2_observe_only_runtime.py backend/tests/test_v17_9_0_1_2_strict_eligibility_and_parity.py backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v8_telegram_and_journal_matrix.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1/v17_9_1_20261101T023730Z_944b06defa67/junit/shard_02_backend_regression.xml -q
+# Started: 1793500654570
+
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 38%]
+........................................................................ [ 51%]
+........................................................................ [ 63%]
+........................................................................ [ 76%]
+........................................................................ [ 89%]
+............................................................             [100%]
+=============================== warnings summary ===============================
+../../../../../../Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_1_acceptance.py::test_t01_short_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t02_long_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t14_setups_b1_b2_enforce_net_rr
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/pydantic/main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_7_atr_provenance.py:527: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db.add(models.SystemConfig(key="stop_placement_v1.mode", value="PAPER_STRUCTURAL", updated_at=datetime.utcnow()))
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1180: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+564 passed, 7 warnings in 130.40s (0:02:10)

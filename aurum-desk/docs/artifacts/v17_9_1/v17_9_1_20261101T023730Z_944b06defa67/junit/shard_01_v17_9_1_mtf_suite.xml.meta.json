@@ -1,0 +1,22 @@
+{
+  "xml_file": "shard_01_v17_9_1_mtf_suite.xml",
+  "run_id": "v17_9_1_20261101T023730Z_944b06defa67",
+  "tested_source_sha": "944b06defa678c6828e1a7f7758791af7f4ae815",
+  "source_sha": "944b06defa678c6828e1a7f7758791af7f4ae815",
+  "worker_id": "SHARD_01_V17_9_1_MTF_SUITE",
+  "task_id": "SHARD_01_V17_9_1_MTF_SUITE",
+  "pid": 31125,
+  "ppid": 31091,
+  "started_ms": 1793500654562,
+  "completed_ms": 1793500683284,
+  "duration_sec": 28.722,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 25,
+  "passed": 25,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "bce78bc4ee0348ba5862f15bb5dfe74378aa2d960f3678ef4237274236f3fe71"
+}
