@@ -1,0 +1,35 @@
+{
+  "checkpoints_tested": 40,
+  "decisions_per_variant_tested": 200,
+  "schema_version": "17.9.2.1",
+  "status": "PASS",
+  "variants_determinism": {
+    "A_FROZEN_BASELINE_OFF": {
+      "exact_match": true,
+      "multi_worker_decisions_hash": "919e7f28a1a0b03f9135a166",
+      "multi_worker_policy_hash": "34eedbf132b43fd05ead27f8",
+      "multi_worker_trade_actions_hash": "919e7f28a1a0b03f9135a166",
+      "single_worker_decisions_hash": "919e7f28a1a0b03f9135a166",
+      "single_worker_policy_hash": "34eedbf132b43fd05ead27f8",
+      "single_worker_trade_actions_hash": "919e7f28a1a0b03f9135a166"
+    },
+    "C_V1792_STRUCTURAL_SL_ON": {
+      "exact_match": true,
+      "multi_worker_decisions_hash": "791bbe8ae2a085e1501885c1",
+      "multi_worker_policy_hash": "b8b9fc84df58df32c982374f",
+      "multi_worker_trade_actions_hash": "791bbe8ae2a085e1501885c1",
+      "single_worker_decisions_hash": "791bbe8ae2a085e1501885c1",
+      "single_worker_policy_hash": "b8b9fc84df58df32c982374f",
+      "single_worker_trade_actions_hash": "791bbe8ae2a085e1501885c1"
+    },
+    "D4_STRUCTURE_PLUS_TP": {
+      "exact_match": true,
+      "multi_worker_decisions_hash": "4e1829e5e6c04ad98a1f95a0",
+      "multi_worker_policy_hash": "2a78fccb2ab413e09cde7554",
+      "multi_worker_trade_actions_hash": "4e1829e5e6c04ad98a1f95a0",
+      "single_worker_decisions_hash": "4e1829e5e6c04ad98a1f95a0",
+      "single_worker_policy_hash": "2a78fccb2ab413e09cde7554",
+      "single_worker_trade_actions_hash": "4e1829e5e6c04ad98a1f95a0"
+    }
+  }
+}

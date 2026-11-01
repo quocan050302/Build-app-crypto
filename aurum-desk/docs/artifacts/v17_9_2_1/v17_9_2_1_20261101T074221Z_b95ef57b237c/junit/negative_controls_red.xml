@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.373" timestamp="2026-11-01T14:44:26.290830+07:00" hostname="Macbook-Poppa.local"><testcase classname="tmp.v17_9_0.v17_9_2_1_20261101T074221Z_b95ef57b237c.g08_v1792_mutation_probe.test_v1792_negative_control_probe" name="test_v1792_intentional_red_mutation_probe" time="0.000"><failure message="AssertionError: INTENTIONAL_RED_MUTATION_PROBE_TRIGGERED:('SL_WRONG_SIDE_OF_ENTRY', 'SL_INSIDE_PROTECTED_INVALIDATION')&#10;assert False is True">def test_v1792_intentional_red_mutation_probe():
+        cand = StructuralStopCandidate(
+            anchor_id="probe_anc",
+            anchor_kind="PROTECTED_LEG_LOW",
+            anchor_price=4000.0,
+            timeframe="1M",
+            occurred_at_ms=1700000000000,
+            known_at_ms=1700000060000,
+            source_bar_open_ms=1700000000000,
+            source_bar_close_ms=1700000060000,
+            is_closed_bar=True,
+            is_causal=True,
+            is_invalidated=False,
+            is_protected_swing=True,
+            is_local_sweep_only=False,
+            structural_rank=90,
+        )
+        ok, reasons = validate_structure_invalidation_contract(
+            direction="LONG",
+            entry_price=4005.0,
+            proposed_sl=4006.0,  # Wrong side of entry!
+            anchor=cand,
+            noise_buffer_price=0.50,
+            decision_timestamp_ms=1700000120000,
+            tick_size=0.01,
+        )
+&gt;       assert ok is True, f"INTENTIONAL_RED_MUTATION_PROBE_TRIGGERED:{reasons}"
+E       AssertionError: INTENTIONAL_RED_MUTATION_PROBE_TRIGGERED:('SL_WRONG_SIDE_OF_ENTRY', 'SL_INSIDE_PROTECTED_INVALIDATION')
+E       assert False is True
+
+tmp/v17_9_0/v17_9_2_1_20261101T074221Z_b95ef57b237c/g08_v1792_mutation_probe/test_v1792_negative_control_probe.py:29: AssertionError</failure></testcase></testsuite></testsuites>

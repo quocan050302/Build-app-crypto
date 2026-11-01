@@ -1,0 +1,20 @@
+{
+  "baseline_uniform_grid_checkpoints": 121,
+  "combined_stage2_checkpoints": 373,
+  "schema_version": "17.9.2.1",
+  "selection_bias_findings": {
+    "baseline_a_and_c_zero_false_negatives": true,
+    "non_stage1_eligible_decisions_in_a": 0,
+    "non_stage1_eligible_decisions_in_c": 0,
+    "non_stage1_eligible_decisions_in_d3": 607,
+    "non_stage1_eligible_decisions_in_d4": 604,
+    "technical_explanation": "For A_FROZEN_BASELINE_OFF and C_V1792_STRUCTURAL_SL_ON (which use BASELINE_FROZEN nearest M1/M5 target), target_distance >= $11.00 USD is a strict mathematical superset of net_rr >= 2.0 (0 missed eligible decisions outside Stage-1 candidates). For D3_TP_POLICY_ONLY and D4_STRUCTURE_PLUS_TP (which search farther M15/H1/H4/D1 pools when the nearest pool fails net_rr >= 2.0), non-Stage-1 checkpoints can also become ELIGIBLE by selecting a distant HTF pool (~$28-$32 away), and exhibit the same negative expectancy on the unbiased control sample."
+  },
+  "stage1_candidate_checkpoints": 380,
+  "stage1_coverage_ratio": 1.0,
+  "stage1_filter_condition": "target_distance >= 11.0 USD (mathematical superset of net_rr >= 2.0 at XAUUSDT ~$4,000)",
+  "stage1_preferred_direction_candidate_checkpoints": 133,
+  "stage1_universe_checkpoints": 22346,
+  "status": "PASS",
+  "unbiased_control_checkpoints_in_stage2": 120
+}

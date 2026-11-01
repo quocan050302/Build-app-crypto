@@ -1,0 +1,188 @@
+{
+  "all_passed": true,
+  "gates": {
+    "VC01_GIT_BRANCH_ANCESTRY_AND_FUNCTION_TRUTH_MAP": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/01_preflight_git_and_function_map.json",
+      "gate_id": "VC01_GIT_BRANCH_ANCESTRY_AND_FUNCTION_TRUTH_MAP",
+      "metrics": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "head_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+        "merge_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8"
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC02_DATASET_GAP_AND_QUOTE_MODE_DISCLOSURE": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/02_verified_dataset_coverage_and_gaps.json",
+      "gate_id": "VC02_DATASET_GAP_AND_QUOTE_MODE_DISCLOSURE",
+      "metrics": {
+        "m1_bars": 22376,
+        "missing_bars": 6926,
+        "quote_mode": "MODELED_SPREAD_QUOTE"
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC03_CANDIDATE_SELECTION_BIAS_AND_UNBIASED_CONTROL": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/03_candidate_selection_bias_audit.json",
+      "gate_id": "VC03_CANDIDATE_SELECTION_BIAS_AND_UNBIASED_CONTROL",
+      "metrics": {
+        "stage1_scanned": 22346,
+        "unbiased_control_checkpoints": 240
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC04_MATCHED_DECISION_AND_TRADE_COHORT_RECONCILIATION": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/05_matched_decision_trade_cohorts.json",
+      "gate_id": "VC04_MATCHED_DECISION_AND_TRADE_COHORT_RECONCILIATION",
+      "metrics": {
+        "pairs_verified": 5
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC05_LOSS_ATTRIBUTION_AND_EPISODE_DEDUPLICATION": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/06_loss_attribution_by_episode.json",
+      "gate_id": "VC05_LOSS_ATTRIBUTION_AND_EPISODE_DEDUPLICATION",
+      "metrics": {
+        "baseline_6_ep_reconciled": true,
+        "d4_closed_episodes": 103
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC06_STOP_AND_TARGET_COUNTERFACTUAL_SEPARATION": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/07_stop_hit_and_target_counterfactuals.json",
+      "gate_id": "VC06_STOP_AND_TARGET_COUNTERFACTUAL_SEPARATION",
+      "metrics": {
+        "ex_post_tag": "NON_EXECUTABLE_EX_POST"
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC07_FILL_MODEL_AND_QUOTE_STRESS_SENSITIVITY": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/08_fill_model_and_quote_sensitivity.json",
+      "gate_id": "VC07_FILL_MODEL_AND_QUOTE_STRESS_SENSITIVITY",
+      "metrics": {
+        "modes_evaluated": [
+          "LEGACY_CLOSE_FILL",
+          "NEXT_BAR_OPEN_BID_ASK",
+          "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+        ]
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC08_HISTORICAL_ABLATION_AND_DEFECT_REPAIR_ATTRIBUTION": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/09_historical_ablation_variants.json",
+      "gate_id": "VC08_HISTORICAL_ABLATION_AND_DEFECT_REPAIR_ATTRIBUTION",
+      "metrics": {
+        "variants_count": 9
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC09_CHRONOLOGICAL_OOS_AND_WALKFORWARD_EMBARGO": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/10_chronological_oos_and_walkforward.json",
+      "gate_id": "VC09_CHRONOLOGICAL_OOS_AND_WALKFORWARD_EMBARGO",
+      "metrics": {
+        "ready_for_strategy_activation": "NO",
+        "strategy_statistical_verdict": "NEGATIVE_EVIDENCE"
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC10_THREE_ADAPTER_CONSUMED_DECISION_PARITY": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/11_three_adapter_consumed_parity.json",
+      "gate_id": "VC10_THREE_ADAPTER_CONSUMED_DECISION_PARITY",
+      "metrics": {
+        "mismatches": 0,
+        "total_three_way_checks": 7365
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC11_FROZEN_ORACLE_AND_OBSERVE_ONLY_INVARIANCE": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/12_frozen_oracle_baseline_comparison.json",
+      "gate_id": "VC11_FROZEN_ORACLE_AND_OBSERVE_ONLY_INVARIANCE",
+      "metrics": {
+        "ab_checks": 2455,
+        "oracle_checks": 2455
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC12_NEGATIVE_CONTROLS_AND_RED_GREEN_PROOF": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/13_negative_controls_red_green.json",
+      "gate_id": "VC12_NEGATIVE_CONTROLS_AND_RED_GREEN_PROOF",
+      "metrics": {
+        "controls_count": 7
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC13_FULL_DYNAMIC_PYTEST_REGRESSION_RECONCILED": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/14_full_regression_inventory.json",
+      "gate_id": "VC13_FULL_DYNAMIC_PYTEST_REGRESSION_RECONCILED",
+      "metrics": {
+        "discovered_total": 4570,
+        "executed_total": 4570,
+        "failed_total": 0,
+        "passed_total": 4570
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC14_DISK_RAM_CPU_AND_CONCURRENCY_GUARD": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/16_disk_ram_cpu_guard.json",
+      "gate_id": "VC14_DISK_RAM_CPU_AND_CONCURRENCY_GUARD",
+      "metrics": {
+        "orphan_processes_remaining": 0,
+        "peak_concurrent_workers": 4
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC15_SINGLE_VS_MULTI_WORKER_DETERMINISM": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/15_parallel_determinism_report.json",
+      "gate_id": "VC15_SINGLE_VS_MULTI_WORKER_DETERMINISM",
+      "metrics": {
+        "checkpoints_tested": 40
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    },
+    "VC16_V17_9_3_READINESS_CONTRACT_AND_TRUTHFUL_VERDICTS": {
+      "evidence_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/20_v17_9_3_readiness_and_function_contract.md",
+      "gate_id": "VC16_V17_9_3_READINESS_CONTRACT_AND_TRUTHFUL_VERDICTS",
+      "metrics": {
+        "ready_for_strategy_activation": "NO",
+        "ready_for_v17_9_3_development": "YES"
+      },
+      "passed": true,
+      "reasons": [],
+      "status": "PASS"
+    }
+  },
+  "passed_count": 16,
+  "run_id": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
+  "schema_version": "17.9.2.1",
+  "tested_executable_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "total_gates": 16
+}

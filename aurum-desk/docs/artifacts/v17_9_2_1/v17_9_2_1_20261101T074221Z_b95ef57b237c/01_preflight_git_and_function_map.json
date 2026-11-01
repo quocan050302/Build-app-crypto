@@ -1,0 +1,30 @@
+{
+  "core_backtest_evaluator_tree_hash": "51f62866f1fde7a8f45618d236a643777adddbecf9048fe8a4201cceecd16e9a",
+  "dirty_tracked_code_files": [],
+  "executable_diff_vs_58a8b141": [],
+  "executable_diff_vs_ab8f0252": [],
+  "executable_source_tree_hash": "21f96e0a23001f62b197286a7627d5e45bf60f4d33d408d84c20d5c5ceb4155f",
+  "function_truth_map_summary": {
+    "defects_repaired_count": 3,
+    "v17_9_2_1_closure_files": 5
+  },
+  "head_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "initial_qa_preflight_status": "BLOCKED_QA_BASE_NOT_FOUND",
+  "is_descendant_of_base": true,
+  "merge_base_with_qa_base": "61c6783c222c67a8afc67ff772ecb920f51535c8",
+  "missing_foundation_files": [],
+  "new_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "port_required": false,
+  "ported_files_from_v17_9_1": [],
+  "pre_edit_v17_9_2_head_sha": "369fa2645b01c747ae386f8fd4aa4fd955d56a95",
+  "previous_v17_9_2_tested_code_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b",
+  "qa_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
+  "qa_base_tree_sha": "07efa1dbc2723f83907232894149d0cfab694508",
+  "reasons": [],
+  "reference_v17_9_1_exec_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "reference_v17_9_1_head_sha": "58a8b14123c1d12625dcf4e91c0dd4e1c668fdfd",
+  "resolved_base_branch": "master",
+  "schema_version": "V17_9_2",
+  "status": "PASS",
+  "user_explicit_branch_override": "L\u01b0u \u00fd l\u1ed9n nh\u00e1nh r\u1ed3i, kh\u00f4ng ph\u1ea3i QA m\u00e0 l\u00e0 nh\u00e1nh master nha"
+}

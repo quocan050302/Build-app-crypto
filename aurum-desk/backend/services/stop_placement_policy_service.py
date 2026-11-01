@@ -157,6 +157,12 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
     v18_noise_enabled = _parse_strict_persisted_bool(
         config_map.get("stop_placement_v1.v18_noise_research_enabled"), default=False
     )
+    v1792_struct_enabled = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_2_structural_sl_enabled"), default=False
+    )
+    v1792_observe_only = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_2_observe_only"), default=False
+    )
     try:
         raw_v18_ver = config_map.get("stop_placement_v1.v18_execution_policy_version", "1")
         v18_exec_ver = int(raw_v18_ver)
@@ -164,6 +170,8 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
             v18_exec_ver = 1
     except (ValueError, TypeError):
         v18_exec_ver = 1
+
+    v1792_mode = "STRUCTURAL_SL_ON" if v1792_struct_enabled else ("OBSERVE_ONLY" if v1792_observe_only else "OFF")
 
     return StopPlacementPolicy(
         mode=mode,
@@ -186,6 +194,9 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
         v18_unicorn_detection_enabled=v18_unicorn_enabled,
         v18_noise_research_enabled=v18_noise_enabled,
         v18_execution_policy_version=v18_exec_ver,
+        v17_9_2_structural_sl_enabled=v1792_struct_enabled,
+        v17_9_2_observe_only=v1792_observe_only,
+        v17_9_2_mode=v1792_mode,
     )
 
 
@@ -262,11 +273,13 @@ def validate_stop_placement_policy(
     else:
         validated["algorithm_version"] = current.algorithm_version
 
-    # Strict boolean validation for V17.8 feature flags
+    # Strict boolean validation for V17.8 and V17.9.2 feature flags
     for flag_name, cur_flag in (
         ("v18_structural_intelligence_enabled", current.v18_structural_intelligence_enabled),
         ("v18_unicorn_detection_enabled", current.v18_unicorn_detection_enabled),
         ("v18_noise_research_enabled", current.v18_noise_research_enabled),
+        ("v17_9_2_structural_sl_enabled", current.v17_9_2_structural_sl_enabled),
+        ("v17_9_2_observe_only", current.v17_9_2_observe_only),
     ):
         if flag_name in payload:
             raw_flag = payload[flag_name]
@@ -383,6 +396,8 @@ def update_stop_placement_policy(
         and validated["v18_structural_intelligence_enabled"] == current.v18_structural_intelligence_enabled
         and validated["v18_unicorn_detection_enabled"] == current.v18_unicorn_detection_enabled
         and validated["v18_noise_research_enabled"] == current.v18_noise_research_enabled
+        and validated["v17_9_2_structural_sl_enabled"] == current.v17_9_2_structural_sl_enabled
+        and validated["v17_9_2_observe_only"] == current.v17_9_2_observe_only
         and validated["v18_execution_policy_version"] == current.v18_execution_policy_version
     )
     if is_noop:
@@ -433,6 +448,14 @@ def update_stop_placement_policy(
         "true" if validated["v18_noise_research_enabled"] else "false",
     )
     _upsert_scalar(
+        "stop_placement_v1.v17_9_2_structural_sl_enabled",
+        "true" if validated["v17_9_2_structural_sl_enabled"] else "false",
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_2_observe_only",
+        "true" if validated["v17_9_2_observe_only"] else "false",
+    )
+    _upsert_scalar(
         "stop_placement_v1.v18_execution_policy_version",
         str(validated["v18_execution_policy_version"]),
     )
@@ -442,6 +465,12 @@ def update_stop_placement_policy(
     except Exception as e:
         db.rollback()
         raise e
+
+    v1792_mode = (
+        "STRUCTURAL_SL_ON"
+        if validated["v17_9_2_structural_sl_enabled"]
+        else ("OBSERVE_ONLY" if validated["v17_9_2_observe_only"] else "OFF")
+    )
 
     updated = StopPlacementPolicy(
         mode=validated["mode"],
@@ -464,5 +493,8 @@ def update_stop_placement_policy(
         v18_unicorn_detection_enabled=validated["v18_unicorn_detection_enabled"],
         v18_noise_research_enabled=validated["v18_noise_research_enabled"],
         v18_execution_policy_version=validated["v18_execution_policy_version"],
+        v17_9_2_structural_sl_enabled=validated["v17_9_2_structural_sl_enabled"],
+        v17_9_2_observe_only=validated["v17_9_2_observe_only"],
+        v17_9_2_mode=v1792_mode,
     )
     return updated, True
