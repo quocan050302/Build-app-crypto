@@ -1,7 +1,13 @@
 {
+  "base_master_sha": "650e4535777421077443cd3d95507cad1d99ed42",
+  "local_head_sha": "6880318255c70b22730564b9fe403573f4d61592",
+  "original_feature_head_sha": "2aa3041e47c2a3d98073fef3e46ec854955aba11",
+  "previous_v17921_tested_code_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "remote_head_sha": "6880318255c70b22730564b9fe403573f4d61592",
+  "remote_reachable": true,
   "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
   "schema_version": "17.9.3.0",
-  "status": "PENDING_FINAL_PUSH_SYNC",
+  "status": "PASS",
   "tested_code_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
   "working_branch": "feature/v17-9-2-structural-sl-tp-from-qa"
 }
