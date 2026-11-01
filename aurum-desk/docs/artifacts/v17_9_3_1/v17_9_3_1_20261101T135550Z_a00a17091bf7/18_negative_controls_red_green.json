@@ -1,0 +1,85 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "provenance": "SYNTHETIC_UNIT_TEST",
+  "controls_total": 10,
+  "controls_passed": 10,
+  "all_negative_controls_passed": true,
+  "subprocess_mutation_probe": {
+    "mutated_target": "resolve_causal_macro_time_window half-open [start, end) -> inclusive [start, end]",
+    "test_target": "test_v1793_negative_control_probe.py",
+    "red_exit_code": 1,
+    "green_exit_code": 0,
+    "red_failed_as_expected": true,
+    "green_passed_as_expected": true,
+    "status": "PASS"
+  },
+  "controls": [
+    {
+      "control_id": "NC01_DST_OFFSET_AND_CAUSAL_TIMESTAMP_AUTHORITY",
+      "description": "Hardcoded UTC-5 fails after 2026-03-08 DST transition; IANA America/New_York resolves EDT UTC-4 accurately.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC02_HALF_OPEN_MACRO_END_BOUNDARY",
+      "description": "Inclusive end-boundary bug admits 09:10:00 NY; canonical half-open [start, end) rejects 09:10:00.000 NY.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC03_FUTURE_FVG_LOOKAHEAD_LEAK_BLOCKED",
+      "description": "FVG with confirmed_at > decision_timestamp_ms is rejected with UNICORN_FUTURE_DATA_REJECTED.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC04_DISJOINT_EPISODE_AND_NO_FVG_SUBSTITUTION",
+      "description": "Disjoint selected_fvg is rejected with UNICORN_EPISODE_MISMATCH even when scan-level Unicorn is VALID.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC05_STOP_INSIDE_UNICORN_DISTAL_INVALIDATION_BLOCKED",
+      "description": "Proposed SL inside breaker_distal_price (2999.20 > 2999.0 LONG) is rejected with UNICORN_STOP_INSIDE_INVALIDATION.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC06_OBSERVE_ONLY_TRADE_ACTION_INVARIANCE",
+      "description": "OBSERVE_ONLY attaches V17.9.3 metadata (metadata_fingerprint differs) while keeping trade_action_fingerprint 100% identical to OFF.",
+      "red_detected_defect": true,
+      "green_passed": true,
+      "blocked": true
+    },
+    {
+      "control_id": "NC07_SAME_BAR_TP_AND_SL_CONSERVATIVE_LOSS",
+      "provenance": "SYNTHETIC_UNIT_TEST",
+      "blocked": true,
+      "passed": true
+    },
+    {
+      "control_id": "NC08_MIN_LOT_EXCEEDING_250_RISK_BUDGET_REJECTED",
+      "provenance": "SYNTHETIC_UNIT_TEST",
+      "blocked": true,
+      "passed": true
+    },
+    {
+      "control_id": "NC09_SYNTHETIC_PROVENANCE_CONTAMINATION_REJECTED",
+      "provenance": "SYNTHETIC_UNIT_TEST",
+      "blocked": true,
+      "passed": true
+    },
+    {
+      "control_id": "NC10_SMALL_SAMPLE_POSITIVE_CLAIM_REFUSED",
+      "provenance": "SYNTHETIC_UNIT_TEST",
+      "blocked": true,
+      "passed": true
+    }
+  ]
+}

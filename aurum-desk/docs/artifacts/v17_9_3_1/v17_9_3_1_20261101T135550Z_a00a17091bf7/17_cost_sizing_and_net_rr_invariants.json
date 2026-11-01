@@ -1,0 +1,26 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "cost_and_sizing_parameters": {
+    "risk_budget_usd": 250.0,
+    "lot_step": 0.01,
+    "min_lot": 0.01,
+    "min_net_rr": 2.0,
+    "taker_fee_rate": 0.0004,
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "spread_grid_step_usd": 0.05
+  },
+  "historical_invariants_verified": {
+    "stop_geometry_violations": 0,
+    "risk_budget_violations": 0,
+    "min_net_rr_unweakened": true
+  },
+  "policy_persistence_safety": {
+    "default_off_verified": true,
+    "valid_boolean_accepted": true,
+    "string_boolean_rejected": true,
+    "integer_boolean_rejected": true,
+    "live_scope_activation_blocked": true
+  }
+}

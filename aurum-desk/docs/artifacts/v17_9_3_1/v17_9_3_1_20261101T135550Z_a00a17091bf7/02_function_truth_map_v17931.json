@@ -1,0 +1,182 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "function_count": 21,
+  "all_functions_verified": true,
+  "ast_audits": {
+    "zero_synthetic_250_r_multipliers_in_backtest_runner": true,
+    "synthetic_multiplier_violations": [],
+    "zero_wall_clock_calls_in_macro_unicorn_service": true,
+    "wall_clock_violations": []
+  },
+  "functions": [
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "ExecutableTradeLedgerEntryV17931",
+      "start_line": 2252,
+      "end_line": 2391,
+      "line_count": 140,
+      "sha256": "65b788ecde9d2b11df9a4c07841c84564b175d6bf0a4257e9569baa03b11f3b9"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "simulate_v17931_trade_execution_net",
+      "start_line": 2394,
+      "end_line": 3028,
+      "line_count": 635,
+      "sha256": "9e26426ba1b6cad82d7bdd4e4ffbce2cdb04fabc820a5bf35b47c16dc98c5c98"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "resolve_v17931_protected_structure_authority",
+      "start_line": 3037,
+      "end_line": 3135,
+      "line_count": 99,
+      "sha256": "adad514d5c31a4645eea435ea511f99d0c76e1e1bb6dec127d4a57dea08fc616"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "verify_v17931_frozen_forensic_episode_parity",
+      "start_line": 3138,
+      "end_line": 3305,
+      "line_count": 168,
+      "sha256": "6ddb0fe75c583b87cf056c28e0ad426f44575697dce649fa4c55284e581a6c0d"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "evaluate_stop_tp_risk_and_size",
+      "start_line": 1339,
+      "end_line": 1447,
+      "line_count": 109,
+      "sha256": "7164c06c4acc2094e5252d1dfca0531c0b42cdc365bcf4d196428f1e3804d540"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "resolve_causal_macro_time_window",
+      "start_line": 748,
+      "end_line": 1063,
+      "line_count": 316,
+      "sha256": "cf8c2c52d3bb2c3b0ea7b31e81acb2d165c58d8ffcfaff645651b9acfad3a431"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "validate_macro_schedule_config",
+      "start_line": 544,
+      "end_line": 738,
+      "line_count": 195,
+      "sha256": "cc6f323ea72a9007c569b0fffa8ee9c7d40c6c9449b94149d703e2fdfe58f641"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "classify_macro_context_quality",
+      "start_line": 1069,
+      "end_line": 1210,
+      "line_count": 142,
+      "sha256": "3f690e832a5a8e685380f2c922d387ee8f3a14b7b8312883198a87f76a4fb3f1"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "evaluate_causal_unicorn_confluence",
+      "start_line": 1475,
+      "end_line": 1829,
+      "line_count": 355,
+      "sha256": "044fab060df4b538cd19ee5a1797c76d8a3c8d7f1c3866155dcb8893806f0ab3"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "bind_unicorn_to_causal_episode",
+      "start_line": 1216,
+      "end_line": 1398,
+      "line_count": 183,
+      "sha256": "c8ecd0600a1e8d29ca57950c2a319d2afc1a6cf3a4a417dc11c57f39701c722c"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "diagnose_v17931_d1_vs_d2_mtf_gate",
+      "start_line": 2275,
+      "end_line": 2433,
+      "line_count": 159,
+      "sha256": "52252e2295e15304c9e829094c5a111aad7e6730e541bb69275d5bd6cb937c05"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "validate_unicorn_invalidation_against_v1792",
+      "start_line": 1835,
+      "end_line": 1974,
+      "line_count": 140,
+      "sha256": "6a408671d1d22acf950392b7c8f9b648dcda20454e9776202a891fa523cbcd81"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "plan_v17_9_3_macro_unicorn_setup",
+      "start_line": 1980,
+      "end_line": 2223,
+      "line_count": 244,
+      "sha256": "e156faf77bf0ad2eeab535af65e181ef4687533ac754a47a3a505982fd182d86"
+    },
+    {
+      "file": "backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "symbol": "serialize_v1793_decision_evidence",
+      "start_line": 2229,
+      "end_line": 2272,
+      "line_count": 44,
+      "sha256": "52b995c6147cfbb6806c7bfba28ae03e236baf729e3b5a935c1cb55c1f31cb43"
+    },
+    {
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "symbol": "SharedStrategyEvaluator",
+      "start_line": 1506,
+      "end_line": 4407,
+      "line_count": 2902,
+      "sha256": "843cfb933a5be52477ea05da84d834cab3f42773b90786c2370142b99aca8d07"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "enumerate_v17931_all_decision_timestamps",
+      "start_line": 325,
+      "end_line": 372,
+      "line_count": 48,
+      "sha256": "f9d2c04760626846e29d44586e933163873bc0ca391eea42b0936193e846d256"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "screen_v17931_causal_setup_universe",
+      "start_line": 378,
+      "end_line": 648,
+      "line_count": 271,
+      "sha256": "5e158327d8c37c800feb939343c080fa9bc2676a990547a8954022adb8c72c98"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "verify_v17931_frozen_oracle",
+      "start_line": 747,
+      "end_line": 783,
+      "line_count": 37,
+      "sha256": "d89b3af678f77eacd8724af2ae7a0d4d3e3b7e40770100384416ee0148f5f4b6"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "evaluate_v1793_forward_outcomes",
+      "start_line": 789,
+      "end_line": 958,
+      "line_count": 170,
+      "sha256": "74f5770be36b38fed15d1d97f366ef8336a26c31577043327ccb44f539efc415"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "build_matched_trade_and_episode_forensics",
+      "start_line": 1560,
+      "end_line": 1839,
+      "line_count": 280,
+      "sha256": "4e6eff9d500e0e737dd32c4fad1d42d3a60dba9e03d4093048014c0e887d5e74"
+    },
+    {
+      "file": "tools/run_v17_9_3_macro_unicorn_backtest.py",
+      "symbol": "run_v17_9_3_historical_ab_backtest",
+      "start_line": 1963,
+      "end_line": 2331,
+      "line_count": 369,
+      "sha256": "858aff4735686b717bd4ff8d2fe3cd068ee37b65bfb24b88369a2258d15c4dfa"
+    }
+  ]
+}

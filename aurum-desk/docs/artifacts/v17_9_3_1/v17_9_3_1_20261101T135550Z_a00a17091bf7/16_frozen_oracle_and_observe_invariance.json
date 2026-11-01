@@ -1,0 +1,170 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "frozen_oracle_proof": {
+    "checkpoints_verified": [
+      1795,
+      4680,
+      5052,
+      5238,
+      10434,
+      19624
+    ],
+    "non_null_trade_action_count": 16,
+    "mismatches_default_off_vs_a0": 0,
+    "mismatches_a0_vs_b0": 0,
+    "eligible_episode_oracle_checks": [
+      {
+        "checkpoint_index_1m": 6652,
+        "model_id": "SMC_M1_FVG_CONTINUATION",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6652,
+        "model_id": "CG01_SWEEP_MSS_FVG",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6676,
+        "model_id": "SMC_M1_REVERSAL",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6676,
+        "model_id": "SMC_M1_SWEEP_RECLAIM",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6886,
+        "model_id": "SMC_M1_REVERSAL",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6886,
+        "model_id": "SMC_M1_CONTINUATION",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 6886,
+        "model_id": "SMC_M1_SWEEP_RECLAIM",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14469,
+        "model_id": "SMC_M1_FVG_CONTINUATION",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14469,
+        "model_id": "CG01_SWEEP_MSS_FVG",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14608,
+        "model_id": "SMC_M1_REVERSAL",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14608,
+        "model_id": "SMC_M1_CONTINUATION",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14608,
+        "model_id": "SMC_M1_FVG_CONTINUATION",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14608,
+        "model_id": "SMC_M1_SWEEP_RECLAIM",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 14608,
+        "model_id": "CG01_SWEEP_MSS_FVG",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 15383,
+        "model_id": "SMC_M1_REVERSAL",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      },
+      {
+        "checkpoint_index_1m": 15383,
+        "model_id": "SMC_M1_SWEEP_RECLAIM",
+        "direction": "SHORT",
+        "a0_decision_status": "ELIGIBLE",
+        "oracle_decision_status": "ELIGIBLE",
+        "is_match": true,
+        "trade_action_fingerprint_a0_eq_b0": true
+      }
+    ]
+  },
+  "a0_vs_b0_checks": 20140,
+  "a0_vs_b0_trade_action_mismatches": 0,
+  "a0_vs_b0_distinct_context_count": 20140,
+  "a0_vs_b0_distinct_policy_fp_count": 20140,
+  "a0_vs_b0_distinct_metadata_fp_count": 20140,
+  "oracle_vs_a0_checks": 10109,
+  "oracle_vs_a0_mismatches": 0
+}

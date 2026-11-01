@@ -1,0 +1,53 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "all_scopes_exact_disjoint_partition": true,
+  "scopes": {
+    "FULL_22346_CAUSAL_UNIVERSE": {
+      "a1_unfiltered_eligible_decisions": 9467,
+      "c1_inside_macro_eligible_decisions": 4442,
+      "e1_outside_macro_eligible_decisions": 4214,
+      "weekend_or_closed_market_eligible_decisions": 811,
+      "c1_plus_e1_plus_weekend_equals_a1": true,
+      "c1_plus_e1_equals_a1": true,
+      "a1_episodes": 202,
+      "c1_inside_macro_episodes": 62,
+      "e1_outside_macro_episodes": 139,
+      "a1_expectancy_r": -0.8235,
+      "c1_inside_macro_expectancy_r": -0.8365,
+      "e1_outside_macro_expectancy_r": -0.7856,
+      "a1_net_pnl_usd": -282.4873,
+      "c1_inside_macro_net_pnl_usd": -84.3102,
+      "e1_outside_macro_net_pnl_usd": -189.8222,
+      "legacy_stop_comparison": {
+        "a0_unfiltered_legacy_episodes": 6,
+        "e2_inside_macro_legacy_episodes": 1,
+        "a0_net_pnl_usd": -14.7989,
+        "e2_net_pnl_usd": -2.494
+      }
+    },
+    "V1793_LEGACY_491_SAMPLE_CONTROL": {
+      "a1_unfiltered_eligible_decisions": 1057,
+      "c1_inside_macro_eligible_decisions": 91,
+      "e1_outside_macro_eligible_decisions": 750,
+      "weekend_or_closed_market_eligible_decisions": 216,
+      "c1_plus_e1_plus_weekend_equals_a1": true,
+      "c1_plus_e1_equals_a1": true,
+      "a1_episodes": 152,
+      "c1_inside_macro_episodes": 21,
+      "e1_outside_macro_episodes": 110,
+      "a1_expectancy_r": -0.8047,
+      "c1_inside_macro_expectancy_r": -0.8264,
+      "e1_outside_macro_expectancy_r": -0.7718,
+      "a1_net_pnl_usd": -195.689,
+      "c1_inside_macro_net_pnl_usd": -36.3244,
+      "e1_outside_macro_net_pnl_usd": -134.5471,
+      "legacy_stop_comparison": {
+        "a0_unfiltered_legacy_episodes": 6,
+        "e2_inside_macro_legacy_episodes": 1,
+        "a0_net_pnl_usd": -14.7989,
+        "e2_net_pnl_usd": -2.494
+      }
+    }
+  }
+}

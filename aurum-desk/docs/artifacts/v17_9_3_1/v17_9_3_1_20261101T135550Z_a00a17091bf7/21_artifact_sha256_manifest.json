@@ -1,0 +1,147 @@
+{
+  "schema_version": "17.9.3.1",
+  "run_id": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+  "generated_at": "2026-11-01T14:00:59Z",
+  "verified_files_count": 23,
+  "all_present_files_non_empty": true,
+  "artifacts": [
+    {
+      "filename": "01_git_branch_ancestry_and_source_freeze.json",
+      "size_bytes": 16268,
+      "sha256": "a4fd469c1c5e3d135b250c9f3dc2f61a84096a303ea2c700f4024dab29b943d4",
+      "non_empty": true
+    },
+    {
+      "filename": "02_function_truth_map_v17931.json",
+      "size_bytes": 6549,
+      "sha256": "2cf1f88a0f35753b654c21e095df4e0624fcce4cc1073ecf903c5eb1d4e41c3f",
+      "non_empty": true
+    },
+    {
+      "filename": "03_dataset_and_macro_schedule_audit.json",
+      "size_bytes": 29068,
+      "sha256": "7a2f2107218040a92781a9ceb6245e3cc85092c8e95e87a3ab8b2466782a9530",
+      "non_empty": true
+    },
+    {
+      "filename": "04_full_22346_decision_universe_and_coverage_proof.json",
+      "size_bytes": 214344,
+      "sha256": "5d3ce67099c9238dc742534b460b4b7f07330d9fe48e3accdb6a03df72607c29",
+      "non_empty": true
+    },
+    {
+      "filename": "05_modeled_execution_accounting_reconciliation.json",
+      "size_bytes": 13552,
+      "sha256": "67b78e5ebe48c481af8c5857996b1b16da5a4b724d6ecac647c8a48ae0dda911",
+      "non_empty": true
+    },
+    {
+      "filename": "06_trade_execution_ledger_net.json",
+      "size_bytes": 1323900,
+      "sha256": "c0d1d4920ec3477191d1d4ee6249047849bb162b93bd2e7682c56ac1ef6c5c3e",
+      "non_empty": true
+    },
+    {
+      "filename": "07_execution_sensitivity_3modes.json",
+      "size_bytes": 19755,
+      "sha256": "42387e93ddcf0162be5cfe431f2d5707538832878a7fd470c5b8ff1f379b2e85",
+      "non_empty": true
+    },
+    {
+      "filename": "08_d1_vs_d2_mtf_root_cause_forensics.json",
+      "size_bytes": 1734507,
+      "sha256": "86812baf1153734472cf7a57d65152213897a71e7055ec6a696bcd8bcaaefb78",
+      "non_empty": true
+    },
+    {
+      "filename": "09_six_frozen_baseline_episodes_reconciliation.json",
+      "size_bytes": 55758,
+      "sha256": "0dd24e3306a81ce6bb1198a633d995c9f8742c075a4b9809c8527f3326f5cbf3",
+      "non_empty": true
+    },
+    {
+      "filename": "10_dual_cohort_matched_trade_and_episode_forensics.json",
+      "size_bytes": 696749,
+      "sha256": "614040bfd3c8d036e4002ff12bb22884d8643ee2471b69a11dc4dc432e4f5f6d",
+      "non_empty": true
+    },
+    {
+      "filename": "11_ab_10variant_comparison_dual_scope.json",
+      "size_bytes": 161955,
+      "sha256": "13b370a79067532139be885d7effb271bc8f08b9b7ecca7072234ddd4af78266",
+      "non_empty": true
+    },
+    {
+      "filename": "12_inside_vs_outside_macro_counterfactual.json",
+      "size_bytes": 1956,
+      "sha256": "53d4a36ebc8d5496344e8ff2d533e7f09f180cf99475a371766a5b4f4e093f32",
+      "non_empty": true
+    },
+    {
+      "filename": "13_independent_nonoverlap_episodes.json",
+      "size_bytes": 3194766,
+      "sha256": "f90383b37451ae347477b4af884dfcab700a3f593c218328e27eea94a844242a",
+      "non_empty": true
+    },
+    {
+      "filename": "14_chronological_oos_and_embargo_validation.json",
+      "size_bytes": 12307,
+      "sha256": "c3499b447e0fac2138a4ecc602c1db70b185e6a8e6c69fa4ae4e108116e4bf10",
+      "non_empty": true
+    },
+    {
+      "filename": "15_three_runtime_consumed_parity.json",
+      "size_bytes": 839,
+      "sha256": "e49a256e59be8f0537df3755c177a2164608aedbbaa58de78d8c72bca264101b",
+      "non_empty": true
+    },
+    {
+      "filename": "16_frozen_oracle_and_observe_invariance.json",
+      "size_bytes": 5318,
+      "sha256": "e99f76ee25e68f73edb016c4adf7e5b9b54b5a0347e100614c9df1f7f7cdea60",
+      "non_empty": true
+    },
+    {
+      "filename": "17_cost_sizing_and_net_rr_invariants.json",
+      "size_bytes": 713,
+      "sha256": "c79de78141af08f550228b94998c672f00153adbce2b0857ba64d5d1a58f266d",
+      "non_empty": true
+    },
+    {
+      "filename": "18_negative_controls_red_green.json",
+      "size_bytes": 3046,
+      "sha256": "88f47bd5cb446f4268e6900311f51d669ea9a2d1b0a59a7652b96fb81c908862",
+      "non_empty": true
+    },
+    {
+      "filename": "19_full_regression_inventory.json",
+      "size_bytes": 32546,
+      "sha256": "4257a3b5df60441b8b21ff095ba0dbf324989f31221c3c757ed8e3614f3b9c67",
+      "non_empty": true
+    },
+    {
+      "filename": "20_parallel_determinism_and_resource_guard.json",
+      "size_bytes": 1052,
+      "sha256": "da67d94cdc92496bdfe86270e32a571032b22dba09ee4bdfa5c2d132902b1857",
+      "non_empty": true
+    },
+    {
+      "filename": "22_acceptance_gates_26_of_26.json",
+      "size_bytes": 17104,
+      "sha256": "0408f53ceb9fc82a40032eea2919a76e918b01f721ac270f23c8d8bf6f3eaf93",
+      "non_empty": true
+    },
+    {
+      "filename": "23_v17_9_3_1_final_closure_report.md",
+      "size_bytes": 4185,
+      "sha256": "b491bc9a903381a9a15a39257e034c306b9ac8f4cc3bdd9bdcc527daf885f5ab",
+      "non_empty": true
+    },
+    {
+      "filename": "24_git_code_commit_and_remote_push_proof.json",
+      "size_bytes": 985,
+      "sha256": "dd19c2d561d5e789cabba7ac987d98038012639dec3989a95c7f30eda7bef814",
+      "non_empty": true
+    }
+  ]
+}
