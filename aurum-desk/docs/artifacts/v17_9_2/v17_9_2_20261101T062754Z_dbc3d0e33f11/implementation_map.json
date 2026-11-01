@@ -1,0 +1,164 @@
+{
+  "ast_verification": {
+    "errors": [],
+    "is_valid": true,
+    "status": "PASS",
+    "v17_9_2_test_functions_count": 27,
+    "verified_symbols": [
+      "backend/services/v17_9_2_structural_stop_intelligence.py::collect_causal_stop_anchor_candidates",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::rank_structure_valid_anchors",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::compute_causal_noise_buffer",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::derive_structure_valid_stop",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::validate_structure_invalidation_contract",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::resolve_causal_target_candidates",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::select_viable_structural_target",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::evaluate_stop_tp_risk_and_size",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::classify_structure_stop_outcome",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::measure_premature_stop_rate",
+      "backend/services/v17_9_2_structural_stop_intelligence.py::plan_v17_9_2_structural_stop_and_target",
+      "backend/services/stop_placement_types.py::StopAnchorKind",
+      "backend/services/stop_placement_types.py::StopPlacementPolicy",
+      "backend/services/stop_placement_types.py::StopAnchorResult",
+      "backend/services/stop_placement_types.py::StopPlacementDecision",
+      "backend/services/stop_placement_policy_service.py::resolve_stop_placement_policy",
+      "backend/services/stop_placement_policy_service.py::validate_stop_placement_policy",
+      "backend/services/stop_placement_service.py::_resolve_stop_anchor_baseline",
+      "backend/services/stop_placement_service.py::resolve_stop_anchor",
+      "backend/services/shared_strategy_evaluator.py::StrategyDecisionSnapshot",
+      "backend/services/shared_strategy_evaluator.py::SharedStrategyEvaluator",
+      "tools/run_v17_9_2_structural_stop_backtest.py::evaluate_v1792_statistical_verdict",
+      "tools/run_v17_9_2_structural_stop_backtest.py::validate_historical_provenance_segregation",
+      "tools/run_v17_9_2_structural_stop_backtest.py::run_v17_9_2_structural_stop_backtest",
+      "tools/run_v17_9_2_verification.py::collect_full_pytest_inventory",
+      "tools/run_v17_9_2_verification.py::build_resource_bounded_shards",
+      "tools/run_v17_9_2_verification.py::run_targeted_negative_controls",
+      "tools/run_v17_9_2_verification.py::run_structural_sl_historical_ablation",
+      "tools/run_v17_9_2_verification.py::verify_exact_source_and_qa_ancestry",
+      "tools/run_v17_9_2_verification.py::aggregate_full_junit_results",
+      "tools/run_v17_9_2_verification.py::evaluate_v1792_gate",
+      "tools/run_v17_9_2_verification.py::validate_v1792_final_report",
+      "tools/run_v17_9_2_verification.py::publish_evidence_manifest",
+      "tools/run_v17_9_2_verification.py::finalize_commit_and_remote_verification"
+    ],
+    "verified_symbols_count": 34
+  },
+  "executable_source_tree_hash": "7580456864d227dcf5624a52cd818e6285d5da23446137e87f43468f98fa659c",
+  "items": [
+    {
+      "caller": "SharedStrategyEvaluator.evaluate_model_direction, resolve_stop_anchor, run_v17_9_2_structural_stop_backtest",
+      "exact_function": "collect_causal_stop_anchor_candidates, rank_structure_valid_anchors, compute_causal_noise_buffer, derive_structure_valid_stop, validate_structure_invalidation_contract, resolve_causal_target_candidates, select_viable_structural_target, evaluate_stop_tp_risk_and_size, classify_structure_stop_outcome, measure_premature_stop_rate, plan_v17_9_2_structural_stop_and_target",
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "backend/services/v17_9_2_structural_stop_intelligence.py:135-1565",
+      "function_names": [
+        "collect_causal_stop_anchor_candidates",
+        "rank_structure_valid_anchors",
+        "compute_causal_noise_buffer",
+        "derive_structure_valid_stop",
+        "validate_structure_invalidation_contract",
+        "resolve_causal_target_candidates",
+        "select_viable_structural_target",
+        "evaluate_stop_tp_risk_and_size",
+        "classify_structure_stop_outcome",
+        "measure_premature_stop_rate",
+        "plan_v17_9_2_structural_stop_and_target"
+      ],
+      "old_or_new": "NEW",
+      "test": "test_t01_causal_anchor_candidate_collection_and_anti_lookahead, test_t02_model_specific_anchor_ranking_and_tie_break, test_t03_directional_stop_monotonicity_and_tick_quantization, test_t04_causal_noise_buffer_monotonicity_and_fallback, test_t05_structure_invalidation_contract_negative_guards, test_t07_target_selection_from_known_causal_liquidity_pools, test_t08_no_invented_rr_target_rule, test_t09_cost_aware_net_rr_and_dynamic_quantity_scaling, test_t10_min_lot_and_margin_rejection_for_wide_stop, test_t14_premature_stop_vs_true_invalidation_outcome_classifier",
+      "why": "Section 04.1\u201304.8: Pure causal V17.9.2 structural stop anchor collection, protected swing ranking vs local sweep wicks, causal noise buffer, outward tick quantization, causal structural target resolution without invented RR targets, cost-aware Net R:R & dynamic sizing, and post-trade premature stop vs true invalidation outcome classifier."
+    },
+    {
+      "caller": "StopPlacementPolicyService, resolve_stop_anchor, SharedStrategyEvaluator",
+      "exact_function": "StopAnchorKind, StopPlacementPolicy, StopAnchorResult, StopPlacementDecision",
+      "file": "backend/services/stop_placement_types.py",
+      "file_line": "backend/services/stop_placement_types.py:21-555",
+      "function_names": [
+        "StopAnchorKind",
+        "StopPlacementPolicy",
+        "StopAnchorResult",
+        "StopPlacementDecision"
+      ],
+      "old_or_new": "MODIFIED",
+      "test": "test_t02_model_specific_anchor_ranking_and_tie_break, test_t11_baseline_vs_observe_only_action_invariance",
+      "why": "Section 05: Adds default-OFF V17.9.2 policy flags (`v17_9_2_structural_sl_enabled`, `v17_9_2_observe_only`, `v17_9_2_mode`) and audit fields (`v1792_candidates`, `v1792_plan`)."
+    },
+    {
+      "caller": "Policy API, ScalpWatcherOrchestrator",
+      "exact_function": "resolve_stop_placement_policy, validate_stop_placement_policy",
+      "file": "backend/services/stop_placement_policy_service.py",
+      "file_line": "backend/services/stop_placement_policy_service.py:67-395",
+      "function_names": [
+        "resolve_stop_placement_policy",
+        "validate_stop_placement_policy"
+      ],
+      "old_or_new": "MODIFIED",
+      "test": "test_t11_baseline_vs_observe_only_action_invariance",
+      "why": "Section 05: Adds strict boolean validation, CAS no-op check, and DB persistence for `stop_placement_v1.v17_9_2_structural_sl_enabled` and `stop_placement_v1.v17_9_2_observe_only`."
+    },
+    {
+      "caller": "SharedStrategyEvaluator.evaluate_model_direction",
+      "exact_function": "_resolve_stop_anchor_baseline, resolve_stop_anchor",
+      "file": "backend/services/stop_placement_service.py",
+      "file_line": "backend/services/stop_placement_service.py:855-1205",
+      "function_names": [
+        "_resolve_stop_anchor_baseline",
+        "resolve_stop_anchor"
+      ],
+      "old_or_new": "MODIFIED",
+      "test": "test_t11_baseline_vs_observe_only_action_invariance, test_t16_stop_never_widened_after_arm_boundary",
+      "why": "Section 05: Wraps baseline V17.8 stop anchor resolution to attach V17.9.2 candidate rankings in observe-only mode or promote causal V17.9.2 structural anchor when explicitly enabled."
+    },
+    {
+      "caller": "ScalpWatcherOrchestrator, MarketShadowService, evaluate_production_parity_model_snapshot",
+      "exact_function": "StrategyDecisionSnapshot, SharedStrategyEvaluator",
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "file_line": "backend/services/shared_strategy_evaluator.py:210-3030",
+      "function_names": [
+        "StrategyDecisionSnapshot",
+        "SharedStrategyEvaluator"
+      ],
+      "old_or_new": "MODIFIED",
+      "test": "test_t11_baseline_vs_observe_only_action_invariance, test_t12_three_runtime_adapter_parity, test_t13_spoofed_or_reused_adapter_call_id_rejection, test_t16_stop_never_widened_after_arm_boundary",
+      "why": "Section 05: Integrates V17.9.2 observe-only and research modes (`STRUCTURAL_SL_ON`, `STRUCTURE_ONLY`, `STRUCTURE_PLUS_NOISE`, `TP_POLICY_ONLY`, `STRUCTURE_PLUS_TP`) into the single canonical decision evaluator shared by all 3 runtime adapters while preserving 100% baseline and observe-only trade-action invariance."
+    },
+    {
+      "caller": "run_v17_9_2_verification.py, test_v17_9_2_structural_stop.py",
+      "exact_function": "evaluate_v1792_statistical_verdict, validate_historical_provenance_segregation, run_v17_9_2_structural_stop_backtest",
+      "file": "tools/run_v17_9_2_structural_stop_backtest.py",
+      "file_line": "tools/run_v17_9_2_structural_stop_backtest.py:98-1725",
+      "function_names": [
+        "evaluate_v1792_statistical_verdict",
+        "validate_historical_provenance_segregation",
+        "run_v17_9_2_structural_stop_backtest"
+      ],
+      "old_or_new": "NEW",
+      "test": "test_t15_historical_6_episode_forensic_reproduction, test_t17_dataset_gap_and_quote_mode_guard, test_t18_chronological_oos_embargo_and_statistical_verdict_guard, test_t26_synthetic_vs_historical_provenance_segregation",
+      "why": "Section 06: Executes 9-variant historical ablation (`A`, `B`, `C`, `D1`..`D6`), 6-episode before/after forensics, 3-runtime + oracle parity, non-overlapping episode deduplication, and 50%/25%/25% chronological OOS evaluation with 180-M1 embargo."
+    },
+    {
+      "caller": "CLI main, test_v17_9_2_structural_stop.py",
+      "exact_function": "collect_full_pytest_inventory, build_resource_bounded_shards, run_targeted_negative_controls, run_structural_sl_historical_ablation, verify_exact_source_and_qa_ancestry, aggregate_full_junit_results, evaluate_v1792_gate, validate_v1792_final_report, publish_evidence_manifest, finalize_commit_and_remote_verification",
+      "file": "tools/run_v17_9_2_verification.py",
+      "file_line": "tools/run_v17_9_2_verification.py:1-1200",
+      "function_names": [
+        "collect_full_pytest_inventory",
+        "build_resource_bounded_shards",
+        "run_targeted_negative_controls",
+        "run_structural_sl_historical_ablation",
+        "verify_exact_source_and_qa_ancestry",
+        "aggregate_full_junit_results",
+        "evaluate_v1792_gate",
+        "validate_v1792_final_report",
+        "publish_evidence_manifest",
+        "finalize_commit_and_remote_verification"
+      ],
+      "old_or_new": "NEW",
+      "test": "test_t19_bounded_async_test_orchestrator_and_resource_guard_bounds, test_t20_negative_control_mutation_proof",
+      "why": "Sections 08\u201311: Bounded async regression orchestrator, subprocess RED/GREEN mutation probe, 16-gate (`G01`\u2013`G16`) evidence evaluator, SHA-256 manifest publisher, and post-push git verifier."
+    }
+  ],
+  "new_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "qa_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
+  "run_id": "v17_9_2_20261101T062754Z_dbc3d0e33f11",
+  "schema_version": "V17_9_2",
+  "tested_executable_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b"
+}
