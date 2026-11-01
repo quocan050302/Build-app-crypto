@@ -105,8 +105,8 @@
     {
       "relative_path": "19_v17_9_2_1_final_verification_report.json",
       "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/19_v17_9_2_1_final_verification_report.json",
-      "sha256": "98491f58b7cdb7fab78195a74659076dfc95e6eaf4177689b6bb1db49c79d2e1",
-      "size_bytes": 15415
+      "sha256": "11547f631f6312df9626dedbb4eae5dd25718c628d3fc3bce1c5ed6c7d7b0a19",
+      "size_bytes": 16308
     },
     {
       "relative_path": "20_v17_9_3_readiness_and_function_contract.md",
@@ -125,6 +125,12 @@
       "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/function_truth_map_v17921.json",
       "sha256": "4e60daa81a3896cd114a29b09255d0334e6169934d50a47268e20055164da76f",
       "size_bytes": 63261
+    },
+    {
+      "relative_path": "git_commit_push_verification.json",
+      "repo_relative_path": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c/git_commit_push_verification.json",
+      "sha256": "40d470052d47835a63a6f11b2ea520e66332406475cd0cc03ec3eede8d15eb1b",
+      "size_bytes": 705
     },
     {
       "relative_path": "implementation_diff_summary.md",
@@ -415,9 +421,9 @@
       "size_bytes": 44385
     }
   ],
-  "files_count": 69,
+  "files_count": 70,
   "run_id": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
   "schema_version": "17.9.2.1",
   "tested_executable_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
-  "total_size_bytes": 5252772
+  "total_size_bytes": 5254370
 }

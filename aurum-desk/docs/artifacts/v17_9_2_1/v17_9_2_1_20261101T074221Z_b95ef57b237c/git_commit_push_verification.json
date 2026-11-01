@@ -1,0 +1,15 @@
+{
+  "dirty_tracked_code_files": [],
+  "executable_diff_since_tested_sha": [],
+  "final_local_head_sha": "8a4da869aa05a9d8d5609aa77186a252e7797ef7",
+  "final_remote_head_sha": "8a4da869aa05a9d8d5609aa77186a252e7797ef7",
+  "pre_edit_v17_9_2_head_sha": "369fa2645b01c747ae386f8fd4aa4fd955d56a95",
+  "previous_v17_9_2_tested_code_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b",
+  "remote_matches_local_head": true,
+  "run_id": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
+  "schema_version": "17.9.2.1",
+  "status": "PASS",
+  "tested_executable_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "working_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "zero_executable_diff_since_tested_sha": true
+}

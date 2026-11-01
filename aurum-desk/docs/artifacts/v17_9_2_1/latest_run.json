@@ -1,6 +1,8 @@
 {
   "artifact_dir": "docs/artifacts/v17_9_2_1/v17_9_2_1_20261101T074221Z_b95ef57b237c",
   "engineering_verdict": "PASS",
+  "final_commit_sha": "8a4da869aa05a9d8d5609aa77186a252e7797ef7",
+  "final_remote_sha": "8a4da869aa05a9d8d5609aa77186a252e7797ef7",
   "gates_passed": "16/16",
   "historical_validation_verdict": "VERIFIED",
   "pytest_passed": "4570/4570",
