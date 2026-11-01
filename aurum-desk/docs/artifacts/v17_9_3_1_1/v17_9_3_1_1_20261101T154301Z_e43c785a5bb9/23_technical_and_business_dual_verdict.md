@@ -5,8 +5,8 @@
 - **Starting V17.9.3.1.1 Feature HEAD SHA**: `86f13fafbbffb62528fe110458a83c129cefc20b`
 - **Previous V17.9.3.1 Tested Code SHA**: `a00a17091bf7991855aaeb3f718242354c244a08`
 - **Tested Executable Code SHA**: `e43c785a5bb916bc00b31b378be1130ab3308bc9`
-- **Final Local HEAD SHA**: `e43c785a5bb916bc00b31b378be1130ab3308bc9`
-- **Remote Origin HEAD SHA**: `e43c785a5bb916bc00b31b378be1130ab3308bc9`
+- **Final Local HEAD SHA**: `8d9404aeb90d48a7d7913f41d73f89f489ec1309`
+- **Remote Origin HEAD SHA**: `8d9404aeb90d48a7d7913f41d73f89f489ec1309`
 - **Evidence Run ID**: `v17_9_3_1_1_20261101T154301Z_e43c785a5bb9`
 
 ## 2. Executive Dual Verdict

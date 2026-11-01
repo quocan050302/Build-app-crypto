@@ -414,8 +414,8 @@
   "ready_for_strategy_activation": "NO",
   "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
   "tested_executable_code_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
-  "final_local_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
-  "remote_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "final_local_sha": "8d9404aeb90d48a7d7913f41d73f89f489ec1309",
+  "remote_sha": "8d9404aeb90d48a7d7913f41d73f89f489ec1309",
   "local_equals_remote_sha": true,
   "engineering_verification_verdict": "PASS"
 }
