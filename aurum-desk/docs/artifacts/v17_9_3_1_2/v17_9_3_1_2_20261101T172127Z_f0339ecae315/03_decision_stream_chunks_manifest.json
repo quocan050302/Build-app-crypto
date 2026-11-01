@@ -1,0 +1,345 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "total_chunks": 16,
+  "total_timestamps_covered": 22346,
+  "expected_timestamps_count": 22346,
+  "total_model_evaluations_per_variant": 111730,
+  "total_persisted_eligible_records": 100191,
+  "zero_missing_ranges": true,
+  "zero_duplicate_ranges": true,
+  "zero_corrupt_chunks": true,
+  "canonical_rows_sha256": "8997972f608fd7a192159554773e0492512e1dc6c763fbf3967713e16d85740a",
+  "variant_status_totals": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "WAITING_CONFIRMATION": 42987,
+      "VALID_SETUP_REJECTED_BY_RISK": 64493,
+      "NO_VALID_SETUP": 4144,
+      "ELIGIBLE": 106
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "WAITING_CONFIRMATION": 42987,
+      "ELIGIBLE": 56710,
+      "NO_VALID_SETUP": 4144,
+      "VALID_SETUP_REJECTED_BY_RISK": 7889
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "WAITING_CONFIRMATION": 42987,
+      "VALID_SETUP_REJECTED_BY_RISK": 60157,
+      "ELIGIBLE": 4442,
+      "NO_VALID_SETUP": 4144
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "WAITING_CONFIRMATION": 42987,
+      "VALID_SETUP_REJECTED_BY_RISK": 64336,
+      "NO_VALID_SETUP": 4144,
+      "ELIGIBLE": 263
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "WAITING_CONFIRMATION": 42987,
+      "VALID_SETUP_REJECTED_BY_RISK": 64549,
+      "NO_VALID_SETUP": 4144,
+      "ELIGIBLE": 50
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "WAITING_CONFIRMATION": 42987,
+      "ELIGIBLE": 38620,
+      "VALID_SETUP_REJECTED_BY_RISK": 25979,
+      "NO_VALID_SETUP": 4144
+    }
+  },
+  "variant_eligible_totals": {
+    "A0_FROZEN_BASELINE_OFF": 106,
+    "A1_V1792_SL_TP_BASELINE": 56710,
+    "C1_MACRO_PLUS_V1792_SL_TP": 4442,
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": 263,
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": 50,
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": 38620
+  },
+  "variant_model_eligible_totals": {
+    "A1_V1792_SL_TP_BASELINE": {
+      "SMC_M1_FVG_CONTINUATION": 17898,
+      "CG01_SWEEP_MSS_FVG": 17898,
+      "SMC_M1_REVERSAL": 8879,
+      "SMC_M1_SWEEP_RECLAIM": 7991,
+      "SMC_M1_CONTINUATION": 4044
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "SMC_M1_FVG_CONTINUATION": 1402,
+      "CG01_SWEEP_MSS_FVG": 1402,
+      "SMC_M1_CONTINUATION": 335,
+      "SMC_M1_REVERSAL": 666,
+      "SMC_M1_SWEEP_RECLAIM": 637
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "SMC_M1_FVG_CONTINUATION": 11911,
+      "CG01_SWEEP_MSS_FVG": 11911,
+      "SMC_M1_REVERSAL": 6328,
+      "SMC_M1_SWEEP_RECLAIM": 5619,
+      "SMC_M1_CONTINUATION": 2851
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "SMC_M1_FVG_CONTINUATION": 61,
+      "CG01_SWEEP_MSS_FVG": 61,
+      "SMC_M1_REVERSAL": 53,
+      "SMC_M1_SWEEP_RECLAIM": 48,
+      "SMC_M1_CONTINUATION": 40
+    },
+    "A0_FROZEN_BASELINE_OFF": {
+      "SMC_M1_FVG_CONTINUATION": 29,
+      "CG01_SWEEP_MSS_FVG": 29,
+      "SMC_M1_REVERSAL": 16,
+      "SMC_M1_SWEEP_RECLAIM": 16,
+      "SMC_M1_CONTINUATION": 16
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "SMC_M1_FVG_CONTINUATION": 18,
+      "CG01_SWEEP_MSS_FVG": 18,
+      "SMC_M1_REVERSAL": 7,
+      "SMC_M1_SWEEP_RECLAIM": 7
+    }
+  },
+  "outside_screen_reconciliation": {
+    "outside_screen_a1_eligible_decisions_count": 47243,
+    "outside_screen_a1_unique_timestamps_count": 15597,
+    "inside_screen_a1_eligible_decisions_count": 9467,
+    "full_universe_a1_eligible_decisions_count": 56710,
+    "full_universe_a1_unique_timestamps_count": 18744,
+    "outside_screen_e1_eligible_decisions_count": 34406,
+    "outside_screen_e1_unique_timestamps_count": 11210,
+    "inside_screen_e1_eligible_decisions_count": 4214,
+    "full_universe_e1_eligible_decisions_count": 38620,
+    "full_universe_e1_unique_timestamps_count": 12605,
+    "valid_raw_setup_timestamps_count": 21125,
+    "reconciles_with_v179311_independent_audit_47243_and_15597": true,
+    "why_e1_differs_from_a1_by_92_outside_screen_decisions": "A1 has 47243 outside-screen eligible decisions (9467 inside screen = 56710 total). E1 has 34406 outside-screen eligible decisions (4214 inside screen = 38620 total). The difference on outside-screen timestamps (12837 decisions) occurs at weekend-closed bars where A1 (v17_9_3_mode=OFF) does not apply the V17.9.3 weekend-closed macro gate while E1 (v17_9_3_mode=OUTSIDE_MACRO_COUNTERFACTUAL) rejects weekend-closed bars with MACRO_WEEKEND_CLOSED."
+  },
+  "total_unique_timestamps_covered": 22346,
+  "stream_integrity_valid": true,
+  "chunk_files": [
+    {
+      "chunk_file": "chunk_00_00030_01429.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_00_00030_01429.jsonl.gz",
+      "record_count": 5735,
+      "compressed_size_bytes": 272153,
+      "uncompressed_rows_sha256": "302d846b66038359be3b741a688ab93d4cb29bf518ded67556bdbb3f5f859c0d",
+      "compressed_file_sha256": "55d848a4397b745d5b525ad243431dd3f063804da253117b0807abce8e72279a",
+      "metadata": {
+        "chunk_id": 0,
+        "start_index": 30,
+        "end_index": 1429,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_01_01430_02829.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_01_01430_02829.jsonl.gz",
+      "record_count": 3663,
+      "compressed_size_bytes": 211655,
+      "uncompressed_rows_sha256": "8d84a0bbca4271ff90752189b8d60ee4e05ed663d22993c16f239b1bdbaf42de",
+      "compressed_file_sha256": "62424416fc4ef95b2189febd6d02abd5b31414a24cbb8fc51cbddad0e43ae9bb",
+      "metadata": {
+        "chunk_id": 1,
+        "start_index": 1430,
+        "end_index": 2829,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_02_02830_04229.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_02_02830_04229.jsonl.gz",
+      "record_count": 6501,
+      "compressed_size_bytes": 318179,
+      "uncompressed_rows_sha256": "b4acd0797bcb04db80dd9e7782bb8bef7f92781a8447d27fb1175e8820f158e5",
+      "compressed_file_sha256": "67f91aa13c0fbcdaac7ebe6cf3f90fb82d60b6036456d5e259063788c2afbfa8",
+      "metadata": {
+        "chunk_id": 2,
+        "start_index": 2830,
+        "end_index": 4229,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_03_04230_05629.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_03_04230_05629.jsonl.gz",
+      "record_count": 7688,
+      "compressed_size_bytes": 347898,
+      "uncompressed_rows_sha256": "f4b87f2bb63a5930b4ab3b7a22e064c23cc07f5e14ede9a8159dfbb597720ffc",
+      "compressed_file_sha256": "dba69eaaa234ea85e729823950d7509e628e9c5fe1d4f06c91b4605734a56e5b",
+      "metadata": {
+        "chunk_id": 3,
+        "start_index": 4230,
+        "end_index": 5629,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_04_05630_07029.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_04_05630_07029.jsonl.gz",
+      "record_count": 7191,
+      "compressed_size_bytes": 332890,
+      "uncompressed_rows_sha256": "9defdd67047009b465f29dfc826cecb33a94b58463c4d5f5f501960475cdad61",
+      "compressed_file_sha256": "2a99252412b75ebd8c8a62f4ccc8abea11c2150185e69b7ae5d7d0d955ad8fe9",
+      "metadata": {
+        "chunk_id": 4,
+        "start_index": 5630,
+        "end_index": 7029,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_05_07030_08429.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_05_07030_08429.jsonl.gz",
+      "record_count": 7810,
+      "compressed_size_bytes": 354074,
+      "uncompressed_rows_sha256": "9f18b91a3d03eba8b9f4bc5994fdedaba47fde7f332458bac63c52d8f403f3c6",
+      "compressed_file_sha256": "3ab1ac89ed8ccb06d410344d34fdc89fee35bd3ccd0c40d6c2ce0d221438c0bd",
+      "metadata": {
+        "chunk_id": 5,
+        "start_index": 7030,
+        "end_index": 8429,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_06_08430_09829.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_06_08430_09829.jsonl.gz",
+      "record_count": 7392,
+      "compressed_size_bytes": 344239,
+      "uncompressed_rows_sha256": "72c94c8970ba10573806f2eead44f10a8dbab4b697ba5f75161229974ab1752c",
+      "compressed_file_sha256": "710ab266427887e22a6972285a9996935fae91daf1b4a3990f76696296700abd",
+      "metadata": {
+        "chunk_id": 6,
+        "start_index": 8430,
+        "end_index": 9829,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_07_09830_11229.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_07_09830_11229.jsonl.gz",
+      "record_count": 7854,
+      "compressed_size_bytes": 359597,
+      "uncompressed_rows_sha256": "fdda5db592c35ca632e1741ddbbdfac5d01adb6e08ff67bc3c33d474706f1fa5",
+      "compressed_file_sha256": "19e86f33469134b345f6ae6dbc2160096a6433689c5c395f1fb34cc5579eaa4f",
+      "metadata": {
+        "chunk_id": 7,
+        "start_index": 9830,
+        "end_index": 11229,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_08_11230_12629.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_08_11230_12629.jsonl.gz",
+      "record_count": 7876,
+      "compressed_size_bytes": 359380,
+      "uncompressed_rows_sha256": "f115659e281cece1bdcfec14f96263cb735104c8d1b6b94c98bb1a99d573edea",
+      "compressed_file_sha256": "aa23fad72fa7f5e85cb5dbf59681c5bf991561af033dfff571b2e4ef232b61df",
+      "metadata": {
+        "chunk_id": 8,
+        "start_index": 11230,
+        "end_index": 12629,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_09_12630_14029.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_09_12630_14029.jsonl.gz",
+      "record_count": 4318,
+      "compressed_size_bytes": 197217,
+      "uncompressed_rows_sha256": "5d83b2f980e6297ea7a9ba8aebe9843bacf08a96aaeeead0ef72adddb3fee0a9",
+      "compressed_file_sha256": "4d419b036ec74e0fda7b4e7f14a66e4c0a9f810001a1b8213947dbc0b2e46194",
+      "metadata": {
+        "chunk_id": 9,
+        "start_index": 12630,
+        "end_index": 14029,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_10_14030_15429.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_10_14030_15429.jsonl.gz",
+      "record_count": 4867,
+      "compressed_size_bytes": 224377,
+      "uncompressed_rows_sha256": "bdd6d52abdf1eb1081fa78c5cc8e7511a398538e6cb00b5d9b32e599310e47cd",
+      "compressed_file_sha256": "a0e4402412632a495f7e954db2e54307beb289d8f42f2e3f9a1393865d5a1516",
+      "metadata": {
+        "chunk_id": 10,
+        "start_index": 14030,
+        "end_index": 15429,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_11_15430_16829.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_11_15430_16829.jsonl.gz",
+      "record_count": 4135,
+      "compressed_size_bytes": 216300,
+      "uncompressed_rows_sha256": "fc6afacd41cbc74528f3e6437bf1a3acaf0a0fc01cb96a9f6ddf1064d5a84461",
+      "compressed_file_sha256": "1f5fb92151f198d327117d0812c58547483de99d7b1473b069ea334697199efb",
+      "metadata": {
+        "chunk_id": 11,
+        "start_index": 15430,
+        "end_index": 16829,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_12_16830_18229.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_12_16830_18229.jsonl.gz",
+      "record_count": 3756,
+      "compressed_size_bytes": 245715,
+      "uncompressed_rows_sha256": "d5ff0920906110f1fe60605c666f50bfc7084c842960a4e03da57f462f430669",
+      "compressed_file_sha256": "f97045b2bb2f97d30dbd8ad8c5556176d5c2a7f085cebde8e511d9fd08369b26",
+      "metadata": {
+        "chunk_id": 12,
+        "start_index": 16830,
+        "end_index": 18229,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_13_18230_19629.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_13_18230_19629.jsonl.gz",
+      "record_count": 5642,
+      "compressed_size_bytes": 298216,
+      "uncompressed_rows_sha256": "b3d6448ed1eb81a528e5bb2cd86a023713796385677ab63470ad22811b482a3c",
+      "compressed_file_sha256": "c05b2c9ad67ca3b2bad3f018535f532c21517dc67f3d41e59b0717acc7dfacdc",
+      "metadata": {
+        "chunk_id": 13,
+        "start_index": 18230,
+        "end_index": 19629,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_14_19630_21029.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_14_19630_21029.jsonl.gz",
+      "record_count": 7695,
+      "compressed_size_bytes": 351204,
+      "uncompressed_rows_sha256": "56d69c97c97910a163bcb465350a0f1b6b4e76567617df5ba14970f799396d37",
+      "compressed_file_sha256": "60b7bc48165c5ef1b397747270b1f3361b64da9fa0b5891e892ee9788b8489d7",
+      "metadata": {
+        "chunk_id": 14,
+        "start_index": 19630,
+        "end_index": 21029,
+        "timestamps_evaluated": 1400
+      }
+    },
+    {
+      "chunk_file": "chunk_15_21030_22375.jsonl.gz",
+      "chunk_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_3_1_2/v17_9_3_1_2_20261101T172127Z_f0339ecae315/decision_stream_chunks/chunk_15_21030_22375.jsonl.gz",
+      "record_count": 8068,
+      "compressed_size_bytes": 361675,
+      "uncompressed_rows_sha256": "92c371ebb08394dfbc0f855ab9dfea509d7cd23c843a38cf8c673197694733ed",
+      "compressed_file_sha256": "c3d08823c39b304d6266977f2b615246fa0c34281acd82df80f815fb8bb082f0",
+      "metadata": {
+        "chunk_id": 15,
+        "start_index": 21030,
+        "end_index": 22375,
+        "timestamps_evaluated": 1346
+      }
+    }
+  ]
+}

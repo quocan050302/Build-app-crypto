@@ -1,0 +1,419 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "full_universe_cohorts": {
+    "A1_V1792_SL_TP_BASELINE": {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "closed_trades": 166,
+      "wins": 9,
+      "losses": 157,
+      "loss_rate": 0.9458,
+      "inside_legacy_screen_losses": 22,
+      "outside_legacy_screen_losses": 135,
+      "stop_classification_counts": {
+        "TRUE_INVALIDATION_LOSS": 120,
+        "DELAYED_INEVITABLE_LOSS": 26,
+        "PREMATURE_NOISE_SWEEP_STOP": 9,
+        "OPEN_AT_HORIZON": 2
+      },
+      "fast_stopout_le3_bars_count": 22,
+      "fast_stopout_le3_bars_pct": 14.01,
+      "low_mfe_lt_0_25r_losses_count": 60,
+      "low_mfe_lt_0_25r_losses_pct": 38.22,
+      "reversal_after_0_50r_mfe_losses_count": 70,
+      "reversal_after_0_50r_mfe_losses_pct": 44.59,
+      "adverse_gap_beyond_sl_losses_count": 3,
+      "same_bar_tie_losses_count": 0,
+      "by_model": {
+        "SMC_M1_REVERSAL": {
+          "closed_trades": 90,
+          "wins": 6,
+          "losses": 84,
+          "loss_rate": 0.9333,
+          "loss_share_pct": 53.5
+        },
+        "SMC_M1_CONTINUATION": {
+          "closed_trades": 24,
+          "wins": 0,
+          "losses": 24,
+          "loss_rate": 1.0,
+          "loss_share_pct": 15.29
+        },
+        "SMC_M1_FVG_CONTINUATION": {
+          "closed_trades": 52,
+          "wins": 3,
+          "losses": 49,
+          "loss_rate": 0.9423,
+          "loss_share_pct": 31.21
+        },
+        "SMC_M1_SWEEP_RECLAIM": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "CG01_SWEEP_MSS_FVG": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        }
+      },
+      "by_session": {
+        "ASIA_OFF_HOURS": {
+          "closed_trades": 57,
+          "wins": 3,
+          "losses": 54,
+          "loss_rate": 0.9474
+        },
+        "LONDON": {
+          "closed_trades": 14,
+          "wins": 2,
+          "losses": 12,
+          "loss_rate": 0.8571
+        },
+        "LONDON_OPEN": {
+          "closed_trades": 14,
+          "wins": 0,
+          "losses": 14,
+          "loss_rate": 1.0
+        },
+        "NY_AM": {
+          "closed_trades": 12,
+          "wins": 3,
+          "losses": 9,
+          "loss_rate": 0.75
+        },
+        "NY_LUNCH": {
+          "closed_trades": 4,
+          "wins": 0,
+          "losses": 4,
+          "loss_rate": 1.0
+        },
+        "NY_PM": {
+          "closed_trades": 30,
+          "wins": 0,
+          "losses": 30,
+          "loss_rate": 1.0
+        },
+        "WEEKEND_CLOSED": {
+          "closed_trades": 35,
+          "wins": 1,
+          "losses": 34,
+          "loss_rate": 0.9714
+        }
+      }
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "closed_trades": 132,
+      "wins": 8,
+      "losses": 124,
+      "loss_rate": 0.9394,
+      "inside_legacy_screen_losses": 11,
+      "outside_legacy_screen_losses": 113,
+      "stop_classification_counts": {
+        "TRUE_INVALIDATION_LOSS": 92,
+        "DELAYED_INEVITABLE_LOSS": 23,
+        "PREMATURE_NOISE_SWEEP_STOP": 8,
+        "OPEN_AT_HORIZON": 1
+      },
+      "fast_stopout_le3_bars_count": 21,
+      "fast_stopout_le3_bars_pct": 16.94,
+      "low_mfe_lt_0_25r_losses_count": 50,
+      "low_mfe_lt_0_25r_losses_pct": 40.32,
+      "reversal_after_0_50r_mfe_losses_count": 50,
+      "reversal_after_0_50r_mfe_losses_pct": 40.32,
+      "adverse_gap_beyond_sl_losses_count": 2,
+      "same_bar_tie_losses_count": 0,
+      "by_model": {
+        "SMC_M1_REVERSAL": {
+          "closed_trades": 71,
+          "wins": 5,
+          "losses": 66,
+          "loss_rate": 0.9296,
+          "loss_share_pct": 53.23
+        },
+        "SMC_M1_CONTINUATION": {
+          "closed_trades": 21,
+          "wins": 0,
+          "losses": 21,
+          "loss_rate": 1.0,
+          "loss_share_pct": 16.94
+        },
+        "SMC_M1_FVG_CONTINUATION": {
+          "closed_trades": 40,
+          "wins": 3,
+          "losses": 37,
+          "loss_rate": 0.925,
+          "loss_share_pct": 29.84
+        },
+        "SMC_M1_SWEEP_RECLAIM": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "CG01_SWEEP_MSS_FVG": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        }
+      },
+      "by_session": {
+        "ASIA_OFF_HOURS": {
+          "closed_trades": 60,
+          "wins": 3,
+          "losses": 57,
+          "loss_rate": 0.95
+        },
+        "LONDON": {
+          "closed_trades": 14,
+          "wins": 2,
+          "losses": 12,
+          "loss_rate": 0.8571
+        },
+        "LONDON_OPEN": {
+          "closed_trades": 12,
+          "wins": 0,
+          "losses": 12,
+          "loss_rate": 1.0
+        },
+        "NY_AM": {
+          "closed_trades": 12,
+          "wins": 3,
+          "losses": 9,
+          "loss_rate": 0.75
+        },
+        "NY_LUNCH": {
+          "closed_trades": 3,
+          "wins": 0,
+          "losses": 3,
+          "loss_rate": 1.0
+        },
+        "NY_PM": {
+          "closed_trades": 31,
+          "wins": 0,
+          "losses": 31,
+          "loss_rate": 1.0
+        }
+      }
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "closed_trades": 42,
+      "wins": 2,
+      "losses": 40,
+      "loss_rate": 0.9524,
+      "inside_legacy_screen_losses": 40,
+      "outside_legacy_screen_losses": 0,
+      "stop_classification_counts": {
+        "TRUE_INVALIDATION_LOSS": 31,
+        "DELAYED_INEVITABLE_LOSS": 4,
+        "PREMATURE_NOISE_SWEEP_STOP": 5
+      },
+      "fast_stopout_le3_bars_count": 4,
+      "fast_stopout_le3_bars_pct": 10.0,
+      "low_mfe_lt_0_25r_losses_count": 17,
+      "low_mfe_lt_0_25r_losses_pct": 42.5,
+      "reversal_after_0_50r_mfe_losses_count": 20,
+      "reversal_after_0_50r_mfe_losses_pct": 50.0,
+      "adverse_gap_beyond_sl_losses_count": 1,
+      "same_bar_tie_losses_count": 0,
+      "by_model": {
+        "SMC_M1_REVERSAL": {
+          "closed_trades": 18,
+          "wins": 1,
+          "losses": 17,
+          "loss_rate": 0.9444,
+          "loss_share_pct": 42.5
+        },
+        "SMC_M1_CONTINUATION": {
+          "closed_trades": 5,
+          "wins": 0,
+          "losses": 5,
+          "loss_rate": 1.0,
+          "loss_share_pct": 12.5
+        },
+        "SMC_M1_FVG_CONTINUATION": {
+          "closed_trades": 19,
+          "wins": 1,
+          "losses": 18,
+          "loss_rate": 0.9474,
+          "loss_share_pct": 45.0
+        },
+        "SMC_M1_SWEEP_RECLAIM": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "CG01_SWEEP_MSS_FVG": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        }
+      },
+      "by_session": {
+        "LONDON_OPEN": {
+          "closed_trades": 18,
+          "wins": 0,
+          "losses": 18,
+          "loss_rate": 1.0
+        },
+        "NY_AM": {
+          "closed_trades": 17,
+          "wins": 2,
+          "losses": 15,
+          "loss_rate": 0.8824
+        },
+        "NY_LUNCH": {
+          "closed_trades": 4,
+          "wins": 0,
+          "losses": 4,
+          "loss_rate": 1.0
+        },
+        "NY_PM": {
+          "closed_trades": 3,
+          "wins": 0,
+          "losses": 3,
+          "loss_rate": 1.0
+        }
+      }
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "variant": "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL",
+      "closed_trades": 2,
+      "wins": 1,
+      "losses": 1,
+      "loss_rate": 0.5,
+      "inside_legacy_screen_losses": 1,
+      "outside_legacy_screen_losses": 0,
+      "stop_classification_counts": {
+        "DELAYED_INEVITABLE_LOSS": 1
+      },
+      "fast_stopout_le3_bars_count": 0,
+      "fast_stopout_le3_bars_pct": 0.0,
+      "low_mfe_lt_0_25r_losses_count": 0,
+      "low_mfe_lt_0_25r_losses_pct": 0.0,
+      "reversal_after_0_50r_mfe_losses_count": 1,
+      "reversal_after_0_50r_mfe_losses_pct": 100.0,
+      "adverse_gap_beyond_sl_losses_count": 0,
+      "same_bar_tie_losses_count": 0,
+      "by_model": {
+        "SMC_M1_REVERSAL": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "SMC_M1_CONTINUATION": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "SMC_M1_FVG_CONTINUATION": {
+          "closed_trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "loss_rate": 0.5,
+          "loss_share_pct": 100.0
+        },
+        "SMC_M1_SWEEP_RECLAIM": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        },
+        "CG01_SWEEP_MSS_FVG": {
+          "closed_trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "loss_rate": null,
+          "loss_share_pct": 0.0
+        }
+      },
+      "by_session": {
+        "LONDON_OPEN": {
+          "closed_trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "loss_rate": 0.0
+        },
+        "NY_LUNCH": {
+          "closed_trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "loss_rate": 1.0
+        }
+      }
+    }
+  },
+  "ranked_root_causes": [
+    {
+      "rank": 1,
+      "root_cause": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
+      "cause_id": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
+      "mechanism": "Entering at next-bar open immediately after an M1 candidate bar without requiring post-signal displacement/MSS continuation or retest confirmation leads to high low-MFE (<0.25R) and fast (<=3 bar) stop-outs.",
+      "addressed_by_executable_policies": [
+        "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE",
+        "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE",
+        "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE"
+      ]
+    },
+    {
+      "rank": 2,
+      "root_cause": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
+      "cause_id": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
+      "mechanism": "When M1 stop placement sits near the local trigger wick without outer M5/M15 structural anchor separation + dynamic spread/ATR buffer, routine liquidity re-probes stop out the position before structure breaks.",
+      "addressed_by_executable_policies": [
+        "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE",
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
+        "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE"
+      ]
+    },
+    {
+      "rank": 3,
+      "root_cause": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
+      "cause_id": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
+      "mechanism": "Trades that achieve >=0.50R MFE fail to reach distant targets when an intervening unswept M5/M15 liquidity pool or opposing zone caps price action and reverses the trade back into SL.",
+      "addressed_by_executable_policies": [
+        "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE",
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE"
+      ]
+    },
+    {
+      "rank": 4,
+      "root_cause": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
+      "cause_id": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
+      "mechanism": "Across all 22,346 timestamps, unfiltered M1 models fire continuously across low-quality off-hours bars, compounding spread and taker fee drag across hundreds of consecutive portfolio trades.",
+      "addressed_by_executable_policies": [
+        "C1_MACRO_PLUS_V1792_SL_TP",
+        "R6_MACRO_SESSION_FILTER_ONLY",
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE"
+      ]
+    },
+    {
+      "rank": 5,
+      "root_cause": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
+      "cause_id": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
+      "mechanism": "M1 setups taken against causal H1/H4 trend bias suffer elevated failure rates when higher-timeframe orderflow resumes against the local M1 trigger.",
+      "addressed_by_executable_policies": [
+        "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY",
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE"
+      ]
+    }
+  ]
+}

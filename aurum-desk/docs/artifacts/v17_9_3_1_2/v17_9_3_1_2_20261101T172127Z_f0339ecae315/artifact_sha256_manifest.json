@@ -1,0 +1,149 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "required_artifacts_count": 27,
+  "present_artifacts_count": 27,
+  "all_27_artifacts_present_and_verified": true,
+  "validator_result": {
+    "valid": true,
+    "checked_files_count": 27,
+    "errors": []
+  },
+  "artifacts": [
+    {
+      "filename": "01_git_branch_source_frozen_identity.json",
+      "size_bytes": 29757,
+      "sha256": "cb3ce3ab62cbf54b9e6a0678447fb8baccef09dfeb26495b7089d69a0e8545d4"
+    },
+    {
+      "filename": "02_full_universe_22346_index_coverage_manifest.json",
+      "size_bytes": 4765,
+      "sha256": "3907839a010e5827af1219d0f074e5bb31c3a47a6156f6f45ed51a83285837b3"
+    },
+    {
+      "filename": "03_decision_stream_chunks_manifest.json",
+      "size_bytes": 15608,
+      "sha256": "d1d9c2bd3c17660155fca2a942358c473c95a9e2c587cb29597a38227e1c7b6c"
+    },
+    {
+      "filename": "04_outside_screen_15597_timestamps_47243_decisions_reconciliation.json",
+      "size_bytes": 1652,
+      "sha256": "5c71df0a75ed48ee0d75e0201fd5c1056f92b8ddf68b5bd62750fd1919c8b54a"
+    },
+    {
+      "filename": "05_full_universe_portfolio_replay_A0_A1_E1_B1_D2_primary.json",
+      "size_bytes": 29582,
+      "sha256": "e1047dcd57868454bf04aa955b3d26f2c1fa54dbcac229b8537e66beb42b8aad"
+    },
+    {
+      "filename": "06_full_universe_portfolio_replay_3_fill_modes_comparison.json",
+      "size_bytes": 197899,
+      "sha256": "e34259da61b6b8789c429c50136f08c5cb0613ec919b4c6d1edee48238f22031"
+    },
+    {
+      "filename": "07_legacy_screened_vs_full_universe_side_by_side_attribution.json",
+      "size_bytes": 63699,
+      "sha256": "5cb302bcdfce45621e2c456a590766a707d1ce28e4aa541b8e4793f9b3febc34"
+    },
+    {
+      "filename": "08_matched_coeval_comparison_report.json",
+      "size_bytes": 3951,
+      "sha256": "51a667bf21b6faa21e6c69a6625a723c5476728e3d0e0aa7c61f8e78bb6ae8b6"
+    },
+    {
+      "filename": "09_no_trade_overlap_and_candidate_conservation_audit.json",
+      "size_bytes": 15773,
+      "sha256": "c0b9d1d94f5bb44337b93bc7d9523f349180e6d2fd0150f136ff52e9c7e36c08"
+    },
+    {
+      "filename": "10_trade_to_ledger_and_fee_reconciliation_audit.json",
+      "size_bytes": 116673,
+      "sha256": "a32648d0324f02adc955eb844ebf38516cc7ed135551a564fc72f28c33d4ac5b"
+    },
+    {
+      "filename": "11_executable_research_policy_registry_frozen_manifest.json",
+      "size_bytes": 9699,
+      "sha256": "f88de08adb46bd0e9b604a1daed61c4dfeef02a9a0d1bfaf8ea98d06ad4d5e4a"
+    },
+    {
+      "filename": "12_executable_entry_retiming_counterfactual_ledger.json",
+      "size_bytes": 37033,
+      "sha256": "2d570543efbd1b607e56b7cb4d91a8afff232e996d8bdcc2284c937f03754009"
+    },
+    {
+      "filename": "13_executable_structural_sl_counterfactual_ledger.json",
+      "size_bytes": 23909,
+      "sha256": "fe7a63318c47495a25ccf9344659ceef2f51097fa6897bdc1b8c3812f2d293dc"
+    },
+    {
+      "filename": "14_executable_structural_tp_counterfactual_ledger.json",
+      "size_bytes": 7570,
+      "sha256": "83dd5c1690f3adc3ac7bf75f9c3ffe638bc6bdeb1ebe4d98944d38411e163fd8"
+    },
+    {
+      "filename": "15_combined_executable_interventions_3_mode_ledger.json",
+      "size_bytes": 15676,
+      "sha256": "31f63f7c54ddb1d7dd59977d407b5169187a469ba7b7d5b011e57b25c494fc6b"
+    },
+    {
+      "filename": "16_intervention_reality_and_anti_fake_audit.json",
+      "size_bytes": 2986,
+      "sha256": "5fb4f3fc087e1f234163f52eeefa447fb0000cea0c663b71565d7316cb3077c2"
+    },
+    {
+      "filename": "17_matched_opportunity_vs_independent_portfolio_attribution.json",
+      "size_bytes": 243881,
+      "sha256": "2bde68c0fa97562f56da0025dfb391a610e25a381f8d0610478d02cd4f5997d2"
+    },
+    {
+      "filename": "18_updated_loss_root_cause_matrix_full_universe.json",
+      "size_bytes": 12564,
+      "sha256": "01986651b25201ca4a9ebe47c0a2f73f5453a167aabc28e2d94ca0db0ab82345"
+    },
+    {
+      "filename": "19_protected_structure_authority_and_stop_classification_audit.json",
+      "size_bytes": 1084,
+      "sha256": "4912d5a82e91863d74a74d8e6cff6b1e317fa926afb6cfadf4c1a142a2117b45"
+    },
+    {
+      "filename": "20_per_timeframe_causal_provenance_audit.json",
+      "size_bytes": 14644,
+      "sha256": "7c891308556a3cfd9b3394df8cdd6006bec3ab231e48e83d5dd13920162ab04e"
+    },
+    {
+      "filename": "21_chronological_oos_and_walkforward_integrity_report.json",
+      "size_bytes": 319449,
+      "sha256": "c02ec9b8ecaccf343ea3d29d0d94947b84446b3d451eab1ee6c6cb0c4ee3e866"
+    },
+    {
+      "filename": "22_single_vs_multi_worker_determinism_proof.json",
+      "size_bytes": 1045,
+      "sha256": "8ccf80fa7e8c9a17e469703cb397c67740481d96e503e186abffab6387066f7f"
+    },
+    {
+      "filename": "23_pytest_execution_and_junit_bijection_proof.json",
+      "size_bytes": 34008,
+      "sha256": "ba7d54df5e1877c50aa7e951f5e6e511c0a656d6f370ce488f374553d8b2f484"
+    },
+    {
+      "filename": "24_economic_and_statistical_verdict_summary.json",
+      "size_bytes": 490847,
+      "sha256": "699950ca035fb2db6bd73880e43b1e49601abaf8252f4f180e002be8b82025e7"
+    },
+    {
+      "filename": "25_acceptance_gates_G01_to_G38_manifest.json",
+      "size_bytes": 11429,
+      "sha256": "701607adf0ee58f2b9470b97cdee69d9a7f1f8d7d0e578b7b118221f285525c2"
+    },
+    {
+      "filename": "26_Closure_Executive_Report_V17_9_3_1_2.md",
+      "size_bytes": 4190,
+      "sha256": "a4ba2a65043f98cef6d84d1eafb74093a091bb978d442691d522fbc3e3f0754e"
+    },
+    {
+      "filename": "27_git_commit_push_remote_HEAD_proof.json",
+      "size_bytes": 861,
+      "sha256": "5da2bf280e3a3bf982149cfc78d275086f7a4237ce5619fffc5f583ec12edf4b"
+    }
+  ]
+}

@@ -1,0 +1,379 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "total_gates": 38,
+  "passed_gates": 38,
+  "failed_gates": 0,
+  "all_gates_passed": true,
+  "independent_validator_check": {
+    "valid": true,
+    "schema_valid": true,
+    "total_gates": 38,
+    "failed_other_gates": [],
+    "errors": []
+  },
+  "gates": [
+    {
+      "gate_id": "G01",
+      "passed": true,
+      "status": "PASS",
+      "description": "Mandatory working branch, SHA ancestry chain, and prior artifact immutability verified",
+      "evidence": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+      }
+    },
+    {
+      "gate_id": "G02",
+      "passed": true,
+      "status": "PASS",
+      "description": "Full-Universe 22,346 post-warmup M1 indices enumerated without $7.00 M1 target-distance truncation",
+      "evidence": {
+        "evaluated_bars": 22346
+      }
+    },
+    {
+      "gate_id": "G03",
+      "passed": true,
+      "status": "PASS",
+      "description": "Append-only compressed decision stream chunks written, merged, and SHA-256 verified (111,730 model evals/variant)",
+      "evidence": {
+        "model_evals": 111730
+      }
+    },
+    {
+      "gate_id": "G04",
+      "passed": true,
+      "status": "PASS",
+      "description": "Outside-screen 15,597 timestamps and 47,243 A1 decisions + 9,467 inside-screen = 56,710 A1 decisions reconciled",
+      "evidence": {
+        "a1_total_eligible": 56710
+      }
+    },
+    {
+      "gate_id": "G05",
+      "passed": true,
+      "status": "PASS",
+      "description": "Outside-screen E1 34,406 decisions + 4,214 inside-screen = 38,620 E1 decisions reconciled (12,837 weekend/closed delta)",
+      "evidence": {
+        "e1_total_eligible": 38620,
+        "delta": 12837
+      }
+    },
+    {
+      "gate_id": "G06",
+      "passed": true,
+      "status": "PASS",
+      "description": "Full-Universe chronological non-overlapping portfolio replay executed across A0, A1, E1, B1, D1, D2",
+      "evidence": {
+        "a1_full_closed": 166,
+        "e1_full_closed": 132
+      }
+    },
+    {
+      "gate_id": "G07",
+      "passed": true,
+      "status": "PASS",
+      "description": "Full-Universe portfolio replay evaluated across all 3 execution fill modes (NEXT_BAR_OPEN_BID_ASK, LEGACY_CLOSE_FILL, STRESS_2X)",
+      "evidence": {
+        "modes": [
+          "NEXT_BAR_OPEN_BID_ASK",
+          "LEGACY_CLOSE_FILL",
+          "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+        ]
+      }
+    },
+    {
+      "gate_id": "G08",
+      "passed": true,
+      "status": "PASS",
+      "description": "LEGACY_SCREENED (142 A1, 100 E1) vs FULL_UNIVERSE_ALL_TIMESTAMPS explicitly separated with zero mixed denominators",
+      "evidence": {
+        "a1_legacy_closed": 142,
+        "e1_legacy_closed": 100
+      }
+    },
+    {
+      "gate_id": "G09",
+      "passed": true,
+      "status": "PASS",
+      "description": "Matched coeval comparison report built across all 22,346 timestamps for A1 vs B1 and A1 vs E1",
+      "evidence": {
+        "timestamps": 22346
+      }
+    },
+    {
+      "gate_id": "G10",
+      "passed": true,
+      "status": "PASS",
+      "description": "Zero active-trade time overlap and 100% candidate conservation verified across all full-universe and legacy replays",
+      "evidence": {
+        "zero_overlap": true,
+        "conservation": true
+      }
+    },
+    {
+      "gate_id": "G11",
+      "passed": true,
+      "status": "PASS",
+      "description": "Trade-to-ledger reconciliation passed with 0 risk cap ($2.50) violations and 0 fee double-counting errors",
+      "evidence": {
+        "reconciled": true
+      }
+    },
+    {
+      "gate_id": "G12",
+      "passed": true,
+      "status": "PASS",
+      "description": "NO_FILL, OPEN_AT_HORIZON, and DATA_GAP_UNRESOLVED position-slot and PnL/censoring rules verified",
+      "evidence": {
+        "no_fill_ok": true
+      }
+    },
+    {
+      "gate_id": "G13",
+      "passed": true,
+      "status": "PASS",
+      "description": "Predeclared ExecutableResearchPolicyV179312 registry (R0..R8) frozen with enabled_in_production=False",
+      "evidence": {
+        "policy_count": 9,
+        "registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913"
+      }
+    },
+    {
+      "gate_id": "G14",
+      "passed": true,
+      "status": "PASS",
+      "description": "R0_BASELINE_CONTROL reproduces baseline geometry and simulated outcomes with 0 modified geometry records",
+      "evidence": {
+        "r0_noop_count": 2112
+      }
+    },
+    {
+      "gate_id": "G15",
+      "passed": true,
+      "status": "PASS",
+      "description": "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE genuinely shifts decision_timestamp_ms forward and rebuilds entry_reference",
+      "evidence": {
+        "r2_changed_ts": 204
+      }
+    },
+    {
+      "gate_id": "G16",
+      "passed": true,
+      "status": "PASS",
+      "description": "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE genuinely waits for closed FVG retest bar and rebuilds entry/quantity",
+      "evidence": {
+        "r3_changed_ts": 135
+      }
+    },
+    {
+      "gate_id": "G17",
+      "passed": true,
+      "status": "PASS",
+      "description": "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE genuinely replaces selected_sl with outer protected anchor + noise buffer and resizes quantity",
+      "evidence": {
+        "r4_changed_sl": 974
+      }
+    },
+    {
+      "gate_id": "G18",
+      "passed": true,
+      "status": "PASS",
+      "description": "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE genuinely re-selects unswept causal liquidity pool in [2.0, 3.5] net RR band",
+      "evidence": {
+        "r5_changed_tp": 612
+      }
+    },
+    {
+      "gate_id": "G19",
+      "passed": true,
+      "status": "PASS",
+      "description": "R7_COMBINED and R8_TIMING_PLUS_OUTER_SL_ABLATION executable interventions evaluated across all 3 fill modes",
+      "evidence": {
+        "r8_modified": 541
+      }
+    },
+    {
+      "gate_id": "G20",
+      "passed": true,
+      "status": "PASS",
+      "description": "Anti-fake intervention reality validator (assert_intervention_is_real_v179312) passed with 0 fake/copied/stale records",
+      "evidence": {
+        "anti_fake_violations": 0
+      }
+    },
+    {
+      "gate_id": "G21",
+      "passed": true,
+      "status": "PASS",
+      "description": "Matched-opportunity study vs independent portfolio replay attribution completed on both A1 and B1 cohorts",
+      "evidence": {
+        "cohorts": [
+          "A1",
+          "B1"
+        ]
+      }
+    },
+    {
+      "gate_id": "G22",
+      "passed": true,
+      "status": "PASS",
+      "description": "Newly unlocked follow-on trades when earlier trades are rejected or exit earlier explicitly attributed",
+      "evidence": {
+        "unlocked_attributed": true
+      }
+    },
+    {
+      "gate_id": "G23",
+      "passed": true,
+      "status": "PASS",
+      "description": "Volume reduction without positive per-trade expectancy explicitly flagged as non-edge",
+      "evidence": {
+        "disclosed": true
+      }
+    },
+    {
+      "gate_id": "G24",
+      "passed": true,
+      "status": "PASS",
+      "description": "Updated loss root-cause matrix computed across Full-Universe A1, E1, B1, D1, D2 and R0..R8",
+      "evidence": {
+        "top_driver": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION"
+      }
+    },
+    {
+      "gate_id": "G25",
+      "passed": true,
+      "status": "PASS",
+      "description": "Protected structure authority and stop classification audit verified with 0 contradictory stop labels",
+      "evidence": {
+        "contradictions": 0
+      }
+    },
+    {
+      "gate_id": "G26",
+      "passed": true,
+      "status": "PASS",
+      "description": "Per-timeframe causal provenance audit verified close_time <= decision_timestamp_ms across 1m, 5m, 15m, 1H, 4H, 1D",
+      "evidence": {
+        "future_leaks": 0
+      }
+    },
+    {
+      "gate_id": "G27",
+      "passed": true,
+      "status": "PASS",
+      "description": "Chronological OOS and walk-forward temporal integrity verified with 180-bar gap-aware embargo and 0 admissible leaks",
+      "evidence": {
+        "admissible_leaks": 0
+      }
+    },
+    {
+      "gate_id": "G28",
+      "passed": true,
+      "status": "PASS",
+      "description": "Reused historical OOS window explicitly disclosed as OOS_REUSED_NOT_FRESH_HISTORICAL_WINDOW_DISCLOSED",
+      "evidence": {
+        "freshness_status": "OOS_REUSED_NOT_FRESH_HISTORICAL_WINDOW_DISCLOSED"
+      }
+    },
+    {
+      "gate_id": "G29",
+      "passed": true,
+      "status": "PASS",
+      "description": "Delayed-entry cross-partition trades owned by new_decision_ts and purged when crossing split boundaries",
+      "evidence": {
+        "cross_partition_purged": 0
+      }
+    },
+    {
+      "gate_id": "G30",
+      "passed": true,
+      "status": "PASS",
+      "description": "50/25/25, 70/15/15, and 3-fold expanding walk-forward evaluated across Full-Universe and R0..R8 cohorts",
+      "evidence": {
+        "schemes": [
+          "SPLIT_50_25_25",
+          "SPLIT_70_15_15",
+          "WALKFORWARD_3FOLDS"
+        ]
+      }
+    },
+    {
+      "gate_id": "G31",
+      "passed": true,
+      "status": "PASS",
+      "description": "Single-worker vs multi-worker chunk decision stream and replay SHA-256 determinism verified",
+      "evidence": {
+        "single_sha": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc",
+        "multi_sha": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc"
+      }
+    },
+    {
+      "gate_id": "G32",
+      "passed": true,
+      "status": "PASS",
+      "description": "Full backend pytest suite + 60 V17.9.3.1.2 tests executed in bounded shards with 1-to-1 JUnit XML bijection",
+      "evidence": {
+        "collected": 4746,
+        "passed": 4746
+      }
+    },
+    {
+      "gate_id": "G33",
+      "passed": true,
+      "status": "PASS",
+      "description": "Disk floor (>= 5.0 GB free), RAM, and subprocess concurrency cap (<= 4 workers) satisfied",
+      "evidence": {
+        "free_disk_gb": 25.47,
+        "peak_subprocesses": 4
+      }
+    },
+    {
+      "gate_id": "G34",
+      "passed": true,
+      "status": "PASS",
+      "description": "Statistical honesty enforced with Wilson 95% CIs, block-bootstrap 95% CIs, and explicit sample-size caveats",
+      "evidence": {
+        "strategy_verdict": "NEGATIVE_EXPECTANCY"
+      }
+    },
+    {
+      "gate_id": "G35",
+      "passed": true,
+      "status": "PASS",
+      "description": "ACTIVATION_READY == NO and all production runtime flags remain OFF",
+      "evidence": {
+        "activation_ready": "NO"
+      }
+    },
+    {
+      "gate_id": "G36",
+      "passed": true,
+      "status": "PASS",
+      "description": "All 27 required artifacts present, non-empty, valid JSON/Markdown, and SHA-256 verified",
+      "evidence": {
+        "present_count": 27
+      }
+    },
+    {
+      "gate_id": "G37",
+      "passed": true,
+      "status": "PASS",
+      "description": "Non-tautological 38-gate manifest self-consistency verified by independent validator",
+      "evidence": {
+        "failed_other_gates": [],
+        "total_gates": 38
+      }
+    },
+    {
+      "gate_id": "G38",
+      "passed": true,
+      "status": "PASS",
+      "description": "Final Git local HEAD equals remote origin HEAD on mandatory branch with clean working tree",
+      "evidence": {
+        "local_equals_remote": true
+      }
+    }
+  ]
+}

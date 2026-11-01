@@ -1,0 +1,21 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "max_workers_cap": 4,
+  "checked": true,
+  "workers_compared": [
+    1,
+    4
+  ],
+  "single_worker_subset_stream_sha256": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc",
+  "multi_worker_subset_stream_sha256": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc",
+  "single_worker_sha256": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc",
+  "multi_worker_sha256": "24f7c196d0a213c469693eaec4b0d95e1171ec2a6003779514adad872fb23dcc",
+  "full_universe_canonical_rows_sha256": "8997972f608fd7a192159554773e0492512e1dc6c763fbf3967713e16d85740a",
+  "a1_portfolio_episodes_run1_sha256": "1f087fe2b01d09e172bdd6c8addc077ed3f02f9860ac2a74179d41c67090bb9a",
+  "a1_portfolio_episodes_run2_sha256": "1f087fe2b01d09e172bdd6c8addc077ed3f02f9860ac2a74179d41c67090bb9a",
+  "identical_stream_hash": true,
+  "identical_portfolio_replays": true,
+  "identical_intervention_replays": true,
+  "hash_equivalent": true
+}

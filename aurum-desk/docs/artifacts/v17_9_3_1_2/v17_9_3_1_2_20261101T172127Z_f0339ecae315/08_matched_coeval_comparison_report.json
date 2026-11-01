@@ -1,0 +1,145 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "total_post_warmup_timestamps": 22346,
+  "eligible_decision_cohorts": {
+    "A1_inside_macro_eligible_decisions": 4442,
+    "A1_outside_macro_eligible_decisions": 52268,
+    "E1_inside_macro_eligible_decisions": 0,
+    "E1_outside_macro_eligible_decisions": 38620,
+    "C1_inside_macro_eligible_decisions": 4442,
+    "D2_inside_macro_eligible_decisions": 50
+  },
+  "portfolio_episode_slices": {
+    "A1_inside_legacy_screen": {
+      "portfolio_attempts": 31,
+      "closed_trades": 23,
+      "wins": 1,
+      "losses": 22,
+      "win_rate": 0.0435,
+      "loss_rate": 0.9565,
+      "expectancy_r_mean": -0.9471,
+      "modeled_net_pnl_usd": -53.26
+    },
+    "A1_outside_legacy_screen": {
+      "portfolio_attempts": 211,
+      "closed_trades": 143,
+      "wins": 8,
+      "losses": 135,
+      "win_rate": 0.0559,
+      "loss_rate": 0.9441,
+      "expectancy_r_mean": -0.8313,
+      "modeled_net_pnl_usd": -292.63
+    },
+    "A1_inside_macro_window": {
+      "portfolio_attempts": 10,
+      "closed_trades": 7,
+      "wins": 0,
+      "losses": 7,
+      "win_rate": 0.0,
+      "loss_rate": 1.0,
+      "expectancy_r_mean": -1.0,
+      "modeled_net_pnl_usd": -17.24
+    },
+    "A1_outside_macro_window": {
+      "portfolio_attempts": 232,
+      "closed_trades": 159,
+      "wins": 9,
+      "losses": 150,
+      "win_rate": 0.0566,
+      "loss_rate": 0.9434,
+      "expectancy_r_mean": -0.8406,
+      "modeled_net_pnl_usd": -328.66
+    },
+    "E1_inside_legacy_screen": {
+      "portfolio_attempts": 16,
+      "closed_trades": 12,
+      "wins": 1,
+      "losses": 11,
+      "win_rate": 0.0833,
+      "loss_rate": 0.9167,
+      "expectancy_r_mean": -0.8989,
+      "modeled_net_pnl_usd": -26.22
+    },
+    "E1_outside_legacy_screen": {
+      "portfolio_attempts": 173,
+      "closed_trades": 120,
+      "wins": 7,
+      "losses": 113,
+      "win_rate": 0.0583,
+      "loss_rate": 0.9417,
+      "expectancy_r_mean": -0.8123,
+      "modeled_net_pnl_usd": -239.77
+    },
+    "C1_inside_macro_window": {
+      "portfolio_attempts": 62,
+      "closed_trades": 42,
+      "wins": 2,
+      "losses": 40,
+      "win_rate": 0.0476,
+      "loss_rate": 0.9524,
+      "expectancy_r_mean": -0.9053,
+      "modeled_net_pnl_usd": -93.33
+    },
+    "D2_inside_macro_window": {
+      "portfolio_attempts": 2,
+      "closed_trades": 2,
+      "wins": 1,
+      "losses": 1,
+      "win_rate": 0.5,
+      "loss_rate": 0.5,
+      "expectancy_r_mean": 0.5617,
+      "modeled_net_pnl_usd": 2.74
+    }
+  },
+  "comparisons": {
+    "A1_VS_B1_COEVAL": {
+      "a1_inside_macro": {
+        "portfolio_attempts": 10,
+        "closed_trades": 7,
+        "wins": 0,
+        "losses": 7,
+        "win_rate": 0.0,
+        "loss_rate": 1.0,
+        "expectancy_r_mean": -1.0,
+        "modeled_net_pnl_usd": -17.24
+      },
+      "b1_inside_macro": {
+        "portfolio_attempts": 62,
+        "closed_trades": 42,
+        "wins": 2,
+        "losses": 40,
+        "win_rate": 0.0476,
+        "loss_rate": 0.9524,
+        "expectancy_r_mean": -0.9053,
+        "modeled_net_pnl_usd": -93.33
+      },
+      "a1_inside_macro_eligible_decisions": 4442,
+      "b1_inside_macro_eligible_decisions": 4442
+    },
+    "A1_VS_E1_COEVAL": {
+      "a1_outside_macro": {
+        "portfolio_attempts": 232,
+        "closed_trades": 159,
+        "wins": 9,
+        "losses": 150,
+        "win_rate": 0.0566,
+        "loss_rate": 0.9434,
+        "expectancy_r_mean": -0.8406,
+        "modeled_net_pnl_usd": -328.66
+      },
+      "e1_outside_macro": {
+        "portfolio_attempts": 189,
+        "closed_trades": 132,
+        "wins": 8,
+        "losses": 124,
+        "win_rate": 0.0606,
+        "loss_rate": 0.9394,
+        "expectancy_r_mean": -0.8202,
+        "modeled_net_pnl_usd": -265.99
+      },
+      "a1_outside_macro_eligible_decisions": 52268,
+      "e1_outside_macro_eligible_decisions": 38620
+    }
+  }
+}

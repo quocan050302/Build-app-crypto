@@ -1,0 +1,437 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "audited_checkpoints_count": 7,
+  "all_audited_records_strictly_causal": true,
+  "future_bar_leak_violations_count": 0,
+  "samples": [
+    {
+      "decision_timestamp_ms": 1791439740000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 31,
+          "available_closed_bars_count": 31,
+          "last_close_ms": 1791439740000,
+          "last_closed_bar_close_time_ms": 1791439740000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "06b7e9666ee6c242"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791439500000,
+          "last_closed_bar_close_time_ms": 1791439500000,
+          "delta_ms_to_decision": 240000,
+          "causal_valid": true,
+          "window_sha256": "f266a8b01ea96c96"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791439200000,
+          "last_closed_bar_close_time_ms": 1791439200000,
+          "delta_ms_to_decision": 540000,
+          "causal_valid": true,
+          "window_sha256": "6b8517f26b425447"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791439200000,
+          "last_closed_bar_close_time_ms": 1791439200000,
+          "delta_ms_to_decision": 540000,
+          "causal_valid": true,
+          "window_sha256": "265c855f4b65a8e5"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1791432000000,
+          "last_closed_bar_close_time_ms": 1791432000000,
+          "delta_ms_to_decision": 7740000,
+          "causal_valid": true,
+          "window_sha256": "4d654f6658f1ae0f"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1791388800000,
+          "last_closed_bar_close_time_ms": 1791388800000,
+          "delta_ms_to_decision": 50940000,
+          "causal_valid": true,
+          "window_sha256": "31b378b9649444fa"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791588900000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1791588900000,
+          "last_closed_bar_close_time_ms": 1791588900000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "82c2835fbcd2a120"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791588900000,
+          "last_closed_bar_close_time_ms": 1791588900000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "c4070c1036c59a55"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791588600000,
+          "last_closed_bar_close_time_ms": 1791588600000,
+          "delta_ms_to_decision": 300000,
+          "causal_valid": true,
+          "window_sha256": "28bad7944acdb9f3"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791586800000,
+          "last_closed_bar_close_time_ms": 1791586800000,
+          "delta_ms_to_decision": 2100000,
+          "causal_valid": true,
+          "window_sha256": "443efccbbc9a9e62"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1791576000000,
+          "last_closed_bar_close_time_ms": 1791576000000,
+          "delta_ms_to_decision": 12900000,
+          "causal_valid": true,
+          "window_sha256": "d6dc7f057457893b"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1791561600000,
+          "last_closed_bar_close_time_ms": 1791561600000,
+          "delta_ms_to_decision": 27300000,
+          "causal_valid": true,
+          "window_sha256": "6ae1e95ef1fa8d43"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791711780000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1791711780000,
+          "last_closed_bar_close_time_ms": 1791711780000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "8535415d89b26c35"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791711600000,
+          "last_closed_bar_close_time_ms": 1791711600000,
+          "delta_ms_to_decision": 180000,
+          "causal_valid": true,
+          "window_sha256": "68f8c6345a05cae6"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791711000000,
+          "last_closed_bar_close_time_ms": 1791711000000,
+          "delta_ms_to_decision": 780000,
+          "causal_valid": true,
+          "window_sha256": "11b755c3b26aa514"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791709200000,
+          "last_closed_bar_close_time_ms": 1791709200000,
+          "delta_ms_to_decision": 2580000,
+          "causal_valid": true,
+          "window_sha256": "d3117809a22183b1"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1791705600000,
+          "last_closed_bar_close_time_ms": 1791705600000,
+          "delta_ms_to_decision": 6180000,
+          "causal_valid": true,
+          "window_sha256": "1dc0fb44d4a73378"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1791648000000,
+          "last_closed_bar_close_time_ms": 1791648000000,
+          "delta_ms_to_decision": 63780000,
+          "causal_valid": true,
+          "window_sha256": "6af1e8c1dd8d055b"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1792080900000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1792080900000,
+          "last_closed_bar_close_time_ms": 1792080900000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "667bd90a715e04fb"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792080900000,
+          "last_closed_bar_close_time_ms": 1792080900000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "d73e92c6806c3c55"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1791792900000,
+          "last_closed_bar_close_time_ms": 1791792900000,
+          "delta_ms_to_decision": 288000000,
+          "causal_valid": true,
+          "window_sha256": "9f23c7e649cf4ea0"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792080000000,
+          "last_closed_bar_close_time_ms": 1792080000000,
+          "delta_ms_to_decision": 900000,
+          "causal_valid": true,
+          "window_sha256": "5ff913955ad15df8"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1792080000000,
+          "last_closed_bar_close_time_ms": 1792080000000,
+          "delta_ms_to_decision": 900000,
+          "causal_valid": true,
+          "window_sha256": "334f90fb1f725907"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1792080000000,
+          "last_closed_bar_close_time_ms": 1792080000000,
+          "delta_ms_to_decision": 900000,
+          "causal_valid": true,
+          "window_sha256": "9bd28b645b5db456"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1792603320000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1792603320000,
+          "last_closed_bar_close_time_ms": 1792603320000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "658925c6ad1b0c56"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792603200000,
+          "last_closed_bar_close_time_ms": 1792603200000,
+          "delta_ms_to_decision": 120000,
+          "causal_valid": true,
+          "window_sha256": "0768fb0b9da076f8"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792602900000,
+          "last_closed_bar_close_time_ms": 1792602900000,
+          "delta_ms_to_decision": 420000,
+          "causal_valid": true,
+          "window_sha256": "2840e018fd21372e"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792602000000,
+          "last_closed_bar_close_time_ms": 1792602000000,
+          "delta_ms_to_decision": 1320000,
+          "causal_valid": true,
+          "window_sha256": "373236583705b150"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1792598400000,
+          "last_closed_bar_close_time_ms": 1792598400000,
+          "delta_ms_to_decision": 4920000,
+          "causal_valid": true,
+          "window_sha256": "1e66bfa22d11692b"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1792598400000,
+          "last_closed_bar_close_time_ms": 1792598400000,
+          "delta_ms_to_decision": 4920000,
+          "causal_valid": true,
+          "window_sha256": "c4a095a0b695caa4"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1792903320000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1792903320000,
+          "last_closed_bar_close_time_ms": 1792903320000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "4a9b182b7bd0e4eb"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792903200000,
+          "last_closed_bar_close_time_ms": 1792903200000,
+          "delta_ms_to_decision": 120000,
+          "causal_valid": true,
+          "window_sha256": "24f15586228973e7"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792902600000,
+          "last_closed_bar_close_time_ms": 1792902600000,
+          "delta_ms_to_decision": 720000,
+          "causal_valid": true,
+          "window_sha256": "8a57301d613e6bfc"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1792900800000,
+          "last_closed_bar_close_time_ms": 1792900800000,
+          "delta_ms_to_decision": 2520000,
+          "causal_valid": true,
+          "window_sha256": "2ca4cf7faf849988"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1792900800000,
+          "last_closed_bar_close_time_ms": 1792900800000,
+          "delta_ms_to_decision": 2520000,
+          "causal_valid": true,
+          "window_sha256": "5fe5172edf9053ae"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1792857600000,
+          "last_closed_bar_close_time_ms": 1792857600000,
+          "delta_ms_to_decision": 45720000,
+          "causal_valid": true,
+          "window_sha256": "b724870d6a725ed4"
+        }
+      }
+    },
+    {
+      "decision_timestamp_ms": 1793196000000,
+      "all_timeframes_causal": true,
+      "causal_provenance_valid": true,
+      "timeframes": {
+        "1M": {
+          "count": 120,
+          "available_closed_bars_count": 120,
+          "last_close_ms": 1793196000000,
+          "last_closed_bar_close_time_ms": 1793196000000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "2011775463860881"
+        },
+        "5M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1793196000000,
+          "last_closed_bar_close_time_ms": 1793196000000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "deb539f9e1f62521"
+        },
+        "15M": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1793196000000,
+          "last_closed_bar_close_time_ms": 1793196000000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "c804740aa7484e57"
+        },
+        "1H": {
+          "count": 96,
+          "available_closed_bars_count": 96,
+          "last_close_ms": 1793196000000,
+          "last_closed_bar_close_time_ms": 1793196000000,
+          "delta_ms_to_decision": 0,
+          "causal_valid": true,
+          "window_sha256": "b9e43ba944b215c5"
+        },
+        "4H": {
+          "count": 64,
+          "available_closed_bars_count": 64,
+          "last_close_ms": 1793188800000,
+          "last_closed_bar_close_time_ms": 1793188800000,
+          "delta_ms_to_decision": 7200000,
+          "causal_valid": true,
+          "window_sha256": "c3d76ffd3439af64"
+        },
+        "1D": {
+          "count": 30,
+          "available_closed_bars_count": 30,
+          "last_close_ms": 1793116800000,
+          "last_closed_bar_close_time_ms": 1793116800000,
+          "delta_ms_to_decision": 79200000,
+          "causal_valid": true,
+          "window_sha256": "a1f4ec743d500dfd"
+        }
+      }
+    }
+  ],
+  "all_Audited_records_strictly_causal": true
+}

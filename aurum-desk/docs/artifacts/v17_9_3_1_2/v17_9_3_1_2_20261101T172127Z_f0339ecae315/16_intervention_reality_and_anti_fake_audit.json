@@ -1,0 +1,80 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "all_interventions_verified_real": true,
+  "anti_fake_violation_count": 0,
+  "policies_audit": {
+    "R0_BASELINE_CONTROL": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 0,
+      "accepted_unchanged_noop_count": 2112,
+      "rejected_by_intervention_count": 0
+    },
+    "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 0,
+      "accepted_unchanged_noop_count": 1021,
+      "rejected_by_intervention_count": 1091
+    },
+    "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 482,
+      "accepted_unchanged_noop_count": 72,
+      "rejected_by_intervention_count": 1558
+    },
+    "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 224,
+      "accepted_unchanged_noop_count": 599,
+      "rejected_by_intervention_count": 1289
+    },
+    "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 1935,
+      "accepted_unchanged_noop_count": 0,
+      "rejected_by_intervention_count": 177
+    },
+    "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 1223,
+      "accepted_unchanged_noop_count": 365,
+      "rejected_by_intervention_count": 524
+    },
+    "R6_MACRO_SESSION_FILTER_ONLY": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 0,
+      "accepted_unchanged_noop_count": 1453,
+      "rejected_by_intervention_count": 659
+    },
+    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 66,
+      "accepted_unchanged_noop_count": 0,
+      "rejected_by_intervention_count": 2046
+    },
+    "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE": {
+      "cohort": "A1_FULL_UNIVERSE_COHORT",
+      "records_audited": 2112,
+      "anti_fake_violation_count": 0,
+      "accepted_modified_executable_geometry_count": 541,
+      "accepted_unchanged_noop_count": 0,
+      "rejected_by_intervention_count": 1571
+    }
+  }
+}

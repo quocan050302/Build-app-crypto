@@ -1,0 +1,36 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "all_cohorts_audit_passed": true,
+  "total_contradictory_stop_labels_count": 0,
+  "cohorts": {
+    "A1_V1792_SL_TP_BASELINE": {
+      "schema_version": "17.9.3.1.2",
+      "total_episodes_audited": 242,
+      "authority_resolved_count": 242,
+      "contradictory_stop_labels_count": 0,
+      "stop_classification_counts": {
+        "TRUE_INVALIDATION_LOSS": 120,
+        "OPEN_AT_HORIZON": 77,
+        "DELAYED_INEVITABLE_LOSS": 26,
+        "CLEAN_WIN": 10,
+        "PREMATURE_NOISE_SWEEP_STOP": 9
+      },
+      "audit_passed": true
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "schema_version": "17.9.3.1.2",
+      "total_episodes_audited": 62,
+      "authority_resolved_count": 62,
+      "contradictory_stop_labels_count": 0,
+      "stop_classification_counts": {
+        "TRUE_INVALIDATION_LOSS": 31,
+        "DELAYED_INEVITABLE_LOSS": 4,
+        "OPEN_AT_HORIZON": 19,
+        "PREMATURE_NOISE_SWEEP_STOP": 5,
+        "CLEAN_WIN": 3
+      },
+      "audit_passed": true
+    }
+  }
+}

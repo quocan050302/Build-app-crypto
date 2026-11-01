@@ -1,0 +1,456 @@
+{
+  "schema_version": "17.9.3.1.2",
+  "run_id": "v17_9_3_1_2_20261101T172127Z_f0339ecae315",
+  "all_variants_zero_overlap": true,
+  "all_variants_candidate_conservation_valid": true,
+  "audits": {
+    "FULL_UNIVERSE_PRIMARY::A0_FROZEN_BASELINE_OFF": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 6,
+        "filled_episodes_checked": 6,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 106,
+        "selected_portfolio_attempts": 6,
+        "discarded_same_bar_tie_count": 10,
+        "blocked_by_open_position_count": 90,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 106,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 26,
+          "SMC_M1_CONTINUATION": 14,
+          "SMC_M1_FVG_CONTINUATION": 26,
+          "SMC_M1_REVERSAL": 12,
+          "SMC_M1_SWEEP_RECLAIM": 12
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 3,
+          "SMC_M1_SWEEP_RECLAIM": 4,
+          "SMC_M1_CONTINUATION": 2,
+          "SMC_M1_FVG_CONTINUATION": 1
+        },
+        "blocked_inside_legacy_screen": 90,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "FULL_UNIVERSE_PRIMARY::A1_V1792_SL_TP_BASELINE": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 242,
+        "filled_episodes_checked": 241,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 56710,
+        "selected_portfolio_attempts": 242,
+        "discarded_same_bar_tie_count": 447,
+        "blocked_by_open_position_count": 56021,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 56710,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 17718,
+          "SMC_M1_FVG_CONTINUATION": 17718,
+          "SMC_M1_REVERSAL": 8747,
+          "SMC_M1_SWEEP_RECLAIM": 7861,
+          "SMC_M1_CONTINUATION": 3977
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 180,
+          "SMC_M1_FVG_CONTINUATION": 114,
+          "SMC_M1_SWEEP_RECLAIM": 130,
+          "SMC_M1_CONTINUATION": 23
+        },
+        "blocked_inside_legacy_screen": 9384,
+        "blocked_outside_legacy_screen": 46637
+      }
+    },
+    "FULL_UNIVERSE_PRIMARY::C1_MACRO_PLUS_V1792_SL_TP": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 62,
+        "filled_episodes_checked": 61,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 4442,
+        "selected_portfolio_attempts": 62,
+        "discarded_same_bar_tie_count": 111,
+        "blocked_by_open_position_count": 4269,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 4442,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 1348,
+          "SMC_M1_CONTINUATION": 323,
+          "SMC_M1_FVG_CONTINUATION": 1348,
+          "SMC_M1_REVERSAL": 638,
+          "SMC_M1_SWEEP_RECLAIM": 612
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 54,
+          "SMC_M1_FVG_CONTINUATION": 28,
+          "SMC_M1_SWEEP_RECLAIM": 25,
+          "SMC_M1_CONTINUATION": 4
+        },
+        "blocked_inside_legacy_screen": 4269,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "FULL_UNIVERSE_PRIMARY::D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 20,
+        "filled_episodes_checked": 20,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 263,
+        "selected_portfolio_attempts": 20,
+        "discarded_same_bar_tie_count": 19,
+        "blocked_by_open_position_count": 224,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 263,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 49,
+          "SMC_M1_FVG_CONTINUATION": 49,
+          "SMC_M1_REVERSAL": 49,
+          "SMC_M1_SWEEP_RECLAIM": 44,
+          "SMC_M1_CONTINUATION": 33
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 12,
+          "SMC_M1_SWEEP_RECLAIM": 4,
+          "SMC_M1_FVG_CONTINUATION": 1,
+          "SMC_M1_CONTINUATION": 2
+        },
+        "blocked_inside_legacy_screen": 224,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "FULL_UNIVERSE_PRIMARY::D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 2,
+        "filled_episodes_checked": 2,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 50,
+        "selected_portfolio_attempts": 2,
+        "discarded_same_bar_tie_count": 2,
+        "blocked_by_open_position_count": 46,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 50,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 16,
+          "SMC_M1_FVG_CONTINUATION": 16,
+          "SMC_M1_REVERSAL": 7,
+          "SMC_M1_SWEEP_RECLAIM": 7
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 2
+        },
+        "blocked_inside_legacy_screen": 46,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "FULL_UNIVERSE_PRIMARY::E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 189,
+        "filled_episodes_checked": 189,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 38620,
+        "selected_portfolio_attempts": 189,
+        "discarded_same_bar_tie_count": 339,
+        "blocked_by_open_position_count": 38092,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 38620,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 11773,
+          "SMC_M1_FVG_CONTINUATION": 11773,
+          "SMC_M1_REVERSAL": 6225,
+          "SMC_M1_SWEEP_RECLAIM": 5518,
+          "SMC_M1_CONTINUATION": 2803
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 138,
+          "SMC_M1_FVG_CONTINUATION": 87,
+          "SMC_M1_SWEEP_RECLAIM": 101,
+          "SMC_M1_CONTINUATION": 13
+        },
+        "blocked_inside_legacy_screen": 4167,
+        "blocked_outside_legacy_screen": 33925
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::A0_FROZEN_BASELINE_OFF": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 6,
+        "filled_episodes_checked": 6,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 106,
+        "selected_portfolio_attempts": 6,
+        "discarded_same_bar_tie_count": 10,
+        "blocked_by_open_position_count": 90,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 106,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 26,
+          "SMC_M1_CONTINUATION": 14,
+          "SMC_M1_FVG_CONTINUATION": 26,
+          "SMC_M1_REVERSAL": 12,
+          "SMC_M1_SWEEP_RECLAIM": 12
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 3,
+          "SMC_M1_SWEEP_RECLAIM": 4,
+          "SMC_M1_CONTINUATION": 2,
+          "SMC_M1_FVG_CONTINUATION": 1
+        },
+        "blocked_inside_legacy_screen": 90,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::A1_V1792_SL_TP_BASELINE": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 202,
+        "filled_episodes_checked": 201,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 9467,
+        "selected_portfolio_attempts": 202,
+        "discarded_same_bar_tie_count": 371,
+        "blocked_by_open_position_count": 8894,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 9467,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 2821,
+          "SMC_M1_CONTINUATION": 578,
+          "SMC_M1_FVG_CONTINUATION": 2821,
+          "SMC_M1_REVERSAL": 1394,
+          "SMC_M1_SWEEP_RECLAIM": 1280
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 183,
+          "SMC_M1_FVG_CONTINUATION": 89,
+          "SMC_M1_SWEEP_RECLAIM": 79,
+          "SMC_M1_CONTINUATION": 20
+        },
+        "blocked_inside_legacy_screen": 8894,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::C1_MACRO_PLUS_V1792_SL_TP": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 62,
+        "filled_episodes_checked": 61,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 4442,
+        "selected_portfolio_attempts": 62,
+        "discarded_same_bar_tie_count": 111,
+        "blocked_by_open_position_count": 4269,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 4442,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 1348,
+          "SMC_M1_CONTINUATION": 323,
+          "SMC_M1_FVG_CONTINUATION": 1348,
+          "SMC_M1_REVERSAL": 638,
+          "SMC_M1_SWEEP_RECLAIM": 612
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 54,
+          "SMC_M1_FVG_CONTINUATION": 28,
+          "SMC_M1_SWEEP_RECLAIM": 25,
+          "SMC_M1_CONTINUATION": 4
+        },
+        "blocked_inside_legacy_screen": 4269,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 20,
+        "filled_episodes_checked": 20,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 263,
+        "selected_portfolio_attempts": 20,
+        "discarded_same_bar_tie_count": 19,
+        "blocked_by_open_position_count": 224,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 263,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 49,
+          "SMC_M1_FVG_CONTINUATION": 49,
+          "SMC_M1_REVERSAL": 49,
+          "SMC_M1_SWEEP_RECLAIM": 44,
+          "SMC_M1_CONTINUATION": 33
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 12,
+          "SMC_M1_SWEEP_RECLAIM": 4,
+          "SMC_M1_FVG_CONTINUATION": 1,
+          "SMC_M1_CONTINUATION": 2
+        },
+        "blocked_inside_legacy_screen": 224,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 2,
+        "filled_episodes_checked": 2,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 50,
+        "selected_portfolio_attempts": 2,
+        "discarded_same_bar_tie_count": 2,
+        "blocked_by_open_position_count": 46,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 50,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 16,
+          "SMC_M1_FVG_CONTINUATION": 16,
+          "SMC_M1_REVERSAL": 7,
+          "SMC_M1_SWEEP_RECLAIM": 7
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 2
+        },
+        "blocked_inside_legacy_screen": 46,
+        "blocked_outside_legacy_screen": 0
+      }
+    },
+    "LEGACY_SCREENED_PRIMARY::E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "no_overlap_audit": {
+        "contract_valid": true,
+        "no_overlap_valid": true,
+        "max_concurrent_positions": 1,
+        "total_episodes_checked": 139,
+        "filled_episodes_checked": 139,
+        "collision_count": 0,
+        "collisions": [],
+        "temporal_violation_count": 0,
+        "temporal_violations": []
+      },
+      "candidate_conservation": {
+        "candidate_conservation_exact": true,
+        "conservation_identity_valid": true,
+        "raw_eligible_decisions": 4214,
+        "selected_portfolio_attempts": 139,
+        "discarded_same_bar_tie_count": 268,
+        "blocked_by_open_position_count": 3807,
+        "rejected_at_intent_construction_count": 0,
+        "accounted_sum": 4214,
+        "blocked_by_model": {
+          "CG01_SWEEP_MSS_FVG": 1190,
+          "SMC_M1_CONTINUATION": 219,
+          "SMC_M1_FVG_CONTINUATION": 1190,
+          "SMC_M1_REVERSAL": 643,
+          "SMC_M1_SWEEP_RECLAIM": 565
+        },
+        "discarded_tie_by_model": {
+          "CG01_SWEEP_MSS_FVG": 129,
+          "SMC_M1_FVG_CONTINUATION": 67,
+          "SMC_M1_SWEEP_RECLAIM": 57,
+          "SMC_M1_CONTINUATION": 15
+        },
+        "blocked_inside_legacy_screen": 3807,
+        "blocked_outside_legacy_screen": 0
+      }
+    }
+  }
+}
