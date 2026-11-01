@@ -67,10 +67,8 @@ from services.v17_9_3_1_1_loss_forensics_and_research_service import (
     validate_single_ledger_entry_against_risk_policy,
     validate_trade_temporal_partition_contract,
 )
-from tools.run_v17_9_3_macro_unicorn_backtest import (
-    V1793_VARIANT_POLICIES,
-    verify_v1793_parallel_determinism,
-)
+from tools.run_v17_9_3_macro_unicorn_backtest import V1793_VARIANT_POLICIES
+from tools.run_v17_9_3_verification import verify_v1793_parallel_determinism
 
 # ==============================================================================
 # MANDATORY PROVENANCE CONSTANTS (V17.9.3.1.1)
