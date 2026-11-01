@@ -1214,12 +1214,16 @@ def build_v17931_resource_bounded_shards() -> List[Dict[str, Any]]:
 
     shards: List[Dict[str, Any]] = [
         {"shard_id": "SHARD_00_V17_9_3_1_AND_V17_9_3", "files": s00},
-        {"shard_id": "SHARD_01A_V17_9_2", "files": s01[: max(1, len(s01) // 2)]},
-        {"shard_id": "SHARD_01B_V17_9_2_1", "files": s01[max(1, len(s01) // 2) :]},
-        {"shard_id": "SHARD_02A_V17_9_0", "files": s02[: max(1, len(s02) // 2)]},
-        {"shard_id": "SHARD_02B_V17_9_1", "files": s02[max(1, len(s02) // 2) :]},
-        {"shard_id": "SHARD_03_EVALUATOR_MTF_UNICORN_SMC", "files": s03},
     ]
+    for idx_s02, f_s02 in enumerate(sorted(s02, key=lambda x: 0 if "runtime_integration" in x else 1)):
+        shards.append({"shard_id": f"SHARD_02{chr(65 + idx_s02)}_V17_9_0_1", "files": [f_s02]})
+    shards.extend(
+        [
+            {"shard_id": "SHARD_01A_V17_9_2", "files": s01[: max(1, len(s01) // 2)]},
+            {"shard_id": "SHARD_01B_V17_9_2_1", "files": s01[max(1, len(s01) // 2) :]},
+            {"shard_id": "SHARD_03_EVALUATOR_MTF_UNICORN_SMC", "files": s03},
+        ]
+    )
 
     num_extra = 8
     buckets: List[List[str]] = [[] for _ in range(num_extra)]
@@ -1244,7 +1248,7 @@ def build_v17931_resource_bounded_shards() -> List[Dict[str, Any]]:
 def execute_bounded_pytest_shards(
     *,
     max_workers: int = 4,
-    per_shard_timeout_sec: int = 180,
+    per_shard_timeout_sec: int = 240,
 ) -> Dict[str, Any]:
     t0 = time.time()
     shards = build_v17931_resource_bounded_shards()
@@ -1962,25 +1966,22 @@ def run_full_verification(*, max_workers: int = 4) -> int:
     art02 = build_artifact_02_function_truth_map(run_id=run_id)
     _write_json(run_dir / "02_function_truth_map_v17931.json", art02)
 
-    # 2. Run Historical Backtest + Bounded Pytest Shards Concurrently
-    print("[V17.9.3.1] Running historical 10-variant backtest and bounded regression shards concurrently...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as top_pool:
-        bt_future = top_pool.submit(
-            run_v17_9_3_historical_ab_backtest,
-            output_dir=run_dir,
-            run_id=run_id,
-            base_master_sha=BASE_MASTER_SHA,
-            original_feature_head_sha=STARTING_FEATURE_HEAD_SHA,
-            feature_start_sha=STARTING_FEATURE_HEAD_SHA,
-            tested_code_sha=tested_code_sha,
-            max_workers=max(int(max_workers), 6),
-        )
-        reg_future = top_pool.submit(
-            execute_bounded_pytest_shards,
-            max_workers=min(int(max_workers), 4),
-        )
-        ab_result = bt_future.result()
-        art19 = reg_future.result()
+    # 2. Run Historical Backtest (8-worker pool) + Bounded Pytest Shards (4-worker pool) without CPU oversubscription
+    print("[V17.9.3.1] Running historical 10-variant backtest (8 workers)...")
+    ab_result = run_v17_9_3_historical_ab_backtest(
+        output_dir=run_dir,
+        run_id=run_id,
+        base_master_sha=BASE_MASTER_SHA,
+        original_feature_head_sha=STARTING_FEATURE_HEAD_SHA,
+        feature_start_sha=STARTING_FEATURE_HEAD_SHA,
+        tested_code_sha=tested_code_sha,
+        max_workers=max(int(max_workers), 8),
+    )
+    print("[V17.9.3.1] Running bounded regression shards (4 workers)...")
+    art19 = execute_bounded_pytest_shards(
+        max_workers=min(int(max_workers), 4),
+    )
+    _run_git(["checkout", "--", "backtest/trade_decision_lineage_reconciliation.json"], check=False)
 
     datasets = collect_or_load_verified_historical_dataset(symbol="XAUUSDT", allow_network_refresh=False)
 

@@ -549,19 +549,31 @@ def screen_v17931_causal_setup_universe(
         if has_scan_uni:
             scan_unicorn_indices.append(i)
 
-        # Check if checkpoint i has zero directional setup across all 5 models (FVG, BOS continuation, 5-bar sweep reclaim)
-        if not wick_unmit_fvgs:
+        # Check if checkpoint i has zero directional setup across all 5 models (FVG, BOS continuation, or sweep reclaim)
+        if not wick_unmit_fvgs and not has_scan_uni:
             last_sh_idx = next((k for k in range(i - 2, w_start + 1, -1) if sh_at_idx[k] is not None), None)
             last_sl_idx = next((k for k in range(i - 2, w_start + 1, -1) if sl_at_idx[k] is not None), None)
             if last_sh_idx is not None and last_sl_idx is not None:
                 last_sh_px = float(sh_at_idx[last_sh_idx])  # type: ignore[arg-type]
                 last_sl_px = float(sl_at_idx[last_sl_idx])  # type: ignore[arg-type]
+                rec_low = min(lows[max(w_start, i - 12) : i + 1])
+                rec_high = max(highs[max(w_start, i - 12) : i + 1])
                 if pref_dir == "LONG":
-                    has_sweep = min(lows[max(w_start, i - 4) : i + 1]) <= last_sl_px < closes[i]
+                    any_sl_swept = any(
+                        rec_low <= float(sl_at_idx[k]) < closes[i]  # type: ignore[arg-type]
+                        for k in range(max(w_start + 2, i - 40), i - 1)
+                        if sl_at_idx[k] is not None
+                    )
                     has_bos = any(closes[m] > last_sh_px for m in range(last_sl_idx, i + 1))
+                    has_sweep = any_sl_swept
                 else:
-                    has_sweep = max(highs[max(w_start, i - 4) : i + 1]) >= last_sh_px > closes[i]
+                    any_sh_swept = any(
+                        rec_high >= float(sh_at_idx[k]) > closes[i]  # type: ignore[arg-type]
+                        for k in range(max(w_start + 2, i - 40), i - 1)
+                        if sh_at_idx[k] is not None
+                    )
                     has_bos = any(closes[m] < last_sl_px for m in range(last_sh_idx, i + 1))
+                    has_sweep = any_sh_swept
                 if not has_sweep and not has_bos:
                     no_setup_indices.append(i)
 
