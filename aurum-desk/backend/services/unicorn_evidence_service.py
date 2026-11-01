@@ -118,19 +118,20 @@ def detect_breaker_blocks(
     seen_broken_swing_ids: Set[str] = set()
     seen_source_ob_ids: Set[str] = set()
     n = len(valid_bars)
+    opens_ms = [_candle_open_ms(b) for b in valid_bars]
+    ohlcs = [_candle_ohlc(b) for b in valid_bars]
+    ranges = [max(0.01, h - l) for _, h, l, _ in ohlcs]
 
     for i in range(2, n):
-        curr_bar = valid_bars[i]
-        curr_open, curr_high, curr_low, curr_close = _candle_ohlc(curr_bar)
-        curr_open_ms = _candle_open_ms(curr_bar)
+        curr_open, curr_high, curr_low, curr_close = ohlcs[i]
+        curr_open_ms = opens_ms[i]
         curr_close_ms = curr_open_ms + duration_ms
 
         if curr_close_ms > as_of_ms:
             continue
 
         # Compute local prior average range (ATR proxy) over up to 14 prior closed bars
-        prior_slice = valid_bars[max(0, i - 14):i]
-        prior_ranges = [max(0.01, _candle_ohlc(pb)[1] - _candle_ohlc(pb)[2]) for pb in prior_slice]
+        prior_ranges = ranges[max(0, i - 14):i]
         avg_prior_range = sum(prior_ranges) / len(prior_ranges) if prior_ranges else 1.0
 
         if norm_dir == "LONG":
@@ -158,27 +159,27 @@ def detect_breaker_blocks(
 
             # Only the initial break candle converts the OB into a Breaker
             if any(
-                _candle_ohlc(valid_bars[prev_i])[3] > broken_price
+                ohlcs[prev_i][3] > broken_price
                 for prev_i in range(2, i)
-                if _candle_open_ms(valid_bars[prev_i]) > sh_ts
+                if opens_ms[prev_i] > sh_ts
             ):
                 continue
 
             lowest_idx = i
             lowest_val = curr_low
             for k in range(max(0, i - 10), i):
-                if _candle_open_ms(valid_bars[k]) <= sh_ts:
+                if opens_ms[k] <= sh_ts:
                     continue
-                _, _, k_l, _ = _candle_ohlc(valid_bars[k])
+                k_l = ohlcs[k][2]
                 if k_l < lowest_val:
                     lowest_val = k_l
                     lowest_idx = k
 
             ob_idx = None
             for k in range(lowest_idx, max(-1, lowest_idx - 5), -1):
-                if _candle_open_ms(valid_bars[k]) <= sh_ts:
+                if opens_ms[k] <= sh_ts:
                     continue
-                k_o, _, _, k_c = _candle_ohlc(valid_bars[k])
+                k_o, _, _, k_c = ohlcs[k]
                 if k_c <= k_o:
                     ob_idx = k
                     break
@@ -186,9 +187,8 @@ def detect_breaker_blocks(
             if ob_idx is None:
                 continue
 
-            ob_bar = valid_bars[ob_idx]
-            ob_o, ob_h, ob_l, ob_c = _candle_ohlc(ob_bar)
-            ob_open_ms = _candle_open_ms(ob_bar)
+            ob_o, ob_h, ob_l, ob_c = ohlcs[ob_idx]
+            ob_open_ms = opens_ms[ob_idx]
             ob_close_ms = ob_open_ms + duration_ms
             source_ob_id = f"ob_down_{ob_open_ms}"
 
@@ -257,27 +257,27 @@ def detect_breaker_blocks(
                 continue
 
             if any(
-                _candle_ohlc(valid_bars[prev_i])[3] < broken_price
+                ohlcs[prev_i][3] < broken_price
                 for prev_i in range(2, i)
-                if _candle_open_ms(valid_bars[prev_i]) > sl_ts
+                if opens_ms[prev_i] > sl_ts
             ):
                 continue
 
             highest_idx = i
             highest_val = curr_high
             for k in range(max(0, i - 10), i):
-                if _candle_open_ms(valid_bars[k]) <= sl_ts:
+                if opens_ms[k] <= sl_ts:
                     continue
-                _, k_h, _, _ = _candle_ohlc(valid_bars[k])
+                k_h = ohlcs[k][1]
                 if k_h > highest_val:
                     highest_val = k_h
                     highest_idx = k
 
             ob_idx = None
             for k in range(highest_idx, max(-1, highest_idx - 5), -1):
-                if _candle_open_ms(valid_bars[k]) <= sl_ts:
+                if opens_ms[k] <= sl_ts:
                     continue
-                k_o, _, _, k_c = _candle_ohlc(valid_bars[k])
+                k_o, _, _, k_c = ohlcs[k]
                 if k_c >= k_o:
                     ob_idx = k
                     break
@@ -285,9 +285,8 @@ def detect_breaker_blocks(
             if ob_idx is None:
                 continue
 
-            ob_bar = valid_bars[ob_idx]
-            ob_o, ob_h, ob_l, ob_c = _candle_ohlc(ob_bar)
-            ob_open_ms = _candle_open_ms(ob_bar)
+            ob_o, ob_h, ob_l, ob_c = ohlcs[ob_idx]
+            ob_open_ms = opens_ms[ob_idx]
             ob_close_ms = ob_open_ms + duration_ms
             source_ob_id = f"ob_up_{ob_open_ms}"
 

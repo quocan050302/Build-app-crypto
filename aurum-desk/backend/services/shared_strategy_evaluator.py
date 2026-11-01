@@ -1766,14 +1766,45 @@ class SharedStrategyEvaluator:
         if len(closed_1m) < 10 or not sh_1m or not sl_1m:
             return {"has_setup": False, "reason_code": "WAITING_M1_STRUCTURE"}
 
-        fvgs = smc_engine.detect_fvgs(list(closed_1m), timeframe="1M")
-        valid_fvgs = [
-            f for f in fvgs
-            if isinstance(f, dict)
-            and int(f.get("confirmed_at") or f.get("timestamp") or 0) <= cutoff_ms
-            and float(f.get("bottom", 0.0)) < float(f.get("top", 0.0))
-            and str(f.get("state", "confirmed")).lower() in ("confirmed", "partially_mitigated")
-        ]
+        fvg_brk_memo = getattr(SharedStrategyEvaluator, "_FVG_BRK_MEMO", None)
+        if fvg_brk_memo is None:
+            fvg_brk_memo = {}
+            SharedStrategyEvaluator._FVG_BRK_MEMO = fvg_brk_memo
+        last_b = closed_1m[-1]
+        first_b = closed_1m[0]
+        fb_key = (
+            symbol,
+            cutoff_ms,
+            len(closed_1m),
+            _candle_close_ms(last_b, 60_000),
+            (
+                float(last_b.get("open", 0.0) if isinstance(last_b, dict) else getattr(last_b, "open", 0.0)),
+                float(last_b.get("high", 0.0) if isinstance(last_b, dict) else getattr(last_b, "high", 0.0)),
+                float(last_b.get("low", 0.0) if isinstance(last_b, dict) else getattr(last_b, "low", 0.0)),
+                float(last_b.get("close", 0.0) if isinstance(last_b, dict) else getattr(last_b, "close", 0.0)),
+            ),
+            (
+                float(first_b.get("open", 0.0) if isinstance(first_b, dict) else getattr(first_b, "open", 0.0)),
+                float(first_b.get("close", 0.0) if isinstance(first_b, dict) else getattr(first_b, "close", 0.0)),
+            ),
+        )
+        fb_hit = fvg_brk_memo.get(fb_key)
+        if fb_hit is not None:
+            valid_fvgs = fb_hit[0]
+            brk_by_dir = fb_hit[1]
+        else:
+            fvgs = smc_engine.detect_fvgs(list(closed_1m), timeframe="1M")
+            valid_fvgs = [
+                f for f in fvgs
+                if isinstance(f, dict)
+                and int(f.get("confirmed_at") or f.get("timestamp") or 0) <= cutoff_ms
+                and float(f.get("bottom", 0.0)) < float(f.get("top", 0.0))
+                and str(f.get("state", "confirmed")).lower() in ("confirmed", "partially_mitigated")
+            ]
+            brk_by_dir = {}
+            if len(fvg_brk_memo) >= 16:
+                fvg_brk_memo.clear()
+            fvg_brk_memo[fb_key] = (valid_fvgs, brk_by_dir)
 
         if model_id in (
             ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
@@ -1796,14 +1827,18 @@ class SharedStrategyEvaluator:
             orig_swings = sl_1m if direction == "LONG" else sh_1m
             swing_prefix = "sh" if direction == "LONG" else "sl"
 
-            causal_breakers = detect_breaker_blocks(
-                list(closed_1m),
-                symbol=symbol,
-                direction=direction,
-                timeframe="1M",
-                as_of_ms=cutoff_ms,
-                confirmed_swings=(sh_1m, sl_1m),
-            )
+            if direction in brk_by_dir:
+                causal_breakers = brk_by_dir[direction]
+            else:
+                causal_breakers = detect_breaker_blocks(
+                    list(closed_1m),
+                    symbol=symbol,
+                    direction=direction,
+                    timeframe="1M",
+                    as_of_ms=cutoff_ms,
+                    confirmed_swings=(sh_1m, sl_1m),
+                )
+                brk_by_dir[direction] = causal_breakers
             overlapping_breakers = [
                 b for b in causal_breakers
                 if b.confirmed_at_ms <= cutoff_ms
@@ -2151,6 +2186,35 @@ class SharedStrategyEvaluator:
         ) -> Tuple[Dict[str, Any], Tuple[str, ...]]:
             if eff_v1793_mode_raw == "OFF":
                 return {"v1793_mode": "OFF"}, ()
+            sched_cfg = policy_dict.get("v17_9_3_schedule_config")
+            req_ret = bool(policy_dict.get("v17_9_3_require_confirmed_retest", True))
+            req_htf = bool(policy_dict.get("v17_9_3_require_htf_alignment", True))
+            early_memo = getattr(cls, "_EARLY_V1793_MEMO", None)
+            if early_memo is None:
+                early_memo = {}
+                cls._EARLY_V1793_MEMO = early_memo
+            early_key = (
+                id(context.closed_m1_candles),
+                id(context.mtf_context),
+                getattr(context, "mtf_quality_state", None),
+                bool(context.session_restricted),
+                context.symbol,
+                now_ms,
+                direction,
+                str(eff_v1793_mode_raw),
+                req_ret,
+                req_htf,
+                entry_px,
+                bool(setup_desc.get("has_setup")) if isinstance(setup_desc, Mapping) else None,
+                str(setup_desc.get("reason_code")) if isinstance(setup_desc, Mapping) else None,
+            )
+            can_use_early = sched_cfg is None and (
+                setup_desc is None or not bool(setup_desc.get("has_setup"))
+            )
+            if can_use_early:
+                hit = early_memo.get(early_key)
+                if hit is not None and hit[0] is context.closed_m1_candles:
+                    return hit[1], hit[2]
             from services.v17_9_3_macro_unicorn_intelligence import plan_v17_9_3_macro_unicorn_setup
             early_plan = plan_v17_9_3_macro_unicorn_setup(
                 context=context,
@@ -2159,22 +2223,24 @@ class SharedStrategyEvaluator:
                 setup_descriptors=setup_desc,
                 v1792_plan=None,
                 mode=eff_v1793_mode_raw,
-                schedule_config=policy_dict.get("v17_9_3_schedule_config"),
+                schedule_config=sched_cfg,
                 entry_price=entry_px,
-                require_confirmed_retest=bool(policy_dict.get("v17_9_3_require_confirmed_retest", True)),
-                require_htf_alignment=bool(policy_dict.get("v17_9_3_require_htf_alignment", True)),
+                require_confirmed_retest=req_ret,
+                require_htf_alignment=req_htf,
             )
             extra_rej: Tuple[str, ...] = ("INVALID_V1793_MODE",) if not early_plan.mode_valid else ()
-            return (
-                {
-                    "v1793_mode": early_plan.mode,
-                    "v1793_macro_time_dict": early_plan.macro_state.to_dict(),
-                    "v1793_unicorn_confluence_dict": early_plan.unicorn_assessment.to_dict(),
-                    "v1793_plan_dict": early_plan.to_dict(),
-                    "v1793_rejection_stage": early_plan.rejection_stage if early_plan.mode != "OBSERVE_ONLY" else None,
-                },
-                extra_rej,
-            )
+            res_kw = {
+                "v1793_mode": early_plan.mode,
+                "v1793_macro_time_dict": early_plan.macro_state.to_dict(),
+                "v1793_unicorn_confluence_dict": early_plan.unicorn_assessment.to_dict(),
+                "v1793_plan_dict": early_plan.to_dict(),
+                "v1793_rejection_stage": early_plan.rejection_stage if early_plan.mode != "OBSERVE_ONLY" else None,
+            }
+            if can_use_early:
+                if len(early_memo) >= 64:
+                    early_memo.clear()
+                early_memo[early_key] = (context.closed_m1_candles, res_kw, extra_rej)
+            return res_kw, extra_rej
 
         ctx_mtf_obj = getattr(context, "mtf_context", None)
         ctx_mtf_q = getattr(context, "mtf_quality_state", None)
@@ -2576,12 +2642,88 @@ class SharedStrategyEvaluator:
         )
 
         # 4. Invoke authoritative production model evaluator AND causal setup extractor
-        scalp_cand, cg01_res, _ = cls._evaluate_raw_production_candidate(
-            context=context,
-            model_id=model_id,
-            direction=direction,
-            cfg=cfg,
+        raw_m1_ref = context.closed_m1_candles
+        raw_m5_ref = context.closed_m5_candles
+        swings_memo_key = (id(raw_m1_ref), now_ms, len(closed_1m), cfg.tick_size)
+        swings_memo = getattr(cls, "_SWINGS_1M_MEMO", None)
+        if swings_memo is None:
+            swings_memo = {}
+            cls._SWINGS_1M_MEMO = swings_memo
+        swings_hit = swings_memo.get(swings_memo_key)
+        if swings_hit is not None and swings_hit[0] is raw_m1_ref:
+            sh_1m, sl_1m = swings_hit[1], swings_hit[2]
+        else:
+            sh_1m, sl_1m = identify_confirmed_swings(
+                closed_1m, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=now_ms
+            )
+            if len(swings_memo) >= 16:
+                swings_memo.clear()
+            swings_memo[swings_memo_key] = (raw_m1_ref, sh_1m, sl_1m)
+
+        raw_setup_memo = getattr(cls, "_RAW_SETUP_MEMO", None)
+        if raw_setup_memo is None:
+            raw_setup_memo = {}
+            cls._RAW_SETUP_MEMO = raw_setup_memo
+        can_use_setup_memo = causal_setup_override is None and production_eval_spec is None
+        setup_memo_key = (
+            id(raw_m1_ref),
+            id(raw_m5_ref),
+            id(context.liquidity_pools),
+            context.symbol,
+            now_ms,
+            bid,
+            ask,
+            atr_m1_val,
+            atr_m5_val,
+            cfg.tick_size,
+            model_id,
+            direction,
         )
+        setup_hit = raw_setup_memo.get(setup_memo_key) if can_use_setup_memo else None
+        if setup_hit is not None and setup_hit[0] is raw_m1_ref and setup_hit[1] is raw_m5_ref:
+            scalp_cand, cg01_res, setup_info = setup_hit[2], setup_hit[3], dict(setup_hit[4])
+        else:
+            if causal_setup_override is not None and bool(causal_setup_override.get("has_setup", True)):
+                setup_info = dict(causal_setup_override)
+                setup_info["has_setup"] = True
+                setup_info.setdefault("direction", direction)
+                if "episode_id" not in setup_info and "episode_key" in setup_info:
+                    setup_info["episode_id"] = str(setup_info["episode_key"])
+            else:
+                setup_info = cls._extract_causal_setup_descriptors(
+                    symbol=context.symbol,
+                    model_id=model_id,
+                    direction=direction,
+                    closed_1m=closed_1m,
+                    sh_1m=sh_1m,
+                    sl_1m=sl_1m,
+                    cfg=cfg,
+                    cutoff_ms=now_ms,
+                )
+            if (
+                setup_info.get("has_setup", False)
+                and setup_info.get("legacy_sl") is not None
+                and setup_info.get("episode_id")
+            ):
+                scalp_cand, cg01_res = None, None
+            else:
+                scalp_cand, cg01_res, _ = cls._evaluate_raw_production_candidate(
+                    context=context,
+                    model_id=model_id,
+                    direction=direction,
+                    cfg=cfg,
+                )
+            if can_use_setup_memo:
+                if len(raw_setup_memo) >= 32:
+                    raw_setup_memo.clear()
+                raw_setup_memo[setup_memo_key] = (
+                    raw_m1_ref,
+                    raw_m5_ref,
+                    scalp_cand,
+                    cg01_res,
+                    dict(setup_info),
+                )
+
         precomputed_domain_cand: Optional[ScalpCandidate] = None
         precomputed_domain_payload: Optional[Any] = None
         if m5_optional_legacy_spec and isinstance(production_eval_spec, Mapping):
@@ -2591,27 +2733,6 @@ class SharedStrategyEvaluator:
             if raw_dom_cand is None or getattr(raw_dom_cand, "direction", None) in (None, "", direction):
                 precomputed_domain_cand = raw_dom_cand
                 precomputed_domain_payload = raw_dom_payload
-
-        sh_1m, sl_1m = identify_confirmed_swings(
-            closed_1m, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=now_ms
-        )
-        if causal_setup_override is not None and bool(causal_setup_override.get("has_setup", True)):
-            setup_info = dict(causal_setup_override)
-            setup_info["has_setup"] = True
-            setup_info.setdefault("direction", direction)
-            if "episode_id" not in setup_info and "episode_key" in setup_info:
-                setup_info["episode_id"] = str(setup_info["episode_key"])
-        else:
-            setup_info = cls._extract_causal_setup_descriptors(
-                symbol=context.symbol,
-                model_id=model_id,
-                direction=direction,
-                closed_1m=closed_1m,
-                sh_1m=sh_1m,
-                sl_1m=sl_1m,
-                cfg=cfg,
-                cutoff_ms=now_ms,
-            )
 
         cg01_raw_cand = getattr(cg01_res, "candidate", None) if cg01_res is not None else None
         prod_has_setup = bool(
@@ -2738,96 +2859,133 @@ class SharedStrategyEvaluator:
         entry_zone_low = setup_info.get("entry_zone_low")
         entry_zone_high = setup_info.get("entry_zone_high")
 
-        # 5. Causal Unicorn validation
-        unicorn_ev = detect_unicorn_evidence(
-            symbol=context.symbol,
-            direction=direction,
-            closed_bars=closed_1m,
-            as_of_ms=now_ms,
-            selected_fvg=selected_fvg,
-            selected_break=selected_break,
-            selected_reference=selected_reference,
-            confirmed_swings=(sh_1m, sl_1m),
-            tick_size=cfg.tick_size,
-            strict_causal_binding=True,
-        )
-        unicorn_dict = unicorn_ev.to_dict() if hasattr(unicorn_ev, "to_dict") else {}
-
-        # 6. Structural SL anchor & dynamic buffer
+        # 5-7. Causal Unicorn validation, Structural SL anchor & buffer, Liquidity target resolution
         stop_policy = StopPlacementPolicy(
             mode=StopPlacementMode.PAPER_STRUCTURAL.value,
             v18_structural_intelligence_enabled=True,
             v18_unicorn_detection_enabled=True,
             v18_noise_research_enabled=True,
         )
-        anchor_res = resolve_stop_anchor(
-            model_id=model_id,
-            direction=direction,
-            closed_bars=closed_1m,
-            as_of_ms=now_ms,
-            selected_break=selected_break,
-            selected_fvg=selected_fvg,
-            selected_sweep=selected_sweep,
-            confirmed_swings=(sh_1m, sl_1m),
-            tick_size=cfg.tick_size,
-            unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
-            policy=stop_policy,
-        )
-        buffer_res = compute_stop_buffer(
-            atr_m1=atr_m1_obj,
-            atr_m5=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
-            bid=bid,
-            ask=ask,
-            policy=stop_policy,
-            tick_size=cfg.tick_size,
-            symbol=context.symbol,
-            decision_cutoff=now_ms,
-        )
-
-        # 7. Independent liquidity target resolution
-        target_dec = resolve_target_fn(
-            list(context.liquidity_pools),
-            direction,
-            entry_ref,
-            as_of_ms=now_ms,
-            atr=atr_m1_val,
-            model_id=model_id,
-        )
-        has_valid_target = bool(
-            getattr(target_dec, "status", None) == "CONFIRMED"
-            and getattr(target_dec, "price", None) is not None
-            and (
-                (direction == "LONG" and float(target_dec.price) > entry_ref)
-                or (direction == "SHORT" and float(target_dec.price) < entry_ref)
+        geom_memo = getattr(cls, "_RAW_GEOM_MEMO", None)
+        if geom_memo is None:
+            geom_memo = {}
+            cls._RAW_GEOM_MEMO = geom_memo
+        can_use_geom_memo = can_use_setup_memo and target_resolver is None
+        geom_hit = geom_memo.get(setup_memo_key) if can_use_geom_memo else None
+        if geom_hit is not None and geom_hit[0] is raw_m1_ref and geom_hit[1] is raw_m5_ref:
+            unicorn_ev, unicorn_dict, anchor_res, buffer_res, target_dec, stop_dec = (
+                geom_hit[2],
+                geom_hit[3],
+                geom_hit[4],
+                geom_hit[5],
+                geom_hit[6],
+                geom_hit[7],
             )
-        )
-        target_price = round(float(target_dec.price), 2) if has_valid_target else None
-        target_ev_id = str(target_dec.source_level_id) if has_valid_target and getattr(target_dec, "source_level_id", None) else None
+            has_valid_target = bool(
+                getattr(target_dec, "status", None) == "CONFIRMED"
+                and getattr(target_dec, "price", None) is not None
+                and (
+                    (direction == "LONG" and float(target_dec.price) > entry_ref)
+                    or (direction == "SHORT" and float(target_dec.price) < entry_ref)
+                )
+            )
+            target_price = round(float(target_dec.price), 2) if has_valid_target else None
+            target_ev_id = str(target_dec.source_level_id) if has_valid_target and getattr(target_dec, "source_level_id", None) else None
+        else:
+            unicorn_ev = detect_unicorn_evidence(
+                symbol=context.symbol,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_fvg=selected_fvg,
+                selected_break=selected_break,
+                selected_reference=selected_reference,
+                confirmed_swings=(sh_1m, sl_1m),
+                tick_size=cfg.tick_size,
+                strict_causal_binding=True,
+            )
+            unicorn_dict = unicorn_ev.to_dict() if hasattr(unicorn_ev, "to_dict") else {}
 
-        sl_eval_tp = target_price if target_price is not None else (
-            round(entry_ref + 3.0 * atr_m1_val, 2)
-            if direction == "LONG"
-            else round(max(0.01, entry_ref - 3.0 * atr_m1_val), 2)
-        )
+            anchor_res = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_break=selected_break,
+                selected_fvg=selected_fvg,
+                selected_sweep=selected_sweep,
+                confirmed_swings=(sh_1m, sl_1m),
+                tick_size=cfg.tick_size,
+                unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+                policy=stop_policy,
+            )
+            buffer_res = compute_stop_buffer(
+                atr_m1=atr_m1_obj,
+                atr_m5=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
+                bid=bid,
+                ask=ask,
+                policy=stop_policy,
+                tick_size=cfg.tick_size,
+                symbol=context.symbol,
+                decision_cutoff=now_ms,
+            )
 
-        stop_dec = plan_structural_stop(
-            direction=direction,
-            planned_entry=entry_ref,
-            take_profit=sl_eval_tp,
-            legacy_sl=legacy_sl,
-            anchor_result=anchor_res,
-            buffer_result=buffer_res,
-            policy=stop_policy,
-            as_of_ms=now_ms,
-            tick_size=cfg.tick_size,
-            atr_m1_val=atr_m1_val,
-            atr_m5_val=atr_m5_val,
-            spread=context.spread,
-            atr_m1_obj=atr_m1_obj,
-            atr_m5_obj=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
-            symbol=context.symbol,
-            unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
-        )
+            target_dec = resolve_target_fn(
+                list(context.liquidity_pools),
+                direction,
+                entry_ref,
+                as_of_ms=now_ms,
+                atr=atr_m1_val,
+                model_id=model_id,
+            )
+            has_valid_target = bool(
+                getattr(target_dec, "status", None) == "CONFIRMED"
+                and getattr(target_dec, "price", None) is not None
+                and (
+                    (direction == "LONG" and float(target_dec.price) > entry_ref)
+                    or (direction == "SHORT" and float(target_dec.price) < entry_ref)
+                )
+            )
+            target_price = round(float(target_dec.price), 2) if has_valid_target else None
+            target_ev_id = str(target_dec.source_level_id) if has_valid_target and getattr(target_dec, "source_level_id", None) else None
+
+            sl_eval_tp = target_price if target_price is not None else (
+                round(entry_ref + 3.0 * atr_m1_val, 2)
+                if direction == "LONG"
+                else round(max(0.01, entry_ref - 3.0 * atr_m1_val), 2)
+            )
+
+            stop_dec = plan_structural_stop(
+                direction=direction,
+                planned_entry=entry_ref,
+                take_profit=sl_eval_tp,
+                legacy_sl=legacy_sl,
+                anchor_result=anchor_res,
+                buffer_result=buffer_res,
+                policy=stop_policy,
+                as_of_ms=now_ms,
+                tick_size=cfg.tick_size,
+                atr_m1_val=atr_m1_val,
+                atr_m5_val=atr_m5_val,
+                spread=context.spread,
+                atr_m1_obj=atr_m1_obj,
+                atr_m5_obj=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
+                symbol=context.symbol,
+                unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+            )
+            if can_use_geom_memo:
+                if len(geom_memo) >= 32:
+                    geom_memo.clear()
+                geom_memo[setup_memo_key] = (
+                    raw_m1_ref,
+                    raw_m5_ref,
+                    unicorn_ev,
+                    unicorn_dict,
+                    anchor_res,
+                    buffer_res,
+                    target_dec,
+                    stop_dec,
+                )
 
         selected_sl = float(stop_dec.selected_sl) if stop_dec.selected_sl is not None else legacy_sl
         structural_sl = float(stop_dec.structural_sl) if stop_dec.structural_sl is not None else (
@@ -2965,55 +3123,91 @@ class SharedStrategyEvaluator:
                 plan_v17_9_2_structural_stop_and_target,
             )
 
-            v1792_plan = plan_v17_9_2_structural_stop_and_target(
-                model_id=model_id,
-                symbol=context.symbol,
-                direction=direction,
-                entry_price=entry_ref,
-                decision_timestamp_ms=now_ms,
-                closed_m1=closed_1m,
-                closed_m5=list(context.closed_m5_candles),
-                closed_m15=list(context.closed_m15_candles),
-                closed_h1=list(context.closed_h1_candles),
-                closed_h4=list(context.closed_h4_candles),
-                closed_d1=list(context.closed_d1_candles),
-                sh_1m=sh_1m,
-                sl_1m=sl_1m,
-                selected_fvg=selected_fvg,
-                selected_break=selected_break,
-                selected_sweep=selected_sweep,
-                selected_reference=selected_reference,
-                unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
-                liquidity_pools=list(context.liquidity_pools),
-                baseline_anchor=anchor_res.anchor,
-                baseline_sl=structural_sl,
-                baseline_buffer_price=buffer_px if buffer_px is not None else 0.05,
-                baseline_target_price=target_price,
-                baseline_target_id=target_ev_id,
-                atr_m1=atr_m1_val,
-                atr_m5=atr_m5_val,
-                spread=context.spread,
-                tick_size=cfg.tick_size,
-                capital_usdt=policy_settings["capital_usdt"],
-                risk_pct=policy_settings["risk_pct"],
-                leverage=policy_settings["leverage"],
-                margin_mode=policy_settings["margin_mode"],
-                min_net_rr=min_net_rr,
-                costs=policy_settings["costs"],
-                v1792_mode=eff_v1792_mode,
-                buffer_mode=eff_v1792_buffer_mode,
-                target_mode=eff_v1792_target_mode,
-                enforce_cross_tf_sweep_check=bool(
-                    policy_dict.get("v17_9_2_enforce_cross_tf_sweep_check", True)
-                ),
-                enforce_cross_tf_invalidation_check=bool(
-                    policy_dict.get("v17_9_2_enforce_cross_tf_invalidation_check", True)
-                ),
+            enf_sw = bool(policy_dict.get("v17_9_2_enforce_cross_tf_sweep_check", True))
+            enf_inv = bool(policy_dict.get("v17_9_2_enforce_cross_tf_invalidation_check", True))
+            v1792_memo = getattr(cls, "_V1792_PLAN_MEMO", None)
+            if v1792_memo is None:
+                v1792_memo = {}
+                cls._V1792_PLAN_MEMO = v1792_memo
+            v1792_key = (
+                setup_memo_key,
+                id(context.closed_m15_candles),
+                id(context.closed_h1_candles),
+                id(context.closed_h4_candles),
+                id(context.closed_d1_candles),
+                entry_ref,
+                structural_sl,
+                target_price,
+                eff_v1792_mode,
+                eff_v1792_buffer_mode,
+                eff_v1792_target_mode,
+                enf_sw,
+                enf_inv,
+                min_net_rr,
+                context.risk_config_snapshot,
+                context.cost_config_snapshot,
             )
-            v1792_stop_plan_dict = v1792_plan.to_dict()
-            v1792_target_plan_dict = (
-                v1792_plan.target_plan.to_dict() if v1792_plan.target_plan is not None else None
-            )
+            v1792_hit = v1792_memo.get(v1792_key) if can_use_setup_memo else None
+            if v1792_hit is not None and v1792_hit[0] is raw_m1_ref and v1792_hit[1] is raw_m5_ref:
+                v1792_plan = v1792_hit[2]
+                v1792_stop_plan_dict = v1792_hit[3]
+                v1792_target_plan_dict = v1792_hit[4]
+            else:
+                v1792_plan = plan_v17_9_2_structural_stop_and_target(
+                    model_id=model_id,
+                    symbol=context.symbol,
+                    direction=direction,
+                    entry_price=entry_ref,
+                    decision_timestamp_ms=now_ms,
+                    closed_m1=closed_1m,
+                    closed_m5=list(context.closed_m5_candles),
+                    closed_m15=list(context.closed_m15_candles),
+                    closed_h1=list(context.closed_h1_candles),
+                    closed_h4=list(context.closed_h4_candles),
+                    closed_d1=list(context.closed_d1_candles),
+                    sh_1m=sh_1m,
+                    sl_1m=sl_1m,
+                    selected_fvg=selected_fvg,
+                    selected_break=selected_break,
+                    selected_sweep=selected_sweep,
+                    selected_reference=selected_reference,
+                    unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+                    liquidity_pools=list(context.liquidity_pools),
+                    baseline_anchor=anchor_res.anchor,
+                    baseline_sl=structural_sl,
+                    baseline_buffer_price=buffer_px if buffer_px is not None else 0.05,
+                    baseline_target_price=target_price,
+                    baseline_target_id=target_ev_id,
+                    atr_m1=atr_m1_val,
+                    atr_m5=atr_m5_val,
+                    spread=context.spread,
+                    tick_size=cfg.tick_size,
+                    capital_usdt=policy_settings["capital_usdt"],
+                    risk_pct=policy_settings["risk_pct"],
+                    leverage=policy_settings["leverage"],
+                    margin_mode=policy_settings["margin_mode"],
+                    min_net_rr=min_net_rr,
+                    costs=policy_settings["costs"],
+                    v1792_mode=eff_v1792_mode,
+                    buffer_mode=eff_v1792_buffer_mode,
+                    target_mode=eff_v1792_target_mode,
+                    enforce_cross_tf_sweep_check=enf_sw,
+                    enforce_cross_tf_invalidation_check=enf_inv,
+                )
+                v1792_stop_plan_dict = v1792_plan.to_dict()
+                v1792_target_plan_dict = (
+                    v1792_plan.target_plan.to_dict() if v1792_plan.target_plan is not None else None
+                )
+                if can_use_setup_memo:
+                    if len(v1792_memo) >= 32:
+                        v1792_memo.clear()
+                    v1792_memo[v1792_key] = (
+                        raw_m1_ref,
+                        raw_m5_ref,
+                        v1792_plan,
+                        v1792_stop_plan_dict,
+                        v1792_target_plan_dict,
+                    )
 
             if eff_v1792_mode != "OBSERVE_ONLY":
                 if eff_v1792_mode != "TP_POLICY_ONLY":
@@ -3088,28 +3282,64 @@ class SharedStrategyEvaluator:
                 plan_v17_9_3_macro_unicorn_setup,
             )
 
-            v1793_plan = plan_v17_9_3_macro_unicorn_setup(
-                context=context,
-                model_id=model_id,
-                direction=direction,
-                setup_descriptors=setup_info,
-                v1792_plan=v1792_stop_plan_dict,
-                mode=eff_v1793_mode_raw,
-                schedule_config=policy_dict.get("v17_9_3_schedule_config"),
-                entry_price=entry_ref,
-                baseline_sl=structural_sl,
-                baseline_invalidation_price=invalidation_px,
-                require_confirmed_retest=bool(
-                    policy_dict.get("v17_9_3_require_confirmed_retest", True)
-                ),
-                require_htf_alignment=bool(
-                    policy_dict.get("v17_9_3_require_htf_alignment", True)
-                ),
+            sched_cfg = policy_dict.get("v17_9_3_schedule_config")
+            req_ret = bool(policy_dict.get("v17_9_3_require_confirmed_retest", True))
+            req_htf = bool(policy_dict.get("v17_9_3_require_htf_alignment", True))
+            v1793_memo = getattr(cls, "_V1793_PLAN_MEMO", None)
+            if v1793_memo is None:
+                v1793_memo = {}
+                cls._V1793_PLAN_MEMO = v1793_memo
+            v1793_key = (
+                setup_memo_key,
+                id(context.mtf_context),
+                getattr(context, "mtf_quality_state", None),
+                bool(context.session_restricted),
+                eff_v1793_mode_raw,
+                req_ret,
+                req_htf,
+                entry_ref,
+                structural_sl,
+                invalidation_px,
+                id(v1792_stop_plan_dict),
             )
+            can_use_v1793_memo = can_use_setup_memo and sched_cfg is None
+            v1793_hit = v1793_memo.get(v1793_key) if can_use_v1793_memo else None
+            if v1793_hit is not None and v1793_hit[0] is raw_m1_ref:
+                v1793_plan, v1793_macro_dict, v1793_unicorn_dict, v1793_plan_dict = (
+                    v1793_hit[1],
+                    v1793_hit[2],
+                    v1793_hit[3],
+                    v1793_hit[4],
+                )
+            else:
+                v1793_plan = plan_v17_9_3_macro_unicorn_setup(
+                    context=context,
+                    model_id=model_id,
+                    direction=direction,
+                    setup_descriptors=setup_info,
+                    v1792_plan=v1792_stop_plan_dict,
+                    mode=eff_v1793_mode_raw,
+                    schedule_config=sched_cfg,
+                    entry_price=entry_ref,
+                    baseline_sl=structural_sl,
+                    baseline_invalidation_price=invalidation_px,
+                    require_confirmed_retest=req_ret,
+                    require_htf_alignment=req_htf,
+                )
+                v1793_macro_dict = v1793_plan.macro_state.to_dict()
+                v1793_unicorn_dict = v1793_plan.unicorn_assessment.to_dict()
+                v1793_plan_dict = v1793_plan.to_dict()
+                if can_use_v1793_memo:
+                    if len(v1793_memo) >= 64:
+                        v1793_memo.clear()
+                    v1793_memo[v1793_key] = (
+                        raw_m1_ref,
+                        v1793_plan,
+                        v1793_macro_dict,
+                        v1793_unicorn_dict,
+                        v1793_plan_dict,
+                    )
             v1793_mode_final = v1793_plan.mode
-            v1793_macro_dict = v1793_plan.macro_state.to_dict()
-            v1793_unicorn_dict = v1793_plan.unicorn_assessment.to_dict()
-            v1793_plan_dict = v1793_plan.to_dict()
 
             if v1793_plan.mode != "OBSERVE_ONLY":
                 v1793_rej_stage = v1793_plan.rejection_stage

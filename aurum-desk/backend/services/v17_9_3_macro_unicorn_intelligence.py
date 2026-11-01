@@ -738,6 +738,10 @@ def validate_macro_schedule_config(
     )
 
 
+_DEFAULT_VALIDATED_SCHEDULE: Optional[ValidatedMacroSchedule] = None
+_DEFAULT_MACRO_STATE_MEMO: Dict[Tuple[int, str], MacroTimeWindowState] = {}
+
+
 # ==============================================================================
 # FUNCTION #1: resolve_causal_macro_time_window
 # ==============================================================================
@@ -752,8 +756,23 @@ def resolve_causal_macro_time_window(
     Zero wall-clock usage. Uses `ZoneInfo("America/New_York")` for exact US DST handling
     and half-open `[start, end)` window boundaries.
     """
-    sched = validate_macro_schedule_config(schedule_config)
+    global _DEFAULT_VALIDATED_SCHEDULE
     norm_symbol = str(symbol or "XAUUSDT").strip().upper() or "XAUUSDT"
+    if (
+        schedule_config is None
+        and isinstance(decision_timestamp_ms, int)
+        and not isinstance(decision_timestamp_ms, bool)
+    ):
+        memo_key = (decision_timestamp_ms, norm_symbol)
+        hit = _DEFAULT_MACRO_STATE_MEMO.get(memo_key)
+        if hit is not None:
+            return hit
+        if _DEFAULT_VALIDATED_SCHEDULE is None:
+            _DEFAULT_VALIDATED_SCHEDULE = validate_macro_schedule_config(None)
+        sched = _DEFAULT_VALIDATED_SCHEDULE
+    else:
+        memo_key = None
+        sched = validate_macro_schedule_config(schedule_config)
 
     # 1. Fail-closed timestamp validation
     if (
@@ -976,7 +995,7 @@ def resolve_causal_macro_time_window(
         primary = active_matches[0]
         into_min = round(exact_minute_of_day - float(primary.start_minute_of_day), 4)
         rem_min = round(float(primary.end_minute_of_day) - exact_minute_of_day, 4)
-        return MacroTimeWindowState(
+        res = MacroTimeWindowState(
             symbol=norm_symbol,
             decision_timestamp_ms=decision_timestamp_ms,
             is_valid_timestamp=True,
@@ -1006,37 +1025,42 @@ def resolve_causal_macro_time_window(
             minutes_to_nearest_window=0.0,
             reason_codes=(),
         )
-
-    return MacroTimeWindowState(
-        symbol=norm_symbol,
-        decision_timestamp_ms=decision_timestamp_ms,
-        is_valid_timestamp=True,
-        schedule_valid=True,
-        schedule_version=sched.schedule_version,
-        schedule_sha256=sched.schedule_sha256,
-        source=sched.source,
-        timezone_name=sched.timezone_name,
-        utc_iso=utc_iso,
-        ny_local_iso=ny_iso,
-        ny_local_date=ny_date,
-        ny_local_hhmm=ny_hhmm,
-        ny_weekday=ny_weekday,
-        utc_offset_minutes=utc_offset_min,
-        is_dst=is_dst,
-        is_weekend_or_closed=False,
-        is_holiday_closed=False,
-        calendar_verification_status=sched.calendar_verification_status,
-        xau_fix_window_status=sched.xau_fix_window_status,
-        primary_window_id="OUTSIDE_MACRO_WINDOW",
-        active_window_ids=(),
-        session_group="OUTSIDE_MACRO",
-        eligible_for_macro_gate=False,
-        minutes_into_active_window=None,
-        minutes_remaining_in_active_window=None,
-        nearest_window_id=nearest_id,
-        minutes_to_nearest_window=nearest_dist,
-        reason_codes=("MACRO_OUTSIDE_WINDOW",),
-    )
+    else:
+        res = MacroTimeWindowState(
+            symbol=norm_symbol,
+            decision_timestamp_ms=decision_timestamp_ms,
+            is_valid_timestamp=True,
+            schedule_valid=True,
+            schedule_version=sched.schedule_version,
+            schedule_sha256=sched.schedule_sha256,
+            source=sched.source,
+            timezone_name=sched.timezone_name,
+            utc_iso=utc_iso,
+            ny_local_iso=ny_iso,
+            ny_local_date=ny_date,
+            ny_local_hhmm=ny_hhmm,
+            ny_weekday=ny_weekday,
+            utc_offset_minutes=utc_offset_min,
+            is_dst=is_dst,
+            is_weekend_or_closed=False,
+            is_holiday_closed=False,
+            calendar_verification_status=sched.calendar_verification_status,
+            xau_fix_window_status=sched.xau_fix_window_status,
+            primary_window_id="OUTSIDE_MACRO_WINDOW",
+            active_window_ids=(),
+            session_group="OUTSIDE_MACRO",
+            eligible_for_macro_gate=False,
+            minutes_into_active_window=None,
+            minutes_remaining_in_active_window=None,
+            nearest_window_id=nearest_id,
+            minutes_to_nearest_window=nearest_dist,
+            reason_codes=("MACRO_OUTSIDE_WINDOW",),
+        )
+    if memo_key is not None:
+        if len(_DEFAULT_MACRO_STATE_MEMO) >= 256:
+            _DEFAULT_MACRO_STATE_MEMO.clear()
+        _DEFAULT_MACRO_STATE_MEMO[memo_key] = res
+    return res
 
 
 # ==============================================================================
@@ -1212,30 +1236,49 @@ def bind_unicorn_to_causal_episode(
     ).upper()
 
     if mtf_context is not None:
+        mtf_struct = getattr(mtf_context, "mtf_structure", None)
         tf_states = getattr(mtf_context, "timeframe_states", None)
-        if isinstance(tf_states, Mapping) and len(tf_states) > 0:
+        if mtf_struct is not None:
+            biases_real: Dict[str, str] = {}
+            for tf_label, tf_attr in (("15M", "m15"), ("1H", "h1"), ("4H", "h4")):
+                tf_ctx = getattr(mtf_struct, tf_attr, None)
+                if tf_ctx is not None:
+                    t_val = getattr(tf_ctx, "trend", None)
+                    t_str = t_val.value if hasattr(t_val, "value") else str(t_val or "UNKNOWN")
+                    biases_real[tf_label] = t_str
+            htf_bias_summary = ",".join(f"{k}:{v}" for k, v in biases_real.items()) if biases_real else None
+            mtf_q = str(getattr(mtf_context, "mtf_quality_state", "VALID") or "VALID")
+            mtf_ok, mtf_rej, _ = evaluate_mtf_eligibility_for_direction(
+                direction=norm_dir,
+                mtf_context=mtf_context,
+                ablation_mode="STRUCTURE_ONLY",
+                mtf_quality_state=mtf_q,
+            )
+            if mtf_ok:
+                htf_status = "ALIGNED"
+            elif mtf_rej and ("MISSING" in mtf_rej or "INSUFFICIENT" in mtf_rej or "FAILED" in mtf_rej or "INVALID" in mtf_rej):
+                htf_status = "MISSING_OR_UNVERIFIED"
+            else:
+                htf_status = "CONFLICT"
+        elif isinstance(tf_states, Mapping) and len(tf_states) > 0:
             biases: Dict[str, str] = {}
             for tf_k in ("5M", "15M", "1H", "4H"):
                 st = tf_states.get(tf_k)
                 if st is not None:
-                    b_val = getattr(st, "structure_bias", None)
+                    b_val = getattr(st, "structure_bias", None) or getattr(st, "trend", None)
                     b_str = b_val.value if hasattr(b_val, "value") else str(b_val or "UNKNOWN")
                     biases[tf_k] = b_str
             htf_bias_summary = ",".join(f"{k}:{v}" for k, v in biases.items())
-            mtf_ok, mtf_rej, _ = evaluate_mtf_eligibility_for_direction(
-                direction=norm_dir,
-                mtf_context=mtf_context,
-                ablation_mode="FULL",
-                mtf_quality_state="VALID",
-            )
-            if mtf_ok:
-                htf_status = "ALIGNED"
+            opposing = "BEARISH" if norm_dir == "LONG" else "BULLISH"
+            if any(biases.get(k, "UNKNOWN") in ("MISSING", "UNKNOWN") for k in ("15M", "1H", "4H") if k in biases):
+                htf_status = "MISSING_OR_UNVERIFIED"
+            elif (
+                (biases.get("4H") == opposing and biases.get("1H") == opposing)
+                or (biases.get("1H") == opposing and biases.get("15M") == opposing)
+            ):
+                htf_status = "CONFLICT"
             else:
-                # Check if failure is due to missing data vs directional conflict
-                if mtf_rej and ("MISSING" in mtf_rej or "INSUFFICIENT" in mtf_rej or "FAILED" in mtf_rej):
-                    htf_status = "MISSING_OR_UNVERIFIED"
-                else:
-                    htf_status = "CONFLICT"
+                htf_status = "ALIGNED"
 
     if unicorn_evidence is None:
         reasons.append("UNICORN_MISSING_DATA")
@@ -1313,16 +1356,23 @@ def bind_unicorn_to_causal_episode(
         str(sel_sweep.get("id")) if isinstance(sel_sweep, Mapping) and sel_sweep.get("id") else None
     )
     if eff_sweep_id is None and mtf_context is not None:
-        tf_states = getattr(mtf_context, "timeframe_states", None)
-        if isinstance(tf_states, Mapping):
-            for tf_k in ("1M", "5M", "15M"):
-                st = tf_states.get(tf_k)
-                last_sw = getattr(st, "last_sweep", None) if st is not None else None
-                if isinstance(last_sw, Mapping) and last_sw.get("sweep_id"):
-                    sw_known = int(last_sw.get("known_at_ms") or last_sw.get("confirmed_at_ms") or 0)
-                    if 0 < sw_known <= decision_timestamp_ms:
-                        eff_sweep_id = str(last_sw["sweep_id"])
-                        break
+        eval_liq = getattr(mtf_context, "evaluator_liquidity", None)
+        last_sw_obj = getattr(eval_liq, "last_sweep", None) if eval_liq is not None else None
+        if last_sw_obj is not None and getattr(last_sw_obj, "event_id", None):
+            avail_dt = getattr(last_sw_obj, "available_at", None) or getattr(last_sw_obj, "confirmed_at", None)
+            if avail_dt is not None and int(avail_dt.timestamp() * 1000) <= decision_timestamp_ms:
+                eff_sweep_id = str(last_sw_obj.event_id)
+        if eff_sweep_id is None:
+            tf_states = getattr(mtf_context, "timeframe_states", None)
+            if isinstance(tf_states, Mapping):
+                for tf_k in ("1M", "5M", "15M"):
+                    st = tf_states.get(tf_k)
+                    last_sw = getattr(st, "last_sweep", None) if st is not None else None
+                    if isinstance(last_sw, Mapping) and last_sw.get("sweep_id"):
+                        sw_known = int(last_sw.get("known_at_ms") or last_sw.get("confirmed_at_ms") or 0)
+                        if 0 < sw_known <= decision_timestamp_ms:
+                            eff_sweep_id = str(last_sw["sweep_id"])
+                            break
 
     binding_mode = "UNBOUND"
     if same_ep and causal_ts_ok:
@@ -1376,6 +1426,44 @@ def _map_unicorn_status_to_v1793_reason(status_str: str, raw_reasons: Sequence[s
         if "UNCLOSED" in r:
             return "UNICORN_UNCLOSED_BAR_REJECTED"
     return f"UNICORN_{status_str}"
+
+
+_SCAN_UNICORN_MEMO: Dict[Tuple[Any, ...], Tuple[Any, UnicornEvidence]] = {}
+
+
+def _detect_scan_unicorn_memoized(
+    raw_m1_seq: Any,
+    closed_m1: List[Any],
+    direction: str,
+    as_of_ms: int,
+    symbol: str,
+    strict: bool,
+) -> UnicornEvidence:
+    key = (
+        id(raw_m1_seq),
+        as_of_ms,
+        len(closed_m1),
+        _candle_ohlc(closed_m1[-1]) if closed_m1 else (),
+        _candle_ohlc(closed_m1[-2]) if len(closed_m1) >= 2 else (),
+        direction,
+        symbol,
+        bool(strict),
+    )
+    hit = _SCAN_UNICORN_MEMO.get(key)
+    if hit is not None and hit[0] is raw_m1_seq:
+        return hit[1]
+    ev = detect_unicorn_evidence(
+        closed_bars=closed_m1,
+        direction=direction,
+        as_of_ms=as_of_ms,
+        symbol=symbol,
+        timeframe="1M",
+        strict_causal_binding=bool(strict),
+    )
+    if len(_SCAN_UNICORN_MEMO) >= 16:
+        _SCAN_UNICORN_MEMO.clear()
+    _SCAN_UNICORN_MEMO[key] = (raw_m1_seq, ev)
+    return ev
 
 
 # ==============================================================================
@@ -1509,28 +1597,75 @@ def evaluate_causal_unicorn_confluence(
         sel_ref if isinstance(sel_ref, Mapping) else None
     )
 
-    unicorn_ev = detect_unicorn_evidence(
-        closed_bars=closed_m1,
-        direction=norm_dir,
-        as_of_ms=decision_timestamp_ms,
-        symbol=symbol,
-        timeframe="1M",
-        selected_fvg=sel_fvg if isinstance(sel_fvg, Mapping) else None,
-        selected_break=bound_break,
-        selected_reference=bound_ref,
-        strict_causal_binding=bool(strict),
-    )
+    raw_m1_attr = getattr(context, "closed_m1_candles", None)
+    if not isinstance(sel_fvg, Mapping) and bound_break is None and bound_ref is None and raw_m1_attr is not None:
+        unicorn_ev = _detect_scan_unicorn_memoized(
+            raw_m1_attr,
+            closed_m1,
+            norm_dir,
+            decision_timestamp_ms,
+            symbol,
+            bool(strict),
+        )
+    else:
+        bound_memo_key = (
+            (
+                id(raw_m1_attr),
+                len(closed_m1),
+                norm_dir,
+                int(decision_timestamp_ms),
+                str(symbol),
+                bool(strict),
+                str(sel_fvg.get("id")) if isinstance(sel_fvg, Mapping) else None,
+                float(sel_fvg.get("top", 0.0)) if isinstance(sel_fvg, Mapping) else None,
+                float(sel_fvg.get("bottom", 0.0)) if isinstance(sel_fvg, Mapping) else None,
+                int(sel_fvg.get("confirmed_at") or sel_fvg.get("timestamp") or 0) if isinstance(sel_fvg, Mapping) else None,
+                str(bound_break.get("break_id")) if isinstance(bound_break, Mapping) else None,
+                str(bound_ref.get("id")) if isinstance(bound_ref, Mapping) else None,
+            )
+            if raw_m1_attr is not None
+            else None
+        )
+        bound_hit = _SCAN_UNICORN_MEMO.get(bound_memo_key) if bound_memo_key is not None else None
+        if bound_hit is not None and bound_hit[0] is raw_m1_attr:
+            unicorn_ev = bound_hit[1]
+        else:
+            unicorn_ev = detect_unicorn_evidence(
+                closed_bars=closed_m1,
+                direction=norm_dir,
+                as_of_ms=decision_timestamp_ms,
+                symbol=symbol,
+                timeframe="1M",
+                selected_fvg=sel_fvg if isinstance(sel_fvg, Mapping) else None,
+                selected_break=bound_break,
+                selected_reference=bound_ref,
+                strict_causal_binding=bool(strict),
+            )
+            if bound_memo_key is not None:
+                if len(_SCAN_UNICORN_MEMO) >= 64:
+                    _SCAN_UNICORN_MEMO.clear()
+                _SCAN_UNICORN_MEMO[bound_memo_key] = (raw_m1_attr, unicorn_ev)
 
     # Also compute scan-level Unicorn status when sel_fvg was provided, for forensic comparison
     if isinstance(sel_fvg, Mapping):
-        scan_ev = detect_unicorn_evidence(
-            closed_bars=closed_m1,
-            direction=norm_dir,
-            as_of_ms=decision_timestamp_ms,
-            symbol=symbol,
-            timeframe="1M",
-            strict_causal_binding=True,
-        )
+        if raw_m1_attr is not None:
+            scan_ev = _detect_scan_unicorn_memoized(
+                raw_m1_attr,
+                closed_m1,
+                norm_dir,
+                decision_timestamp_ms,
+                symbol,
+                True,
+            )
+        else:
+            scan_ev = detect_unicorn_evidence(
+                closed_bars=closed_m1,
+                direction=norm_dir,
+                as_of_ms=decision_timestamp_ms,
+                symbol=symbol,
+                timeframe="1M",
+                strict_causal_binding=True,
+            )
         scan_status = scan_ev.validity_status
         scan_id = scan_ev.unicorn_id if scan_ev.is_valid else None
     else:
@@ -2098,3 +2233,165 @@ def serialize_v1793_decision_evidence(
         "snapshot_decision_status": getattr(snapshot, "decision_status", None) if snapshot is not None else None,
         "context_fingerprint": getattr(context, "context_fingerprint", None) if context is not None else None,
     }
+
+
+def diagnose_v17931_d1_vs_d2_mtf_gate(
+    context: Any,
+    model_id: str,
+    direction: str,
+    *,
+    snap_d1: Any = None,
+    snap_d2: Any = None,
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1 Section 05: Decomposes `D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP` vs
+    `D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL` across all MTF sub-gates (`H4_ONLY`, `H1_ONLY`,
+    `M15_ONLY`, `M15_H1_ONLY`, `STRUCTURE_ONLY`, `LIQUIDITY_ONLY`, `FULL`) and classifies
+    the exact root cause (`ELIGIBLE_IN_D2`, `ACTUAL_MARKET_CONFLICT`, `STALE_HTF_BAR`,
+    `HISTORICAL_GAP`, `MISSING_HTF_SOURCE`, `CROSS_TF_STRUCTURE_STATE_BUG`,
+    `STOP_INVALIDATION_RR_SIZING_REJECT`).
+    """
+    norm_dir = str(direction or "LONG").strip().upper()
+    ts_ms = int(getattr(context, "decision_timestamp_ms", 0) if context is not None else 0)
+    mtf_ctx = getattr(context, "mtf_context", None) if context is not None else None
+    mtf_q = str(getattr(context, "mtf_quality_state", "DISABLED_OFF") if context is not None else "DISABLED_OFF")
+
+    sub_gates: Dict[str, Dict[str, Any]] = {}
+    for ab_mode in ("H4_ONLY", "H1_ONLY", "M15_ONLY", "M15_H1_ONLY", "STRUCTURE_ONLY", "LIQUIDITY_ONLY", "FULL"):
+        if mtf_ctx is not None:
+            ok, rej, detail = evaluate_mtf_eligibility_for_direction(
+                direction=norm_dir,
+                mtf_context=mtf_ctx,
+                ablation_mode=ab_mode,
+                mtf_quality_state=mtf_q,
+            )
+        else:
+            ok, rej, detail = False, "MTF_MISSING_DATA", "mtf_context is None"
+        sub_gates[ab_mode] = {
+            "passed": bool(ok),
+            "is_eligible": bool(ok),
+            "rejection_code": rej,
+            "detail": detail,
+        }
+
+    h4_trend = "UNKNOWN"
+    h1_trend = "UNKNOWN"
+    m15_trend = "UNKNOWN"
+    h4_q = "UNKNOWN"
+    h1_q = "UNKNOWN"
+    m15_q = "UNKNOWN"
+    alignment = "UNKNOWN"
+    has_fresh_sweep = False
+    last_sweep_dir = None
+    last_closed_ms_by_tf: Dict[str, Optional[int]] = {"M15": None, "H1": None, "H4": None}
+
+    if mtf_ctx is not None:
+        s = getattr(mtf_ctx, "mtf_structure", None)
+        if s is not None:
+            alignment = str(getattr(s, "alignment", "UNKNOWN"))
+            if getattr(s, "h4", None) is not None:
+                h4_trend = str(s.h4.trend.value if hasattr(s.h4.trend, "value") else s.h4.trend)
+                h4_q = str(s.h4.quality_state.value if hasattr(s.h4.quality_state, "value") else s.h4.quality_state)
+            if getattr(s, "h1", None) is not None:
+                h1_trend = str(s.h1.trend.value if hasattr(s.h1.trend, "value") else s.h1.trend)
+                h1_q = str(s.h1.quality_state.value if hasattr(s.h1.quality_state, "value") else s.h1.quality_state)
+            if getattr(s, "m15", None) is not None:
+                m15_trend = str(s.m15.trend.value if hasattr(s.m15.trend, "value") else s.m15.trend)
+                m15_q = str(s.m15.quality_state.value if hasattr(s.m15.quality_state, "value") else s.m15.quality_state)
+        liq = getattr(mtf_ctx, "evaluator_liquidity", None)
+        if liq is not None:
+            has_fresh_sweep = bool(getattr(liq, "has_fresh_sweep", False))
+            sw = getattr(liq, "last_sweep", None)
+            if sw is not None:
+                last_sweep_dir = str(getattr(sw, "implied_reversal_direction", ""))
+        snap_obj = getattr(mtf_ctx, "snapshot", None)
+        if snap_obj is not None and hasattr(snap_obj, "get_window"):
+            for tf_k in ("M15", "H1", "H4"):
+                w = snap_obj.get_window(tf_k)
+                if w is not None and getattr(w, "last_closed_at", None) is not None:
+                    last_closed_ms_by_tf[tf_k] = int(w.last_closed_at.timestamp() * 1000)
+
+    d1_status = str(getattr(snap_d1, "decision_status", "UNKNOWN")) if snap_d1 is not None else "UNKNOWN"
+    d2_status = str(getattr(snap_d2, "decision_status", "UNKNOWN")) if snap_d2 is not None else "UNKNOWN"
+    d2_reasons = list(getattr(snap_d2, "rejection_reason_codes", ()) or ()) if snap_d2 is not None else []
+
+    opposing_trend = "BEARISH" if norm_dir == "LONG" else "BULLISH"
+    full_gate = sub_gates["FULL"]
+    if d2_status == "ELIGIBLE" or bool(full_gate["passed"]):
+        primary_root_cause = "ELIGIBLE_IN_D2"
+        root_cause_classification = "D2_ELIGIBLE_AFTER_MTF_BINDING_FIX"
+        legacy_v1793_defect = "CROSS_TF_STRUCTURE_STATE_BUG"
+    elif mtf_ctx is None or mtf_q in ("DISABLED_OFF", "MTF_CONTEXT_BUILD_FAILED"):
+        primary_root_cause = "MISSING_HTF_SOURCE"
+        root_cause_classification = "MISSING_HTF_SOURCE"
+        legacy_v1793_defect = "NONE"
+    elif mtf_q == "STALE_HTF" or any(q == "STALE_HTF" for q in (h4_q, h1_q, m15_q)):
+        primary_root_cause = "STALE_HTF_BAR"
+        if h1_trend == opposing_trend:
+            root_cause_classification = "TRUE_H1_STRUCTURE_CONFLICT"
+        elif h4_trend == opposing_trend:
+            root_cause_classification = "TRUE_H4_STRUCTURE_CONFLICT"
+        elif m15_trend == opposing_trend:
+            root_cause_classification = "TRUE_M15_STRUCTURE_CONFLICT"
+        else:
+            root_cause_classification = "STALE_HTF_BAR"
+        legacy_v1793_defect = "CROSS_TF_STRUCTURE_STATE_BUG"
+    elif mtf_q in ("MISSING_BARS", "INSUFFICIENT_HISTORY") or any(
+        q in ("MISSING_BARS", "INSUFFICIENT_HISTORY") for q in (h4_q, h1_q, m15_q)
+    ):
+        primary_root_cause = "HISTORICAL_GAP"
+        root_cause_classification = "HISTORICAL_GAP"
+        legacy_v1793_defect = "CROSS_TF_STRUCTURE_STATE_BUG"
+    elif full_gate["rejection_code"] in (
+        "MTF_CONFLICT",
+        "MTF_STRUCTURE_FILTER_REJECT",
+        "MTF_LIQUIDITY_FILTER_REJECT",
+    ):
+        primary_root_cause = "ACTUAL_MARKET_CONFLICT"
+        if h1_trend == opposing_trend:
+            root_cause_classification = "TRUE_H1_STRUCTURE_CONFLICT"
+        elif h4_trend == opposing_trend:
+            root_cause_classification = "TRUE_H4_STRUCTURE_CONFLICT"
+        elif m15_trend == opposing_trend:
+            root_cause_classification = "TRUE_M15_STRUCTURE_CONFLICT"
+        else:
+            root_cause_classification = "ACTUAL_MARKET_CONFLICT"
+        legacy_v1793_defect = "CROSS_TF_STRUCTURE_STATE_BUG"
+    else:
+        primary_root_cause = "STOP_INVALIDATION_RR_SIZING_REJECT"
+        root_cause_classification = "STOP_INVALIDATION_RR_SIZING_REJECT"
+        legacy_v1793_defect = "NONE"
+
+    # Secondary market conflict check even when STALE_HTF triggered first
+    has_concurrent_market_conflict = bool(
+        (h4_trend == opposing_trend and h1_trend == opposing_trend)
+        or (h1_trend == opposing_trend and m15_trend == opposing_trend)
+        or (has_fresh_sweep and last_sweep_dir == opposing_trend)
+        or not sub_gates["STRUCTURE_ONLY"]["passed"]
+        or not sub_gates["LIQUIDITY_ONLY"]["passed"]
+    )
+
+    return {
+        "model_id": str(model_id),
+        "direction": norm_dir,
+        "decision_timestamp_ms": ts_ms,
+        "d1_decision_status": d1_status,
+        "d2_decision_status": d2_status,
+        "d1_eligible": d1_status == "ELIGIBLE",
+        "d2_eligible": d2_status == "ELIGIBLE",
+        "d2_rejection_reasons": d2_reasons,
+        "mtf_quality_state": mtf_q,
+        "mtf_alignment": alignment,
+        "timeframe_trends": {"H4": h4_trend, "H1": h1_trend, "M15": m15_trend},
+        "timeframe_quality_states": {"H4": h4_q, "H1": h1_q, "M15": m15_q},
+        "last_closed_bar_ms_by_tf": last_closed_ms_by_tf,
+        "has_fresh_sweep": has_fresh_sweep,
+        "last_sweep_implied_reversal_direction": last_sweep_dir,
+        "sub_gate_verdicts": sub_gates,
+        "ablation_results": sub_gates,
+        "primary_root_cause": primary_root_cause,
+        "root_cause_classification": root_cause_classification,
+        "has_concurrent_market_conflict": has_concurrent_market_conflict,
+        "legacy_v1793_bind_unicorn_defect": legacy_v1793_defect,
+    }
+

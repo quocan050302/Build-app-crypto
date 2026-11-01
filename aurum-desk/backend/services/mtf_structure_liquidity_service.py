@@ -892,12 +892,42 @@ def build_mtf_bar_snapshot(
         elif isinstance(raw_seq, NormalizedBars):
             win = get_closed_bars_asof(raw_seq, tf_key, asof_dt)
         else:
-            norm = normalize_market_bars(
-                symbol,
-                tf_key,
-                raw_seq,
-                source_metadata={**meta, "venue": venue, "tick_size": cfg.tick_size},
-            )
+            norm_memo = getattr(build_mtf_bar_snapshot, "_NORM_TUPLE_MEMO", None)
+            if norm_memo is None:
+                norm_memo = {}
+                setattr(build_mtf_bar_snapshot, "_NORM_TUPLE_MEMO", norm_memo)
+            if not meta and isinstance(raw_seq, tuple):
+                b0 = raw_seq[0] if raw_seq else None
+                b_last = raw_seq[-1] if raw_seq else None
+                norm_key = (
+                    symbol,
+                    tf_key,
+                    venue,
+                    cfg.tick_size,
+                    len(raw_seq),
+                    (b0.get("open_time"), b0.get("close")) if isinstance(b0, dict) else id(b0),
+                    (b_last.get("open_time"), b_last.get("close_time"), b_last.get("high"), b_last.get("low"), b_last.get("close"))
+                    if isinstance(b_last, dict)
+                    else id(b_last),
+                )
+                norm = norm_memo.get(norm_key)
+                if norm is None:
+                    norm = normalize_market_bars(
+                        symbol,
+                        tf_key,
+                        raw_seq,
+                        source_metadata={"venue": venue, "tick_size": cfg.tick_size},
+                    )
+                    if len(norm_memo) >= 64:
+                        norm_memo.clear()
+                    norm_memo[norm_key] = norm
+            else:
+                norm = normalize_market_bars(
+                    symbol,
+                    tf_key,
+                    raw_seq,
+                    source_metadata={**meta, "venue": venue, "tick_size": cfg.tick_size},
+                )
             win = get_closed_bars_asof(norm, tf_key, asof_dt)
         windows[tf_key] = win
         if win.rejection_reasons:
@@ -3812,21 +3842,33 @@ def build_variant_market_context(
         build_market_decision_context,
     )
 
-    if (
-        reference_context is not None
-        and getattr(reference_context, "mtf_context", None) is not None
-        and (bool(variant_policy.get("mtf_structure_observe_only", False)) or bool(variant_policy.get("mtf_structure_eligibility_enabled", False)))
-    ):
+    if reference_context is not None and getattr(reference_context, "mtf_context", None) is not None:
         merged_pol = dict(reference_context.policy_config_snapshot)
         merged_pol.update(dict(variant_policy))
         pol_tuple = tuple(sorted(merged_pol.items()))
+        ref_summaries_memo = getattr(build_variant_market_context, "_REF_SUMMARIES_MEMO", None)
+        if ref_summaries_memo is None:
+            ref_summaries_memo = {}
+            setattr(build_variant_market_context, "_REF_SUMMARIES_MEMO", ref_summaries_memo)
+        ref_id = id(reference_context)
+        ref_hit = ref_summaries_memo.get(ref_id)
+        if ref_hit is not None and ref_hit[0] is reference_context:
+            s_m1, s_m5, s_m15, s_h1 = ref_hit[1], ref_hit[2], ref_hit[3], ref_hit[4]
+        else:
+            s_m1 = _candle_summary(reference_context.closed_m1_candles, 60_000)
+            s_m5 = _candle_summary(reference_context.closed_m5_candles, 300_000)
+            s_m15 = _candle_summary(reference_context.closed_m15_candles, 900_000)
+            s_h1 = _candle_summary(reference_context.closed_h1_candles, 3_600_000)
+            if len(ref_summaries_memo) >= 8:
+                ref_summaries_memo.clear()
+            ref_summaries_memo[ref_id] = (reference_context, s_m1, s_m5, s_m15, s_h1)
         fp_payload = {
             "symbol": reference_context.symbol,
             "decision_timestamp_ms": reference_context.decision_timestamp_ms,
-            "m1": _candle_summary(reference_context.closed_m1_candles, 60_000),
-            "m5": _candle_summary(reference_context.closed_m5_candles, 300_000),
-            "m15": _candle_summary(reference_context.closed_m15_candles, 900_000),
-            "h1": _candle_summary(reference_context.closed_h1_candles, 3_600_000),
+            "m1": s_m1,
+            "m5": s_m5,
+            "m15": s_m15,
+            "h1": s_h1,
             "bid": reference_context.bid,
             "ask": reference_context.ask,
             "spread": reference_context.spread,
@@ -3838,13 +3880,34 @@ def build_variant_market_context(
             "cost": reference_context.cost_config_snapshot,
         }
         source_fp = _canonical_hash(fp_payload)
+        mtf_obs = bool(merged_pol.get("mtf_structure_observe_only", False))
+        mtf_elig = bool(merged_pol.get("mtf_structure_eligibility_enabled", False))
+        if not mtf_obs and not mtf_elig:
+            return dataclasses.replace(
+                reference_context,
+                policy_config_snapshot=pol_tuple,
+                source_fingerprint=source_fp,
+                mtf_context_id=None,
+                mtf_context_hash=None,
+                mtf_quality_state="DISABLED_OFF",
+                mtf_structure_bias_summary=None,
+                mtf_liquidity_summary=None,
+                mtf_context=None,
+                mtf_diagnostic_error=None,
+            )
         mtf_cfg = MtfStructureLiquidityConfig(
             symbol=reference_context.symbol if reference_context.symbol == "XAUUSDT" else "XAUUSDT",
-            mtf_structure_observe_only=bool(merged_pol.get("mtf_structure_observe_only", True)),
-            mtf_structure_eligibility_enabled=bool(merged_pol.get("mtf_structure_eligibility_enabled", False)),
+            mtf_structure_observe_only=mtf_obs,
+            mtf_structure_eligibility_enabled=mtf_elig,
             mtf_ablation_mode=str(merged_pol.get("mtf_ablation_mode", "FULL")),
         )
         b_mtf = reference_context.mtf_context
+        if mtf_cfg == b_mtf.config:
+            return dataclasses.replace(
+                reference_context,
+                policy_config_snapshot=pol_tuple,
+                source_fingerprint=source_fp,
+            )
         cfg_hash = mtf_cfg.config_hash()
         ctx_hash = deterministic_hash(
             {

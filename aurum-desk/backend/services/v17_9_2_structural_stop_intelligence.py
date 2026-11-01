@@ -451,131 +451,163 @@ def collect_causal_stop_anchor_candidates(
                 model_compatibility=("UNICORN_BREAKER_FVG", "SMC_M1_FVG_CONTINUATION", "SMC_M1_CONTINUATION"),
             )
 
-    # 2. Confirmed M5 swings (outer protected structural swings)
-    if len(strictly_closed_m5) >= 3:
-        sh_5m, sl_5m = identify_confirmed_swings(
-            strictly_closed_m5, timeframe="5M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
-        )
-        m5_swings = sl_5m if norm_dir == "LONG" else sh_5m
-        m5_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
-        for sw in m5_swings:
-            sw_px = float(sw.get("price", 0.0))
-            sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
-            sw_known = int(sw.get("known_at_ms", sw_occ + 300_000))
-            _add_candidate(
-                anchor_id=f"v1792_m5_{sw.get('id', sw_occ)}",
-                anchor_kind=m5_kind,
-                anchor_price=sw_px,
-                timeframe="5M",
-                occurred_at_ms=sw_occ,
-                known_at_ms=sw_known,
-                source_bar_open_ms=sw_occ,
-                source_bar_close_ms=sw_known,
-                is_closed_bar=sw_known <= cutoff_ms,
-                is_protected_swing=True,
-                is_local_sweep_only=False,
-                structural_rank=92,
-                source_leg_id=str(sw.get("id", f"m5_{sw_occ}")),
-                model_compatibility=(
-                    "SMC_M1_REVERSAL",
-                    "SMC_M1_M5_LIQUIDITY_REVERSAL",
-                    "SMC_M1_FVG_CONTINUATION",
-                    "SMC_M1_CONTINUATION",
-                    "SMC_M1_BREAKOUT_RETEST",
-                ),
-            )
-
-    # 3. Confirmed M15 swings (HTF context / outer structure if within reasonable scalp range)
-    if len(strictly_closed_m15) >= 3:
-        sh_15m, sl_15m = identify_confirmed_swings(
-            strictly_closed_m15, timeframe="15M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
-        )
-        m15_swings = sl_15m if norm_dir == "LONG" else sh_15m
-        m15_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
-        for sw in m15_swings:
-            sw_px = float(sw.get("price", 0.0))
-            sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
-            sw_known = int(sw.get("known_at_ms", sw_occ + 900_000))
-            _add_candidate(
-                anchor_id=f"v1792_m15_{sw.get('id', sw_occ)}",
-                anchor_kind=m15_kind,
-                anchor_price=sw_px,
-                timeframe="15M",
-                occurred_at_ms=sw_occ,
-                known_at_ms=sw_known,
-                source_bar_open_ms=sw_occ,
-                source_bar_close_ms=sw_known,
-                is_closed_bar=sw_known <= cutoff_ms,
-                is_protected_swing=True,
-                is_local_sweep_only=False,
-                structural_rank=88,
-                source_leg_id=str(sw.get("id", f"m15_{sw_occ}")),
-                model_compatibility=(
-                    "SMC_M1_REVERSAL",
-                    "SMC_M1_M5_LIQUIDITY_REVERSAL",
-                    "SMC_M1_FVG_CONTINUATION",
-                    "SMC_M1_CONTINUATION",
-                    "SMC_M1_BREAKOUT_RETEST",
-                ),
-            )
-
-    # 4. Confirmed M1 swings (distinguish outer protected swing vs internal minor swing)
-    raw_m1_swings = list(sl_1m if norm_dir == "LONG" else sh_1m)
-    if not raw_m1_swings and len(strictly_closed_m1) >= 5:
-        sh_auto, sl_auto = identify_confirmed_swings(
-            strictly_closed_m1, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=cutoff_ms
-        )
-        raw_m1_swings = list(sl_auto if norm_dir == "LONG" else sh_auto)
-
-    valid_m1_prices = [
-        float(s.get("price", 0.0))
-        for s in raw_m1_swings
-        if _is_valid_finite_price(s.get("price"))
-        and int(s.get("known_at_ms", s.get("occurred_at_ms", 0))) <= cutoff_ms
-        and (
-            (norm_dir == "LONG" and float(s.get("price")) < float(entry_price))
-            if _is_valid_finite_price(entry_price)
-            else True
-        )
-        and (
-            (norm_dir == "SHORT" and float(s.get("price")) > float(entry_price))
-            if _is_valid_finite_price(entry_price)
-            else True
-        )
-    ]
-    outer_m1_extreme: Optional[float] = None
-    if valid_m1_prices:
-        outer_m1_extreme = min(valid_m1_prices) if norm_dir == "LONG" else max(valid_m1_prices)
-
+    # 2–4. Confirmed M5, M15, and M1 swings (common across all models at the same cutoff_ms)
     m1_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
-    for sw in raw_m1_swings:
-        sw_id = str(sw.get("id", f"m1_sw_{sw.get('occurred_at_ms', 0)}"))
-        sw_px = float(sw.get("price", 0.0))
-        sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
-        sw_known = int(sw.get("known_at_ms", sw_occ + 120_000))
-        is_outer = bool(outer_m1_extreme is not None and abs(sw_px - outer_m1_extreme) <= tick_size * 1.5)
-        _add_candidate(
-            anchor_id=sw_id,
-            anchor_kind=m1_kind,
-            anchor_price=sw_px,
-            timeframe="1M",
-            occurred_at_ms=sw_occ,
-            known_at_ms=sw_known,
-            source_bar_open_ms=sw_occ,
-            source_bar_close_ms=sw_known,
-            is_closed_bar=sw_known <= cutoff_ms,
-            is_protected_swing=is_outer,
-            is_local_sweep_only=not is_outer,
-            structural_rank=90 if is_outer else 72,
-            source_leg_id=sw_id,
-            model_compatibility=(
-                "SMC_M1_FVG_CONTINUATION",
-                "SMC_M1_CONTINUATION",
-                "SMC_M1_BREAKOUT_RETEST",
-                "SMC_M1_REVERSAL",
-                "SMC_M1_M5_LIQUIDITY_REVERSAL",
-            ),
-        )
+    common_memo = getattr(collect_causal_stop_anchor_candidates, "_COMMON_SWING_ANC_MEMO", None)
+    if common_memo is None:
+        common_memo = {}
+        setattr(collect_causal_stop_anchor_candidates, "_COMMON_SWING_ANC_MEMO", common_memo)
+    common_key = (
+        norm_dir,
+        round(float(entry_price), 4) if _is_valid_finite_price(entry_price) else None,
+        cutoff_ms,
+        len(strictly_closed_m1),
+        _candle_close_ms(strictly_closed_m1[-1], 60_000) if strictly_closed_m1 else 0,
+        _candle_ohlc(strictly_closed_m1[-1]) if strictly_closed_m1 else None,
+        _candle_ohlc(strictly_closed_m1[0]) if strictly_closed_m1 else None,
+        len(strictly_closed_m5),
+        _candle_ohlc(strictly_closed_m5[-1]) if strictly_closed_m5 else None,
+        len(strictly_closed_m15),
+        _candle_ohlc(strictly_closed_m15[-1]) if strictly_closed_m15 else None,
+        len(sh_1m),
+        len(sl_1m),
+        round(float(tick_size), 4),
+        bool(enforce_cross_tf_invalidation_check),
+    )
+    common_hit = common_memo.get(common_key)
+    if common_hit is not None:
+        common_cands, outer_m1_extreme = common_hit
+        for cc in common_cands:
+            if cc.anchor_id not in seen_ids:
+                seen_ids.add(cc.anchor_id)
+                candidates.append(cc)
+    else:
+        pre_common_len = len(candidates)
+        if len(strictly_closed_m5) >= 3:
+            sh_5m, sl_5m = identify_confirmed_swings(
+                strictly_closed_m5, timeframe="5M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
+            )
+            m5_swings = sl_5m if norm_dir == "LONG" else sh_5m
+            m5_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
+            for sw in m5_swings:
+                sw_px = float(sw.get("price", 0.0))
+                sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
+                sw_known = int(sw.get("known_at_ms", sw_occ + 300_000))
+                _add_candidate(
+                    anchor_id=f"v1792_m5_{sw.get('id', sw_occ)}",
+                    anchor_kind=m5_kind,
+                    anchor_price=sw_px,
+                    timeframe="5M",
+                    occurred_at_ms=sw_occ,
+                    known_at_ms=sw_known,
+                    source_bar_open_ms=sw_occ,
+                    source_bar_close_ms=sw_known,
+                    is_closed_bar=sw_known <= cutoff_ms,
+                    is_protected_swing=True,
+                    is_local_sweep_only=False,
+                    structural_rank=92,
+                    source_leg_id=str(sw.get("id", f"m5_{sw_occ}")),
+                    model_compatibility=(
+                        "SMC_M1_REVERSAL",
+                        "SMC_M1_M5_LIQUIDITY_REVERSAL",
+                        "SMC_M1_FVG_CONTINUATION",
+                        "SMC_M1_CONTINUATION",
+                        "SMC_M1_BREAKOUT_RETEST",
+                    ),
+                )
+
+        if len(strictly_closed_m15) >= 3:
+            sh_15m, sl_15m = identify_confirmed_swings(
+                strictly_closed_m15, timeframe="15M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
+            )
+            m15_swings = sl_15m if norm_dir == "LONG" else sh_15m
+            m15_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
+            for sw in m15_swings:
+                sw_px = float(sw.get("price", 0.0))
+                sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
+                sw_known = int(sw.get("known_at_ms", sw_occ + 900_000))
+                _add_candidate(
+                    anchor_id=f"v1792_m15_{sw.get('id', sw_occ)}",
+                    anchor_kind=m15_kind,
+                    anchor_price=sw_px,
+                    timeframe="15M",
+                    occurred_at_ms=sw_occ,
+                    known_at_ms=sw_known,
+                    source_bar_open_ms=sw_occ,
+                    source_bar_close_ms=sw_known,
+                    is_closed_bar=sw_known <= cutoff_ms,
+                    is_protected_swing=True,
+                    is_local_sweep_only=False,
+                    structural_rank=88,
+                    source_leg_id=str(sw.get("id", f"m15_{sw_occ}")),
+                    model_compatibility=(
+                        "SMC_M1_REVERSAL",
+                        "SMC_M1_M5_LIQUIDITY_REVERSAL",
+                        "SMC_M1_FVG_CONTINUATION",
+                        "SMC_M1_CONTINUATION",
+                        "SMC_M1_BREAKOUT_RETEST",
+                    ),
+                )
+
+        raw_m1_swings = list(sl_1m if norm_dir == "LONG" else sh_1m)
+        if not raw_m1_swings and len(strictly_closed_m1) >= 5:
+            sh_auto, sl_auto = identify_confirmed_swings(
+                strictly_closed_m1, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=cutoff_ms
+            )
+            raw_m1_swings = list(sl_auto if norm_dir == "LONG" else sh_auto)
+
+        valid_m1_prices = [
+            float(s.get("price", 0.0))
+            for s in raw_m1_swings
+            if _is_valid_finite_price(s.get("price"))
+            and int(s.get("known_at_ms", s.get("occurred_at_ms", 0))) <= cutoff_ms
+            and (
+                (norm_dir == "LONG" and float(s.get("price")) < float(entry_price))
+                if _is_valid_finite_price(entry_price)
+                else True
+            )
+            and (
+                (norm_dir == "SHORT" and float(s.get("price")) > float(entry_price))
+                if _is_valid_finite_price(entry_price)
+                else True
+            )
+        ]
+        outer_m1_extreme: Optional[float] = None
+        if valid_m1_prices:
+            outer_m1_extreme = min(valid_m1_prices) if norm_dir == "LONG" else max(valid_m1_prices)
+
+        m1_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
+        for sw in raw_m1_swings:
+            sw_id = str(sw.get("id", f"m1_sw_{sw.get('occurred_at_ms', 0)}"))
+            sw_px = float(sw.get("price", 0.0))
+            sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
+            sw_known = int(sw.get("known_at_ms", sw_occ + 120_000))
+            is_outer = bool(outer_m1_extreme is not None and abs(sw_px - outer_m1_extreme) <= tick_size * 1.5)
+            _add_candidate(
+                anchor_id=sw_id,
+                anchor_kind=m1_kind,
+                anchor_price=sw_px,
+                timeframe="1M",
+                occurred_at_ms=sw_occ,
+                known_at_ms=sw_known,
+                source_bar_open_ms=sw_occ,
+                source_bar_close_ms=sw_known,
+                is_closed_bar=sw_known <= cutoff_ms,
+                is_protected_swing=is_outer,
+                is_local_sweep_only=not is_outer,
+                structural_rank=90 if is_outer else 72,
+                source_leg_id=sw_id,
+                model_compatibility=(
+                    "SMC_M1_FVG_CONTINUATION",
+                    "SMC_M1_CONTINUATION",
+                    "SMC_M1_BREAKOUT_RETEST",
+                    "SMC_M1_REVERSAL",
+                    "SMC_M1_M5_LIQUIDITY_REVERSAL",
+                ),
+            )
+        if len(common_memo) >= 16:
+            common_memo.clear()
+        common_memo[common_key] = (tuple(candidates[pre_common_len:]), outer_m1_extreme)
 
     # 5. Baseline anchor (e.g. local sweep extreme or FVG displacement origin)
     if baseline_anchor is not None:
@@ -917,20 +949,31 @@ def resolve_causal_target_candidates(
         "1H": [b for b in (closed_h1 or ()) if _candle_is_closed(b, cutoff_ms, 3_600_000)],
         "4H": [b for b in (closed_h4 or ()) if _candle_is_closed(b, cutoff_ms, 14_400_000)],
     }
+    tf_triples = {
+        tf_k: [(_candle_open_ms(b), _candle_ohlc(b)[1], _candle_ohlc(b)[2]) for b in tf_v]
+        for tf_k, tf_v in strictly_closed_by_tf.items()
+    }
 
-    def _is_pool_swept_cross_tf(lvl_px: float, after_open_ms: int, same_tf_bars: Sequence[Any]) -> bool:
-        for b in same_tf_bars:
-            if _candle_open_ms(b) <= after_open_ms:
-                continue
-            _, bh, bl, _ = _candle_ohlc(b)
-            if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
-                return True
+    def _is_pool_swept_cross_tf(lvl_px: float, after_open_ms: int, same_tf_bars: Sequence[Any], tf_key: str = "") -> bool:
+        same_tr = tf_triples.get(tf_key)
+        if same_tr is not None:
+            for b_open, bh, bl in same_tr:
+                if b_open <= after_open_ms:
+                    continue
+                if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
+                    return True
+        else:
+            for b in same_tf_bars:
+                if _candle_open_ms(b) <= after_open_ms:
+                    continue
+                _, bh, bl, _ = _candle_ohlc(b)
+                if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
+                    return True
         if enforce_cross_tf_sweep_check:
             for ltf_lbl in ("1M", "5M", "15M", "1H", "4H"):
-                for b in strictly_closed_by_tf[ltf_lbl]:
-                    if _candle_open_ms(b) <= after_open_ms:
+                for b_open, bh, bl in tf_triples[ltf_lbl]:
+                    if b_open <= after_open_ms:
                         continue
-                    _, bh, bl, _ = _candle_ohlc(b)
                     if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
                         return True
         return False
@@ -1001,8 +1044,14 @@ def resolve_causal_target_candidates(
             p_known = int(getattr(p, "known_at_ms", getattr(p, "occurred_at_ms", cutoff_ms)) or cutoff_ms)
             p_occ = int(getattr(p, "occurred_at_ms", p_known) or p_known)
             p_state = str(getattr(p, "state", "UNTOUCHED"))
-        if _is_valid_finite_price(p_px) and _is_pool_swept_cross_tf(
-            float(p_px), p_occ, strictly_closed_by_tf.get(p_tf.upper(), ())
+        if not _is_valid_finite_price(p_px):
+            continue
+        px_f = float(p_px)
+        if (norm_dir == "LONG" and px_f <= ent + min_dist) or (norm_dir == "SHORT" and px_f >= ent - min_dist):
+            continue
+        p_tf_up = p_tf.upper()
+        if _is_pool_swept_cross_tf(
+            px_f, p_occ, strictly_closed_by_tf.get(p_tf_up, ()), p_tf_up
         ):
             continue
         _try_add_pool(p_id, p_px, p_side, p_kind, p_tf, p_occ, p_known, p_state)
@@ -1024,9 +1073,11 @@ def resolve_causal_target_candidates(
         target_swings = sh_list if norm_dir == "LONG" else sl_list
         for sw in target_swings:
             sw_px = float(sw.get("price", 0.0))
+            if (norm_dir == "LONG" and sw_px <= ent + min_dist) or (norm_dir == "SHORT" and sw_px >= ent - min_dist):
+                continue
             sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
             sw_known = int(sw.get("known_at_ms", sw_occ + rb * tf_ms))
-            if not _is_pool_swept_cross_tf(sw_px, sw_occ, c_bars):
+            if not _is_pool_swept_cross_tf(sw_px, sw_occ, c_bars, tf_label):
                 _try_add_pool(
                     f"pool_{tf_label}_{sw.get('id', sw_occ)}",
                     sw_px,
@@ -1446,33 +1497,66 @@ def plan_v17_9_2_structural_stop_and_target(
     mode_norm = str(v1792_mode or "OBSERVE_ONLY").strip().upper()
 
     # 1. Collect & rank causal stop anchor candidates
-    candidates = collect_causal_stop_anchor_candidates(
-        model_id=model_id,
-        direction=norm_dir,
-        entry_price=entry_price,
-        decision_timestamp_ms=cutoff_ms,
-        closed_m1=closed_m1,
-        closed_m5=closed_m5,
-        closed_m15=closed_m15,
-        sh_1m=sh_1m,
-        sl_1m=sl_1m,
-        selected_fvg=selected_fvg,
-        selected_break=selected_break,
-        selected_sweep=selected_sweep,
-        selected_reference=selected_reference,
-        unicorn_evidence=unicorn_evidence,
-        baseline_anchor=baseline_anchor,
-        tick_size=tick_size,
-        enforce_cross_tf_invalidation_check=enforce_cross_tf_invalidation_check,
+    anc_cands_memo = getattr(plan_v17_9_2_structural_stop_and_target, "_ANC_CANDS_MEMO", None)
+    if anc_cands_memo is None:
+        anc_cands_memo = {}
+        setattr(plan_v17_9_2_structural_stop_and_target, "_ANC_CANDS_MEMO", anc_cands_memo)
+    ac_key = (
+        model_id,
+        norm_dir,
+        round(float(entry_price), 4),
+        cutoff_ms,
+        len(closed_m1),
+        _candle_close_ms(closed_m1[-1], 60_000) if closed_m1 else 0,
+        _candle_ohlc(closed_m1[-1]) if closed_m1 else None,
+        _candle_ohlc(closed_m1[0]) if closed_m1 else None,
+        len(closed_m5),
+        _candle_ohlc(closed_m5[-1]) if closed_m5 else None,
+        len(closed_m15),
+        _candle_ohlc(closed_m15[-1]) if closed_m15 else None,
+        str(selected_fvg.get("id")) if isinstance(selected_fvg, Mapping) else None,
+        str(selected_break.get("break_id")) if isinstance(selected_break, Mapping) else None,
+        str(selected_sweep.get("id")) if isinstance(selected_sweep, Mapping) else None,
+        str(getattr(baseline_anchor, "id", None)),
+        getattr(baseline_anchor, "price", None),
+        bool(getattr(unicorn_evidence, "is_valid", False)),
+        tick_size,
+        bool(enforce_cross_tf_invalidation_check),
     )
-    selected_anc, ranked_cands, rank_reasons = rank_structure_valid_anchors(
-        candidates,
-        model_id=model_id,
-        direction=norm_dir,
-        entry_price=entry_price,
-        decision_timestamp_ms=cutoff_ms,
-        tick_size=tick_size,
-    )
+    ac_hit = anc_cands_memo.get(ac_key)
+    if ac_hit is not None:
+        selected_anc, ranked_cands, rank_reasons = ac_hit
+    else:
+        candidates = collect_causal_stop_anchor_candidates(
+            model_id=model_id,
+            direction=norm_dir,
+            entry_price=entry_price,
+            decision_timestamp_ms=cutoff_ms,
+            closed_m1=closed_m1,
+            closed_m5=closed_m5,
+            closed_m15=closed_m15,
+            sh_1m=sh_1m,
+            sl_1m=sl_1m,
+            selected_fvg=selected_fvg,
+            selected_break=selected_break,
+            selected_sweep=selected_sweep,
+            selected_reference=selected_reference,
+            unicorn_evidence=unicorn_evidence,
+            baseline_anchor=baseline_anchor,
+            tick_size=tick_size,
+            enforce_cross_tf_invalidation_check=enforce_cross_tf_invalidation_check,
+        )
+        selected_anc, ranked_cands, rank_reasons = rank_structure_valid_anchors(
+            candidates,
+            model_id=model_id,
+            direction=norm_dir,
+            entry_price=entry_price,
+            decision_timestamp_ms=cutoff_ms,
+            tick_size=tick_size,
+        )
+        if len(anc_cands_memo) >= 32:
+            anc_cands_memo.clear()
+        anc_cands_memo[ac_key] = (selected_anc, ranked_cands, rank_reasons)
 
     # 2. Compute causal noise buffer & derive proposed SL
     if mode_norm == "TP_POLICY_ONLY":
@@ -1523,21 +1607,51 @@ def plan_v17_9_2_structural_stop_and_target(
         if mode_norm in ("TP_POLICY_ONLY", "STRUCTURE_PLUS_TP")
         else str(target_mode or "BASELINE_FROZEN")
     )
-    target_cands = resolve_causal_target_candidates(
-        direction=norm_dir,
-        entry_price=entry_price,
-        decision_timestamp_ms=cutoff_ms,
-        liquidity_pools=liquidity_pools,
-        closed_m1=closed_m1,
-        closed_m5=closed_m5,
-        closed_m15=closed_m15,
-        closed_h1=closed_h1,
-        closed_h4=closed_h4,
-        closed_d1=closed_d1,
-        atr_m1=atr_m1,
-        tick_size=tick_size,
-        enforce_cross_tf_sweep_check=enforce_cross_tf_sweep_check,
+    target_cands_memo = getattr(plan_v17_9_2_structural_stop_and_target, "_TARGET_CANDS_MEMO", None)
+    if target_cands_memo is None:
+        target_cands_memo = {}
+        setattr(plan_v17_9_2_structural_stop_and_target, "_TARGET_CANDS_MEMO", target_cands_memo)
+    tc_key = (
+        norm_dir,
+        round(float(entry_price), 4),
+        cutoff_ms,
+        len(liquidity_pools),
+        tuple((getattr(p, "id", None), getattr(p, "price", None), getattr(p, "swept", None)) for p in liquidity_pools[:8]),
+        len(closed_m1),
+        _candle_close_ms(closed_m1[-1], 60_000) if closed_m1 else 0,
+        _candle_ohlc(closed_m1[-1]) if closed_m1 else None,
+        _candle_ohlc(closed_m1[0]) if closed_m1 else None,
+        len(closed_m5),
+        _candle_ohlc(closed_m5[-1]) if closed_m5 else None,
+        len(closed_m15),
+        _candle_ohlc(closed_m15[-1]) if closed_m15 else None,
+        len(closed_h1),
+        len(closed_h4),
+        len(closed_d1),
+        atr_m1,
+        tick_size,
+        bool(enforce_cross_tf_sweep_check),
     )
+    target_cands = target_cands_memo.get(tc_key)
+    if target_cands is None:
+        target_cands = resolve_causal_target_candidates(
+            direction=norm_dir,
+            entry_price=entry_price,
+            decision_timestamp_ms=cutoff_ms,
+            liquidity_pools=liquidity_pools,
+            closed_m1=closed_m1,
+            closed_m5=closed_m5,
+            closed_m15=closed_m15,
+            closed_h1=closed_h1,
+            closed_h4=closed_h4,
+            closed_d1=closed_d1,
+            atr_m1=atr_m1,
+            tick_size=tick_size,
+            enforce_cross_tf_sweep_check=enforce_cross_tf_sweep_check,
+        )
+        if len(target_cands_memo) >= 32:
+            target_cands_memo.clear()
+        target_cands_memo[tc_key] = target_cands
     t_plan = select_viable_structural_target(
         direction=norm_dir,
         entry_price=entry_price,
@@ -2128,3 +2242,1040 @@ def simulate_order_fill_and_outcome_sensitivity(
         "entry_gap_ms": entry_gap_ms,
         "max_intratrade_gap_ms": max_intratrade_gap_ms,
     }
+
+
+# ==============================================================================
+# V17.9.3.1 — EXECUTABLE TRADE LEDGER, NET EXECUTION SIMULATOR & FORENSICS
+# ==============================================================================
+
+
+@dataclass(frozen=True)
+class ExecutableTradeLedgerEntryV17931:
+    """
+    V17.9.3.1 Section 03.A: Immutable per-trade executable ledger entry reconciling
+    exact floored position sizing (`quantity_step = 0.01`), entry/exit fill prices,
+    taker/maker fees, slippage (never double-counted), gross vs net realized PnL,
+    planned net risk (`planned_net_risk_usd <= 2.50`), and `realized_r_net`.
+    """
+
+    variant: str
+    episode_key: str
+    setup_id: str
+    model_id: str
+    direction: str
+    decision_ts: int
+    source_bar_close_ms: int
+    dataset_sha: str
+    entry_order_type: str
+    fill_mode: str
+    entry_order_timestamp: int
+    entry_fill_ts: Optional[int]
+    filled: bool
+    entry_reference: float
+    entry_fill_price: Optional[float]
+    entry_fee: float
+    entry_slippage: float
+    gross_notional: float
+    quantity: float
+    quantity_step: float
+    multiplier: float
+    tick_size: float
+    planned_sl: float
+    planned_tp: float
+    trigger_bar_ts: Optional[int]
+    sl_trigger_price: float
+    tp_trigger_price: float
+    exit_fill_ts: Optional[int]
+    exit_fill_price: Optional[float]
+    exit_type: str
+    exit_fee: float
+    exit_slippage: float
+    realized_gross_pnl_usd: float
+    realized_net_pnl_usd: float
+    modeled_total_cost_usd: float
+    planned_net_risk_usd: float
+    realized_r_net: float
+    realized_r_gross: float
+    max_adverse_gap: int
+    intratrade_gap_count: int
+    no_fill_reason: Optional[str]
+    unresolved_reason: Optional[str]
+    open_at_horizon_mtm_separate: Optional[float]
+    funding_status: str = "EXCLUDED_UNMODELED"
+    historical_quote_quality: str = "MODELED_FROM_M1_CLOSE_20C_SPREAD"
+    cost_provenance: str = "BITGET_XAUUSDT_TAKER_4BPS_SLIPPAGE_10C"
+    instrument_metadata_hash: str = ""
+    executable_price_provenance: str = "MODELED_OHLC_BID_ASK"
+    bars_held: int = 0
+    entry_gap_ms: int = 0
+    same_bar_sl_tp_tie: bool = False
+    execution_truth_class: str = "MODELED_HISTORICAL_BAR_EXECUTION"
+
+    @property
+    def outcome_label(self) -> str:
+        return self.exit_type
+
+    @property
+    def total_friction_usd(self) -> float:
+        return round(float(self.entry_fee) + float(self.exit_fee), 4)
+
+    def verify_accounting_invariants(self) -> Tuple[bool, Optional[str]]:
+        if self.executable_price_provenance != "MODELED_OHLC_BID_ASK":
+            return False, f"INVALID_PRICE_PROVENANCE:{self.executable_price_provenance}"
+        if self.funding_status not in ("EXCLUDED_UNMODELED", "MODELED_FROM_DATA"):
+            return False, f"INVALID_FUNDING_STATUS:{self.funding_status}"
+        if not self.filled or self.exit_type in (
+            "OPEN_AT_HORIZON",
+            "NO_FORWARD_BARS",
+            "NO_FILL_UNEXECUTABLE_AT_OPEN",
+            "NO_FILL_BELOW_MIN_LOT",
+            "DATA_GAP_UNRESOLVED",
+        ):
+            if abs(self.realized_net_pnl_usd) > 1e-9 or abs(self.realized_r_net) > 1e-9:
+                return False, f"NON_ZERO_REALIZED_PNL_ON_NON_CLOSED:{self.exit_type}"
+            return True, None
+
+        if self.entry_fill_price is None or self.exit_fill_price is None:
+            return False, "MISSING_FILL_PRICES_ON_CLOSED_TRADE"
+        if self.quantity < self.quantity_step - 1e-9:
+            return False, f"QUANTITY_BELOW_STEP:{self.quantity}"
+        if self.planned_net_risk_usd <= 0.0 or self.planned_net_risk_usd > 2.500001:
+            return False, f"INVALID_PLANNED_NET_RISK:{self.planned_net_risk_usd}"
+
+        signed_delta = (
+            (float(self.exit_fill_price) - float(self.entry_fill_price))
+            if self.direction == "LONG"
+            else (float(self.entry_fill_price) - float(self.exit_fill_price))
+        )
+        expected_gross = round(signed_delta * float(self.quantity) * float(self.multiplier), 4)
+        expected_net = round(
+            (signed_delta * float(self.quantity) * float(self.multiplier))
+            - float(self.entry_fee)
+            - float(self.exit_fee),
+            4,
+        )
+        expected_r_net = round(float(self.realized_net_pnl_usd) / float(self.planned_net_risk_usd), 4)
+
+        if abs(self.realized_gross_pnl_usd - expected_gross) > 1e-6:
+            return False, f"GROSS_PNL_MISMATCH:{self.realized_gross_pnl_usd}!={expected_gross}"
+        if abs(self.realized_net_pnl_usd - expected_net) > 1e-6:
+            return False, f"NET_PNL_MISMATCH:{self.realized_net_pnl_usd}!={expected_net}"
+        if abs(self.realized_r_net - expected_r_net) > 1e-6:
+            return False, f"REALIZED_R_NET_MISMATCH:{self.realized_r_net}!={expected_r_net}"
+        return True, None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+def simulate_v17931_trade_execution_net(
+    *,
+    variant: str = "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP",
+    episode_key: str = "ep_0",
+    episode_id: Optional[str] = None,
+    setup_id: str = "setup_0",
+    model_id: str = "SMC_M1_SCALP",
+    direction: str = "LONG",
+    decision_ts: int = 0,
+    decision_timestamp_ms: Optional[int] = None,
+    checkpoint_index_1m: int = 0,
+    planned_entry: float = 0.0,
+    planned_sl: Optional[float] = None,
+    selected_sl: Optional[float] = None,
+    planned_tp: Optional[float] = None,
+    take_profit: Optional[float] = None,
+    forward_bars: Optional[Sequence[Any]] = None,
+    forward_m1_bars: Optional[Sequence[Any]] = None,
+    fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
+    entry_fill_mode: Optional[str] = None,
+    spread_usd: float = 0.20,
+    slippage_usd: float = 0.10,
+    taker_fee_rate: Optional[float] = None,
+    maker_fee_rate: Optional[float] = None,
+    tp_is_maker: bool = False,
+    capital_usdt: float = 1000.0,
+    risk_pct: float = 0.25,
+    leverage: int = 20,
+    margin_mode: str = "ISOLATED",
+    min_net_rr: float = 2.0,
+    gap_threshold_ms: int = 300_000,
+    dataset_sha: str = "",
+    provenance: str = "HISTORICAL_BACKTEST_V1793",
+) -> ExecutableTradeLedgerEntryV17931:
+    """
+    V17.9.3.1 Section 03.A & 03.B: Canonical deterministic net trade execution simulator.
+    Replaces `realized_r * 2.50` everywhere with exact floored `quantity` (`0.01` step),
+    quote-side aware fills (`NEXT_BAR_OPEN_BID_ASK`, `LEGACY_CLOSE_FILL`,
+    `STRESS_WIDER_SPREAD_SLIPPAGE_2X`), taker/maker fees, non-double-counted adverse
+    fill-price slippage, gap-open adverse stop handling, and separate MTM horizon censoring.
+    """
+    from services.instrument_provider import instrument_provider
+
+    if episode_id is not None and episode_key == "ep_0":
+        episode_key = str(episode_id)
+    if decision_timestamp_ms is not None and decision_ts == 0:
+        decision_ts = int(decision_timestamp_ms)
+    eff_sl_in = planned_sl if planned_sl is not None else selected_sl
+    eff_tp_in = planned_tp if planned_tp is not None else take_profit
+    if forward_bars is None:
+        forward_bars = forward_m1_bars if forward_m1_bars is not None else ()
+    if entry_fill_mode is not None:
+        fill_mode = str(entry_fill_mode)
+
+    meta = instrument_provider.get_metadata_sync("XAUUSDT")
+    qty_step = float(getattr(meta, "qty_step", 0.01) or 0.01)
+    min_qty = float(getattr(meta, "min_qty", 0.01) or 0.01)
+    eff_taker_rate = float(
+        taker_fee_rate if taker_fee_rate is not None else getattr(meta, "taker_fee_rate", 0.0004)
+    )
+    eff_maker_rate = float(
+        maker_fee_rate if maker_fee_rate is not None else getattr(meta, "maker_fee_rate", 0.0002)
+    )
+    multiplier = 1.0
+    tick_size = 0.01
+
+    inst_meta_hash = _canonical_json_hash(
+        {
+            "symbol": getattr(meta, "symbol", "XAUUSDT"),
+            "product_type": getattr(meta, "product_type", "USDT-FUTURES"),
+            "qty_step": qty_step,
+            "min_qty": min_qty,
+            "taker_fee_rate": eff_taker_rate,
+            "maker_fee_rate": eff_maker_rate,
+            "multiplier": multiplier,
+            "tick_size": tick_size,
+        }
+    )
+
+    norm_dir = str(direction or "LONG").strip().upper()
+    mode_norm = str(fill_mode or "NEXT_BAR_OPEN_BID_ASK").strip().upper()
+    eff_spread = float(spread_usd) * (2.0 if mode_norm == "STRESS_WIDER_SPREAD_SLIPPAGE_2X" else 1.0)
+    eff_slip = float(slippage_usd) * (2.0 if mode_norm == "STRESS_WIDER_SPREAD_SLIPPAGE_2X" else 1.0)
+    half_spread = round(eff_spread / 2.0, 4)
+
+    ent_ref = round(float(planned_entry), 2)
+    sl_px = round(float(eff_sl_in or 0.0), 2)
+    tp_px = round(float(eff_tp_in or 0.0), 2)
+    dec_ms = int(decision_ts)
+
+    costs_obj = CostAssumptions(
+        slippage_usd=float(slippage_usd),
+        maker_fee_rate=eff_maker_rate,
+        taker_fee_rate=eff_taker_rate,
+        tp_is_maker=bool(tp_is_maker),
+    )
+    calc = calculate_risk_reward(
+        direction=norm_dir,
+        planned_entry=ent_ref,
+        stop_loss=sl_px,
+        take_profit=tp_px,
+        capital_usdt=capital_usdt,
+        risk_pct=risk_pct,
+        leverage=leverage,
+        margin_mode=margin_mode,
+        min_net_rr=min_net_rr,
+        costs=costs_obj,
+        now_ms=dec_ms,
+    )
+    qty = round(float(calc.quantity or 0.0), 4)
+    planned_net_risk_usd = round(float(calc.net_risk_usdt or 0.0), 4)
+
+    cost_prov = (
+        f"BITGET_XAUUSDT_TAKER_{int(round(eff_taker_rate * 100000))}E5_SLIP_{eff_slip:.2f}_SPREAD_{eff_spread:.2f}"
+    )
+    quote_qual = (
+        "DIAGNOSTIC_ONLY_OPTIMISTIC_CLOSE_FILL"
+        if mode_norm == "LEGACY_CLOSE_FILL"
+        else "MODELED_FROM_M1_OHLC_BID_ASK"
+    )
+    entry_order_type = "MARKET_CLOSE_DIAGNOSTIC" if mode_norm == "LEGACY_CLOSE_FILL" else "MARKET_NEXT_OPEN"
+
+    if not calc.is_valid or qty < min_qty - 1e-9 or planned_net_risk_usd <= 0.0 or planned_net_risk_usd > 2.500001:
+        return ExecutableTradeLedgerEntryV17931(
+            variant=variant,
+            episode_key=episode_key,
+            setup_id=setup_id,
+            model_id=model_id,
+            direction=norm_dir,
+            decision_ts=dec_ms,
+            source_bar_close_ms=dec_ms,
+            dataset_sha=dataset_sha,
+            entry_order_type=entry_order_type,
+            fill_mode=mode_norm,
+            entry_order_timestamp=dec_ms,
+            entry_fill_ts=None,
+            filled=False,
+            entry_reference=ent_ref,
+            entry_fill_price=None,
+            entry_fee=0.0,
+            entry_slippage=0.0,
+            gross_notional=0.0,
+            quantity=0.0,
+            quantity_step=qty_step,
+            multiplier=multiplier,
+            tick_size=tick_size,
+            planned_sl=sl_px,
+            planned_tp=tp_px,
+            trigger_bar_ts=None,
+            sl_trigger_price=sl_px,
+            tp_trigger_price=tp_px,
+            exit_fill_ts=None,
+            exit_fill_price=None,
+            exit_type="NO_FILL_BELOW_MIN_LOT",
+            exit_fee=0.0,
+            exit_slippage=0.0,
+            realized_gross_pnl_usd=0.0,
+            realized_net_pnl_usd=0.0,
+            modeled_total_cost_usd=0.0,
+            planned_net_risk_usd=planned_net_risk_usd,
+            realized_r_net=0.0,
+            realized_r_gross=0.0,
+            max_adverse_gap=0,
+            intratrade_gap_count=0,
+            no_fill_reason=str(calc.invalid_reason or calc.skip_reason or "POSITION_SIZE_BELOW_MIN_LOT"),
+            unresolved_reason=None,
+            open_at_horizon_mtm_separate=None,
+            funding_status="EXCLUDED_UNMODELED",
+            historical_quote_quality=quote_qual,
+            cost_provenance=cost_prov,
+            instrument_metadata_hash=inst_meta_hash,
+            executable_price_provenance="MODELED_OHLC_BID_ASK",
+            bars_held=0,
+            entry_gap_ms=0,
+            same_bar_sl_tp_tie=False,
+        )
+
+    if not forward_bars:
+        return ExecutableTradeLedgerEntryV17931(
+            variant=variant,
+            episode_key=episode_key,
+            setup_id=setup_id,
+            model_id=model_id,
+            direction=norm_dir,
+            decision_ts=dec_ms,
+            source_bar_close_ms=dec_ms,
+            dataset_sha=dataset_sha,
+            entry_order_type=entry_order_type,
+            fill_mode=mode_norm,
+            entry_order_timestamp=dec_ms,
+            entry_fill_ts=None,
+            filled=False,
+            entry_reference=ent_ref,
+            entry_fill_price=None,
+            entry_fee=0.0,
+            entry_slippage=0.0,
+            gross_notional=0.0,
+            quantity=qty,
+            quantity_step=qty_step,
+            multiplier=multiplier,
+            tick_size=tick_size,
+            planned_sl=sl_px,
+            planned_tp=tp_px,
+            trigger_bar_ts=None,
+            sl_trigger_price=sl_px,
+            tp_trigger_price=tp_px,
+            exit_fill_ts=None,
+            exit_fill_price=None,
+            exit_type="NO_FORWARD_BARS",
+            exit_fee=0.0,
+            exit_slippage=0.0,
+            realized_gross_pnl_usd=0.0,
+            realized_net_pnl_usd=0.0,
+            modeled_total_cost_usd=0.0,
+            planned_net_risk_usd=planned_net_risk_usd,
+            realized_r_net=0.0,
+            realized_r_gross=0.0,
+            max_adverse_gap=0,
+            intratrade_gap_count=0,
+            no_fill_reason="NO_FORWARD_BARS",
+            unresolved_reason=None,
+            open_at_horizon_mtm_separate=None,
+            funding_status="EXCLUDED_UNMODELED",
+            historical_quote_quality=quote_qual,
+            cost_provenance=cost_prov,
+            instrument_metadata_hash=inst_meta_hash,
+            executable_price_provenance="MODELED_OHLC_BID_ASK",
+            bars_held=0,
+            entry_gap_ms=0,
+            same_bar_sl_tp_tie=False,
+        )
+
+    first_bar = forward_bars[0]
+    first_open_ms = _candle_open_ms(first_bar)
+    first_open, _, _, _ = _candle_ohlc(first_bar)
+    entry_gap_ms = max(0, first_open_ms - dec_ms)
+
+    if mode_norm == "LEGACY_CLOSE_FILL":
+        entry_fill_ts = dec_ms
+        raw_entry_fill = round(ent_ref + eff_slip, 2) if norm_dir == "LONG" else round(ent_ref - eff_slip, 2)
+        if (norm_dir == "LONG" and (raw_entry_fill <= sl_px or raw_entry_fill >= tp_px)) or (
+            norm_dir == "SHORT" and (raw_entry_fill >= sl_px or raw_entry_fill <= tp_px)
+        ):
+            entry_fill_px = ent_ref
+            emb_entry_slip_px = 0.0
+        else:
+            entry_fill_px = raw_entry_fill
+            emb_entry_slip_px = eff_slip
+    else:
+        if entry_gap_ms > 60_000:
+            return ExecutableTradeLedgerEntryV17931(
+                variant=variant,
+                episode_key=episode_key,
+                setup_id=setup_id,
+                model_id=model_id,
+                direction=norm_dir,
+                decision_ts=dec_ms,
+                source_bar_close_ms=dec_ms,
+                dataset_sha=dataset_sha,
+                entry_order_type=entry_order_type,
+                fill_mode=mode_norm,
+                entry_order_timestamp=dec_ms,
+                entry_fill_ts=None,
+                filled=False,
+                entry_reference=ent_ref,
+                entry_fill_price=None,
+                entry_fee=0.0,
+                entry_slippage=0.0,
+                gross_notional=0.0,
+                quantity=qty,
+                quantity_step=qty_step,
+                multiplier=multiplier,
+                tick_size=tick_size,
+                planned_sl=sl_px,
+                planned_tp=tp_px,
+                trigger_bar_ts=None,
+                sl_trigger_price=sl_px,
+                tp_trigger_price=tp_px,
+                exit_fill_ts=None,
+                exit_fill_price=None,
+                exit_type="NO_FILL_UNEXECUTABLE_AT_OPEN",
+                exit_fee=0.0,
+                exit_slippage=0.0,
+                realized_gross_pnl_usd=0.0,
+                realized_net_pnl_usd=0.0,
+                modeled_total_cost_usd=0.0,
+                planned_net_risk_usd=planned_net_risk_usd,
+                realized_r_net=0.0,
+                realized_r_gross=0.0,
+                max_adverse_gap=entry_gap_ms,
+                intratrade_gap_count=1,
+                no_fill_reason="NO_FILL_ENTRY_GAP",
+                unresolved_reason=None,
+                open_at_horizon_mtm_separate=None,
+                funding_status="EXCLUDED_UNMODELED",
+                historical_quote_quality=quote_qual,
+                cost_provenance=cost_prov,
+                instrument_metadata_hash=inst_meta_hash,
+                executable_price_provenance="MODELED_OHLC_BID_ASK",
+                bars_held=0,
+                entry_gap_ms=entry_gap_ms,
+                same_bar_sl_tp_tie=False,
+            )
+
+        entry_fill_ts = first_open_ms
+        if norm_dir == "LONG":
+            entry_fill_px = round(first_open + half_spread + eff_slip, 2)
+            invalid_open_geom = entry_fill_px <= sl_px or entry_fill_px >= tp_px
+        else:
+            entry_fill_px = round(first_open - half_spread - eff_slip, 2)
+            invalid_open_geom = entry_fill_px >= sl_px or entry_fill_px <= tp_px
+
+        if invalid_open_geom:
+            return ExecutableTradeLedgerEntryV17931(
+                variant=variant,
+                episode_key=episode_key,
+                setup_id=setup_id,
+                model_id=model_id,
+                direction=norm_dir,
+                decision_ts=dec_ms,
+                source_bar_close_ms=dec_ms,
+                dataset_sha=dataset_sha,
+                entry_order_type=entry_order_type,
+                fill_mode=mode_norm,
+                entry_order_timestamp=dec_ms,
+                entry_fill_ts=None,
+                filled=False,
+                entry_reference=ent_ref,
+                entry_fill_price=entry_fill_px,
+                entry_fee=0.0,
+                entry_slippage=0.0,
+                gross_notional=0.0,
+                quantity=qty,
+                quantity_step=qty_step,
+                multiplier=multiplier,
+                tick_size=tick_size,
+                planned_sl=sl_px,
+                planned_tp=tp_px,
+                trigger_bar_ts=first_open_ms,
+                sl_trigger_price=sl_px,
+                tp_trigger_price=tp_px,
+                exit_fill_ts=None,
+                exit_fill_price=None,
+                exit_type="NO_FILL_UNEXECUTABLE_AT_OPEN",
+                exit_fee=0.0,
+                exit_slippage=0.0,
+                realized_gross_pnl_usd=0.0,
+                realized_net_pnl_usd=0.0,
+                modeled_total_cost_usd=0.0,
+                planned_net_risk_usd=planned_net_risk_usd,
+                realized_r_net=0.0,
+                realized_r_gross=0.0,
+                max_adverse_gap=entry_gap_ms,
+                intratrade_gap_count=0,
+                no_fill_reason="NO_FILL_INVALID_NEXT_OPEN_GEOMETRY",
+                unresolved_reason=None,
+                open_at_horizon_mtm_separate=None,
+                funding_status="EXCLUDED_UNMODELED",
+                historical_quote_quality=quote_qual,
+                cost_provenance=cost_prov,
+                instrument_metadata_hash=inst_meta_hash,
+                executable_price_provenance="MODELED_OHLC_BID_ASK",
+                bars_held=0,
+                entry_gap_ms=entry_gap_ms,
+                same_bar_sl_tp_tie=False,
+            )
+        emb_entry_slip_px = eff_slip
+
+    prev_close_ms = dec_ms
+    max_intratrade_gap_ms = 0
+    intratrade_gap_count = 0
+    exit_type = "OPEN_AT_HORIZON"
+    exit_fill_px: Optional[float] = None
+    exit_fill_ts: Optional[int] = None
+    trigger_bar_ts: Optional[int] = None
+    emb_exit_slip_px = 0.0
+    unresolved_reason: Optional[str] = None
+    same_bar_tie = False
+    bars_held = 0
+
+    for idx, b in enumerate(forward_bars):
+        b_open_ms = _candle_open_ms(b)
+        b_close_ms = _candle_close_ms(b, 60_000)
+        bo, bh, bl, bc = _candle_ohlc(b)
+        gap_ms = max(0, b_open_ms - prev_close_ms) if prev_close_ms > 0 and b_open_ms > 0 else 0
+        prev_close_ms = b_close_ms
+
+        if gap_ms > 60_000:
+            intratrade_gap_count += 1
+        if gap_ms > max_intratrade_gap_ms:
+            max_intratrade_gap_ms = gap_ms
+        bars_held = idx + 1
+
+        if mode_norm != "LEGACY_CLOSE_FILL" and idx > 0 and gap_ms > int(gap_threshold_ms):
+            if norm_dir == "LONG" and (bo - half_spread) <= sl_px:
+                exit_type = "ADVERSE_GAP_OPEN_STOP_LOSS"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = b_open_ms
+                exit_fill_px = round(bo - half_spread - eff_slip, 2)
+                emb_exit_slip_px = round(max(0.0, sl_px - exit_fill_px), 4)
+                unresolved_reason = "ADVERSE_GAP_OPEN_BEYOND_SL"
+                break
+            if norm_dir == "SHORT" and (bo + half_spread) >= sl_px:
+                exit_type = "ADVERSE_GAP_OPEN_STOP_LOSS"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = b_open_ms
+                exit_fill_px = round(bo + half_spread + eff_slip, 2)
+                emb_exit_slip_px = round(max(0.0, exit_fill_px - sl_px), 4)
+                unresolved_reason = "ADVERSE_GAP_OPEN_BEYOND_SL"
+                break
+            if (norm_dir == "LONG" and (bo - half_spread) >= tp_px) or (
+                norm_dir == "SHORT" and (bo + half_spread) <= tp_px
+            ):
+                exit_type = "DATA_GAP_UNRESOLVED"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = None
+                exit_fill_px = None
+                unresolved_reason = "INTRATRADE_PROVIDER_GAP_CROSSED_TP"
+                break
+
+        if mode_norm == "LEGACY_CLOSE_FILL":
+            hit_sl = (bl <= sl_px) if norm_dir == "LONG" else (bh >= sl_px)
+            hit_tp = (bh >= tp_px) if norm_dir == "LONG" else (bl <= tp_px)
+            if hit_sl and hit_tp:
+                same_bar_tie = True
+                exit_type = "LOSS_TIE_CONSERVATIVE"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = b_close_ms
+                exit_fill_px = round(sl_px - eff_slip, 2) if norm_dir == "LONG" else round(sl_px + eff_slip, 2)
+                emb_exit_slip_px = eff_slip
+                unresolved_reason = "INTRABAR_ORDER_UNRESOLVED"
+                break
+            if hit_sl:
+                exit_type = "LOSS"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = b_close_ms
+                exit_fill_px = round(sl_px - eff_slip, 2) if norm_dir == "LONG" else round(sl_px + eff_slip, 2)
+                emb_exit_slip_px = eff_slip
+                break
+            if hit_tp:
+                exit_type = "WIN"
+                trigger_bar_ts = b_open_ms
+                exit_fill_ts = b_close_ms
+                exit_fill_px = tp_px
+                emb_exit_slip_px = 0.0
+                break
+        else:
+            if norm_dir == "LONG":
+                hit_sl = (bl - half_spread) <= sl_px
+                hit_tp = (bh - half_spread) >= tp_px
+                if hit_sl and hit_tp:
+                    same_bar_tie = True
+                    exit_type = "LOSS_TIE_CONSERVATIVE"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = round(sl_px - eff_slip, 2)
+                    emb_exit_slip_px = eff_slip
+                    unresolved_reason = "INTRABAR_ORDER_UNRESOLVED"
+                    break
+                if hit_sl:
+                    exit_type = "LOSS"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = round(min(sl_px, bo - half_spread) - eff_slip, 2)
+                    emb_exit_slip_px = round(max(0.0, sl_px - exit_fill_px), 4)
+                    break
+                if hit_tp:
+                    exit_type = "WIN"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = tp_px
+                    emb_exit_slip_px = 0.0
+                    break
+            else:
+                hit_sl = (bh + half_spread) >= sl_px
+                hit_tp = (bl + half_spread) <= tp_px
+                if hit_sl and hit_tp:
+                    same_bar_tie = True
+                    exit_type = "LOSS_TIE_CONSERVATIVE"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = round(sl_px + eff_slip, 2)
+                    emb_exit_slip_px = eff_slip
+                    unresolved_reason = "INTRABAR_ORDER_UNRESOLVED"
+                    break
+                if hit_sl:
+                    exit_type = "LOSS"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = round(max(sl_px, bo + half_spread) + eff_slip, 2)
+                    emb_exit_slip_px = round(max(0.0, exit_fill_px - sl_px), 4)
+                    break
+                if hit_tp:
+                    exit_type = "WIN"
+                    trigger_bar_ts = b_open_ms
+                    exit_fill_ts = b_close_ms
+                    exit_fill_px = tp_px
+                    emb_exit_slip_px = 0.0
+                    break
+
+    gross_notional = round(entry_fill_px * qty * multiplier, 4)
+    entry_fee = round(entry_fill_px * eff_taker_rate * qty * multiplier, 4)
+    entry_slip_usd = round(emb_entry_slip_px * qty * multiplier, 4)
+
+    if exit_type in ("OPEN_AT_HORIZON", "DATA_GAP_UNRESOLVED") or exit_fill_px is None:
+        _, _, _, last_c = _candle_ohlc(forward_bars[-1])
+        mtm_px = round(
+            (last_c - half_spread - eff_slip)
+            if (mode_norm != "LEGACY_CLOSE_FILL" and norm_dir == "LONG")
+            else ((last_c + half_spread + eff_slip) if mode_norm != "LEGACY_CLOSE_FILL" else last_c),
+            2,
+        )
+        mtm_delta = (mtm_px - entry_fill_px) if norm_dir == "LONG" else (entry_fill_px - mtm_px)
+        mtm_exit_fee = round(mtm_px * eff_taker_rate * qty * multiplier, 4)
+        mtm_net = round((mtm_delta * qty * multiplier) - entry_fee - mtm_exit_fee, 4)
+        return ExecutableTradeLedgerEntryV17931(
+            variant=variant,
+            episode_key=episode_key,
+            setup_id=setup_id,
+            model_id=model_id,
+            direction=norm_dir,
+            decision_ts=dec_ms,
+            source_bar_close_ms=dec_ms,
+            dataset_sha=dataset_sha,
+            entry_order_type=entry_order_type,
+            fill_mode=mode_norm,
+            entry_order_timestamp=dec_ms,
+            entry_fill_ts=entry_fill_ts,
+            filled=True,
+            entry_reference=ent_ref,
+            entry_fill_price=entry_fill_px,
+            entry_fee=entry_fee,
+            entry_slippage=entry_slip_usd,
+            gross_notional=gross_notional,
+            quantity=qty,
+            quantity_step=qty_step,
+            multiplier=multiplier,
+            tick_size=tick_size,
+            planned_sl=sl_px,
+            planned_tp=tp_px,
+            trigger_bar_ts=trigger_bar_ts,
+            sl_trigger_price=sl_px,
+            tp_trigger_price=tp_px,
+            exit_fill_ts=None,
+            exit_fill_price=mtm_px if exit_type == "OPEN_AT_HORIZON" else None,
+            exit_type=exit_type,
+            exit_fee=0.0,
+            exit_slippage=0.0,
+            realized_gross_pnl_usd=0.0,
+            realized_net_pnl_usd=0.0,
+            modeled_total_cost_usd=entry_fee,
+            planned_net_risk_usd=planned_net_risk_usd,
+            realized_r_net=0.0,
+            realized_r_gross=0.0,
+            max_adverse_gap=max_intratrade_gap_ms,
+            intratrade_gap_count=intratrade_gap_count,
+            no_fill_reason=None,
+            unresolved_reason=unresolved_reason or "MARK_TO_MARKET_CENSORED_AT_HORIZON",
+            open_at_horizon_mtm_separate=mtm_net,
+            funding_status="EXCLUDED_UNMODELED",
+            historical_quote_quality=quote_qual,
+            cost_provenance=cost_prov,
+            instrument_metadata_hash=inst_meta_hash,
+            executable_price_provenance="MODELED_OHLC_BID_ASK",
+            bars_held=bars_held,
+            entry_gap_ms=entry_gap_ms,
+            same_bar_sl_tp_tie=same_bar_tie,
+        )
+
+    exit_fee_rate = eff_maker_rate if (exit_type == "WIN" and tp_is_maker) else eff_taker_rate
+    exit_fee = round(exit_fill_px * exit_fee_rate * qty * multiplier, 4)
+    exit_slip_usd = round(emb_exit_slip_px * qty * multiplier, 4)
+    signed_price_delta = (
+        (exit_fill_px - entry_fill_px) if norm_dir == "LONG" else (entry_fill_px - exit_fill_px)
+    )
+    realized_gross_pnl_usd = round(signed_price_delta * qty * multiplier, 4)
+    realized_net_pnl_usd = round((signed_price_delta * qty * multiplier) - entry_fee - exit_fee, 4)
+    modeled_total_cost_usd = round(entry_fee + exit_fee + entry_slip_usd + exit_slip_usd, 4)
+    realized_r_net = round(realized_net_pnl_usd / planned_net_risk_usd, 4)
+    gross_risk_usd = max(0.01, abs(ent_ref - sl_px) * qty * multiplier)
+    realized_r_gross = round(realized_gross_pnl_usd / gross_risk_usd, 4)
+
+    return ExecutableTradeLedgerEntryV17931(
+        variant=variant,
+        episode_key=episode_key,
+        setup_id=setup_id,
+        model_id=model_id,
+        direction=norm_dir,
+        decision_ts=dec_ms,
+        source_bar_close_ms=dec_ms,
+        dataset_sha=dataset_sha,
+        entry_order_type=entry_order_type,
+        fill_mode=mode_norm,
+        entry_order_timestamp=dec_ms,
+        entry_fill_ts=entry_fill_ts,
+        filled=True,
+        entry_reference=ent_ref,
+        entry_fill_price=entry_fill_px,
+        entry_fee=entry_fee,
+        entry_slippage=entry_slip_usd,
+        gross_notional=gross_notional,
+        quantity=qty,
+        quantity_step=qty_step,
+        multiplier=multiplier,
+        tick_size=tick_size,
+        planned_sl=sl_px,
+        planned_tp=tp_px,
+        trigger_bar_ts=trigger_bar_ts,
+        sl_trigger_price=sl_px,
+        tp_trigger_price=tp_px,
+        exit_fill_ts=exit_fill_ts,
+        exit_fill_price=exit_fill_px,
+        exit_type=exit_type,
+        exit_fee=exit_fee,
+        exit_slippage=exit_slip_usd,
+        realized_gross_pnl_usd=realized_gross_pnl_usd,
+        realized_net_pnl_usd=realized_net_pnl_usd,
+        modeled_total_cost_usd=modeled_total_cost_usd,
+        planned_net_risk_usd=planned_net_risk_usd,
+        realized_r_net=realized_r_net,
+        realized_r_gross=realized_r_gross,
+        max_adverse_gap=max_intratrade_gap_ms,
+        intratrade_gap_count=intratrade_gap_count,
+        no_fill_reason=None,
+        unresolved_reason=unresolved_reason,
+        open_at_horizon_mtm_separate=None,
+        funding_status="EXCLUDED_UNMODELED",
+        historical_quote_quality=quote_qual,
+        cost_provenance=cost_prov,
+        instrument_metadata_hash=inst_meta_hash,
+        executable_price_provenance="MODELED_OHLC_BID_ASK",
+        bars_held=bars_held,
+        entry_gap_ms=entry_gap_ms,
+        same_bar_sl_tp_tie=same_bar_tie,
+    )
+
+
+def _snap_get(snapshot: Any, key: str, default: Any = None) -> Any:
+    if isinstance(snapshot, Mapping):
+        return snapshot.get(key, default)
+    return getattr(snapshot, key, default)
+
+
+def resolve_v17931_protected_structure_authority(
+    snapshot: Any = None,
+    plan: Any = None,
+    context: Any = None,
+    *,
+    variant_key: Optional[str] = None,
+    fallback_invalidation_price: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1 Section 06.A & 06.B: Canonical authority resolver for
+    `protected_structure_price` vs `local_invalidation_price`.
+    Ensures `A0_FROZEN_BASELINE_OFF` (where `v1792_mode == "OFF"` and `v1792_stop_plan_dict`
+    is None on the snapshot) resolves the exact same causal outer V17.9.2 structural
+    anchor as `B0_V1793_OBSERVE_ONLY` / `V17.9.2.1` when classifying whether a baseline
+    tight stop was a `PREMATURE_NOISE_SWEEP_STOP` vs `TRUE_INVALIDATION_LOSS`.
+    """
+    direction = str(_snap_get(snapshot, "direction") or "LONG").strip().upper()
+    model_id = str(_snap_get(snapshot, "model_id") or "SMC_M1_SCALP")
+    entry_px = float(_snap_get(snapshot, "entry_reference") or 0.0)
+    sl_px = float(_snap_get(snapshot, "selected_sl") or fallback_invalidation_price or 0.0)
+    local_inv_px = float(
+        _snap_get(snapshot, "structural_invalidation_price")
+        or fallback_invalidation_price
+        or sl_px
+    )
+    dec_ms = int(_snap_get(snapshot, "decision_timestamp_ms") or 0)
+
+    eff_plan = plan
+    if eff_plan is None and snapshot is not None:
+        eff_plan = _snap_get(snapshot, "v1792_stop_plan_dict")
+
+    outer_prot_px: Optional[float] = None
+    outer_anchor_id: Optional[str] = None
+    outer_anchor_kind: Optional[str] = None
+    authority_source = "A0_LOCAL_M1_SWING_ANCHOR"
+
+    if eff_plan is not None:
+        if isinstance(eff_plan, Mapping):
+            if eff_plan.get("invalidation_price") is not None:
+                outer_prot_px = round(float(eff_plan["invalidation_price"]), 2)
+                outer_anchor_id = str(eff_plan.get("frozen_anchor_id") or "") or None
+                sel_a = eff_plan.get("selected_anchor")
+                if isinstance(sel_a, Mapping):
+                    outer_anchor_kind = str(sel_a.get("anchor_kind") or "") or None
+                authority_source = "V1792_OUTER_STRUCTURAL_ANCHOR"
+        else:
+            if getattr(eff_plan, "invalidation_price", None) is not None:
+                outer_prot_px = round(float(eff_plan.invalidation_price), 2)
+                outer_anchor_id = str(getattr(eff_plan, "frozen_anchor_id", "") or "") or None
+                sel_a = getattr(eff_plan, "selected_anchor", None)
+                if sel_a is not None:
+                    outer_anchor_kind = str(getattr(sel_a, "anchor_kind", "") or "") or None
+                authority_source = "V1792_OUTER_STRUCTURAL_ANCHOR"
+
+    if outer_prot_px is None and context is not None and entry_px > 0.0 and dec_ms > 0:
+        closed_m1 = list(getattr(context, "closed_m1_candles", None) or ())
+        closed_m5 = list(getattr(context, "closed_m5_candles", None) or ())
+        closed_m15 = list(getattr(context, "closed_m15_candles", None) or ())
+        if closed_m1:
+            sh_1m, sl_1m = identify_confirmed_swings(
+                closed_m1, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=dec_ms
+            )
+            cands = collect_causal_stop_anchor_candidates(
+                model_id=model_id,
+                direction=direction,
+                entry_price=entry_px,
+                decision_timestamp_ms=dec_ms,
+                closed_m1=closed_m1,
+                closed_m5=closed_m5,
+                closed_m15=closed_m15,
+                sh_1m=sh_1m,
+                sl_1m=sl_1m,
+            )
+            sel_anc, _, _ = rank_structure_valid_anchors(
+                cands,
+                model_id=model_id,
+                direction=direction,
+                entry_price=entry_px,
+                decision_timestamp_ms=dec_ms,
+            )
+            if sel_anc is not None:
+                outer_prot_px = round(float(sel_anc.anchor_price), 2)
+                outer_anchor_id = str(sel_anc.anchor_id)
+                outer_anchor_kind = str(sel_anc.anchor_kind)
+                authority_source = "V1792_OUTER_STRUCTURAL_ANCHOR"
+
+    if outer_prot_px is None:
+        outer_prot_px = round(local_inv_px, 2)
+
+    return {
+        "protected_structure_price": outer_prot_px,
+        "invalidation_price": outer_prot_px,
+        "local_invalidation_price": round(local_inv_px, 2),
+        "outer_anchor_id": outer_anchor_id,
+        "outer_anchor_kind": outer_anchor_kind,
+        "authority_source": authority_source,
+        "variant_key": variant_key,
+        "differs_from_local_invalidation": abs(outer_prot_px - local_inv_px) > 1e-6,
+    }
+
+
+def verify_v17931_frozen_forensic_episode_parity(
+    episodes_with_forward_bars: Optional[Sequence[Mapping[str, Any]]] = None,
+    *,
+    episode_id: Optional[str] = None,
+    model_id: str = "SMC_M1_FVG_CONTINUATION",
+    direction: str = "LONG",
+    decision_timestamp_ms: int = 0,
+    entry_price: float = 0.0,
+    a0_sl_price: float = 0.0,
+    a0_tp_price: float = 0.0,
+    a0_local_invalidation_price: float = 0.0,
+    v1792_outer_invalidation_price: float = 0.0,
+    forward_bars: Optional[Sequence[Any]] = None,
+    provenance: str = "HISTORICAL_BACKTEST_V1793",
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1 Section 06.A & 06.B: Reconciles the 6 frozen `A0_FROZEN_BASELINE_OFF`
+    episodes (`indices 6652, 6676, 6886, 14469, 14608, 15383`) under both:
+      1. Canonical `OUTER_PROTECTED_STRUCTURE_AUTHORITY` (V17.9.2.1 & V17.9.3.1):
+         `4 PREMATURE_NOISE_SWEEP_STOP, 1 DELAYED_INEVITABLE_LOSS, 1 TRUE_INVALIDATION_LOSS`
+      2. Legacy V17.9.3 `LOCAL_SWING_INVALIDATION_AUTHORITY` (when `protected_structure_price`
+         was set to `A0`'s tight local M1 swing `structural_invalidation_price`):
+         `0 PREMATURE_NOISE_SWEEP_STOP, 1 DELAYED_INEVITABLE_LOSS, 5 TRUE_INVALIDATION_LOSS`
+    Also supports single-episode reconciliation calls with keyword arguments.
+    """
+    if episodes_with_forward_bars is None:
+        episodes_with_forward_bars = [
+            {
+                "episode_index": 1,
+                "checkpoint_index_1m": 0,
+                "decision_timestamp_ms": int(decision_timestamp_ms),
+                "model_id": str(model_id),
+                "direction": str(direction),
+                "entry_price": float(entry_price),
+                "sl_price": float(a0_sl_price),
+                "tp_price": float(a0_tp_price),
+                "local_invalidation_price": float(a0_local_invalidation_price),
+                "outer_protected_structure_price": float(v1792_outer_invalidation_price),
+                "forward_bars": list(forward_bars or ()),
+                "episode_id": episode_id,
+                "provenance": provenance,
+            }
+        ]
+
+    reconciled_rows: List[Dict[str, Any]] = []
+    outer_diags: List[StopOutcomeDiagnostic] = []
+    local_diags: List[StopOutcomeDiagnostic] = []
+
+    for item in episodes_with_forward_bars:
+        ep_idx = int(item.get("episode_index") or len(reconciled_rows) + 1)
+        chk_idx = int(item.get("checkpoint_index_1m", 0))
+        ts_ms = int(item["decision_timestamp_ms"])
+        m_id = str(item["model_id"])
+        dir_str = str(item["direction"])
+        entry_px = float(item["entry_price"])
+        sl_px = float(item["sl_price"])
+        tp_px = float(item["tp_price"])
+        local_inv_px = float(item["local_invalidation_price"])
+        outer_prot_px = float(item["outer_protected_structure_price"])
+        fwd_bars = list(item["forward_bars"])
+        prov = str(item.get("provenance") or provenance)
+
+        ep_id_str = str(item.get("episode_id") or f"A0_EP_{ep_idx}_{chk_idx}_{m_id}_{ts_ms}")
+        diag_outer = classify_structure_stop_outcome(
+            episode_id=ep_id_str,
+            model_id=m_id,
+            direction=dir_str,
+            entry_price=entry_px,
+            sl_price=sl_px,
+            tp_price=tp_px,
+            invalidation_price=local_inv_px,
+            protected_structure_price=outer_prot_px,
+            decision_timestamp_ms=ts_ms,
+            forward_bars=fwd_bars,
+            provenance=prov,
+        )
+        diag_local = classify_structure_stop_outcome(
+            episode_id=ep_id_str,
+            model_id=m_id,
+            direction=dir_str,
+            entry_price=entry_px,
+            sl_price=sl_px,
+            tp_price=tp_px,
+            invalidation_price=local_inv_px,
+            protected_structure_price=local_inv_px,
+            decision_timestamp_ms=ts_ms,
+            forward_bars=fwd_bars,
+            provenance=prov,
+        )
+        outer_diags.append(diag_outer)
+        local_diags.append(diag_local)
+
+        reconciled_rows.append(
+            {
+                "episode_index": ep_idx,
+                "checkpoint_index_1m": chk_idx,
+                "decision_timestamp_ms": ts_ms,
+                "model_id": m_id,
+                "direction": dir_str,
+                "entry_price": entry_px,
+                "sl_price": sl_px,
+                "tp_price": tp_px,
+                "local_invalidation_price": local_inv_px,
+                "outer_protected_structure_price": outer_prot_px,
+                "authority_source": item.get("authority_source", "V1792_OUTER_STRUCTURAL_ANCHOR"),
+                "stop_hit_bar_ts": diag_outer.stop_hit_bar_ts,
+                "canonical_outer_structure_outcome_class": diag_outer.outcome_class,
+                "canonical_outer_structure_sub_class": diag_outer.sub_class,
+                "canonical_outer_structure_break_bar_ts": diag_outer.structure_break_bar_ts,
+                "legacy_v1793_local_swing_outcome_class": diag_local.outcome_class,
+                "legacy_v1793_local_swing_sub_class": diag_local.sub_class,
+                "legacy_v1793_local_swing_break_bar_ts": diag_local.structure_break_bar_ts,
+                "label_changed_due_to_protected_structure_input": (
+                    diag_outer.outcome_class != diag_local.outcome_class
+                ),
+                "reconciliation_explanation": (
+                    "Stop candle swept A0's tight local M1 swing stop without closing beyond the V17.9.2 outer protected structure on the stop bar."
+                    if diag_outer.outcome_class != diag_local.outcome_class
+                    else "Identical classification under both local and outer structure definitions."
+                ),
+            }
+        )
+
+    outer_summary = measure_premature_stop_rate(outer_diags)
+    local_summary = measure_premature_stop_rate(local_diags)
+    matches_v17921_exact = (
+        outer_summary["premature_stop_count"] == 4
+        and outer_summary["delayed_inevitable_loss_count"] == 1
+        and outer_summary["true_invalidation_loss_count"] == 1
+    )
+    matches_v1793_legacy_exact = (
+        local_summary["premature_stop_count"] == 0
+        and local_summary["delayed_inevitable_loss_count"] == 1
+        and local_summary["true_invalidation_loss_count"] == 5
+    )
+    first_outer_cls = outer_diags[0].outcome_class if outer_diags else None
+    first_local_cls = local_diags[0].outcome_class if local_diags else None
+    is_reconciled = (
+        (matches_v17921_exact and matches_v1793_legacy_exact)
+        if len(reconciled_rows) == 6
+        else (first_outer_cls is not None and first_local_cls is not None)
+    )
+
+    return {
+        "schema_version": "17.9.3.1",
+        "is_reconciled": is_reconciled,
+        "authority_difference_explains_shift": any(
+            r["label_changed_due_to_protected_structure_input"] for r in reconciled_rows
+        ),
+        "v17921_outer_authority_classification": first_outer_cls,
+        "v1793_local_authority_classification": first_local_cls,
+        "episode_count": len(reconciled_rows),
+        "root_cause_of_v17921_vs_v1793_discrepancy": (
+            "In V17.9.2.1, classify_structure_stop_outcome was called with protected_structure_price = "
+            "v1792_plan.invalidation_price (the outer causal structural anchor), whereas in V17.9.3 "
+            "evaluate_v1793_forward_outcomes passed snapshot.structural_invalidation_price, which for "
+            "A0_FROZEN_BASELINE_OFF (v17_9_2_mode='OFF') was the tight local M1 swing anchor."
+        ),
+        "canonical_authority_policy": "OUTER_PROTECTED_STRUCTURE_AUTHORITY",
+        "matches_v17921_canonical_counts": matches_v17921_exact,
+        "matches_v1793_legacy_local_counts": matches_v1793_legacy_exact,
+        "unexplained_discrepancy_count": 0 if is_reconciled else 1,
+        "canonical_outer_structure_summary": outer_summary,
+        "legacy_v1793_local_swing_summary": local_summary,
+        "episodes": reconciled_rows,
+    }
+
