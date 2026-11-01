@@ -977,6 +977,11 @@ def _summarize_v1792_variant(
                             mae_r=float(diag_dict["mae_r"]),
                             bars_held=int(diag_dict["bars_held"]),
                             provenance=str(diag_dict.get("provenance", "HISTORICAL_BACKTEST_V1792")),
+                            sub_class=str(diag_dict.get("sub_class", "")),
+                            mfe_before_stop_usd=float(diag_dict.get("mfe_before_stop_usd", 0.0)),
+                            mfe_after_stop_usd=float(diag_dict.get("mfe_after_stop_usd", 0.0)),
+                            has_data_gap_before_exit=bool(diag_dict.get("has_data_gap_before_exit", False)),
+                            max_bar_gap_ms=int(diag_dict.get("max_bar_gap_ms", 0)),
                         )
                     )
         else:
@@ -1714,6 +1719,7 @@ def run_v17_9_2_structural_stop_backtest(
         "independent_episodes": episodes_payload,
         "oos_report": oos_report_payload,
         "three_runtime_parity": three_runtime_payload,
+        "records_by_variant": merged_records_by_variant,
         "executable_source_tree_hash": exec_tree_hash,
         "dataset_sha256": dataset_sha256,
         "config_hash": config_hash,

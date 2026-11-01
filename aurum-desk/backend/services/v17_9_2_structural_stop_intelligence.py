@@ -258,6 +258,11 @@ class StopOutcomeDiagnostic:
     mae_r: float
     bars_held: int
     provenance: str = "HISTORICAL_BACKTEST_V1792"
+    sub_class: str = "NONE"
+    mfe_before_stop_usd: float = 0.0
+    mfe_after_stop_usd: float = 0.0
+    has_data_gap_before_exit: bool = False
+    max_bar_gap_ms: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -271,6 +276,7 @@ class StopOutcomeDiagnostic:
             "protected_structure_price": round(float(self.protected_structure_price), 2),
             "decision_timestamp_ms": int(self.decision_timestamp_ms),
             "outcome_class": self.outcome_class,
+            "sub_class": self.sub_class,
             "stop_hit": bool(self.stop_hit),
             "stop_hit_bar_ts": self.stop_hit_bar_ts,
             "tp_hit": bool(self.tp_hit),
@@ -282,6 +288,10 @@ class StopOutcomeDiagnostic:
             "mae_usd": round(float(self.mae_usd), 4),
             "mfe_r": round(float(self.mfe_r), 4),
             "mae_r": round(float(self.mae_r), 4),
+            "mfe_before_stop_usd": round(float(self.mfe_before_stop_usd), 4),
+            "mfe_after_stop_usd": round(float(self.mfe_after_stop_usd), 4),
+            "has_data_gap_before_exit": bool(self.has_data_gap_before_exit),
+            "max_bar_gap_ms": int(self.max_bar_gap_ms),
             "bars_held": int(self.bars_held),
             "provenance": self.provenance,
         }
@@ -305,6 +315,7 @@ def collect_causal_stop_anchor_candidates(
     unicorn_evidence: Optional[Any] = None,
     baseline_anchor: Optional[StopAnchor] = None,
     tick_size: float = 0.01,
+    enforce_cross_tf_invalidation_check: bool = True,
 ) -> List[StructuralStopCandidate]:
     """
     Section 4.2: Collect causal stop anchor candidates from closed M1/M5/M15 market structure.
@@ -361,9 +372,9 @@ def collect_causal_stop_anchor_candidates(
             elif norm_dir == "SHORT" and px <= float(entry_price):
                 rej.append("ANCHOR_WRONG_SIDE_OF_ENTRY")
 
-        # Check whether subsequent closed M1 bars after occurred_at_ms already invalidated this anchor
+        # Check whether subsequent closed M1/M5/M15 bars after occurred_at_ms already invalidated this anchor
         is_inv = False
-        if px > 0.0 and not rej and strictly_closed_m1:
+        if px > 0.0 and not rej and (strictly_closed_m1 or strictly_closed_m5 or strictly_closed_m15):
             temp_anc = StopAnchor(
                 id=anchor_id,
                 kind=anchor_kind,
@@ -374,9 +385,21 @@ def collect_causal_stop_anchor_candidates(
                 source_leg_id=str(source_leg_id or anchor_id),
                 source_break_id=source_break_id,
             )
-            inv_ok = validate_anchor_not_invalidated(
-                temp_anc, strictly_closed_m1, norm_dir, cutoff_ms, bar_duration_ms=60_000
-            )
+            inv_ok = True
+            if strictly_closed_m1:
+                inv_ok = validate_anchor_not_invalidated(
+                    temp_anc, strictly_closed_m1, norm_dir, cutoff_ms, bar_duration_ms=60_000
+                )
+            if inv_ok and enforce_cross_tf_invalidation_check:
+                tf_up = str(timeframe or "1M").strip().upper()
+                if tf_up in ("5M", "15M") and strictly_closed_m5:
+                    inv_ok = validate_anchor_not_invalidated(
+                        temp_anc, strictly_closed_m5, norm_dir, cutoff_ms, bar_duration_ms=300_000
+                    )
+                if inv_ok and tf_up == "15M" and strictly_closed_m15:
+                    inv_ok = validate_anchor_not_invalidated(
+                        temp_anc, strictly_closed_m15, norm_dir, cutoff_ms, bar_duration_ms=900_000
+                    )
             if not inv_ok:
                 is_inv = True
                 rej.append("ANCHOR_ALREADY_INVALIDATED")
@@ -868,13 +891,15 @@ def resolve_causal_target_candidates(
     closed_d1: Sequence[Any] = (),
     atr_m1: Optional[float] = None,
     tick_size: float = 0.01,
+    enforce_cross_tf_sweep_check: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Section 4.7: Resolve causal unconsumed liquidity target candidates from:
       - Provided `liquidity_pools` (M1/M5/M15/H1/H4/PDH/PDL)
       - Confirmed closed M1, M5, M15, H1, H4 swings (`known_at_ms <= decision_timestamp_ms`)
       - Completed prior-day D1 High/Low (`PDH`/`PDL` with `close_time <= decision_timestamp_ms`)
-    Strictly filters out consumed/swept/expired levels, future levels, and wrong-side levels.
+    Strictly filters out consumed/swept/expired levels across all closed LTF/HTF bars, future levels,
+    and wrong-side levels.
     """
     norm_dir = str(direction or "LONG").strip().upper()
     cutoff_ms = int(decision_timestamp_ms)
@@ -884,6 +909,31 @@ def resolve_causal_target_candidates(
     min_dist = max(float(atr_m1) * 1.0, 0.50) if _is_valid_finite_price(atr_m1) else 0.50
     expected_side = "BUY_SIDE" if norm_dir == "LONG" else "SELL_SIDE"
     terminal_states = {"SWEPT", "CONSUMED", "INVALIDATED", "EXPIRED", "MITIGATED"}
+
+    strictly_closed_by_tf = {
+        "1M": [b for b in (closed_m1 or ()) if _candle_is_closed(b, cutoff_ms, 60_000)],
+        "5M": [b for b in (closed_m5 or ()) if _candle_is_closed(b, cutoff_ms, 300_000)],
+        "15M": [b for b in (closed_m15 or ()) if _candle_is_closed(b, cutoff_ms, 900_000)],
+        "1H": [b for b in (closed_h1 or ()) if _candle_is_closed(b, cutoff_ms, 3_600_000)],
+        "4H": [b for b in (closed_h4 or ()) if _candle_is_closed(b, cutoff_ms, 14_400_000)],
+    }
+
+    def _is_pool_swept_cross_tf(lvl_px: float, after_open_ms: int, same_tf_bars: Sequence[Any]) -> bool:
+        for b in same_tf_bars:
+            if _candle_open_ms(b) <= after_open_ms:
+                continue
+            _, bh, bl, _ = _candle_ohlc(b)
+            if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
+                return True
+        if enforce_cross_tf_sweep_check:
+            for ltf_lbl in ("1M", "5M", "15M", "1H", "4H"):
+                for b in strictly_closed_by_tf[ltf_lbl]:
+                    if _candle_open_ms(b) <= after_open_ms:
+                        continue
+                    _, bh, bl, _ = _candle_ohlc(b)
+                    if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
+                        return True
+        return False
 
     raw_candidates: List[Dict[str, Any]] = []
     seen_ids = set()
@@ -951,18 +1001,21 @@ def resolve_causal_target_candidates(
             p_known = int(getattr(p, "known_at_ms", getattr(p, "occurred_at_ms", cutoff_ms)) or cutoff_ms)
             p_occ = int(getattr(p, "occurred_at_ms", p_known) or p_known)
             p_state = str(getattr(p, "state", "UNTOUCHED"))
+        if _is_valid_finite_price(p_px) and _is_pool_swept_cross_tf(
+            float(p_px), p_occ, strictly_closed_by_tf.get(p_tf.upper(), ())
+        ):
+            continue
         _try_add_pool(p_id, p_px, p_side, p_kind, p_tf, p_occ, p_known, p_state)
 
     # 2. Confirmed M1/M5/M15/H1/H4 unconsumed swings from closed bars
     tf_configs = (
-        ("1M", closed_m1, 60_000, 2, 2),
-        ("5M", closed_m5, 300_000, 1, 1),
-        ("15M", closed_m15, 900_000, 1, 1),
-        ("1H", closed_h1, 3_600_000, 1, 1),
-        ("4H", closed_h4, 14_400_000, 1, 1),
+        ("1M", strictly_closed_by_tf["1M"], 60_000, 2, 2),
+        ("5M", strictly_closed_by_tf["5M"], 300_000, 1, 1),
+        ("15M", strictly_closed_by_tf["15M"], 900_000, 1, 1),
+        ("1H", strictly_closed_by_tf["1H"], 3_600_000, 1, 1),
+        ("4H", strictly_closed_by_tf["4H"], 14_400_000, 1, 1),
     )
-    for tf_label, tf_bars, tf_ms, lb, rb in tf_configs:
-        c_bars = [b for b in (tf_bars or ()) if _candle_is_closed(b, cutoff_ms, tf_ms)]
+    for tf_label, c_bars, tf_ms, lb, rb in tf_configs:
         if len(c_bars) < lb + rb + 1:
             continue
         sh_list, sl_list = identify_confirmed_swings(
@@ -973,20 +1026,7 @@ def resolve_causal_target_candidates(
             sw_px = float(sw.get("price", 0.0))
             sw_occ = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
             sw_known = int(sw.get("known_at_ms", sw_occ + rb * tf_ms))
-            # Check if any subsequent closed bar in c_bars after sw_occ already swept/consumed this level
-            is_swept = False
-            for b in c_bars:
-                b_open = _candle_open_ms(b)
-                if b_open <= sw_occ:
-                    continue
-                _, bh, bl, _ = _candle_ohlc(b)
-                if norm_dir == "LONG" and bh >= sw_px:
-                    is_swept = True
-                    break
-                elif norm_dir == "SHORT" and bl <= sw_px:
-                    is_swept = True
-                    break
-            if not is_swept:
+            if not _is_pool_swept_cross_tf(sw_px, sw_occ, c_bars):
                 _try_add_pool(
                     f"pool_{tf_label}_{sw.get('id', sw_occ)}",
                     sw_px,
@@ -1008,16 +1048,7 @@ def resolve_causal_target_candidates(
         if d1_close <= cutoff_ms:
             lvl_px = d1_h if norm_dir == "LONG" else d1_l
             lvl_kind = "PDH" if norm_dir == "LONG" else "PDL"
-            # Check if consumed by closed M15/H1 bars since d1_close
-            consumed_d1 = False
-            for b in [x for x in (closed_h1 or ()) if _candle_is_closed(x, cutoff_ms, 3_600_000)]:
-                if _candle_open_ms(b) < d1_close:
-                    continue
-                _, bh, bl, _ = _candle_ohlc(b)
-                if (norm_dir == "LONG" and bh >= lvl_px) or (norm_dir == "SHORT" and bl <= lvl_px):
-                    consumed_d1 = True
-                    break
-            if not consumed_d1:
+            if not _is_pool_swept_cross_tf(lvl_px, d1_close - 1, strictly_closed_by_tf["1H"]):
                 _try_add_pool(
                     f"pool_{lvl_kind}_{d1_close}",
                     lvl_px,
@@ -1404,6 +1435,8 @@ def plan_v17_9_2_structural_stop_and_target(
     v1792_mode: str = "OBSERVE_ONLY",
     buffer_mode: str = "STRUCTURE_PLUS_NOISE",
     target_mode: str = "BASELINE_FROZEN",
+    enforce_cross_tf_sweep_check: bool = True,
+    enforce_cross_tf_invalidation_check: bool = True,
 ) -> StructuralStopPlanV1792:
     """
     Section 4.1–4.8 Orchestrator: End-to-end causal V17.9.2 structural stop & target planner.
@@ -1430,6 +1463,7 @@ def plan_v17_9_2_structural_stop_and_target(
         unicorn_evidence=unicorn_evidence,
         baseline_anchor=baseline_anchor,
         tick_size=tick_size,
+        enforce_cross_tf_invalidation_check=enforce_cross_tf_invalidation_check,
     )
     selected_anc, ranked_cands, rank_reasons = rank_structure_valid_anchors(
         candidates,
@@ -1502,6 +1536,7 @@ def plan_v17_9_2_structural_stop_and_target(
         closed_d1=closed_d1,
         atr_m1=atr_m1,
         tick_size=tick_size,
+        enforce_cross_tf_sweep_check=enforce_cross_tf_sweep_check,
     )
     t_plan = select_viable_structural_target(
         direction=norm_dir,
@@ -1595,6 +1630,20 @@ def plan_v17_9_2_structural_stop_and_target(
     )
 
 
+def _wilson_interval_95(successes: int, total: int) -> Optional[Dict[str, float]]:
+    if total <= 0:
+        return None
+    z = 1.959963984540054
+    p = successes / total
+    denom = 1.0 + (z * z) / total
+    center = (p + (z * z) / (2.0 * total)) / denom
+    half = (z * math.sqrt((p * (1.0 - p) + (z * z) / (4.0 * total)) / total)) / denom
+    return {
+        "lower_95": round(max(0.0, center - half), 4),
+        "upper_95": round(min(1.0, center + half), 4),
+    }
+
+
 def classify_structure_stop_outcome(
     *,
     episode_id: str,
@@ -1608,19 +1657,25 @@ def classify_structure_stop_outcome(
     decision_timestamp_ms: int,
     forward_bars: Sequence[Any],
     provenance: str = "HISTORICAL_BACKTEST_V1792",
+    delayed_break_window_bars: int = 5,
+    classify_gap_unresolved: bool = False,
+    gap_threshold_ms: int = 300_000,
 ) -> StopOutcomeDiagnostic:
     """
-    Section 4.9: Outcome-only post-entry forensic classifier.
-    Classifies a trade path into:
+    Section 4.9 & V17.9.2.1 Section 4.4: Outcome-only post-entry forensic classifier.
+    Classifies a trade path into mutually exclusive labels:
       - `CLEAN_WIN`: TP hit before SL hit
       - `SAME_BAR_CONSERVATIVE_LOSS`: Both SL and TP touched on the same bar (conservative loss)
-      - `PREMATURE_NOISE_SWEEP_STOP`: SL hit, but price did NOT close beyond `protected_structure_price`
-        on or before the stop bar AND either later hit `tp_price` or held `protected_structure_price`
-      - `DELAYED_INEVITABLE_LOSS`: SL hit before structure close-through, then structure broke shortly after
-        without ever reaching TP
+      - `PREMATURE_NOISE_SWEEP_STOP`: SL hit before outer protected structure close-through,
+        distinguishing `PURE_NOISE_SWEEP_STRUCTURE_HELD`, `NOISE_SWEEP_THEN_TP_HIT_EX_POST`,
+        and `PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK` (when structure broke > `delayed_break_window_bars` later)
+      - `DELAYED_INEVITABLE_LOSS`: SL hit before structure close-through, then outer protected structure
+        broke within `delayed_break_window_bars` without ever reaching TP
       - `TRUE_INVALIDATION_LOSS`: Candle closed decisively beyond `protected_structure_price` on or before
         the stop bar and continued against trade direction
       - `OPEN_AT_HORIZON`: Neither SL nor TP hit within `forward_bars`
+      - `DATA_GAP_UNRESOLVED`: Intra-trade M1 gap > `gap_threshold_ms` occurred before exit when
+        `classify_gap_unresolved=True`
     """
     norm_dir = str(direction or "LONG").strip().upper()
     ent = float(entry_price)
@@ -1645,11 +1700,20 @@ def classify_structure_stop_outcome(
 
     mfe_usd = 0.0
     mae_usd = 0.0
+    mfe_before_stop_usd = 0.0
+    mfe_after_stop_usd = 0.0
     bars_held = 0
+    has_data_gap_before_exit = False
+    max_bar_gap_ms = 0
+    prev_close_ms = int(decision_timestamp_ms)
 
     for idx, b in enumerate(forward_bars):
         b_ts = _candle_open_ms(b)
+        b_close_ms = _candle_close_ms(b, 60_000)
         _, bh, bl, bc = _candle_ohlc(b)
+
+        gap_ms = max(0, b_ts - prev_close_ms) if prev_close_ms > 0 and b_ts > 0 else 0
+        prev_close_ms = b_close_ms
 
         if norm_dir == "LONG":
             fav = max(0.0, bh - ent)
@@ -1665,7 +1729,13 @@ def classify_structure_stop_outcome(
             bar_breaks_struct = bc > prot
 
         if not stop_hit and not tp_hit:
+            if gap_ms > max_bar_gap_ms:
+                max_bar_gap_ms = gap_ms
+            if gap_ms > int(gap_threshold_ms):
+                has_data_gap_before_exit = True
+
             mfe_usd = max(mfe_usd, fav)
+            mfe_before_stop_usd = max(mfe_before_stop_usd, fav)
             mae_usd = max(mae_usd, adv)
             bars_held = idx + 1
 
@@ -1683,34 +1753,53 @@ def classify_structure_stop_outcome(
                 tp_hit_ts = b_ts
                 tp_hit_idx = idx
         else:
-            # Post-stop tracking for forensic attribution only
-            if stop_hit and bar_hits_tp:
-                tp_would_hit_after_stop = True
+            # Post-stop tracking for forensic attribution only (NON_EXECUTABLE_EX_POST)
+            if stop_hit:
+                mfe_after_stop_usd = max(mfe_after_stop_usd, fav)
+                if bar_hits_tp:
+                    tp_would_hit_after_stop = True
 
         if not structure_broken and bar_breaks_struct:
             structure_broken = True
             structure_break_ts = b_ts
             structure_break_idx = idx
 
-    if tp_hit and not stop_hit:
+    sub_class = "NONE"
+    if classify_gap_unresolved and has_data_gap_before_exit:
+        outcome_class = "DATA_GAP_UNRESOLVED"
+        sub_class = "INTRATRADE_PROVIDER_GAP_BEFORE_EXIT"
+    elif tp_hit and not stop_hit:
         outcome_class = "CLEAN_WIN"
+        sub_class = "CLEAN_TARGET_HIT"
     elif same_bar_tie:
         outcome_class = "SAME_BAR_CONSERVATIVE_LOSS"
+        sub_class = "SAME_BAR_SL_TP_TIE_CONSERVATIVE"
     elif stop_hit:
         assert stop_hit_idx is not None
-        # Did a candle close beyond the outer protected structure on or before the stop bar?
         broke_on_or_before_stop = bool(
             structure_broken and structure_break_idx is not None and structure_break_idx <= stop_hit_idx
         )
-        if not broke_on_or_before_stop and (tp_would_hit_after_stop or not structure_broken):
-            outcome_class = "PREMATURE_NOISE_SWEEP_STOP"
-        elif not broke_on_or_before_stop and structure_broken:
-            # Stopped on internal swing/wick before outer protected structure broke
-            outcome_class = "PREMATURE_NOISE_SWEEP_STOP"
-        else:
+        if broke_on_or_before_stop:
             outcome_class = "TRUE_INVALIDATION_LOSS"
+            sub_class = "IMMEDIATE_STRUCTURE_INVALIDATION"
+        elif tp_would_hit_after_stop:
+            outcome_class = "PREMATURE_NOISE_SWEEP_STOP"
+            sub_class = "NOISE_SWEEP_THEN_TP_HIT_EX_POST"
+        elif not structure_broken:
+            outcome_class = "PREMATURE_NOISE_SWEEP_STOP"
+            sub_class = "PURE_NOISE_SWEEP_STRUCTURE_HELD"
+        else:
+            assert structure_break_idx is not None
+            bars_to_break = int(structure_break_idx - stop_hit_idx)
+            if bars_to_break <= int(delayed_break_window_bars):
+                outcome_class = "DELAYED_INEVITABLE_LOSS"
+                sub_class = "DELAYED_INEVITABLE_BREAK_WITHIN_5_BARS"
+            else:
+                outcome_class = "PREMATURE_NOISE_SWEEP_STOP"
+                sub_class = "PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK"
     else:
         outcome_class = "OPEN_AT_HORIZON"
+        sub_class = "CENSORED_OPEN_AT_HORIZON"
 
     return StopOutcomeDiagnostic(
         episode_id=str(episode_id),
@@ -1736,6 +1825,11 @@ def classify_structure_stop_outcome(
         mae_r=round(mae_usd / risk_dist, 4),
         bars_held=bars_held,
         provenance=provenance,
+        sub_class=sub_class,
+        mfe_before_stop_usd=round(mfe_before_stop_usd, 4),
+        mfe_after_stop_usd=round(mfe_after_stop_usd, 4),
+        has_data_gap_before_exit=has_data_gap_before_exit,
+        max_bar_gap_ms=max_bar_gap_ms,
     )
 
 
@@ -1743,8 +1837,9 @@ def measure_premature_stop_rate(
     diagnostics: Sequence[StopOutcomeDiagnostic],
 ) -> Dict[str, Any]:
     """
-    Section 4.9: Aggregate premature stop vs true invalidation rates across a sequence of
-    `StopOutcomeDiagnostic` records.
+    Section 4.9 & V17.9.2.1 Section 3.A: Aggregate premature stop vs true invalidation rates
+    across a sequence of `StopOutcomeDiagnostic` records.
+    Returns None (`null`) when denominator == 0 and supplies Wilson 95% confidence intervals.
     """
     total = len(diagnostics)
     counts: Dict[str, int] = {
@@ -1754,9 +1849,22 @@ def measure_premature_stop_rate(
         "TRUE_INVALIDATION_LOSS": 0,
         "SAME_BAR_CONSERVATIVE_LOSS": 0,
         "OPEN_AT_HORIZON": 0,
+        "DATA_GAP_UNRESOLVED": 0,
+    }
+    sub_counts: Dict[str, int] = {
+        "PURE_NOISE_SWEEP_STRUCTURE_HELD": 0,
+        "NOISE_SWEEP_THEN_TP_HIT_EX_POST": 0,
+        "PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK": 0,
+        "DELAYED_INEVITABLE_BREAK_WITHIN_5_BARS": 0,
+        "IMMEDIATE_STRUCTURE_INVALIDATION": 0,
+        "CLEAN_TARGET_HIT": 0,
+        "SAME_BAR_SL_TP_TIE_CONSERVATIVE": 0,
+        "CENSORED_OPEN_AT_HORIZON": 0,
+        "INTRATRADE_PROVIDER_GAP_BEFORE_EXIT": 0,
     }
     stopped = 0
     tp_after_stop = 0
+    gap_before_exit_count = 0
     mfe_r_list: List[float] = []
     mae_r_list: List[float] = []
     bars_list: List[int] = []
@@ -1764,15 +1872,21 @@ def measure_premature_stop_rate(
     for d in diagnostics:
         oc = d.outcome_class
         counts[oc] = counts.get(oc, 0) + 1
+        sc = getattr(d, "sub_class", "NONE")
+        if sc in sub_counts:
+            sub_counts[sc] += 1
         if d.stop_hit:
             stopped += 1
         if d.tp_would_hit_after_stop:
             tp_after_stop += 1
+        if getattr(d, "has_data_gap_before_exit", False):
+            gap_before_exit_count += 1
         mfe_r_list.append(float(d.mfe_r))
         mae_r_list.append(float(d.mae_r))
         bars_list.append(int(d.bars_held))
 
     premature_cnt = counts.get("PREMATURE_NOISE_SWEEP_STOP", 0)
+    delayed_cnt = counts.get("DELAYED_INEVITABLE_LOSS", 0)
     true_inv_cnt = counts.get("TRUE_INVALIDATION_LOSS", 0)
 
     return {
@@ -1780,16 +1894,237 @@ def measure_premature_stop_rate(
         "stopped_episodes": stopped,
         "clean_win_count": counts["CLEAN_WIN"],
         "premature_stop_count": premature_cnt,
-        "delayed_inevitable_loss_count": counts["DELAYED_INEVITABLE_LOSS"],
+        "pure_noise_sweep_structure_held_count": sub_counts["PURE_NOISE_SWEEP_STRUCTURE_HELD"],
+        "premature_wick_before_later_break_count": sub_counts["PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK"],
+        "noise_sweep_then_tp_hit_ex_post_count": sub_counts["NOISE_SWEEP_THEN_TP_HIT_EX_POST"],
+        "delayed_inevitable_loss_count": delayed_cnt,
         "true_invalidation_loss_count": true_inv_cnt,
         "same_bar_tie_loss_count": counts["SAME_BAR_CONSERVATIVE_LOSS"],
         "open_at_horizon_count": counts["OPEN_AT_HORIZON"],
+        "data_gap_unresolved_count": counts["DATA_GAP_UNRESOLVED"],
+        "has_data_gap_before_exit_count": gap_before_exit_count,
         "tp_would_hit_after_stop_count": tp_after_stop,
         "premature_stop_rate_of_stopped": round(premature_cnt / stopped, 4) if stopped > 0 else None,
+        "premature_stop_rate_of_stopped_wilson_95_ci": _wilson_interval_95(premature_cnt, stopped),
         "premature_stop_rate_of_total": round(premature_cnt / total, 4) if total > 0 else None,
+        "premature_stop_rate_of_total_wilson_95_ci": _wilson_interval_95(premature_cnt, total),
+        "delayed_inevitable_rate_of_stopped": round(delayed_cnt / stopped, 4) if stopped > 0 else None,
         "true_invalidation_rate_of_stopped": round(true_inv_cnt / stopped, 4) if stopped > 0 else None,
+        "true_invalidation_rate_of_stopped_wilson_95_ci": _wilson_interval_95(true_inv_cnt, stopped),
         "mean_mfe_r": round(sum(mfe_r_list) / len(mfe_r_list), 4) if mfe_r_list else None,
         "mean_mae_r": round(sum(mae_r_list) / len(mae_r_list), 4) if mae_r_list else None,
         "mean_bars_held": round(sum(bars_list) / len(bars_list), 2) if bars_list else None,
         "outcome_class_counts": counts,
+        "sub_class_counts": sub_counts,
+    }
+
+
+def simulate_order_fill_and_outcome_sensitivity(
+    *,
+    direction: str,
+    planned_entry: float,
+    sl_price: float,
+    tp_price: float,
+    quantity: float,
+    decision_timestamp_ms: int,
+    forward_bars: Sequence[Any],
+    fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
+    spread_usd: float = 0.20,
+    slippage_usd: float = 0.10,
+    taker_fee_rate: float = 0.0004,
+    maker_fee_rate: float = 0.0002,
+    tp_is_maker: bool = False,
+    gap_threshold_ms: int = 300_000,
+    risk_budget_usd: float = 2.50,
+) -> Dict[str, Any]:
+    """
+    V17.9.2.1 Section 5.3 & 12(D): Realistic forward trade fill & outcome simulator comparing:
+      - `LEGACY_CLOSE_FILL`: enters at `planned_entry` (bar close), checks raw M1 high/low against SL/TP.
+      - `NEXT_BAR_OPEN_BID_ASK`: enters at `forward_bars[0].open` with bid/ask half-spread + adverse slippage;
+        checks LONG exit at bid (`price - half_spread`) and SHORT exit at ask (`price + half_spread`);
+        handles gap-spanning entry (`NO_FILL_ENTRY_GAP`), gap-open adverse stops (`ADVERSE_GAP_OPEN_STOP_LOSS`),
+        intratrade provider gaps (`DATA_GAP_UNRESOLVED`), and intrabar SL+TP ties (`LOSS_TIE_CONSERVATIVE`).
+      - `STRESS_WIDER_SPREAD_SLIPPAGE_2X`: same as `NEXT_BAR_OPEN_BID_ASK` with 2x spread and 2x slippage.
+    Never uses future bars to alter pre-entry decisions.
+    """
+    norm_dir = str(direction or "LONG").strip().upper()
+    mode_norm = str(fill_mode or "NEXT_BAR_OPEN_BID_ASK").strip().upper()
+    eff_spread = float(spread_usd) * (2.0 if mode_norm == "STRESS_WIDER_SPREAD_SLIPPAGE_2X" else 1.0)
+    eff_slip = float(slippage_usd) * (2.0 if mode_norm == "STRESS_WIDER_SPREAD_SLIPPAGE_2X" else 1.0)
+    half_spread = eff_spread / 2.0
+    qty = max(0.0, float(quantity))
+    sl = float(sl_price)
+    tp = float(tp_price)
+
+    if not forward_bars:
+        return {
+            "fill_mode": mode_norm,
+            "filled": False,
+            "outcome": "NO_FORWARD_BARS",
+            "fill_price": None,
+            "exit_price": None,
+            "bars_held": 0,
+            "realized_net_pnl_usd": 0.0,
+            "realized_r": 0.0,
+            "entry_gap_ms": None,
+            "max_intratrade_gap_ms": 0,
+        }
+
+    first_bar = forward_bars[0]
+    first_open_ms = _candle_open_ms(first_bar)
+    first_open, _, _, _ = _candle_ohlc(first_bar)
+    entry_gap_ms = max(0, first_open_ms - int(decision_timestamp_ms))
+
+    if mode_norm == "LEGACY_CLOSE_FILL":
+        fill_px = float(planned_entry)
+    else:
+        # Next tradable bar entry check: if next bar is delayed by > 60s (provider gap at entry), fail closed
+        if entry_gap_ms > 60_000:
+            return {
+                "fill_mode": mode_norm,
+                "filled": False,
+                "outcome": "NO_FILL_ENTRY_GAP",
+                "fill_price": None,
+                "exit_price": None,
+                "bars_held": 0,
+                "realized_net_pnl_usd": 0.0,
+                "realized_r": 0.0,
+                "entry_gap_ms": entry_gap_ms,
+                "max_intratrade_gap_ms": entry_gap_ms,
+            }
+        if norm_dir == "LONG":
+            fill_px = round(first_open + half_spread + eff_slip, 4)
+            if fill_px <= sl or fill_px >= tp:
+                return {
+                    "fill_mode": mode_norm,
+                    "filled": False,
+                    "outcome": "NO_FILL_INVALID_NEXT_OPEN_GEOMETRY",
+                    "fill_price": fill_px,
+                    "exit_price": None,
+                    "bars_held": 0,
+                    "realized_net_pnl_usd": 0.0,
+                    "realized_r": 0.0,
+                    "entry_gap_ms": entry_gap_ms,
+                    "max_intratrade_gap_ms": 0,
+                }
+        else:
+            fill_px = round(first_open - half_spread - eff_slip, 4)
+            if fill_px >= sl or fill_px <= tp:
+                return {
+                    "fill_mode": mode_norm,
+                    "filled": False,
+                    "outcome": "NO_FILL_INVALID_NEXT_OPEN_GEOMETRY",
+                    "fill_price": fill_px,
+                    "exit_price": None,
+                    "bars_held": 0,
+                    "realized_net_pnl_usd": 0.0,
+                    "realized_r": 0.0,
+                    "entry_gap_ms": entry_gap_ms,
+                    "max_intratrade_gap_ms": 0,
+                }
+
+    prev_close_ms = int(decision_timestamp_ms)
+    max_intratrade_gap_ms = 0
+    outcome = "OPEN_AT_HORIZON"
+    exit_px: Optional[float] = None
+    bars_held = 0
+
+    for idx, b in enumerate(forward_bars):
+        b_open_ms = _candle_open_ms(b)
+        b_close_ms = _candle_close_ms(b, 60_000)
+        bo, bh, bl, bc = _candle_ohlc(b)
+        gap_ms = max(0, b_open_ms - prev_close_ms) if prev_close_ms > 0 and b_open_ms > 0 else 0
+        prev_close_ms = b_close_ms
+        if gap_ms > max_intratrade_gap_ms:
+            max_intratrade_gap_ms = gap_ms
+        bars_held = idx + 1
+
+        if mode_norm != "LEGACY_CLOSE_FILL" and idx > 0 and gap_ms > int(gap_threshold_ms):
+            # Check if gap open jumped adversely across SL
+            if norm_dir == "LONG" and (bo - half_spread) <= sl:
+                outcome = "ADVERSE_GAP_OPEN_STOP_LOSS"
+                exit_px = round(bo - half_spread - eff_slip, 4)
+                break
+            if norm_dir == "SHORT" and (bo + half_spread) >= sl:
+                outcome = "ADVERSE_GAP_OPEN_STOP_LOSS"
+                exit_px = round(bo + half_spread + eff_slip, 4)
+                break
+            outcome = "DATA_GAP_UNRESOLVED"
+            exit_px = round(bo - half_spread if norm_dir == "LONG" else bo + half_spread, 4)
+            break
+
+        if mode_norm == "LEGACY_CLOSE_FILL":
+            hit_sl = (bl <= sl) if norm_dir == "LONG" else (bh >= sl)
+            hit_tp = (bh >= tp) if norm_dir == "LONG" else (bl <= tp)
+            if hit_sl and hit_tp:
+                outcome = "LOSS_TIE_CONSERVATIVE"
+                exit_px = sl
+                break
+            if hit_sl:
+                outcome = "LOSS"
+                exit_px = sl
+                break
+            if hit_tp:
+                outcome = "WIN"
+                exit_px = tp
+                break
+        else:
+            # Quote-side aware exit: LONG exits at bid (price - half_spread), SHORT exits at ask (price + half_spread)
+            if norm_dir == "LONG":
+                hit_sl = (bl - half_spread) <= sl
+                hit_tp = (bh - half_spread) >= tp
+                if hit_sl and hit_tp:
+                    outcome = "LOSS_TIE_CONSERVATIVE"
+                    exit_px = round(sl - eff_slip, 4)
+                    break
+                if hit_sl:
+                    outcome = "LOSS"
+                    exit_px = round(min(sl, bo - half_spread) - eff_slip, 4)
+                    break
+                if hit_tp:
+                    outcome = "WIN"
+                    exit_px = round(tp, 4)
+                    break
+            else:
+                hit_sl = (bh + half_spread) >= sl
+                hit_tp = (bl + half_spread) <= tp
+                if hit_sl and hit_tp:
+                    outcome = "LOSS_TIE_CONSERVATIVE"
+                    exit_px = round(sl + eff_slip, 4)
+                    break
+                if hit_sl:
+                    outcome = "LOSS"
+                    exit_px = round(max(sl, bo + half_spread) + eff_slip, 4)
+                    break
+                if hit_tp:
+                    outcome = "WIN"
+                    exit_px = round(tp, 4)
+                    break
+
+    if exit_px is None:
+        _, _, _, last_c = _candle_ohlc(forward_bars[-1])
+        exit_px = round(
+            last_c - half_spread if (mode_norm != "LEGACY_CLOSE_FILL" and norm_dir == "LONG")
+            else (last_c + half_spread if mode_norm != "LEGACY_CLOSE_FILL" else last_c),
+            4,
+        )
+
+    gross_pnl_per_oz = (exit_px - fill_px) if norm_dir == "LONG" else (fill_px - exit_px)
+    entry_fee_per_oz = fill_px * float(taker_fee_rate)
+    exit_fee_rate = float(maker_fee_rate) if (outcome == "WIN" and tp_is_maker) else float(taker_fee_rate)
+    exit_fee_per_oz = exit_px * exit_fee_rate
+    net_pnl_usd = round((gross_pnl_per_oz - entry_fee_per_oz - exit_fee_per_oz) * qty, 4)
+    realized_r = round(net_pnl_usd / max(0.01, float(risk_budget_usd)), 4)
+
+    return {
+        "fill_mode": mode_norm,
+        "filled": True,
+        "outcome": outcome,
+        "fill_price": round(fill_px, 4),
+        "exit_price": round(exit_px, 4),
+        "bars_held": bars_held,
+        "realized_net_pnl_usd": net_pnl_usd,
+        "realized_r": realized_r,
+        "entry_gap_ms": entry_gap_ms,
+        "max_intratrade_gap_ms": max_intratrade_gap_ms,
     }

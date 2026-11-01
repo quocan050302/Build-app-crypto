@@ -535,6 +535,7 @@ def build_resource_bounded_shards(
     """
     dedicated_files = {
         "backend/tests/test_v17_9_2_structural_stop.py",
+        "backend/tests/test_v17_9_2_1_validation_closure.py",
         "backend/tests/test_v17_9_1_mtf_structure_liquidity.py",
         "backend/tests/test_v17_9_1_positive_path_replay.py",
     }
@@ -584,11 +585,19 @@ def build_resource_bounded_shards(
             )
         )
 
+    v1792_files = [
+        f
+        for f in (
+            "backend/tests/test_v17_9_2_structural_stop.py",
+            "backend/tests/test_v17_9_2_1_validation_closure.py",
+        )
+        if (repo_root / f).exists()
+    ]
     shards: List[Tuple[str, str, List[str], Optional[str]]] = [
         (
             "SHARD_01_V17_9_2_STRUCTURAL_STOP",
-            "V17.9.2 Structure-Valid SL/TP, Causal Invalidation & 26-Test Acceptance Suite",
-            ["backend/tests/test_v17_9_2_structural_stop.py"],
+            "V17.9.2 / V17.9.2.1 Structure-Valid SL/TP, Causal Invalidation & Closure Suite",
+            v1792_files,
             None,
         ),
         (

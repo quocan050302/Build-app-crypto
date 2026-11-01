@@ -2910,6 +2910,12 @@ class SharedStrategyEvaluator:
                 v1792_mode=eff_v1792_mode,
                 buffer_mode=eff_v1792_buffer_mode,
                 target_mode=eff_v1792_target_mode,
+                enforce_cross_tf_sweep_check=bool(
+                    policy_dict.get("v17_9_2_enforce_cross_tf_sweep_check", True)
+                ),
+                enforce_cross_tf_invalidation_check=bool(
+                    policy_dict.get("v17_9_2_enforce_cross_tf_invalidation_check", True)
+                ),
             )
             v1792_stop_plan_dict = v1792_plan.to_dict()
             v1792_target_plan_dict = (
