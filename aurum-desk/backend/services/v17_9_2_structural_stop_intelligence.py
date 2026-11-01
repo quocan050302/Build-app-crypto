@@ -483,10 +483,22 @@ def collect_causal_stop_anchor_candidates(
                 candidates.append(cc)
     else:
         pre_common_len = len(candidates)
+        htf_sw_memo = getattr(collect_causal_stop_anchor_candidates, "_HTF_SW_MEMO", None)
+        if htf_sw_memo is None:
+            htf_sw_memo = {}
+            setattr(collect_causal_stop_anchor_candidates, "_HTF_SW_MEMO", htf_sw_memo)
         if len(strictly_closed_m5) >= 3:
-            sh_5m, sl_5m = identify_confirmed_swings(
-                strictly_closed_m5, timeframe="5M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
-            )
+            m5_k = ("5M", len(strictly_closed_m5), _candle_close_ms(strictly_closed_m5[-1], 300_000), _candle_ohlc(strictly_closed_m5[-1]), _candle_ohlc(strictly_closed_m5[0]))
+            m5_hit = htf_sw_memo.get(m5_k)
+            if m5_hit is not None:
+                sh_5m, sl_5m = m5_hit
+            else:
+                sh_5m, sl_5m = identify_confirmed_swings(
+                    strictly_closed_m5, timeframe="5M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
+                )
+                if len(htf_sw_memo) >= 64:
+                    htf_sw_memo.clear()
+                htf_sw_memo[m5_k] = (sh_5m, sl_5m)
             m5_swings = sl_5m if norm_dir == "LONG" else sh_5m
             m5_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
             for sw in m5_swings:
@@ -517,9 +529,17 @@ def collect_causal_stop_anchor_candidates(
                 )
 
         if len(strictly_closed_m15) >= 3:
-            sh_15m, sl_15m = identify_confirmed_swings(
-                strictly_closed_m15, timeframe="15M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
-            )
+            m15_k = ("15M", len(strictly_closed_m15), _candle_close_ms(strictly_closed_m15[-1], 900_000), _candle_ohlc(strictly_closed_m15[-1]), _candle_ohlc(strictly_closed_m15[0]))
+            m15_hit = htf_sw_memo.get(m15_k)
+            if m15_hit is not None:
+                sh_15m, sl_15m = m15_hit
+            else:
+                sh_15m, sl_15m = identify_confirmed_swings(
+                    strictly_closed_m15, timeframe="15M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms
+                )
+                if len(htf_sw_memo) >= 64:
+                    htf_sw_memo.clear()
+                htf_sw_memo[m15_k] = (sh_15m, sl_15m)
             m15_swings = sl_15m if norm_dir == "LONG" else sh_15m
             m15_kind = StopAnchorKind.PROTECTED_SWING_LOW.value if norm_dir == "LONG" else StopAnchorKind.PROTECTED_SWING_HIGH.value
             for sw in m15_swings:
@@ -1064,12 +1084,24 @@ def resolve_causal_target_candidates(
         ("1H", strictly_closed_by_tf["1H"], 3_600_000, 1, 1),
         ("4H", strictly_closed_by_tf["4H"], 14_400_000, 1, 1),
     )
+    tgt_sw_memo = getattr(resolve_causal_target_candidates, "_TGT_SW_MEMO", None)
+    if tgt_sw_memo is None:
+        tgt_sw_memo = {}
+        setattr(resolve_causal_target_candidates, "_TGT_SW_MEMO", tgt_sw_memo)
     for tf_label, c_bars, tf_ms, lb, rb in tf_configs:
         if len(c_bars) < lb + rb + 1:
             continue
-        sh_list, sl_list = identify_confirmed_swings(
-            c_bars, timeframe=tf_label, left_bars=lb, right_bars=rb, as_of_ms=cutoff_ms
-        )
+        sw_k = (tf_label, lb, rb, len(c_bars), _candle_close_ms(c_bars[-1], tf_ms), _candle_ohlc(c_bars[-1]), _candle_ohlc(c_bars[0]))
+        sw_hit = tgt_sw_memo.get(sw_k)
+        if sw_hit is not None:
+            sh_list, sl_list = sw_hit
+        else:
+            sh_list, sl_list = identify_confirmed_swings(
+                c_bars, timeframe=tf_label, left_bars=lb, right_bars=rb, as_of_ms=cutoff_ms
+            )
+            if len(tgt_sw_memo) >= 64:
+                tgt_sw_memo.clear()
+            tgt_sw_memo[sw_k] = (sh_list, sl_list)
         target_swings = sh_list if norm_dir == "LONG" else sl_list
         for sw in target_swings:
             sw_px = float(sw.get("price", 0.0))

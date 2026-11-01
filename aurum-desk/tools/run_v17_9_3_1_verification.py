@@ -556,6 +556,7 @@ def build_artifact_06_trade_execution_ledger_net(
     identity_violations = 0
     risk_budget_violations = 0
 
+    max_planned_risk_usd = round(1000.0 * (0.25 / 100.0), 6)  # 2.50 USD canonical budget
     for v_k, eps in ab_result["episodes_by_variant"].items():
         v_entries: List[Dict[str, Any]] = []
         for ep in eps:
@@ -570,7 +571,7 @@ def build_artifact_06_trade_execution_ledger_net(
                 p_risk = float(led.get("planned_net_risk_usd") or 0.0)
                 net_pnl = float(led.get("realized_net_pnl_usd") or 0.0)
                 r_net = float(led.get("realized_r_net") or 0.0)
-                if p_risk > 250.0 + 1e-6 or p_risk <= 0.0:
+                if p_risk > max_planned_risk_usd + 1e-6 or p_risk <= 0.0:
                     risk_budget_violations += 1
                 expected_r = round(net_pnl / p_risk, 4) if p_risk > 0 else 0.0
                 if abs(r_net - expected_r) > 1e-3:
@@ -582,6 +583,7 @@ def build_artifact_06_trade_execution_ledger_net(
         "run_id": run_id,
         "execution_truth_class": "MODELED_HISTORICAL_BAR_EXECUTION",
         "primary_fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+        "canonical_max_planned_risk_usd": max_planned_risk_usd,
         "total_ledger_entries_across_10_variants": total_ledger_entries,
         "algebraic_identity_checks_total": identity_checks_total,
         "algebraic_identity_violations": identity_violations,
@@ -796,37 +798,64 @@ def build_artifact_14_chronological_oos_and_embargo(
     tot_1m = len(bars_1m)
     dev_end_idx = int(tot_1m * 0.50)
     val_end_idx = int(tot_1m * 0.75)
-    embargo_bars = 60
+    embargo_bars = 180
 
     is70_end_idx = int(tot_1m * 0.70)
     val85_end_idx = int(tot_1m * 0.85)
 
+    dev_end_ms = int(bars_1m[min(tot_1m - 1, dev_end_idx)]["close_time"])
+    val_end_ms = int(bars_1m[min(tot_1m - 1, val_end_idx)]["close_time"])
+    is70_end_ms = int(bars_1m[min(tot_1m - 1, is70_end_idx)]["close_time"])
+    val85_end_ms = int(bars_1m[min(tot_1m - 1, val85_end_idx)]["close_time"])
+
     per_variant_splits: Dict[str, Any] = {}
     embargo_leak_count = 0
+    unknown_exit_timestamp_count = 0
+    leaking_episode_ids: List[str] = []
 
     for v_k, eps in ab_result["episodes_by_variant"].items():
         v_sum = ab_result["variant_summaries"][v_k]
         embargo_filtered_eps: List[Dict[str, Any]] = []
         for ep in eps:
             idx = int(ep["checkpoint_index_1m"])
+            dec_ts = int(ep.get("decision_timestamp_ms") or 0)
+            led = ep.get("execution_ledger") or {}
+            out_lbl = str(ep.get("outcome_label") or led.get("exit_type") or "")
+            exit_ts = led.get("exit_fill_ts") or led.get("trigger_bar_ts")
+            if out_lbl in ("WIN", "LOSS", "LOSS_TIE_CONSERVATIVE") and exit_ts is None:
+                unknown_exit_timestamp_count += 1
+            eff_end_ts = int(exit_ts) if exit_ts is not None else (
+                int(bars_1m[min(tot_1m - 1, idx + embargo_bars)]["close_time"])
+            )
             in_embargo_zone = (
                 (dev_end_idx - embargo_bars <= idx < dev_end_idx)
                 or (val_end_idx - embargo_bars <= idx < val_end_idx)
             )
             if not in_embargo_zone:
                 embargo_filtered_eps.append(ep)
+                if dec_ts < dev_end_ms and eff_end_ts >= dev_end_ms:
+                    embargo_leak_count += 1
+                    leaking_episode_ids.append(str(led.get("episode_key") or f"{v_k}_{idx}"))
+                elif dev_end_ms <= dec_ts < val_end_ms and eff_end_ts >= val_end_ms:
+                    embargo_leak_count += 1
+                    leaking_episode_ids.append(str(led.get("episode_key") or f"{v_k}_{idx}"))
 
-        s_70 = [e for e in eps if int(e["checkpoint_index_1m"]) < is70_end_idx - embargo_bars]
+        s_70 = [
+            e for e in eps
+            if int(e["checkpoint_index_1m"]) < is70_end_idx - embargo_bars
+            and int((e.get("execution_ledger") or {}).get("exit_fill_ts") or int(e.get("decision_timestamp_ms") or 0)) < is70_end_ms
+        ]
         s_15_val = [
             e
             for e in eps
             if is70_end_idx <= int(e["checkpoint_index_1m"]) < val85_end_idx - embargo_bars
+            and int((e.get("execution_ledger") or {}).get("exit_fill_ts") or int(e.get("decision_timestamp_ms") or 0)) < val85_end_ms
         ]
         s_15_oos = [e for e in eps if int(e["checkpoint_index_1m"]) >= val85_end_idx]
 
         per_variant_splits[v_k] = {
             "partitions_50_25_25": v_sum["partitions"],
-            "partitions_70_15_15_embargo_60m": {
+            "partitions_70_15_15_embargo_180m": {
                 "IS_70": {
                     "episodes": len(s_70),
                     "net_pnl_usd": round(
@@ -854,13 +883,22 @@ def build_artifact_14_chronological_oos_and_embargo(
         "run_id": run_id,
         "total_1m_bars": tot_1m,
         "embargo_minutes": embargo_bars,
+        "measured_embargo_leak_count": embargo_leak_count,
+        "unknown_exit_timestamp_count": unknown_exit_timestamp_count,
+        "leaking_episode_ids": leaking_episode_ids,
         "chronological_boundaries": {
             "DEV_50_end_idx": dev_end_idx,
+            "DEV_50_end_ms": dev_end_ms,
             "VALIDATION_25_end_idx": val_end_idx,
+            "VALIDATION_25_end_ms": val_end_ms,
             "IS_70_end_idx": is70_end_idx,
+            "IS_70_end_ms": is70_end_ms,
             "OOS_VAL_85_end_idx": val85_end_idx,
+            "OOS_VAL_85_end_ms": val85_end_ms,
         },
-        "zero_future_bar_leakage_across_splits": embargo_leak_count == 0,
+        "zero_future_bar_leakage_across_splits": (
+            embargo_leak_count == 0 and unknown_exit_timestamp_count == 0
+        ),
         "variants": per_variant_splits,
     }
 
@@ -931,11 +969,14 @@ def build_artifact_17_cost_sizing_and_net_rr_invariants(
     finally:
         db.close()
 
+    max_planned_risk_usd = round(1000.0 * (0.25 / 100.0), 6)
     return {
         "schema_version": V17_9_3_1_SCHEMA_VERSION,
         "run_id": run_id,
         "cost_and_sizing_parameters": {
-            "risk_budget_usd": 250.0,
+            "capital_usdt": 1000.0,
+            "risk_pct_percent": 0.25,
+            "risk_budget_usd": max_planned_risk_usd,
             "lot_step": 0.01,
             "min_lot": 0.01,
             "min_net_rr": float(scalp_cfg.min_net_rr),
@@ -947,7 +988,7 @@ def build_artifact_17_cost_sizing_and_net_rr_invariants(
         "historical_invariants_verified": {
             "stop_geometry_violations": ab_result["invariants"]["stop_geometry_violations"],
             "risk_budget_violations": ab_result["invariants"]["risk_budget_violations"],
-            "min_net_rr_unweakened": float(scalp_cfg.min_net_rr) >= 1.1,
+            "min_net_rr_unweakened": float(scalp_cfg.min_net_rr) >= 2.0,
         },
         "policy_persistence_safety": {
             "default_off_verified": default_off_verified,
@@ -1558,10 +1599,17 @@ def evaluate_all_26_acceptance_gates(
         "variant_count": len(art13.get("variants", {})),
     })
 
-    # C14: Chronological IS/OOS Split & 60-Minute Embargo Validation
-    c14_ok = bool(art14.get("zero_future_bar_leakage_across_splits")) and len(art14.get("variants", {})) == 10
-    _add("C14", "Chronological IS/OOS splits (50/25/25 and 70/15/15) with 60-minute embargo", c14_ok, {
+    # C14: Chronological IS/OOS Split & Embargo Validation
+    c14_ok = (
+        bool(art14.get("zero_future_bar_leakage_across_splits"))
+        and int(art14.get("measured_embargo_leak_count", -1)) == 0
+        and int(art14.get("unknown_exit_timestamp_count", -1)) == 0
+        and len(art14.get("variants", {})) == 10
+    )
+    _add("C14", "Chronological IS/OOS splits (50/25/25 and 70/15/15) with real exit-timestamp embargo verification", c14_ok, {
         "zero_future_bar_leakage": art14.get("zero_future_bar_leakage_across_splits"),
+        "measured_embargo_leak_count": art14.get("measured_embargo_leak_count"),
+        "unknown_exit_timestamp_count": art14.get("unknown_exit_timestamp_count"),
     })
 
     # C15: Three-Runtime Consumed Parity
@@ -1586,12 +1634,20 @@ def evaluate_all_26_acceptance_gates(
     _add("C16", "Frozen oracle non-null trade_action verification & `A0 == B0` observe-only invariance", c16_ok, art16.get("frozen_oracle_proof"))
 
     # C17: Cost, Sizing & Net RR Invariants Unweakened
+    hist_inv = art17.get("historical_invariants_verified") or {}
     c17_ok = (
-        int((art17.get("historical_invariants_verified") or {}).get("stop_geometry_violations", -1)) == 0
-        and int((art17.get("historical_invariants_verified") or {}).get("risk_budget_violations", -1)) == 0
-        and bool((art17.get("historical_invariants_verified") or {}).get("min_net_rr_unweakened"))
+        int(hist_inv.get("stop_geometry_violations", -1)) == 0
+        and int(hist_inv.get("risk_budget_violations", -1)) == 0
+        and abs(float(hist_inv.get("risk_budget_usd", 0.0)) - 2.50) < 1e-6
+        and bool(hist_inv.get("min_net_rr_unweakened"))
+        and float(hist_inv.get("min_net_rr_threshold", 0.0)) >= 2.0
     )
-    _add("C17", "Cost, sizing ($250 risk budget, 0.01 lot step) & `min_net_rr >= 1.1` unweakened", c17_ok, art17.get("historical_invariants_verified"))
+    _add(
+        "C17",
+        "Cost, sizing ($2.50 risk budget = 0.25% of $1,000, 0.01 lot step) & `min_net_rr >= 2.0` unweakened",
+        c17_ok,
+        hist_inv,
+    )
 
     # C18: Negative Controls Red -> Green
     c18_ok = bool(art18.get("all_negative_controls_passed")) and int(art18.get("controls_passed", 0)) >= 10
@@ -1663,8 +1719,25 @@ def evaluate_all_26_acceptance_gates(
         bool(art24.get("working_branch_is_mandatory"))
         and bool(art24.get("tested_code_commit_is_ancestor_of_head"))
     )
-    _add("C25", "All 26 acceptance gates (`C01`–`C26`) machine-evaluated with evidence", True, {
-        "gates_count": 26,
+    expected_prior_ids = [f"C{i:02d}" for i in range(1, 25)]
+    present_prior_ids = [g.get("gate_id") for g in gates]
+    prior_schema_valid = (
+        present_prior_ids == expected_prior_ids
+        and all(
+            isinstance(g.get("passed"), bool)
+            and g.get("status") in ("PASS", "FAIL")
+            and bool(g.get("description"))
+            and isinstance(g.get("evidence"), dict)
+            and len(g.get("evidence")) > 0
+            for g in gates
+        )
+    )
+    all_other_gates_passed = all(bool(g.get("passed")) for g in gates) and bool(c26_ok)
+    c25_ok = bool(prior_schema_valid and all_other_gates_passed)
+    _add("C25", "All 26 acceptance gates (`C01`–`C26`) machine-evaluated with non-tautological evidence", c25_ok, {
+        "gates_count": len(gates) + 2,
+        "prior_schema_valid": prior_schema_valid,
+        "all_other_gates_passed": all_other_gates_passed,
     })
     _add("C26", "Git commit & remote push synchronization proof on `feature/v17-9-2-structural-sl-tp-from-qa`", c26_ok, art24)
 
