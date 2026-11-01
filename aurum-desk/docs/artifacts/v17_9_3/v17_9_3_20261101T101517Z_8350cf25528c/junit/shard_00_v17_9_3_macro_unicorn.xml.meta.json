@@ -1,0 +1,22 @@
+{
+  "xml_file": "shard_00_v17_9_3_macro_unicorn.xml",
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "tested_source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "worker_id": "SHARD_00_V17_9_3_MACRO_UNICORN",
+  "task_id": "SHARD_00_V17_9_3_MACRO_UNICORN",
+  "pid": 3099,
+  "ppid": 1014,
+  "started_ms": 1793528299400,
+  "completed_ms": 1793528306870,
+  "duration_sec": 7.47,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 29,
+  "passed": 29,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "b67d0030ddf82534eca6695ea883041a8bcd1e86e05c5e47ef7d1d453aa08e0e"
+}

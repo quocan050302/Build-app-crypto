@@ -1,0 +1,37 @@
+{
+  "a1_total_eligible_decisions": 1057,
+  "c1_inside_macro_eligible_decisions": 91,
+  "d1_macro_plus_unicorn_eligible_decisions": 12,
+  "e1_outside_macro_eligible_decisions": 750,
+  "inside_macro_c1_summary": {
+    "episode_expectancy_r": -0.6725,
+    "episode_net_pnl_usd": -30.2608,
+    "episode_profit_factor": 0.288,
+    "episode_win_rate": 0.0556,
+    "n_closed_episodes": 18,
+    "n_eligible_decisions": 91,
+    "n_non_overlapping_episodes": 21
+  },
+  "macro_plus_unicorn_d1_summary": {
+    "episode_expectancy_r": 0.1791,
+    "episode_net_pnl_usd": 2.2392,
+    "episode_profit_factor": 1.2239,
+    "episode_win_rate": 0.2,
+    "n_closed_episodes": 5,
+    "n_eligible_decisions": 12,
+    "n_non_overlapping_episodes": 5
+  },
+  "outside_macro_e1_summary": {
+    "episode_expectancy_r": -0.5022,
+    "episode_net_pnl_usd": -92.912,
+    "episode_profit_factor": 0.4535,
+    "episode_win_rate": 0.0811,
+    "n_closed_episodes": 74,
+    "n_eligible_decisions": 750,
+    "n_non_overlapping_episodes": 110
+  },
+  "partition_exact": true,
+  "schema_version": "17.9.3.0",
+  "status": "PASS",
+  "weekend_closed_rejected_eligible_decisions": 216
+}

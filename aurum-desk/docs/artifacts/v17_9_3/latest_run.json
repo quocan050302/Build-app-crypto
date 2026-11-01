@@ -1,0 +1,16 @@
+{
+  "artifact_dir": "docs/artifacts/v17_9_3/v17_9_3_20261101T101517Z_8350cf25528c",
+  "base_master_sha": "650e4535777421077443cd3d95507cad1d99ed42",
+  "engineering_verdict": "PASS",
+  "gates_passed": "20/20",
+  "historical_replay_verdict": "PASS",
+  "original_feature_head_sha": "2aa3041e47c2a3d98073fef3e46ec854955aba11",
+  "previous_v17921_tested_code_sha": "b95ef57b237cc7024ac3ef6674591794b0a059a8",
+  "pytest_passed": "4599/4599",
+  "ready_for_strategy_activation": "NO",
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "schema_version": "17.9.3.0",
+  "strategy_statistical_verdict": "INCONCLUSIVE",
+  "tested_code_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "working_branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+}

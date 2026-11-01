@@ -1,0 +1,32 @@
+{
+  "c2_unicorn_only_eligible_decisions": 6,
+  "c2_unicorn_plus_v1792_eligible_decisions": 58,
+  "d1_macro_plus_unicorn_v1792_eligible_decisions": 12,
+  "d1_v1793_gate_rejection_reasons": {
+    "MACRO_OUTSIDE_WINDOW": 2200,
+    "MACRO_WEEKEND_CLOSED": 455,
+    "UNICORN_CONSUMED_OR_INVALIDATED_FVG": 121,
+    "UNICORN_EPISODE_MISMATCH": 898,
+    "UNICORN_INVALIDATED_ZONE": 526,
+    "UNICORN_NO_GEOMETRIC_OVERLAP": 503,
+    "UNICORN_RETEST_BEFORE_CONFIRMATION": 117,
+    "UNICORN_STOP_INSIDE_INVALIDATION": 1189,
+    "UNICORN_WAITING_CONFIRMED_RETEST": 409
+  },
+  "d2_macro_plus_unicorn_mtf_full_eligible_decisions": 0,
+  "future_data_leak_count": 0,
+  "is_valid": true,
+  "no_silent_fvg_substitution_verified": true,
+  "schema_version": "17.9.3.0",
+  "stage2_unicorn_status_distribution": {
+    "CONSUMED_OR_INVALIDATED_FVG": 121,
+    "EPISODE_MISMATCH": 636,
+    "NO_GEOMETRIC_OVERLAP": 503,
+    "RETEST_BEFORE_CONFIRMATION": 117,
+    "UNICORN_INVALIDATED": 526,
+    "VALID": 143,
+    "WAITING_RETEST": 409
+  },
+  "status": "PASS",
+  "unclosed_bar_leak_count": 0
+}

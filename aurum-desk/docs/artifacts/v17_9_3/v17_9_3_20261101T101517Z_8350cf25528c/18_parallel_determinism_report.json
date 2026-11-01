@@ -1,0 +1,13 @@
+{
+  "four_worker_seconds": 12.811,
+  "four_worker_sha256": "c811b4c766535e952c281ce50e1188a8bdea14295ded90b6f26d2339e2ec9dd2",
+  "is_deterministic": true,
+  "mismatch_count": 0,
+  "sample_checkpoints_count": 30,
+  "schema_version": "17.9.3.0",
+  "single_worker_seconds": 14.445,
+  "single_worker_sha256": "c811b4c766535e952c281ce50e1188a8bdea14295ded90b6f26d2339e2ec9dd2",
+  "status": "PASS",
+  "total_comparisons": 1050,
+  "variants_checked_count": 7
+}

@@ -1,0 +1,14 @@
+{
+  "capital_usdt": 1000.0,
+  "maker_fee_rate": 0.0002,
+  "max_risk_budget_usd": 2.5,
+  "min_net_rr": 2.0,
+  "risk_budget_violations": 0,
+  "risk_pct": 0.25,
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "schema_version": "17.9.3.0",
+  "slippage_usd": 0.1,
+  "status": "PASS",
+  "stop_geometry_violations": 0,
+  "taker_fee_rate": 0.0004
+}

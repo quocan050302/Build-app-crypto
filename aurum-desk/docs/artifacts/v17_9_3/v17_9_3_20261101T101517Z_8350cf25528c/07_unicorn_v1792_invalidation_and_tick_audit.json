@@ -1,0 +1,18 @@
+{
+  "eligible_invalidation_or_rr_violations": 0,
+  "is_valid": true,
+  "long_outward_floor_probe": {
+    "raw": 2998.257,
+    "rounded": 2998.25
+  },
+  "outward_tick_rounding_verified": true,
+  "risk_budget_violations": 0,
+  "schema_version": "17.9.3.0",
+  "short_outward_ceil_probe": {
+    "raw": 3001.743,
+    "rounded": 3001.75
+  },
+  "status": "PASS",
+  "stop_geometry_violations": 0,
+  "tick_size": 0.01
+}

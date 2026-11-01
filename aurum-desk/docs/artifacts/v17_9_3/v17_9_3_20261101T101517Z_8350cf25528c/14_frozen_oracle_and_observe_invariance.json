@@ -1,0 +1,12 @@
+{
+  "a0_vs_b0_checks": 2455,
+  "a0_vs_b0_distinct_context_count": 2455,
+  "a0_vs_b0_distinct_metadata_fp_count": 2455,
+  "a0_vs_b0_distinct_policy_fp_count": 2455,
+  "a0_vs_b0_trade_action_mismatches": 0,
+  "oracle_vs_a0_checks": null,
+  "oracle_vs_a0_mismatches": 0,
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "schema_version": "17.9.3.0",
+  "status": "PASS"
+}

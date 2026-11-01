@@ -1,0 +1,273 @@
+{
+  "all_passed": true,
+  "gates": {
+    "G01": {
+      "gate_id": "G01",
+      "metrics": {
+        "dirty_tracked_code_files": 0,
+        "is_master_ancestor": true,
+        "is_original_feature_ancestor": true,
+        "prior_v1792_artifacts_immutable": true,
+        "working_branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Git Working Branch, master Ancestry & Clean Source Freeze"
+    },
+    "G02": {
+      "gate_id": "G02",
+      "metrics": {
+        "v1793_test_families_count": 23,
+        "verified_functions_count": 19,
+        "wall_clock_violations": 0
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Function Truth Map (#1-#19) & Zero Wall-Clock AST Verification"
+    },
+    "G03": {
+      "gate_id": "G03",
+      "metrics": {
+        "all_boundaries_exact": true,
+        "dst_transition_verified": true,
+        "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1"
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Causal NY ICT Macro Schedule, Half-Open Boundaries & DST Transition Audit"
+    },
+    "G04": {
+      "gate_id": "G04",
+      "metrics": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "m1_bars_count": 22376,
+        "provenance_segregation_valid": true,
+        "scanned_m1_checkpoints": 22346
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Verified Historical Dataset (22,376 M1 Bars / 22,346 Checkpoints) & Provenance Segregation"
+    },
+    "G05": {
+      "gate_id": "G05",
+      "metrics": {
+        "scanned_m1_checkpoints": 22346,
+        "stage2_deep_checkpoint_count": 491,
+        "stage2_deep_inside_macro_count": 51,
+        "total_m1_bars": 22376
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Full M1 Macro & Unicorn Universe Scan (22,346 Checkpoints / 491 Deep Checkpoints)"
+    },
+    "G06": {
+      "gate_id": "G06",
+      "metrics": {
+        "future_data_leak_count": 0,
+        "unclosed_bar_leak_count": 0
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Causal ICT Unicorn Confluence Audit & Zero Lookahead Proof"
+    },
+    "G07": {
+      "gate_id": "G07",
+      "metrics": {
+        "no_silent_fvg_substitution_verified": true
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Strict Causal Episode Binding & No Silent selected_fvg Substitution"
+    },
+    "G08": {
+      "gate_id": "G08",
+      "metrics": {
+        "eligible_invalidation_or_rr_violations": 0,
+        "outward_tick_rounding_verified": true
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Unicorn Distal Invalidation vs V17.9.2.1 Stop & Outward Tick Rounding"
+    },
+    "G09": {
+      "gate_id": "G09",
+      "metrics": {
+        "a0_vs_b0_distinct_context_count": 2455,
+        "a0_vs_b0_distinct_metadata_fp_count": 2455,
+        "a0_vs_b0_trade_action_mismatches": 0,
+        "oracle_vs_a0_mismatches": 0
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Default OFF & OBSERVE_ONLY 100% Trade-Action Invariance (2,455/2,455)"
+    },
+    "G10": {
+      "gate_id": "G10",
+      "metrics": {
+        "newly_eligible_rogue_total": 0
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Active Mode Monotonic Gating (Zero Rogue Trade Unlocks)"
+    },
+    "G11": {
+      "gate_id": "G11",
+      "metrics": {
+        "a0_eligible": 106,
+        "a1_eligible": 1057,
+        "c1_v1792_eligible": 91,
+        "c2_v1792_eligible": 58,
+        "d1_eligible": 12,
+        "d2_eligible": 0,
+        "variants_count": 10
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "10-Variant Historical A/B/C/D/E Comparison & Decision Funnel Completeness"
+    },
+    "G12": {
+      "gate_id": "G12",
+      "metrics": {
+        "a0_baseline_6_episodes_audited": 6,
+        "matched_vs_a0_count": 4,
+        "matched_vs_a1_count": 5
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Matched-Trade & Episode Forensics + 6 Frozen Baseline Episodes Forensics"
+    },
+    "G13": {
+      "gate_id": "G13",
+      "metrics": {
+        "a1_total_eligible": 1057,
+        "c1_inside_macro_eligible": 91,
+        "e1_outside_macro_eligible": 750,
+        "partition_exact": true,
+        "weekend_closed_rejected_eligible": 216
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Inside-Macro (C1) vs Outside-Macro Counterfactual (E1) Attribution"
+    },
+    "G14": {
+      "gate_id": "G14",
+      "metrics": {
+        "episode_counts_by_variant": {
+          "A0_FROZEN_BASELINE_OFF": 6,
+          "A1_V1792_SL_TP_BASELINE": 152,
+          "B0_V1793_OBSERVE_ONLY": 6,
+          "C1_MACRO_PLUS_V1792_SL_TP": 21,
+          "C1_V1793_MACRO_FILTER_ONLY": 1,
+          "C2_UNICORN_PLUS_V1792_SL_TP": 23,
+          "C2_V1793_UNICORN_ONLY": 1,
+          "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": 5,
+          "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": 0,
+          "E1_OUTSIDE_MACRO_COUNTERFACTUAL": 110
+        }
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Non-Overlapping Independent Episode Deduplication"
+    },
+    "G15": {
+      "gate_id": "G15",
+      "metrics": {
+        "embargo_bars_1m": 180,
+        "partitions_verified": [
+          "DEV_50",
+          "VALIDATION_25",
+          "OOS_HOLD_OUT_25"
+        ],
+        "strategy_statistical_verdict": "INCONCLUSIVE"
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Chronological OOS Split (180-M1 Embargo) & Statistical Verdict Guard"
+    },
+    "G16": {
+      "gate_id": "G16",
+      "metrics": {
+        "b0_parity_checks": 2455,
+        "d1_parity_checks": 2455,
+        "d2_parity_checks": 2455,
+        "parity_mismatch_count": 0,
+        "total_three_way_parity_checks": 7365
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "3-Runtime Adapter Consumed Decision Parity (7,365 Checks, 0 Mismatches)"
+    },
+    "G17": {
+      "gate_id": "G17",
+      "metrics": {
+        "risk_budget_violations": 0,
+        "stop_geometry_violations": 0
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Cost, Sizing ($2.50 Risk Cap) & min_net_rr >= 2.0 Unweakened Invariants"
+    },
+    "G18": {
+      "gate_id": "G18",
+      "metrics": {
+        "negative_controls_blocked": 6,
+        "negative_controls_total": 6,
+        "subprocess_probe_status": "PASS"
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "6 RED/GREEN Negative Controls & Subprocess Mutation Probe"
+    },
+    "G19": {
+      "gate_id": "G19",
+      "metrics": {
+        "discovered_total": 4599,
+        "errors_total": 0,
+        "failed_total": 0,
+        "parallel_determinism_mismatches": 0,
+        "passed_total": 4599,
+        "reconciled": true
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Full Dynamically Discovered Pytest Regression & Parallel Determinism"
+    },
+    "G20": {
+      "gate_id": "G20",
+      "metrics": {
+        "orphan_processes_remaining": 0,
+        "peak_concurrent_workers": 4,
+        "ready_for_strategy_activation": "NO",
+        "resource_guard_status": "PASS",
+        "strategy_statistical_verdict": "INCONCLUSIVE"
+      },
+      "passed": true,
+      "reason": "Verified",
+      "status": "PASS",
+      "title": "Resource Guard Bounds & Truthful Statistical Verdict (Activation=NO)"
+    }
+  },
+  "passed_count": 20,
+  "schema_version": "17.9.3.0",
+  "status": "PASS",
+  "total_gates": 20
+}

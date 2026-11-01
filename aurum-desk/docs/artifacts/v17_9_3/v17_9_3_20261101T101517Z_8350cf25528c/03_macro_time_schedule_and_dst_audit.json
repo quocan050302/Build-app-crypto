@@ -1,0 +1,253 @@
+{
+  "all_boundaries_exact": true,
+  "dst_transition_audit_2026_03_08": {
+    "dst_transition_verified": true,
+    "post_dst_2026_03_09_0855_ny": {
+      "active_window_ids": [
+        "NY_AM_MACRO_0850_0910"
+      ],
+      "calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+      "decision_timestamp_ms": 1773060900000,
+      "eligible_for_macro_gate": true,
+      "is_dst": true,
+      "is_holiday_closed": false,
+      "is_valid_timestamp": true,
+      "is_weekend_or_closed": false,
+      "minutes_into_active_window": 5.0,
+      "minutes_remaining_in_active_window": 15.0,
+      "minutes_to_nearest_window": 0.0,
+      "nearest_window_id": "NY_AM_MACRO_0850_0910",
+      "ny_local_date": "2026-03-09",
+      "ny_local_hhmm": "08:55",
+      "ny_local_iso": "2026-03-09T08:55:00-04:00",
+      "ny_weekday": 0,
+      "primary_window_id": "NY_AM_MACRO_0850_0910",
+      "reason_codes": [],
+      "schedule_sha256": "785ad088ea46615d2b083aaf9c72eaba303d7d29bc910b5b94b81198bbb89304",
+      "schedule_valid": true,
+      "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+      "session_group": "NY_AM",
+      "source": "RESEARCH_HYPOTHESIS_CONFIG",
+      "symbol": "XAUUSDT",
+      "timezone_name": "America/New_York",
+      "utc_iso": "2026-03-09T12:55:00Z",
+      "utc_offset_minutes": -240,
+      "xau_fix_window_status": "NOT_CONFIGURED"
+    },
+    "pre_dst_2026_03_06_0855_ny": {
+      "active_window_ids": [
+        "NY_AM_MACRO_0850_0910"
+      ],
+      "calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+      "decision_timestamp_ms": 1772805300000,
+      "eligible_for_macro_gate": true,
+      "is_dst": false,
+      "is_holiday_closed": false,
+      "is_valid_timestamp": true,
+      "is_weekend_or_closed": false,
+      "minutes_into_active_window": 5.0,
+      "minutes_remaining_in_active_window": 15.0,
+      "minutes_to_nearest_window": 0.0,
+      "nearest_window_id": "NY_AM_MACRO_0850_0910",
+      "ny_local_date": "2026-03-06",
+      "ny_local_hhmm": "08:55",
+      "ny_local_iso": "2026-03-06T08:55:00-05:00",
+      "ny_weekday": 4,
+      "primary_window_id": "NY_AM_MACRO_0850_0910",
+      "reason_codes": [],
+      "schedule_sha256": "785ad088ea46615d2b083aaf9c72eaba303d7d29bc910b5b94b81198bbb89304",
+      "schedule_valid": true,
+      "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+      "session_group": "NY_AM",
+      "source": "RESEARCH_HYPOTHESIS_CONFIG",
+      "symbol": "XAUUSDT",
+      "timezone_name": "America/New_York",
+      "utc_iso": "2026-03-06T13:55:00Z",
+      "utc_offset_minutes": -300,
+      "xau_fix_window_status": "NOT_CONFIGURED"
+    }
+  },
+  "half_open_boundary_probes": [
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[02:33, 03:00)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "LONDON_OPEN_MACRO_0233_0300"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[04:03, 04:30)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "LONDON_MACRO_0403_0430"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[08:50, 09:10)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "NY_AM_MACRO_0850_0910"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[09:50, 10:10)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "NY_AM_MACRO_0950_1010"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[10:50, 11:10)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "NY_AM_MACRO_1050_1110"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[11:50, 12:10)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "NY_LUNCH_PM_MACRO_1150_1210"
+    },
+    {
+      "boundary_check_passed": true,
+      "end_exact_eligible": false,
+      "end_minus_1ms_eligible": true,
+      "local_interval": "[13:10, 13:40)",
+      "start_exact_eligible": true,
+      "start_minus_1ms_eligible": false,
+      "window_id": "NY_PM_MACRO_1310_1340"
+    }
+  ],
+  "historical_dataset_macro_distribution": {
+    "LONDON_MACRO_0403_0430": 324,
+    "LONDON_OPEN_MACRO_0233_0300": 340,
+    "NY_AM_MACRO_0850_0910": 220,
+    "NY_AM_MACRO_0950_1010": 211,
+    "NY_AM_MACRO_1050_1110": 180,
+    "NY_LUNCH_PM_MACRO_1150_1210": 180,
+    "NY_PM_MACRO_1310_1340": 308,
+    "OUTSIDE_MACRO_WINDOW": 20583
+  },
+  "is_valid": true,
+  "schedule_source": "RESEARCH_HYPOTHESIS_CONFIG",
+  "schedule_validation": {
+    "allow_overlapping_windows": false,
+    "calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+    "is_valid": true,
+    "reason_codes": [],
+    "require_verified_holiday_calendar": false,
+    "schedule_sha256": "785ad088ea46615d2b083aaf9c72eaba303d7d29bc910b5b94b81198bbb89304",
+    "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+    "source": "RESEARCH_HYPOTHESIS_CONFIG",
+    "timezone_name": "America/New_York",
+    "validation_errors": [],
+    "verified_holiday_dates": [],
+    "weekdays": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "windows": [
+      {
+        "duration_minutes": 27,
+        "enabled": true,
+        "end_hhmm": "03:00",
+        "end_minute_of_day": 180,
+        "session_group": "LONDON_OPEN",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "02:33",
+        "start_minute_of_day": 153,
+        "window_id": "LONDON_OPEN_MACRO_0233_0300"
+      },
+      {
+        "duration_minutes": 27,
+        "enabled": true,
+        "end_hhmm": "04:30",
+        "end_minute_of_day": 270,
+        "session_group": "LONDON",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "04:03",
+        "start_minute_of_day": 243,
+        "window_id": "LONDON_MACRO_0403_0430"
+      },
+      {
+        "duration_minutes": 20,
+        "enabled": true,
+        "end_hhmm": "09:10",
+        "end_minute_of_day": 550,
+        "session_group": "NY_AM",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "08:50",
+        "start_minute_of_day": 530,
+        "window_id": "NY_AM_MACRO_0850_0910"
+      },
+      {
+        "duration_minutes": 20,
+        "enabled": true,
+        "end_hhmm": "10:10",
+        "end_minute_of_day": 610,
+        "session_group": "NY_AM",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "09:50",
+        "start_minute_of_day": 590,
+        "window_id": "NY_AM_MACRO_0950_1010"
+      },
+      {
+        "duration_minutes": 20,
+        "enabled": true,
+        "end_hhmm": "11:10",
+        "end_minute_of_day": 670,
+        "session_group": "NY_AM",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "10:50",
+        "start_minute_of_day": 650,
+        "window_id": "NY_AM_MACRO_1050_1110"
+      },
+      {
+        "duration_minutes": 20,
+        "enabled": true,
+        "end_hhmm": "12:10",
+        "end_minute_of_day": 730,
+        "session_group": "NY_LUNCH_PM",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "11:50",
+        "start_minute_of_day": 710,
+        "window_id": "NY_LUNCH_PM_MACRO_1150_1210"
+      },
+      {
+        "duration_minutes": 30,
+        "enabled": true,
+        "end_hhmm": "13:40",
+        "end_minute_of_day": 820,
+        "session_group": "NY_PM",
+        "source": "RESEARCH_HYPOTHESIS_CONFIG",
+        "start_hhmm": "13:10",
+        "start_minute_of_day": 790,
+        "window_id": "NY_PM_MACRO_1310_1340"
+      }
+    ],
+    "xau_fix_window_status": "NOT_CONFIGURED"
+  },
+  "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+  "schema_version": "17.9.3.0",
+  "stage2_macro_checkpoints_count": 51,
+  "stage2_outside_macro_checkpoints_count": 440,
+  "status": "PASS",
+  "timezone_name": "America/New_York"
+}

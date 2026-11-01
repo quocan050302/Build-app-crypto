@@ -1,0 +1,22 @@
+{
+  "xml_file": "shard_01_v17_9_2_structural_stop.xml",
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "tested_source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "worker_id": "SHARD_01_V17_9_2_STRUCTURAL_STOP",
+  "task_id": "SHARD_01_V17_9_2_STRUCTURAL_STOP",
+  "pid": 3101,
+  "ppid": 1014,
+  "started_ms": 1793528299407,
+  "completed_ms": 1793528310255,
+  "duration_sec": 10.847,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 50,
+  "passed": 50,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "57dc8fb541d43992b55fccbc0c9ab5407794d07e283854ab9aa7c554f2c33b22"
+}

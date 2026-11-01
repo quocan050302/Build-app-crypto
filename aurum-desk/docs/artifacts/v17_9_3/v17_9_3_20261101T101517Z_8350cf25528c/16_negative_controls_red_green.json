@@ -1,0 +1,60 @@
+{
+  "all_controls_blocked": true,
+  "controls": [
+    {
+      "blocked": true,
+      "control_id": "NC01_DST_OFFSET_AND_CAUSAL_TIMESTAMP_AUTHORITY",
+      "description": "Hardcoded UTC-5 fails after 2026-03-08 DST transition; IANA America/New_York resolves EDT UTC-4 accurately.",
+      "green_passed": true,
+      "red_detected_defect": true
+    },
+    {
+      "blocked": true,
+      "control_id": "NC02_HALF_OPEN_MACRO_END_BOUNDARY",
+      "description": "Inclusive end-boundary bug admits 09:10:00 NY; canonical half-open [start, end) rejects 09:10:00.000 NY.",
+      "green_passed": true,
+      "red_detected_defect": true
+    },
+    {
+      "blocked": true,
+      "control_id": "NC03_FUTURE_FVG_LOOKAHEAD_LEAK_BLOCKED",
+      "description": "FVG with confirmed_at > decision_timestamp_ms is rejected with UNICORN_FUTURE_DATA_REJECTED.",
+      "green_passed": true,
+      "red_detected_defect": true
+    },
+    {
+      "blocked": true,
+      "control_id": "NC04_DISJOINT_EPISODE_AND_NO_FVG_SUBSTITUTION",
+      "description": "Disjoint selected_fvg is rejected with UNICORN_EPISODE_MISMATCH even when scan-level Unicorn is VALID.",
+      "green_passed": true,
+      "red_detected_defect": true
+    },
+    {
+      "blocked": true,
+      "control_id": "NC05_STOP_INSIDE_UNICORN_DISTAL_INVALIDATION_BLOCKED",
+      "description": "Proposed SL inside breaker_distal_price (2999.20 > 2999.0 LONG) is rejected with UNICORN_STOP_INSIDE_INVALIDATION.",
+      "green_passed": true,
+      "red_detected_defect": true
+    },
+    {
+      "blocked": true,
+      "control_id": "NC06_OBSERVE_ONLY_TRADE_ACTION_INVARIANCE",
+      "description": "OBSERVE_ONLY attaches V17.9.3 metadata (metadata_fingerprint differs) while keeping trade_action_fingerprint 100% identical to OFF.",
+      "green_passed": true,
+      "red_detected_defect": true
+    }
+  ],
+  "negative_controls_blocked": 6,
+  "negative_controls_total": 6,
+  "schema_version": "17.9.3.0",
+  "status": "PASS",
+  "subprocess_mutation_probe": {
+    "green_exit_code": 0,
+    "green_passed_as_expected": true,
+    "mutated_target": "resolve_causal_macro_time_window half-open [start, end) -> inclusive [start, end]",
+    "red_exit_code": 1,
+    "red_failed_as_expected": true,
+    "status": "PASS",
+    "test_target": "test_v1793_negative_control_probe.py"
+  }
+}

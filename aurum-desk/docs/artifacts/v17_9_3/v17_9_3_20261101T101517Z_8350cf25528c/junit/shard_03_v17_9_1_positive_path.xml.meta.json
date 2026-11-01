@@ -1,0 +1,22 @@
+{
+  "xml_file": "shard_03_v17_9_1_positive_path.xml",
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "tested_source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "source_sha": "8350cf25528cffa7138ee9020e7290fd1c6c5192",
+  "worker_id": "SHARD_03_V17_9_1_POSITIVE_PATH",
+  "task_id": "SHARD_03_V17_9_1_POSITIVE_PATH",
+  "pid": 3105,
+  "ppid": 1014,
+  "started_ms": 1793528299426,
+  "completed_ms": 1793528315092,
+  "duration_sec": 15.666,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 8,
+  "passed": 8,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "20a3e863db03dd77c7ecb0d4855704936b49ac432c40ec2bb677b2eaf0094476"
+}

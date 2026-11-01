@@ -1,0 +1,490 @@
+{
+  "embargo_bars_1m": 180,
+  "partitions_by_variant": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "DEV_50": {
+        "closed_episodes": 3,
+        "expectancy_r": -1.0,
+        "losses": 3,
+        "net_pnl_usd": -7.5,
+        "non_overlapping_episodes": 3,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 3,
+        "expectancy_r": -1.0,
+        "losses": 3,
+        "net_pnl_usd": -7.5,
+        "non_overlapping_episodes": 3,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "DEV_50": {
+        "closed_episodes": 54,
+        "expectancy_r": -0.2953,
+        "losses": 48,
+        "net_pnl_usd": -39.8668,
+        "non_overlapping_episodes": 77,
+        "win_rate": 0.1111,
+        "wins": 6
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 21,
+        "expectancy_r": -1.0,
+        "losses": 21,
+        "net_pnl_usd": -52.5,
+        "non_overlapping_episodes": 38,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 27,
+        "expectancy_r": -0.8268,
+        "losses": 26,
+        "net_pnl_usd": -55.806,
+        "non_overlapping_episodes": 36,
+        "win_rate": 0.037,
+        "wins": 1
+      }
+    },
+    "B0_V1793_OBSERVE_ONLY": {
+      "DEV_50": {
+        "closed_episodes": 3,
+        "expectancy_r": -1.0,
+        "losses": 3,
+        "net_pnl_usd": -7.5,
+        "non_overlapping_episodes": 3,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 3,
+        "expectancy_r": -1.0,
+        "losses": 3,
+        "net_pnl_usd": -7.5,
+        "non_overlapping_episodes": 3,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "DEV_50": {
+        "closed_episodes": 9,
+        "expectancy_r": -0.3449,
+        "losses": 8,
+        "net_pnl_usd": -7.7608,
+        "non_overlapping_episodes": 11,
+        "win_rate": 0.1111,
+        "wins": 1
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 5,
+        "expectancy_r": -1.0,
+        "losses": 5,
+        "net_pnl_usd": -12.5,
+        "non_overlapping_episodes": 6,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 4,
+        "expectancy_r": -1.0,
+        "losses": 4,
+        "net_pnl_usd": -10.0,
+        "non_overlapping_episodes": 4,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "C1_V1793_MACRO_FILTER_ONLY": {
+      "DEV_50": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 1,
+        "expectancy_r": -1.0,
+        "losses": 1,
+        "net_pnl_usd": -2.5,
+        "non_overlapping_episodes": 1,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "C2_UNICORN_PLUS_V1792_SL_TP": {
+      "DEV_50": {
+        "closed_episodes": 11,
+        "expectancy_r": -0.464,
+        "losses": 10,
+        "net_pnl_usd": -12.7608,
+        "non_overlapping_episodes": 13,
+        "win_rate": 0.0909,
+        "wins": 1
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 6,
+        "expectancy_r": -1.0,
+        "losses": 6,
+        "net_pnl_usd": -15.0,
+        "non_overlapping_episodes": 8,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 1,
+        "expectancy_r": 5.2029,
+        "losses": 0,
+        "net_pnl_usd": 13.0072,
+        "non_overlapping_episodes": 1,
+        "win_rate": 1.0,
+        "wins": 1
+      }
+    },
+    "C2_V1793_UNICORN_ONLY": {
+      "DEV_50": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 1,
+        "expectancy_r": -1.0,
+        "losses": 1,
+        "net_pnl_usd": -2.5,
+        "non_overlapping_episodes": 1,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "DEV_50": {
+        "closed_episodes": 4,
+        "expectancy_r": 0.4739,
+        "losses": 3,
+        "net_pnl_usd": 4.7392,
+        "non_overlapping_episodes": 4,
+        "win_rate": 0.25,
+        "wins": 1
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 1,
+        "expectancy_r": -1.0,
+        "losses": 1,
+        "net_pnl_usd": -2.5,
+        "non_overlapping_episodes": 1,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      }
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "DEV_50": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 0,
+        "expectancy_r": null,
+        "losses": 0,
+        "net_pnl_usd": 0,
+        "non_overlapping_episodes": 0,
+        "win_rate": null,
+        "wins": 0
+      }
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "DEV_50": {
+        "closed_episodes": 35,
+        "expectancy_r": -0.0812,
+        "losses": 30,
+        "net_pnl_usd": -7.106,
+        "non_overlapping_episodes": 54,
+        "win_rate": 0.1429,
+        "wins": 5
+      },
+      "OOS_HOLD_OUT_25": {
+        "closed_episodes": 15,
+        "expectancy_r": -1.0,
+        "losses": 15,
+        "net_pnl_usd": -37.5,
+        "non_overlapping_episodes": 24,
+        "win_rate": 0.0,
+        "wins": 0
+      },
+      "VALIDATION_25": {
+        "closed_episodes": 24,
+        "expectancy_r": -0.8051,
+        "losses": 23,
+        "net_pnl_usd": -48.306,
+        "non_overlapping_episodes": 32,
+        "win_rate": 0.0417,
+        "wins": 1
+      }
+    }
+  },
+  "run_id": "v17_9_3_20261101T101517Z_8350cf25528c",
+  "schema_version": "17.9.3.0",
+  "statistical_claims": {
+    "a1_unfiltered_v1792_baseline_verdict": "NEGATIVE_EVIDENCE",
+    "d1_primary_variant_verdict": "INCONCLUSIVE",
+    "filter_hypothesis_findings": {
+      "combined_d1_vs_a1_avoided_losers": 666,
+      "combined_d1_vs_a1_forgone_winners": 25,
+      "combined_d1_vs_a1_net_benefit_r": 486.2062,
+      "inside_macro_c1_expectancy_r": -0.6725,
+      "macro_filter_vs_a1_avoided_losers": 595,
+      "macro_filter_vs_a1_forgone_winners": 25,
+      "macro_filter_vs_a1_net_benefit_r": 415.2062,
+      "outside_macro_e1_expectancy_r": -0.5022,
+      "unicorn_filter_vs_a1_avoided_losers": 630,
+      "unicorn_filter_vs_a1_forgone_winners": 23,
+      "unicorn_filter_vs_a1_net_benefit_r": 460.612
+    },
+    "min_required_independent_episodes": 30,
+    "min_required_oos_episodes": 10,
+    "per_variant_verdicts": {
+      "A0_FROZEN_BASELINE_OFF": {
+        "detail_code": "ZERO_OOS_CLOSED_EPISODES_INCONCLUSIVE",
+        "expectancy_r": -1.0,
+        "n_closed_episodes": 6,
+        "net_pnl_usd": -15.0,
+        "oos_closed_episodes": 0,
+        "oos_net_pnl_usd": 0.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "A0_FROZEN_BASELINE_OFF",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.3903
+        },
+        "wins": 0
+      },
+      "A1_V1792_SL_TP_BASELINE": {
+        "detail_code": "NEGATIVE_NET_EXPECTANCY_ON_CLOSED_INDEPENDENT_EPISODES",
+        "expectancy_r": -0.5851,
+        "n_closed_episodes": 103,
+        "net_pnl_usd": -150.6728,
+        "oos_closed_episodes": 21,
+        "oos_net_pnl_usd": -52.5,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "NEGATIVE_EVIDENCE",
+        "variant": "A1_V1792_SL_TP_BASELINE",
+        "win_rate": 0.068,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0333,
+          "upper_95": 0.1337
+        },
+        "wins": 7
+      },
+      "B0_V1793_OBSERVE_ONLY": {
+        "detail_code": "ZERO_OOS_CLOSED_EPISODES_INCONCLUSIVE",
+        "expectancy_r": -1.0,
+        "n_closed_episodes": 6,
+        "net_pnl_usd": -15.0,
+        "oos_closed_episodes": 0,
+        "oos_net_pnl_usd": 0.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "B0_V1793_OBSERVE_ONLY",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.3903
+        },
+        "wins": 0
+      },
+      "C1_MACRO_PLUS_V1792_SL_TP": {
+        "detail_code": "INSUFFICIENT_INDEPENDENT_CLOSED_EPISODES_BELOW_30",
+        "expectancy_r": -0.6725,
+        "n_closed_episodes": 18,
+        "net_pnl_usd": -30.2608,
+        "oos_closed_episodes": 5,
+        "oos_net_pnl_usd": -12.5,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+        "win_rate": 0.0556,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0099,
+          "upper_95": 0.2576
+        },
+        "wins": 1
+      },
+      "C1_V1793_MACRO_FILTER_ONLY": {
+        "detail_code": "ZERO_OOS_CLOSED_EPISODES_INCONCLUSIVE",
+        "expectancy_r": -1.0,
+        "n_closed_episodes": 1,
+        "net_pnl_usd": -2.5,
+        "oos_closed_episodes": 0,
+        "oos_net_pnl_usd": 0.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "C1_V1793_MACRO_FILTER_ONLY",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.7935
+        },
+        "wins": 0
+      },
+      "C2_UNICORN_PLUS_V1792_SL_TP": {
+        "detail_code": "INSUFFICIENT_INDEPENDENT_CLOSED_EPISODES_BELOW_30",
+        "expectancy_r": -0.3632,
+        "n_closed_episodes": 19,
+        "net_pnl_usd": -17.2536,
+        "oos_closed_episodes": 6,
+        "oos_net_pnl_usd": -15.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "C2_UNICORN_PLUS_V1792_SL_TP",
+        "win_rate": 0.1053,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0294,
+          "upper_95": 0.3139
+        },
+        "wins": 2
+      },
+      "C2_V1793_UNICORN_ONLY": {
+        "detail_code": "ZERO_OOS_CLOSED_EPISODES_INCONCLUSIVE",
+        "expectancy_r": -1.0,
+        "n_closed_episodes": 1,
+        "net_pnl_usd": -2.5,
+        "oos_closed_episodes": 0,
+        "oos_net_pnl_usd": 0.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "C2_V1793_UNICORN_ONLY",
+        "win_rate": 0.0,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0,
+          "upper_95": 0.7935
+        },
+        "wins": 0
+      },
+      "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+        "detail_code": "INSUFFICIENT_INDEPENDENT_CLOSED_EPISODES_BELOW_30",
+        "expectancy_r": 0.1791,
+        "n_closed_episodes": 5,
+        "net_pnl_usd": 2.2392,
+        "oos_closed_episodes": 1,
+        "oos_net_pnl_usd": -2.5,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP",
+        "win_rate": 0.2,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0362,
+          "upper_95": 0.6245
+        },
+        "wins": 1
+      },
+      "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+        "detail_code": "ZERO_OOS_CLOSED_EPISODES_INCONCLUSIVE",
+        "expectancy_r": null,
+        "n_closed_episodes": 0,
+        "net_pnl_usd": 0.0,
+        "oos_closed_episodes": 0,
+        "oos_net_pnl_usd": 0.0,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "INCONCLUSIVE",
+        "variant": "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL",
+        "win_rate": null,
+        "win_rate_wilson_95_ci": null,
+        "wins": 0
+      },
+      "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+        "detail_code": "NEGATIVE_NET_EXPECTANCY_ON_CLOSED_INDEPENDENT_EPISODES",
+        "expectancy_r": -0.5022,
+        "n_closed_episodes": 74,
+        "net_pnl_usd": -92.912,
+        "oos_closed_episodes": 15,
+        "oos_net_pnl_usd": -37.5,
+        "ready_for_strategy_activation": "NO",
+        "statistical_verdict": "NEGATIVE_EVIDENCE",
+        "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+        "win_rate": 0.0811,
+        "win_rate_wilson_95_ci": {
+          "lower_95": 0.0377,
+          "upper_95": 0.1658
+        },
+        "wins": 6
+      }
+    },
+    "provenance": "HISTORICAL_BACKTEST_V1793",
+    "ready_for_strategy_activation": "NO",
+    "schema_version": "V17_9_3_0",
+    "strategy_statistical_verdict": "INCONCLUSIVE"
+  },
+  "status": "PASS"
+}
