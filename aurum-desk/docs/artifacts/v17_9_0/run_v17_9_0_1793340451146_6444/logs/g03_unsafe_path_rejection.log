@@ -1,0 +1,15 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_database_safety.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793340451146_6444\reports\g03_unsafe_path_rejection.xml -k test_dbs_02 or test_dbs_03 or test_dbs_04 or test_dbs_05 or test_dbs_05b or test_dbs_06 or test_dbs_07 or test_dbs_08 or test_dbs_10
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 815
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_02_explicit_runtime_database_path_rejected (0.013s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_03_arbitrary_existing_db_path_rejected (0.016s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_04_existing_file_named_my_test_db_rejected (0.022s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_06_relative_traversal_outside_test_root_rejected (0.014s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_07_file_uri_alias_to_unsafe_database_rejected (0.015s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_08_unsafe_inherited_aurum_db_path_rejected (0.403s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_10_sentinel_database_remains_unchanged (0.302s)
+7 passed, 2 skipped in 0.81s
+
+--- STDERR ---

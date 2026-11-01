@@ -1,0 +1,18 @@
+COMMAND: /Users/macbook/.nvm/versions/node/v22.22.3/bin/npx playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts --output=/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_pw24_fu7s0049
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend
+PID: 70684
+STARTED_AT_UTC: 2026-10-31T10:24:34.927000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:24:53.735000+00:00
+DURATION_MS: 18807
+EXIT_CODE: 0
+--- STDOUT ---
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/e2e/v17_5_3_stop_browser.e2e.ts:22:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor (3.3s)
+  ✓  2 tests/e2e/v17_5_3_stop_browser.e2e.ts:95:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P02: LONG order renders correct geometry (SL < Entry < TP) (1.2s)
+  ✓  3 tests/e2e/v17_5_3_stop_browser.e2e.ts:167:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P03: Mobile viewport (390x844) renders without horizontal scroll overflow (755ms)
+
+  3 passed (18.2s)
+
+--- STDERR ---

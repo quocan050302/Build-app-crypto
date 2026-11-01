@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g62_canonical_quote_validation_and_ordering" execution_mode="DERIVED_PROJECTION" provenance="DERIVED_VIEW_FROM_PRIMARY_EXECUTION" source_attempt_ids="primary_pytest_shard_4" tests="1" errors="0" failures="0" skipped="0" time="0.004"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc22_nc28_nc29_quote_and_rest_fallback_controls" time="0.004" /></testsuite></testsuites>

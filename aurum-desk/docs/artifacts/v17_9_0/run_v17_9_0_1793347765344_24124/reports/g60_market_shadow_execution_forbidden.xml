@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g60_market_shadow_execution_forbidden" tests="2" errors="0" failures="0" skipped="0" time="0.028"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow" time="0.016" /><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc08_to_nc13_worker_allowlist_boundaries" time="0.012" /></testsuite></testsuites>

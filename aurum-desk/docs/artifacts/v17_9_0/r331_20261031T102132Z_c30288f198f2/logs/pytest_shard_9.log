@@ -1,0 +1,27 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_news_service.py backend/tests/test_v12_2_acceptance.py backend/tests/test_v13_7_target_provenance.py backend/tests/test_v14_4_13_outcome_authority.py backend/tests/test_v14_4_15_membership_repair.py backend/tests/test_v14_4_16_repair_runtime.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_4_forecast_runtime.py backend/tests/test_v14_4_5_frozen_legacy_sources.py backend/tests/test_v14_4_7_proof_fail_closed.py backend/tests/test_v15_0_m1_scalp_models.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v16_10_arm_to_fill_sizing.py backend/tests/test_v16_16_milestone_and_runtime_report.py backend/tests/test_v16_27_event_dispatch_lifecycle.py backend/tests/test_v16_38_adaptive_paper_readiness.py backend/tests/test_v16_39_10_snapshot_api_cli.py backend/tests/test_v16_39_16_rr_settings_and_preview_gaps.py backend/tests/test_v16_39_21_e2e_financial_fixtures.py backend/tests/test_v16_39_6_entry_mode_causal_acceptance.py backend/tests/test_v16_39_8_production_lesson_arm_acceptance.py backend/tests/test_v16_39_paper_learning_regression.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v16_5_ledger_reconciliation.py backend/tests/test_v16_8_execution_model_and_time.py backend/tests/test_v17_4_1_atomic_cas.py backend/tests/test_v17_4_1_contracts.py backend/tests/test_v17_4_2_noop_authority.py backend/tests/test_v17_6_2_defects_reproduction.py backend/tests/test_v17_6_2_feed_authority.py backend/tests/test_v17_6_3_production_persistence.py backend/tests/test_v17_6_4_1_cycle_commit_consistency.py backend/tests/test_v17_6_4_2_acceptance_integrity.py backend/tests/test_v17_6_4_3a_authoritative_good.py backend/tests/test_v17_6_4_3c_transport_authority.py backend/tests/test_v17_6_4_3d_scheduler_durable_evidence.py backend/tests/test_v17_6_4_telemetry_database_isolation.py backend/tests/test_v17_6_decision_parity.py backend/tests/test_v17_6_engine_heartbeat.py backend/tests/test_v17_8_quote_noise_guard.py backend/tests/test_v17_8_replay_comparison.py backend/tests/test_v3_regression.py backend/tests/test_v5_1_geometry_telegram_news.py backend/tests/test_v7_2_stress_harness.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_9.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 70611
+STARTED_AT_UTC: 2026-10-31T10:24:24.323000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:24:51.322000+00:00
+DURATION_MS: 26954
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+......................................................                   [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v16_27_event_dispatch_lifecycle.py::test_022_outbox_persistence_and_deduplication
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+414 passed, 2 warnings in 24.69s
+
+--- STDERR ---

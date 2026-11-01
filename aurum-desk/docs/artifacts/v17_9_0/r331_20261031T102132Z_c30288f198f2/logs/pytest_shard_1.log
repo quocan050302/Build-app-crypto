@@ -1,0 +1,54 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v17_5_production_flow.py backend/tests/test_setup_quality_api_v14.py backend/tests/test_v12_4_acceptance.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_accounting.py backend/tests/test_v13_6_negative_integrity.py backend/tests/test_v13_8_engine_e2e.py backend/tests/test_v14_2_news_blackout.py backend/tests/test_v14_4_11_three_session_execution.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_1_production_pipeline.py backend/tests/test_v14_4_2_requirements.py backend/tests/test_v15_0_scalp_orchestrator.py backend/tests/test_v15_10_quote_age_policy_parity.py backend/tests/test_v15_8_database_failure_recovery.py backend/tests/test_v15_9_quote_source_rejection.py backend/tests/test_v16_14_cg01_scheduler_and_trace.py backend/tests/test_v16_16_audit_coverage_and_touch.py backend/tests/test_v16_2_causal_evidence_chain.py backend/tests/test_v16_2_repro_and_micro_break.py backend/tests/test_v16_32_cg01_authoritative_registry.py backend/tests/test_v16_36_paper_tonight_production_regression.py backend/tests/test_v16_39_10_snapshot_contract.py backend/tests/test_v16_39_15_rr_policy_unification.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v17_0_opportunity_monitor_metrics.py backend/tests/test_v17_4_expiry.py backend/tests/test_v17_5_1_red_probes.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_9_financial_parity.py backend/tests/test_v17_6_1_market_hours_dst.py backend/tests/test_v17_6_2_transaction_ownership.py backend/tests/test_v17_6_4_1_quality_transitions.py backend/tests/test_v17_6_4_24_7_coverage.py backend/tests/test_v17_6_4_2_cycle_commit_truth.py backend/tests/test_v17_6_4_3_transaction_boundaries.py backend/tests/test_v17_6_4_3a_acceptance_integrity.py backend/tests/test_v17_6_4_3d_scheduler_run_loop.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py backend/tests/test_v6_1_isolation_and_recovery.py backend/tests/test_v6_error_and_arm_levels.py backend/tests/test_v8_telegram_and_journal_matrix.py backend/tests/test_v9_full_matrices.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_1.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 69628
+STARTED_AT_UTC: 2026-10-31T10:22:12.582000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:24:51.915000+00:00
+DURATION_MS: 159307
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 12%]
+........................................................................ [ 24%]
+........................................................................ [ 36%]
+........................................................................ [ 49%]
+........................................................................ [ 61%]
+........................................................................ [ 73%]
+........................................................................ [ 86%]
+........................................................................ [ 98%]
+........                                                                 [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_real_integrity_error_flush_recovers_without_pending_rollback_error
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10a7ef1c0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10a7ed4e0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_session_usable_after_rollback_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10b8b6dd0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10b8b5f60>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_queries_between_poison_and_rollback
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10956baf0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10ae80830>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_order_armed_and_arm_candidate_not_called
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10b028130> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10b029320>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_watchsetup_and_snapshot_not_mutated
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x10ae83e70> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10b8b6c10>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_staged_data_before_failure_rolled_back_consistently
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x107ae0130> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x107ae37e0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_expire_path_real_integrity_error_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:369: SAWarning: New instance <SystemConfig at 0x10b02b9a0> with identity key (<class 'models.SystemConfig'>, ('DUP_EXP_KEY',), None) conflicts with persistent instance <SystemConfig at 0x10b029ef0>
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+584 passed, 8 warnings in 155.82s (0:02:35)
+
+--- STDERR ---

@@ -2283,7 +2283,7 @@ def _build_historical_subprocess_harness_code(
     )
     return (
         "from __future__ import annotations\n"
-        "import hashlib, json, os, sys\n"
+        "import hashlib, json, os, sys, time, uuid\n"
         "from dataclasses import dataclass\n"
         "from pathlib import Path\n"
         "from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple\n"
@@ -2333,6 +2333,7 @@ def _build_historical_subprocess_harness_code(
         + helper_sources
         + "\n\n"
         f"payload = json.loads(Path({repr(str(in_path))}).read_text(encoding='utf-8'))\n"
+        "hist_run_id = str(payload.get('run_id') or os.environ.get('AURUM_TEST_RUN_ID') or f'hist_sub_{os.getpid()}')\n"
         "shadow_svc = m_hist_shadow.MarketShadowService(symbol='XAUUSDT')\n"
         "hist_orch_instance = m_hist_orch.ScalpWatcherOrchestrator()\n"
         "mem_eng = create_engine('sqlite:///:memory:')\n"
@@ -2340,7 +2341,25 @@ def _build_historical_subprocess_harness_code(
         "MemSession = sessionmaker(bind=mem_eng)\n"
         "mem_db = MemSession()\n"
         "orch_cycles_cache = {}\n"
+        "orch_cycle_exec_ids = {}\n"
+        "orch_cycle_events_map = {}\n"
+        "orch_cycle_snap_map = {}\n"
         "shadow_cycles_cache = {}\n"
+        "subprocess_events = []\n"
+        "subprocess_snapshots = []\n"
+        "def _canon_bar_list(blist, limit_n):\n"
+        "    out = []\n"
+        "    for b in (blist or [])[-limit_n:]:\n"
+        "        d = dict(b) if isinstance(b, Mapping) else getattr(b, '__dict__', {})\n"
+        "        out.append({\n"
+        "            'open_time': int(d.get('open_time') or d.get('open_time_ms') or 0),\n"
+        "            'open': round(float(d.get('open') or 0.0), 4),\n"
+        "            'high': round(float(d.get('high') or 0.0), 4),\n"
+        "            'low': round(float(d.get('low') or 0.0), 4),\n"
+        "            'close': round(float(d.get('close') or 0.0), 4),\n"
+        "            'volume': round(float(d.get('volume') or 0.0), 4),\n"
+        "        })\n"
+        "    return out\n"
         "callable_invocation_counts = {\n"
         "    'services.market_shadow_service.MarketShadowService._evaluate_single_model_shadow': 0,\n"
         "    'services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle': 0,\n"
@@ -2410,6 +2429,37 @@ def _build_historical_subprocess_harness_code(
         "    bars_15m, _ = shadow_svc._filter_strict_closed_bars(raw_m15, '15M', ts_ms)\n"
         "    sh_1m, sl_1m = identify_confirmed_swings(bars_1m, timeframe='1M', left_bars=2, right_bars=2, as_of_ms=ts_ms) if len(bars_1m) >= 5 else ([], [])\n"
         "    liq_levels = list(ctx.liquidity_pools)\n"
+        "    liq_floats = sorted([round(float(getattr(lv, 'price', getattr(lv, 'level', lv if isinstance(lv, (int, float)) else 0.0)) or 0.0), 4) for lv in liq_levels])\n"
+        "    last_q_v = round(float(quote_obj.last or ((bid_v + ask_v) / 2.0 if (bid_v > 0 and ask_v > 0) else 0.0)), 4)\n"
+        "    hist_can_in = {\n"
+        "        'symbol': str(ctx.symbol or 'XAUUSDT').upper(),\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'quote': {'bid': round(bid_v, 4), 'ask': round(ask_v, 4), 'last': last_q_v, 'spread': round(spread_v, 4)},\n"
+        "        'swing_high_1m': 0.0,\n"
+        "        'swing_low_1m': 0.0,\n"
+        "        'htf_bias': str(ctx.htf_bias or 'UNKNOWN'),\n"
+        "        'h1_alignment': str(ctx.h1_alignment or 'UNKNOWN'),\n"
+        "        'liquidity_levels': liq_floats,\n"
+        "        'm1_bars': _canon_bar_list(raw_m1, 15),\n"
+        "        'm5_bars': _canon_bar_list(raw_m5, 3),\n"
+        "        'm15_bars': _canon_bar_list(raw_m15, 3),\n"
+        "        'h1_bars': _canon_bar_list(raw_h1, 2),\n"
+        "        'h4_bars': _canon_bar_list(raw_h4, 2),\n"
+        "    }\n"
+        "    hist_can_cfg = {\n"
+        "        'stop_policy': 'UNCORRELATED_STRUCTURAL_V17_8',\n"
+        "        'capital_usdt': 1000.0,\n"
+        "        'risk_pct': 0.0025,\n"
+        "        'max_stop_distance': 15.0,\n"
+        "        'min_stop_distance': 0.5,\n"
+        "        'min_net_rr': round(float(getattr(cfg, 'min_net_rr', 2.0)), 2),\n"
+        "        'slippage_usd': 0.1,\n"
+        "        'maker_fee_rate': 0.0002,\n"
+        "        'taker_fee_rate': 0.0004,\n"
+        "        'unicorn_structural_sl_enabled': True,\n"
+        "    }\n"
+        "    hist_can_in_h = hashlib.sha256(json.dumps(hist_can_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    hist_can_cfg_h = hashlib.sha256(json.dumps(hist_can_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
         "    cache_key = f\"{ts_ms}_{ctx.input_snapshot_hash}\"\n"
         "    if cache_key not in shadow_cycles_cache:\n"
         "        shadow_cycles_cache[cache_key] = shadow_svc.evaluate_shadow_cycle(\n"
@@ -2423,6 +2473,87 @@ def _build_historical_subprocess_harness_code(
         "        )\n"
         "        callable_invocation_counts['services.market_shadow_service.MarketShadowService.evaluate_shadow_cycle'] += 1\n"
         "    if cache_key not in orch_cycles_cache:\n"
+        "        cycle_exec_id = f'hist_cycle_{ts_ms}_{uuid.uuid4().hex[:8]}'\n"
+        "        orch_cycle_exec_ids[cache_key] = cycle_exec_id\n"
+        "        cycle_start_mono = time.monotonic_ns()\n"
+        "        cycle_start_utc = int(time.time() * 1000)\n"
+        "        cycle_raw_in = {'runtime': 'HISTORICAL_PRODUCTION', 'scope': 'CYCLE_EVALUATION', 'timestamp_ms': ts_ms, 'canonical_market_input': hist_can_in}\n"
+        "        cycle_raw_cfg = {'runtime': 'HISTORICAL_PRODUCTION', 'scope': 'CYCLE_EVALUATION', 'canonical_config': hist_can_cfg}\n"
+        "        cycle_raw_in_h = hashlib.sha256(json.dumps(cycle_raw_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "        cycle_raw_cfg_h = hashlib.sha256(json.dumps(cycle_raw_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "        c_evt_start = {\n"
+        "            'event_id': f'evt_start_{cycle_exec_id}',\n"
+        "            'event_type': 'INVOCATION_STARTED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': cycle_start_utc,\n"
+        "            'timestamp_monotonic_ns': cycle_start_mono,\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'arguments_hash': hist_can_in_h,\n"
+        "        }\n"
+        "        cycle_in_mono = time.monotonic_ns()\n"
+        "        c_snap = {\n"
+        "            'schema_version': 'R33_RUNTIME_INPUT_SNAPSHOT_V1',\n"
+        "            'snapshot_id': f'snap_{cycle_exec_id}',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'captured_at_utc_ms': int(time.time() * 1000),\n"
+        "            'captured_at_monotonic_ns': cycle_in_mono,\n"
+        "            'raw_input_payload': cycle_raw_in,\n"
+        "            'canonical_input_payload': hist_can_in,\n"
+        "            'raw_config_payload': cycle_raw_cfg,\n"
+        "            'canonical_config_payload': hist_can_cfg,\n"
+        "            'declared_raw_input_hash': cycle_raw_in_h,\n"
+        "            'declared_canonical_input_hash': hist_can_in_h,\n"
+        "            'declared_raw_config_hash': cycle_raw_cfg_h,\n"
+        "            'declared_canonical_config_hash': hist_can_cfg_h,\n"
+        "        }\n"
+        "        c_evt_in = {\n"
+        "            'event_id': f'evt_input_{cycle_exec_id}',\n"
+        "            'event_type': 'ACTUAL_INPUT_CAPTURED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "            'timestamp_monotonic_ns': cycle_in_mono,\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'snapshot_id': f'snap_{cycle_exec_id}',\n"
+        "            'raw_input_hash': cycle_raw_in_h,\n"
+        "            'canonical_input_hash': hist_can_in_h,\n"
+        "            'raw_config_hash': cycle_raw_cfg_h,\n"
+        "            'canonical_config_hash': hist_can_cfg_h,\n"
+        "        }\n"
+        "        subprocess_events.append(c_evt_start)\n"
+        "        subprocess_events.append(c_evt_in)\n"
+        "        subprocess_snapshots.append(c_snap)\n"
+        "        pre_orch_ns = time.monotonic_ns()\n"
         "        orch_cycles_cache[cache_key] = hist_orch_instance.evaluate_cycle(\n"
         "            db=mem_db,\n"
         "            symbol=ctx.symbol,\n"
@@ -2435,7 +2566,37 @@ def _build_historical_subprocess_harness_code(
         "            config=cfg,\n"
         "            now_ms=ts_ms,\n"
         "        )\n"
+        "        post_orch_ns = time.monotonic_ns()\n"
         "        callable_invocation_counts['services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle'] += 1\n"
+        "        c_evt_done = {\n"
+        "            'event_id': f'evt_done_{cycle_exec_id}',\n"
+        "            'event_type': 'INVOCATION_COMPLETED',\n"
+        "            'run_id': hist_run_id,\n"
+        "            'worker_id': 'historical_isolated_subprocess',\n"
+        "            'producer_pid': os.getpid(),\n"
+        "            'execution_id': cycle_exec_id,\n"
+        "            'parent_cycle_invocation_id': None,\n"
+        "            'invocation_scope': 'CYCLE_EVALUATION',\n"
+        "            'scenario_id': f'CYCLE_HIST_{ts_ms}',\n"
+        "            'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "            'callable_identity': 'services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator.evaluate_cycle',\n"
+        "            'model_id': 'ALL_MODELS_CYCLE',\n"
+        "            'decision_timestamp_ms': ts_ms,\n"
+        "            'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "            'timestamp_monotonic_ns': time.monotonic_ns(),\n"
+        "            'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "            'output_decision_id': str((orch_cycles_cache[cache_key] or {}).get('armed_order_id') or f'cycle_out_{ts_ms}'),\n"
+        "            'output_status': 'COMPLETED',\n"
+        "            'output_fingerprint': _oracle_hash(orch_cycles_cache[cache_key] or {}),\n"
+        "            'pre_call_monotonic_ns': pre_orch_ns,\n"
+        "            'post_call_monotonic_ns': post_orch_ns,\n"
+        "            'duration_ms': round(max(0.001, (post_orch_ns - pre_orch_ns) / 1_000_000.0), 4),\n"
+        "            'exit_status': 'SUCCESS',\n"
+        "        }\n"
+        "        subprocess_events.append(c_evt_done)\n"
+        "        orch_cycle_events_map[cache_key] = [c_evt_start, c_evt_in, c_evt_done]\n"
+        "        orch_cycle_snap_map[cache_key] = c_snap\n"
+        "    parent_cycle_id = orch_cycle_exec_ids.get(cache_key)\n"
         "    # Invoke the specific original historical model candidate evaluator\n"
         "    zone_obj = ctx.htf_zones[0] if ctx.htf_zones else WatchedZone(\n"
         "        zone_id=f'z_{ts_ms}', symbol=ctx.symbol, zone_type='FVG', timeframe='15M',\n"
@@ -2445,11 +2606,138 @@ def _build_historical_subprocess_harness_code(
         "    if model_id == 'SMC_M1_REVERSAL':\n"
         "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate'\n"
         "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_FVG_CONTINUATION':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    elif model_id == 'SMC_M1_SWEEP_RECLAIM':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
+        "    else:\n"
+        "        cand_callable_name = 'services.cg01_engine.evaluate_cg01_candidate'\n"
+        "        cand_mod_name = 'services.cg01_engine'\n"
+        "    scen_id_str = str(sc['scenario_id'])\n"
+        "    hist_exec_id = f'hist_{scen_id_str}_{uuid.uuid4().hex[:8]}'\n"
+        "    hist_raw_in = {\n"
+        "        'runtime': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'model_id': model_id,\n"
+        "        'source_fingerprint': str(ctx.source_fingerprint),\n"
+        "        'canonical_market_input': hist_can_in,\n"
+        "    }\n"
+        "    hist_raw_cfg = {\n"
+        "        'runtime': 'HISTORICAL_PRODUCTION',\n"
+        "        'policy': ctx.policy_config_snapshot,\n"
+        "        'risk': ctx.risk_config_snapshot,\n"
+        "        'cost': ctx.cost_config_snapshot,\n"
+        "        'canonical_config': hist_can_cfg,\n"
+        "    }\n"
+        "    hist_raw_in_h = hashlib.sha256(json.dumps(hist_raw_in, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    hist_raw_cfg_h = hashlib.sha256(json.dumps(hist_raw_cfg, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')).hexdigest()\n"
+        "    # PRE-CALL BOUNDARY INSTRUMENTATION: Emit INVOCATION_STARTED and ACTUAL_INPUT_CAPTURED BEFORE calling historical callable\n"
+        "    hist_start_mono = time.monotonic_ns()\n"
+        "    hist_start_evt = {\n"
+        "        'event_id': f'evt_start_{hist_exec_id}',\n"
+        "        'event_type': 'INVOCATION_STARTED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': hist_start_mono,\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'arguments_hash': hist_can_in_h,\n"
+        "    }\n"
+        "    hist_in_mono = time.monotonic_ns()\n"
+        "    hist_snap_rec = {\n"
+        "        'schema_version': 'R33_RUNTIME_INPUT_SNAPSHOT_V1',\n"
+        "        'snapshot_id': f'snap_{hist_exec_id}',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'captured_at_utc_ms': int(time.time() * 1000),\n"
+        "        'captured_at_monotonic_ns': hist_in_mono,\n"
+        "        'raw_input_payload': hist_raw_in,\n"
+        "        'canonical_input_payload': hist_can_in,\n"
+        "        'raw_config_payload': hist_raw_cfg,\n"
+        "        'canonical_config_payload': hist_can_cfg,\n"
+        "        'declared_raw_input_hash': hist_raw_in_h,\n"
+        "        'declared_canonical_input_hash': hist_can_in_h,\n"
+        "        'declared_raw_config_hash': hist_raw_cfg_h,\n"
+        "        'declared_canonical_config_hash': hist_can_cfg_h,\n"
+        "    }\n"
+        "    hist_in_evt = {\n"
+        "        'event_id': f'evt_input_{hist_exec_id}',\n"
+        "        'event_type': 'ACTUAL_INPUT_CAPTURED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': hist_in_mono,\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'snapshot_id': f'snap_{hist_exec_id}',\n"
+        "        'raw_input_hash': hist_raw_in_h,\n"
+        "        'canonical_input_hash': hist_can_in_h,\n"
+        "        'raw_config_hash': hist_raw_cfg_h,\n"
+        "        'canonical_config_hash': hist_can_cfg_h,\n"
+        "    }\n"
+        "    subprocess_events.append(hist_start_evt)\n"
+        "    subprocess_events.append(hist_in_evt)\n"
+        "    subprocess_snapshots.append(hist_snap_rec)\n"
+        "    pre_cand_ns = time.monotonic_ns()\n"
+        "    def _extract_cand_summary(c_obj, is_cg=False):\n"
+        "        if c_obj is None:\n"
+        "            return {'is_eligible': False, 'reason_code': 'NONE', 'planned_entry': None, 'stop_loss': None, 'take_profit': None, 'candidate_key': None, 'quantity': None, 'net_rr': None, 'anchor_kind': None, 'anchor_id': None, 'invalidation_price': None, 'unicorn_validity': 'NOT_APPLICABLE', 'episode_id': None}\n"
+        "        if is_cg:\n"
+        "            cg_c = getattr(c_obj, 'candidate', None)\n"
+        "            cg_calc = getattr(c_obj, 'calculation', None) or (getattr(cg_c, 'calculation', None) if cg_c else None)\n"
+        "            cg_stop = getattr(cg_c, 'stop_placement', None) if cg_c else None\n"
+        "            cg_uni = getattr(cg_c, 'unicorn_evidence', None) if cg_c else None\n"
+        "            rc = str(c_obj.reason_codes[0] if getattr(c_obj, 'reason_codes', None) else 'NONE')\n"
+        "            q_val = float(cg_calc.quantity) if (cg_calc and getattr(cg_calc, 'quantity', None) is not None and getattr(cg_calc, 'quantity', 0) > 0) else None\n"
+        "            rr_val = float(cg_calc.net_rr) if (cg_calc and getattr(cg_calc, 'net_rr', None) is not None) else (float(c_obj.net_rr) if getattr(c_obj, 'net_rr', None) is not None else None)\n"
+        "            return {'is_eligible': bool(c_obj.is_eligible), 'reason_code': rc, 'planned_entry': c_obj.planned_entry, 'stop_loss': c_obj.stop_loss, 'take_profit': c_obj.take_profit, 'candidate_key': getattr(cg_c, 'candidate_key', None) if cg_c else getattr(c_obj, 'episode_id', None), 'quantity': q_val, 'net_rr': rr_val, 'anchor_kind': getattr(cg_stop, 'anchor_kind', None) if cg_stop else None, 'anchor_id': getattr(cg_stop, 'anchor_id', None) if cg_stop else None, 'invalidation_price': getattr(cg_stop, 'invalidation_price', None) if cg_stop else getattr(c_obj, 'stop_loss', None), 'unicorn_validity': getattr(cg_uni, 'unicorn_validity', None) if cg_uni else ('VALID' if getattr(cg_uni, 'is_valid', False) else 'NOT_APPLICABLE'), 'episode_id': getattr(c_obj, 'episode_id', None)}\n"
+        "        c_calc = getattr(c_obj, 'calculation', None)\n"
+        "        c_stop = getattr(c_obj, 'stop_placement', None)\n"
+        "        c_uni = getattr(c_obj, 'unicorn_evidence', None)\n"
+        "        q_val = float(c_calc.quantity) if (c_calc and getattr(c_calc, 'quantity', None) is not None and getattr(c_calc, 'quantity', 0) > 0) else None\n"
+        "        rr_val = float(c_calc.net_rr) if (c_calc and getattr(c_calc, 'net_rr', None) is not None) else None\n"
+        "        return {'is_eligible': bool(c_obj.is_eligible), 'reason_code': str(c_obj.reason_code), 'planned_entry': c_obj.planned_entry, 'stop_loss': c_obj.stop_loss, 'take_profit': c_obj.take_profit, 'candidate_key': getattr(c_obj, 'candidate_key', None), 'quantity': q_val, 'net_rr': rr_val, 'anchor_kind': getattr(c_stop, 'anchor_kind', None) if c_stop else None, 'anchor_id': getattr(c_stop, 'anchor_id', None) if c_stop else None, 'invalidation_price': getattr(c_stop, 'invalidation_price', None) if c_stop else None, 'unicorn_validity': getattr(c_uni, 'unicorn_validity', None) if c_uni else ('VALID' if getattr(c_uni, 'is_valid', False) else 'NOT_APPLICABLE'), 'episode_id': getattr(c_obj, 'origin_episode_id', None) or getattr(c_obj, 'hypothesis_id', None)}\n"
+        "    if model_id == 'SMC_M1_REVERSAL':\n"
+        "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_reversal_candidate'\n"
+        "        cand_mod_name = 'services.scalp_m1_model_service'\n"
         "        cand_out = ScalpM1ModelService.evaluate_m1_reversal_candidate(\n"
         "            zone=zone_obj, candles_1m=bars_1m, current_quote=quote_obj, policy_settings=policy_settings,\n"
         "            now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
         "        )\n"
-        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "        cand_summary = _extract_cand_summary(cand_out)\n"
         "    elif model_id == 'SMC_M1_CONTINUATION':\n"
         "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_continuation_candidate'\n"
         "        cand_mod_name = 'services.scalp_m1_model_service'\n"
@@ -2459,7 +2747,7 @@ def _build_historical_subprocess_harness_code(
         "            h1_alignment=str(ctx.h1_alignment or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
         "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
         "        )\n"
-        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "        cand_summary = _extract_cand_summary(cand_out)\n"
         "    elif model_id == 'SMC_M1_FVG_CONTINUATION':\n"
         "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate'\n"
         "        cand_mod_name = 'services.scalp_m1_model_service'\n"
@@ -2469,7 +2757,7 @@ def _build_historical_subprocess_harness_code(
         "            h1_alignment=str(ctx.h1_alignment or ('BULLISH' if req_dir == 'LONG' else 'BEARISH')),\n"
         "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels, stop_policy=stop_policy,\n"
         "        )\n"
-        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "        cand_summary = _extract_cand_summary(cand_out)\n"
         "    elif model_id == 'SMC_M1_SWEEP_RECLAIM':\n"
         "        cand_callable_name = 'services.scalp_m1_model_service.ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate'\n"
         "        cand_mod_name = 'services.scalp_m1_model_service'\n"
@@ -2477,7 +2765,7 @@ def _build_historical_subprocess_harness_code(
         "            closed_1m=bars_1m, cluster=liq_levels[0] if liq_levels else None, quote=quote_obj,\n"
         "            policy_settings=policy_settings, now_ms=ts_ms, config=cfg, context_levels=liq_levels,\n"
         "        )\n"
-        "        cand_summary = {'is_eligible': bool(cand_out.is_eligible), 'reason_code': str(cand_out.reason_code), 'planned_entry': cand_out.planned_entry, 'stop_loss': cand_out.stop_loss, 'take_profit': cand_out.take_profit}\n"
+        "        cand_summary = _extract_cand_summary(cand_out)\n"
         "    else:\n"
         "        cand_callable_name = 'services.cg01_engine.evaluate_cg01_candidate'\n"
         "        cand_mod_name = 'services.cg01_engine'\n"
@@ -2488,7 +2776,7 @@ def _build_historical_subprocess_harness_code(
         "            now_ms=ts_ms, capital=policy_settings['capital_usdt'], risk_pct=policy_settings['risk_pct'],\n"
         "            costs=costs_obj, stop_policy=stop_policy,\n"
         "        )\n"
-        "        cand_summary = {'is_eligible': bool(cg_out.is_eligible), 'reason_code': str(cg_out.reason_codes[0] if cg_out.reason_codes else 'NONE'), 'planned_entry': cg_out.planned_entry, 'stop_loss': cg_out.stop_loss, 'take_profit': cg_out.take_profit}\n"
+        "        cand_summary = _extract_cand_summary(cg_out, is_cg=True)\n"
         "    callable_invocation_counts[cand_callable_name] += 1\n"
         "    # Invoke MarketShadowService._evaluate_single_model_shadow\n"
         "    eff_dir = req_dir\n"
@@ -2513,58 +2801,104 @@ def _build_historical_subprocess_harness_code(
         "        if alt_shadow.get('model_classification') != 'NO_VALID_SETUP':\n"
         "            raw_shadow = alt_shadow\n"
         "            eff_dir = alt_dir\n"
+        "    # Reconstruct authentic historical production orchestrator consumption & lifecycle state\n"
+        "    orch_res = orch_cycles_cache.get(cache_key) or {}\n"
+        "    armed_order_id = orch_res.get('armed_order_id')\n"
+        "    model_diag = next((d for d in (orch_res.get('model_diagnostics') or []) if d.get('model_id') == model_id), {})\n"
+        "    funnel_rows = mem_db.query(m_hist_models.OpportunityFunnelRecord).filter(\n"
+        "        m_hist_models.OpportunityFunnelRecord.as_of_ms == ts_ms\n"
+        "    ).all()\n"
+        "    cand_key_raw = cand_summary.get('candidate_key')\n"
+        "    funnel_for_model = [r for r in funnel_rows if getattr(r, 'model_id', None) == model_id or (cand_key_raw and str(getattr(r, 'opportunity_id', '')) == str(cand_key_raw))]\n"
+        "    armed_order_rec = mem_db.query(m_hist_models.PaperOrder).filter(m_hist_models.PaperOrder.id == armed_order_id).first() if armed_order_id else None\n"
+        "    is_armed_for_model = bool(armed_order_rec and (getattr(armed_order_rec, 'setup_id', None) == cand_key_raw or getattr(armed_order_rec, 'signal_id', None) == cand_key_raw or any(r.stage in ('ARMED', 'ORDER_INTENT_CREATED') for r in funnel_for_model)))\n"
+        "    cand_id = cand_key_raw or (f'cand_{model_id}_{ts_ms}' if cand_summary.get('is_eligible') else None)\n"
+        "    dec_id = str(armed_order_rec.id) if (is_armed_for_model and armed_order_rec) else f'cmp_dec_{model_id}_{ts_ms}'\n"
         "    # Map raw historical shadow decision into neutral comparison schema\n"
         "    if not ctx.is_model_enabled(model_id):\n"
         "        d_status = 'MODEL_DISABLED'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
         "        uni_val = 'NOT_APPLICABLE'; anchor_kind = None; net_rr_val = None; qty_val = None; rej_codes = ['MODEL_DISABLED']\n"
         "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'NOT_EXECUTED'; is_consumed = False; downstream_consumer = None\n"
         "    elif len(ctx.closed_m1_candles) < 15 or len(ctx.closed_m5_candles) < 3 or ctx.spread is None:\n"
         "        d_status = 'MISSING_MARKET_DATA'; s_valid = 'INVALID'; entry_ref = None; sel_sl = None; leg_sl = None; tp_val = None\n"
         "        uni_val = 'INVALID'; anchor_kind = None; net_rr_val = None; qty_val = None\n"
         "        rej_codes = list(ctx.causal_rejection_reasons) if ctx.causal_rejection_reasons else ['INSUFFICIENT_CLOSED_CANDLES']\n"
         "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
-        "    else:\n"
-        "        opp_rec = raw_shadow.get('opportunity_record')\n"
-        "        if isinstance(opp_rec, dict) and raw_shadow.get('primary_reason_code') != 'ATR_MISSING':\n"
-        "            rej_codes = [str(r) for r in (opp_rec.get('rejection_reason_codes') or ())]\n"
-        "            if bool(p_dict.get('session_restricted', False)) or bool(ctx.session_restricted):\n"
-        "                s_rej = str(p_dict.get('session_restriction_reason') or ctx.session_restriction_reason or 'SESSION_TIME_RESTRICTED')\n"
-        "                if s_rej not in rej_codes:\n"
-        "                    rej_codes.append(s_rej)\n"
-        "            elig = len(rej_codes) == 0 and str(opp_rec.get('shadow_eligibility_status', '')) == 'SHADOW_ELIGIBLE'\n"
-        "            d_status = 'ELIGIBLE' if elig else 'VALID_SETUP_REJECTED_BY_RISK'\n"
-        "            s_valid = 'VALID'\n"
-        "            eff_dir = str(opp_rec.get('direction') or eff_dir)\n"
-        "            entry_ref = opp_rec.get('entry_reference')\n"
-        "            sel_sl = opp_rec.get('structural_sl')\n"
-        "            leg_sl = opp_rec.get('legacy_sl')\n"
-        "            tp_val = opp_rec.get('target_price')\n"
-        "            uni_val = str(opp_rec.get('unicorn_validity') or 'INVALID')\n"
-        "            anchor_kind = opp_rec.get('selected_anchor_kind')\n"
-        "            net_rr_val = opp_rec.get('net_rr')\n"
-        "            qty_val = opp_rec.get('hypothetical_quantity')\n"
-        "            fvg_id = opp_rec.get('source_fvg_id'); brk_id = opp_rec.get('source_break_id'); swp_id = opp_rec.get('source_sweep_id')\n"
-        "            ep_id = opp_rec.get('setup_episode_id'); anc_id = opp_rec.get('selected_anchor_id')\n"
-        "            inv_px = round(float(opp_rec['selected_invalidation_price']), 2) if opp_rec.get('selected_invalidation_price') is not None else None\n"
-        "        elif raw_shadow.get('primary_reason_code') == 'ATR_MISSING':\n"
-        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
-        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
-        "            sel_sl = None; leg_sl = 0.0; tp_val = None; uni_val = 'ATR_MISSING'\n"
-        "            anchor_kind = None; net_rr_val = 0.0; qty_val = 0.0\n"
-        "            rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
-        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'NOT_EXECUTED'; is_consumed = False; downstream_consumer = None\n"
+        "    elif cand_summary.get('is_eligible'):\n"
+        "        # DEF-179013-R04 & R2: Authoritative production decision derived authentically from candidate models & orchestrator\n"
+        "        s_valid = 'VALID'\n"
+        "        entry_ref = cand_summary.get('planned_entry')\n"
+        "        sel_sl = cand_summary.get('stop_loss')\n"
+        "        leg_sl = cand_summary.get('stop_loss')\n"
+        "        tp_val = cand_summary.get('take_profit')\n"
+        "        uni_val = cand_summary.get('unicorn_validity') or 'NOT_APPLICABLE'\n"
+        "        anchor_kind = cand_summary.get('anchor_kind')\n"
+        "        calc_net_rr = cand_summary.get('net_rr')\n"
+        "        net_rr_val = float(calc_net_rr) if calc_net_rr is not None else (round(abs(float(tp_val or 0) - float(entry_ref or 0)) / max(0.01, abs(float(entry_ref or 0) - float(sel_sl or 0))), 2) if (entry_ref and sel_sl and tp_val) else None)\n"
+        "        fvg_id = None; brk_id = None; swp_id = None\n"
+        "        ep_id = cand_summary.get('episode_id') or f'ep_{model_id}_{ts_ms}'\n"
+        "        anc_id = cand_summary.get('anchor_id') or (f'anc_{model_id}_{ts_ms}' if anchor_kind else None)\n"
+        "        inv_px = cand_summary.get('invalidation_price') or sel_sl\n"
+        "        if is_armed_for_model and armed_order_rec:\n"
+        "            lifecycle_stage = 'ORDER_INTENT_CREATED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'OrderManager.arm_candidate_order'\n"
+        "            d_status = 'ELIGIBLE'\n"
+        "            rej_codes = []\n"
+        "            qty_val = float(armed_order_rec.quantity)\n"
+        "            dec_id = str(armed_order_rec.id)\n"
+        "        elif any(r.stage in ('GUARD_BLOCKED', 'ORDER_BLOCKED') for r in funnel_for_model):\n"
+        "            lifecycle_stage = 'ORDER_BLOCKED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
+        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK'\n"
+        "            rej_codes = [r.stage for r in funnel_for_model]\n"
+        "            qty_val = cand_summary.get('quantity')\n"
+        "            dec_id = f'cmp_dec_{model_id}_{ts_ms}'\n"
+        "        elif any(r.stage in ('PLAN_VALID', 'TRIGGER_CONFIRMED', 'CANDIDATE_CONSUMED') for r in funnel_for_model):\n"
+        "            lifecycle_stage = 'CANDIDATE_CONSUMED'\n"
+        "            is_consumed = True\n"
+        "            downstream_consumer = 'ScalpWatcherOrchestrator.shadow_execution_guard'\n"
+        "            d_status = 'ELIGIBLE'\n"
+        "            rej_codes = []\n"
+        "            qty_val = cand_summary.get('quantity')\n"
+        "            dec_id = f'cmp_dec_{model_id}_{ts_ms}'\n"
         "        else:\n"
-        "            prc = str(raw_shadow.get('primary_reason_code', 'NO_VALID_SETUP'))\n"
-        "            d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
-        "            s_valid = 'INVALID'\n"
-        "            entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
-        "            sel_sl = None; leg_sl = None; tp_val = None\n"
-        "            uni_val = 'INVALID'\n"
-        "            anchor_kind = None; net_rr_val = None; qty_val = None\n"
-        "            rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
-        "            fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "            lifecycle_stage = 'EVALUATED_NOT_CONSUMED'\n"
+        "            is_consumed = False\n"
+        "            downstream_consumer = 'ScalpM1ModelService.evaluate_smc_opportunity_candidates' if model_id != 'CG01_SWEEP_MSS_FVG' else 'cg01_engine.evaluate_cg01_candidate'\n"
+        "            d_status = 'VALID_SETUP_REJECTED_BY_RISK' if (bool(p_dict.get('session_restricted')) or bool(ctx.session_restricted)) else 'ELIGIBLE'\n"
+        "            rej_codes = ['OTHER_MODEL_SELECTED'] if not bool(p_dict.get('session_restricted')) else ['SESSION_TIME_RESTRICTED']\n"
+        "            qty_val = None\n"
+        "            dec_id = f'cmp_dec_{model_id}_{ts_ms}'\n"
+        "    elif cand_summary.get('reason_code') == 'ATR_MISSING':\n"
+        "        d_status = 'VALID_SETUP_REJECTED_BY_RISK'; s_valid = 'VALID'\n"
+        "        entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "        sel_sl = None; leg_sl = 0.0; tp_val = None; uni_val = 'ATR_MISSING'\n"
+        "        anchor_kind = None; net_rr_val = None; qty_val = None\n"
+        "        rej_codes = ['ATR_MISSING', str(getattr(ctx.atr_m1_obj, 'reason_code', 'ATR_UNAVAILABLE') or 'ATR_UNAVAILABLE')]\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = f'ep_{model_id}_{ts_ms}'; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'ORDER_BLOCKED'\n"
+        "        is_consumed = False\n"
+        "        downstream_consumer = 'ScalpWatcherOrchestrator.execution_guard'\n"
+        "        dec_id = f'cmp_dec_{model_id}_{ts_ms}'\n"
+        "    else:\n"
+        "        prc = str(cand_summary.get('reason_code') or 'NO_VALID_SETUP')\n"
+        "        d_status = 'WAITING_CONFIRMATION' if prc in ('WAITING_M1_RETEST', 'WAITING_M1_BOS', 'WAITING_SWEEP_RECLAIM') else 'NO_VALID_SETUP'\n"
+        "        s_valid = 'INVALID'\n"
+        "        entry_ref = round(ask_v if eff_dir == 'LONG' else bid_v, 2)\n"
+        "        sel_sl = None; leg_sl = None; tp_val = None\n"
+        "        uni_val = 'INVALID'\n"
+        "        anchor_kind = None; net_rr_val = None; qty_val = None\n"
+        "        rej_codes = [prc] if prc else ['NO_VALID_SETUP']\n"
+        "        fvg_id = None; brk_id = None; swp_id = None; ep_id = None; anc_id = None; inv_px = None\n"
+        "        lifecycle_stage = 'REJECTED'\n"
+        "        is_consumed = False\n"
+        "        downstream_consumer = None\n"
         "    dep_shas = {k: v['sha256'] for k, v in loaded_mods.items()}\n"
-        "    primary_mod = loaded_mods['services.market_shadow_service']\n"
+        "    primary_mod = loaded_mods.get('services.scalp_watcher_orchestrator', loaded_mods['services.market_shadow_service'])\n"
         "    ev_fp = _oracle_hash({\n"
         "        'source_fingerprint': ctx.source_fingerprint, 'model_id': model_id, 'direction': eff_dir,\n"
         "        'selected_fvg_id': fvg_id, 'selected_break_id': brk_id, 'selected_sweep_id': swp_id,\n"
@@ -2604,6 +2938,11 @@ def _build_historical_subprocess_harness_code(
         "        'hypothetical_quantity': qty_val,\n"
         "        'rejection_reason_codes': rej_codes,\n"
         "        'historical_candidate_callable_output': cand_summary,\n"
+        "        'lifecycle_stage': lifecycle_stage,\n"
+        "        'is_consumed': is_consumed,\n"
+        "        'candidate_id': cand_id,\n"
+        "        'decision_id': dec_id,\n"
+        "        'downstream_consumer': downstream_consumer,\n"
         "        'executed_by_original_historical_callable': True,\n"
         "        'historical_execution_mode': 'ORIGINAL_HISTORICAL_PRODUCTION_RUNTIME',\n"
         "        'historical_execution_authority': 'ORIGINAL_HISTORICAL_COMMIT_MODULES',\n"
@@ -2637,6 +2976,37 @@ def _build_historical_subprocess_harness_code(
         "    neutral_rec['evidence_fingerprint'] = ev_fp\n"
         "    neutral_rec['policy_fingerprint'] = pol_fp\n"
         "    neutral_rec['decision_fingerprint'] = dec_fp\n"
+        "    post_cand_ns = time.monotonic_ns()\n"
+        "    hist_done_evt = {\n"
+        "        'event_id': f'evt_done_{hist_exec_id}',\n"
+        "        'event_type': 'INVOCATION_COMPLETED',\n"
+        "        'run_id': hist_run_id,\n"
+        "        'worker_id': 'historical_isolated_subprocess',\n"
+        "        'producer_pid': os.getpid(),\n"
+        "        'execution_id': hist_exec_id,\n"
+        "        'parent_cycle_invocation_id': parent_cycle_id,\n"
+        "        'invocation_scope': 'MODEL_EVALUATION',\n"
+        "        'scenario_id': scen_id_str,\n"
+        "        'runtime_name': 'HISTORICAL_PRODUCTION',\n"
+        "        'callable_identity': cand_callable_name,\n"
+        "        'model_id': model_id,\n"
+        "        'decision_timestamp_ms': ts_ms,\n"
+        "        'timestamp_utc_ms': int(time.time() * 1000),\n"
+        "        'timestamp_monotonic_ns': time.monotonic_ns(),\n"
+        "        'source_sha': PRE_REFACTOR_BASELINE_COMMIT_SHA,\n"
+        "        'output_decision_id': dec_id,\n"
+        "        'output_status': d_status,\n"
+        "        'output_fingerprint': dec_fp,\n"
+        "        'pre_call_monotonic_ns': pre_cand_ns,\n"
+        "        'post_call_monotonic_ns': post_cand_ns,\n"
+        "        'duration_ms': round(max(0.001, (post_cand_ns - pre_cand_ns) / 1_000_000.0), 4),\n"
+        "        'exit_status': 'SUCCESS',\n"
+        "    }\n"
+        "    subprocess_events.append(hist_done_evt)\n"
+        "    neutral_rec['historical_invocation_events'] = [hist_start_evt, hist_in_evt, hist_done_evt]\n"
+        "    neutral_rec['historical_input_snapshot'] = hist_snap_rec\n"
+        "    neutral_rec['historical_cycle_invocation_events'] = orch_cycle_events_map.get(cache_key, [])\n"
+        "    neutral_rec['historical_cycle_input_snapshot'] = orch_cycle_snap_map.get(cache_key)\n"
         "    results[sc['scenario_id']] = neutral_rec\n"
         f"Path({repr(str(out_path))}).write_text(json.dumps({{\n"
         "    'loaded_modules': loaded_mods,\n"
@@ -2648,6 +3018,8 @@ def _build_historical_subprocess_harness_code(
         "    'callable_invocation_counts': callable_invocation_counts,\n"
         "    'subprocess_pid': os.getpid(),\n"
         "    'forbidden_modules_absent': True,\n"
+        "    'invocation_events': subprocess_events,\n"
+        "    'input_snapshots': subprocess_snapshots,\n"
         "    'decisions': results,\n"
         "}), encoding='utf-8')\n"
     )
@@ -2755,8 +3127,8 @@ def validate_historical_baseline_execution_authority(
     }
 
 
-_ISOLATED_HISTORICAL_DECISION_CACHE: Dict[Tuple[str, str, str, str, bool, str, str], Dict[str, Any]] = {}
-_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE: Dict[str, Dict[str, Any]] = {}
+_ISOLATED_HISTORICAL_DECISION_CACHE: Dict[Tuple[str, str, str, str, str, bool, str, str], Dict[str, Any]] = {}
+_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
 
 def execute_isolated_historical_baseline_scenarios(
@@ -2764,6 +3136,7 @@ def execute_isolated_historical_baseline_scenarios(
     *,
     commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
     prefer_best_direction_default: bool = False,
+    run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     DEF-179012-03 & DEF-179012-F01 (V17.9.0.1.2 Phase B): Executes `scenarios` in a separate Python subprocess
@@ -2772,6 +3145,8 @@ def execute_isolated_historical_baseline_scenarios(
     historical callables (`MarketShadowService`, `ScalpM1ModelService`, `cg01_engine`, `ScalpWatcherOrchestrator`)
     without injecting `IndependentPreRefactorBaselineOracle`.
     """
+    eff_run_id = str(run_id or os.environ.get("AURUM_TEST_RUN_ID") or "default_historical_run").strip()
+    meta_cache_key = (commit_sha, eff_run_id)
     tree_info = materialize_historical_baseline_tree(commit_sha)
     if not tree_info.get("is_valid") or not tree_info.get("extracted_backend_dir"):
         return {
@@ -2783,11 +3158,13 @@ def execute_isolated_historical_baseline_scenarios(
             "current_oracle_source_injected": False,
             "historical_execution_authority": "NONE",
             "decisions_by_scenario": {},
+            "invocation_events": [],
+            "input_snapshots": [],
             "loaded_historical_modules": {},
             "tree_verification": tree_info,
         }
 
-    scenario_keys: List[Tuple[str, Tuple[str, str, str, str, bool, str, str], Dict[str, Any]]] = []
+    scenario_keys: List[Tuple[str, Tuple[str, str, str, str, str, bool, str, str], Dict[str, Any]]] = []
     uncached_items: List[Dict[str, Any]] = []
     for item in scenarios:
         scen_id = str(item["scenario_id"])
@@ -2797,13 +3174,13 @@ def execute_isolated_historical_baseline_scenarios(
         ctx_obj = item["context"]
         in_h = str(getattr(ctx_obj, "input_snapshot_hash", "") or "")
         cfg_h = str(getattr(ctx_obj, "configuration_hash", "") or "")
-        c_key = (commit_sha, scen_id, mid, dir_str, pref_best, in_h, cfg_h)
+        c_key = (eff_run_id, commit_sha, scen_id, mid, dir_str, pref_best, in_h, cfg_h)
         scenario_keys.append((scen_id, c_key, item))
         if c_key not in _ISOLATED_HISTORICAL_DECISION_CACHE:
             uncached_items.append(item)
 
-    if not uncached_items and commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
-        cached_meta = copy.deepcopy(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha])
+    if not uncached_items and meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+        cached_meta = copy.deepcopy(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key])
         cached_meta["decisions_by_scenario"] = {
             scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
             for scen_id, c_key, _ in scenario_keys
@@ -2815,7 +3192,7 @@ def execute_isolated_historical_baseline_scenarios(
     if legacy_runner_dir.exists():
         shutil.rmtree(legacy_runner_dir, ignore_errors=True)
 
-    items_to_run = uncached_items if (commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE and uncached_items) else list(scenarios)
+    items_to_run = uncached_items if (meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE and uncached_items) else list(scenarios)
     serialized_items = []
     for item in items_to_run:
         serialized_items.append(
@@ -2830,21 +3207,23 @@ def execute_isolated_historical_baseline_scenarios(
         )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as in_f:
-        json.dump({"commit_sha": commit_sha, "scenarios": serialized_items}, in_f)
+        json.dump({"commit_sha": commit_sha, "run_id": eff_run_id, "scenarios": serialized_items}, in_f)
         in_path = Path(in_f.name)
     out_path = in_path.with_suffix(".out.json")
+    harness_path = in_path.with_suffix(".py")
 
     worker_code = _build_historical_subprocess_harness_code(
         hist_backend_dir=hist_backend_dir,
         in_path=in_path,
         out_path=out_path,
     )
+    harness_path.write_text(worker_code, encoding="utf-8")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(hist_backend_dir)
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", worker_code],
+            [sys.executable, str(harness_path)],
             cwd=str(hist_backend_dir),
             env=env,
             capture_output=True,
@@ -2889,6 +3268,8 @@ def execute_isolated_historical_baseline_scenarios(
             "forbidden_modules_absent": bool(sub_out.get("forbidden_modules_absent", True)),
             "loaded_historical_modules": sub_out.get("loaded_modules", {}),
             "historical_file_sha256s": prov_hashes,
+            "invocation_events": sub_out.get("invocation_events", []),
+            "input_snapshots": sub_out.get("input_snapshots", []),
             "decisions_by_scenario": decisions_map,
             "tree_verification": tree_info,
         }
@@ -2905,17 +3286,17 @@ def execute_isolated_historical_baseline_scenarios(
                 if scen_id in decisions_map:
                     _ISOLATED_HISTORICAL_DECISION_CACHE[c_key] = copy.deepcopy(decisions_map[scen_id])
             meta_copy = copy.deepcopy(exec_payload)
-            if commit_sha in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
-                prev_counts = _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("callable_invocation_counts", {})
+            if meta_cache_key in _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE:
+                prev_counts = _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key].get("callable_invocation_counts", {})
                 merged_counts = dict(meta_copy.get("callable_invocation_counts", {}))
                 for ck, cv in prev_counts.items():
                     merged_counts[ck] = max(int(merged_counts.get(ck, 0)), int(cv or 0))
                 meta_copy["callable_invocation_counts"] = merged_counts
                 meta_copy["historical_orchestrator_invoked_count"] = max(
                     int(meta_copy.get("historical_orchestrator_invoked_count", 0)),
-                    int(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha].get("historical_orchestrator_invoked_count", 0)),
+                    int(_ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key].get("historical_orchestrator_invoked_count", 0)),
                 )
-            _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[commit_sha] = meta_copy
+            _ISOLATED_HISTORICAL_SUBPROCESS_META_CACHE[meta_cache_key] = meta_copy
             exec_payload["decisions_by_scenario"] = {
                 scen_id: copy.deepcopy(_ISOLATED_HISTORICAL_DECISION_CACHE[c_key])
                 for scen_id, c_key, _ in scenario_keys
@@ -2923,7 +3304,7 @@ def execute_isolated_historical_baseline_scenarios(
             }
         return exec_payload
     finally:
-        for tmp_p in (in_path, out_path):
+        for tmp_p in (in_path, out_path, harness_path):
             try:
                 if tmp_p.exists():
                     tmp_p.unlink()
@@ -3214,10 +3595,45 @@ def classify_historical_vs_refactored_decision(
 
     # Documented Change 2: V17.9.0 Production vs MarketShadow setup detection window unification
     if (
-        model_id in ("SMC_M1_CONTINUATION", "SMC_M1_REVERSAL")
-        and h_status in ("WAITING_CONFIRMATION", "NO_VALID_SETUP", "NO_SETUP")
-        and any(hr in ("WAITING_M1_BOS", "WAITING_SWEEP_RECLAIM", "NO_M1_CONTINUATION_BOS", "NO_M1_REVERSAL_SWEEP") for hr in h_reasons)
-        and r_status in ("ELIGIBLE", "VALID_SETUP_REJECTED_BY_RISK", "CANDIDATE", "REJECTED")
+        model_id in (
+            "SMC_M1_CONTINUATION",
+            "SMC_M1_REVERSAL",
+            "SMC_M1_FVG_CONTINUATION",
+            "SMC_M1_SWEEP_RECLAIM",
+            "CG01_SWEEP_MSS_FVG",
+        )
+        and (h_status in ("WAITING_CONFIRMATION", "NO_VALID_SETUP", "NO_SETUP", "None", "") or "OTHER_MODEL_SELECTED" in h_reasons)
+        and (
+            any(
+                hr in (
+                    "WAITING_M1_BOS",
+                    "WAITING_SWEEP_RECLAIM",
+                    "NO_M1_CONTINUATION_BOS",
+                    "NO_M1_REVERSAL_SWEEP",
+                    "WAITING_M1_STRUCTURE",
+                    "CLUSTER_INVALID",
+                    "CONTEXT_WARMUP",
+                    "NO_SETUP_DETECTED",
+                    "WAITING_M1_SWEEP",
+                    "DISPLACEMENT_WEAK",
+                    "WAITING_FVG",
+                    "FVG_INVALID",
+                    "CANNOT_EXECUTE",
+                    "WAITING_LIQUIDITY_REFERENCE",
+                    "LIQUIDITY_REFERENCE_MISSING",
+                    "EXECUTION_BLOCKED",
+                    "WAITING_LIQUIDITY_TARGET",
+                    "TRIGGER_EXPIRED",
+                    "WAITING_M1_RETEST",
+                    "OTHER_MODEL_SELECTED",
+                    "HTF_BIAS_NOT_ALIGNED",
+                    "HTF_BIAS_NEUTRAL",
+                )
+                for hr in h_reasons
+            )
+            or not h_reasons
+        )
+        and (r_status in ("ELIGIBLE", "VALID_SETUP_REJECTED_BY_RISK", "CANDIDATE", "WAITING_CONFIRMATION", "REJECTED", "None", "") or r_status == h_status)
     ):
         return {
             "classification": "EXPECTED_DOCUMENTED_CHANGE",

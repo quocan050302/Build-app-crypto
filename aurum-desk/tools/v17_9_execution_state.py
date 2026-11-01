@@ -288,6 +288,9 @@ class ExecutionStateManager:
         if current_head_sha != self.source_sha:
             return False, "SOURCE_SHA_MISMATCH"
 
+        if group_id in self.state.get("completed_test_groups", []):
+            return False, f"DUPLICATE_GROUP_COMPLETION:{group_id}"
+
         if exit_code != 0:
             failed = list(self.state.get("failed_test_groups", []))
             if group_id not in failed:
@@ -346,4 +349,24 @@ class ExecutionStateManager:
         self.state["group_records"] = group_records
         self.save_atomic()
         return True, "COMPLETED"
+
+    def can_resume(self, checkpoint_path: Union[str, Path], expected_sha: str) -> bool:
+        """Checks whether a serialized checkpoint is compatible and safe to resume with expected_sha."""
+        cp = Path(checkpoint_path)
+        if not cp.exists():
+            return False
+        try:
+            data = json.loads(cp.read_text(encoding="utf-8"))
+            return str(data.get("source_sha") or "").strip() == expected_sha.strip()
+        except Exception:
+            return False
+
+    def get_overall_run_status(self) -> str:
+        """Returns the overall run status: FAIL if any failed groups, IN_PROGRESS if pending, else PASS."""
+        if self.state.get("failed_test_groups"):
+            return "FAIL"
+        if self.state.get("pending_test_groups"):
+            return "IN_PROGRESS"
+        return "PASS"
+
 

@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g80_unicorn_causal_chain_strict_validation.xml -k test_g80_all_10_mandatory_unicorn_causal_cases
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 19
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG80UnicornStrictCausalValidation::test_g80_all_10_mandatory_unicorn_causal_cases (0.019s)
+1 passed in 0.02s
+
+--- STDERR ---

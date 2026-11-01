@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g25_deterministic_replay.xml -k test_sl_53 or test_dsl_15
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 46
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_53_replay_determinism (0.024s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_15_deterministic_distant_sl_replay (0.022s)
+2 passed in 0.05s
+
+--- STDERR ---

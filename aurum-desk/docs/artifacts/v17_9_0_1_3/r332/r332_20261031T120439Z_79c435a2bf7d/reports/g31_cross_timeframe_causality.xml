@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g31_cross_timeframe_causality" execution_mode="DERIVED_PROJECTION" provenance="DERIVED_VIEW_FROM_PRIMARY_EXECUTION" source_attempt_ids="primary_pytest_shard_3" tests="2" errors="0" failures="0" skipped="0" time="0.007"><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_negative_unicorn_invalidated_by_distal_breach" time="0.003" /><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_negative_waiting_retest" time="0.004" /></testsuite></testsuites>

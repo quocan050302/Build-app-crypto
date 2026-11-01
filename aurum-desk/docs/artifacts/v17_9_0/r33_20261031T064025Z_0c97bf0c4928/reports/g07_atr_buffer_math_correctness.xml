@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g07_atr_buffer_math_correctness" tests="3" errors="0" failures="0" skipped="0" time="0.013"><testcase classname="backend.tests.test_v17_7_atr_provenance" name="test_atr_15_correct_distance_raw_atr_ratio" time="0.004" /><testcase classname="backend.tests.test_v17_7_atr_provenance" name="test_atr_16_no_accidental_4x_atr_rejection" time="0.005" /><testcase classname="backend.tests.test_v17_7_atr_provenance" name="test_atr_19_shadow_compare_remains_backward_compatible" time="0.004" /></testsuite></testsuites>

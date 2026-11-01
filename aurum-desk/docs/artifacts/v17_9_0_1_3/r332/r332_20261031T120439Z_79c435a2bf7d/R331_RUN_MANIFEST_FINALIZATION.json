@@ -1,0 +1,39 @@
+{
+  "backtest_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "completed_at_ms": 1793448843273,
+  "completed_at_utc": "2026-10-31T12:14:03Z",
+  "created_at_ms": 1793448281608,
+  "created_at_utc": "2026-10-31T12:04:41Z",
+  "duration_ms": 561665,
+  "executable_tree_hash": "f357adba9bfbe0416a7b0acc566c743cd5d45a93b122dfdbb9b3af937eb78c0c",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "final_status": "PASS",
+  "frozen_executable_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "initial_manifest_filename": "R331_INITIAL_RUN_MANIFEST.json",
+  "initial_manifest_sha256": "952cdb8a67ed262283fb58b6d7da96b99d97e612b8bf7d049f4071fa6cee398b",
+  "phase": "R3.3.1",
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "R331_RUN_MANIFEST_FINALIZATION_V1",
+  "status": "PASS",
+  "summary_metrics": {
+    "five_way_verified_count": 210,
+    "junit_raw_total_tests": 5882,
+    "junit_xml_files_count": 93,
+    "passed_gates_count": 107,
+    "passed_negative_controls": 234,
+    "total_mandatory_gates": 107,
+    "total_negative_controls": 234
+  },
+  "task_accounting_summary": {},
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "verdict_summary": {
+    "five_way_verified_count": 210,
+    "junit_raw_total_tests": 5882,
+    "junit_xml_files_count": 93,
+    "passed_gates_count": 107,
+    "passed_negative_controls": 234,
+    "total_mandatory_gates": 107,
+    "total_negative_controls": 234
+  }
+}

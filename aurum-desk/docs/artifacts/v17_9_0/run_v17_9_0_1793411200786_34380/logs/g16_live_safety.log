@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g16.xml -k test_sl_50 or test_dsl_19 or test_ce_18
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 1416
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_50_zero_live_exchange_order_submissions (0.323s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_19_zero_live_exchange_order_submissions_with_distant_sl (0.256s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_18_negative_control_live_order_dispatch_blocked (0.837s)
+3 passed in 1.42s
+
+--- STDERR ---

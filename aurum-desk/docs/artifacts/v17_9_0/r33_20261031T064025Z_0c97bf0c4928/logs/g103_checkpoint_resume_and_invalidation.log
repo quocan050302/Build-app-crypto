@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g103_checkpoint_resume_and_invalidation.xml -k test_36 or test_37 or test_38
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 41
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_36_execution_state_atomic_checkpoint_and_verified_resumption (0.016s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_37_execution_state_invalidates_checkpoint_on_source_sha_change (0.014s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_38_execution_state_invalidates_corrupt_or_missing_junit_xml_on_resume (0.011s)
+3 passed in 0.04s
+
+--- STDERR ---

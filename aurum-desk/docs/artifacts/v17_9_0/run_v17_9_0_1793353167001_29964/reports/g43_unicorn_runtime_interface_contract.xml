@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g43_unicorn_runtime_interface_contract" tests="2" errors="0" failures="0" skipped="0" time="0.184"><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_07_unicorn_detector_canonical_selected_fvg_contract" time="0.085" /><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_07_negative_control_interface_breakage_caught" time="0.099" /></testsuite></testsuites>

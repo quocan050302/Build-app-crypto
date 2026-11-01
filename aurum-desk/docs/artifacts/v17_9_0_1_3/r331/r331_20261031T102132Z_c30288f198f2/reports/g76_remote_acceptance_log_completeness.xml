@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g76_remote_acceptance_log_completeness" tests="2" errors="0" failures="0" skipped="0" time="0.083"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG76AcceptanceLogCompleteness" name="test_g76_gitignore_does_not_ignore_acceptance_or_backtest_logs" time="0.064" /><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG76AcceptanceLogCompleteness" name="test_g76_missing_acceptance_log_fails_closed_with_incomplete" time="0.019" /></testsuite></testsuites>

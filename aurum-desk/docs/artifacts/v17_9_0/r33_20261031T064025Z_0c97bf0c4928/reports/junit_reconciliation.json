@@ -1,0 +1,657 @@
+{
+  "schema_version": 1,
+  "run_id": "r33_20261031T064025Z_0c97bf0c4928",
+  "xml_files_count": 92,
+  "total_xml_tests": 5957,
+  "total_xml_passed": 5957,
+  "total_xml_failed": 0,
+  "total_xml_errors": 0,
+  "total_xml_skipped": 0,
+  "gate_xml_records": {
+    "g02_test_db_bootstrap.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g03_unsafe_path_rejection.xml": {
+      "collected": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g04_destructive_fixture_isolation.xml": {
+      "collected": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g05_raw_atr_provenance.xml": {
+      "collected": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g06_required_m1_atr_fail_closed.xml": {
+      "collected": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g07_atr_buffer_math_correctness.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g08_structural_anchor_causal.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g09_distant_sl_financial_integrity.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g100_structural_sl_tp_rr_parity.xml": {
+      "collected": 154,
+      "passed": 154,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g101_bounded_async_test_runner_integrity.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g102_disk_budget_guard_and_temp_cleanup.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g103_checkpoint_resume_and_invalidation.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g104_real_historical_backtest_shared_evaluator.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g105_matched_vs_full_strategy_cohort_integrity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g10_cg01_evaluator_integration.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g11_m1_evaluator_integration.xml": {
+      "collected": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g12_orchestrator_real_arm.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g13_real_arm_concurrency.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g14_fill_time_financial_invariants.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g15_paper_exit_and_persistence.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g16.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g17_existing_sl_dsl_ce_regression.xml": {
+      "collected": 102,
+      "passed": 102,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g18_v17_5_regression.xml": {
+      "collected": 278,
+      "passed": 278,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g19_v17_6_regression.xml": {
+      "collected": 776,
+      "passed": 776,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g20_full_backend_pytest.xml": {
+      "collected": 4421,
+      "passed": 4421,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g25_deterministic_replay.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g26_acceptance_runner_negative_tests.xml": {
+      "collected": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g27.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g29_unicorn_breaker_detection.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g30_unicorn_fvg_overlap.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g31_cross_timeframe_causality.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g32_structural_invalidation_authority.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g33_model_specific_sl_selection.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g34_atr_spread_noise_protection.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g35_liquidity_tp_independence.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g36_entry_quote_proximity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g37_risk_budget_and_net_rr.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g38_complete_arm_fill_exit.xml": {
+      "collected": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g39_historical_replay_determinism.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g40_feature_flag_and_legacy_parity.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g41_negative_controls_and_anti_fabrication.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g43_unicorn_runtime_interface_contract.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g44_feature_flag_persistence_and_reload.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g45_fill_time_protective_distance_guard.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g46_fill_time_stop_breach_quote_guard.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g47_causal_unicorn_episode_binding.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g48_anti_lookahead_and_unclosed_candle_rejection.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g49_end_to_end_runtime_integration.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g51_forensic_audit_truth_reconciliation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g52_honest_replay_comparison_disclosure.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g53_observe_only_startup_isolation.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g54_zero_background_order_mutations.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g55_zero_live_exchange_dispatch.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g56_observation_database_immutability.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g57_observation_startup_shutdown.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g59_market_shadow_profile_contract.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g60_market_shadow_execution_forbidden.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g61_public_market_feed_connected_or_explicit_blocker.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g62_canonical_quote_validation_and_ordering.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g63_shadow_candle_finality_and_cache.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g64_shadow_database_isolation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g65_continuous_unicorn_shadow_evaluation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g66_structural_sl_tp_shadow_decisions.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g67_historical_data_quality_gate.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g68_real_historical_backtest_execution.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g69_matched_abcd_comparison_completeness.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g70_out_of_sample_and_stress_validation.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g71_shadow_api_read_only_contract.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g73_operational_db_zero_mutation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g74_market_shadow_startup_shutdown.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g76_remote_acceptance_log_completeness.xml": {
+      "collected": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g77_git_reproducible_source_manifest.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g78_source_manifest_negative_controls.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g79_production_backtest_shadow_decision_parity.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g80_unicorn_causal_chain_strict_validation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g81_atr_m1_m5_provenance_integrity.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g82_matched_cohort_stop_out_analysis.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g83_oos_zero_trade_insufficient_sample_handling.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g84_trade_level_pnl_reconciliation.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g85_market_shadow_routing_regression.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g86_backtest_anti_bias_negative_controls.xml": {
+      "collected": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g89_shared_decision_context_contract.xml": {
+      "collected": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g90_shared_decision_snapshot_contract.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g91_production_m1_reversal_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g92_production_m1_continuation_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g93_production_m1_fvg_continuation_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g94_production_m1_sweep_reclaim_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g95_production_cg01_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g96_production_shadow_decision_parity.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g97_production_backtest_decision_parity.xml": {
+      "collected": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g98_synthetic_index_signal_removal.xml": {
+      "collected": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    },
+    "g99_unicorn_causal_chain_parity.xml": {
+      "collected": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0
+    }
+  },
+  "mismatches": []
+}

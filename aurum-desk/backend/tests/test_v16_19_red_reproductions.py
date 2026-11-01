@@ -33,6 +33,7 @@ from services.cg01_telemetry_service import (
     CG01TracePersistenceWriter,
     enqueue_trace_persistence,
     flush_pending_traces,
+    reset_telemetry_worker_state,
     _TRACE_QUEUE,
 )
 from services.cg01_projection_worker import (
@@ -52,9 +53,17 @@ from services.paper_research_run_service import (
 @pytest.fixture
 def db():
     session = SessionLocal()
+    reset_telemetry_worker_state()
     try:
         yield session
     finally:
+        reset_telemetry_worker_state()
+        try:
+            session.rollback()
+            session.query(models.PaperResearchRunRecord).delete()
+            session.commit()
+        except Exception:
+            session.rollback()
         session.close()
 
 

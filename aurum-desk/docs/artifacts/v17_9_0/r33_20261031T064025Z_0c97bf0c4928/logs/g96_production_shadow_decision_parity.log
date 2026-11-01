@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g96_production_shadow_decision_parity.xml -k test_15 or test_17 or test_v17_9_0_1_runtime_spy_production_and_shadow
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 247
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_15_stage2_parity_shadow_vs_shared_all_5_models (0.021s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_17_stage2_multi_adapter_parity_verification_valid_unicorn_setup (0.138s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_runtime_spy_production_and_shadow (0.088s)
+3 passed in 0.25s
+
+--- STDERR ---

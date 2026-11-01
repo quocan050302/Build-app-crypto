@@ -1,0 +1,75 @@
+{
+  "expected_code_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "hash_coverage_verification": {
+    "is_valid": true,
+    "status": "PASS",
+    "verified_entries_count": 24,
+    "violations": []
+  },
+  "is_valid": true,
+  "junit_scope_reconciliation": {
+    "gate_scope": {
+      "overlapping_test_executions": 1395,
+      "raw_total_errors": 0,
+      "raw_total_failures": 0,
+      "raw_total_passed": 5846,
+      "raw_total_skipped": 0,
+      "raw_total_tests": 5846,
+      "unique_test_node_count": 4451,
+      "xml_files_count": 93
+    },
+    "is_valid": true,
+    "status": "PASS",
+    "suite_scope": null,
+    "violations": []
+  },
+  "manifest_lifecycle_verification": {
+    "created_at_ms": 1793442092793,
+    "is_valid": true,
+    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "status": "PASS",
+    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "violations": []
+  },
+  "recalculated_verdict": "VERIFIED_FOUNDATION_CLOSURE \u2014 READY_TO_PROCEED_TO_V17_9_1",
+  "resource_telemetry_verification": {
+    "is_valid": true,
+    "status": "PASS",
+    "violations": []
+  },
+  "run_id": "r331_20261031T102132Z_c30288f198f2",
+  "runtime_capture_verification": {
+    "cross_runtime_config_hash_mismatches_count": 0,
+    "cross_runtime_input_hash_mismatches_count": 0,
+    "cycle_invocations_count": 90,
+    "disallowed_callables_count": 0,
+    "events_count": 2520,
+    "historical_baseline_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+    "invalid_schema_records_count": 0,
+    "is_valid": true,
+    "missing_runtime_boundaries": [],
+    "model_evaluations_count": 750,
+    "model_scenarios_count": 150,
+    "non_monotonic_invocations_count": 0,
+    "run_id": "r331_20261031T102132Z_c30288f198f2",
+    "runtime_captures_count": 750,
+    "schema_version": "R33_RUNTIME_CAPTURE_INDEPENDENT_VERIFICATION_V1",
+    "snapshots_count": 840,
+    "snapshots_hash_recomputed_verified_count": 840,
+    "status": "PASS",
+    "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+    "timestamps_evaluated_count": 30,
+    "uncompleted_invocations_count": 0,
+    "violations": []
+  },
+  "schema_version": "R331_INDEPENDENT_VERIFICATION_V1",
+  "status": "PASS",
+  "tested_source_sha": "c30288f198f2cd636f334aa4d257ccadd3ca9e13",
+  "violations": [],
+  "worker_accounting_verification": {
+    "is_valid": true,
+    "status": "PASS",
+    "violations": [],
+    "worker_rows_count": 17
+  }
+}

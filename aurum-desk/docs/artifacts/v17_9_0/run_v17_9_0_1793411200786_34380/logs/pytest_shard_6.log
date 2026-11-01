@@ -1,0 +1,21 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_18_red_reproductions.py backend/tests/test_v16_21_production_flow.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_forecast_forward_observation.py backend/tests/test_news_service.py backend/tests/test_smc_engine.py backend/tests/test_v10_1_acceptance.py backend/tests/test_v12_3_acceptance.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_price_plans.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_2_news_blackout.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_13_review_resolution.py backend/tests/test_v14_4_15_membership_repair.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_1_production_pipeline.py backend/tests/test_v14_4_4_reconciliation_runtime.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v16_10_runner_result_authority.py backend/tests/test_v16_14_paper_run_and_accounting.py backend/tests/test_v16_38_adaptive_paper_readiness.py backend/tests/test_v16_39_12_historical_snapshot_states.py backend/tests/test_v16_39_6_entry_mode_causal_acceptance.py backend/tests/test_v16_39_paper_learning_regression.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_1_guard_matrix.py backend/tests/test_v17_5_6_break_time_contract.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_3_market_eligible_coverage.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_6_4_3_transaction_boundaries.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_8_0_3_market_shadow.py backend/tests/test_v7_2_stress_harness.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\shards\shard_6.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 388215
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 16%]
+....................................................s................... [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+437 passed, 1 skipped, 1 warning in 382.74s (0:06:22)
+
+--- STDERR ---

@@ -446,6 +446,23 @@ class M1ScalpConfig:
     quality_arm_threshold: float = 70.0
     quality_profile_version: str = "v16.39"
     lesson_score_adjustment_enabled: bool = False
+    # V17.9.1 Causal Multi-Timeframe Structure & Liquidity Config (H4/H1/M15)
+    mtf_structure_observe_only: bool = True
+    mtf_structure_eligibility_enabled: bool = False
+    mtf_ablation_mode: str = "FULL"
+    swing_left_bars_h4: int = 2
+    swing_right_bars_h4: int = 2
+    swing_left_bars_h1: int = 2
+    swing_right_bars_h1: int = 2
+    swing_left_bars_m15: int = 2
+    swing_right_bars_m15: int = 2
+    bos_require_candle_close: bool = True
+    bos_min_break_ticks: int = 2
+    eq_tolerance_ticks: int = 5
+    pool_min_touches: int = 2
+    pool_max_age_bars: int = 120
+    sweep_min_penetration_ticks: int = 2
+    sweep_reclaim_buffer_ticks: int = 0
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
@@ -462,6 +479,19 @@ class M1ScalpConfig:
             raise ValueError(f"INVALID_EXECUTION_PROFILE: {self.execution_profile}")
         if self.adaptive_model_allowlist is not None:
             normalize_adaptive_model_allowlist(self.adaptive_model_allowlist)
+        if self.mtf_ablation_mode not in ("FULL", "H4_ONLY", "H1_ONLY", "M15_ONLY", "STRUCTURE_ONLY", "LIQUIDITY_ONLY"):
+            raise ValueError(f"INVALID_MTF_ABLATION_MODE: {self.mtf_ablation_mode}")
+        if self.pool_min_touches < 2:
+            raise ValueError("INVALID_CONFIG: pool_min_touches must be >= 2")
+        if min(
+            self.swing_left_bars_h4,
+            self.swing_right_bars_h4,
+            self.swing_left_bars_h1,
+            self.swing_right_bars_h1,
+            self.swing_left_bars_m15,
+            self.swing_right_bars_m15,
+        ) < 1:
+            raise ValueError("INVALID_CONFIG: swing_left/right_bars must be >= 1")
         # Validate quality_arm_threshold (Rule 034)
         import math
         if (

@@ -1,0 +1,131 @@
+{
+  "commit_sha": "944b06defa678c6828e1a7f7758791af7f4ae815",
+  "head_sha_before": "496325a5d0cfa8ad3ecab77747d560db7c630a8f",
+  "branch": "fix/v17-9-0-1-3-historical-parity-hardening",
+  "items": [
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:420-666",
+      "exact_function": "normalize_market_bars(symbol, timeframe, raw_bars, source_metadata=None) -> NormalizedBars",
+      "function_names": [
+        "normalize_market_bars"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 3.A: Canonical Bitget XAUUSDT OHLCV normalization, strict UTC alignment (including 1D session anchor), tick rounding, duplicate/gap/corrupt rejection without synthetic forward-fill.",
+      "caller": "get_closed_bars_asof, run_v17_9_1_historical_ab_backtest",
+      "test": "test_01_normalize_market_bars_valid_and_negative_controls, test_16_negative_controls_stale_htf_missing_gaps_and_conflicting_duplicates"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:669-759",
+      "exact_function": "get_closed_bars_asof(snapshot, timeframe, decision_time, source_metadata=None) -> ClosedBarWindow",
+      "function_names": [
+        "get_closed_bars_asof"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 3.B: Enforces strict closed-candle cutoff (close_time <= decision_time and available_at <= decision_time), excluding partial/future bars.",
+      "caller": "build_mtf_bar_snapshot, detect_confirmed_swings, detect_liquidity_sweep",
+      "test": "test_02_get_closed_bars_asof_excludes_future_and_partial_candles, test_17_exact_close_time_boundary_and_expired_pool_non_recycling"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:762-1007",
+      "exact_function": "build_mtf_bar_snapshot(decision_time, bar_store, settings=None) -> MtfSnapshot",
+      "function_names": [
+        "build_mtf_bar_snapshot"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 3.C: Synchronizes H4/H1/M15 (and M5/M1/D1) closed-candle windows from a single source-of-truth, supporting exact UTC bucket resampling without partial HTF leakage and propagating STALE_HTF to per-timeframe window state.",
+      "caller": "build_mtf_context, validate_causal_window",
+      "test": "test_03_build_mtf_bar_snapshot_resampling_and_no_partial_htf_leak, test_16_negative_controls_stale_htf_missing_gaps_and_conflicting_duplicates"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:1010-1096",
+      "exact_function": "validate_causal_window(mtf_snapshot, decision_time) -> CausalValidation",
+      "function_names": [
+        "validate_causal_window"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 3.D: Hard causal validator failing closed on any bar with close_time > decision_time, available_at > decision_time, or unclosed flag.",
+      "caller": "build_mtf_context",
+      "test": "test_04_validate_causal_window_detects_future_leak_hard_failure"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:1323-1855",
+      "exact_function": "detect_confirmed_swings, classify_swing_sequence, detect_structure_break",
+      "function_names": [
+        "detect_confirmed_swings",
+        "classify_swing_sequence",
+        "detect_structure_break"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 4.A-C: Causal pivot detector requiring full right-bar closure, HH/HL/LH/LL/EH/EL + protected swing classification, and closed-candle BOS/CHoCH vs wick-only rejection.",
+      "caller": "build_mtf_context",
+      "test": "test_05_detect_confirmed_swings_right_confirmation_delay_and_prefix_invariance, test_06_horizontal_tie_swings_and_insufficient_history, test_07_bos_vs_choch_and_wick_only_false_break_rejection"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:2375-3170",
+      "exact_function": "cluster_equal_high_low, derive_reference_liquidity_levels, detect_liquidity_sweep, update_liquidity_state, summarize_liquidity_for_evaluator",
+      "function_names": [
+        "cluster_equal_high_low",
+        "derive_reference_liquidity_levels",
+        "detect_liquidity_sweep",
+        "update_liquidity_state",
+        "summarize_liquidity_for_evaluator"
+      ],
+      "old_or_new": "NEW",
+      "why": "Section 5.A-E: Bounded-diameter EQH/EQL clustering, completed prior-day PDH/PDL derivation, closed-candle sweep vs touch-only vs breakout classification, and absorbing lifecycle state machine.",
+      "caller": "build_mtf_context",
+      "test": "test_08_cluster_equal_high_low_bounded_diameter_and_tolerance_boundary, test_09_pdh_pdl_completed_prior_day_only_vs_not_available, test_10_liquidity_sweep_detection_and_lifecycle_state_machine"
+    },
+    {
+      "file": "backend/services/mtf_structure_liquidity_service.py",
+      "file_line": "backend/services/mtf_structure_liquidity_service.py:3585-4920",
+      "exact_function": "evaluate_mtf_eligibility_for_direction, build_variant_market_context, compare_ab_variant_decisions, compare_actual_consumed_decisions, run_v17_9_1_historical_ab_backtest",
+      "function_names": [
+        "evaluate_mtf_eligibility_for_direction",
+        "build_variant_market_context",
+        "compare_ab_variant_decisions",
+        "compare_actual_consumed_decisions",
+        "run_v17_9_1_historical_ab_backtest"
+      ],
+      "old_or_new": "MODIFIED",
+      "why": "DEF-02, DEF-03, DEF-05: Enforces fail-closed MTF eligibility across all timeframes/directions, builds isolated A vs B contexts, verifies adapter call_id/origin lineage and mandatory non-null parity fields, and runs true A/B/C/D historical backtest with IndependentPreRefactorBaselineOracle.",
+      "caller": "SharedStrategyEvaluator.evaluate_model_direction, run_v17_9_1_verification.py",
+      "test": "test_12_baseline_flag_off_invariance_and_3_mode_consumed_parity, test_13_mtf_eligibility_flag_on_filtering_and_ablation_modes, test_15_three_runtime_adapters_production_shadow_backtest_identical_consumed_decisions, test_19_real_historical_ab_backtest_and_ablations, test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance, test_21_cloned_dict_and_spoofed_lineage_fail_closed"
+    },
+    {
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "file_line": "backend/services/shared_strategy_evaluator.py:450-1695",
+      "exact_function": "build_market_decision_context, StrategyDecisionSnapshot, SharedStrategyEvaluator.evaluate_model_direction",
+      "function_names": [
+        "build_market_decision_context",
+        "StrategyDecisionSnapshot",
+        "SharedStrategyEvaluator"
+      ],
+      "old_or_new": "MODIFIED",
+      "why": "DEF-03: Replaces silent except-pass in MTF context construction with MTF_CONTEXT_BUILD_FAILED fail-closed state, enforces mtf_context!=None invariant when VALID, registers unique adapter_call_id per invocation, and propagates MTF eligibility rejection across all return paths.",
+      "caller": "ScalpWatcherOrchestrator, MarketShadowService, v17_8_backtest_runner",
+      "test": "test_22_mtf_context_build_exception_fail_closed_and_invariant_guard, test_23_early_return_mtf_eligibility_consistency_and_invalid_direction"
+    },
+    {
+      "file": "tools/run_v17_9_1_verification.py",
+      "file_line": "tools/run_v17_9_1_verification.py:1-950",
+      "exact_function": "collect_gate_evidence, evaluate_gate, validate_final_verification_report, run_causal_audit_and_failure_sensitivity_probe, collect_pytest_inventory",
+      "function_names": [
+        "collect_gate_evidence",
+        "evaluate_gate",
+        "validate_final_verification_report",
+        "run_causal_audit_and_failure_sensitivity_probe",
+        "collect_pytest_inventory"
+      ],
+      "old_or_new": "MODIFIED",
+      "why": "DEF-01 & DEF-04: Replaces static PASS/0/VERIFIED values with evidence-driven gate evaluators, isolated subprocess failure-sensitivity RED/GREEN probe, full pytest collection inventory reconciliation, and git ls-remote verification.",
+      "caller": "main, test_24_gate_evaluator_fail_closed_and_report_validation, test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity",
+      "test": "test_24_gate_evaluator_fail_closed_and_report_validation, test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity"
+    }
+  ]
+}

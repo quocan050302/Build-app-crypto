@@ -1,0 +1,12 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g09_distant_sl_financial_integrity.xml -k test_dsl_01 or test_dsl_02 or test_dsl_07 or test_ce_11
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 119
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_01_long_stop_greater_than_4_atr_accepted (0.029s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_02_short_stop_greater_than_4_atr_accepted (0.028s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_07_distant_stop_accepted_with_smaller_quantity_and_unchanged_risk_budget (0.032s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_11_real_cg01_evaluation_with_distant_valid_sl (0.030s)
+4 passed in 0.12s
+
+--- STDERR ---

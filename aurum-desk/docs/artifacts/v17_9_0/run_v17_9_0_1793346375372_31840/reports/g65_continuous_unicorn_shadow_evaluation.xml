@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g65_continuous_unicorn_shadow_evaluation" tests="1" errors="0" failures="0" skipped="0" time="0.087"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc14_to_nc18_shadow_analysis_fail_closed_controls" time="0.087" /></testsuite></testsuites>

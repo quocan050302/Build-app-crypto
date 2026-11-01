@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g66_structural_sl_tp_shadow_decisions" tests="2" errors="0" failures="0" skipped="0" time="4.813"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc14_to_nc18_shadow_analysis_fail_closed_controls" time="0.093" /><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath" name="test_end_to_end_ws_to_shadow_storage_and_shadow_api" time="4.720" /></testsuite></testsuites>

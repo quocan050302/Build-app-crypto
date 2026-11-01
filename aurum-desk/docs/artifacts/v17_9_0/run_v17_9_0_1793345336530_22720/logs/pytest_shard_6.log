@@ -1,0 +1,105 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_21_production_flow.py backend/tests/test_v16_21_red_reproductions.py backend/tests/test_v16_24_red_reproductions.py backend/tests/test_v16_25_production_flow.py backend/tests/test_setup_quality_service_v14.py backend/tests/test_smc_engine.py backend/tests/test_v10_1_acceptance.py backend/tests/test_v13_1_simplification.py backend/tests/test_v13_4_price_plans.py backend/tests/test_v13_7_artifact_contract.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_17_repair_provenance.py backend/tests/test_v14_4_1_probability.py backend/tests/test_v14_4_1_repository.py backend/tests/test_v14_4_4_metric_gate.py backend/tests/test_v14_4_5_frozen_legacy_sources.py backend/tests/test_v14_4_6_flow_preservation.py backend/tests/test_v14_4_entry_guards.py backend/tests/test_v15_0_m1_scalp_models.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v16_12_cg01_execution.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_39_1_evidence_scoring_repair.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_39_9_paper_runtime_snapshot.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_5_cycle_to_chart_contract.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_9_financial_parity.py backend/tests/test_v17_5_9_reference_source_authority.py backend/tests/test_v17_5_stop_review.py backend/tests/test_v17_6_3_market_eligible_coverage.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_6_4_3_transaction_boundaries.py backend/tests/test_v17_6_4_observation_api.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\shards\shard_6.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 318818
+EXIT_CODE: 1
+--- STDOUT ---
+..............................F......................................... [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 70%]
+........................................................................ [ 88%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+_________________ test_v16_25_flow_scenario_4_auto_off_guard __________________
+
+db = <sqlalchemy.orm.session.Session object at 0x00000283F05C9AD0>
+
+    @pytest.mark.anyio
+    async def test_v16_25_flow_scenario_4_auto_off_guard(db: Session):
+        """
+        Scenario 4: Valid setup observed, but auto_entry_enabled = False.
+        Observation trace is persisted, but order is NOT armed.
+        """
+        strategy_service.set_auto_state(db, False)
+    
+        ny_tz = ZoneInfo("America/New_York")
+        dt = datetime(2026, 10, 19, 3, 30, tzinfo=ny_tz)
+        t_start = int(dt.timestamp() * 1000)
+        c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    
+        last_ts = c_1m[-1]["timestamp"]
+        trigger_ts = last_ts + 60_000
+        evidence_time = trigger_ts + 60_000
+        now_ms = evidence_time + 3_000
+    
+        test_clock = ReplayClock(now_ms)
+        cg01_evaluation_scheduler.set_clock(test_clock)
+    
+        db.add(models.SystemConfig(key="scalp_m1_mode", value="PAPER", updated_at=now_ms))
+        db.add(models.SystemConfig(key="cg01_enabled", value="true", updated_at=now_ms))
+        db.commit()
+    
+        _ingest_bars_via_payload("XAUUSDT", "4H", c_4h)
+        _ingest_bars_via_payload("XAUUSDT", "1H", c_1h)
+        _ingest_bars_via_payload("XAUUSDT", "15M", c_15m)
+    
+        poi = WatchedZone(
+            zone_id="poi_long_v16_25_auto_off",
+            symbol="XAUUSDT",
+            timeframe="15M",
+            zone_type="FVG",
+            direction="BULLISH",
+            top=2625.0,
+            bottom=2620.0,
+            created_at=t_start - 3600_000,
+            known_at=t_start - 1800_000,
+            touch_count=0,
+        )
+        scalp_watcher_orchestrator.set_active_zones("XAUUSDT", [poi])
+    
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT",
+            "bid": 2625.5,
+            "ask": 2625.7,
+            "last": 2625.6,
+            "timestamp": now_ms,
+            "observed_at": now_ms,
+        }
+    
+        cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
+        sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
+        worker_started = await start_trace_persistence_worker(timeout_s=2.0)
+        assert worker_started is True
+    
+        try:
+            trigger_bar = {"timestamp": trigger_ts, "open": 2625.5, "high": 2626.0, "low": 2625.0, "close": 2625.6}
+            boundary_bar = {"timestamp": evidence_time, "open": 2625.6, "high": 2626.0, "low": 2625.5, "close": 2625.6}
+            _ingest_bars_via_payload("XAUUSDT", "1M", c_1m + [trigger_bar, boundary_bar])
+    
+            await asyncio.sleep(0.5)
+    
+            drain_res = await drain_trace_persistence(timeout_s=3.0)
+            assert drain_res["status"] == "COMPLETED"
+            assert _TRACE_QUEUE.unfinished_tasks == 0
+    
+            # Assert no active orders were armed
+            orders = db.query(models.PaperOrder).filter(models.PaperOrder.symbol == "XAUUSDT").all()
+            assert len(orders) == 0, "No orders should be armed when auto is False"
+    
+            traces = cg01_trace_recorder.get_traces("XAUUSDT", limit=1)
+>           assert len(traces) >= 1
+E           assert 0 >= 1
+E            +  where 0 = len([])
+
+backend\tests\test_v16_25_production_flow.py:577: AssertionError
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend/tests/test_v16_25_production_flow.py::test_v16_25_flow_scenario_4_auto_off_guard
+1 failed, 406 passed, 1 warning in 313.12s (0:05:13)
+
+--- STDERR ---

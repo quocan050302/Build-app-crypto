@@ -1,0 +1,22 @@
+{
+  "xml_file": "shard_06_backend_regression.xml",
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "tested_source_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "source_sha": "ab8f0252a05d6ff4fc0161f3d2d1548541697309",
+  "worker_id": "SHARD_06_BACKEND_REGRESSION",
+  "task_id": "SHARD_06_BACKEND_REGRESSION",
+  "pid": 48302,
+  "ppid": 47750,
+  "started_ms": 1793507513582,
+  "completed_ms": 1793507596958,
+  "duration_sec": 83.376,
+  "exit_code": 0,
+  "status": "PASS",
+  "timed_out": false,
+  "tests": 461,
+  "passed": 461,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml_sha256": "b5ab1fe51f9fb054d08077a9d762e9f50234fd544d738907a74c8837f06d53de"
+}

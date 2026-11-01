@@ -1,0 +1,23 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_20_production_flow.py backend/tests/test_v16_20_red_reproductions.py backend/tests/test_v17_5_production_flow.py backend/tests/test_entry_intent_closure.py backend/tests/test_final_forecast_proof_pipeline.py backend/tests/test_forecast_forward_observation.py backend/tests/test_v12_2_repro_defects.py backend/tests/test_v13_3_daily_scheduler.py backend/tests/test_v13_4_dates_sessions.py backend/tests/test_v13_4_metrics_exports.py backend/tests/test_v13_4_scheduler_integration.py backend/tests/test_v13_6_negative_integrity.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_20_copied_repair_provenance.py backend/tests/test_v14_4_2_forecast_requirements.py backend/tests/test_v14_4_4_policy_consistency.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v14_4_7_coordinator_pagination.py backend/tests/test_v14_4_7_proof_fail_closed.py backend/tests/test_v14_4_8_reconciliation_accumulator.py backend/tests/test_v15_0_telegram_and_api.py backend/tests/test_v15_2_liquidity_engine.py backend/tests/test_v16_13_htf_config_propagation.py backend/tests/test_v16_14_cg01_scheduler_and_trace.py backend/tests/test_v16_14_htf_pullback_correctness.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_15_scheduler_lifespan.py backend/tests/test_v16_16_audit_coverage_and_touch.py backend/tests/test_v16_30_cg01_daily_bias.py backend/tests/test_v16_34_cg01_runtime_ownership_consistency.py backend/tests/test_v16_39_10_snapshot_contract.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_39_9_coordinator_policy_acceptance.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_4_expiry.py backend/tests/test_v17_5_6_episode_origin_binding.py backend/tests/test_v17_6_2_transaction_ownership.py backend/tests/test_v17_6_4_1_engine_market_truth.py backend/tests/test_v17_6_4_3a_acceptance_integrity.py backend/tests/test_v17_6_4_3d_scheduler_run_loop.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py backend/tests/test_v7_trading_policy_quota.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793340451146_6444\reports\shards\shard_1.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 236726
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 20%]
+........................................................................ [ 41%]
+........................................................................ [ 61%]
+........................................................................ [ 82%]
+..............................................................           [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+350 passed, 2 warnings in 232.18s (0:03:52)
+
+--- STDERR ---

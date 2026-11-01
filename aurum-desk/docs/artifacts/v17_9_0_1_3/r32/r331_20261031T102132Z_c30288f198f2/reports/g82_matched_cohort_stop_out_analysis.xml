@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g82_matched_cohort_stop_out_analysis" tests="1" errors="0" failures="0" skipped="0" time="0.005"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation" name="test_g82_matched_cohort_and_three_layer_experiment_artifacts" time="0.005" /></testsuite></testsuites>

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g77_git_reproducible_source_manifest" tests="1" errors="0" failures="0" skipped="0" time="0.573"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG77AndG78GitReproducibleSourceManifest" name="test_g77_source_manifest_is_git_tree_reproducible_and_excludes_os_noise" time="0.573" /></testsuite></testsuites>

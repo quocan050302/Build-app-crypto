@@ -1,0 +1,32 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_17_red_reproductions.py backend/tests/test_v16_22_production_flow.py backend/tests/test_final_reconciliation_chronology.py backend/tests/test_v10_lesson_rules.py backend/tests/test_v13_4_price_plans.py backend/tests/test_v13_6_engine_execution_integration.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_evidence_utils.py backend/tests/test_v14_2_entry_guard.py backend/tests/test_v14_4_12_forward_paper_session.py backend/tests/test_v14_4_1_entry_guards.py backend/tests/test_v14_4_1_scenario_fail_closed.py backend/tests/test_v14_4_20_copied_repair_provenance.py backend/tests/test_v14_4_2_entry_regression.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v15_3_causal_wiring.py backend/tests/test_v15_4_causal_entry.py backend/tests/test_v16_39_4_session_compliance_learning.py backend/tests/test_v16_39_9_paper_runtime_snapshot.py backend/tests/test_v16_7_replay_costs.py backend/tests/test_v16_8_statistics_and_accounting.py backend/tests/test_v16_9_historical_runner.py backend/tests/test_v17_4_1_coordinator_guards.py backend/tests/test_v17_4_1_quota_not_required.py backend/tests/test_v17_4_3_atomic_mirrors.py backend/tests/test_v17_5_3_boundary_probes.py backend/tests/test_v17_5_3_cycle_to_review.py backend/tests/test_v17_5_4_cost_parity.py backend/tests/test_v17_5_5_origin_bridge.py backend/tests/test_v17_5_9_cost_fail_closed.py backend/tests/test_v17_5_9_real_cycle_regression.py backend/tests/test_v17_5_policy_api.py backend/tests/test_v17_5_risk_invariants.py backend/tests/test_v17_5_stop_review.py backend/tests/test_v17_6_1_run_isolation.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_4_2_paper_parity.py backend/tests/test_v17_6_4_2_watcher_integration.py backend/tests/test_v17_6_4_3_evidence_authority.py backend/tests/test_v17_6_4_3a_health_db_scoping.py backend/tests/test_v17_6_4_3c_scheduler_durability.py backend/tests/test_v17_7_atr_provenance.py backend/tests/test_v17_8_0_3_market_shadow.py backend/tests/test_v17_8_unicorn_evidence.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_5.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 70369
+STARTED_AT_UTC: 2026-10-31T10:23:42.118000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:24:24.323000+00:00
+DURATION_MS: 42109
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 77%]
+........................................................................ [ 92%]
+..................................                                       [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_7_atr_provenance.py:527: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db.add(models.SystemConfig(key="stop_placement_v1.mode", value="PAPER_STRUCTURAL", updated_at=datetime.utcnow()))
+
+backend/tests/test_v17_7_atr_provenance.py::test_atr_20_paper_structural_cannot_arm_with_invalid_provenance
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+466 passed, 3 warnings in 39.07s
+
+--- STDERR ---

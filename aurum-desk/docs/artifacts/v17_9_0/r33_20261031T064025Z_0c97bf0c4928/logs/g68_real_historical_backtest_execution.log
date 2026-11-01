@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g68_real_historical_backtest_execution.xml -k test_all_12_backtest_artifacts_exist_and_contain_honest_metrics
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 84
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestRealHistoricalBacktestArtifacts::test_all_12_backtest_artifacts_exist_and_contain_honest_metrics (0.084s)
+1 passed in 0.08s
+
+--- STDERR ---

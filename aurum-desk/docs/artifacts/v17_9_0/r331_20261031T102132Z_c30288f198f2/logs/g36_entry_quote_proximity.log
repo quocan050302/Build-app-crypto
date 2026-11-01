@@ -1,0 +1,11 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_quote_noise_guard.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g36_entry_quote_proximity.xml -k test_short_stop_breached_by_executable_ask or test_long_stop_breached_by_executable_bid or test_safe_executable_quote_distance_passes_geometry
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 12
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_short_stop_breached_by_executable_ask (0.004s)
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_long_stop_breached_by_executable_bid (0.004s)
+PASSED backend.tests.test_v17_8_quote_noise_guard::test_safe_executable_quote_distance_passes_geometry (0.004s)
+3 passed in 0.01s
+
+--- STDERR ---

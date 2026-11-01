@@ -1,0 +1,445 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "error": null,
+  "runtime_profile": "OBSERVE_ONLY",
+  "observe_only": true,
+  "port": 8815,
+  "duration_ms": 5362,
+  "isolated_db_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_test_root_757vvjfq\\observe_only_preflight_run_v17_9_0_1793.db",
+  "db_size_bytes_before": 925696,
+  "db_size_bytes_after": 925696,
+  "db_sha256_before": "6c8a0d870617e5a71c3fdd3e832f11a8a456efdf4c4044d7f296189fd337f737",
+  "db_sha256_during": "6c8a0d870617e5a71c3fdd3e832f11a8a456efdf4c4044d7f296189fd337f737",
+  "db_sha256_after": "6c8a0d870617e5a71c3fdd3e832f11a8a456efdf4c4044d7f296189fd337f737",
+  "db_immutable": true,
+  "wal_exists_after": false,
+  "shm_exists_after": false,
+  "paper_orders_row_count": 0,
+  "counters": {
+    "BACKGROUND_TRADING_WORKERS_STARTED": 0,
+    "UNAUTHORIZED_TRADING_WORKERS_STARTED": 0,
+    "SHADOW_WORKERS_STARTED": 0,
+    "PAPER_ORDERS_CREATED": 0,
+    "PAPER_ORDERS_FILLED": 0,
+    "PAPER_POSITIONS_CLOSED": 0,
+    "LIVE_EXCHANGE_ORDERS_SENT": 0,
+    "OPERATIONAL_DB_WRITES": 0,
+    "SHADOW_DB_WRITES": 0,
+    "BLOCKED_WORKER_START_ATTEMPTS": 0,
+    "BLOCKED_ARM_ATTEMPTS": 0,
+    "BLOCKED_FILL_ATTEMPTS": 0,
+    "BLOCKED_CLOSE_ATTEMPTS": 0,
+    "BLOCKED_LIVE_ORDER_ATTEMPTS": 0,
+    "BLOCKED_POLICY_MUTATION_ATTEMPTS": 0,
+    "BLOCKED_HTTP_MUTATION_ATTEMPTS": 2,
+    "BLOCKED_DB_WRITE_ATTEMPTS": 0,
+    "BLOCKED_STARTUP_MUTATION_ATTEMPTS": 0,
+    "UNAUTHORIZED_DB_WRITES": 0,
+    "UNEXPECTED_RUNTIME_ERRORS": 0
+  },
+  "lifespan_startup": {
+    "status": "HEALTHY_OBSERVE_ONLY",
+    "runtime_profile": "OBSERVE_ONLY",
+    "observe_only": true,
+    "market_shadow": false,
+    "telemetry_worker_ready": false,
+    "allowed_workers": [],
+    "blocked_trading_workers": [
+      "bitget_ws_service.run_ws_loop",
+      "execution_consumer.run_consumer_loop",
+      "candle_cache_service.run_persistence_worker",
+      "collector_service.run_collector_loop",
+      "strategy_service.run_strategy_loop",
+      "proximity_service.run_proximity_loop",
+      "execution_coordinator.run_coordinator_loop",
+      "exit_monitor.run_exit_monitor_loop",
+      "market_reconciliation_service.run_late_reconciliation_loop",
+      "process_notification_outbox",
+      "forward_repair_worker.run_repair_loop",
+      "lesson_repair_worker.run_repair_loop",
+      "scalp_watcher_orchestrator.run_watcher_loop",
+      "cg01_evaluation_scheduler.run",
+      "cg01_projection_worker.run"
+    ],
+    "background_trading_workers_started": 0,
+    "shadow_workers_started": 0,
+    "errors": []
+  },
+  "endpoints_checked": {
+    "GET /health": {
+      "status_code": 200,
+      "payload": {
+        "status": "disconnected",
+        "timestamp": 1793346428168,
+        "feed_connected": false,
+        "db_connected": true,
+        "collector_alive": false,
+        "data_freshness_sec": 9999.0,
+        "data_is_stale": true,
+        "engine_state": "disconnected",
+        "active_timeframe": "15M",
+        "candle_count": 0,
+        "strategy_version": "7.1.0",
+        "paper_trading_mode": "SIMULATION",
+        "last_success_time": 0,
+        "last_error": null,
+        "degraded_reason": null,
+        "d_4h_bias": "UNKNOWN",
+        "h1_alignment": "UNKNOWN",
+        "transport_state": "DISCONNECTED",
+        "feed_source": "WS",
+        "quote_exchange_age_ms": null,
+        "quote_local_age_ms": null,
+        "execution_queue_depth": 0,
+        "execution_lag_ms": 0.0,
+        "analysis_as_of": null,
+        "reconnect_count": 0
+      }
+    },
+    "GET /api/v1/runtime/profile": {
+      "status_code": 200,
+      "ok": true,
+      "payload": {
+        "profile": "OBSERVE_ONLY",
+        "runtime_profile": "OBSERVE_ONLY",
+        "observe_only": true,
+        "market_shadow": false,
+        "trading_enabled": false,
+        "capabilities": {
+          "can_read_public_market_data": false,
+          "can_evaluate_shadow_strategies": false,
+          "can_write_shadow_research": false,
+          "can_read_operational_data": true,
+          "can_write_operational_data": false,
+          "can_arm_paper": false,
+          "can_fill_paper": false,
+          "can_close_paper": false,
+          "can_submit_live_exchange_order": false,
+          "can_modify_trading_policy": false
+        },
+        "allowed_workers": [],
+        "blocked_trading_workers": [
+          "bitget_ws_service.run_ws_loop",
+          "execution_consumer.run_consumer_loop",
+          "candle_cache_service.run_persistence_worker",
+          "collector_service.run_collector_loop",
+          "strategy_service.run_strategy_loop",
+          "proximity_service.run_proximity_loop",
+          "execution_coordinator.run_coordinator_loop",
+          "exit_monitor.run_exit_monitor_loop",
+          "market_reconciliation_service.run_late_reconciliation_loop",
+          "process_notification_outbox",
+          "forward_repair_worker.run_repair_loop",
+          "lesson_repair_worker.run_repair_loop",
+          "scalp_watcher_orchestrator.run_watcher_loop",
+          "cg01_evaluation_scheduler.run",
+          "cg01_projection_worker.run"
+        ],
+        "counters": {
+          "BACKGROUND_TRADING_WORKERS_STARTED": 0,
+          "UNAUTHORIZED_TRADING_WORKERS_STARTED": 0,
+          "SHADOW_WORKERS_STARTED": 0,
+          "PAPER_ORDERS_CREATED": 0,
+          "PAPER_ORDERS_FILLED": 0,
+          "PAPER_POSITIONS_CLOSED": 0,
+          "LIVE_EXCHANGE_ORDERS_SENT": 0,
+          "OPERATIONAL_DB_WRITES": 0,
+          "SHADOW_DB_WRITES": 0,
+          "BLOCKED_WORKER_START_ATTEMPTS": 0,
+          "BLOCKED_ARM_ATTEMPTS": 0,
+          "BLOCKED_FILL_ATTEMPTS": 0,
+          "BLOCKED_CLOSE_ATTEMPTS": 0,
+          "BLOCKED_LIVE_ORDER_ATTEMPTS": 0,
+          "BLOCKED_POLICY_MUTATION_ATTEMPTS": 0,
+          "BLOCKED_HTTP_MUTATION_ATTEMPTS": 0,
+          "BLOCKED_DB_WRITE_ATTEMPTS": 0,
+          "BLOCKED_STARTUP_MUTATION_ATTEMPTS": 0,
+          "UNAUTHORIZED_DB_WRITES": 0,
+          "UNEXPECTED_RUNTIME_ERRORS": 0
+        },
+        "startup_result": {
+          "status": "HEALTHY_OBSERVE_ONLY",
+          "runtime_profile": "OBSERVE_ONLY",
+          "observe_only": true,
+          "market_shadow": false,
+          "telemetry_worker_ready": false,
+          "allowed_workers": [],
+          "blocked_trading_workers": [
+            "bitget_ws_service.run_ws_loop",
+            "execution_consumer.run_consumer_loop",
+            "candle_cache_service.run_persistence_worker",
+            "collector_service.run_collector_loop",
+            "strategy_service.run_strategy_loop",
+            "proximity_service.run_proximity_loop",
+            "execution_coordinator.run_coordinator_loop",
+            "exit_monitor.run_exit_monitor_loop",
+            "market_reconciliation_service.run_late_reconciliation_loop",
+            "process_notification_outbox",
+            "forward_repair_worker.run_repair_loop",
+            "lesson_repair_worker.run_repair_loop",
+            "scalp_watcher_orchestrator.run_watcher_loop",
+            "cg01_evaluation_scheduler.run",
+            "cg01_projection_worker.run"
+          ],
+          "background_trading_workers_started": 0,
+          "shadow_workers_started": 0,
+          "errors": []
+        },
+        "shutdown_result": {}
+      }
+    },
+    "GET /api/v1/policy/stop-placement": {
+      "status_code": 200,
+      "ok": true,
+      "payload": {
+        "status": "CONFIRMED",
+        "mode": "SHADOW_COMPARE",
+        "version": 1,
+        "atr_period": 14,
+        "atr_method": "SMA_TR_V1",
+        "min_buffer_ticks": 5,
+        "atr_m1_multiplier": 0.25,
+        "atr_m5_multiplier": 0.1,
+        "spread_multiplier": 1.5,
+        "application_scope": "NEW_PAPER_ORDERS",
+        "execution_scope": "PAPER",
+        "min_protective_ticks": 10,
+        "min_distance_atr_m1_mult": 0.5,
+        "min_distance_atr_m5_mult": 0.2,
+        "min_distance_spread_mult": 2.0,
+        "max_stop_distance_atr": 4.0,
+        "max_spread_usd": 2.0,
+        "algorithm_version": "V17_8_0",
+        "v18_structural_intelligence_enabled": false,
+        "v18_unicorn_detection_enabled": false,
+        "v18_noise_research_enabled": false,
+        "v18_execution_policy_version": 1,
+        "summary_vi": "Ch\u1ebf \u0111\u1ed9 hi\u1ec7n t\u1ea1i: SHADOW_COMPARE (v1). Buffer M1=0.25*ATR, M5=0.10*ATR, Spread=1.50*Spread. \u00c1p d\u1ee5ng cho l\u1ec7nh PAPER m\u1edbi.",
+        "reason_codes": []
+      }
+    },
+    "GET /api/v1/observation/status": {
+      "status_code": 200,
+      "ok": true,
+      "payload": {
+        "status": "OK",
+        "symbol": "XAUUSDT",
+        "now_ms": 1793346428455,
+        "engine": {
+          "engine_instance_id": "aurum-engine-4aa47f57adc9",
+          "symbol": "XAUUSDT",
+          "run_id": null,
+          "state": "UNKNOWN",
+          "is_stalled": true,
+          "stalled_reason": "NO_HEARTBEAT_RECORD",
+          "evidence_persistence_status": "UNKNOWN",
+          "last_process_heartbeat_at_ms": null,
+          "last_heartbeat_age_sec": null,
+          "last_evaluation_started_at_ms": null,
+          "last_evaluation_completed_at_ms": null,
+          "last_successful_evaluation_at_ms": null,
+          "last_evaluation_age_sec": null,
+          "last_cycle_id": null,
+          "cycles_count": 0,
+          "failed_cycles_count": 0,
+          "cadence_sec": 15,
+          "now_ms": 1793346428455
+        },
+        "feed": {
+          "symbol": "XAUUSDT",
+          "transport_state": "DISCONNECTED",
+          "feed_source": "WS",
+          "quote_source": "NONE",
+          "contract_schedule": "24_7",
+          "contract_operational_state": "DISCONNECTED",
+          "underlying_reference_state": "OPEN",
+          "strategy_session_state": "PERMITTED",
+          "quote_freshness_state": "DISCONNECTED",
+          "is_quote_valid": false,
+          "quote_validation_reasons": [
+            "BID_OR_ASK_NONE"
+          ],
+          "freshness_state": "DISCONNECTED",
+          "is_fresh": false,
+          "is_weekend_break": false,
+          "is_market_closed": false,
+          "market_close_reason": "OPEN",
+          "last_quote_at_ms": null,
+          "exchange_ts_ms": null,
+          "received_at_ms": null,
+          "exchange_age_sec": null,
+          "receive_age_sec": null,
+          "quote_age_sec": null,
+          "transport_delay_ms": null,
+          "timestamp_status": "UNAVAILABLE",
+          "timestamp_reason_codes": [
+            "QUOTE_IS_NONE"
+          ],
+          "bid": null,
+          "ask": null,
+          "mid": null,
+          "timeframe_health": {
+            "1M": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 60000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            },
+            "5M": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 300000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            },
+            "15M": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 900000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            },
+            "1H": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 3600000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            },
+            "4H": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 14400000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            },
+            "D": {
+              "latest_closed_candle_ts": null,
+              "candle_age_sec": null,
+              "expected_interval_ms": 86400000,
+              "is_stale": true,
+              "freshness_state": "STALE"
+            }
+          },
+          "has_gap": false,
+          "reconnect_count": 0,
+          "last_success_time": 0,
+          "now_ms": 1793346428455,
+          "coverage_quality": "DOWN"
+        },
+        "evidence_origin": "LIVE_FORWARD",
+        "evidence_persistence_status": "UNKNOWN",
+        "active_run": null,
+        "latest_cycle": null,
+        "recent_cycles": []
+      }
+    },
+    "GET /api/v1/paper/orders": {
+      "status_code": 200,
+      "ok": true,
+      "payload": []
+    },
+    "GET /api/v1/orders/pending": {
+      "status_code": 200,
+      "ok": true,
+      "payload": []
+    },
+    "GET /api/v1/research/stop-placement/replay-comparison": {
+      "status_code": 200,
+      "ok": true,
+      "payload": {
+        "status": "NO_REPLAY_RESULTS",
+        "reason_code": "NO_COMPLETED_REPLAY_BATCH",
+        "symbol": "XAUUSDT",
+        "policy_version": 1,
+        "algorithm_version": "V17_8_0",
+        "total_plans_found": 0,
+        "variants": {
+          "A": {
+            "name": "Legacy FVG Stop",
+            "description": "FVG Edge + 5 ticks",
+            "calibration_mode": "LEGACY_FIXED_TICKS"
+          },
+          "B": {
+            "name": "V17.7 Structural Stop",
+            "description": "Protected origin + tick floor",
+            "calibration_mode": "STRUCTURAL_TICK_FLOOR"
+          },
+          "C": {
+            "name": "V17.8 Unicorn Stop",
+            "description": "Unicorn breaker distal invalidation + dynamic buffer",
+            "calibration_mode": "STRUCTURAL_DYNAMIC_BUFFER"
+          },
+          "D": {
+            "name": "Experimental Fixed-Multiplier Research Stop",
+            "description": "1.25x dynamic buffer experiment (EXPERIMENTAL_FIXED_MULTIPLIER unless empirical P90 sample provided)",
+            "calibration_mode": "EXPERIMENTAL_FIXED_MULTIPLIER"
+          }
+        },
+        "metrics": null
+      }
+    },
+    "GET /api/v1/replay/stop-placement-comparison": {
+      "status_code": 200,
+      "ok": true,
+      "payload": {
+        "status": "NO_REPLAY_RESULTS",
+        "reason_code": "NO_COMPLETED_REPLAY_BATCH",
+        "symbol": "XAUUSDT",
+        "policy_version": 1,
+        "algorithm_version": "V17_8_0",
+        "total_plans_found": 0,
+        "variants": {
+          "A": {
+            "name": "Legacy FVG Stop",
+            "description": "FVG Edge + 5 ticks",
+            "calibration_mode": "LEGACY_FIXED_TICKS"
+          },
+          "B": {
+            "name": "V17.7 Structural Stop",
+            "description": "Protected origin + tick floor",
+            "calibration_mode": "STRUCTURAL_TICK_FLOOR"
+          },
+          "C": {
+            "name": "V17.8 Unicorn Stop",
+            "description": "Unicorn breaker distal invalidation + dynamic buffer",
+            "calibration_mode": "STRUCTURAL_DYNAMIC_BUFFER"
+          },
+          "D": {
+            "name": "Experimental Fixed-Multiplier Research Stop",
+            "description": "1.25x dynamic buffer experiment (EXPERIMENTAL_FIXED_MULTIPLIER unless empirical P90 sample provided)",
+            "calibration_mode": "EXPERIMENTAL_FIXED_MULTIPLIER"
+          }
+        },
+        "metrics": null
+      }
+    }
+  },
+  "negative_controls_checked": {
+    "POST /api/v1/orders/paper": {
+      "status_code": 403,
+      "blocked": true,
+      "payload": {
+        "detail": {
+          "code": "OBSERVE_ONLY_MUTATION_BLOCKED",
+          "message": "HTTP POST /api/v1/orders/paper is prohibited when AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY.",
+          "runtime_profile": "OBSERVE_ONLY"
+        }
+      }
+    },
+    "PUT /api/v1/policy/stop-placement": {
+      "status_code": 403,
+      "blocked": true,
+      "payload": {
+        "detail": {
+          "code": "OBSERVE_ONLY_MUTATION_BLOCKED",
+          "message": "HTTP PUT /api/v1/policy/stop-placement is prohibited when AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY.",
+          "runtime_profile": "OBSERVE_ONLY"
+        }
+      }
+    }
+  },
+  "log_path": "docs/artifacts/v17_9_0/run_v17_9_0_1793346375372_31840/logs/g57_observe_only_uvicorn_preflight.log"
+}

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g64_shadow_database_isolation" tests="1" errors="0" failures="0" skipped="0" time="0.192"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc19_to_nc21_shadow_storage_isolation_and_path_guards" time="0.192" /></testsuite></testsuites>

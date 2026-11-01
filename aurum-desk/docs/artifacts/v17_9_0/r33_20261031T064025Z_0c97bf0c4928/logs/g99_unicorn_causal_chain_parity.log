@@ -1,0 +1,14 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r33_20261031T064025Z_0c97bf0c4928/reports/g99_unicorn_causal_chain_parity.xml -k test_19 or test_20 or test_23 or test_24 or test_25 or test_v17_9_0_1_non_self_referential_oracle
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 99
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_19_anti_fake_control_01_self_comparing_shadow_wrapper_fails_parity (0.014s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_20_anti_fake_control_02_identical_adapter_origin_rejected_as_self_comparison (0.009s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_23_anti_fake_control_05_divergent_selected_sl_fails_parity (0.012s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_24_anti_fake_control_06_divergent_take_profit_fails_parity (0.012s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_25_anti_fake_control_07_divergent_unicorn_validity_fails_parity (0.013s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_non_self_referential_oracle (0.039s)
+6 passed in 0.10s
+
+--- STDERR ---

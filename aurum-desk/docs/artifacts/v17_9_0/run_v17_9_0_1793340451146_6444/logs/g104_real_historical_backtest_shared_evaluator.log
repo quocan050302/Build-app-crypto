@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793340451146_6444\reports\g104_real_historical_backtest_shared_evaluator.xml -k test_30 or test_31 or test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 57
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_30_historical_opportunity_extraction_driven_by_causal_market_structure_only (0.013s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_31_per_model_backtest_breakdown_covers_all_5_production_models (0.015s)
+PASSED backend.tests.test_v17_9_0_1_runtime_integration_and_gates::test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator (0.030s)
+3 passed in 0.06s
+
+--- STDERR ---

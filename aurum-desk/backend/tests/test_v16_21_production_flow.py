@@ -65,6 +65,7 @@ from services.cg01_telemetry_service import (
     CG01EvaluationTrace,
     CG01TracePersistenceWriter,
     flush_pending_traces,
+    reset_telemetry_worker_state,
 )
 from tests.test_v16_3_cg01_pipeline import (
     build_long_fixture_series,
@@ -76,17 +77,20 @@ from tests.test_v16_3_cg01_pipeline import (
 @pytest.fixture
 def db():
     session = SessionLocal()
+    reset_telemetry_worker_state()
     try:
         session.query(models.SMCScenarioSnapshot).delete()
         session.commit()
         yield session
     finally:
+        reset_telemetry_worker_state()
         session.query(models.SMCScenarioSnapshot).delete()
         session.query(models.PaperOrder).delete()
         session.query(models.WatchSetup).delete()
         session.query(models.PaperResearchOrderLink).delete()
         session.query(models.PaperResearchMilestone).delete()
         session.query(models.PaperResearchOrderMilestone).delete()
+        session.query(models.PaperResearchRunRecord).delete()
         session.commit()
         session.close()
 

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g27_ce20" tests="1" errors="0" failures="0" skipped="0" time="0.225"><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_ce_20_acceptance_artifact_source_sha_matches_tested_source" time="0.225" /></testsuite></testsuites>

@@ -1,0 +1,24 @@
+{
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "xml_sha256": "dc275b258b0ec137482c0447368e9ab68236d083020061b03d0bf52eb592500b",
+  "execution_mode": "DERIVED_PROJECTION",
+  "provenance": "DERIVED_VIEW_FROM_PRIMARY_EXECUTION",
+  "source_attempt_ids": [
+    "primary_g21_vitest"
+  ],
+  "source_xml_hashes": {
+    "primary_g21_vitest": "dc275b258b0ec137482c0447368e9ab68236d083020061b03d0bf52eb592500b"
+  },
+  "source_primary_exit_code": 0,
+  "exit_code": "not_applicable",
+  "clean_acceptance_status": "PASS",
+  "counts": {
+    "collected": 554,
+    "passed": 554,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  }
+}

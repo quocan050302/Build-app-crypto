@@ -1,0 +1,24 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_entry_intent_closure.py backend/tests/test_forecast_causal_closure.py backend/tests/test_late_source_chronology.py backend/tests/test_realtime_closure.py backend/tests/test_v10_1_acceptance.py backend/tests/test_v10_2_acceptance.py backend/tests/test_v13_2_replay_repair.py backend/tests/test_v13_5_execution_acceptance.py backend/tests/test_v13_8_cadence_contract.py backend/tests/test_v13_8_causal_driver.py backend/tests/test_v14_4_11_reconciliation_authority.py backend/tests/test_v14_4_2_financial_context_regression.py backend/tests/test_v14_4_6_forecast_state_transitions.py backend/tests/test_v14_4_6_pagination_replay.py backend/tests/test_v14_4_sessions.py backend/tests/test_v15_0_model_comparison.py backend/tests/test_v16_11_htf_structure.py backend/tests/test_v16_12_cg01_execution.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_26_terminal_loss_accounting.py backend/tests/test_v16_39_7_mode_trust_lesson_api_acceptance.py backend/tests/test_v16_3_cg01_pipeline.py backend/tests/test_v16_3_cg01_replay.py backend/tests/test_v16_4_cg01_causal_entry.py backend/tests/test_v16_5_cost_consistency.py backend/tests/test_v16_5_expiry_pipeline.py backend/tests/test_v16_5_replay_shared_execution.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_5_1_anchor_leg.py backend/tests/test_v17_5_7_true_cycle_cost_parity.py backend/tests/test_v17_5_8_reference_provenance.py backend/tests/test_v17_5_9_acceptance_runner_self_test.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_4_2_pending_interval_commit.py backend/tests/test_v17_6_4_3a_commit_truth.py backend/tests/test_v17_6_4_3b_acceptance_integrity.py backend/tests/test_v17_6_4_3c_timestamp_authority.py backend/tests/test_v17_6_4_3c_zero_live_orders_runtime.py backend/tests/test_v17_6_4_3d_observation_soak.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_6_4_interval_producer.py backend/tests/test_v17_6_cycle_telemetry.py backend/tests/test_v17_6_observation_run.py backend/tests/test_v17_6_soak.py backend/tests/test_v41_telegram_lifecycle.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_8.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 70610
+STARTED_AT_UTC: 2026-10-31T10:24:24.023000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:25:40.500000+00:00
+DURATION_MS: 76450
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 43%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 86%]
+......................................................................   [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+502 passed, 1 warning in 74.43s (0:01:14)
+
+--- STDERR ---

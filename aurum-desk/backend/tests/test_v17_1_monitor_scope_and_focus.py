@@ -25,8 +25,17 @@ from main import app
 def db_session():
     db = SessionLocal()
     try:
+        db.query(models.PaperResearchRunRecord).delete()
+        db.query(models.OpportunityFunnelRecord).delete()
+        db.commit()
         yield db
     finally:
+        try:
+            db.query(models.PaperResearchRunRecord).delete()
+            db.query(models.OpportunityFunnelRecord).delete()
+            db.commit()
+        except Exception:
+            db.rollback()
         db.close()
 
 

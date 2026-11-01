@@ -1,0 +1,17 @@
+COMMAND: C:\Program Files\nodejs\npx.cmd playwright test tests/e2e/v17_8_0_1_sltp_intelligence.e2e.ts --output=C:\Users\ADMIN\AppData\Local\Temp\aurum_pw50_1qt2x_68
+CWD: D:\build app-crypto\aurum-desk\frontend
+DURATION_MS: 39452
+EXIT_CODE: 0
+--- STDOUT ---
+
+Running 5 tests using 1 worker
+
+  ok 1 tests\e2e\v17_8_0_1_sltp_intelligence.e2e.ts:22:3 › V17.8.0.1 SL/TP Intelligence View Browser E2E Verification › P01: Renders full V17.8.0.1 Unicorn structural stop intelligence in Journal Drawer (8.5s)
+  ok 2 tests\e2e\v17_8_0_1_sltp_intelligence.e2e.ts:129:3 › V17.8.0.1 SL/TP Intelligence View Browser E2E Verification › P02: Distinguishes executed Legacy SL (A) from research Unicorn candidate SL in SHADOW_COMPARE mode (3.6s)
+  ok 3 tests\e2e\v17_8_0_1_sltp_intelligence.e2e.ts:187:3 › V17.8.0.1 SL/TP Intelligence View Browser E2E Verification › P03: Displays UNAVAILABLE_LEGACY and NOT_RECORDED for historical order without fabricating mode or variant (2.9s)
+  ok 4 tests\e2e\v17_8_0_1_sltp_intelligence.e2e.ts:214:3 › V17.8.0.1 SL/TP Intelligence View Browser E2E Verification › P04: V17.8.0.3 MarketShadowPanel renders connected fresh feed, Unicorn opportunity, RESEARCH ONLY badge, and backtest results (3.5s)
+  ok 5 tests\e2e\v17_8_0_1_sltp_intelligence.e2e.ts:242:3 › V17.8.0.1 SL/TP Intelligence View Browser E2E Verification › P05: V17.8.0.3 MarketShadowPanel renders DISCONNECTED feed and MISSING_BACKTEST_DATA honestly (2.2s)
+
+  5 passed (36.0s)
+
+--- STDERR ---

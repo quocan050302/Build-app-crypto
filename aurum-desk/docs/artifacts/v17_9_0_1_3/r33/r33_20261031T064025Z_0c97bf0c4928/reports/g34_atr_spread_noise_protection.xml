@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g34_atr_spread_noise_protection" tests="2" errors="0" failures="0" skipped="0" time="0.016"><testcase classname="backend.tests.test_v17_8_quote_noise_guard" name="test_short_stop_too_close_to_executable_ask" time="0.008" /><testcase classname="backend.tests.test_v17_8_quote_noise_guard" name="test_long_stop_too_close_to_executable_bid" time="0.008" /></testsuite></testsuites>

@@ -1,0 +1,28 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_17_production_flow.py backend/tests/test_migration_runtime_upgrade.py backend/tests/test_realtime_closure.py backend/tests/test_v12_1_acceptance.py backend/tests/test_v12_three_month_replay.py backend/tests/test_v13_5_data_range_acceptance.py backend/tests/test_v13_5_integrity_acceptance.py backend/tests/test_v13_6_engine_execution_integration.py backend/tests/test_v14_2_news_blackout.py backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_4_13_outcome_authority.py backend/tests/test_v14_4_19_repair_self_proof.py backend/tests/test_v14_4_6_strict_proof_producer.py backend/tests/test_v14_4_8_reconciliation_accumulator.py backend/tests/test_v14_4_liquidity.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v16_13_cg01_execution.py backend/tests/test_v16_14_paper_run_and_accounting.py backend/tests/test_v16_16_transaction_and_linkage.py backend/tests/test_v16_29_cg01_realtime_serialization.py backend/tests/test_v16_30_cg01_daily_bias.py backend/tests/test_v16_39_11_snapshot_selector_accounting.py backend/tests/test_v16_39_21_e2e_financial_fixtures.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_39_9_coordinator_policy_acceptance.py backend/tests/test_v16_7_risk_authority.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_config_transaction.py backend/tests/test_v17_4_startup.py backend/tests/test_v17_5_1_atr_timeframe.py backend/tests/test_v17_5_8_cost_authority.py backend/tests/test_v17_5_9_acceptance_runner_self_test.py backend/tests/test_v17_6_1_run_isolation.py backend/tests/test_v17_6_4_2_cycle_commit_truth.py backend/tests/test_v17_6_4_3a_discovery_integrity.py backend/tests/test_v17_6_4_3d_db_isolation.py backend/tests/test_v17_6_market_freshness.py backend/tests/test_v17_6_observation_run.py backend/tests/test_v17_8_acceptance_runner.py backend/tests/test_v5_authoritative_lab.py backend/tests/test_v6_1_isolation_and_recovery.py backend/tests/test_v8_repro_and_contract.py backend/tests/test_v9_full_matrices.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\shards\shard_3.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 439318
+EXIT_CODE: 0
+--- STDOUT ---
+.........................s................s..s.s........................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 56%]
+........................................................................ [ 70%]
+........................................................................ [ 84%]
+........................................................................ [ 98%]
+.........                                                                [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_1_acceptance.py::test_t01_short_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t02_long_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t14_setups_b1_b2_enforce_net_rr
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+509 passed, 4 skipped, 4 warnings in 434.59s (0:07:14)
+
+--- STDERR ---

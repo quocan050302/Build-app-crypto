@@ -1,0 +1,13 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_database_safety.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793337889422_33912\reports\g04_destructive_fixture_isolation.xml -k test_dbs_11 or test_dbs_12 or test_dbs_13 or test_dbs_14 or test_dbs_15
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 1636
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_11_concurrent_test_workers_use_isolated_databases (1.119s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_12_independent_sessions_share_intentionally_owned_test_db (0.081s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_13_migration_refuses_unsafe_target (0.018s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_14_destructive_fixture_refuses_unsafe_target (0.018s)
+PASSED backend.tests.test_v17_7_database_safety::test_dbs_15_normal_production_database_configuration_remains_unchanged (0.400s)
+5 passed in 1.64s
+
+--- STDERR ---

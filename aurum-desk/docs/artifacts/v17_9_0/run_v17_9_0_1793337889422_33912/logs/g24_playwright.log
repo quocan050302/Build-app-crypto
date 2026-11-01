@@ -1,0 +1,39 @@
+COMMAND: C:\Program Files\nodejs\npx.cmd playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts --output=C:\Users\ADMIN\AppData\Local\Temp\aurum_pw24_l4gofoei
+CWD: D:\build app-crypto\aurum-desk\frontend
+DURATION_MS: 57163
+EXIT_CODE: 0
+--- STDOUT ---
+
+Running 3 tests using 1 worker
+
+  ok 1 tests\e2e\v17_5_3_stop_browser.e2e.ts:22:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor (10.4s)
+  ok 2 tests\e2e\v17_5_3_stop_browser.e2e.ts:95:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P02: LONG order renders correct geometry (SL < Entry < TP) (6.4s)
+  ok 3 tests\e2e\v17_5_3_stop_browser.e2e.ts:167:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P03: Mobile viewport (390x844) renders without horizontal scroll overflow (2.0s)
+
+  3 passed (51.4s)
+
+--- STDERR ---
+[WebServer] 12:26:05 PM [vite] ws proxy error:
+[WebServer] Error: write ECONNABORTED
+[WebServer]     at afterWriteDispatched (node:internal/stream_base_commons:159:15)
+[WebServer]     at writeGeneric (node:internal/stream_base_commons:150:3)
+[WebServer]     at Socket._writeGeneric (node:net:971:11)
+[WebServer]     at Socket._write (node:net:983:8)
+[WebServer]     at writeOrBuffer (node:internal/streams/writable:572:12)
+[WebServer]     at _write (node:internal/streams/writable:501:10)
+[WebServer]     at Writable.write (node:internal/streams/writable:510:10)
+[WebServer]     at Socket.ondata (node:internal/streams/readable:1009:22)
+[WebServer]     at Socket.emit (node:events:518:28)
+[WebServer]     at addChunk (node:internal/streams/readable:561:12)
+[WebServer] 12:26:05 PM [vite] ws proxy socket error:
+[WebServer] Error: write ECONNABORTED
+[WebServer]     at afterWriteDispatched (node:internal/stream_base_commons:159:15)
+[WebServer]     at writeGeneric (node:internal/stream_base_commons:150:3)
+[WebServer]     at Socket._writeGeneric (node:net:971:11)
+[WebServer]     at Socket._write (node:net:983:8)
+[WebServer]     at writeOrBuffer (node:internal/streams/writable:572:12)
+[WebServer]     at _write (node:internal/streams/writable:501:10)
+[WebServer]     at Writable.write (node:internal/streams/writable:510:10)
+[WebServer]     at Socket.ondata (node:internal/streams/readable:1009:22)
+[WebServer]     at Socket.emit (node:events:518:28)
+[WebServer]     at addChunk (node:internal/streams/readable:561:12)

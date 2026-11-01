@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_2_observe_only_runtime.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793354345299_1348\reports\g53_observe_only_startup_isolation.xml -k test_runtime_profile_resolution or test_observe_only_lifespan_startup
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 2264
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_runtime_profile_resolution_and_invalid_profile_fails_closed (0.013s)
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_observe_only_lifespan_startup_shutdown_and_negative_control (2.251s)
+2 passed in 2.26s
+
+--- STDERR ---

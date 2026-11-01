@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g81_atr_m1_m5_provenance_integrity" tests="1" errors="0" failures="0" skipped="0" time="0.030"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG81AtrProvenanceIntegrity" name="test_g81_atr_m1_m5_provenance_no_synthetic_2_1_multiplier" time="0.030" /></testsuite></testsuites>

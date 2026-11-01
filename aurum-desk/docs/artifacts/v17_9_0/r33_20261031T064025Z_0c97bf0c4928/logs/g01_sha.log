@@ -1,0 +1,8 @@
+COMMAND: git rev-parse HEAD
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 40
+EXIT_CODE: 0
+--- STDOUT ---
+0c97bf0c492831480f23f581c5cd205a6a7b4094
+
+--- STDERR ---

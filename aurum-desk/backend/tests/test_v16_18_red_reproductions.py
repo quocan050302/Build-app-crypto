@@ -26,6 +26,7 @@ from services.cg01_telemetry_service import (
     CG01TracePersistenceWriter,
     CG01TraceRecorder,
     cg01_trace_recorder,
+    reset_telemetry_worker_state,
 )
 from services.paper_research_run_service import (
     PaperResearchRun,
@@ -50,9 +51,17 @@ from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
 @pytest.fixture
 def db():
     session = SessionLocal()
+    reset_telemetry_worker_state()
     try:
         yield session
     finally:
+        reset_telemetry_worker_state()
+        try:
+            session.rollback()
+            session.query(models.PaperResearchRunRecord).delete()
+            session.commit()
+        except Exception:
+            session.rollback()
         session.close()
 
 

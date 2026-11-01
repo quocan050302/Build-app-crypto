@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793346375372_31840\reports\g85_market_shadow_routing_regression.xml -k test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 15
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG85MarketShadowRoutingRegression::test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed (0.015s)
+1 passed in 0.01s
+
+--- STDERR ---

@@ -1,0 +1,20 @@
+{
+  "clean_primary_acceptance_status": "PASS",
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "flaky_or_isolation_dependent_count": 0,
+  "isolated_retries": [],
+  "isolated_retries_count": 0,
+  "masked_primary_failures_count": 0,
+  "phase": "R3.3.2",
+  "primary_failed_stems": [],
+  "primary_failed_testcases": [],
+  "primary_failed_testcases_count": 0,
+  "primary_shards_failed": 0,
+  "primary_shards_succeeded": 10,
+  "primary_shards_total": 10,
+  "release": "V17.9.0.1.3",
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "1.0.0-r3.3.2",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="17.371" timestamp="2026-10-30T14:36:53.831882+07:00" hostname="Lil-Poppa"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_32_matched_cohort_and_full_strategy_denominators_separate_and_reproducible" time="3.502" /><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_40_runtime_safety_market_shadow_zero_execution_and_operational_db_untouched" time="0.029" /><testcase classname="backend.tests.test_v17_9_0_1_runtime_integration_and_gates" name="test_v17_9_0_1_phase_b_55_scenario_parity" time="13.324"><failure message="assert 45 == 55">tmp_path = WindowsPath('C:/Users/ADMIN/AppData/Local/Temp/aurum_bt_b7seq2o8/run/test_v17_9_0_1_phase_b_55_scen0')
+
+    def test_v17_9_0_1_phase_b_55_scenario_parity(tmp_path: Path) -&gt; None:
+        """
+        Phase B: Verifies all 55 scenarios (11 categories x 5 models) achieve 100% parity
+        between `IndependentPreRefactorBaselineOracle` and `SharedStrategyEvaluator`.
+        """
+        res = generate_phase_b_baseline_artifacts(
+            context_builder_fn=build_market_decision_context,
+            refactored_evaluator_fn=lambda ctx, m, d: SharedStrategyEvaluator.evaluate_model_direction(ctx, m, d).to_parity_dict(),
+            output_dirs=[tmp_path],
+        )
+        manifest = res["manifest"]
+        assert manifest["self_referential"] is False
+        assert manifest["imports_shared_strategy_evaluator"] is False
+        assert manifest["total_scenarios"] == 55
+&gt;       assert manifest["parity_matches"] == 55
+E       assert 45 == 55
+
+backend\tests\test_v17_9_0_1_runtime_integration_and_gates.py:505: AssertionError</failure></testcase></testsuite></testsuites>

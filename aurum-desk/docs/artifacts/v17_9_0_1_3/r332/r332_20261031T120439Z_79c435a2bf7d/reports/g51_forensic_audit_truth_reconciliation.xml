@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g51_forensic_audit_truth_reconciliation" execution_mode="DERIVED_PROJECTION" provenance="DERIVED_VIEW_FROM_PRIMARY_EXECUTION" source_attempt_ids="primary_pytest_shard_8" tests="1" errors="0" failures="0" skipped="0" time="0.017"><testcase classname="backend.tests.test_v17_8_runtime_integration" name="test_def_178_14_forensic_audit_truth_reconciliation" time="0.017" /></testsuite></testsuites>

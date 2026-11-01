@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g25_deterministic_replay" tests="2" errors="0" failures="0" skipped="0" time="0.190"><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_sl_53_replay_determinism" time="0.094" /><testcase classname="backend.tests.test_v17_7_adaptive_stop_loss" name="test_dsl_15_deterministic_distant_sl_replay" time="0.096" /></testsuite></testsuites>

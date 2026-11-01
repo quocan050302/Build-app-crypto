@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_2_observe_only_runtime.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/g54_zero_background_order_mutations.xml -k test_observe_only_lifespan_startup or test_observe_only_blocks_worker
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 2111
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_observe_only_lifespan_startup_shutdown_and_negative_control (2.059s)
+PASSED backend.tests.test_v17_8_0_2_observe_only_runtime::test_observe_only_blocks_worker_and_order_execution_boundaries (0.052s)
+2 passed in 2.11s
+
+--- STDERR ---

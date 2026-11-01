@@ -1,0 +1,26 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_24_red_reproductions.py backend/tests/test_v16_25_production_flow.py backend/tests/test_final_display_plan_sources.py backend/tests/test_order_binding_integrity.py backend/tests/test_smc_engine.py backend/tests/test_v10_3_lifecycle_and_invariants.py backend/tests/test_v13_3_daily_scheduler.py backend/tests/test_v13_4_metrics_exports.py backend/tests/test_v13_5_integrity_acceptance.py backend/tests/test_v13_7_execution_costs.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v14_4_10_three_session_entry.py backend/tests/test_v14_4_15_terminal_event_authority.py backend/tests/test_v14_4_1_contracts.py backend/tests/test_v14_4_1_session_forecasts.py backend/tests/test_v14_4_5_forecast_production.py backend/tests/test_v16_10_causal_ohlc_path.py backend/tests/test_v16_14_htf_pullback_correctness.py backend/tests/test_v16_29_cg01_realtime_serialization.py backend/tests/test_v16_34_cg01_runtime_ownership_consistency.py backend/tests/test_v16_39_17_rr_sync.py backend/tests/test_v16_39_1_evidence_scoring_repair.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_4_cg01_replay_ledger.py backend/tests/test_v16_6_measurement_integrity.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_4_3_session_roundtrip.py backend/tests/test_v17_4_concurrency.py backend/tests/test_v17_5_1_atr_timeframe.py backend/tests/test_v17_5_1_research_runtime.py backend/tests/test_v17_5_2_boundary_probes.py backend/tests/test_v17_5_5_entry_context_gate.py backend/tests/test_v17_5_6_actual_order_cost_parity.py backend/tests/test_v17_5_8_break_fail_closed.py backend/tests/test_v17_5_anchor_binding.py backend/tests/test_v17_6_3_market_eligible_coverage.py backend/tests/test_v17_6_4_1_engine_market_truth.py backend/tests/test_v17_6_4_1_interval_durability.py backend/tests/test_v17_6_4_3_acceptance_integrity.py backend/tests/test_v17_6_4_3_interval_identity.py backend/tests/test_v17_8_0_4_parity_and_integrity.py backend/tests/test_v17_8_acceptance_runner.py backend/tests/test_v7_1_realtime_and_stream.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/r331_20261031T102132Z_c30288f198f2/reports/shards/shard_6.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+PID: 70370
+STARTED_AT_UTC: 2026-10-31T10:23:42.319000+00:00
+COMPLETED_AT_UTC: 2026-10-31T10:24:24.023000+00:00
+DURATION_MS: 41634
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 20%]
+........................................................................ [ 40%]
+........................................................................ [ 60%]
+........................................................................ [ 80%]
+........................................................................ [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v14_4_5_forecast_production.py::test_f03_genuine_producer_event_to_observer_and_summary
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+360 passed, 2 warnings in 39.53s
+
+--- STDERR ---

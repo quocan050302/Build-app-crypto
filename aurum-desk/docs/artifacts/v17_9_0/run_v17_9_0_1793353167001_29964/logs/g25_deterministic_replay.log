@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353167001_29964\reports\g25_deterministic_replay.xml -k test_sl_53 or test_dsl_15
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 193
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_53_replay_determinism (0.098s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_dsl_15_deterministic_distant_sl_replay (0.095s)
+2 passed in 0.19s
+
+--- STDERR ---

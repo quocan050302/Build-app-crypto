@@ -1,0 +1,40 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\g105_matched_vs_full_strategy_cohort_integrity.xml -k test_32 or test_40 or test_v17_9_0_1_phase_b_55_scenario_parity
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 19074
+EXIT_CODE: 1
+--- STDOUT ---
+..F                                                                      [100%]
+================================== FAILURES ===================================
+__________________ test_v17_9_0_1_phase_b_55_scenario_parity __________________
+
+tmp_path = WindowsPath('C:/Users/ADMIN/AppData/Local/Temp/aurum_bt_b7seq2o8/run/test_v17_9_0_1_phase_b_55_scen0')
+
+    def test_v17_9_0_1_phase_b_55_scenario_parity(tmp_path: Path) -> None:
+        """
+        Phase B: Verifies all 55 scenarios (11 categories x 5 models) achieve 100% parity
+        between `IndependentPreRefactorBaselineOracle` and `SharedStrategyEvaluator`.
+        """
+        res = generate_phase_b_baseline_artifacts(
+            context_builder_fn=build_market_decision_context,
+            refactored_evaluator_fn=lambda ctx, m, d: SharedStrategyEvaluator.evaluate_model_direction(ctx, m, d).to_parity_dict(),
+            output_dirs=[tmp_path],
+        )
+        manifest = res["manifest"]
+        assert manifest["self_referential"] is False
+        assert manifest["imports_shared_strategy_evaluator"] is False
+        assert manifest["total_scenarios"] == 55
+>       assert manifest["parity_matches"] == 55
+E       assert 45 == 55
+
+backend\tests\test_v17_9_0_1_runtime_integration_and_gates.py:505: AssertionError
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py::test_v17_9_0_1_phase_b_55_scenario_parity
+1 failed, 2 passed, 54 deselected, 1 warning in 17.38s
+
+--- STDERR ---

@@ -1,0 +1,8 @@
+COMMAND: git rev-parse HEAD
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 34
+EXIT_CODE: 0
+--- STDOUT ---
+662143ff2b6fd4db2c807fb88321c9d04cbf8afd
+
+--- STDERR ---

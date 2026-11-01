@@ -1,0 +1,18 @@
+COMMAND: C:\Program Files\nodejs\npx.cmd playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts --output=C:\Users\ADMIN\AppData\Local\Temp\aurum_pw24__yv19sss
+CWD: D:\build app-crypto\aurum-desk\frontend
+DURATION_MS: 27555
+EXIT_CODE: 0
+--- STDOUT ---
+
+Running 3 tests using 1 worker
+
+  ok 1 tests\e2e\v17_5_3_stop_browser.e2e.ts:22:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor (6.0s)
+  ok 2 tests\e2e\v17_5_3_stop_browser.e2e.ts:95:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P02: LONG order renders correct geometry (SL < Entry < TP) (2.9s)
+  ok 3 tests\e2e\v17_5_3_stop_browser.e2e.ts:167:3 › V17.5.3 Stop Placement & Geometry Browser Verification › P03: Mobile viewport (390x844) renders without horizontal scroll overflow (1.6s)
+
+  3 passed (23.9s)
+
+--- STDERR ---
+[WebServer] Error building setup item unknown: Instance '<WatchSetup at 0x1e8651ae410>' has been deleted, or its row is otherwise not present.
+[WebServer] Error building setup item unknown: Instance '<WatchSetup at 0x1e8651ae910>' has been deleted, or its row is otherwise not present.
+[WebServer] Error building setup item unknown: Instance '<WatchSetup at 0x1e865265990>' has been deleted, or its row is otherwise not present.

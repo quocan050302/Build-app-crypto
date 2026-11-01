@@ -1,0 +1,31 @@
+{
+  "final_code_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "phase": "R3.3.2",
+  "primary_execution_scope": {
+    "backend_files_executed": 438,
+    "backend_files_scheduled": 438,
+    "errors": 0,
+    "failed": 0,
+    "passed": 4487,
+    "shards_count": 10,
+    "skipped": 0,
+    "total_tests_collected": 4487,
+    "unique_testcase_nodes": 4487
+  },
+  "primary_exit_codes_rewritten": false,
+  "raw_shard_xml_retained": true,
+  "release": "V17.9.0.1.3",
+  "replacement_performed": false,
+  "retry_execution_scope": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 0,
+    "retry_attempts_count": 0,
+    "skipped": 0,
+    "total_tests_collected": 0
+  },
+  "run_id": "r332_20261031T120439Z_79c435a2bf7d",
+  "schema_version": "1.0.0-r3.3.2",
+  "source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030",
+  "tested_source_sha": "79c435a2bf7d8fdbd7a30fa308023e6da70c0030"
+}

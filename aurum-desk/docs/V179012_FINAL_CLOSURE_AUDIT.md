@@ -1,10 +1,10 @@
 # V17.9.0.1.2 — Final Historical Parity, Consumed Decision Authority & Evidence Closure Audit
 
-- **Branch:** `feat/v17-8-unicorn-structural-sl-tp-intelligence`
-- **Final Code SHA (`FINAL_CODE_SHA`):** `0d1d279392127334520b548798587731a939c78e`
+- **Branch:** `fix/v17-9-0-1-3-historical-parity-hardening`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `79c435a2bf7d8fdbd7a30fa308023e6da70c0030`
 - **Historical Pre-Refactor Reference Commit:** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
 - **Evaluator Version:** `17.9.0.1.1`
-- **Negative Acceptance Suite (`N01`–`N70`):** `70/70` (`status=PASS`)
+- **Negative Acceptance Suite (`N01`–`N70`):** `234/234` (`status=PASS`)
 
 ## 1. Defect Closure Matrix (`DEF-179012-C01` through `DEF-179012-F05`)
 | Defect ID | Priority | Root Cause | Repair Implemented | Negative Controls | Status |

@@ -1,0 +1,862 @@
+{
+  "a_vs_b_decision_invariance_checks": 2455,
+  "a_vs_b_decision_invariance_mismatches": 0,
+  "a_vs_b_distinct_context_checks": 2455,
+  "a_vs_b_distinct_metadata_fp_checks": 2455,
+  "a_vs_b_distinct_policy_fp_checks": 2455,
+  "eligible_decisions_parity_passed": 106,
+  "eligible_decisions_parity_total": 106,
+  "eligible_decisions_samples": [
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_3_28",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_3_27",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_20_26"
+      },
+      "checkpoint_index_1m": 6652,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792030020000_f5b655fc19b3",
+      "decision_time_utc": "2026-10-15T02:07:00Z",
+      "decision_timestamp_ms": 1792030020000,
+      "direction": "SHORT",
+      "entry_reference": 4143.28,
+      "forward_outcome": {
+        "bars_held": 5,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 4.2283,
+      "hypothetical_quantity": 0.22,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "8e6ce2d3b563585fee6342a4",
+      "net_rr": 2.6006,
+      "partition": "TRAIN",
+      "selected_sl": 4150.99,
+      "take_profit": 4110.68,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "f5b655fc19b3d6a3f287f284a0ad32c8ef9610db61912483985cc6f3185a6374"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_5_52",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_5_51",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_38_50"
+      },
+      "checkpoint_index_1m": 6652,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792030020000_441a322cd918",
+      "decision_time_utc": "2026-10-15T02:07:00Z",
+      "decision_timestamp_ms": 1792030020000,
+      "direction": "SHORT",
+      "entry_reference": 4143.28,
+      "forward_outcome": {
+        "bars_held": 5,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 4.2283,
+      "hypothetical_quantity": 0.22,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "8e6ce2d3b563585fee6342a4",
+      "net_rr": 2.6006,
+      "partition": "TRAIN",
+      "selected_sl": 4150.99,
+      "take_profit": 4110.68,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "441a322cd918c46ef779fb0012898ffccf205c847e70f4189ab6d82d91bfd7a8"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_6_64",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_6_63",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_47_62"
+      },
+      "checkpoint_index_1m": 6676,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792031460000_c97bcf475986",
+      "decision_time_utc": "2026-10-15T02:31:00Z",
+      "decision_timestamp_ms": 1792031460000,
+      "direction": "SHORT",
+      "entry_reference": 4143.64,
+      "forward_outcome": {
+        "bars_held": 4,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 4.9713,
+      "hypothetical_quantity": 0.24,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "6d19376ac25a25c4b311c2e8",
+      "net_rr": 2.9128,
+      "partition": "TRAIN",
+      "selected_sl": 4150.27,
+      "take_profit": 4110.68,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "c97bcf4759869aa9a360c335e5c2432cbc0a91d63a11605c2df829d2edf0d301"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_9_100",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_9_99",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_74_98"
+      },
+      "checkpoint_index_1m": 6676,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792031460000_ff7bc0716679",
+      "decision_time_utc": "2026-10-15T02:31:00Z",
+      "decision_timestamp_ms": 1792031460000,
+      "direction": "SHORT",
+      "entry_reference": 4143.64,
+      "forward_outcome": {
+        "bars_held": 4,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 4.9713,
+      "hypothetical_quantity": 0.24,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "6d19376ac25a25c4b311c2e8",
+      "net_rr": 2.9128,
+      "partition": "TRAIN",
+      "selected_sl": 4150.27,
+      "take_profit": 4110.68,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "ff7bc07166798e7c684f932f65d5cd1e28858cf2548053a291fcf8a7db6233d2"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_56_664",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_56_663",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_497_662"
+      },
+      "checkpoint_index_1m": 6886,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792044060000_3d247ca13d4c",
+      "decision_time_utc": "2026-10-15T06:01:00Z",
+      "decision_timestamp_ms": 1792044060000,
+      "direction": "SHORT",
+      "entry_reference": 4142.76,
+      "forward_outcome": {
+        "bars_held": 66,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1772,
+      "hypothetical_quantity": 0.3,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "3562005ec95707773863b944",
+      "net_rr": 3.6358,
+      "partition": "TRAIN",
+      "selected_sl": 4147.33,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "3d247ca13d4c028c9ae3d4d7ece91023222b65cb0fff6b1c15a4b125fd33868a"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_57_676",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_57_675",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_506_674"
+      },
+      "checkpoint_index_1m": 6886,
+      "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792044060000_823ae778521d",
+      "decision_time_utc": "2026-10-15T06:01:00Z",
+      "decision_timestamp_ms": 1792044060000,
+      "direction": "SHORT",
+      "entry_reference": 4142.76,
+      "forward_outcome": {
+        "bars_held": 66,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1772,
+      "hypothetical_quantity": 0.3,
+      "model_id": "SMC_M1_CONTINUATION",
+      "mtf_context_hash": "3562005ec95707773863b944",
+      "net_rr": 3.6358,
+      "partition": "TRAIN",
+      "selected_sl": 4147.33,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "823ae778521d5b761e98ea1a16d3eb3e623dd8445013eea8fa19d4b49d80ea6e"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_59_700",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_59_699",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_524_698"
+      },
+      "checkpoint_index_1m": 6886,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792044060000_ff8804ff0677",
+      "decision_time_utc": "2026-10-15T06:01:00Z",
+      "decision_timestamp_ms": 1792044060000,
+      "direction": "SHORT",
+      "entry_reference": 4142.76,
+      "forward_outcome": {
+        "bars_held": 66,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1772,
+      "hypothetical_quantity": 0.3,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "3562005ec95707773863b944",
+      "net_rr": 3.6358,
+      "partition": "TRAIN",
+      "selected_sl": 4147.33,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "ff8804ff0677356f5c68969909a163f39e6a7facd9545c9c81b30a83e1734072"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_61_724",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_61_723",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_542_722"
+      },
+      "checkpoint_index_1m": 6887,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792044120000_fde292d2e47c",
+      "decision_time_utc": "2026-10-15T06:02:00Z",
+      "decision_timestamp_ms": 1792044120000,
+      "direction": "SHORT",
+      "entry_reference": 4142.39,
+      "forward_outcome": {
+        "bars_held": 65,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1589,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "fb9e71fec30d7be05d0fcac5",
+      "net_rr": 3.608,
+      "partition": "TRAIN",
+      "selected_sl": 4146.92,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "fde292d2e47c4c70a9c9639dc3f9676ef281fa394ec0e3c6722c4df7d1247ee2"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_62_736",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_62_735",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_551_734"
+      },
+      "checkpoint_index_1m": 6887,
+      "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792044120000_05c9f3fecc29",
+      "decision_time_utc": "2026-10-15T06:02:00Z",
+      "decision_timestamp_ms": 1792044120000,
+      "direction": "SHORT",
+      "entry_reference": 4142.39,
+      "forward_outcome": {
+        "bars_held": 65,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1589,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_CONTINUATION",
+      "mtf_context_hash": "fb9e71fec30d7be05d0fcac5",
+      "net_rr": 3.608,
+      "partition": "TRAIN",
+      "selected_sl": 4146.92,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "05c9f3fecc29b684e797784111f1905433d470067a53190ccd8fdcae31818364"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_63_748",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_63_747",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_560_746"
+      },
+      "checkpoint_index_1m": 6887,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044120000_9e75d4e73d9f",
+      "decision_time_utc": "2026-10-15T06:02:00Z",
+      "decision_timestamp_ms": 1792044120000,
+      "direction": "SHORT",
+      "entry_reference": 4142.39,
+      "forward_outcome": {
+        "bars_held": 65,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1589,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "fb9e71fec30d7be05d0fcac5",
+      "net_rr": 3.608,
+      "partition": "TRAIN",
+      "selected_sl": 4146.92,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "9e75d4e73d9f172ea9b5c20e9560db4801f7431d5f86c60a2fe21d79aa91f783"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_64_760",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_64_759",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_569_758"
+      },
+      "checkpoint_index_1m": 6887,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792044120000_32240203f240",
+      "decision_time_utc": "2026-10-15T06:02:00Z",
+      "decision_timestamp_ms": 1792044120000,
+      "direction": "SHORT",
+      "entry_reference": 4142.39,
+      "forward_outcome": {
+        "bars_held": 65,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1589,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "fb9e71fec30d7be05d0fcac5",
+      "net_rr": 3.608,
+      "partition": "TRAIN",
+      "selected_sl": 4146.92,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "32240203f240e6dbba5d95fff2207c96fc04f0835da0b869d91e2ac39d779d48"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_65_772",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_65_771",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_578_770"
+      },
+      "checkpoint_index_1m": 6887,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792044120000_215486abebc0",
+      "decision_time_utc": "2026-10-15T06:02:00Z",
+      "decision_timestamp_ms": 1792044120000,
+      "direction": "SHORT",
+      "entry_reference": 4142.39,
+      "forward_outcome": {
+        "bars_held": 65,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.1589,
+      "hypothetical_quantity": 0.31,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "fb9e71fec30d7be05d0fcac5",
+      "net_rr": 3.608,
+      "partition": "TRAIN",
+      "selected_sl": 4146.92,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "215486abebc0bca1e3b8ac92e4375abab4ee473472e57af0d208d2e8e850d23a"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_66_784",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_66_783",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_587_782"
+      },
+      "checkpoint_index_1m": 6888,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792044180000_08d9b2a49371",
+      "decision_time_utc": "2026-10-15T06:03:00Z",
+      "decision_timestamp_ms": 1792044180000,
+      "direction": "SHORT",
+      "entry_reference": 4142.43,
+      "forward_outcome": {
+        "bars_held": 64,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.2156,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "e3e85592a8420083e8ff2e4b",
+      "net_rr": 3.6265,
+      "partition": "TRAIN",
+      "selected_sl": 4146.93,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "08d9b2a4937169be657fae893d6893630b04258197144ae8c41a7ab845f70d2f"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_67_796",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_67_795",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_596_794"
+      },
+      "checkpoint_index_1m": 6888,
+      "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792044180000_751fa79edfb0",
+      "decision_time_utc": "2026-10-15T06:03:00Z",
+      "decision_timestamp_ms": 1792044180000,
+      "direction": "SHORT",
+      "entry_reference": 4142.43,
+      "forward_outcome": {
+        "bars_held": 64,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.2156,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_CONTINUATION",
+      "mtf_context_hash": "e3e85592a8420083e8ff2e4b",
+      "net_rr": 3.6265,
+      "partition": "TRAIN",
+      "selected_sl": 4146.93,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "751fa79edfb0c9dbae2677485f15fc2f7a427967ed0f1b67bac77b8d3850c6d5"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_68_808",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_68_807",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_605_806"
+      },
+      "checkpoint_index_1m": 6888,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044180000_fbc6f71c26b4",
+      "decision_time_utc": "2026-10-15T06:03:00Z",
+      "decision_timestamp_ms": 1792044180000,
+      "direction": "SHORT",
+      "entry_reference": 4142.43,
+      "forward_outcome": {
+        "bars_held": 64,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.2156,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "e3e85592a8420083e8ff2e4b",
+      "net_rr": 3.6265,
+      "partition": "TRAIN",
+      "selected_sl": 4146.93,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "fbc6f71c26b4261bf3cd132781d3cf62ad4ab277bf65698072fa7c7ae6ecff39"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_69_820",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_69_819",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_614_818"
+      },
+      "checkpoint_index_1m": 6888,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792044180000_714ecaa0b20a",
+      "decision_time_utc": "2026-10-15T06:03:00Z",
+      "decision_timestamp_ms": 1792044180000,
+      "direction": "SHORT",
+      "entry_reference": 4142.43,
+      "forward_outcome": {
+        "bars_held": 64,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.2156,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "e3e85592a8420083e8ff2e4b",
+      "net_rr": 3.6265,
+      "partition": "TRAIN",
+      "selected_sl": 4146.93,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "714ecaa0b20a90c52fc5848ca48c6f250144105665ff4c1e0489bbeb72e8847d"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_70_832",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_70_831",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_623_830"
+      },
+      "checkpoint_index_1m": 6888,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792044180000_aa3169a45daa",
+      "decision_time_utc": "2026-10-15T06:03:00Z",
+      "decision_timestamp_ms": 1792044180000,
+      "direction": "SHORT",
+      "entry_reference": 4142.43,
+      "forward_outcome": {
+        "bars_held": 64,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.2156,
+      "hypothetical_quantity": 0.31,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "e3e85592a8420083e8ff2e4b",
+      "net_rr": 3.6265,
+      "partition": "TRAIN",
+      "selected_sl": 4146.93,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "aa3169a45daa285548d14fac1b7fed841bbed08e999b4f4f2c84fcb597379eb2"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_71_844",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_71_843",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_632_842"
+      },
+      "checkpoint_index_1m": 6889,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792044240000_b2fe359f0d44",
+      "decision_time_utc": "2026-10-15T06:04:00Z",
+      "decision_timestamp_ms": 1792044240000,
+      "direction": "SHORT",
+      "entry_reference": 4142.51,
+      "forward_outcome": {
+        "bars_held": 63,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.3476,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "8400695692b5877bfe76f8cd",
+      "net_rr": 3.6685,
+      "partition": "TRAIN",
+      "selected_sl": 4146.94,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "b2fe359f0d44246b94345d5e9f495eaf4f609e7a203c24f51691999412c001c7"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_73_868",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_73_867",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_650_866"
+      },
+      "checkpoint_index_1m": 6889,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044240000_ae6779ad704a",
+      "decision_time_utc": "2026-10-15T06:04:00Z",
+      "decision_timestamp_ms": 1792044240000,
+      "direction": "SHORT",
+      "entry_reference": 4142.51,
+      "forward_outcome": {
+        "bars_held": 63,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.3476,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "8400695692b5877bfe76f8cd",
+      "net_rr": 3.6685,
+      "partition": "TRAIN",
+      "selected_sl": 4146.94,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "ae6779ad704a9a5f2e34d9905dd4c0d836e4163f7057fa762727ad9a0b429b17"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_74_880",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_74_879",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_659_878"
+      },
+      "checkpoint_index_1m": 6889,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792044240000_3b9cc31ecae0",
+      "decision_time_utc": "2026-10-15T06:04:00Z",
+      "decision_timestamp_ms": 1792044240000,
+      "direction": "SHORT",
+      "entry_reference": 4142.51,
+      "forward_outcome": {
+        "bars_held": 63,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.3476,
+      "hypothetical_quantity": 0.31,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "8400695692b5877bfe76f8cd",
+      "net_rr": 3.6685,
+      "partition": "TRAIN",
+      "selected_sl": 4146.94,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "3b9cc31ecae08b88bebf701de26848dd5832881e4f1f2a4e18e2f507f7b74bd4"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_75_892",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_75_891",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_668_890"
+      },
+      "checkpoint_index_1m": 6889,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792044240000_9264399aa06f",
+      "decision_time_utc": "2026-10-15T06:04:00Z",
+      "decision_timestamp_ms": 1792044240000,
+      "direction": "SHORT",
+      "entry_reference": 4142.51,
+      "forward_outcome": {
+        "bars_held": 63,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 7.3476,
+      "hypothetical_quantity": 0.31,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "8400695692b5877bfe76f8cd",
+      "net_rr": 3.6685,
+      "partition": "TRAIN",
+      "selected_sl": 4146.94,
+      "take_profit": 4109.96,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "9264399aa06fd7ebc7b311b4afa09631968717d73d8a9345daed041e13d548d8"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_78_928",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_78_927",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_695_926"
+      },
+      "checkpoint_index_1m": 6891,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044360000_38ab75b25c5c",
+      "decision_time_utc": "2026-10-15T06:06:00Z",
+      "decision_timestamp_ms": 1792044360000,
+      "direction": "SHORT",
+      "entry_reference": 4143.19,
+      "forward_outcome": {
+        "bars_held": 61,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 9.0189,
+      "hypothetical_quantity": 0.34,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "18ec51dae2617fd8937b08e9",
+      "net_rr": 4.1598,
+      "partition": "TRAIN",
+      "selected_sl": 4146.9,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "38ab75b25c5c170cf6b4741923c66f7a65a1276003797e11a93e705de454eb70"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_80_952",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_80_951",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_713_950"
+      },
+      "checkpoint_index_1m": 6891,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792044360000_bf183c9ef9db",
+      "decision_time_utc": "2026-10-15T06:06:00Z",
+      "decision_timestamp_ms": 1792044360000,
+      "direction": "SHORT",
+      "entry_reference": 4143.19,
+      "forward_outcome": {
+        "bars_held": 61,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 9.0189,
+      "hypothetical_quantity": 0.34,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "18ec51dae2617fd8937b08e9",
+      "net_rr": 4.1598,
+      "partition": "TRAIN",
+      "selected_sl": 4146.9,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "bf183c9ef9db1b3c1c8db29d51982be96281e871b409b2b6a3ba8b829a6b95a4"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_82_976",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_82_975",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_731_974"
+      },
+      "checkpoint_index_1m": 6892,
+      "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792044420000_1a9b0e04cf57",
+      "decision_time_utc": "2026-10-15T06:07:00Z",
+      "decision_timestamp_ms": 1792044420000,
+      "direction": "SHORT",
+      "entry_reference": 4141.56,
+      "forward_outcome": {
+        "bars_held": 60,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 5.9607,
+      "hypothetical_quantity": 0.28,
+      "model_id": "SMC_M1_CONTINUATION",
+      "mtf_context_hash": "3fd56b30a252a1ed7ddd29c3",
+      "net_rr": 3.2104,
+      "partition": "TRAIN",
+      "selected_sl": 4146.9,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "1a9b0e04cf579aadd1f1f2ea764e57b63ab9d530569a7e928fb406b5b358b657"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_83_988",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_83_987",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_740_986"
+      },
+      "checkpoint_index_1m": 6892,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044420000_764dd33b4ad8",
+      "decision_time_utc": "2026-10-15T06:07:00Z",
+      "decision_timestamp_ms": 1792044420000,
+      "direction": "SHORT",
+      "entry_reference": 4141.56,
+      "forward_outcome": {
+        "bars_held": 60,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 5.9607,
+      "hypothetical_quantity": 0.28,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "3fd56b30a252a1ed7ddd29c3",
+      "net_rr": 3.2104,
+      "partition": "TRAIN",
+      "selected_sl": 4146.9,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "764dd33b4ad851255b3b5d01d6d51d758c85d8575711deaf8041490cac9982e2"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_85_1012",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_85_1011",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_758_1010"
+      },
+      "checkpoint_index_1m": 6892,
+      "decision_id": "dec_CG01_SWEEP_MSS_FVG_XAUUSDT_SHORT_1792044420000_460e6e83bcec",
+      "decision_time_utc": "2026-10-15T06:07:00Z",
+      "decision_timestamp_ms": 1792044420000,
+      "direction": "SHORT",
+      "entry_reference": 4141.56,
+      "forward_outcome": {
+        "bars_held": 60,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 5.9607,
+      "hypothetical_quantity": 0.28,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "mtf_context_hash": "3fd56b30a252a1ed7ddd29c3",
+      "net_rr": 3.2104,
+      "partition": "TRAIN",
+      "selected_sl": 4146.9,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "460e6e83bcecd71ef8ed546100594d8a2f5cfd20e5b01732a7d86a2ea05f2976"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_86_1024",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_86_1023",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_767_1022"
+      },
+      "checkpoint_index_1m": 6893,
+      "decision_id": "dec_SMC_M1_REVERSAL_XAUUSDT_SHORT_1792044480000_a0520b44633d",
+      "decision_time_utc": "2026-10-15T06:08:00Z",
+      "decision_timestamp_ms": 1792044480000,
+      "direction": "SHORT",
+      "entry_reference": 4140.84,
+      "forward_outcome": {
+        "bars_held": 12,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 8.2084,
+      "hypothetical_quantity": 0.34,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtf_context_hash": "69f6cf361393fe63a7075692",
+      "net_rr": 3.7937,
+      "partition": "TRAIN",
+      "selected_sl": 4144.63,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "a0520b44633d22a6037a803034cd2e674cfa03707a30eb55c7a1c37858e10183"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_87_1036",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_87_1035",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_776_1034"
+      },
+      "checkpoint_index_1m": 6893,
+      "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792044480000_94eb4e77bf0c",
+      "decision_time_utc": "2026-10-15T06:08:00Z",
+      "decision_timestamp_ms": 1792044480000,
+      "direction": "SHORT",
+      "entry_reference": 4140.84,
+      "forward_outcome": {
+        "bars_held": 12,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 8.2084,
+      "hypothetical_quantity": 0.34,
+      "model_id": "SMC_M1_CONTINUATION",
+      "mtf_context_hash": "69f6cf361393fe63a7075692",
+      "net_rr": 3.7937,
+      "partition": "TRAIN",
+      "selected_sl": 4144.63,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "94eb4e77bf0cacf0581908879f92a3d23d6171721a377edb8aee95ea349bbf81"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_88_1048",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_88_1047",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_785_1046"
+      },
+      "checkpoint_index_1m": 6893,
+      "decision_id": "dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_SHORT_1792044480000_6836ce4cbe1f",
+      "decision_time_utc": "2026-10-15T06:08:00Z",
+      "decision_timestamp_ms": 1792044480000,
+      "direction": "SHORT",
+      "entry_reference": 4140.84,
+      "forward_outcome": {
+        "bars_held": 12,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 8.2084,
+      "hypothetical_quantity": 0.34,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "mtf_context_hash": "69f6cf361393fe63a7075692",
+      "net_rr": 3.7937,
+      "partition": "TRAIN",
+      "selected_sl": 4144.63,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "6836ce4cbe1f70d86fb7c392dc3ae376d5ce8cb6522f6684ba82df5aed2dd40f"
+    },
+    {
+      "adapter_call_ids": {
+        "backtest": "call_HISTORICAL_BACKTEST_ADAPTER_89_1060",
+        "market_shadow": "call_MARKET_SHADOW_ADAPTER_89_1059",
+        "production": "call_PRODUCTION_ORCHESTRATOR_ADAPTER_794_1058"
+      },
+      "checkpoint_index_1m": 6893,
+      "decision_id": "dec_SMC_M1_SWEEP_RECLAIM_XAUUSDT_SHORT_1792044480000_8c424f89b563",
+      "decision_time_utc": "2026-10-15T06:08:00Z",
+      "decision_timestamp_ms": 1792044480000,
+      "direction": "SHORT",
+      "entry_reference": 4140.84,
+      "forward_outcome": {
+        "bars_held": 12,
+        "outcome": "LOSS",
+        "realized_r": -1.0
+      },
+      "gross_rr": 8.2084,
+      "hypothetical_quantity": 0.34,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "mtf_context_hash": "69f6cf361393fe63a7075692",
+      "net_rr": 3.7937,
+      "partition": "TRAIN",
+      "selected_sl": 4144.63,
+      "take_profit": 4109.73,
+      "three_way_parity_status": "PASS",
+      "trade_action_fingerprint": "8c424f89b563322353416586875eb4fa6bb14e62a1a02bb65952f3792fbd8bcd"
+    }
+  ],
+  "live_runtime_claim": false,
+  "mismatches": [],
+  "oracle_vs_a_checks": 2455,
+  "oracle_vs_a_mismatches": 0,
+  "parity_checks_passed": 2455,
+  "parity_checks_total": 2455,
+  "parity_execution_mode": "OFFLINE_ADAPTER_REPLAY_PARITY",
+  "parity_mismatch_count": 0,
+  "run_id": "v17_9_1_pos_20261101T043046Z_ab8f0252a05d",
+  "schema_version": "17.9.1.1",
+  "status": "PASS"
+}

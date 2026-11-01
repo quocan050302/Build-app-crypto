@@ -1,0 +1,8 @@
+{
+  "run_id": "v17_9_1_20261101T023730Z_944b06defa67",
+  "commit_sha": "944b06defa678c6828e1a7f7758791af7f4ae815",
+  "executable_source_tree_hash": "e61fa06e053e3f6dadada6ad9ac9f2cac97596f7def439a1cad1e66ac7c9abb2",
+  "artifact_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1/v17_9_1_20261101T023730Z_944b06defa67",
+  "final_report_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_1/v17_9_1_20261101T023730Z_944b06defa67/v17_9_1_final_verification_report.json",
+  "final_verdict": "PASS"
+}

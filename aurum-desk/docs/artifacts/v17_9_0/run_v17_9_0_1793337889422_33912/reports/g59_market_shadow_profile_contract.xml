@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g59_market_shadow_profile_contract" tests="2" errors="0" failures="0" skipped="0" time="0.025"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_nc27_invalid_runtime_profile_fails_closed" time="0.014" /><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_market_shadow_capability_matrix" time="0.011" /></testsuite></testsuites>

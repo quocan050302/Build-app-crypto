@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g36_entry_quote_proximity" tests="3" errors="0" failures="0" skipped="0" time="0.032"><testcase classname="backend.tests.test_v17_8_quote_noise_guard" name="test_short_stop_breached_by_executable_ask" time="0.011" /><testcase classname="backend.tests.test_v17_8_quote_noise_guard" name="test_long_stop_breached_by_executable_bid" time="0.010" /><testcase classname="backend.tests.test_v17_8_quote_noise_guard" name="test_safe_executable_quote_distance_passes_geometry" time="0.011" /></testsuite></testsuites>

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g85_market_shadow_routing_regression" tests="1" errors="0" failures="0" skipped="0" time="0.013"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG85MarketShadowRoutingRegression" name="test_g85_shadow_sink_profile_transition_and_missing_sink_fail_closed" time="0.013" /></testsuite></testsuites>

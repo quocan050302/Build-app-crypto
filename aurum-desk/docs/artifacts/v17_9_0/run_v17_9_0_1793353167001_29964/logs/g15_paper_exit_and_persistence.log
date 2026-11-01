@@ -1,0 +1,12 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353167001_29964\reports\g15_paper_exit_and_persistence.xml -k test_sl_47 or test_sl_48 or test_sl_60 or test_ce_15
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 733
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_47_paper_long_stop_closure (0.115s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_48_paper_short_stop_closure (0.131s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_60_end_to_end_paper_lifecycle (0.264s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_15_real_bid_ask_stop_trigger_and_persisted_close (0.223s)
+4 passed in 0.73s
+
+--- STDERR ---

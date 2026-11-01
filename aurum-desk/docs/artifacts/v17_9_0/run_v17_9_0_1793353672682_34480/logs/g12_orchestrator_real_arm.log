@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793353672682_34480\reports\g12_orchestrator_real_arm.xml -k test_sl_43 or test_ce_13
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 254
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_43_frozen_arm_stop_remains_unchanged (0.125s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_13_real_orchestrator_arm_with_frozen_evidence (0.129s)
+2 passed in 0.25s
+
+--- STDERR ---

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g57_observation_startup_shutdown" tests="2" errors="0" failures="0" skipped="0" time="2.629"><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_observe_only_lifespan_startup_shutdown_and_negative_control" time="2.255" /><testcase classname="backend.tests.test_v17_8_0_2_observe_only_runtime" name="test_observe_only_api_read_allowlist_and_db_immutability" time="0.374" /></testsuite></testsuites>

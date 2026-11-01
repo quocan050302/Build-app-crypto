@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g63_shadow_candle_finality_and_cache.xml -k test_nc22_nc28_nc29_quote_and_rest_fallback_controls or test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 27
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc22_nc28_nc29_quote_and_rest_fallback_controls (0.013s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow (0.015s)
+2 passed in 0.03s
+
+--- STDERR ---

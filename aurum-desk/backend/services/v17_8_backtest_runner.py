@@ -2419,6 +2419,30 @@ def reconcile_backtest_trade_decision_lineage(
     }
 
 
+def validate_trade_decision_lineage(
+    trades: Any = None,
+    authoritative_recs: Any = None,
+    *,
+    opportunities: Optional[Sequence[Dict[str, Any]]] = None,
+    rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_trades: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    canonical_decisions_by_id: Optional[Mapping[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """DEF-179013-R05: Validates 1-to-1 lineage between simulated trades and canonical decisions."""
+    opps = opportunities if opportunities is not None else authoritative_recs
+    res = reconcile_backtest_trade_decision_lineage(
+        trades_or_result=trades,
+        opportunities=opps,
+        rejections=rejections,
+        authoritative_trades=authoritative_trades,
+        authoritative_rejections=authoritative_rejections,
+        canonical_decisions_by_id=canonical_decisions_by_id,
+    )
+    res["duplicate_trades_count"] = res.get("duplicate_decision_trades_count", 0)
+    return res
+
+
 RUNNER_VERSION = "V17.9.0.1.2_CHRONOLOGICAL_PARITY_RUNNER_V1"
 LEDGER_CACHE_SCHEMA_VERSION = "V17.9.0.1.2_LEDGER_PROVENANCE_V1"
 DEFAULT_SIMULATOR_ASSUMPTIONS: Dict[str, Any] = {
@@ -2706,6 +2730,9 @@ def validate_cached_trade_ledger_provenance(
     }
 
 
+validate_backtest_ledger_cache_envelope = validate_cached_trade_ledger_provenance
+
+
 def validate_decision_context_no_future_leakage(
     decision_bars: Sequence[Any],
     decision_ms: int,
@@ -2878,10 +2905,16 @@ def extract_and_validate_real_forward_candles(
     extracted: List[Dict[str, Any]] = []
     prev_open: Optional[int] = None
     for raw_b in all_m1_bars or ():
-        b_dict = dict(raw_b) if isinstance(raw_b, Mapping) else raw_b.to_dict()
-        open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
-        if open_ts < dec_ts:
-            continue
+        if isinstance(raw_b, Mapping):
+            open_ts = int(raw_b.get("open_time") if raw_b.get("open_time") is not None else raw_b.get("timestamp", 0))
+            if open_ts < dec_ts:
+                continue
+            b_dict = dict(raw_b)
+        else:
+            b_dict = raw_b.to_dict()
+            open_ts = int(b_dict.get("open_time") if b_dict.get("open_time") is not None else b_dict.get("timestamp", 0))
+            if open_ts < dec_ts:
+                continue
         if prev_open is not None and open_ts - prev_open > 60_000:
             break
         extracted.append(b_dict)
@@ -4040,10 +4073,57 @@ def execute_real_v17_8_backtest(
     and writes all 13 required artifacts to `output_dir` (default `aurum-desk/backtest/`).
     Also records the replay summary in `shadow_research_storage` if initialized.
     """
+    import sys
+
+    started_at_ms = int(time.time() * 1000)
+    started_at_utc = datetime.fromtimestamp(started_at_ms / 1000.0, tz=timezone.utc).isoformat()
+    proc_pid = os.getpid()
+    proc_ppid = os.getppid()
+    proc_cmd = list(sys.argv)
+
     eff_out_dir = Path(output_dir) if output_dir else DEFAULT_BACKTEST_OUT_DIR
     eff_out_dir.mkdir(parents=True, exist_ok=True)
-    eff_run_id = run_id or f"v17_8_0_4_bt_{int(time.time())}"
+    eff_run_id = run_id or os.environ.get("AURUM_TEST_RUN_ID") or f"v17_8_0_4_bt_{int(time.time())}"
     source_sha = _get_git_head_sha()
+
+    # R3.3.1 Section 2.6: If an R3.3.1 initial manifest exists for this run_id, validate pre-execution ordering
+    r331_manifest_path = (
+        REPO_ROOT / "docs" / "artifacts" / "v17_9_0_1_3" / "r331" / eff_run_id / "R331_INITIAL_RUN_MANIFEST.json"
+    )
+    if r331_manifest_path.exists():
+        try:
+            from tools.runtime_execution_logger import verify_r331_pre_execution_manifest
+
+            chk = verify_r331_pre_execution_manifest(
+                r331_manifest_path,
+                expected_run_id=eff_run_id,
+                expected_source_sha=source_sha,
+                backtest_started_at_ms=started_at_ms,
+            )
+            if not chk.get("passed"):
+                raise RuntimeError(f"R331_PRE_EXECUTION_MANIFEST_VIOLATION: {chk.get('errors')}")
+        except ImportError:
+            pass
+
+    # R3.3.2 Section 5: If an R3.3.2 initial manifest exists for this run_id, validate pre-execution ordering
+    r332_manifest_path = (
+        REPO_ROOT / "docs" / "artifacts" / "v17_9_0_1_3" / "r332" / eff_run_id / "R332_INITIAL_RUN_MANIFEST.json"
+    )
+    if r332_manifest_path.exists():
+        try:
+            from tools.runtime_execution_logger import verify_r332_pre_execution_manifest
+
+            chk_r332 = verify_r332_pre_execution_manifest(
+                r332_manifest_path,
+                expected_run_id=eff_run_id,
+                expected_source_sha=source_sha,
+                backtest_started_at_ms=started_at_ms,
+            )
+            if not chk_r332.get("passed"):
+                raise RuntimeError(f"R332_PRE_EXECUTION_MANIFEST_VIOLATION: {chk_r332.get('errors')}")
+        except ImportError:
+            pass
+
     log_lines: List[str] = []
 
     def _log(msg: str) -> None:
@@ -4052,7 +4132,10 @@ def execute_real_v17_8_backtest(
         log_lines.append(line)
         logger.info(msg)
 
-    _log(f"Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id={eff_run_id} source_sha={source_sha}")
+    _log(
+        f"Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id={eff_run_id} "
+        f"source_sha={source_sha} started_at_utc={started_at_utc} pid={proc_pid}"
+    )
 
     requested_end_ms = 1793196000000
     requested_start_ms = requested_end_ms - (90 * 86_400_000)
@@ -4486,6 +4569,45 @@ def execute_real_v17_8_backtest(
         },
     }
 
+    completed_at_ms = int(time.time() * 1000)
+    completed_at_utc = datetime.fromtimestamp(completed_at_ms / 1000.0, tz=timezone.utc).isoformat()
+    exec_provenance = {
+        "run_id": eff_run_id,
+        "source_sha": source_sha,
+        "tested_source_sha": source_sha,
+        "executable_tree_hash": ledger_provenance["source_tree_hash"],
+        "core_backtest_evaluator_tree_hash": ledger_provenance["core_backtest_evaluator_tree_hash"],
+        "started_at_utc": started_at_utc,
+        "started_at_ms": started_at_ms,
+        "completed_at_utc": completed_at_utc,
+        "completed_at_ms": completed_at_ms,
+        "duration_ms": max(0, completed_at_ms - started_at_ms),
+        "pid": proc_pid,
+        "ppid": proc_ppid,
+        "command": proc_cmd,
+    }
+    dataset_manifest["tested_source_sha"] = source_sha
+    dataset_manifest["started_at_utc"] = started_at_utc
+    dataset_manifest["started_at_ms"] = started_at_ms
+    dataset_manifest["completed_at_utc"] = completed_at_utc
+    dataset_manifest["completed_at_ms"] = completed_at_ms
+    dataset_manifest["pid"] = proc_pid
+    dataset_manifest["ppid"] = proc_ppid
+    dataset_manifest["command"] = proc_cmd
+    dataset_manifest["execution_provenance"] = dict(exec_provenance)
+    data_quality_report["tested_source_sha"] = source_sha
+    data_quality_report["execution_provenance"] = dict(exec_provenance)
+    matched_comparison["tested_source_sha"] = source_sha
+    matched_comparison["started_at_utc"] = started_at_utc
+    matched_comparison["started_at_ms"] = started_at_ms
+    matched_comparison["completed_at_utc"] = completed_at_utc
+    matched_comparison["completed_at_ms"] = completed_at_ms
+    matched_comparison["execution_provenance"] = dict(exec_provenance)
+    out_of_sample_report["tested_source_sha"] = source_sha
+    out_of_sample_report["execution_provenance"] = dict(exec_provenance)
+    sensitivity_report["tested_source_sha"] = source_sha
+    sensitivity_report["execution_provenance"] = dict(exec_provenance)
+
     backtest_verdict = "REAL_HISTORICAL_BACKTEST_COMPLETED"
     matched_ac = full_eval["matched_cohort_analysis"]["matched_A_vs_C_cohort"]
     _log(
@@ -4625,6 +4747,15 @@ def execute_real_v17_8_backtest(
         "run_id": eff_run_id,
         "symbol": "XAUUSDT",
         "source_sha": source_sha,
+        "tested_source_sha": source_sha,
+        "started_at_utc": started_at_utc,
+        "started_at_ms": started_at_ms,
+        "completed_at_utc": completed_at_utc,
+        "completed_at_ms": completed_at_ms,
+        "pid": proc_pid,
+        "ppid": proc_ppid,
+        "command": proc_cmd,
+        "execution_provenance": dict(exec_provenance),
         "dataset_sha": dataset_manifest["dataset_sha256"],
         "backtest_verdict": backtest_verdict,
         "data_quality_status": dataset_manifest["data_quality_status"],

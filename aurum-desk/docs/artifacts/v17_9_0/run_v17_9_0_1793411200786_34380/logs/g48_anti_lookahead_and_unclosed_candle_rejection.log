@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793411200786_34380\reports\g48_anti_lookahead_and_unclosed_candle_rejection.xml -k test_def_178_10
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 72
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_10_causal_unicorn_provenance_and_negative_controls (0.072s)
+1 passed in 0.07s
+
+--- STDERR ---

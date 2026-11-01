@@ -1,0 +1,15 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793345336530_22720\reports\g11_m1_evaluator_integration.xml -k test_sl_37 or test_sl_38 or test_sl_39 or test_sl_40 or test_ce_12 or test_atr_18 or test_atr_21
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 495
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_37_reversal_model_behavior (0.096s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_38_continuation_model_behavior (0.092s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_39_fvg_continuation_behavior (0.094s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_sl_40_sweep_reclaim_behavior (0.096s)
+PASSED backend.tests.test_v17_7_adaptive_stop_loss::test_ce_12_real_m1_evaluator_structural_stop (0.090s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_18_m1_strategy_uses_verified_atr (0.014s)
+PASSED backend.tests.test_v17_7_atr_provenance::test_atr_21_four_m1_models_integrate_verified_authority (0.013s)
+7 passed in 0.49s
+
+--- STDERR ---
