@@ -884,11 +884,16 @@ def evaluate_v1793_forward_outcomes(
                 )
                 sens_ledgers[mode_k] = s_led.to_dict()
 
+    eff_diag_entry = float(
+        ledger_primary.entry_fill_price
+        if ledger_primary.entry_fill_price is not None
+        else entry_px
+    )
     diag = classify_structure_stop_outcome(
         episode_id=ep_id,
         model_id=model_id,
         direction=direction,
-        entry_price=ledger_primary.entry_fill_price,
+        entry_price=eff_diag_entry,
         sl_price=sl_px,
         tp_price=tp_px,
         invalidation_price=float(auth["invalidation_price"]),
@@ -897,6 +902,22 @@ def evaluate_v1793_forward_outcomes(
         forward_bars=forward_m1_bars,
         provenance="HISTORICAL_BACKTEST_V1793",
     )
+
+    mfe_px = (
+        round(eff_diag_entry + float(diag.mfe_usd), 2)
+        if str(direction).upper() == "LONG"
+        else round(eff_diag_entry - float(diag.mfe_usd), 2)
+    )
+    mae_px = (
+        round(eff_diag_entry - float(diag.mae_usd), 2)
+        if str(direction).upper() == "LONG"
+        else round(eff_diag_entry + float(diag.mae_usd), 2)
+    )
+    led_dict = ledger_primary.to_dict()
+    led_dict["mfe_price"] = mfe_px
+    led_dict["mae_price"] = mae_px
+    led_dict["mfe_r"] = diag.mfe_r
+    led_dict["mae_r"] = diag.mae_r
 
     return {
         "provenance": "HISTORICAL_BACKTEST_V1793",
@@ -915,13 +936,13 @@ def evaluate_v1793_forward_outcomes(
         "exit_fee_usd": ledger_primary.exit_fee_usd,
         "total_friction_usd": ledger_primary.total_friction_usd,
         "bars_held": ledger_primary.bars_held,
-        "mfe_price": ledger_primary.mfe_price,
-        "mae_price": ledger_primary.mae_price,
-        "mfe_r": ledger_primary.mfe_r,
-        "mae_r": ledger_primary.mae_r,
+        "mfe_price": mfe_px,
+        "mae_price": mae_px,
+        "mfe_r": diag.mfe_r,
+        "mae_r": diag.mae_r,
         "stop_outcome_diagnostic": diag.to_dict(),
         "protected_structure_authority": auth,
-        "execution_ledger": ledger_primary.to_dict(),
+        "execution_ledger": led_dict,
         "sensitivity_ledgers": sens_ledgers,
     }
 

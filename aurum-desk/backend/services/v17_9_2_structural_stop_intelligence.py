@@ -2316,6 +2316,22 @@ class ExecutableTradeLedgerEntryV17931:
         return self.exit_type
 
     @property
+    def entry_fill_mode(self) -> str:
+        return self.fill_mode
+
+    @property
+    def entry_fee_usd(self) -> float:
+        return round(float(self.entry_fee), 4)
+
+    @property
+    def exit_fee_usd(self) -> float:
+        return round(float(self.exit_fee), 4)
+
+    @property
+    def entry_filled(self) -> bool:
+        return bool(self.filled)
+
+    @property
     def total_friction_usd(self) -> float:
         return round(float(self.entry_fee) + float(self.exit_fee), 4)
 
@@ -2365,7 +2381,14 @@ class ExecutableTradeLedgerEntryV17931:
         return True, None
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["outcome_label"] = self.outcome_label
+        d["entry_fill_mode"] = self.entry_fill_mode
+        d["entry_fee_usd"] = self.entry_fee_usd
+        d["exit_fee_usd"] = self.exit_fee_usd
+        d["total_friction_usd"] = self.total_friction_usd
+        d["entry_filled"] = self.entry_filled
+        return d
 
 
 def simulate_v17931_trade_execution_net(
