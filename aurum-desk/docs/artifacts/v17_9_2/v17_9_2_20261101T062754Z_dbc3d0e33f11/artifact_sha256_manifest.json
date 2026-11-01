@@ -165,6 +165,10 @@
       "bytes": 669,
       "sha256": "4e8204091baed6b67540c92f006bef265dd8ae92f11c66cab8097e01049fb1a8"
     },
+    "latest_run.json": {
+      "bytes": 1025,
+      "sha256": "a0aa6da4809150ed6e9173f52b61e6e6a8f03b096abc2480c7f512977189727a"
+    },
     "logs/negative_controls_green.log": {
       "bytes": 99,
       "sha256": "7789eeccd6d539d9b5eaf53922995964b46848006f246e9a77166d12cf9c0b45"
@@ -262,16 +266,16 @@
       "sha256": "ad0af65faf34436a7d12700eb1e935411337125aa2d547e134c8e640ecb2a17a"
     },
     "v17_9_2_final_verification_report.json": {
-      "bytes": 97411,
-      "sha256": "9499dc454a06bb2e87c37bd4b6be02bd323003efdc5c5e22346058bc6f814ca6"
+      "bytes": 97564,
+      "sha256": "549493affe1c8a20f8b313d58a7cbcff610873dcb94bf0e2070e9000918b748b"
     }
   },
-  "generated_at": "2026-11-01T06:32:36Z",
+  "generated_at": "2026-11-01T06:34:42Z",
   "new_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
   "qa_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
   "run_id": "v17_9_2_20261101T062754Z_dbc3d0e33f11",
   "schema_version": "V17_9_2",
   "tested_executable_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b",
-  "total_bytes": 6900599,
-  "total_files": 66
+  "total_bytes": 6901777,
+  "total_files": 67
 }

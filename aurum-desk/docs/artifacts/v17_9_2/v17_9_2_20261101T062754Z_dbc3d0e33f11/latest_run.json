@@ -5,15 +5,13 @@
   "executable_source_tree_hash": "7580456864d227dcf5624a52cd818e6285d5da23446137e87f43468f98fa659c",
   "executable_tree_unchanged_since_test": true,
   "final_report_path": "docs/artifacts/v17_9_2/v17_9_2_20261101T062754Z_dbc3d0e33f11/v17_9_2_final_verification_report.json",
-  "published_commit_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b",
+  "published_commit_sha": "77683176ce816aa205122991583c7cc26b79811d",
   "qa_base_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
   "ready_for_strategy_activation": "NO",
-  "ready_for_v17_9_3_development": "YES",
-  "remote_branch_matching_published_sha": false,
-  "remote_head_sha": "61c6783c222c67a8afc67ff772ecb920f51535c8",
+  "remote_branch_matching_published_sha": true,
+  "remote_head_sha": "77683176ce816aa205122991583c7cc26b79811d",
   "run_id": "v17_9_2_20261101T062754Z_dbc3d0e33f11",
   "schema_version": "V17_9_2",
-  "strategy_statistical_verdict": "NEGATIVE_EVIDENCE",
   "tested_code_sha": "dbc3d0e33f111b9419ac2e78a7665a38aa21124b",
-  "updated_at_utc": "2026-11-01T06:32:36Z"
+  "updated_at_utc": "2026-11-01T06:34:42Z"
 }
