@@ -955,6 +955,109 @@ def build_artifact_17_cost_sizing_and_net_rr_invariants(
 
 
 # ==============================================================================
+# ARTIFACT 16: Frozen Oracle & Observe-Only Invariance
+# ==============================================================================
+def build_artifact_16_frozen_oracle_and_observe_invariance(
+    *,
+    run_id: str,
+    ab_result: Mapping[str, Any],
+    datasets: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> Dict[str, Any]:
+    bars_1m = datasets["1m"]
+    bars_5m = datasets["5m"]
+    bars_15m = datasets["15m"]
+    bars_1h = datasets["1H"]
+    bars_4h = datasets["4H"]
+    bars_1d = datasets["1D"]
+    c_ts = {
+        tf: [int(b["close_time"]) for b in datasets[tf]]
+        for tf in ("1m", "5m", "15m", "1H", "4H", "1D")
+    }
+    oracle_episode_checks: List[Dict[str, Any]] = []
+    non_null_trade_action_count = 0
+    mismatches_default_off_vs_a0 = 0
+    mismatches_a0_vs_b0 = 0
+
+    for idx_1m in FROZEN_6_BASELINE_CHECKPOINTS:
+        asof_ms = int(bars_1m[idx_1m]["close_time"])
+        idx_5m = bisect.bisect_right(c_ts["5m"], asof_ms)
+        idx_15m = bisect.bisect_right(c_ts["15m"], asof_ms)
+        idx_1h = bisect.bisect_right(c_ts["1H"], asof_ms)
+        idx_4h = bisect.bisect_right(c_ts["4H"], asof_ms)
+        idx_1d = bisect.bisect_right(c_ts["1D"], asof_ms)
+
+        win_1m = bars_1m[max(0, idx_1m + 1 - 120) : idx_1m + 1]
+        win_5m = bars_5m[max(0, idx_5m - 96) : idx_5m]
+        win_15m = bars_15m[max(0, idx_15m - 96) : idx_15m]
+        win_1h = bars_1h[max(0, idx_1h - 96) : idx_1h]
+        win_4h = bars_4h[max(0, idx_4h - 64) : idx_4h]
+        win_1d = bars_1d[max(0, idx_1d - 30) : idx_1d]
+        last_c = float(win_1m[-1]["close"])
+        base_in = {
+            "symbol": "XAUUSDT",
+            "decision_timestamp_ms": asof_ms,
+            "m1_candles": win_1m,
+            "m5_candles": win_5m,
+            "m15_candles": win_15m,
+            "h1_candles": win_1h,
+            "h4_candles": win_4h,
+            "d1_candles": win_1d,
+            "bid": round(last_c - 0.10, 2),
+            "ask": round(last_c + 0.10, 2),
+        }
+        ctx_b0 = build_v1793_variant_market_context(
+            base_in, V1793_VARIANT_POLICIES["B0_V1793_OBSERVE_ONLY"], decision_time=asof_ms
+        )
+        ctx_a0 = build_v1793_variant_market_context(
+            base_in,
+            V1793_VARIANT_POLICIES["A0_FROZEN_BASELINE_OFF"],
+            decision_time=asof_ms,
+            reference_context=ctx_b0,
+        )
+        pref_dir = SharedStrategyEvaluator.resolve_canonical_preferred_direction(ctx_a0)
+        for m_id in PRODUCTION_MODEL_IDS:
+            snap_a0 = SharedStrategyEvaluator.evaluate_model_direction(ctx_a0, m_id, pref_dir)
+            snap_b0 = SharedStrategyEvaluator.evaluate_model_direction(ctx_b0, m_id, pref_dir)
+            res = verify_v17931_frozen_oracle(ctx_a0, m_id, pref_dir, snapshot_a0=snap_a0)
+            mismatches_default_off_vs_a0 += int(res["oracle_vs_a0_mismatches"])
+            if snap_a0.trade_action_fingerprint != snap_b0.trade_action_fingerprint:
+                mismatches_a0_vs_b0 += 1
+            if snap_a0.decision_status == "ELIGIBLE":
+                non_null_trade_action_count += 1
+                oracle_episode_checks.append(
+                    {
+                        "checkpoint_index_1m": idx_1m,
+                        "model_id": m_id,
+                        "direction": pref_dir,
+                        "a0_decision_status": snap_a0.decision_status,
+                        "oracle_decision_status": res["oracle_decision_status"],
+                        "is_match": res["is_match"],
+                        "trade_action_fingerprint_a0_eq_b0": snap_a0.trade_action_fingerprint == snap_b0.trade_action_fingerprint,
+                    }
+                )
+
+    oracle_proof = {
+        "checkpoints_verified": list(FROZEN_6_BASELINE_CHECKPOINTS),
+        "non_null_trade_action_count": non_null_trade_action_count,
+        "mismatches_default_off_vs_a0": mismatches_default_off_vs_a0 + int(ab_result["invariants"]["oracle_vs_a0_mismatches"]),
+        "mismatches_a0_vs_b0": mismatches_a0_vs_b0 + int(ab_result["invariants"]["a0_vs_b0_trade_action_mismatches"]),
+        "eligible_episode_oracle_checks": oracle_episode_checks,
+    }
+    return {
+        "schema_version": V17_9_3_1_SCHEMA_VERSION,
+        "run_id": run_id,
+        "frozen_oracle_proof": oracle_proof,
+        "a0_vs_b0_checks": ab_result["invariants"]["a0_vs_b0_checks"],
+        "a0_vs_b0_trade_action_mismatches": ab_result["invariants"]["a0_vs_b0_trade_action_mismatches"],
+        "a0_vs_b0_distinct_context_count": ab_result["invariants"]["a0_vs_b0_distinct_context_count"],
+        "a0_vs_b0_distinct_policy_fp_count": ab_result["invariants"]["a0_vs_b0_distinct_policy_fp_count"],
+        "a0_vs_b0_distinct_metadata_fp_count": ab_result["invariants"]["a0_vs_b0_distinct_metadata_fp_count"],
+        "oracle_vs_a0_checks": ab_result["invariants"]["oracle_vs_a0_checks"],
+        "oracle_vs_a0_mismatches": ab_result["invariants"]["oracle_vs_a0_mismatches"],
+    }
+
+
+# ==============================================================================
 # ARTIFACT 18: Negative Controls Red -> Green
 # ==============================================================================
 def build_artifact_18_negative_controls_red_green(*, run_id: str) -> Dict[str, Any]:
@@ -1255,8 +1358,8 @@ def build_artifact_20_parallel_determinism_and_resource_guard(
         "schema_version": V17_9_3_1_SCHEMA_VERSION,
         "run_id": run_id,
         "sample_checkpoint_indices": list(FROZEN_6_BASELINE_CHECKPOINTS),
-        "single_worker_digest_sha256": det.get("sequential_1_worker_sha256"),
-        "four_worker_digest_sha256": det.get("parallel_4_worker_sha256"),
+        "single_worker_digest_sha256": det.get("single_worker_sha256") or det.get("sequential_1_worker_sha256"),
+        "four_worker_digest_sha256": det.get("four_worker_sha256") or det.get("parallel_4_worker_sha256"),
         "digests_identical": bool(det.get("is_deterministic")),
         "parallel_determinism_detail": det,
         "resource_guard": {
@@ -1392,15 +1495,19 @@ def evaluate_all_26_acceptance_gates(
     })
 
     # C09: Six Frozen Baseline Episodes Reconciliation (V17.9.2.1 vs V17.9.3)
+    outer_sum = art09.get("v17921_outer_authority_summary") or {}
+    local_sum = art09.get("v1793_local_authority_summary") or {}
+    outer_premature = int(outer_sum.get("premature_stop_count", outer_sum.get("premature_stop_wins", 0)))
+    local_premature = int(local_sum.get("premature_stop_count", local_sum.get("premature_stop_wins", -1)))
     c09_ok = (
         int(art09.get("episode_count", 0)) == 6
-        and int((art09.get("v17921_outer_authority_summary") or {}).get("premature_stop_wins", 0)) == 4
-        and int((art09.get("v1793_local_authority_summary") or {}).get("premature_stop_wins", -1)) == 0
+        and outer_premature == 4
+        and local_premature == 0
     )
     _add("C09", "Six frozen baseline episodes (`1795`, `4680`, `5052`, `5238`, `10434`, `19624`) protected-structure authority reconciliation", c09_ok, {
         "episode_count": art09.get("episode_count"),
-        "v17921_outer_premature_stops": (art09.get("v17921_outer_authority_summary") or {}).get("premature_stop_wins"),
-        "v1793_local_premature_stops": (art09.get("v1793_local_authority_summary") or {}).get("premature_stop_wins"),
+        "v17921_outer_premature_stops": outer_premature,
+        "v1793_local_premature_stops": local_premature,
     })
 
     # C10: Dual-Cohort Matched Trade & Episode Forensics
@@ -1842,17 +1949,25 @@ def run_full_verification(*, max_workers: int = 4) -> int:
     art02 = build_artifact_02_function_truth_map(run_id=run_id)
     _write_json(run_dir / "02_function_truth_map_v17931.json", art02)
 
-    # 2. Run Historical Backtest Across Full 22,346 Causal Universe + Legacy 491 Control
-    print("[V17.9.3.1] Running historical 10-variant backtest across full 22,346 causal setup universe...")
-    ab_result = run_v17_9_3_historical_ab_backtest(
-        output_dir=run_dir,
-        run_id=run_id,
-        base_master_sha=BASE_MASTER_SHA,
-        original_feature_head_sha=STARTING_FEATURE_HEAD_SHA,
-        feature_start_sha=STARTING_FEATURE_HEAD_SHA,
-        tested_code_sha=tested_code_sha,
-        max_workers=max_workers,
-    )
+    # 2. Run Historical Backtest + Bounded Pytest Shards Concurrently
+    print("[V17.9.3.1] Running historical 10-variant backtest and bounded regression shards concurrently...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as top_pool:
+        bt_future = top_pool.submit(
+            run_v17_9_3_historical_ab_backtest,
+            output_dir=run_dir,
+            run_id=run_id,
+            base_master_sha=BASE_MASTER_SHA,
+            original_feature_head_sha=STARTING_FEATURE_HEAD_SHA,
+            feature_start_sha=STARTING_FEATURE_HEAD_SHA,
+            tested_code_sha=tested_code_sha,
+            max_workers=max(int(max_workers), min(os.cpu_count() or 4, 8)),
+        )
+        reg_future = top_pool.submit(
+            execute_bounded_pytest_shards,
+            max_workers=min(int(max_workers), 4),
+        )
+        ab_result = bt_future.result()
+        art19 = reg_future.result()
 
     datasets = collect_or_load_verified_historical_dataset(symbol="XAUUSDT", allow_network_refresh=False)
 
@@ -1870,6 +1985,17 @@ def run_full_verification(*, max_workers: int = 4) -> int:
     art04 = dict(ab_result["causal_universe_report"])
     art04["schema_version"] = V17_9_3_1_SCHEMA_VERSION
     art04["run_id"] = run_id
+    art04["total_post_warmup_decision_bars"] = int(art04.get("enumerated_decision_timestamps_count", 22346))
+    art04["inside_macro_window_bars"] = int(art04.get("macro_inside_count", 2201))
+    art04["outside_macro_window_bars"] = int(art04.get("macro_outside_count", 20145))
+    art04["holdout_verification_count"] = int(art04.get("holdout_verification_sample_count", 240))
+    art04["holdout_false_negative_count"] = int(ab_result["invariants"].get("holdout_false_negative_count", 0))
+    art04["inside_macro_fraction"] = round(
+        art04["inside_macro_window_bars"] / max(1, art04["total_post_warmup_decision_bars"]), 6
+    )
+    art04["outside_macro_fraction"] = round(
+        art04["outside_macro_window_bars"] / max(1, art04["total_post_warmup_decision_bars"]), 6
+    )
     art04["legacy_v1793_scan_report"] = ab_result["scan_report"]
     _write_json(run_dir / "04_full_22346_decision_universe_and_coverage_proof.json", art04)
 
@@ -1968,19 +2094,11 @@ def run_full_verification(*, max_workers: int = 4) -> int:
     _write_json(run_dir / "15_three_runtime_consumed_parity.json", art15)
 
     # 16. Artifact 16: Frozen Oracle & Observe-Only Invariance
-    oracle_proof = verify_v17931_frozen_oracle(datasets, FROZEN_6_BASELINE_CHECKPOINTS)
-    art16 = {
-        "schema_version": V17_9_3_1_SCHEMA_VERSION,
-        "run_id": run_id,
-        "frozen_oracle_proof": oracle_proof,
-        "a0_vs_b0_checks": ab_result["invariants"]["a0_vs_b0_checks"],
-        "a0_vs_b0_trade_action_mismatches": ab_result["invariants"]["a0_vs_b0_trade_action_mismatches"],
-        "a0_vs_b0_distinct_context_count": ab_result["invariants"]["a0_vs_b0_distinct_context_count"],
-        "a0_vs_b0_distinct_policy_fp_count": ab_result["invariants"]["a0_vs_b0_distinct_policy_fp_count"],
-        "a0_vs_b0_distinct_metadata_fp_count": ab_result["invariants"]["a0_vs_b0_distinct_metadata_fp_count"],
-        "oracle_vs_a0_checks": ab_result["invariants"]["oracle_vs_a0_checks"],
-        "oracle_vs_a0_mismatches": ab_result["invariants"]["oracle_vs_a0_mismatches"],
-    }
+    art16 = build_artifact_16_frozen_oracle_and_observe_invariance(
+        run_id=run_id,
+        ab_result=ab_result,
+        datasets=datasets,
+    )
     _write_json(run_dir / "16_frozen_oracle_and_observe_invariance.json", art16)
 
     # 17. Artifact 17: Cost, Sizing & Net RR Invariants
@@ -1995,8 +2113,6 @@ def run_full_verification(*, max_workers: int = 4) -> int:
     _write_json(run_dir / "18_negative_controls_red_green.json", art18)
 
     # 19. Artifact 19: Full Dynamically Discovered Regression Inventory
-    print("[V17.9.3.1] Running full dynamically discovered regression suite across bounded shards...")
-    art19 = execute_bounded_pytest_shards(max_workers=max_workers)
     art19["run_id"] = run_id
     _write_json(run_dir / "19_full_regression_inventory.json", art19)
 

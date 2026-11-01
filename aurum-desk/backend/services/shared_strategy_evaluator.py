@@ -2193,6 +2193,9 @@ class SharedStrategyEvaluator:
             if early_memo is None:
                 early_memo = {}
                 cls._EARLY_V1793_MEMO = early_memo
+            can_use_early = sched_cfg is None and (
+                setup_desc is None or not bool(setup_desc.get("has_setup"))
+            )
             early_key = (
                 id(context.closed_m1_candles),
                 id(context.mtf_context),
@@ -2206,15 +2209,16 @@ class SharedStrategyEvaluator:
                 req_htf,
                 entry_px,
                 bool(setup_desc.get("has_setup")) if isinstance(setup_desc, Mapping) else None,
-                str(setup_desc.get("reason_code")) if isinstance(setup_desc, Mapping) else None,
-            )
-            can_use_early = sched_cfg is None and (
-                setup_desc is None or not bool(setup_desc.get("has_setup"))
             )
             if can_use_early:
                 hit = early_memo.get(early_key)
                 if hit is not None and hit[0] is context.closed_m1_candles:
-                    return hit[1], hit[2]
+                    cached_kw = dict(hit[1])
+                    if isinstance(cached_kw.get("v1793_plan_dict"), dict):
+                        p_copy = dict(cached_kw["v1793_plan_dict"])
+                        p_copy["model_id"] = model_id
+                        cached_kw["v1793_plan_dict"] = p_copy
+                    return cached_kw, hit[2]
             from services.v17_9_3_macro_unicorn_intelligence import plan_v17_9_3_macro_unicorn_setup
             early_plan = plan_v17_9_3_macro_unicorn_setup(
                 context=context,
@@ -2237,7 +2241,7 @@ class SharedStrategyEvaluator:
                 "v1793_rejection_stage": early_plan.rejection_stage if early_plan.mode != "OBSERVE_ONLY" else None,
             }
             if can_use_early:
-                if len(early_memo) >= 64:
+                if len(early_memo) >= 256:
                     early_memo.clear()
                 early_memo[early_key] = (context.closed_m1_candles, res_kw, extra_rej)
             return res_kw, extra_rej

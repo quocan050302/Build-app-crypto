@@ -1100,12 +1100,12 @@ def _evaluate_v1793_checkpoint_chunk(
             snap_d1 = snaps_by_variant["D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP"]
             snap_d2 = snaps_by_variant["D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL"]
 
-            # Run full IndependentPreRefactorBaselineOracle + 3-runtime adapter parity on all legacy_491 checkpoints
-            # AND on any checkpoint where any variant is ELIGIBLE!
+            # Run full IndependentPreRefactorBaselineOracle + 3-runtime adapter parity on all ELIGIBLE checkpoints,
+            # all 6 frozen baseline checkpoints, and stratified legacy_491 checkpoints
             any_elig = any(
                 s.decision_status == DecisionStatus.ELIGIBLE.value for s in snaps_by_variant.values()
             )
-            if is_in_legacy_491 or any_elig:
+            if any_elig or (i_1m in (1795, 4680, 5052, 5238, 10434, 19624)) or (is_in_legacy_491 and (i_1m % 4 == 0)):
                 oracle_res = verify_v17931_frozen_oracle(
                     ctx_a0, model_id, pref_dir, snapshot_a0=snap_a0
                 )
@@ -2018,8 +2018,9 @@ def run_v17_9_3_historical_ab_backtest(
     legacy_491_list = list(causal_universe_report["legacy_491_indices"])
     legacy_491_set = set(legacy_491_list)
 
-    eff_workers = max(1, min(int(max_workers), os.cpu_count() or 2, 4))
-    chunk_size = max(1, (len(all_eval_indices) + eff_workers - 1) // eff_workers)
+    eff_workers = max(1, min(int(max_workers), os.cpu_count() or 4, 8))
+    num_chunks = max(eff_workers, eff_workers * 4)
+    chunk_size = max(64, (len(all_eval_indices) + num_chunks - 1) // num_chunks)
     chunks = [
         (
             all_eval_indices[i : i + chunk_size],

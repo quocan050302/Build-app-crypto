@@ -1460,10 +1460,13 @@ def _detect_scan_unicorn_memoized(
         timeframe="1M",
         strict_causal_binding=bool(strict),
     )
-    if len(_SCAN_UNICORN_MEMO) >= 16:
+    if len(_SCAN_UNICORN_MEMO) >= 256:
         _SCAN_UNICORN_MEMO.clear()
     _SCAN_UNICORN_MEMO[key] = (raw_m1_seq, ev)
     return ev
+
+
+_ASSESS_UNICORN_NO_SETUP_MEMO: Dict[Tuple[Any, ...], Tuple[Any, UnicornConfluenceAssessment]] = {}
 
 
 # ==============================================================================
@@ -1598,6 +1601,35 @@ def evaluate_causal_unicorn_confluence(
     )
 
     raw_m1_attr = getattr(context, "closed_m1_candles", None)
+    no_setup_fast_key: Optional[Tuple[Any, ...]] = None
+    if (
+        not isinstance(sel_fvg, Mapping)
+        and bound_break is None
+        and bound_ref is None
+        and sel_sweep is None
+        and not bool(setup_map.get("has_setup"))
+        and raw_m1_attr is not None
+        and not has_unclosed
+        and not has_future_bar
+    ):
+        no_setup_fast_key = (
+            id(raw_m1_attr),
+            len(closed_m1),
+            _candle_ohlc(closed_m1[-1]) if closed_m1 else (),
+            id(mtf_ctx),
+            getattr(mtf_ctx, "mtf_context_hash", None),
+            norm_dir,
+            int(decision_timestamp_ms),
+            str(symbol),
+            bool(strict),
+            bool(require_confirmed_retest),
+            bool(require_htf_alignment),
+            bool(require_sweep_provenance),
+        )
+        fast_hit = _ASSESS_UNICORN_NO_SETUP_MEMO.get(no_setup_fast_key)
+        if fast_hit is not None and fast_hit[0] is raw_m1_attr:
+            return fast_hit[1]
+
     if not isinstance(sel_fvg, Mapping) and bound_break is None and bound_ref is None and raw_m1_attr is not None:
         unicorn_ev = _detect_scan_unicorn_memoized(
             raw_m1_attr,
@@ -1642,7 +1674,7 @@ def evaluate_causal_unicorn_confluence(
                 strict_causal_binding=bool(strict),
             )
             if bound_memo_key is not None:
-                if len(_SCAN_UNICORN_MEMO) >= 64:
+                if len(_SCAN_UNICORN_MEMO) >= 256:
                     _SCAN_UNICORN_MEMO.clear()
                 _SCAN_UNICORN_MEMO[bound_memo_key] = (raw_m1_attr, unicorn_ev)
 
@@ -1754,7 +1786,7 @@ def evaluate_causal_unicorn_confluence(
 
     failure_stage = None if is_valid_overall else (reasons[0] if reasons else str(unicorn_ev.validity_status))
 
-    return UnicornConfluenceAssessment(
+    assessment_res = UnicornConfluenceAssessment(
         symbol=symbol,
         direction=norm_dir,
         decision_timestamp_ms=decision_timestamp_ms,
@@ -1790,6 +1822,11 @@ def evaluate_causal_unicorn_confluence(
         scan_level_unicorn_id=scan_id,
         rejection_reasons=tuple(reasons),
     )
+    if no_setup_fast_key is not None and raw_m1_attr is not None:
+        if len(_ASSESS_UNICORN_NO_SETUP_MEMO) >= 256:
+            _ASSESS_UNICORN_NO_SETUP_MEMO.clear()
+        _ASSESS_UNICORN_NO_SETUP_MEMO[no_setup_fast_key] = (raw_m1_attr, assessment_res)
+    return assessment_res
 
 
 # ==============================================================================

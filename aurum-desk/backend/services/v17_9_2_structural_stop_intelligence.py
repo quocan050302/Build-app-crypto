@@ -3286,6 +3286,8 @@ def verify_v17931_frozen_forensic_episode_parity(
         ),
         "v17921_outer_authority_classification": first_outer_cls,
         "v1793_local_authority_classification": first_local_cls,
+        "v17921_outer_authority_diagnostic": outer_diags[0].to_dict() if outer_diags else None,
+        "v1793_local_authority_diagnostic": local_diags[0].to_dict() if local_diags else None,
         "episode_count": len(reconciled_rows),
         "root_cause_of_v17921_vs_v1793_discrepancy": (
             "In V17.9.2.1, classify_structure_stop_outcome was called with protected_structure_price = "
