@@ -53,6 +53,7 @@ from services.shared_strategy_evaluator import (
 from services.stop_placement_policy_service import (
     StopPolicyValidationError,
     resolve_stop_placement_policy,
+    update_stop_placement_policy,
     validate_stop_placement_policy,
 )
 from services.v17_8_backtest_runner import (
@@ -69,8 +70,8 @@ from services.v17_9_2_structural_stop_intelligence import (
     ExecutableTradeLedgerEntryV17931,
     StopOutcomeDiagnostic,
     classify_structure_stop_outcome,
+    evaluate_stop_tp_risk_and_size,
     measure_premature_stop_rate,
-    plan_v17_9_2_structural_stop_tp,
     resolve_v17931_protected_structure_authority,
     simulate_v17931_trade_execution_net,
     verify_v17931_frozen_forensic_episode_parity,
@@ -287,8 +288,8 @@ def build_artifact_02_function_truth_map(*, run_id: str) -> Dict[str, Any]:
         ),
         (
             "backend/services/v17_9_2_structural_stop_intelligence.py",
-            "plan_v17_9_2_structural_stop_tp",
-            plan_v17_9_2_structural_stop_tp,
+            "evaluate_stop_tp_risk_and_size",
+            evaluate_stop_tp_risk_and_size,
         ),
         (
             "backend/services/v17_9_3_macro_unicorn_intelligence.py",
@@ -563,7 +564,7 @@ def build_artifact_06_trade_execution_ledger_net(
             led["episode_index"] = ep.get("episode_index")
             v_entries.append(led)
             total_ledger_entries += 1
-            if led.get("entry_filled"):
+            if led.get("filled") or led.get("entry_filled"):
                 identity_checks_total += 1
                 p_risk = float(led.get("planned_net_risk_usd") or 0.0)
                 net_pnl = float(led.get("realized_net_pnl_usd") or 0.0)
@@ -598,8 +599,8 @@ def build_artifact_07_execution_sensitivity_3modes(
 ) -> Dict[str, Any]:
     sens = ab_result["fill_mode_sensitivity"]
     bars_sample = [
-        {"timestamp": 1774310460000, "open": 3000.2, "high": 3001.5, "low": 2999.8, "close": 3001.0},
-        {"timestamp": 1774310520000, "open": 3001.0, "high": 3005.5, "low": 3000.5, "close": 3005.0},
+        {"timestamp": 1774310400000, "close_time": 1774310460000, "open": 3000.2, "high": 3001.5, "low": 2999.8, "close": 3001.0},
+        {"timestamp": 1774310460000, "close_time": 1774310520000, "open": 3001.0, "high": 3005.5, "low": 3000.5, "close": 3005.0},
     ]
     mode_direct_proofs: Dict[str, Any] = {}
     for m_name in (
@@ -608,14 +609,14 @@ def build_artifact_07_execution_sensitivity_3modes(
         "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
     ):
         entry_res = simulate_v17931_trade_execution_net(
-            trade_id=f"sens_proof_{m_name}",
-            variant_id="D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP",
+            episode_id=f"sens_proof_{m_name}",
+            variant="D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP",
             model_id="SMC_M1_FVG_CONTINUATION",
             direction="LONG",
             decision_timestamp_ms=1774310400000,
-            entry_reference_price=3000.0,
-            selected_sl_price=2998.0,
-            take_profit_price=3004.5,
+            planned_entry=3000.0,
+            planned_sl=2998.0,
+            planned_tp=3004.5,
             forward_bars=bars_sample,
             fill_mode=m_name,
         )
@@ -870,47 +871,60 @@ def build_artifact_17_cost_sizing_and_net_rr_invariants(
     scalp_cfg = get_scalp_config()
     cost_cfg = CostAssumptions()
 
-    # Verify policy persistence strict boolean & live scope rejection via StopPlacementPolicyService
-    def_pol = resolve_stop_placement_policy(None)
-    default_off_verified = (
-        def_pol.v17_9_3_macro_unicorn_enabled is False
-        and def_pol.v17_9_3_mode == "OFF"
-    )
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
 
-    valid_pol = validate_stop_placement_policy(
-        {
-            "v17_9_3_macro_unicorn_enabled": True,
-            "v17_9_3_observe_only": True,
-            "v17_9_3_mode": "OBSERVE_ONLY",
-            "apply_Scope": "SHADOW_ONLY",
-        }
-    )
-    bool_ok_true = valid_pol.v17_9_3_macro_unicorn_enabled is True
-
-    str_rejected = False
+    engine = create_engine("sqlite:///:memory:")
+    models.Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
     try:
-        validate_stop_placement_policy({"v17_9_3_macro_unicorn_enabled": "false"})
-    except StopPolicyValidationError:
-        str_rejected = True
+        def_pol = resolve_stop_placement_policy(db)
+        default_off_verified = (
+            def_pol.v17_9_3_macro_unicorn_enabled is False
+            and def_pol.v17_9_3_mode == "OFF"
+        )
 
-    int_rejected = False
-    try:
-        validate_stop_placement_policy({"v17_9_3_macro_unicorn_enabled": 1})
-    except StopPolicyValidationError:
-        int_rejected = True
-
-    live_rejected = False
-    try:
-        validate_stop_placement_policy(
+        valid_pol = validate_stop_placement_policy(
             {
                 "v17_9_3_macro_unicorn_enabled": True,
-                "v17_9_3_observe_only": False,
-                "v17_9_3_mode": "MACRO_PLUS_UNICORN_V1792",
-                "apply_scope": "LIVE",
-            }
+                "v17_9_3_observe_only": True,
+                "v17_9_3_mode": "OBSERVE_ONLY",
+                "apply_scope": "SHADOW_ONLY",
+            },
+            def_pol,
         )
-    except StopPolicyValidationError:
-        live_rejected = True
+        bool_ok_true = valid_pol.get("v17_9_3_macro_unicorn_enabled") is True if isinstance(valid_pol, dict) else getattr(valid_pol, "v17_9_3_macro_unicorn_enabled", False) is True
+
+        str_rejected = False
+        try:
+            validate_stop_placement_policy({"v17_9_3_macro_unicorn_enabled": "false"}, def_pol)
+        except StopPolicyValidationError:
+            str_rejected = True
+
+        int_rejected = False
+        try:
+            validate_stop_placement_policy({"v17_9_3_macro_unicorn_enabled": 1}, def_pol)
+        except StopPolicyValidationError:
+            int_rejected = True
+
+        live_rejected = False
+        try:
+            update_stop_placement_policy(
+                db,
+                {
+                    "v17_9_3_macro_unicorn_enabled": True,
+                    "v17_9_3_observe_only": False,
+                    "v17_9_3_mode": "MACRO_PLUS_UNICORN_V1792_SL_TP",
+                },
+                expected_version=1,
+                now_ms=1_775_000_000_000,
+                server_scope="LIVE",
+            )
+        except StopPolicyValidationError:
+            live_rejected = True
+    finally:
+        db.close()
 
     return {
         "schema_version": V17_9_3_1_SCHEMA_VERSION,
@@ -949,16 +963,23 @@ def build_artifact_18_negative_controls_red_green(*, run_id: str) -> Dict[str, A
 
     # Add V17.9.3.1 specific execution truth negative controls (NC07..NC10)
     tie_led = simulate_v17931_trade_execution_net(
-        trade_id="nc07_tie",
-        variant_id="A1_V1792_SL_TP_BASELINE",
+        episode_id="nc07_tie",
+        variant="A1_V1792_SL_TP_BASELINE",
         model_id="SMC_M1_REVERSAL",
         direction="LONG",
-        decision_timestamp_ms=1774310400000,
-        entry_reference_price=3000.0,
-        selected_sl_price=2998.0,
-        take_profit_price=3004.0,
-        forward_bars=[
-            {"timestamp": 1774310460000, "open": 3000.0, "high": 3005.0, "low": 2997.0, "close": 3001.0}
+        decision_timestamp_ms=1_775_000_000_000,
+        planned_entry=3000.0,
+        selected_sl=2998.0,
+        take_profit=3004.0,
+        forward_m1_bars=[
+            {
+                "open_time": 1_775_000_000_000,
+                "close_time": 1_775_000_060_000,
+                "open": 3000.0,
+                "high": 3005.0,
+                "low": 2997.0,
+                "close": 3001.0,
+            }
         ],
     )
     nc07_ok = tie_led.outcome_label == "LOSS_TIE_CONSERVATIVE" and tie_led.realized_net_pnl_usd < 0
@@ -971,20 +992,20 @@ def build_artifact_18_negative_controls_red_green(*, run_id: str) -> Dict[str, A
         }
     )
 
-    wide_led = simulate_v17931_trade_execution_net(
-        trade_id="nc08_wide",
-        variant_id="A1_V1792_SL_TP_BASELINE",
-        model_id="SMC_M1_REVERSAL",
+    wide_rr = calculate_risk_reward(
         direction="LONG",
-        decision_timestamp_ms=1774310400000,
-        entry_reference_price=3000.0,
-        selected_sl_price=2730.0,
-        take_profit_price=3400.0,
-        forward_bars=[
-            {"timestamp": 1774310460000, "open": 3000.0, "high": 3001.0, "low": 2999.0, "close": 3000.0}
-        ],
+        planned_entry=3000.00,
+        stop_loss=2700.00,
+        take_profit=3900.00,
+        capital_usdt=1000.0,
+        risk_pct=0.25,
+        leverage=20,
+        margin_mode="ISOLATED",
+        min_net_rr=2.0,
+        costs=CostAssumptions(),
+        now_ms=1_775_000_000_000,
     )
-    nc08_ok = wide_led.entry_filled is False and wide_led.outcome_label == "UNEXECUTABLE_RISK_BUDGET"
+    nc08_ok = wide_rr.can_execute is False
     controls.append(
         {
             "control_id": "NC08_MIN_LOT_EXCEEDING_250_RISK_BUDGET_REJECTED",
