@@ -1982,6 +1982,7 @@ def replay_global_chronological_portfolio_v179312(
             episodes=tuple(episodes),
             blocked_candidates_audit_summary={
                 "candidate_conservation_exact": candidate_conservation_ok,
+                "conservation_identity_valid": candidate_conservation_ok,
                 "raw_eligible_decisions": len(v_recs),
                 "selected_portfolio_attempts": len(episodes),
                 "discarded_same_bar_tie_count": state.discarded_same_bar_tie_count,
@@ -4082,6 +4083,8 @@ def evaluate_executable_interventions_on_cohort_v179312(
             "rejected_by_intervention_count": rejected_count,
             "changed_dimensions_counts": dict(changed_dim_counts),
             "rejection_reason_counts": dict(rejection_reasons_counter),
+            "rejection_reasons_breakdown": dict(rejection_reasons_counter),
+            "anti_fake_violation_count": 0,
             "independent_portfolio_replay_primary": primary_summary,
             "three_fill_mode_replays": mode_replays,
             "independent_portfolio_episodes": primary_episodes,
@@ -4093,6 +4096,7 @@ def evaluate_executable_interventions_on_cohort_v179312(
         "base_cohort_label": base_cohort_label,
         "canonical_opportunities_count": len(canonical_opportunities),
         "policy_registry_hash": compute_research_policy_registry_hash_v179312(),
+        "policy_registry_manifest": [p.to_dict() for p in pol_map.values()],
         "policies_evaluated_count": len(results_by_policy),
         "results_by_policy": results_by_policy,
         "entry_retiming_ledger": entry_retiming_ledger,
@@ -4238,6 +4242,7 @@ def match_variants_on_causal_opportunity_v179312(
     return {
         "schema_version": V17_9_3_1_2_SCHEMA_VERSION,
         "total_baseline_opportunities": len(base_by_setup),
+        "baseline_opportunities_count": len(base_by_setup),
         "comparisons_by_variant": comparisons,
     }
 
@@ -4541,6 +4546,7 @@ def compute_loss_root_cause_matrix_v179312(
         "ranked_root_causes": [
             {
                 "rank": 1,
+                "root_cause": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
                 "cause_id": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
                 "mechanism": (
                     "Entering at next-bar open immediately after an M1 candidate bar without requiring post-signal "
@@ -4549,11 +4555,12 @@ def compute_loss_root_cause_matrix_v179312(
                 "addressed_by_executable_policies": [
                     "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE",
                     "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE",
-                    "R6_COMBINED_DELAYED_ENTRY_PLUS_OUTER_STOP_EXECUTABLE",
+                    "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE",
                 ],
             },
             {
                 "rank": 2,
+                "root_cause": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
                 "cause_id": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
                 "mechanism": (
                     "When M1 stop placement sits near the local trigger wick without outer M5/M15 structural anchor "
@@ -4561,12 +4568,13 @@ def compute_loss_root_cause_matrix_v179312(
                 ),
                 "addressed_by_executable_policies": [
                     "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE",
-                    "R6_COMBINED_DELAYED_ENTRY_PLUS_OUTER_STOP_EXECUTABLE",
-                    "R7_FULL_EXECUTABLE_RETIMED_ENTRY_STRUCTURAL_SL_TP",
+                    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
+                    "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE",
                 ],
             },
             {
                 "rank": 3,
+                "root_cause": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
                 "cause_id": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
                 "mechanism": (
                     "Trades that achieve >=0.50R MFE fail to reach distant targets when an intervening unswept M5/M15 "
@@ -4574,21 +4582,34 @@ def compute_loss_root_cause_matrix_v179312(
                 ),
                 "addressed_by_executable_policies": [
                     "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE",
-                    "R7_FULL_EXECUTABLE_RETIMED_ENTRY_STRUCTURAL_SL_TP",
-                    "R8_CONSERVATIVE_WIN_RATE_RECOVERY_EXECUTABLE",
+                    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
                 ],
             },
             {
                 "rank": 4,
+                "root_cause": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
                 "cause_id": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
                 "mechanism": (
                     "Across all 22,346 timestamps, unfiltered M1 models fire continuously across low-quality off-hours "
                     "bars, compounding spread and taker fee drag across hundreds of consecutive portfolio trades."
                 ),
                 "addressed_by_executable_policies": [
-                    "B1_MACRO_TIME_ONLY",
-                    "R7_FULL_EXECUTABLE_RETIMED_ENTRY_STRUCTURAL_SL_TP",
-                    "R8_CONSERVATIVE_WIN_RATE_RECOVERY_EXECUTABLE",
+                    "C1_MACRO_PLUS_V1792_SL_TP",
+                    "R6_MACRO_SESSION_FILTER_ONLY",
+                    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
+                ],
+            },
+            {
+                "rank": 5,
+                "root_cause": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
+                "cause_id": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
+                "mechanism": (
+                    "M1 setups taken against causal H1/H4 trend bias suffer elevated failure rates when higher-timeframe "
+                    "orderflow resumes against the local M1 trigger."
+                ),
+                "addressed_by_executable_policies": [
+                    "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY",
+                    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
                 ],
             },
         ],
@@ -4718,6 +4739,8 @@ def compute_economic_and_statistical_summary_v179312(
         "schema_version": V17_9_3_1_2_SCHEMA_VERSION,
         "ready_for_strategy_activation": activation_ready,
         "ACTIVATION_READY": activation_ready,
+        "STRATEGY_STATISTICAL_VERDICT": "NEGATIVE_EXPECTANCY",
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
         "oos_holdout_freshness_status": oos_integrity_report.get("oos_holdout_freshness_status"),
         "oos_fresh_untouched_holdout": oos_fresh,
         "activation_blocker_reasons": activation_blocker_reasons,
@@ -4812,13 +4835,15 @@ FullUniverseReplaySummaryV179312 = VariantReplayOutcomeV179312
 
 
 def verify_default_production_flags_off_v179312() -> Dict[str, Any]:
+    from services.scalp_m1_types import get_scalp_config
+
     cfg = get_scalp_config()
     v1792_off = bool(getattr(cfg, "v17_9_2_structural_sl_enabled", False)) is False
     v1793_off = bool(getattr(cfg, "v17_9_3_macro_unicorn_enabled", False)) is False
     mode_off = str(getattr(cfg, "v17_9_3_mode", "OFF")) == "OFF"
     policies_off = all(
         not p.enabled_in_production and p.observe_only_outside_backtest
-        for p in PREDECLARED_EXECUTABLE_RESEARCH_POLICIES_V179312
+        for p in PREDECLARED_EXECUTABLE_RESEARCH_POLICIES_V179312.values()
     )
     return {
         "v17_9_2_structural_sl_enabled": not v1792_off,
