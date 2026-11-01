@@ -607,7 +607,7 @@ def run_causal_audit_and_failure_sensitivity_probe(
             for tf_ctx in (ctx.mtf_structure.h4, ctx.mtf_structure.h1, ctx.mtf_structure.m15):
                 win_bars = ctx.snapshot.windows[tf_ctx.timeframe].bars
                 max_idx = len(win_bars) - 1
-                for sw in tf_ctx.swings:
+                for sw in tf_ctx.state.swings:
                     if sw.confirmed_at > asof_dt or sw.available_at > asof_dt or sw.confirmed_index > max_idx:
                         unconfirmed_swing_leaks += 1
 
@@ -643,7 +643,7 @@ def run_causal_audit_and_failure_sensitivity_probe(
         snap_nc = build_mtf_bar_snapshot(asof_nc, {"symbol": "XAUUSDT", "M15": bars_15m[:21]})
         leaked_dt = asof_nc - timedelta(minutes=15)
         cv_nc = validate_causal_window(snap_nc, leaked_dt)
-        if not cv_nc.is_valid and any("FUTURE_BAR_LEAK" in r for r in cv_nc.reason_codes):
+        if not cv_nc.is_valid and any("FUTURE_LEAK" in r for r in cv_nc.reason_codes):
             negative_controls_blocked += 1
 
     # NC2: Partial HTF bucket exclusion
@@ -725,7 +725,7 @@ def test_g07_intentional_failure_sensitivity_probe():
 
     green_code = red_code.replace(
         'assert res.is_valid, "INTENTIONAL_FAILURE_SENSITIVITY_PROBE_FOR_GATE_G07"',
-        'assert not res.is_valid and any("FUTURE_BAR_LEAK" in r for r in res.reason_codes)',
+        'assert not res.is_valid and any("FUTURE_LEAK" in r for r in res.reason_codes)',
     )
     probe_test_file.write_text(green_code, encoding="utf-8")
     green_proc = subprocess.run(
