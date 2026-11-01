@@ -851,17 +851,30 @@ def test_19_real_historical_ab_backtest_and_ablations():
       - 100% baseline parity vs IndependentPreRefactorBaselineOracle (`oracle_vs_a_mismatches == 0`)
       - 100% 3-mode consumed decision parity across Production, MARKET_SHADOW, and Backtest (`parity_mismatch_count == 0`)
       - Exact equivalence between `A_BASELINE_OFF` and `B_OBSERVE_ONLY` (`a_vs_b_decision_invariance_mismatches == 0`)
-      - Full ablation matrix (`C_ELIGIBILITY_ON_FULL`, `D1_ABLATION_H4_ONLY`, `D2_ABLATION_H1_ONLY`,
-        `D3_ABLATION_M15_ONLY`, `D4_ABLATION_STRUCTURE_ONLY`, `D5_ABLATION_LIQUIDITY_ONLY`)
+      - Distinct context/policy/metadata fingerprints between A and B (`DEF-02`)
+      - Honest statistical coverage classification (`DEF-05`)
+      - Full ablation matrix (`C_MTF_ELIGIBILITY_ON_FULL`, `D1_ABLATION_H4_ONLY`, `D2_ABLATION_H1_ONLY`,
+        `D3_ABLATION_M15_ONLY`, `D4_ABLATION_STRUCTURE_ONLY`, `D5_ABLATION_LIQUIDITY_ONLY`, `D6_ABLATION_M15_H1_ONLY`)
     """
     res = run_v17_9_1_historical_ab_backtest(max_evaluation_points=24)
     assert res["status"] == "PASS"
+    assert res["DATA_VALIDATED"] is True
+    assert res["ENGINEERING_REPLAY_COMPLETED"] is True
+    assert res["PARITY_VERIFIED"] is True
+    assert res["BASELINE_ORACLE_PARITY"] == "PASS"
+    assert res["OBSERVE_ONLY_ACTION_INVARIANCE"] == "PASS"
+    assert res["THREE_RUNTIME_CONSUMED_PARITY"] == "PASS"
+    assert res["STRATEGY_STATISTICAL_CONCLUSION"] == "STATISTICALLY_INCONCLUSIVE_INSUFFICIENT_SAMPLE"
     assert res["dataset"]["symbol"] == "XAUUSDT"
     assert res["dataset"]["venue"] == "BITGET"
+    assert res["dataset"]["quote_construction_mode"] == "MODELED_SPREAD_QUOTE"
     assert res["dataset"]["evaluation_checkpoints"] > 0
     assert res["parity"]["status"] == "PASS"
     assert res["parity"]["parity_mismatch_count"] == 0
     assert res["parity"]["a_vs_b_decision_invariance_mismatches"] == 0
+    assert res["parity"]["a_vs_b_distinct_context_checks"] == res["parity"]["a_vs_b_decision_invariance_checks"]
+    assert res["parity"]["a_vs_b_distinct_policy_fp_checks"] == res["parity"]["a_vs_b_decision_invariance_checks"]
+    assert res["parity"]["a_vs_b_distinct_metadata_fp_checks"] == res["parity"]["a_vs_b_decision_invariance_checks"]
     assert res["parity"]["oracle_vs_a_mismatches"] == 0
 
     variants = res["variants"]
@@ -874,6 +887,7 @@ def test_19_real_historical_ab_backtest_and_ablations():
         "D3_ABLATION_M15_ONLY",
         "D4_ABLATION_STRUCTURE_ONLY",
         "D5_ABLATION_LIQUIDITY_ONLY",
+        "D6_ABLATION_M15_H1_ONLY",
     )
     for v_key in expected_variants:
         assert v_key in variants
@@ -889,3 +903,367 @@ def test_19_real_historical_ab_backtest_and_ablations():
 
     assert variants["A_BASELINE_OFF"]["n_eligible_trades"] == variants["B_OBSERVE_ONLY_DEFAULT"]["n_eligible_trades"]
     assert variants["A_BASELINE_OFF"]["decisions_Set_hash"] == variants["B_OBSERVE_ONLY_DEFAULT"]["decisions_Set_hash"]
+    assert variants["A_BASELINE_OFF"]["trade_actions_set_hash"] == variants["B_OBSERVE_ONLY_DEFAULT"]["trade_actions_set_hash"]
+    assert variants["A_BASELINE_OFF"]["policy_set_hash"] != variants["B_OBSERVE_ONLY_DEFAULT"]["policy_set_hash"]
+    assert variants["A_BASELINE_OFF"]["metadata_set_hash"] != variants["B_OBSERVE_ONLY_DEFAULT"]["metadata_set_hash"]
+
+
+def test_20_true_ab_variant_separation_distinct_contexts_and_action_invariance():
+    """
+    Section 04 & 10 (T12 / DEF-02): Verify `build_variant_market_context` and
+    `compare_ab_variant_decisions` enforce distinct A (`A_BASELINE_OFF`) vs B (`B_OBSERVE_ONLY_DEFAULT`)
+    contexts, distinct `policy_fingerprint` and `metadata_fingerprint`, and identical `trade_action_fingerprint`.
+    """
+    from backend.services.mtf_structure_liquidity_service import (
+        build_variant_market_context,
+        compare_ab_variant_decisions,
+    )
+    from backend.services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+
+    base_inputs = _build_full_mtf_decision_inputs()
+    ctx_a = build_variant_market_context(
+        base_inputs,
+        {
+            "mtf_structure_observe_only": False,
+            "mtf_structure_eligibility_enabled": False,
+            "mtf_ablation_mode": "FULL",
+        },
+    )
+    ctx_b = build_variant_market_context(
+        base_inputs,
+        {
+            "mtf_structure_observe_only": True,
+            "mtf_structure_eligibility_enabled": False,
+            "mtf_ablation_mode": "FULL",
+        },
+    )
+    assert ctx_a is not ctx_b
+    assert ctx_a.mtf_context is None
+    assert ctx_a.mtf_quality_state == MtfDataQualityState.DISABLED_OFF
+    assert ctx_b.mtf_context is not None
+    assert ctx_b.mtf_quality_state in (MtfDataQualityState.VALID, MtfDataQualityState.INSUFFICIENT_HISTORY)
+
+    orch = ScalpWatcherOrchestrator()
+    model_id = ModelIdentifier.SMC_M1_FVG_CONTINUATION.value
+    snap_a = orch.evaluate_shared_decision_snapshot(context=ctx_a, model_id=model_id, direction="LONG")
+    snap_b = orch.evaluate_shared_decision_snapshot(context=ctx_b, model_id=model_id, direction="LONG")
+
+    ab_res = compare_ab_variant_decisions(ctx_a, snap_a, ctx_b, snap_b)
+    assert ab_res["is_valid"] is True
+    assert ab_res["status"] == "PASS"
+    assert ab_res["distinct_context"] is True
+    assert ab_res["distinct_policy_fingerprint"] is True
+    assert ab_res["distinct_metadata_fingerprint"] is True
+    assert ab_res["trade_action_invariant"] is True
+    assert snap_a.trade_action_fingerprint == snap_b.trade_action_fingerprint
+    assert snap_a.policy_fingerprint != snap_b.policy_fingerprint
+    assert snap_a.metadata_fingerprint != snap_b.metadata_fingerprint
+
+    # Negative Control: Reusing the same ctx_b for both A and B MUST fail closed!
+    ab_same = compare_ab_variant_decisions(ctx_b, snap_b, ctx_b, snap_b)
+    assert ab_same["is_valid"] is False
+    assert ab_same["status"] == "AB_INVARIANCE_OR_SEPARATION_FAILED"
+
+
+def test_21_cloned_dict_and_spoofed_lineage_fail_closed():
+    """
+    Section 07 & 10 (T14 & T15): Verify `compare_actual_consumed_decisions` blocks:
+      1. Identical object references (`SELF_EXTRACTED_IDENTICAL_OBJECT_INSTANCE`)
+      2. Cloned dicts with duplicate `adapter_origin` (`DUPLICATE_OR_MISSING_ADAPTER_ORIGIN`)
+      3. Cloned dicts with mutated `adapter_origin` but copied `adapter_call_id` (`CLONED_OR_MISSING_ADAPTER_CALL_ID`)
+      4. Cloned dicts with fabricated/spoofed `adapter_call_id` (`UNREGISTERED_OR_SPOOFED_ADAPTER_LINEAGE`)
+    """
+    from backend.services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+
+    inputs = _build_full_mtf_decision_inputs()
+    ctx = build_market_decision_context(**inputs)
+    orch = ScalpWatcherOrchestrator()
+    prod_snap = orch.evaluate_shared_decision_snapshot(
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        direction="LONG",
+    )
+
+    # 1. Cloned dicts with identical adapter_origin
+    d1 = dict(prod_snap.to_parity_dict())
+    d2 = dict(prod_snap.to_parity_dict())
+    d3 = dict(prod_snap.to_parity_dict())
+    assert d1 is not d2 and d1 is not d3
+    rep_dup_origin = compare_actual_consumed_decisions(d1, d2, d3)
+    assert rep_dup_origin["is_parity"] is False
+    assert rep_dup_origin["reason"] == "DUPLICATE_OR_MISSING_ADAPTER_ORIGIN"
+
+    # 2. Cloned dicts with mutated adapter_origin but identical adapter_call_id
+    d2["adapter_origin"] = "MARKET_SHADOW_ADAPTER"
+    d3["adapter_origin"] = "HISTORICAL_BACKTEST_ADAPTER"
+    rep_dup_call = compare_actual_consumed_decisions(d1, d2, d3)
+    assert rep_dup_call["is_parity"] is False
+    assert rep_dup_call["reason"] == "CLONED_OR_MISSING_ADAPTER_CALL_ID"
+
+    # 3. Cloned dicts with fabricated/unregistered adapter_call_id
+    d2["adapter_call_id"] = "call_MARKET_SHADOW_ADAPTER_999999_999999"
+    d3["adapter_call_id"] = "call_HISTORICAL_BACKTEST_ADAPTER_999999_999999"
+    rep_spoof = compare_actual_consumed_decisions(d1, d2, d3)
+    assert rep_spoof["is_parity"] is False
+    assert rep_spoof["reason"] == "UNREGISTERED_OR_SPOOFED_ADAPTER_LINEAGE"
+
+
+def test_22_mtf_context_build_exception_fail_closed_and_invariant_guard(monkeypatch):
+    """
+    Section 05 & 10 (T16 & T17 / DEF-03):
+      - When `build_mtf_context` raises an exception, `build_market_decision_context` never
+        swallows it with `mtf_quality_state == "VALID"`; it sets `mtf_quality_state = "MTF_CONTEXT_BUILD_FAILED"`
+        and populates `mtf_diagnostic_error`.
+      - When `mtf_structure_eligibility_enabled=True`, evaluation fails closed with `MTF_CONTEXT_BUILD_FAILED`.
+      - When `mtf_structure_eligibility_enabled=False`, baseline trade decision is preserved while
+        `mtf_quality_state == "MTF_CONTEXT_BUILD_FAILED"` is recorded on the snapshot.
+      - Impossible state `mtf_context is None` + `mtf_quality_state == "VALID"` raises `ValueError`.
+    """
+    import backend.services.mtf_structure_liquidity_service as mtf_svc
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("synthetic_mtf_build_crash")
+
+    monkeypatch.setattr(mtf_svc, "build_mtf_context", _boom)
+
+    # Case 1: Observe-only (flag OFF)
+    inputs_off = _build_full_mtf_decision_inputs(
+        policy_overrides={"mtf_structure_observe_only": True, "mtf_structure_eligibility_enabled": False}
+    )
+    ctx_failed_off = build_market_decision_context(**inputs_off)
+    assert ctx_failed_off.mtf_context is None
+    assert ctx_failed_off.mtf_quality_state == MtfDataQualityState.MTF_CONTEXT_BUILD_FAILED
+    assert ctx_failed_off.mtf_diagnostic_error == "RuntimeError:synthetic_mtf_build_crash"
+    assert ctx_failed_off.validate_mtf_context_invariant() == (True, None)
+
+    snap_off = SharedStrategyEvaluator.evaluate_model_direction(
+        ctx_failed_off,
+        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        "LONG",
+        adapter_origin="PRODUCTION_ORCHESTRATOR",
+    )
+    assert snap_off.mtf_quality_state == MtfDataQualityState.MTF_CONTEXT_BUILD_FAILED
+    assert snap_off.mtf_diagnostic_error == "RuntimeError:synthetic_mtf_build_crash"
+
+    # Case 2: Eligibility ON -> fail closed with MTF_CONTEXT_BUILD_FAILED
+    inputs_on = _build_full_mtf_decision_inputs(
+        policy_overrides={"mtf_structure_observe_only": False, "mtf_structure_eligibility_enabled": True}
+    )
+    ctx_failed_on = build_market_decision_context(**inputs_on)
+    snap_on = SharedStrategyEvaluator.evaluate_model_direction(
+        ctx_failed_on,
+        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        "LONG",
+        adapter_origin="PRODUCTION_ORCHESTRATOR",
+    )
+    assert snap_on.decision_status != "ELIGIBLE"
+    assert "MTF_CONTEXT_BUILD_FAILED" in snap_on.rejection_reason_codes
+
+    # Case 3 (T17): Impossible state `mtf_context is None` and `mtf_quality_state == "VALID"` must raise ValueError
+    object.__setattr__(ctx_failed_on, "mtf_quality_state", MtfDataQualityState.VALID)
+    inv_ok, inv_reason = ctx_failed_on.validate_mtf_context_invariant()
+    assert inv_ok is False
+    assert inv_reason == "MTF_INVARIANT_VIOLATION_NULL_CONTEXT_VALID_STATE"
+
+    with pytest.raises(ValueError, match="MTF_INVARIANT_VIOLATION"):
+        evaluate_mtf_eligibility_for_direction("LONG", None, mtf_quality_state=MtfDataQualityState.VALID)
+
+    with pytest.raises(ValueError, match="MTF_INVARIANT_VIOLATION"):
+        SharedStrategyEvaluator.evaluate_model_direction(
+            ctx_failed_on,
+            ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            "LONG",
+            adapter_origin="PRODUCTION_ORCHESTRATOR",
+        )
+
+
+def test_23_early_return_mtf_eligibility_consistency_and_invalid_direction():
+    """
+    Section 05 & 10 (T18): Verify that when `mtf_structure_eligibility_enabled=True` and MTF
+    rejects a trade direction, all early-return paths of `SharedStrategyEvaluator.evaluate_model_direction`
+    (`MODEL_DISABLED`, `MISSING_MARKET_DATA`, `HTF_STRUCTURE_CONFLICT`, `NO_VALID_SETUP`)
+    consistently propagate the MTF rejection reason code, and invalid directions fail closed.
+    """
+    ok_inv, rej_inv, _ = evaluate_mtf_eligibility_for_direction("UNKNOWN_DIRECTION", None)
+    assert ok_inv is False
+    assert rej_inv == "MTF_INVALID_DIRECTION"
+
+    # Build bullish MTF context and evaluate SHORT (which opposes M15/H1/H4 bullish structure)
+    inputs_on = _build_full_mtf_decision_inputs(
+        policy_overrides={
+            "mtf_structure_observe_only": False,
+            "mtf_structure_eligibility_enabled": True,
+            "mtf_ablation_mode": "M15_ONLY",
+        }
+    )
+    model_id = ModelIdentifier.SMC_M1_FVG_CONTINUATION.value
+
+    # 1. Normal NO_VALID_SETUP / RISK return path includes MTF_STRUCTURE_FILTER_REJECT
+    ctx_normal = build_market_decision_context(**inputs_on)
+    snap_normal = SharedStrategyEvaluator.evaluate_model_direction(ctx_normal, model_id, "SHORT")
+    assert snap_normal.decision_status != "ELIGIBLE"
+    assert "MTF_STRUCTURE_FILTER_REJECT" in snap_normal.rejection_reason_codes
+
+    # 2. MODEL_DISABLED early return path includes MTF_STRUCTURE_FILTER_REJECT
+    inputs_disabled = copy.deepcopy(inputs_on)
+    inputs_disabled["model_enablement"] = {model_id: False}
+    ctx_disabled = build_market_decision_context(**inputs_disabled)
+    snap_disabled = SharedStrategyEvaluator.evaluate_model_direction(ctx_disabled, model_id, "SHORT")
+    assert snap_disabled.decision_status == "MODEL_DISABLED"
+    assert "MTF_STRUCTURE_FILTER_REJECT" in snap_disabled.rejection_reason_codes
+
+    # 3. MISSING_MARKET_DATA early return path includes MTF_STRUCTURE_FILTER_REJECT
+    inputs_missing_m1 = copy.deepcopy(inputs_on)
+    inputs_missing_m1["m1_candles"] = inputs_missing_m1["m1_candles"][:5]
+    ctx_missing_m1 = build_market_decision_context(**inputs_missing_m1)
+    snap_missing_m1 = SharedStrategyEvaluator.evaluate_model_direction(ctx_missing_m1, model_id, "SHORT")
+    assert snap_missing_m1.decision_status == "MISSING_MARKET_DATA"
+    assert "MTF_STRUCTURE_FILTER_REJECT" in snap_missing_m1.rejection_reason_codes
+
+
+def test_24_gate_evaluator_fail_closed_and_report_validation(tmp_path: Path):
+    """
+    Section 03 & 10 (T20 / DEF-01): Verify `evaluate_gate` and `validate_final_verification_report`
+    never return static PASS; they fail closed when implementation_map symbols are missing,
+    when causal audit leaks > 0 or failure sensitivity probe fails, or when any gate G01..G12 fails.
+    """
+    from tools.run_v17_9_1_verification import (
+        ALLOWED_BRANCH,
+        build_implementation_map,
+        evaluate_gate,
+        validate_final_verification_report,
+        verify_implementation_map_entries,
+    )
+
+    real_map = build_implementation_map()
+    v_real = verify_implementation_map_entries(real_map)
+    assert v_real["is_valid"] is True
+
+    # Corrupt implementation map with a non-existent function -> G01 MUST FAIL
+    bad_map = copy.deepcopy(real_map)
+    bad_map[0]["function_names"] = ["non_existent_phantom_function_xyz"]
+    v_bad = verify_implementation_map_entries(bad_map)
+    assert v_bad["is_valid"] is False
+    g01_fail = evaluate_gate(
+        "G01",
+        {
+            "artifact_dir": str(tmp_path),
+            "impl_verification": v_bad,
+            "branch": ALLOWED_BRANCH,
+            "head_sha": "496325a5d0cfa8ad3ecab77747d560db7c630a8f",
+        },
+    )
+    assert g01_fail.status == "FAIL"
+    assert g01_fail.passed is False
+
+    # G07 fails closed when future_candle_leaks > 0 or failure_sensitivity_probe is not VERIFIED
+    g07_leak = evaluate_gate(
+        "G07",
+        {
+            "artifact_dir": str(tmp_path),
+            "causal_audit": {
+                "status": "PASS",
+                "audited_checkpoints": 10,
+                "future_candle_leaks": 1,
+                "partial_htf_candle_leaks": 0,
+                "unconfirmed_swing_leaks": 0,
+                "same_bar_wick_false_sweeps": 0,
+                "pdh_pdl_current_day_contamination": 0,
+                "negative_controls_total": 6,
+                "negative_controls_blocked": 6,
+                "failure_sensitivity_probe": {
+                    "status": "VERIFIED",
+                    "red_exit_code": 1,
+                    "red_failures": 1,
+                    "reverted_green_exit_code": 0,
+                    "green_failures": 0,
+                },
+            },
+        },
+    )
+    assert g07_leak.status == "FAIL"
+
+    # G13 fails closed if any prior gate G01..G12 failed
+    g13_fail = evaluate_gate(
+        "G13",
+        {
+            "artifact_dir": str(tmp_path),
+            "prior_gates": {"G01": g01_fail},
+            "dirty_tracked_files": [],
+        },
+    )
+    assert g13_fail.status == "FAIL"
+
+    # validate_final_verification_report fails closed on incomplete gates or mismatched inventory
+    bad_report = {
+        "gates": {f"G{i:02d}": {"status": "PASS"} for i in range(1, 14)},
+        "tests": {"discovered_total": 4506, "executed_total": 312, "excluded_total": 0, "failed": 0, "errors": 0},
+        "parity": {"status": "PASS", "parity_mismatch_count": 0},
+        "git": {"branch": ALLOWED_BRANCH, "dirty_tracked_files_after": []},
+        "final_verdict": "PASS",
+    }
+    val_res = validate_final_verification_report(bad_report)
+    assert val_res.is_valid is False
+    assert val_res.status == "FAIL"
+
+
+def test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity(tmp_path: Path):
+    """
+    Section 06, 07 & 10 (T21 & T24 / DEF-04 & DEF-05):
+      - Verify `evaluate_gate("G08", ...)` fails closed when `discovered_total != executed_total + excluded_total`
+        or when `errors > 0`, `skipped > 0`, or `xfail > 0`.
+      - Verify `compare_actual_consumed_decisions` fails closed when a mandatory field is `None`
+        across all 3 modes (`None == None == None` must never pass!).
+    """
+    from backend.services.market_shadow_service import MarketShadowService
+    from backend.services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+    from backend.services.v17_8_backtest_runner import evaluate_production_parity_model_snapshot
+    from tools.run_v17_9_1_verification import evaluate_gate
+
+    # 1. G08 fails closed when discovered != executed + excluded
+    g08_mismatch = evaluate_gate(
+        "G08",
+        {
+            "artifact_dir": str(tmp_path),
+            "pytest_collection": {"discovered_total": 4506, "excluded_total": 0},
+            "detailed_junit_by_shard": {
+                "SHARD_01": {"tests": 312, "passed": 312, "failures": 0, "errors": 0, "skipped": 0, "xfail": 0, "xpass": 0}
+            },
+        },
+    )
+    assert g08_mismatch.status == "FAIL"
+
+    # 2. G08 passes when discovered == executed and all failures/errors/skips/xfails == 0
+    g08_pass = evaluate_gate(
+        "G08",
+        {
+            "artifact_dir": str(tmp_path),
+            "pytest_collection": {"discovered_total": 4506, "excluded_total": 0},
+            "detailed_junit_by_shard": {
+                "SHARD_01": {"tests": 4506, "passed": 4506, "failures": 0, "errors": 0, "skipped": 0, "xfail": 0, "xpass": 0}
+            },
+        },
+    )
+    assert g08_pass.status == "PASS"
+
+    # 3. T24: Mandatory non-null parity check (`None == None == None` must fail!)
+    inputs = _build_full_mtf_decision_inputs()
+    ctx = build_market_decision_context(**inputs)
+    model_id = ModelIdentifier.SMC_M1_FVG_CONTINUATION.value
+
+    orch = ScalpWatcherOrchestrator()
+    shadow_svc = MarketShadowService(symbol="XAUUSDT")
+    p_dict = orch.evaluate_shared_decision_snapshot(context=ctx, model_id=model_id, direction="LONG").to_parity_dict()
+    s_dict = shadow_svc.evaluate_shared_decision_snapshot(context=ctx, model_id=model_id, direction="LONG").to_parity_dict()
+    b_dict = evaluate_production_parity_model_snapshot(model_id=model_id, context=ctx, direction="LONG")["shared_decision_snapshot"]
+
+    # Nullify `decision_fingerprint` across all 3 dicts (`None == None == None`)
+    p_dict["decision_fingerprint"] = None
+    s_dict["decision_fingerprint"] = None
+    b_dict["decision_fingerprint"] = None
+
+    null_report = compare_actual_consumed_decisions(p_dict, s_dict, b_dict)
+    assert null_report["is_parity"] is False
+    assert null_report["status"] == "PARITY_NOT_ESTABLISHED"
+    assert null_report["reason"] == "MISSING_MANDATORY_PARITY_FIELD"
+
