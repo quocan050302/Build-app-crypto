@@ -1,0 +1,45 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "prior_run_ids": {
+    "v17_9_3_1": "v17_9_3_1_20261101T135550Z_a00a17091bf7",
+    "v17_9_3": "v17_9_3_20261101T101517Z_8350cf25528c",
+    "v17_9_2_1": "v17_9_2_1_20261101T074221Z_b95ef57b237c",
+    "v17_9_2": "v17_9_2_20261101T051946Z_ab8f0252a05d"
+  },
+  "immutable_directories": {
+    "docs/artifacts/v17_9_2": {
+      "exists": true,
+      "file_count": 69,
+      "Aggregate_sha256": "beffaa0f0a9b838d0a2840bcbb76b15cba61ee782e7debd513c782783194d4da",
+      "working_tree_status": "",
+      "diff_since_starting_head": "",
+      "untouched": true
+    },
+    "docs/artifacts/v17_9_2_1": {
+      "exists": true,
+      "file_count": 72,
+      "Aggregate_sha256": "d7b056f902f2eb9227a4b62b2efd813c777058a42792e530ad8be7ec23c1887d",
+      "working_tree_status": "",
+      "diff_since_starting_head": "",
+      "untouched": true
+    },
+    "docs/artifacts/v17_9_3": {
+      "exists": true,
+      "file_count": 69,
+      "Aggregate_sha256": "b7c804e4774187fb3c99fc516cef1839bb26ea30d3a18eb417e6fc413e3d020b",
+      "working_tree_status": "",
+      "diff_since_starting_head": "",
+      "untouched": true
+    },
+    "docs/artifacts/v17_9_3_1": {
+      "exists": true,
+      "file_count": 27,
+      "Aggregate_sha256": "1cb0b44accc154b20f4199848bad9b3d4a86d725fbae89bee808e32b7aa488e1",
+      "working_tree_status": "",
+      "diff_since_starting_head": "",
+      "untouched": true
+    }
+  },
+  "all_immutable_prior_dirs_untouched": true
+}

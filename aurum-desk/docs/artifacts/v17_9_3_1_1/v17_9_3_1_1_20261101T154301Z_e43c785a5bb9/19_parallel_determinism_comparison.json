@@ -1,0 +1,20 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "single_worker_digest_sha256": "d7598aa2fc02d94b68cf62d0c2205eb9f2bea871d6cc6efc2b58957726546e68",
+  "four_worker_digest_sha256": "d7598aa2fc02d94b68cf62d0c2205eb9f2bea871d6cc6efc2b58957726546e68",
+  "digests_identical": true,
+  "parallel_determinism_detail": {
+    "schema_version": "17.9.3.0",
+    "status": "PASS",
+    "is_deterministic": true,
+    "sample_checkpoints_count": 6,
+    "variants_checked_count": 7,
+    "total_comparisons": 210,
+    "mismatch_count": 0,
+    "single_worker_sha256": "d7598aa2fc02d94b68cf62d0c2205eb9f2bea871d6cc6efc2b58957726546e68",
+    "four_worker_sha256": "d7598aa2fc02d94b68cf62d0c2205eb9f2bea871d6cc6efc2b58957726546e68",
+    "single_worker_seconds": 0.946,
+    "four_worker_seconds": 0.859
+  }
+}

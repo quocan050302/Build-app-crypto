@@ -1,0 +1,220 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "generated_at": "2026-11-01T15:49:37Z",
+  "checked_files_count": 42,
+  "all_files_present_and_verified": true,
+  "validation_errors": [],
+  "artifacts": [
+    {
+      "file": "01_git_start_and_frozen_sources.json",
+      "size_bytes": 15744,
+      "sha256": "0161435eb1dc7cbc51d0fbb3de37002b97c131c03f813461ab421ccbf41e0333"
+    },
+    {
+      "file": "02_function_truth_map_and_diff_plan.json",
+      "size_bytes": 10990,
+      "sha256": "d754cff35ce139ca6ca1c2d4a711b331d5f7af938f35b93bfd4a53a8b578e10f"
+    },
+    {
+      "file": "03_prior_evidence_immutability_manifest.json",
+      "size_bytes": 1530,
+      "sha256": "95b9e21faf6532b8d39b01740b9e4b194e529316981036b92cf9f0df42d2d111"
+    },
+    {
+      "file": "04_corrected_risk_policy_snapshot_and_ledger_audit.json",
+      "size_bytes": 4428,
+      "sha256": "3f46f9c91978da06e6c3380ce9be4d92b11af9c8f0aaf236e38819162b064964"
+    },
+    {
+      "file": "05_real_oos_temporal_leakage_audit.json",
+      "size_bytes": 19203,
+      "sha256": "3bfd88b20e61fc35c9d83c0bb213a42f19dfc500bd838ae74a1ab42dfa911981"
+    },
+    {
+      "file": "06_causal_candidate_universe_independent_coverage_audit.json",
+      "size_bytes": 16755,
+      "sha256": "656aa93c8ec9d91d2800af37b9a951a0cf1fb26501f69088a2df5b2f6303ef01"
+    },
+    {
+      "file": "07_loss_episode_ledger_A1_D1.jsonl.gz",
+      "size_bytes": 68797,
+      "sha256": "c7b3e2faab86766f8de1959ef1781a4143df4c7b2cb7a7efcaab6c8643c9058d"
+    },
+    {
+      "file": "08_loss_taxonomy_and_evidence_summary.json",
+      "size_bytes": 73062,
+      "sha256": "489487ec51868f9c167eabbc43f8fb912975c4d33570ea6660bd946f9e2411ff"
+    },
+    {
+      "file": "09_six_frozen_A0_episodes_authority_regression.json",
+      "size_bytes": 55916,
+      "sha256": "269a3fd828edf31a1735edad1e3956f45d894f87f238d7744708f81af7a77d95"
+    },
+    {
+      "file": "10_entry_sl_tp_counterfactual_research_manifest.json",
+      "size_bytes": 7714,
+      "sha256": "72786f76d2f3c26dfddda621153c2ae70656f043333f322bb1c4641b2f7f7a9c"
+    },
+    {
+      "file": "11_matched_variants_and_trade_episode_attribution.json",
+      "size_bytes": 69996,
+      "sha256": "bf6f953dab1f05e855aa093720afdbdf71453fe4ff6706a5645b1ab4d43321b6"
+    },
+    {
+      "file": "12_backtest_baseline_10variants_net_and_costs.json",
+      "size_bytes": 162000,
+      "sha256": "27fa0879259ba6c4dcd2545f0e279bb1a6f7ccb406d90962f1f7782ef295ef34"
+    },
+    {
+      "file": "13_research_variants_ablation_and_failed_hypotheses.json",
+      "size_bytes": 57818,
+      "sha256": "15d5db6455118141936baced529984561e5bbabfca2f9f9add6f0d0ed5b2d18d"
+    },
+    {
+      "file": "14_true_chronological_oos_and_walkforward.json",
+      "size_bytes": 162700,
+      "sha256": "8952267531acef3c5416f1d0c113f61215349346c656d418419b57ec643ef4ae"
+    },
+    {
+      "file": "15_3mode_quote_fee_slippage_sensitivity.json",
+      "size_bytes": 19759,
+      "sha256": "e2cd86375a59c1fbe8ede9a8e4e0d0d39b0db34b72b6be9429ae1cf5e776e7fc"
+    },
+    {
+      "file": "16_three_adapter_consumed_parity_and_OFF_invariance.json",
+      "size_bytes": 6716,
+      "sha256": "06e311eb27f4f1031b67cbd0543d62ff0647e027c9b81e8cc15b74683fe6452e"
+    },
+    {
+      "file": "17_red_green_mutations_with_real_exit_codes.json",
+      "size_bytes": 3571,
+      "sha256": "05519f9d28016b682f388ff004e840b4e3e2ffc86a5f48be6f1397a8d08385c8"
+    },
+    {
+      "file": "18_full_pytest_discovery_vs_junit_execution_bijection.json",
+      "size_bytes": 33956,
+      "sha256": "2e509a896d184ffd2e98099a3a3a26c83623384d2b1c5026b309f4c58353a67f"
+    },
+    {
+      "file": "19_parallel_determinism_comparison.json",
+      "size_bytes": 831,
+      "sha256": "0835019055aa832c6844dcfd53dbde7e352d3c77d4bf103505c00356b4264056"
+    },
+    {
+      "file": "20_disk_ram_cpu_orphan_process_guard.json",
+      "size_bytes": 476,
+      "sha256": "e0b9e1b5cf4eaf758c2fc67e5ec2d67d204db2445d2223c379783643be7823de"
+    },
+    {
+      "file": "22_acceptance_gates_machine_evaluated.json",
+      "size_bytes": 7567,
+      "sha256": "c539dcfe8d5f5ffa28d362f3537b63afb05378a14727c25f44612557ac911d3e"
+    },
+    {
+      "file": "23_technical_and_business_dual_verdict.json",
+      "size_bytes": 14803,
+      "sha256": "6e7ba500f905782d8cca040abc4c6d2b85e09fee0a71a140eb0a1a7556915d4f"
+    },
+    {
+      "file": "23_technical_and_business_dual_verdict.md",
+      "size_bytes": 3212,
+      "sha256": "7f170a4281113db240f656450e3c9922e702e62029266101c49193a947f1bb4f"
+    },
+    {
+      "file": "24_final_git_commit_push_remote_sha_proof.json",
+      "size_bytes": 1008,
+      "sha256": "ee9e87fbb5fbb69fd630ac1ace2e460dddfd99fdc71290ef8a7429876cc3af3b"
+    },
+    {
+      "file": "traces/forensic_episodes_all_variants.jsonl.gz",
+      "size_bytes": 172871,
+      "sha256": "fd3df188d54991d2524ff8390b6b8c27f8d3f6991b27456a65a35745f6782384"
+    },
+    {
+      "file": "junit/SHARD_00_V17_9_3_1_1_AND_V17_9_3.xml",
+      "size_bytes": 19361,
+      "sha256": "c15bffd4f94e68f074681868b82e448258bf71463ca2e4df23d9cc4bf978fda3"
+    },
+    {
+      "file": "junit/SHARD_01A_V17_9_2.xml",
+      "size_bytes": 4106,
+      "sha256": "5459bbe70cd75abe4c94a954b28e25d73b6312a540633eda10e0893f68993142"
+    },
+    {
+      "file": "junit/SHARD_01B_V17_9_2_1.xml",
+      "size_bytes": 3907,
+      "sha256": "92d3267f0cacf657a79b0adec42a5a96e69a220fdef341eaa956d368edbee580"
+    },
+    {
+      "file": "junit/SHARD_02A_V17_9_0_1.xml",
+      "size_bytes": 2862,
+      "sha256": "dbc48afa268cbe1d47f45b1cb1e62565ffe3403283e6638f41f1e1ef9971b2b8"
+    },
+    {
+      "file": "junit/SHARD_02B_V17_9_0_1.xml",
+      "size_bytes": 28019,
+      "sha256": "804a2b80e2cd348c725522fb3304fe01d75410183fbfbbdd6158b8727b086f71"
+    },
+    {
+      "file": "junit/SHARD_02C_V17_9_0_1.xml",
+      "size_bytes": 4279,
+      "sha256": "4abca4b88c0daff931a15fdf881dc31bb4c6c1419a7e096df0e28044d4dfa9dd"
+    },
+    {
+      "file": "junit/SHARD_02D_V17_9_0_1.xml",
+      "size_bytes": 1504,
+      "sha256": "5b0239f39e6185d92964b246309a466f9a9d4dca1ff5dc9493df003992a8129d"
+    },
+    {
+      "file": "junit/SHARD_03_EVALUATOR_MTF_UNICORN_SMC.xml",
+      "size_bytes": 681,
+      "sha256": "2c2548b9a05090202c5b2ba30af805893282e0c5dc3a4d9114f4d2e5ac0b08a3"
+    },
+    {
+      "file": "junit/SHARD_04_V16_23_RED_ISOLATED.xml",
+      "size_bytes": 1620,
+      "sha256": "f52c19a0a803face7deba10800a7908601344e0daab64d1ac3e71da0f4cb6f72"
+    },
+    {
+      "file": "junit/SHARD_06_REGRESSION.xml",
+      "size_bytes": 72941,
+      "sha256": "0add94ee06ef8287af6c975ccd20b944d45733c36065aa2950e434383dd8bbc9"
+    },
+    {
+      "file": "junit/SHARD_07_REGRESSION.xml",
+      "size_bytes": 83940,
+      "sha256": "a192935eb333bf7625578ab54d02b95375587a31f99cbf4f5f54dcf34da474e4"
+    },
+    {
+      "file": "junit/SHARD_08_REGRESSION.xml",
+      "size_bytes": 83855,
+      "sha256": "f010db47166c027df4887eed2c98bad8815f26de8a9a3eff0489fc552308903e"
+    },
+    {
+      "file": "junit/SHARD_09_REGRESSION.xml",
+      "size_bytes": 81859,
+      "sha256": "408f964c15fcbd35d3a9dfd9129ac2492d940a40c9c153d27c60b347bcd7c211"
+    },
+    {
+      "file": "junit/SHARD_10_REGRESSION.xml",
+      "size_bytes": 64949,
+      "sha256": "384654a74864783f9a66e4304210f15452bc6a4162085d385627f9c940aa9292"
+    },
+    {
+      "file": "junit/SHARD_11_REGRESSION.xml",
+      "size_bytes": 72361,
+      "sha256": "4305b754d8f38eb93f7bd3f0d33b95be58fce9cc63a176d00b50f47d433ead83"
+    },
+    {
+      "file": "junit/SHARD_12_REGRESSION.xml",
+      "size_bytes": 70658,
+      "sha256": "e6c1234fcbbb397f4d39a95d3daaf0c65db92d8382475bf8df60fb5a7c395360"
+    },
+    {
+      "file": "junit/SHARD_13_REGRESSION.xml",
+      "size_bytes": 68068,
+      "sha256": "cfd16c86ee05688d8e452ff078d4afc95881f570cb77e91b197715673f1152d6"
+    }
+  ]
+}

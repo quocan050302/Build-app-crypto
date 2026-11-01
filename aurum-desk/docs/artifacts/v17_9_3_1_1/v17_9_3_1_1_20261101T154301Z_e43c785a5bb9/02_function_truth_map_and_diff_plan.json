@@ -1,0 +1,159 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "total_mapped_symbols": 18,
+  "all_symbols_resolved": true,
+  "changed_files_since_v17931_head": [
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+    "aurum-desk/backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+    "aurum-desk/backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py",
+    "aurum-desk/tools/run_v17_9_3_1_1_verification.py",
+    "aurum-desk/tools/run_v17_9_3_1_verification.py"
+  ],
+  "function_truth_map": [
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "RiskPolicySnapshotV179311",
+      "start_line": 150,
+      "end_line": 220,
+      "signature": "(schema_version: 'str' = '17.9.3.1.1', policy_version: 'str' = 'V17.9.3.1.1_CANONICAL_RISK_POLICY', symbol: 'str' = 'XAUUSDT', capital_usdt: 'float' = 1000.0, risk_pct_percent: 'float' = 0.25, leverage: 'int' = 20, margin_mode: 'str' = 'ISOLATED', min_net_rr: 'float' = 2.0, quantity_step: 'float' = 0.01, min_quantity: 'float' = 0.01, multiplier: 'float' = 1.0, tick_size: 'float' = 0.01, taker_fee_rate: 'float' = 0.0004, maker_fee_rate: 'float' = 0.0002, slippage_usd: 'float' = 0.1, spread_usd: 'float' = 0.2, risk_tolerance_epsilon_usd: 'float' = 1e-05) -> None",
+      "sha256": "9cf490ed93b9c76c3cd59fac0a0ca999cd2c99e632498d49e8b56213febf21a5"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "validate_single_ledger_entry_against_risk_policy",
+      "start_line": 227,
+      "end_line": 378,
+      "signature": "(entry: 'Mapping[str, Any]', policy: 'Optional[RiskPolicySnapshotV179311]' = None, *, decision_net_rr: 'Optional[float]' = None) -> 'Dict[str, Any]'",
+      "sha256": "e3673d9a01c63f4761d9f35b1a9c2f737371600b15eff64628fc6470e62536bf"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "audit_ledger_against_risk_policy_snapshot",
+      "start_line": 381,
+      "end_line": 504,
+      "signature": "(ledgers_by_variant: 'Mapping[str, Sequence[Mapping[str, Any]]]', *, episodes_by_variant: 'Optional[Mapping[str, Sequence[Mapping[str, Any]]]]' = None, policy: 'Optional[RiskPolicySnapshotV179311]' = None) -> 'Dict[str, Any]'",
+      "sha256": "ed77a00ead35854da40d33dacc492ba9a3b88c64575e025068df960479813e2a"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "validate_trade_temporal_partition_contract",
+      "start_line": 510,
+      "end_line": 795,
+      "signature": "(episodes_or_trade: 'Any', *, split_start_ts_ms: 'Optional[int]' = None, split_end_ts_ms: 'int', next_split_start_ts_ms: 'Optional[int]' = None, embargo_minutes: 'int' = 180, embargo_bars: 'int' = 180, m1_timestamps_ms: 'Optional[Sequence[int]]' = None, boundary_timezone: 'str' = 'UTC', split_name: 'str' = 'CHRONOLOGICAL_SPLIT') -> 'Dict[str, Any]'",
+      "sha256": "7b1f1b14e7cd575ca03274ee278d7cb5c802a32adce7c3805968db8f91b8885d"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "evaluate_v179311_chronological_oos_and_walkforward",
+      "start_line": 827,
+      "end_line": 1131,
+      "signature": "(episodes_by_variant: 'Mapping[str, Sequence[Mapping[str, Any]]]', m1_bars: 'Sequence[Mapping[str, Any]]', *, embargo_bars: 'int' = 180) -> 'Dict[str, Any]'",
+      "sha256": "2e6e14d078e0480dd1552192a586d4a97b0b8048a48902f8881c78cae9aa484f"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "validate_acceptance_gate_manifest",
+      "start_line": 1137,
+      "end_line": 1194,
+      "signature": "(gate_payload: 'Mapping[str, Any]', *, expected_gate_ids: 'Sequence[str]', self_check_gate_id: 'str' = 'G26') -> 'Dict[str, Any]'",
+      "sha256": "eaff41a66dbd80238aaa4c5f8386600b9e000d08c7cb92b5838c702be79ff099"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "audit_v179311_evaluator_candidate_coverage",
+      "start_line": 1302,
+      "end_line": 1486,
+      "signature": "(datasets: 'Mapping[str, Any]', screen_result: 'Mapping[str, Any]', *, max_workers: 'int' = 8, injected_dropped_indices: 'Optional[Sequence[int]]' = None) -> 'Dict[str, Any]'",
+      "sha256": "f8a8d2c6b4c690309a0e55a82d429150f049a4f49659a99eacb94434edc1969f"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "classify_v179311_loss_root_causes",
+      "start_line": 1513,
+      "end_line": 1652,
+      "signature": "(forensic_row: 'Mapping[str, Any]') -> 'Dict[str, Any]'",
+      "sha256": "1184e5fca5c973422e33fecb9e34c2e0a790a472edbe59db240ba7ab9e6e8d66"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "build_v179311_loss_episode_forensic_ledger",
+      "start_line": 1655,
+      "end_line": 2001,
+      "signature": "(episodes: 'Sequence[Mapping[str, Any]]', datasets: 'Mapping[str, Any]', *, run_id: 'str', tested_code_sha: 'str', dataset_sha: 'str', policy_config_hash: 'str') -> 'List[Dict[str, Any]]'",
+      "sha256": "99ecb48cab251a7fdb4684f6b5a74adde414e2c8e2e6f10f716a128e8dc77f37"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "aggregate_v179311_loss_forensics",
+      "start_line": 2004,
+      "end_line": 2157,
+      "signature": "(forensic_rows: 'Sequence[Mapping[str, Any]]', *, variant: 'str') -> 'Dict[str, Any]'",
+      "sha256": "22be7427282119ddb2d35c58eaa7661e8e3a154085eff371e1d77f0cd1778e4a"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "ResearchVariantPolicyV179311",
+      "start_line": 2163,
+      "end_line": 2192,
+      "signature": "(variant_id: 'str', base_cohort_variant: 'str', intervention_category: 'str', hypothesis_description: 'str', cited_dev_loss_cause: 'str', require_causal_h1_h4_alignment: 'bool' = False, require_confirmed_mss_and_displacement: 'bool' = False, require_confirmed_breaker_fvg_retest: 'bool' = False, require_outer_protected_structure_sl_within_risk_cap: 'bool' = False, require_realistic_m5_m15_h1_target_cap_3_5r: 'bool' = False, require_high_quality_macro_session: 'bool' = False, enabled_in_production: 'bool' = False, observe_only_outside_backtest: 'bool' = True) -> None",
+      "sha256": "e30e28769dd0686ce4d99b957f858f2fce68b43d3a95f9b5fd583af9ca6028c4"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "evaluate_v179311_matched_trade_counterfactuals",
+      "start_line": 2315,
+      "end_line": 2530,
+      "signature": "(forensic_rows: 'Sequence[Mapping[str, Any]]', oos_report: 'Mapping[str, Any]', sensitivity_3modes: 'Mapping[str, Any]') -> 'Dict[str, Any]'",
+      "sha256": "dfe23b3f34f874ef18476d1568eb8ed03024da3850abaeb07af554badc70830b"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "assess_v179311_loss_rate_and_edge_verdict",
+      "start_line": 2536,
+      "end_line": 2681,
+      "signature": "(variant_summaries: 'Mapping[str, Mapping[str, Any]]', episodes_by_variant: 'Mapping[str, Sequence[Mapping[str, Any]]]', oos_report: 'Mapping[str, Any]', counterfactual_report: 'Mapping[str, Any]') -> 'Dict[str, Any]'",
+      "sha256": "773760c3b9340ca05218ee0c1650cdbc9e775df212817e74736f330f4367ddfb"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "validate_junit_and_collection_bijection",
+      "start_line": 2684,
+      "end_line": 2748,
+      "signature": "(collected_node_ids: 'Sequence[str]', junit_xml_paths: 'Sequence[Path]') -> 'Dict[str, Any]'",
+      "sha256": "7de401dc598d733acc641a1b0411a2f053f74972fe1d1fc038077dbecde93f39"
+    },
+    {
+      "file": "backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py",
+      "symbol": "validate_artifact_sha256_manifest",
+      "start_line": 2775,
+      "end_line": 2810,
+      "signature": "(run_dir: 'Path', manifest_entries: 'Sequence[Mapping[str, Any]]') -> 'Dict[str, Any]'",
+      "sha256": "adebb311ae00a7c888f43e57c65a32381e40455f7b477d2e803767f674eb5024"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "simulate_v17931_trade_execution_net",
+      "start_line": 2426,
+      "end_line": 3060,
+      "signature": "(*, variant: 'str' = 'D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP', episode_key: 'str' = 'ep_0', episode_id: 'Optional[str]' = None, setup_id: 'str' = 'setup_0', model_id: 'str' = 'SMC_M1_SCALP', direction: 'str' = 'LONG', decision_ts: 'int' = 0, decision_timestamp_ms: 'Optional[int]' = None, checkpoint_index_1m: 'int' = 0, planned_entry: 'float' = 0.0, planned_sl: 'Optional[float]' = None, selected_sl: 'Optional[float]' = None, planned_tp: 'Optional[float]' = None, take_profit: 'Optional[float]' = None, forward_bars: 'Optional[Sequence[Any]]' = None, forward_m1_bars: 'Optional[Sequence[Any]]' = None, fill_mode: 'str' = 'NEXT_BAR_OPEN_BID_ASK', entry_fill_mode: 'Optional[str]' = None, spread_usd: 'float' = 0.2, slippage_usd: 'float' = 0.1, taker_fee_rate: 'Optional[float]' = None, maker_fee_rate: 'Optional[float]' = None, tp_is_maker: 'bool' = False, capital_usdt: 'float' = 1000.0, risk_pct: 'float' = 0.25, leverage: 'int' = 20, margin_mode: 'str' = 'ISOLATED', min_net_rr: 'float' = 2.0, gap_threshold_ms: 'int' = 300000, dataset_sha: 'str' = '', provenance: 'str' = 'HISTORICAL_BACKTEST_V1793') -> 'ExecutableTradeLedgerEntryV17931'",
+      "sha256": "9e26426ba1b6cad82d7bdd4e4ffbce2cdb04fabc820a5bf35b47c16dc98c5c98"
+    },
+    {
+      "file": "backend/services/v17_9_2_structural_stop_intelligence.py",
+      "symbol": "verify_v17931_frozen_forensic_episode_parity",
+      "start_line": 3170,
+      "end_line": 3337,
+      "signature": "(episodes_with_forward_bars: 'Optional[Sequence[Mapping[str, Any]]]' = None, *, episode_id: 'Optional[str]' = None, model_id: 'str' = 'SMC_M1_FVG_CONTINUATION', direction: 'str' = 'LONG', decision_timestamp_ms: 'int' = 0, entry_price: 'float' = 0.0, a0_sl_price: 'float' = 0.0, a0_tp_price: 'float' = 0.0, a0_local_invalidation_price: 'float' = 0.0, v1792_outer_invalidation_price: 'float' = 0.0, forward_bars: 'Optional[Sequence[Any]]' = None, provenance: 'str' = 'HISTORICAL_BACKTEST_V1793') -> 'Dict[str, Any]'",
+      "sha256": "6ddb0fe75c583b87cf056c28e0ad426f44575697dce649fa4c55284e581a6c0d"
+    },
+    {
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "symbol": "SharedStrategyEvaluator",
+      "start_line": 1506,
+      "end_line": 4407,
+      "signature": "()",
+      "sha256": "843cfb933a5be52477ea05da84d834cab3f42773b90786c2370142b99aca8d07"
+    }
+  ]
+}

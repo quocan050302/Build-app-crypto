@@ -1,0 +1,127 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "risk_policy_snapshot": {
+    "schema_version": "17.9.3.1.1",
+    "policy_version": "V17.9.3.1.1_CANONICAL_RISK_POLICY",
+    "symbol": "XAUUSDT",
+    "capital_usdt": 1000.0,
+    "risk_pct_percent": 0.25,
+    "leverage": 20,
+    "margin_mode": "ISOLATED",
+    "min_net_rr": 2.0,
+    "quantity_step": 0.01,
+    "min_quantity": 0.01,
+    "multiplier": 1.0,
+    "tick_size": 0.01,
+    "taker_fee_rate": 0.0004,
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "spread_usd": 0.2,
+    "risk_tolerance_epsilon_usd": 1e-05,
+    "risk_fraction": 0.0025,
+    "max_planned_risk_usd": 2.5,
+    "policy_hash": "b1601ad990cc68664c1b59876b478f17e491210f18e40b18f6b8a8a24117a73c"
+  },
+  "historical_formula_provenance_clarification": {
+    "v1793_commit_8350cf25528c_formula": "round(realized_r * 2.50, 2)",
+    "v17931_diagnostic_comparison_column": "round(sum(ep_r_vals) * 250.0, 2) (diagnostic 1-lot 100k scale)",
+    "v17931_canonical_simulator_cap": "planned_net_risk_usd <= 2.500001 (capital_usdt=1000.0, risk_pct=0.25%)",
+    "v17931_defect_repaired": "Removed stale 250.0 risk check in build_artifact_06 and 250.0 / min_net_rr>=1.1 description in build_artifact_17 and C17; unified all verifiers on RiskPolicySnapshotV179311 (2.50 USD, min_net_rr>=2.0)."
+  },
+  "total_entries_audited": 543,
+  "filled_entries_audited": 541,
+  "closed_entries_audited": 391,
+  "planned_risk_budget_violations": 0,
+  "stop_geometry_violations": 0,
+  "quantity_step_violations": 0,
+  "algebraic_identity_violations": 0,
+  "min_net_rr_violations": 0,
+  "realized_loss_over_budget_gap_count": 0,
+  "realized_loss_over_budget_gap_episodes": [],
+  "total_violation_entries": 0,
+  "violations": [],
+  "per_variant_summary": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "total_entries": 6,
+      "filled_entries": 6,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.49,
+      "min_observed_decision_net_rr": 2.0572,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "B0_V1793_OBSERVE_ONLY": {
+      "total_entries": 6,
+      "filled_entries": 6,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.49,
+      "min_observed_decision_net_rr": 2.0572,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "C1_V1793_MACRO_FILTER_ONLY": {
+      "total_entries": 1,
+      "filled_entries": 1,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.49,
+      "min_observed_decision_net_rr": 2.3876,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "C2_V1793_UNICORN_ONLY": {
+      "total_entries": 1,
+      "filled_entries": 1,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.49,
+      "min_observed_decision_net_rr": 2.8214,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "total_entries": 202,
+      "filled_entries": 201,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.5,
+      "min_observed_decision_net_rr": 2.0001,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "total_entries": 62,
+      "filled_entries": 61,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.5,
+      "min_observed_decision_net_rr": 2.0001,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "C2_UNICORN_PLUS_V1792_SL_TP": {
+      "total_entries": 104,
+      "filled_entries": 104,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.5,
+      "min_observed_decision_net_rr": 2.0026,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "total_entries": 20,
+      "filled_entries": 20,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.5,
+      "min_observed_decision_net_rr": 2.002,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "total_entries": 2,
+      "filled_entries": 2,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.48,
+      "min_observed_decision_net_rr": 2.1265,
+      "realized_loss_over_budget_gap_count": 0
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "total_entries": 139,
+      "filled_entries": 139,
+      "violation_count": 0,
+      "max_planned_net_risk_usd": 2.5,
+      "min_observed_decision_net_rr": 2.0019,
+      "realized_loss_over_budget_gap_count": 0
+    }
+  },
+  "all_invariants_passed": true,
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9"
+}

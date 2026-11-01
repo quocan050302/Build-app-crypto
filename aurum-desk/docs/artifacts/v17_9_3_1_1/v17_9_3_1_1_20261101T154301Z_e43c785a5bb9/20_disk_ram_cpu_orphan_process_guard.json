@@ -1,0 +1,14 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "free_disk_gb": 23.79,
+  "min_required_free_disk_gb": 5.0,
+  "disk_floor_satisfied": true,
+  "df_raw_line": "/dev/disk3s5   482797652 427160748  24945652    95%    /System/Volumes/Data",
+  "peak_rss_mb_combined": 1453.75,
+  "cpu_count": 8,
+  "pytest_max_workers_cap": 4,
+  "pytest_peak_concurrent_subprocesses": 4,
+  "peak_subprocesses_within_cap": true,
+  "zero_timeouts": true
+}

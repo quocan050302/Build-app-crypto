@@ -1,0 +1,505 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "embargo_policy": {
+    "forward_evaluation_horizon_bars": 180,
+    "minimum_wall_clock_embargo_minutes": 180,
+    "gap_aware_bar_horizon_enforced": true,
+    "boundary_crossing_policy": "PURGE_AND_CLASSIFY_EXCLUDED_BOUNDARY_LEAK_RISK"
+  },
+  "total_episodes_evaluated": 543,
+  "raw_unpurged_boundary_crossings_detected_count": 18,
+  "raw_unpurged_boundary_crossings_detected": [
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_DEV",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_11048_1792516200000",
+      "checkpoint_index_1m": 11048,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "decision_ts": 1792516200000,
+      "entry_fill_ts": 1792516200000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1792527000000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 180,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792527000000>split_end=1792524540000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792527000000>split_end=1792524540000"
+      ]
+    },
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_OOS",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_22305_1793191800000",
+      "checkpoint_index_1m": 22305,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793191800000,
+      "entry_fill_ts": 1793191800000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793202600000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 70,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_OOS",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_22375_1793196000000",
+      "checkpoint_index_1m": 22375,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793196000000,
+      "entry_fill_ts": 1793196000000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793206800000,
+      "outcome_label": "NO_FORWARD_BARS",
+      "bars_held": 0,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_DEV",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_FVG_CONTINUATION_15594_1792788960000",
+      "checkpoint_index_1m": 15594,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "decision_ts": 1792788960000,
+      "entry_fill_ts": 1792788960000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1792799760000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 180,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792799760000>split_end=1792793040000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792799760000>split_end=1792793040000"
+      ]
+    },
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_OOS",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_22305_1793191800000",
+      "checkpoint_index_1m": 22305,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793191800000,
+      "entry_fill_ts": 1793191800000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793202600000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 70,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_OOS",
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_22375_1793196000000",
+      "checkpoint_index_1m": 22375,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793196000000,
+      "entry_fill_ts": 1793196000000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793206800000,
+      "outcome_label": "NO_FORWARD_BARS",
+      "bars_held": 0,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_DEV",
+      "episode_key": "C1_MACRO_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_11048_1792516200000",
+      "checkpoint_index_1m": 11048,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "decision_ts": 1792516200000,
+      "entry_fill_ts": 1792516200000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1792527000000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 180,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792527000000>split_end=1792524540000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792527000000>split_end=1792524540000"
+      ]
+    },
+    {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_OOS",
+      "episode_key": "C1_MACRO_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_22305_1793191800000",
+      "checkpoint_index_1m": 22305,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793191800000,
+      "entry_fill_ts": 1793191800000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793202600000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 70,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_OOS",
+      "episode_key": "C1_MACRO_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_22375_1793196000000",
+      "checkpoint_index_1m": 22375,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793196000000,
+      "entry_fill_ts": 1793196000000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793206800000,
+      "outcome_label": "NO_FORWARD_BARS",
+      "bars_held": 0,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_OOS",
+      "episode_key": "C1_MACRO_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_22305_1793191800000",
+      "checkpoint_index_1m": 22305,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793191800000,
+      "entry_fill_ts": 1793191800000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793202600000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 70,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793202600000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_OOS",
+      "episode_key": "C1_MACRO_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_22375_1793196000000",
+      "checkpoint_index_1m": 22375,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1793196000000,
+      "entry_fill_ts": 1793196000000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793206800000,
+      "outcome_label": "NO_FORWARD_BARS",
+      "bars_held": 0,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793206800000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "C2_UNICORN_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_DEV",
+      "episode_key": "C2_UNICORN_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_11019_1792514460000",
+      "checkpoint_index_1m": 11019,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "decision_ts": 1792514460000,
+      "entry_fill_ts": 1792514460000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1792525260000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 180,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792525260000>split_end=1792524540000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792525260000>split_end=1792524540000"
+      ]
+    },
+    {
+      "variant": "C2_UNICORN_PLUS_V1792_SL_TP",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_VAL",
+      "episode_key": "C2_UNICORN_PLUS_V1792_SL_TP_SMC_M1_REVERSAL_18928_1792989000000",
+      "checkpoint_index_1m": 18928,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1792989000000,
+      "entry_fill_ts": 1792989000000,
+      "exit_fill_ts": 1792995480000,
+      "observation_end_ts": 1792995480000,
+      "outcome_label": "LOSS",
+      "bars_held": 108,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792995480000>split_end=1792994400000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792995480000>split_end=1792994400000"
+      ]
+    },
+    {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_DEV",
+      "episode_key": "E1_OUTSIDE_MACRO_COUNTERFACTUAL_SMC_M1_REVERSAL_11126_1792520880000",
+      "checkpoint_index_1m": 11126,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "decision_ts": 1792520880000,
+      "entry_fill_ts": 1792520880000,
+      "exit_fill_ts": 1792530300000,
+      "observation_end_ts": 1792530300000,
+      "outcome_label": "LOSS",
+      "bars_held": 157,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792530300000>split_end=1792524540000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792530300000>split_end=1792524540000"
+      ]
+    },
+    {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "scheme": "SPLIT_50_25_25",
+      "partition": "SPLIT_50_25_25_OOS",
+      "episode_key": "E1_OUTSIDE_MACRO_COUNTERFACTUAL_SMC_M1_FVG_CONTINUATION_22350_1793194500000",
+      "checkpoint_index_1m": 22350,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "LONG",
+      "decision_ts": 1793194500000,
+      "entry_fill_ts": 1793194500000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793205300000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 25,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793205300000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793205300000>split_end=1793196000000"
+      ]
+    },
+    {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_DEV",
+      "episode_key": "E1_OUTSIDE_MACRO_COUNTERFACTUAL_SMC_M1_FVG_CONTINUATION_15594_1792788960000",
+      "checkpoint_index_1m": 15594,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "decision_ts": 1792788960000,
+      "entry_fill_ts": 1792788960000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1792799760000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 180,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792799760000>split_end=1792793040000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792799760000>split_end=1792793040000"
+      ]
+    },
+    {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_VAL",
+      "episode_key": "E1_OUTSIDE_MACRO_COUNTERFACTUAL_SMC_M1_REVERSAL_18906_1792987680000",
+      "checkpoint_index_1m": 18906,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "LONG",
+      "decision_ts": 1792987680000,
+      "entry_fill_ts": 1792987680000,
+      "exit_fill_ts": 1792995960000,
+      "observation_end_ts": 1792995960000,
+      "outcome_label": "LOSS",
+      "bars_held": 138,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792995960000>split_end=1792994400000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1792995960000>split_end=1792994400000"
+      ]
+    },
+    {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "scheme": "SPLIT_70_15_15",
+      "partition": "SPLIT_70_15_15_OOS",
+      "episode_key": "E1_OUTSIDE_MACRO_COUNTERFACTUAL_SMC_M1_FVG_CONTINUATION_22350_1793194500000",
+      "checkpoint_index_1m": 22350,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "LONG",
+      "decision_ts": 1793194500000,
+      "entry_fill_ts": 1793194500000,
+      "exit_fill_ts": null,
+      "observation_end_ts": 1793205300000,
+      "outcome_label": "OPEN_AT_HORIZON",
+      "bars_held": 25,
+      "same_bar_sl_tp_tie": false,
+      "has_data_gap_before_exit": false,
+      "classification": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "partition_status": "EXCLUDED_BOUNDARY_LEAK_RISK",
+      "admissible_closed_in_split": false,
+      "is_leak": true,
+      "reasons": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793205300000>split_end=1793196000000"
+      ],
+      "violations": [
+        "EXIT_OR_HORIZON_CROSSES_SPLIT_END:obs_end=1793205300000>split_end=1793196000000"
+      ]
+    }
+  ],
+  "measured_admissible_leak_count": 0,
+  "unknown_exit_timestamp_count": 0,
+  "temporal_order_violation_count": 0,
+  "zero_future_bar_leakage_across_admissible_splits": true,
+  "oos_proof_status": "OOS_PROOF_PASS"
+}

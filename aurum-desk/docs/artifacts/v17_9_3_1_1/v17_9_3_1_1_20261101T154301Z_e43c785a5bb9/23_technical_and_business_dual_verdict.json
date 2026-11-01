@@ -1,0 +1,421 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "core_user_question_answer": {
+    "question": "Has the bot actually reduced the per-trade loss rate on historical XAUUSDT data?",
+    "direct_answer": "NO_STATISTICALLY_PROVEN_LOSS_RATE_REDUCTION",
+    "summary": "1) A1 (V17.9.2 SL/TP baseline) has 139 closed independent episodes (7 wins / 132 losses, loss rate 94.96%, 95% Wilson CI [90.02%, 97.52%], modeled net PnL -$282.49). 2) D1 (Macro + Unicorn + V17.9.2 SL/TP) has 16 closed independent episodes (1 win / 15 losses, loss rate 93.75%, 95% Wilson CI [71.67%, 98.89%], modeled net PnL -$31.69) plus 4 open-at-horizon censored episodes. D1 reduced total dollar loss by 88.8% (-$282.49 -> -$31.69) by filtering out 88.5% of trade volume (139 -> 16 closed episodes), NOT by materially lowering the per-trade loss rate (-1.21 percentage points delta, well inside wide confidence intervals). 3) D2 (Macro + Unicorn + MTF FULL) has only 2 closed independent episodes (1 win in DEV, 1 loss in OOS; loss rate 50.00%, 95% Wilson CI [9.45%, 90.55%], modeled net PnL +$2.74). With n=2 closed trades, D2 is severely underpowered (INCONCLUSIVE) and cannot be claimed as a sustainable 50% loss rate."
+  },
+  "d2_sample_size_caveat": {
+    "closed_independent_episodes": 2,
+    "wins": 1,
+    "losses": 1,
+    "oos_closed_episodes": 1,
+    "oos_losses": 1,
+    "wilson_95_ci_loss_rate": {
+      "lower_95": 0.0945,
+      "upper_95": 0.9055
+    },
+    "caveat": "n=2 independent closed episodes (and n=1 in OOS, which was a LOSS) provides zero statistical power to claim a 50% stable win/loss rate."
+  },
+  "d1_sample_size_caveat": {
+    "total_independent_episodes": 20,
+    "closed_independent_episodes": 16,
+    "open_at_horizon_censored_episodes": 4,
+    "wins": 1,
+    "losses": 15,
+    "wilson_95_ci_loss_rate": {
+      "lower_95": 0.7167,
+      "upper_95": 0.9889
+    },
+    "caveat": "n=16 closed episodes (< 30 minimum threshold) is underpowered and shows 93.75% loss rate (-0.8044R expectancy)."
+  },
+  "multiple_testing_disclosure": {
+    "baseline_variants_evaluated": 10,
+    "predeclared_research_hypotheses_evaluated": 8,
+    "total_hypotheses_tested": 18,
+    "warning": "Testing 10 baseline variants plus 8 research policies across sparse filtered cohorts carries high multiple-testing and small-sample overfitting risk. All research variants remain OFF in production."
+  },
+  "per_variant_assessments": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "variant": "A0_FROZEN_BASELINE_OFF",
+      "raw_eligible_model_decisions": 6,
+      "independent_episodes_total": 6,
+      "closed_independent_episodes": 6,
+      "wins": 0,
+      "losses": 6,
+      "open_at_horizon_censored": 0,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0,
+        "upper_95": 0.3903
+      },
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.6097,
+        "upper_95": 1.0
+      },
+      "loss_rate_delta_vs_a1_percentage_points": 5.04,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 5,
+        "episode_count": 6,
+        "point_estimate": -0.9992,
+        "lower_95": -1.0003,
+        "upper_95": -0.9985,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -14.8,
+      "modeled_gross_pnl_usd": -8.62,
+      "modeled_total_costs_usd": 6.18,
+      "profit_factor": 0.0,
+      "max_drawdown_usd": 14.8,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "B0_V1793_OBSERVE_ONLY": {
+      "variant": "B0_V1793_OBSERVE_ONLY",
+      "raw_eligible_model_decisions": 6,
+      "independent_episodes_total": 6,
+      "closed_independent_episodes": 6,
+      "wins": 0,
+      "losses": 6,
+      "open_at_horizon_censored": 0,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0,
+        "upper_95": 0.3903
+      },
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.6097,
+        "upper_95": 1.0
+      },
+      "loss_rate_delta_vs_a1_percentage_points": 5.04,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 5,
+        "episode_count": 6,
+        "point_estimate": -0.9992,
+        "lower_95": -1.0003,
+        "upper_95": -0.9985,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -14.8,
+      "modeled_gross_pnl_usd": -8.62,
+      "modeled_total_costs_usd": 6.18,
+      "profit_factor": 0.0,
+      "max_drawdown_usd": 14.8,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "C1_V1793_MACRO_FILTER_ONLY": {
+      "variant": "C1_V1793_MACRO_FILTER_ONLY",
+      "raw_eligible_model_decisions": 1,
+      "independent_episodes_total": 1,
+      "closed_independent_episodes": 1,
+      "wins": 0,
+      "losses": 1,
+      "open_at_horizon_censored": 0,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0,
+        "upper_95": 0.7935
+      },
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.2065,
+        "upper_95": 1.0
+      },
+      "loss_rate_delta_vs_a1_percentage_points": 5.04,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 1,
+        "episode_count": 1,
+        "point_estimate": -1.0016,
+        "lower_95": -1.0016,
+        "upper_95": -1.0016,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP_SINGLE_BLOCK"
+      },
+      "modeled_net_pnl_usd": -2.49,
+      "modeled_gross_pnl_usd": -1.02,
+      "modeled_total_costs_usd": 1.47,
+      "profit_factor": 0.0,
+      "max_drawdown_usd": 2.49,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "C2_V1793_UNICORN_ONLY": {
+      "variant": "C2_V1793_UNICORN_ONLY",
+      "raw_eligible_model_decisions": 1,
+      "independent_episodes_total": 1,
+      "closed_independent_episodes": 1,
+      "wins": 0,
+      "losses": 1,
+      "open_at_horizon_censored": 0,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0,
+        "upper_95": 0.7935
+      },
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.2065,
+        "upper_95": 1.0
+      },
+      "loss_rate_delta_vs_a1_percentage_points": 5.04,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 1,
+        "episode_count": 1,
+        "point_estimate": -0.9986,
+        "lower_95": -0.9986,
+        "upper_95": -0.9986,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP_SINGLE_BLOCK"
+      },
+      "modeled_net_pnl_usd": -2.49,
+      "modeled_gross_pnl_usd": -1.11,
+      "modeled_total_costs_usd": 1.38,
+      "profit_factor": 0.0,
+      "max_drawdown_usd": 2.49,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "variant": "A1_V1792_SL_TP_BASELINE",
+      "raw_eligible_model_decisions": 202,
+      "independent_episodes_total": 202,
+      "closed_independent_episodes": 139,
+      "wins": 7,
+      "losses": 132,
+      "open_at_horizon_censored": 58,
+      "data_gap_unresolved": 1,
+      "no_fill_count": 1,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0504,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0246,
+        "upper_95": 0.1003
+      },
+      "loss_rate": 0.9496,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8997,
+        "upper_95": 0.9754
+      },
+      "loss_rate_delta_vs_a1_percentage_points": -0.0,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 56,
+        "episode_count": 139,
+        "point_estimate": -0.8235,
+        "lower_95": -0.9302,
+        "upper_95": -0.7006,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -282.49,
+      "modeled_gross_pnl_usd": -106.93,
+      "modeled_total_costs_usd": 175.56,
+      "profit_factor": 0.132,
+      "max_drawdown_usd": 282.49,
+      "statistical_verdict": "NEGATIVE_EVIDENCE"
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "variant": "C1_MACRO_PLUS_V1792_SL_TP",
+      "raw_eligible_model_decisions": 62,
+      "independent_episodes_total": 62,
+      "closed_independent_episodes": 41,
+      "wins": 2,
+      "losses": 39,
+      "open_at_horizon_censored": 18,
+      "data_gap_unresolved": 1,
+      "no_fill_count": 1,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0488,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0135,
+        "upper_95": 0.1614
+      },
+      "loss_rate": 0.9512,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8386,
+        "upper_95": 0.9865
+      },
+      "loss_rate_delta_vs_a1_percentage_points": 0.16,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 26,
+        "episode_count": 41,
+        "point_estimate": -0.8365,
+        "lower_95": -0.9999,
+        "upper_95": -0.5974,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -84.31,
+      "modeled_gross_pnl_usd": -41.72,
+      "modeled_total_costs_usd": 42.59,
+      "profit_factor": 0.1212,
+      "max_drawdown_usd": 84.31,
+      "statistical_verdict": "NEGATIVE_EVIDENCE"
+    },
+    "C2_UNICORN_PLUS_V1792_SL_TP": {
+      "variant": "C2_UNICORN_PLUS_V1792_SL_TP",
+      "raw_eligible_model_decisions": 104,
+      "independent_episodes_total": 104,
+      "closed_independent_episodes": 81,
+      "wins": 6,
+      "losses": 75,
+      "open_at_horizon_censored": 22,
+      "data_gap_unresolved": 1,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0741,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0344,
+        "upper_95": 0.1523
+      },
+      "loss_rate": 0.9259,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8477,
+        "upper_95": 0.9656
+      },
+      "loss_rate_delta_vs_a1_percentage_points": -2.37,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 47,
+        "episode_count": 81,
+        "point_estimate": -0.7594,
+        "lower_95": -0.922,
+        "upper_95": -0.5673,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -152.16,
+      "modeled_gross_pnl_usd": -43.39,
+      "modeled_total_costs_usd": 108.77,
+      "profit_factor": 0.1788,
+      "max_drawdown_usd": 152.16,
+      "statistical_verdict": "NEGATIVE_EVIDENCE"
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "variant": "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP",
+      "raw_eligible_model_decisions": 20,
+      "independent_episodes_total": 20,
+      "closed_independent_episodes": 16,
+      "wins": 1,
+      "losses": 15,
+      "open_at_horizon_censored": 4,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0625,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0111,
+        "upper_95": 0.2833
+      },
+      "loss_rate": 0.9375,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.7167,
+        "upper_95": 0.9889
+      },
+      "loss_rate_delta_vs_a1_percentage_points": -1.21,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 15,
+        "episode_count": 16,
+        "point_estimate": -0.8044,
+        "lower_95": -0.9999,
+        "upper_95": -0.4133,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -31.69,
+      "modeled_gross_pnl_usd": -12.48,
+      "modeled_total_costs_usd": 19.21,
+      "profit_factor": 0.1415,
+      "max_drawdown_usd": 31.69,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "variant": "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL",
+      "raw_eligible_model_decisions": 2,
+      "independent_episodes_total": 2,
+      "closed_independent_episodes": 2,
+      "wins": 1,
+      "losses": 1,
+      "open_at_horizon_censored": 0,
+      "data_gap_unresolved": 0,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.5,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0945,
+        "upper_95": 0.9055
+      },
+      "loss_rate": 0.5,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.0945,
+        "upper_95": 0.9055
+      },
+      "loss_rate_delta_vs_a1_percentage_points": -44.96,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 2,
+        "episode_count": 2,
+        "point_estimate": 0.5617,
+        "lower_95": 0.5617,
+        "upper_95": 0.5617,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": 2.74,
+      "modeled_gross_pnl_usd": 5.01,
+      "modeled_total_costs_usd": 2.26,
+      "profit_factor": 2.1056,
+      "max_drawdown_usd": 2.48,
+      "statistical_verdict": "INCONCLUSIVE"
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "variant": "E1_OUTSIDE_MACRO_COUNTERFACTUAL",
+      "raw_eligible_model_decisions": 139,
+      "independent_episodes_total": 139,
+      "closed_independent_episodes": 98,
+      "wins": 6,
+      "losses": 92,
+      "open_at_horizon_censored": 38,
+      "data_gap_unresolved": 1,
+      "no_fill_count": 0,
+      "same_bar_sl_tp_tie_count": 0,
+      "win_rate": 0.0612,
+      "win_rate_wilson_95_ci": {
+        "lower_95": 0.0284,
+        "upper_95": 0.1272
+      },
+      "loss_rate": 0.9388,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8728,
+        "upper_95": 0.9716
+      },
+      "loss_rate_delta_vs_a1_percentage_points": -1.08,
+      "expectancy_r_block_bootstrap_95_ci": {
+        "block_count": 43,
+        "episode_count": 98,
+        "point_estimate": -0.7856,
+        "lower_95": -0.9331,
+        "upper_95": -0.6004,
+        "bootstrap_method": "CONTIGUOUS_NY_DAY_SESSION_BLOCK_BOOTSTRAP"
+      },
+      "modeled_net_pnl_usd": -189.82,
+      "modeled_gross_pnl_usd": -73.57,
+      "modeled_total_costs_usd": 116.25,
+      "profit_factor": 0.1625,
+      "max_drawdown_usd": 189.82,
+      "statistical_verdict": "NEGATIVE_EVIDENCE"
+    }
+  },
+  "strategy_statistical_verdict": "INCONCLUSIVE",
+  "a1_baseline_verdict": "NEGATIVE_EVIDENCE",
+  "d1_primary_variant_verdict": "INCONCLUSIVE",
+  "d2_mtf_full_variant_verdict": "INCONCLUSIVE",
+  "ready_for_strategy_activation": "NO",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "tested_executable_code_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "final_local_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "remote_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "local_equals_remote_sha": true,
+  "engineering_verification_verdict": "PASS"
+}

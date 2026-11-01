@@ -1,0 +1,81 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "total_mutations": 8,
+  "passed_mutations": 8,
+  "all_red_green_mutations_passed": true,
+  "mutations": [
+    {
+      "mutation_id": "M01_OOS_BOUNDARY_CROSSING_LEAK",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.236,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t01_oos_boundary_crossing_trade_1m_before_dev_end_exiting_30m_into_val_rejected",
+      "green_exit_code": 0,
+      "green_duration_sec": 6.059,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M02_OOS_60M_FAKE_EMBARGO_VS_180_BAR_HORIZON",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.153,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t02_oos_180_bar_horizon_trade_crossing_60m_wall_clock_embargo_rejected",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.622,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M03_PLANNED_RISK_OVER_2_50_USD_BUDGET",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.138,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t09_planned_risk_budget_passes_2_49_and_rejects_3_00_10_00_250_00",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.252,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M04_MIN_NET_RR_WEAKENED_TO_1_1",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.143,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t11_risk_policy_rejects_min_net_rr_below_2_0_and_stale_1_1",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.413,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M05_TAUTOLOGICAL_SELF_CHECK_GATE_FORCED_TRUE",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.149,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t15_non_tautological_gate_validator_rejects_forced_true_self_check_and_schema_defects",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.227,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M06_CANDIDATE_SCREEN_DROPPED_ELIGIBLE_CHECKPOINT",
+      "red_exit_code": 1,
+      "red_duration_sec": 1.263,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t16_candidate_coverage_auditor_detects_dropped_eligible_checkpoint",
+      "green_exit_code": 0,
+      "green_duration_sec": 3.153,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M07_MISSING_CAUSAL_EVIDENCE_FABRICATION_GUARD",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.148,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t19_missing_causal_evidence_returns_undeterminable_fallback",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.247,
+      "red_failed_and_green_passed": true
+    },
+    {
+      "mutation_id": "M08_JUNIT_COLLECTION_BIJECTION_MISSING_NODE",
+      "red_exit_code": 1,
+      "red_duration_sec": 0.14,
+      "green_pytest_node": "backend/tests/test_v17_9_3_1_1_verification_integrity_and_loss_forensics.py::test_t27_junit_and_collection_bijection_validator",
+      "green_exit_code": 0,
+      "green_duration_sec": 2.154,
+      "red_failed_and_green_passed": true
+    }
+  ]
+}

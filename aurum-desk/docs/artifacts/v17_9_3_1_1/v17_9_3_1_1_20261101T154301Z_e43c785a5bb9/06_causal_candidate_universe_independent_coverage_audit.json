@@ -1,0 +1,536 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "total_m1_bars": 22376,
+  "warmup_bars": 30,
+  "enumerated_decision_timestamps_count": 22346,
+  "enumerated_timestamp_coverage_ratio": 1.0,
+  "screened_candidate_count": 3788,
+  "holdout_sample_count": 240,
+  "combined_v17931_evaluated_checkpoint_count": 4028,
+  "v17931_screen_checkpoint_coverage_ratio": 0.180256,
+  "outside_screen_timestamps_audited_by_true_evaluator": 18558,
+  "exhaustive_22346_evaluator_audit_completed": true,
+  "exhaustive_evaluator_coverage_ratio": 1.0,
+  "outside_screen_timestamps_with_raw_m1_setup": 17536,
+  "primary_v1793_variants_zero_false_negatives_proven": true,
+  "unfiltered_a1_e1_outside_screen_eligible_decisions_count": 47243,
+  "unfiltered_a1_e1_outside_screen_unique_timestamps_count": 15597,
+  "variant_coverage_matrix": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "B0_V1793_OBSERVE_ONLY": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "C1_V1793_MACRO_FILTER_ONLY": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "C2_V1793_UNICORN_ONLY": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "C2_UNICORN_PLUS_V1792_SL_TP": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "outside_screen_false_negative_decisions": 0,
+      "outside_screen_false_negative_unique_timestamps": 0,
+      "proven_zero_false_negatives_in_3788_screen": true,
+      "coverage_status": "PROVEN_EXACT_SUPERSET_IN_3788_SCREEN"
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "outside_screen_false_negative_decisions": 47243,
+      "outside_screen_false_negative_unique_timestamps": 15597,
+      "proven_zero_false_negatives_in_3788_screen": false,
+      "coverage_status": "SCREEN_OMITS_OUTSIDE_MACRO_NON_UNICORN_M1_TARGET_LT_7USD_HTF_TARGET_ELIGIBLE",
+      "explanation": "3,788 screen uses base_scan_7 (M1 target >= 7.0 USD) + macro_inside + bound_unicorn + legacy_491. Outside macro and outside Unicorn, when M1 target < 7.0 USD (so A0 is rejected), A1/E1 can still find a V17.9.2 HTF (M5/M15/H1/H4/1D) liquidity target >= 7.0 USD and become ELIGIBLE."
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "outside_screen_false_negative_decisions": 47243,
+      "outside_screen_false_negative_unique_timestamps": 15597,
+      "proven_zero_false_negatives_in_3788_screen": false,
+      "coverage_status": "SCREEN_OMITS_OUTSIDE_MACRO_NON_UNICORN_M1_TARGET_LT_7USD_HTF_TARGET_ELIGIBLE"
+    }
+  },
+  "a0_outside_eligible_samples": [],
+  "a1_outside_eligible_samples": [
+    {
+      "checkpoint_index_1m": 31,
+      "decision_timestamp_ms": 1791439800000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.3661
+    },
+    {
+      "checkpoint_index_1m": 31,
+      "decision_timestamp_ms": 1791439800000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.3661
+    },
+    {
+      "checkpoint_index_1m": 32,
+      "decision_timestamp_ms": 1791439860000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.134
+    },
+    {
+      "checkpoint_index_1m": 32,
+      "decision_timestamp_ms": 1791439860000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.134
+    },
+    {
+      "checkpoint_index_1m": 33,
+      "decision_timestamp_ms": 1791439920000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.01,
+      "net_rr": 2.092
+    },
+    {
+      "checkpoint_index_1m": 33,
+      "decision_timestamp_ms": 1791439920000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.01,
+      "net_rr": 2.092
+    },
+    {
+      "checkpoint_index_1m": 34,
+      "decision_timestamp_ms": 1791439980000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.1072
+    },
+    {
+      "checkpoint_index_1m": 34,
+      "decision_timestamp_ms": 1791439980000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.1072
+    },
+    {
+      "checkpoint_index_1m": 34,
+      "decision_timestamp_ms": 1791439980000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.1072
+    },
+    {
+      "checkpoint_index_1m": 34,
+      "decision_timestamp_ms": 1791439980000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4108.57,
+      "net_rr": 2.1072
+    },
+    {
+      "checkpoint_index_1m": 35,
+      "decision_timestamp_ms": 1791440040000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.1904
+    },
+    {
+      "checkpoint_index_1m": 35,
+      "decision_timestamp_ms": 1791440040000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.1904
+    },
+    {
+      "checkpoint_index_1m": 35,
+      "decision_timestamp_ms": 1791440040000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.1904
+    },
+    {
+      "checkpoint_index_1m": 35,
+      "decision_timestamp_ms": 1791440040000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.61,
+      "take_profit": 4110.22,
+      "net_rr": 2.1904
+    },
+    {
+      "checkpoint_index_1m": 36,
+      "decision_timestamp_ms": 1791440100000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.7719
+    },
+    {
+      "checkpoint_index_1m": 36,
+      "decision_timestamp_ms": 1791440100000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.7719
+    },
+    {
+      "checkpoint_index_1m": 37,
+      "decision_timestamp_ms": 1791440160000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.2071
+    },
+    {
+      "checkpoint_index_1m": 37,
+      "decision_timestamp_ms": 1791440160000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.2071
+    },
+    {
+      "checkpoint_index_1m": 37,
+      "decision_timestamp_ms": 1791440160000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.2071
+    },
+    {
+      "checkpoint_index_1m": 37,
+      "decision_timestamp_ms": 1791440160000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.2071
+    },
+    {
+      "checkpoint_index_1m": 38,
+      "decision_timestamp_ms": 1791440220000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.01,
+      "net_rr": 2.0108
+    },
+    {
+      "checkpoint_index_1m": 38,
+      "decision_timestamp_ms": 1791440220000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.01,
+      "net_rr": 2.0108
+    },
+    {
+      "checkpoint_index_1m": 38,
+      "decision_timestamp_ms": 1791440220000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.01,
+      "net_rr": 2.0108
+    },
+    {
+      "checkpoint_index_1m": 38,
+      "decision_timestamp_ms": 1791440220000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.01,
+      "net_rr": 2.0108
+    },
+    {
+      "checkpoint_index_1m": 39,
+      "decision_timestamp_ms": 1791440280000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.5072
+    },
+    {
+      "checkpoint_index_1m": 39,
+      "decision_timestamp_ms": 1791440280000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.5072
+    },
+    {
+      "checkpoint_index_1m": 39,
+      "decision_timestamp_ms": 1791440280000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.5072
+    },
+    {
+      "checkpoint_index_1m": 39,
+      "decision_timestamp_ms": 1791440280000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4110.22,
+      "net_rr": 2.5072
+    },
+    {
+      "checkpoint_index_1m": 40,
+      "decision_timestamp_ms": 1791440340000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.57,
+      "net_rr": 2.043
+    },
+    {
+      "checkpoint_index_1m": 40,
+      "decision_timestamp_ms": 1791440340000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.57,
+      "net_rr": 2.043
+    },
+    {
+      "checkpoint_index_1m": 40,
+      "decision_timestamp_ms": 1791440340000,
+      "model_id": "SMC_M1_REVERSAL",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.57,
+      "net_rr": 2.043
+    },
+    {
+      "checkpoint_index_1m": 40,
+      "decision_timestamp_ms": 1791440340000,
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "direction": "SHORT",
+      "selected_sl": 4126.6,
+      "take_profit": 4108.57,
+      "net_rr": 2.043
+    },
+    {
+      "checkpoint_index_1m": 41,
+      "decision_timestamp_ms": 1791440400000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4106.26,
+      "net_rr": 2.1178
+    },
+    {
+      "checkpoint_index_1m": 41,
+      "decision_timestamp_ms": 1791440400000,
+      "model_id": "SMC_M1_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4106.26,
+      "net_rr": 2.1178
+    },
+    {
+      "checkpoint_index_1m": 41,
+      "decision_timestamp_ms": 1791440400000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4106.26,
+      "net_rr": 2.1178
+    },
+    {
+      "checkpoint_index_1m": 43,
+      "decision_timestamp_ms": 1791440520000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 3.7514
+    },
+    {
+      "checkpoint_index_1m": 43,
+      "decision_timestamp_ms": 1791440520000,
+      "model_id": "SMC_M1_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 3.7514
+    },
+    {
+      "checkpoint_index_1m": 43,
+      "decision_timestamp_ms": 1791440520000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 3.7514
+    },
+    {
+      "checkpoint_index_1m": 44,
+      "decision_timestamp_ms": 1791440580000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4102.78,
+      "net_rr": 2.0566
+    },
+    {
+      "checkpoint_index_1m": 44,
+      "decision_timestamp_ms": 1791440580000,
+      "model_id": "SMC_M1_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4102.78,
+      "net_rr": 2.0566
+    },
+    {
+      "checkpoint_index_1m": 44,
+      "decision_timestamp_ms": 1791440580000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4102.78,
+      "net_rr": 2.0566
+    },
+    {
+      "checkpoint_index_1m": 48,
+      "decision_timestamp_ms": 1791440820000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 2.6746
+    },
+    {
+      "checkpoint_index_1m": 48,
+      "decision_timestamp_ms": 1791440820000,
+      "model_id": "SMC_M1_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 2.6746
+    },
+    {
+      "checkpoint_index_1m": 48,
+      "decision_timestamp_ms": 1791440820000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.48,
+      "take_profit": 4087.21,
+      "net_rr": 2.6746
+    },
+    {
+      "checkpoint_index_1m": 51,
+      "decision_timestamp_ms": 1791441000000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.1128
+    },
+    {
+      "checkpoint_index_1m": 51,
+      "decision_timestamp_ms": 1791441000000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.1128
+    },
+    {
+      "checkpoint_index_1m": 52,
+      "decision_timestamp_ms": 1791441060000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.5131
+    },
+    {
+      "checkpoint_index_1m": 52,
+      "decision_timestamp_ms": 1791441060000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.5131
+    },
+    {
+      "checkpoint_index_1m": 53,
+      "decision_timestamp_ms": 1791441120000,
+      "model_id": "CG01_SWEEP_MSS_FVG",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.1043
+    },
+    {
+      "checkpoint_index_1m": 53,
+      "decision_timestamp_ms": 1791441120000,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "direction": "SHORT",
+      "selected_sl": 4126.49,
+      "take_profit": 4087.21,
+      "net_rr": 3.1043
+    }
+  ],
+  "honest_coverage_conclusion": "EXHAUSTIVE_22346_EVALUATOR_AUDIT_COMPLETED: 3,788 screen has 0 false negatives for A0, B0, C1, C1_MACRO_PLUS_V1792_SL_TP, C2, C2_UNICORN_PLUS_V1792_SL_TP, D1, and D2 across all 22,346 timestamps. For unfiltered A1 and E1, 47243 additional eligible model decisions across 15597 outside-screen timestamps exist where M1 target < 7.0 USD (rejected by A0) but V17.9.2 HTF target >= 7.0 USD.",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9"
+}

@@ -1,0 +1,283 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "total_gates": 28,
+  "passed_gates": 28,
+  "failed_gates": 0,
+  "all_gates_passed": true,
+  "independent_validator_check": {
+    "valid": true,
+    "schema_valid": true,
+    "total_gates": 28,
+    "failed_other_gates": [],
+    "errors": []
+  },
+  "gates": [
+    {
+      "gate_id": "G01",
+      "description": "Branch unchanged, clean start, and SHA ancestry verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+      }
+    },
+    {
+      "gate_id": "G02",
+      "description": "Actual function truth map and current source hash verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "symbols": 18
+      }
+    },
+    {
+      "gate_id": "G03",
+      "description": "Prior artifact directories immutable and untouched",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "untouched": true
+      }
+    },
+    {
+      "gate_id": "G04",
+      "description": "Canonical risk budget 2.50 USD under capital 1000 and 0.25% enforced",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "max_planned_risk_usd": 2.5
+      }
+    },
+    {
+      "gate_id": "G05",
+      "description": "Min net RR 2.0 and accurate 543-entry ledger accounting verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "entries": 543
+      }
+    },
+    {
+      "gate_id": "G06",
+      "description": "Execution ledger 3-mode stress accounting consistent",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "modes": [
+          "NEXT_BAR_OPEN_BID_ASK",
+          "LEGACY_CLOSE_FILL",
+          "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+        ]
+      }
+    },
+    {
+      "gate_id": "G07",
+      "description": "Actual measured temporal leak_count == 0 on admissible splits and raw boundary crossings caught",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "raw_crossings_caught": 18
+      }
+    },
+    {
+      "gate_id": "G08",
+      "description": "Full 180-bar forward-horizon gap-aware chronological embargo enforced",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "oos_status": "OOS_PROOF_PASS"
+      }
+    },
+    {
+      "gate_id": "G09",
+      "description": "Chronological 50/25/25, 70/15/15, and 3-fold walkforward evaluated without OOS leakage",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "walkforward_folds": 3
+      }
+    },
+    {
+      "gate_id": "G10",
+      "description": "All 22,346 post-warmup M1 timestamps enumerated and causal inputs verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "enumerated": 22346
+      }
+    },
+    {
+      "gate_id": "G11",
+      "description": "Exhaustive 22,346 independent evaluator coverage audited with 0 false negatives for V17.9.3 variants",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "outside_audited": 18558
+      }
+    },
+    {
+      "gate_id": "G12",
+      "description": "All 132 A1 losses and 15 D1 losses traced in compressed forensic ledger",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "a1_losses": 132,
+        "d1_losses": 15
+      }
+    },
+    {
+      "gate_id": "G13",
+      "description": "17-label causal loss taxonomy and 6 frozen A0 episodes outer-structure reconciliation (4/1/1) verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "a0_outer": {
+          "CLEAN_WIN": 0,
+          "PREMATURE_NOISE_SWEEP_STOP": 4,
+          "DELAYED_INEVITABLE_LOSS": 1,
+          "TRUE_INVALIDATION_LOSS": 1,
+          "SAME_BAR_CONSERVATIVE_LOSS": 0,
+          "OPEN_AT_HORIZON": 0,
+          "DATA_GAP_UNRESOLVED": 0
+        }
+      }
+    },
+    {
+      "gate_id": "G14",
+      "description": "Matched trade/episode counterfactual attribution subtracts foregone winners from avoided losers and answers Q1-Q10",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "questions_answered": 10
+      }
+    },
+    {
+      "gate_id": "G15",
+      "description": "Pre-registered causal research variants R0-R7 immutable and disabled in production",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "variants": 8
+      }
+    },
+    {
+      "gate_id": "G16",
+      "description": "Zero lookahead verified across all HTF/BOS/MSS/displacement/retest/stop/target features",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "zero_lookahead": true
+      }
+    },
+    {
+      "gate_id": "G17",
+      "description": "A0 and B0 OFF invariance against frozen oracle verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "invariance_ok": true
+      }
+    },
+    {
+      "gate_id": "G18",
+      "description": "Production, Shadow, and Backtest offline consumed parity verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "parity_ok": true
+      }
+    },
+    {
+      "gate_id": "G19",
+      "description": "Full backend pytest --collect-only vs JUnit XML execution bijection verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "collected": 4686
+      }
+    },
+    {
+      "gate_id": "G20",
+      "description": "All negative RED/GREEN mutations genuinely fail (exit != 0) then pass (exit == 0)",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "mutations": 8
+      }
+    },
+    {
+      "gate_id": "G21",
+      "description": "Deterministic 1-worker vs 4-worker SHA-256 identity verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "digests_identical": true
+      }
+    },
+    {
+      "gate_id": "G22",
+      "description": "Real disk (>=5GB), RAM, and subprocess concurrency guards verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "free_disk_gb": 23.79
+      }
+    },
+    {
+      "gate_id": "G23",
+      "description": "OOS sample size caveats (D2 n=2, D1 n=16) and statistical honesty enforced",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "d2_verdict": "INCONCLUSIVE"
+      }
+    },
+    {
+      "gate_id": "G24",
+      "description": "Final Git remote SHA equals local HEAD on mandatory branch with clean tree",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "local_equals_remote": true
+      }
+    },
+    {
+      "gate_id": "G25",
+      "description": "All 24 artifacts present, valid JSON/Markdown/Gzip, and SHA-256 verified",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "checked_files": 41
+      }
+    },
+    {
+      "gate_id": "G26",
+      "description": "Non-tautological gate manifest self-consistency verified by independent validator",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "failed_other_gates": [],
+        "total_gates": 28
+      }
+    },
+    {
+      "gate_id": "G27",
+      "description": "All strategy flags default OFF and LIVE/PAPER/AUTO untouched",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "ready_for_activation": "NO"
+      }
+    },
+    {
+      "gate_id": "G28",
+      "description": "Engineering verification verdict and Strategy statistical verdict reported separately and truthfully",
+      "passed": true,
+      "status": "PASS",
+      "evidence": {
+        "strategy_verdict": "INCONCLUSIVE"
+      }
+    }
+  ]
+}

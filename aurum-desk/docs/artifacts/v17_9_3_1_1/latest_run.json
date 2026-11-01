@@ -1,0 +1,22 @@
+{
+  "schema_version": "17.9.3.1.1",
+  "run_id": "v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "artifact_dir": "docs/artifacts/v17_9_3_1_1/v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+  "working_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "starting_v179311_feature_head_sha": "86f13fafbbffb62528fe110458a83c129cefc20b",
+  "previous_v17931_tested_code_sha": "a00a17091bf7991855aaeb3f718242354c244a08",
+  "base_master_sha": "650e4535777421077443cd3d95507cad1d99ed42",
+  "tested_executable_code_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "final_commit_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "remote_sha": "e43c785a5bb916bc00b31b378be1130ab3308bc9",
+  "local_equals_remote_sha": true,
+  "engineering_verification_verdict": "PASS",
+  "strategy_statistical_verdict": "INCONCLUSIVE",
+  "a1_baseline_verdict": "NEGATIVE_EVIDENCE",
+  "d1_primary_variant_verdict": "INCONCLUSIVE",
+  "d2_mtf_full_variant_verdict": "INCONCLUSIVE",
+  "ready_for_strategy_activation": "NO",
+  "acceptance_gates_passed": 28,
+  "acceptance_gates_total": 28,
+  "generated_at": "2026-11-01T15:49:37Z"
+}
