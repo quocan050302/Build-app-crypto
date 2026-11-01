@@ -3424,9 +3424,28 @@ def build_mtf_context(
 
         if cached_ctx is not None:
             was_cache_hit = True
+            if cached_ctx.last_break is not None:
+                tf_sec = timeframe_duration_seconds(cached_ctx.timeframe)
+                break_age = max(
+                    0,
+                    int((asof_dt - cached_ctx.last_break.confirmed_at).total_seconds() // tf_sec),
+                )
+            else:
+                break_age = None
+            prov_hash = deterministic_hash(
+                {
+                    "symbol": cached_ctx.symbol,
+                    "tf": cached_ctx.timeframe,
+                    "asof": format_utc_iso(asof_dt),
+                    "state": cached_ctx.state.provenance_hash,
+                    "breaks": [b.event_id for b in cached_ctx.breaks],
+                    "trend": cached_ctx.trend,
+                },
+                length=24,
+            )
             # Update asof to current decision_time while preserving immutable events
             tf_ctx = StructureContext(
-                context_id=cached_ctx.context_id,
+                context_id=f"sctx_{cached_ctx.symbol}_{cached_ctx.timeframe}_{prov_hash[:12]}",
                 algorithm_version=cached_ctx.algorithm_version,
                 symbol=cached_ctx.symbol,
                 timeframe=cached_ctx.timeframe,
@@ -3437,13 +3456,13 @@ def build_mtf_context(
                 last_bos=cached_ctx.last_bos,
                 last_choch=cached_ctx.last_choch,
                 last_break=cached_ctx.last_break,
-                last_break_age_bars=cached_ctx.last_break_age_bars,
+                last_break_age_bars=break_age,
                 protected_high_price=cached_ctx.protected_high_price,
                 protected_low_price=cached_ctx.protected_low_price,
                 protected_high_invalidated=cached_ctx.protected_high_invalidated,
                 protected_low_invalidated=cached_ctx.protected_low_invalidated,
                 quality_state=cached_ctx.quality_state,
-                provenance_hash=cached_ctx.provenance_hash,
+                provenance_hash=prov_hash,
             )
         else:
             left_b, right_b = cfg.swing_window_for(tf)
@@ -3778,13 +3797,78 @@ def build_variant_market_context(
     base_market_inputs: Mapping[str, Any],
     variant_policy: Mapping[str, Any],
     decision_time: Optional[int] = None,
+    *,
+    reference_context: Optional[Any] = None,
 ) -> Any:
     """
     Section 04 (DEF-02): Construct an isolated `MarketDecisionContext` for a specific
     experiment variant policy (`A_BASELINE_OFF`, `B_OBSERVE_ONLY_DEFAULT`, `C_MTF_ELIGIBILITY_ON_FULL`,
     `D1..D6`). Never reuses or mutates another variant's context instance.
     """
-    from backend.services.shared_strategy_evaluator import build_market_decision_context
+    import dataclasses
+    from backend.services.shared_strategy_evaluator import (
+        _candle_summary,
+        _canonical_hash,
+        build_market_decision_context,
+    )
+
+    if (
+        reference_context is not None
+        and getattr(reference_context, "mtf_context", None) is not None
+        and (bool(variant_policy.get("mtf_structure_observe_only", False)) or bool(variant_policy.get("mtf_structure_eligibility_enabled", False)))
+    ):
+        merged_pol = dict(reference_context.policy_config_snapshot)
+        merged_pol.update(dict(variant_policy))
+        pol_tuple = tuple(sorted(merged_pol.items()))
+        fp_payload = {
+            "symbol": reference_context.symbol,
+            "decision_timestamp_ms": reference_context.decision_timestamp_ms,
+            "m1": _candle_summary(reference_context.closed_m1_candles, 60_000),
+            "m5": _candle_summary(reference_context.closed_m5_candles, 300_000),
+            "m15": _candle_summary(reference_context.closed_m15_candles, 900_000),
+            "h1": _candle_summary(reference_context.closed_h1_candles, 3_600_000),
+            "bid": reference_context.bid,
+            "ask": reference_context.ask,
+            "spread": reference_context.spread,
+            "atr_m1": reference_context.atr_m1,
+            "atr_m5": reference_context.atr_m5,
+            "enablement": reference_context.model_enablement_flags,
+            "policy": pol_tuple,
+            "risk": reference_context.risk_config_snapshot,
+            "cost": reference_context.cost_config_snapshot,
+        }
+        source_fp = _canonical_hash(fp_payload)
+        mtf_cfg = MtfStructureLiquidityConfig(
+            symbol=reference_context.symbol if reference_context.symbol == "XAUUSDT" else "XAUUSDT",
+            mtf_structure_observe_only=bool(merged_pol.get("mtf_structure_observe_only", True)),
+            mtf_structure_eligibility_enabled=bool(merged_pol.get("mtf_structure_eligibility_enabled", False)),
+            mtf_ablation_mode=str(merged_pol.get("mtf_ablation_mode", "FULL")),
+        )
+        b_mtf = reference_context.mtf_context
+        cfg_hash = mtf_cfg.config_hash()
+        ctx_hash = deterministic_hash(
+            {
+                "alg": mtf_cfg.algorithm_version,
+                "snap": b_mtf.snapshot.source_hash,
+                "cfg": cfg_hash,
+                "str": b_mtf.mtf_structure.provenance_hash,
+                "liq": b_mtf.liquidity_context.provenance_hash,
+                "eval_liq": b_mtf.evaluator_liquidity.provenance_hash,
+                "q": b_mtf.mtf_quality_state,
+            },
+            length=24,
+        )
+        ctx_id = f"mtfctx_{b_mtf.snapshot.symbol}_{ctx_hash[:12]}"
+        new_mtf = dataclasses.replace(b_mtf, mtf_context_id=ctx_id, mtf_context_hash=ctx_hash, config=mtf_cfg)
+        return dataclasses.replace(
+            reference_context,
+            policy_config_snapshot=pol_tuple,
+            source_fingerprint=source_fp,
+            mtf_context_id=ctx_id,
+            mtf_context_hash=ctx_hash,
+            mtf_context=new_mtf,
+            mtf_structure_bias_summary=new_mtf.to_summary_dict(),
+        )
 
     inputs_copy = dict(base_market_inputs)
     merged_policy = dict(inputs_copy.get("policy_config") or {})
@@ -4101,6 +4185,41 @@ def compare_actual_consumed_decisions(
                 if val is None or (isinstance(val, str) and not val.strip()):
                     missing_mandatory.append(f"{mode_lbl}.{f_name} is null/empty when MTF is active")
 
+    # Section 05(e): For ELIGIBLE decisions, all executable plan fields must be non-null and semantically valid
+    for mode_lbl, d_obj in (("prod", p_dict), ("shadow", s_dict), ("backtest", b_dict)):
+        if str(d_obj.get("decision_status")) == "ELIGIBLE":
+            if str(d_obj.get("setup_validity")) != "VALID":
+                missing_mandatory.append(f"{mode_lbl}.setup_validity must be VALID when ELIGIBLE")
+            if list(d_obj.get("rejection_reason_codes") or ()):
+                missing_mandatory.append(f"{mode_lbl}.rejection_reason_codes must be empty when ELIGIBLE")
+            for exec_field in (
+                "entry_reference",
+                "selected_sl",
+                "take_profit",
+                "gross_rr",
+                "net_rr",
+                "hypothetical_quantity",
+                "trade_action_fingerprint",
+            ):
+                ev = d_obj.get(exec_field)
+                if ev is None:
+                    missing_mandatory.append(f"{mode_lbl}.{exec_field} is null on ELIGIBLE decision")
+            e_px = d_obj.get("entry_reference")
+            sl_px = d_obj.get("selected_sl")
+            tp_px = d_obj.get("take_profit")
+            qty_v = d_obj.get("hypothetical_quantity")
+            nrr_v = d_obj.get("net_rr")
+            dir_v = str(d_obj.get("direction", ""))
+            if e_px is not None and sl_px is not None and tp_px is not None:
+                if dir_v == "LONG" and not (float(sl_px) < float(e_px) < float(tp_px)):
+                    missing_mandatory.append(f"{mode_lbl} invalid LONG price geometry sl={sl_px} entry={e_px} tp={tp_px}")
+                elif dir_v == "SHORT" and not (float(tp_px) < float(e_px) < float(sl_px)):
+                    missing_mandatory.append(f"{mode_lbl} invalid SHORT price geometry tp={tp_px} entry={e_px} sl={sl_px}")
+            if qty_v is not None and float(qty_v) <= 0:
+                missing_mandatory.append(f"{mode_lbl}.hypothetical_quantity must be > 0 when ELIGIBLE")
+            if nrr_v is not None and float(nrr_v) <= 0:
+                missing_mandatory.append(f"{mode_lbl}.net_rr must be > 0 when ELIGIBLE")
+
     if missing_mandatory:
         return {
             "status": "PARITY_NOT_ESTABLISHED",
@@ -4306,10 +4425,14 @@ def _simulate_forward_trade_outcome(
 
 def run_v17_9_1_historical_ab_backtest(
     max_evaluation_points: int = 120,
+    *,
+    evaluation_indices: Optional[Sequence[int]] = None,
+    include_candidate_universe: bool = False,
 ) -> Dict[str, Any]:
     """
     Section 04, 07 & 11: Execute real historical Bitget XAUUSDT A/B/C/D backtest & 3-mode +
     independent oracle parity verification over `backtest/historical_dataset_XAUUSDT.json.gz`.
+    Supports both the default 120-point uniform grid and expanded positive-path candidate universe.
     """
     import bisect
     from backend.services.market_shadow_service import MarketShadowService
@@ -4327,6 +4450,7 @@ def run_v17_9_1_historical_ab_backtest(
         evaluate_production_parity_model_snapshot,
     )
     from backend.services.v17_9_0_1_baseline_oracle import IndependentPreRefactorBaselineOracle
+    from backend.services.v17_9_1_decision_funnel import scan_full_m1_candidate_universe
 
     if not SAVED_DATASET_GZ_PATH.exists():
         return {
@@ -4379,7 +4503,18 @@ def run_v17_9_1_historical_ab_backtest(
     end_idx = len(bars_1m) - 1
     total_avail_steps = max(1, end_idx - start_idx)
     stride = max(1, total_avail_steps // max(1, int(max_evaluation_points)))
-    eval_indices = list(range(start_idx, end_idx + 1, stride))
+    if evaluation_indices is not None:
+        eval_indices = sorted(int(idx) for idx in evaluation_indices if start_idx <= int(idx) <= end_idx)
+    elif include_candidate_universe:
+        scan_info = scan_full_m1_candidate_universe(
+            datasets,
+            baseline_grid_points=max_evaluation_points,
+            control_sample_points=120,
+            min_candidate_target_distance_usd=11.0,
+        )
+        eval_indices = list(scan_info["combined_indices"])
+    else:
+        eval_indices = list(range(start_idx, end_idx + 1, stride))
 
     models_to_eval = (
         ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
@@ -4485,6 +4620,9 @@ def run_v17_9_1_historical_ab_backtest(
             "trade_action_fingerprints": [],
             "policy_fingerprints": [],
             "metadata_fingerprints": [],
+            "unique_eligible_timestamps": set(),
+            "next_free_m1_idx": -1,
+            "n_non_overlapping_episodes": 0,
         }
 
     prod_orch = ScalpWatcherOrchestrator()
@@ -4542,9 +4680,24 @@ def run_v17_9_1_historical_ab_backtest(
             "ask": ask_px,
         }
 
-        # Construct distinct contexts for A (baseline OFF) and B (observe-only default)
+        # Construct distinct contexts for A (baseline OFF), B (observe-only default), and C/D1..D6 once per checkpoint
         ctx_a = build_variant_market_context(base_market_inputs, variants["A_BASELINE_OFF"], decision_time=asof_ms)
         ctx_b = build_variant_market_context(base_market_inputs, variants["B_OBSERVE_ONLY_DEFAULT"], decision_time=asof_ms)
+        elig_on_variant_keys = (
+            "C_MTF_ELIGIBILITY_ON_FULL",
+            "D1_ABLATION_H4_ONLY",
+            "D2_ABLATION_H1_ONLY",
+            "D3_ABLATION_M15_ONLY",
+            "D4_ABLATION_STRUCTURE_ONLY",
+            "D5_ABLATION_LIQUIDITY_ONLY",
+            "D6_ABLATION_M15_H1_ONLY",
+        )
+        ctx_by_elig_variant = {
+            v_key: build_variant_market_context(
+                base_market_inputs, variants[v_key], decision_time=asof_ms, reference_context=ctx_b
+            )
+            for v_key in elig_on_variant_keys
+        }
         pref_dir = SharedStrategyEvaluator.resolve_canonical_preferred_direction(ctx_a)
 
         for model_id in models_to_eval:
@@ -4627,6 +4780,7 @@ def run_v17_9_1_historical_ab_backtest(
                     st["n_valid_setups"] += 1
                 if s_obj.decision_status == DecisionStatus.ELIGIBLE.value:
                     st["n_eligible_trades"] += 1
+                    st["unique_eligible_timestamps"].add(asof_ms)
                     if s_obj.net_rr is not None:
                         st["net_rr_list"].append(float(s_obj.net_rr))
                     sim = _simulate_forward_trade_outcome(
@@ -4643,22 +4797,18 @@ def run_v17_9_1_historical_ab_backtest(
                         st["closed_realized_r_list"].append(float(sim["realized_r"]))
                     elif out_lbl == "OPEN_AT_HORIZON":
                         st["open_horizon_r_list"].append(float(sim["realized_r"]))
+                    if i_1m >= st["next_free_m1_idx"]:
+                        st["next_free_m1_idx"] = i_1m + max(1, int(sim.get("bars_held") or 1))
+                        st["n_non_overlapping_episodes"] += 1
                 else:
                     st["n_rejected"] += 1
                     for r_code in s_obj.rejection_reason_codes:
-                        st["rejection_reasons"][r_code] = st["rejection_reasons"].get(r_code, 0) + 1
+                        rc_norm = str(r_code).split(":")[0].strip()
+                        st["rejection_reasons"][rc_norm] = st["rejection_reasons"].get(rc_norm, 0) + 1
 
             # 3. Evaluate C and D1..D6 (eligibility ON variants)
-            for v_key in (
-                "C_MTF_ELIGIBILITY_ON_FULL",
-                "D1_ABLATION_H4_ONLY",
-                "D2_ABLATION_H1_ONLY",
-                "D3_ABLATION_M15_ONLY",
-                "D4_ABLATION_STRUCTURE_ONLY",
-                "D5_ABLATION_LIQUIDITY_ONLY",
-                "D6_ABLATION_M15_H1_ONLY",
-            ):
-                ctx_v = build_variant_market_context(base_market_inputs, variants[v_key], decision_time=asof_ms)
+            for v_key in elig_on_variant_keys:
+                ctx_v = ctx_by_elig_variant[v_key]
                 snap_v = prod_orch.evaluate_shared_decision_snapshot(
                     context=ctx_v, model_id=model_id, direction=pref_dir
                 )
@@ -4673,6 +4823,7 @@ def run_v17_9_1_historical_ab_backtest(
                     st["n_valid_setups"] += 1
                 if snap_v.decision_status == DecisionStatus.ELIGIBLE.value:
                     st["n_eligible_trades"] += 1
+                    st["unique_eligible_timestamps"].add(asof_ms)
                     if snap_v.net_rr is not None:
                         st["net_rr_list"].append(float(snap_v.net_rr))
                     sim = _simulate_forward_trade_outcome(
@@ -4689,13 +4840,17 @@ def run_v17_9_1_historical_ab_backtest(
                         st["closed_realized_r_list"].append(float(sim["realized_r"]))
                     elif out_lbl == "OPEN_AT_HORIZON":
                         st["open_horizon_r_list"].append(float(sim["realized_r"]))
+                    if i_1m >= st["next_free_m1_idx"]:
+                        st["next_free_m1_idx"] = i_1m + max(1, int(sim.get("bars_held") or 1))
+                        st["n_non_overlapping_episodes"] += 1
                 else:
                     st["n_rejected"] += 1
                     for r_code in snap_v.rejection_reason_codes:
-                        st["rejection_reasons"][r_code] = st["rejection_reasons"].get(r_code, 0) + 1
-                        if r_code.startswith("MTF_"):
+                        rc_norm = str(r_code).split(":")[0].strip()
+                        st["rejection_reasons"][rc_norm] = st["rejection_reasons"].get(rc_norm, 0) + 1
+                        if rc_norm.startswith("MTF_"):
                             st["n_mtf_filtered"] += 1
-                            st["mtf_filter_reasons"][r_code] = st["mtf_filter_reasons"].get(r_code, 0) + 1
+                            st["mtf_filter_reasons"][rc_norm] = st["mtf_filter_reasons"].get(rc_norm, 0) + 1
 
     # Summarize metrics per variant honestly (closed trades only for realized R metrics)
     summarized_variants: Dict[str, Any] = {}
@@ -4708,7 +4863,12 @@ def run_v17_9_1_historical_ab_backtest(
         win_rate = round(wins / closed_trades, 4) if closed_trades > 0 else None
         gross_win_r = sum(x for x in r_list if x > 0)
         gross_loss_r = abs(sum(x for x in r_list if x < 0))
-        profit_factor = round(gross_win_r / gross_loss_r, 4) if gross_loss_r > 0 else (None if gross_win_r == 0 else 999.0)
+        if gross_loss_r > 0:
+            profit_factor = round(gross_win_r / gross_loss_r, 4)
+            pf_null_reason = None
+        else:
+            profit_factor = None
+            pf_null_reason = "ZERO_CLOSED_LOSS_DENOMINATOR" if gross_win_r > 0 else "ZERO_CLOSED_TRADES"
         expectancy_r = round(sum(r_list) / len(r_list), 4) if r_list else None
         open_mtm_expectancy_r = round(sum(open_r_list) / len(open_r_list), 4) if open_r_list else None
 
@@ -4729,12 +4889,15 @@ def run_v17_9_1_historical_ab_backtest(
             "n_decisions_evaluated": st["n_decisions_evaluated"],
             "n_valid_setups": st["n_valid_setups"],
             "n_eligible_trades": st["n_eligible_trades"],
+            "n_unique_eligible_timestamps": len(st["unique_eligible_timestamps"]),
+            "n_non_overlapping_episodes": st["n_non_overlapping_episodes"],
             "n_closed_resolved_trades": closed_trades,
             "n_open_at_horizon_trades": st["outcomes"]["OPEN_AT_HORIZON"],
             "n_rejected": st["n_rejected"],
             "n_mtf_filtered": st["n_mtf_filtered"],
             "win_rate": win_rate,
             "profit_factor": profit_factor,
+            "profit_factor_null_reason": pf_null_reason,
             "expectancy_r": expectancy_r,
             "open_mark_to_market_expectancy_r": open_mtm_expectancy_r,
             "max_drawdown_r": round(max_dd_r, 4),
@@ -4763,14 +4926,42 @@ def run_v17_9_1_historical_ab_backtest(
         (v.get("n_closed_resolved_trades", 0) for v in summarized_variants.values()),
         default=0,
     )
+    max_eligible_trades = max(
+        (v.get("n_eligible_trades", 0) for v in summarized_variants.values()),
+        default=0,
+    )
+    max_non_overlapping_episodes = max(
+        (v.get("n_non_overlapping_episodes", 0) for v in summarized_variants.values()),
+        default=0,
+    )
     stat_conclusion = (
         "STATISTICALLY_INCONCLUSIVE_INSUFFICIENT_SAMPLE"
-        if max_closed_trades < 30
+        if (max_closed_trades < 30 or max_non_overlapping_episodes < 30)
         else "SUFFICIENT_CLOSED_SAMPLE"
+    )
+    engineering_verdict = "PASS" if is_parity_ok else "FAIL"
+    if not is_parity_ok:
+        positive_path_verdict = "BLOCKED"
+    elif max_closed_trades >= 1:
+        positive_path_verdict = "VERIFIED"
+    elif max_eligible_trades >= 1:
+        positive_path_verdict = "PARTIAL"
+    else:
+        positive_path_verdict = "NOT_ESTABLISHED"
+    strategy_statistical_verdict = (
+        "SUFFICIENT"
+        if (max_closed_trades >= 30 and max_non_overlapping_episodes >= 30)
+        else "INCONCLUSIVE"
     )
 
     return {
         "status": "PASS" if is_parity_ok else "PARITY_NOT_ESTABLISHED",
+        "engineering_verdict": engineering_verdict,
+        "positive_path_verdict": positive_path_verdict,
+        "strategy_statistical_verdict": strategy_statistical_verdict,
+        "ready_for_v17_9_2_development": "YES" if is_parity_ok else "NO",
+        "ready_for_strategy_activation": "NO",
+        "parity_execution_mode": "OFFLINE_ADAPTER_REPLAY_PARITY",
         "DATA_VALIDATED": True,
         "ENGINEERING_REPLAY_COMPLETED": True,
         "PARITY_VERIFIED": bool(is_parity_ok),

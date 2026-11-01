@@ -360,6 +360,39 @@ def build_implementation_map() -> List[Dict[str, Any]]:
             "caller": "main, test_24_gate_evaluator_fail_closed_and_report_validation, test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity",
             "test": "test_24_gate_evaluator_fail_closed_and_report_validation, test_25_pytest_inventory_reconciliation_and_mandatory_non_null_parity",
         },
+        {
+            "file": "backend/services/v17_9_1_decision_funnel.py",
+            "file_line": "backend/services/v17_9_1_decision_funnel.py:103-1924",
+            "exact_function": "normalize_reason_code, classify_rejection_stage, classify_historical_dataset_gaps, extract_decision_numerical_operands, evaluate_decision_counterfactuals_research_only, scan_full_m1_candidate_universe, build_decision_funnel_report, build_per_decision_trace_record, build_function_truth_map",
+            "function_names": [
+                "normalize_reason_code",
+                "classify_rejection_stage",
+                "classify_historical_dataset_gaps",
+                "extract_decision_numerical_operands",
+                "evaluate_decision_counterfactuals_research_only",
+                "scan_full_m1_candidate_universe",
+                "build_decision_funnel_report",
+                "build_per_decision_trace_record",
+                "build_function_truth_map",
+            ],
+            "old_or_new": "NEW",
+            "why": "V17.9.1.1 Sections 02-05: AST function truth map, M1/M5/M15/H1/H4/D1 gap classification without synthetic fill, exact NET_RR_TOO_LOW numerical decomposition, 2-stage full 22,346-bar M1 candidate scanner, Decision Funnel reconciliation, and versioned per-decision trace builder.",
+            "caller": "run_v17_9_1_positive_path_replay.py, test_v17_9_1_positive_path_replay.py",
+            "test": "test_01_function_truth_map_ast_completeness, test_02_dataset_sha256_and_gap_classification_no_synthetic_fill, test_03_net_rr_algebraic_decomposition_and_no_gate_loosening, test_04_two_stage_candidate_scan_and_121_checkpoint_funnel_reconciliation",
+        },
+        {
+            "file": "tools/run_v17_9_1_positive_path_replay.py",
+            "file_line": "tools/run_v17_9_1_positive_path_replay.py:850-1650",
+            "exact_function": "evaluate_positive_path_gates, run_positive_path_replay_and_bundle",
+            "function_names": [
+                "evaluate_positive_path_gates",
+                "run_positive_path_replay_and_bundle",
+            ],
+            "old_or_new": "NEW",
+            "why": "V17.9.1.1 Sections 05-10: Bounded multi-worker chronological positive-path historical replay, 3-runtime + oracle parity on 106 real ELIGIBLE decisions, OOS split, P01..P12 gate evaluator, and 20-artifact bundle publisher.",
+            "caller": "main, test_v17_9_1_positive_path_replay.py",
+            "test": "test_05_real_historical_positive_path_eligible_decisions_and_3way_oracle_parity, test_06_prefix_invariance_and_future_candle_mutation_isolation, test_07_negative_controls_tampered_parity_and_execution_guards, test_08_multi_worker_vs_single_worker_deterministic_equivalence",
+        },
     ]
 
 
@@ -370,7 +403,7 @@ def verify_implementation_map_entries(
     """
     Section 02 & 03 (G01): Inspects AST of every file in `impl_map`, verifying that the file
     exists, every listed function/class exists in the AST, and every referenced test function
-    exists in `backend/tests/test_v17_9_1_mtf_structure_liquidity.py`.
+    exists in `backend/tests/test_v17_9_1_mtf_structure_liquidity.py` or `backend/tests/test_v17_9_1_positive_path_replay.py`.
     """
     if not impl_map:
         return {"is_valid": False, "status": "FAIL", "errors": ["implementation_map is empty"]}
@@ -378,17 +411,21 @@ def verify_implementation_map_entries(
     errors: List[str] = []
     verified_symbols: List[str] = []
 
-    test_file = repo_root / "backend" / "tests" / "test_v17_9_1_mtf_structure_liquidity.py"
+    test_files = [
+        repo_root / "backend" / "tests" / "test_v17_9_1_mtf_structure_liquidity.py",
+        repo_root / "backend" / "tests" / "test_v17_9_1_positive_path_replay.py",
+    ]
     test_defs: set[str] = set()
-    if test_file.exists():
-        test_tree = ast.parse(test_file.read_text(encoding="utf-8"), filename=str(test_file))
-        test_defs = {
-            node.name
-            for node in ast.walk(test_tree)
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        }
-    else:
-        errors.append(f"Missing test file: {test_file}")
+    for tf_p in test_files:
+        if tf_p.exists():
+            test_tree = ast.parse(tf_p.read_text(encoding="utf-8"), filename=str(tf_p))
+            test_defs |= {
+                node.name
+                for node in ast.walk(test_tree)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+        else:
+            errors.append(f"Missing test file: {tf_p}")
 
     for idx, item in enumerate(impl_map):
         rel_file = str(item.get("file") or str(item.get("file_line", "")).split(":")[0]).strip()
@@ -426,7 +463,7 @@ def verify_implementation_map_entries(
             if t_name.startswith("test_v17_") and not t_name.startswith("test_v17_9_1"):
                 continue
             if t_name.startswith("test_") and t_name not in test_defs:
-                errors.append(f"Referenced test {t_name!r} not found in {test_file.name}")
+                errors.append(f"Referenced test {t_name!r} not found in {[p.name for p in test_files]}")
 
     return {
         "is_valid": len(errors) == 0 and len(verified_symbols) > 0,
@@ -484,11 +521,15 @@ def build_full_regression_shards(
       - `SHARD_02`..`SHARD_11`: weighted load-balanced shards covering all remaining `backend/tests/test_*.py`
     Zero files and zero tests are excluded.
     """
-    mtf_test_rel = "backend/tests/test_v17_9_1_mtf_structure_liquidity.py"
+    mtf_suite_files = [
+        "backend/tests/test_v17_9_1_mtf_structure_liquidity.py",
+        "backend/tests/test_v17_9_1_positive_path_replay.py",
+    ]
+    mtf_suite_set = set(mtf_suite_files)
     all_files = sorted(
         str(p.relative_to(repo_root)).replace("\\", "/")
         for p in (repo_root / "backend" / "tests").glob("test_*.py")
-        if str(p.relative_to(repo_root)).replace("\\", "/") != mtf_test_rel
+        if str(p.relative_to(repo_root)).replace("\\", "/") not in mtf_suite_set
     )
 
     def _estimate_file_weight(rel_f: str) -> float:
@@ -534,8 +575,8 @@ def build_full_regression_shards(
     shards: List[Tuple[str, str, List[str], Optional[str]]] = [
         (
             "SHARD_01_V17_9_1_MTF_SUITE",
-            "V17.9.1 Causal MTF Structure, Liquidity, Fail-Closed, A/B Backtest & Gate Verification Suite",
-            [mtf_test_rel],
+            "V17.9.1 Causal MTF Structure, Liquidity, Fail-Closed, A/B Backtest & Positive-Path Replay Suite",
+            [f for f in mtf_suite_files if (repo_root / f).exists()],
             None,
         )
     ]
@@ -1177,7 +1218,7 @@ def _dirty_tracked_files() -> List[str]:
         if ln.startswith("?? "):
             continue
         path_part = ln[3:].strip()
-        if path_part.startswith("docs/artifacts/v17_9_1/"):
+        if path_part.startswith("docs/artifacts/v17_9_1/") or path_part.startswith("docs/artifacts/v17_9_1_positive_path/"):
             continue
         tracked_dirty.append(ln.strip())
     return tracked_dirty
