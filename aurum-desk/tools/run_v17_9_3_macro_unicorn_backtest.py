@@ -588,7 +588,6 @@ def screen_v17931_causal_setup_universe(
     screened_set = (
         set(macro_inside_indices)
         | set(bound_unicorn_indices)
-        | set(scan_unicorn_indices)
         | set(a0_target_superset_indices)
         | set(legacy_491_indices)
     )
