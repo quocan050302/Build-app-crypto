@@ -325,7 +325,7 @@
       "status": "PASS",
       "description": "Disk floor (>= 5.0 GB free), RAM, and subprocess concurrency cap (<= 4 workers) satisfied",
       "evidence": {
-        "free_disk_gb": 25.47,
+        "free_disk_gb": 25.453,
         "peak_subprocesses": 4
       }
     },

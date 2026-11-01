@@ -132,18 +132,18 @@
     },
     {
       "filename": "25_acceptance_gates_G01_to_G38_manifest.json",
-      "size_bytes": 11429,
-      "sha256": "701607adf0ee58f2b9470b97cdee69d9a7f1f8d7d0e578b7b118221f285525c2"
+      "size_bytes": 11430,
+      "sha256": "4c2bdaa8cc44395b8192fb9c56219aae3aaf4191f723db0c2fdbf6fa159c91a2"
     },
     {
       "filename": "26_Closure_Executive_Report_V17_9_3_1_2.md",
       "size_bytes": 4190,
-      "sha256": "a4ba2a65043f98cef6d84d1eafb74093a091bb978d442691d522fbc3e3f0754e"
+      "sha256": "307f39fb1863400ddc4e7e12298f4553eb577195136370eeb50c49f143681bd9"
     },
     {
       "filename": "27_git_commit_push_remote_HEAD_proof.json",
       "size_bytes": 861,
-      "sha256": "5da2bf280e3a3bf982149cfc78d275086f7a4237ce5619fffc5f583ec12edf4b"
+      "sha256": "0709c194ca10a893c6bb5a1a7632cd2ea0db671bf0e89c968bda9f03c02a280b"
     }
   ]
 }

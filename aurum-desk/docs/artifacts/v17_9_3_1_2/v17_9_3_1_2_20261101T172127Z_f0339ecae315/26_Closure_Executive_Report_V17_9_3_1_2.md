@@ -7,8 +7,8 @@
 - **Previous V17.9.3.1 Tested Executable SHA**: `a00a17091bf7991855aaeb3f718242354c244a08`
 - **Base `master` SHA**: `650e4535777421077443cd3d95507cad1d99ed42`
 - **Tested Executable Code SHA**: `f0339ecae3152c2358eed44ff1707fb4d34e429d`
-- **Final Local HEAD SHA**: `59f86d438e746a32f6ba76d21b7ba998a059a471`
-- **Remote Origin HEAD SHA**: `59f86d438e746a32f6ba76d21b7ba998a059a471`
+- **Final Local HEAD SHA**: `5cfaeef7cf07e3bf1293a7ec1f1b7dd4c522c551`
+- **Remote Origin HEAD SHA**: `5cfaeef7cf07e3bf1293a7ec1f1b7dd4c522c551`
 - **Evidence Run ID**: `v17_9_3_1_2_20261101T172127Z_f0339ecae315`
 
 ## 2. Three-Axis Closure Verdict
