@@ -1057,6 +1057,12 @@ class StrategyDecisionSnapshot:
     v1792_mode: str = "OFF"
     v1792_stop_plan_dict: Optional[Dict[str, Any]] = None
     v1792_target_plan_dict: Optional[Dict[str, Any]] = None
+    # V17.9.3 Additive Causal ICT Macro Time & Unicorn Confluence Intelligence Fields
+    v1793_mode: str = "OFF"
+    v1793_macro_time_dict: Optional[Dict[str, Any]] = None
+    v1793_unicorn_confluence_dict: Optional[Dict[str, Any]] = None
+    v1793_plan_dict: Optional[Dict[str, Any]] = None
+    v1793_rejection_stage: Optional[str] = None
 
     @property
     def trade_action_fingerprint(self) -> str:
@@ -1076,6 +1082,12 @@ class StrategyDecisionSnapshot:
             payload["v1792_mode"] = self.v1792_mode
             if isinstance(self.v1792_stop_plan_dict, dict):
                 payload["v1792_observe_metadata_fingerprint"] = self.v1792_stop_plan_dict.get(
+                    "observe_metadata_fingerprint"
+                )
+        if self.v1793_mode and self.v1793_mode != "OFF":
+            payload["v1793_mode"] = self.v1793_mode
+            if isinstance(self.v1793_plan_dict, dict):
+                payload["v1793_observe_metadata_fingerprint"] = self.v1793_plan_dict.get(
                     "observe_metadata_fingerprint"
                 )
         return _canonical_hash(payload)
@@ -1190,6 +1202,11 @@ class StrategyDecisionSnapshot:
             "v1792_mode": self.v1792_mode,
             "v1792_stop_plan_dict": self.v1792_stop_plan_dict,
             "v1792_target_plan_dict": self.v1792_target_plan_dict,
+            "v1793_mode": self.v1793_mode,
+            "v1793_macro_time_dict": self.v1793_macro_time_dict,
+            "v1793_unicorn_confluence_dict": self.v1793_unicorn_confluence_dict,
+            "v1793_plan_dict": self.v1793_plan_dict,
+            "v1793_rejection_stage": self.v1793_rejection_stage,
         }
 
 
@@ -2116,6 +2133,49 @@ class SharedStrategyEvaluator:
         eff_v1792_buffer_mode = str(policy_dict.get("v17_9_2_buffer_mode", "STRUCTURE_PLUS_NOISE") or "STRUCTURE_PLUS_NOISE")
         eff_v1792_target_mode = str(policy_dict.get("v17_9_2_target_mode", "FROZEN_BASELINE_NEAREST") or "FROZEN_BASELINE_NEAREST")
 
+        raw_v1793_mode = policy_dict.get("v17_9_3_mode", None)
+        v1793_en = bool(policy_dict.get("v17_9_3_macro_unicorn_enabled", False))
+        v1793_obs = bool(policy_dict.get("v17_9_3_observe_only", False))
+        if raw_v1793_mode is not None and (not isinstance(raw_v1793_mode, str) or raw_v1793_mode.strip() not in ("", "OFF")):
+            eff_v1793_mode_raw: Any = raw_v1793_mode
+        elif v1793_en:
+            eff_v1793_mode_raw = "MACRO_PLUS_UNICORN_V1792_SL_TP"
+        elif v1793_obs:
+            eff_v1793_mode_raw = "OBSERVE_ONLY"
+        else:
+            eff_v1793_mode_raw = "OFF"
+
+        def _build_early_v1793_kwargs(
+            setup_desc: Optional[Mapping[str, Any]] = None,
+            entry_px: Optional[float] = None,
+        ) -> Tuple[Dict[str, Any], Tuple[str, ...]]:
+            if eff_v1793_mode_raw == "OFF":
+                return {"v1793_mode": "OFF"}, ()
+            from services.v17_9_3_macro_unicorn_intelligence import plan_v17_9_3_macro_unicorn_setup
+            early_plan = plan_v17_9_3_macro_unicorn_setup(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                setup_descriptors=setup_desc,
+                v1792_plan=None,
+                mode=eff_v1793_mode_raw,
+                schedule_config=policy_dict.get("v17_9_3_schedule_config"),
+                entry_price=entry_px,
+                require_confirmed_retest=bool(policy_dict.get("v17_9_3_require_confirmed_retest", True)),
+                require_htf_alignment=bool(policy_dict.get("v17_9_3_require_htf_alignment", True)),
+            )
+            extra_rej: Tuple[str, ...] = ("INVALID_V1793_MODE",) if not early_plan.mode_valid else ()
+            return (
+                {
+                    "v1793_mode": early_plan.mode,
+                    "v1793_macro_time_dict": early_plan.macro_state.to_dict(),
+                    "v1793_unicorn_confluence_dict": early_plan.unicorn_assessment.to_dict(),
+                    "v1793_plan_dict": early_plan.to_dict(),
+                    "v1793_rejection_stage": early_plan.rejection_stage if early_plan.mode != "OBSERVE_ONLY" else None,
+                },
+                extra_rej,
+            )
+
         ctx_mtf_obj = getattr(context, "mtf_context", None)
         ctx_mtf_q = getattr(context, "mtf_quality_state", None)
         if ctx_mtf_obj is None and ctx_mtf_q == "VALID":
@@ -2141,7 +2201,14 @@ class SharedStrategyEvaluator:
 
         # 1. Model enablement check
         if not context.is_model_enabled(model_id):
-            reasons = ("MODEL_DISABLED", early_mtf_rej_code) if early_mtf_rej_code else ("MODEL_DISABLED",)
+            v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs()
+            reasons_l = ["MODEL_DISABLED"]
+            if early_mtf_rej_code and early_mtf_rej_code not in reasons_l:
+                reasons_l.append(early_mtf_rej_code)
+            for r in v1793_extra_rej:
+                if r not in reasons_l:
+                    reasons_l.append(r)
+            reasons = tuple(reasons_l)
             ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
                 context=context,
                 model_id=model_id,
@@ -2209,6 +2276,7 @@ class SharedStrategyEvaluator:
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
                 v1792_mode=eff_v1792_mode,
+                **v1793_kw,
             )
 
         min_h1_bars = int(policy_dict.get("min_h1_bars", 0) or 0)
@@ -2234,6 +2302,7 @@ class SharedStrategyEvaluator:
             or not context.causal_valid
             or htf_insufficient
         ):
+            v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs()
             reasons_list = list(context.causal_rejection_reasons)
             if htf_insufficient and "INSUFFICIENT_HTF_HISTORY" not in reasons_list:
                 reasons_list.append("INSUFFICIENT_HTF_HISTORY")
@@ -2241,6 +2310,9 @@ class SharedStrategyEvaluator:
                 reasons_list.append("INSUFFICIENT_CLOSED_CANDLES")
             if early_mtf_rej_code and early_mtf_rej_code not in reasons_list:
                 reasons_list.append(early_mtf_rej_code)
+            for r in v1793_extra_rej:
+                if r not in reasons_list:
+                    reasons_list.append(r)
             reasons_tuple = tuple(reasons_list)
             ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
                 context=context,
@@ -2309,6 +2381,7 @@ class SharedStrategyEvaluator:
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
                 v1792_mode=eff_v1792_mode,
+                **v1793_kw,
             )
 
         closed_1m = list(context.closed_m1_candles)
@@ -2326,11 +2399,14 @@ class SharedStrategyEvaluator:
         if bool(policy_dict.get("enforce_htf_bias_alignment", False)) and ctx_htf_bias in ("BULLISH", "BEARISH"):
             expected_dir = "LONG" if ctx_htf_bias == "BULLISH" else "SHORT"
             if direction != expected_dir or str(context.h1_alignment or policy_dict.get("h1_alignment") or "") in ("COUNTER", "CONFLICT"):
-                conflict_reasons = (
-                    ("HTF_STRUCTURE_CONFLICT", early_mtf_rej_code)
-                    if early_mtf_rej_code
-                    else ("HTF_STRUCTURE_CONFLICT",)
-                )
+                v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs(entry_px=entry_ref)
+                conflict_l = ["HTF_STRUCTURE_CONFLICT"]
+                if early_mtf_rej_code and early_mtf_rej_code not in conflict_l:
+                    conflict_l.append(early_mtf_rej_code)
+                for r in v1793_extra_rej:
+                    if r not in conflict_l:
+                        conflict_l.append(r)
+                conflict_reasons = tuple(conflict_l)
                 ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
                     context=context,
                     model_id=model_id,
@@ -2398,6 +2474,7 @@ class SharedStrategyEvaluator:
                     mtf_diagnostic_error=eff_mtf_diag,
                     adapter_call_id=call_id,
                     v1792_mode=eff_v1792_mode,
+                    **v1793_kw,
                 )
 
         # 3. Fail closed if ATR M1 is missing/unavailable (e.g. M1 cadence gap)
@@ -2408,12 +2485,16 @@ class SharedStrategyEvaluator:
             or getattr(atr_m1_obj, "status", None) != "AVAILABLE"
             or float(getattr(atr_m1_obj, "value", 0.0) or 0.0) <= 0.0
         ):
+            v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs(entry_px=entry_ref)
             atr_reasons_list = [
                 "ATR_MISSING",
                 str(getattr(atr_m1_obj, "reason_code", "ATR_UNAVAILABLE") or "ATR_UNAVAILABLE"),
             ]
             if early_mtf_rej_code and early_mtf_rej_code not in atr_reasons_list:
                 atr_reasons_list.append(early_mtf_rej_code)
+            for r in v1793_extra_rej:
+                if r not in atr_reasons_list:
+                    atr_reasons_list.append(r)
             atr_reasons = tuple(atr_reasons_list)
             ep_id = f"ep_{model_id}_{now_ms}"
             ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
@@ -2484,6 +2565,7 @@ class SharedStrategyEvaluator:
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
                 v1792_mode=eff_v1792_mode,
+                **v1793_kw,
             )
 
         atr_m1_val = round(float(atr_m1_obj.value), 6)
@@ -2566,7 +2648,17 @@ class SharedStrategyEvaluator:
                 if raw_code in waiting_codes
                 else DecisionStatus.NO_VALID_SETUP.value
             )
-            reasons = (str(raw_code), early_mtf_rej_code) if (early_mtf_rej_code and early_mtf_rej_code != str(raw_code)) else (str(raw_code),)
+            v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs(
+                setup_desc=setup_info,
+                entry_px=entry_ref,
+            )
+            reasons_l = [str(raw_code)]
+            if early_mtf_rej_code and early_mtf_rej_code not in reasons_l:
+                reasons_l.append(early_mtf_rej_code)
+            for r in v1793_extra_rej:
+                if r not in reasons_l:
+                    reasons_l.append(r)
+            reasons = tuple(reasons_l)
             ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
                 context=context,
                 model_id=model_id,
@@ -2634,6 +2726,7 @@ class SharedStrategyEvaluator:
                 mtf_diagnostic_error=eff_mtf_diag,
                 adapter_call_id=call_id,
                 v1792_mode=eff_v1792_mode,
+                **v1793_kw,
             )
 
         selected_fvg = setup_info.get("selected_fvg")
@@ -2984,6 +3077,47 @@ class SharedStrategyEvaluator:
                             new_rej.append(dom_reason)
                 rejection_reasons = list(dict.fromkeys(new_rej))
 
+        v1793_mode_final = "OFF"
+        v1793_macro_dict: Optional[Dict[str, Any]] = None
+        v1793_unicorn_dict: Optional[Dict[str, Any]] = None
+        v1793_plan_dict: Optional[Dict[str, Any]] = None
+        v1793_rej_stage: Optional[str] = None
+
+        if eff_v1793_mode_raw != "OFF":
+            from services.v17_9_3_macro_unicorn_intelligence import (
+                plan_v17_9_3_macro_unicorn_setup,
+            )
+
+            v1793_plan = plan_v17_9_3_macro_unicorn_setup(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                setup_descriptors=setup_info,
+                v1792_plan=v1792_stop_plan_dict,
+                mode=eff_v1793_mode_raw,
+                schedule_config=policy_dict.get("v17_9_3_schedule_config"),
+                entry_price=entry_ref,
+                baseline_sl=structural_sl,
+                baseline_invalidation_price=invalidation_px,
+                require_confirmed_retest=bool(
+                    policy_dict.get("v17_9_3_require_confirmed_retest", True)
+                ),
+                require_htf_alignment=bool(
+                    policy_dict.get("v17_9_3_require_htf_alignment", True)
+                ),
+            )
+            v1793_mode_final = v1793_plan.mode
+            v1793_macro_dict = v1793_plan.macro_state.to_dict()
+            v1793_unicorn_dict = v1793_plan.unicorn_assessment.to_dict()
+            v1793_plan_dict = v1793_plan.to_dict()
+
+            if v1793_plan.mode != "OBSERVE_ONLY":
+                v1793_rej_stage = v1793_plan.rejection_stage
+                if not v1793_plan.v1793_gates_passed:
+                    for r in v1793_plan.rejection_reasons:
+                        if r not in rejection_reasons:
+                            rejection_reasons.append(r)
+
         is_eligible = len(rejection_reasons) == 0 and has_valid_target
         decision_status = (
             DecisionStatus.ELIGIBLE.value
@@ -3073,6 +3207,11 @@ class SharedStrategyEvaluator:
             v1792_mode=eff_v1792_mode,
             v1792_stop_plan_dict=v1792_stop_plan_dict,
             v1792_target_plan_dict=v1792_target_plan_dict,
+            v1793_mode=v1793_mode_final,
+            v1793_macro_time_dict=v1793_macro_dict,
+            v1793_unicorn_confluence_dict=v1793_unicorn_dict,
+            v1793_plan_dict=v1793_plan_dict,
+            v1793_rejection_stage=v1793_rej_stage,
         )
 
     @staticmethod

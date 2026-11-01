@@ -145,6 +145,12 @@ class StopPlacementPolicy:
     v17_9_2_structural_sl_enabled: bool = False
     v17_9_2_observe_only: bool = False
     v17_9_2_mode: str = "OFF"
+    v17_9_3_macro_unicorn_enabled: bool = False
+    v17_9_3_observe_only: bool = False
+    v17_9_3_mode: str = "OFF"
+    v17_9_3_macro_schedule_version: str = "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1"
+    v17_9_3_require_confirmed_retest: bool = True
+    v17_9_3_require_htf_alignment: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -171,6 +177,12 @@ class StopPlacementPolicy:
             "v17_9_2_structural_sl_enabled": self.v17_9_2_structural_sl_enabled,
             "v17_9_2_observe_only": self.v17_9_2_observe_only,
             "v17_9_2_mode": self.v17_9_2_mode,
+            "v17_9_3_macro_unicorn_enabled": self.v17_9_3_macro_unicorn_enabled,
+            "v17_9_3_observe_only": self.v17_9_3_observe_only,
+            "v17_9_3_mode": self.v17_9_3_mode,
+            "v17_9_3_macro_schedule_version": self.v17_9_3_macro_schedule_version,
+            "v17_9_3_require_confirmed_retest": self.v17_9_3_require_confirmed_retest,
+            "v17_9_3_require_htf_alignment": self.v17_9_3_require_htf_alignment,
         }
 
 

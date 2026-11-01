@@ -4263,6 +4263,12 @@ def compare_actual_consumed_decisions(
         "mtf_context_hash",
         "mtf_algorithm_version",
         "mtf_quality_state",
+        "v1792_mode",
+        "v1793_mode",
+        "v1793_macro_time_dict",
+        "v1793_unicorn_confluence_dict",
+        "v1793_plan_dict",
+        "v1793_rejection_stage",
     ]
 
     oracle_compared_fields = (

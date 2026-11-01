@@ -173,6 +173,43 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
 
     v1792_mode = "STRUCTURAL_SL_ON" if v1792_struct_enabled else ("OBSERVE_ONLY" if v1792_observe_only else "OFF")
 
+    v1793_macro_unicorn_enabled = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_3_macro_unicorn_enabled"), default=False
+    )
+    v1793_observe_only = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_3_observe_only"), default=False
+    )
+    v1793_require_retest = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_3_require_confirmed_retest"), default=True
+    )
+    v1793_require_htf = _parse_strict_persisted_bool(
+        config_map.get("stop_placement_v1.v17_9_3_require_htf_alignment"), default=True
+    )
+    raw_v1793_mode = str(config_map.get("stop_placement_v1.v17_9_3_mode", "OFF") or "OFF").strip()
+    if raw_v1793_mode not in (
+        "OFF",
+        "OBSERVE_ONLY",
+        "MACRO_FILTER_ONLY",
+        "UNICORN_ONLY",
+        "MACRO_PLUS_UNICORN_V1792_SL_TP",
+        "MACRO_PLUS_UNICORN_MTF_FULL",
+    ):
+        raw_v1793_mode = "OFF"
+    if v1793_macro_unicorn_enabled and raw_v1793_mode in ("OFF", "OBSERVE_ONLY"):
+        v1793_mode = "MACRO_PLUS_UNICORN_V1792_SL_TP"
+    elif v1793_observe_only and raw_v1793_mode == "OFF":
+        v1793_mode = "OBSERVE_ONLY"
+    else:
+        v1793_mode = raw_v1793_mode
+
+    v1793_sched_ver = str(
+        config_map.get(
+            "stop_placement_v1.v17_9_3_macro_schedule_version",
+            "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+        )
+        or "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1"
+    ).strip()
+
     return StopPlacementPolicy(
         mode=mode,
         version=version,
@@ -197,6 +234,12 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
         v17_9_2_structural_sl_enabled=v1792_struct_enabled,
         v17_9_2_observe_only=v1792_observe_only,
         v17_9_2_mode=v1792_mode,
+        v17_9_3_macro_unicorn_enabled=v1793_macro_unicorn_enabled,
+        v17_9_3_observe_only=v1793_observe_only,
+        v17_9_3_mode=v1793_mode,
+        v17_9_3_macro_schedule_version=v1793_sched_ver,
+        v17_9_3_require_confirmed_retest=v1793_require_retest,
+        v17_9_3_require_htf_alignment=v1793_require_htf,
     )
 
 
@@ -273,13 +316,17 @@ def validate_stop_placement_policy(
     else:
         validated["algorithm_version"] = current.algorithm_version
 
-    # Strict boolean validation for V17.8 and V17.9.2 feature flags
+    # Strict boolean validation for V17.8, V17.9.2, and V17.9.3 feature flags
     for flag_name, cur_flag in (
         ("v18_structural_intelligence_enabled", current.v18_structural_intelligence_enabled),
         ("v18_unicorn_detection_enabled", current.v18_unicorn_detection_enabled),
         ("v18_noise_research_enabled", current.v18_noise_research_enabled),
         ("v17_9_2_structural_sl_enabled", current.v17_9_2_structural_sl_enabled),
         ("v17_9_2_observe_only", current.v17_9_2_observe_only),
+        ("v17_9_3_macro_unicorn_enabled", current.v17_9_3_macro_unicorn_enabled),
+        ("v17_9_3_observe_only", current.v17_9_3_observe_only),
+        ("v17_9_3_require_confirmed_retest", current.v17_9_3_require_confirmed_retest),
+        ("v17_9_3_require_htf_alignment", current.v17_9_3_require_htf_alignment),
     ):
         if flag_name in payload:
             raw_flag = payload[flag_name]
@@ -290,6 +337,23 @@ def validate_stop_placement_policy(
             validated[flag_name] = raw_flag
         else:
             validated[flag_name] = bool(cur_flag)
+
+    if "v17_9_3_mode" in payload:
+        from services.v17_9_3_macro_unicorn_intelligence import normalize_v1793_mode
+        norm_v1793_m, ok_v1793_m, _ = normalize_v1793_mode(payload["v17_9_3_mode"])
+        if not ok_v1793_m:
+            raise StopPolicyValidationError(f"v17_9_3_mode không hợp lệ: {payload['v17_9_3_mode']}")
+        validated["v17_9_3_mode"] = norm_v1793_m
+    else:
+        validated["v17_9_3_mode"] = current.v17_9_3_mode
+
+    if "v17_9_3_macro_schedule_version" in payload:
+        raw_sv = payload["v17_9_3_macro_schedule_version"]
+        if not isinstance(raw_sv, str) or not raw_sv.strip():
+            raise StopPolicyValidationError("v17_9_3_macro_schedule_version phải là chuỗi không rỗng.")
+        validated["v17_9_3_macro_schedule_version"] = raw_sv.strip()
+    else:
+        validated["v17_9_3_macro_schedule_version"] = current.v17_9_3_macro_schedule_version
 
     if "v18_execution_policy_version" in payload:
         raw_v18_ver = payload["v18_execution_policy_version"]
@@ -366,19 +430,22 @@ def update_stop_placement_policy(
     current = resolve_stop_placement_policy(db)
     validated = validate_stop_placement_policy(payload, current)
 
-    # Server execution scope gate (LIVE trading prohibited for PAPER_STRUCTURAL and V17.8 structural execution)
+    # Server execution scope gate (LIVE trading prohibited for PAPER_STRUCTURAL, V17.8, V17.9.2, and V17.9.3 execution)
     if (
         validated["mode"] == StopPlacementMode.PAPER_STRUCTURAL.value
         or validated["v18_structural_intelligence_enabled"] is True
         or validated["v18_unicorn_detection_enabled"] is True
+        or validated["v17_9_2_structural_sl_enabled"] is True
+        or validated["v17_9_3_macro_unicorn_enabled"] is True
+        or validated["v17_9_3_mode"] not in ("OFF", "OBSERVE_ONLY")
     ):
         effective_scope = server_scope if server_scope is not None else resolve_server_execution_scope(db)
         if str(effective_scope).upper() == "LIVE":
             raise StopPolicyValidationError(
-                "Chế độ PAPER_STRUCTURAL và tính năng V17.8 chỉ được phép áp dụng trên môi trường PAPER (LIVE bị cấm)."
+                "Chế độ PAPER_STRUCTURAL và tính năng V17.8/V17.9.2/V17.9.3 chỉ được phép áp dụng trên môi trường PAPER/BACKTEST (LIVE bị cấm)."
             )
 
-    # Check for true no-op across all persisted fields including V17.8 feature flags
+    # Check for true no-op across all persisted fields including V17.8, V17.9.2, and V17.9.3 feature flags
     is_noop = (
         validated["mode"] == current.mode
         and validated["min_buffer_ticks"] == current.min_buffer_ticks
@@ -398,6 +465,12 @@ def update_stop_placement_policy(
         and validated["v18_noise_research_enabled"] == current.v18_noise_research_enabled
         and validated["v17_9_2_structural_sl_enabled"] == current.v17_9_2_structural_sl_enabled
         and validated["v17_9_2_observe_only"] == current.v17_9_2_observe_only
+        and validated["v17_9_3_macro_unicorn_enabled"] == current.v17_9_3_macro_unicorn_enabled
+        and validated["v17_9_3_observe_only"] == current.v17_9_3_observe_only
+        and validated["v17_9_3_mode"] == current.v17_9_3_mode
+        and validated["v17_9_3_macro_schedule_version"] == current.v17_9_3_macro_schedule_version
+        and validated["v17_9_3_require_confirmed_retest"] == current.v17_9_3_require_confirmed_retest
+        and validated["v17_9_3_require_htf_alignment"] == current.v17_9_3_require_htf_alignment
         and validated["v18_execution_policy_version"] == current.v18_execution_policy_version
     )
     if is_noop:
@@ -456,6 +529,30 @@ def update_stop_placement_policy(
         "true" if validated["v17_9_2_observe_only"] else "false",
     )
     _upsert_scalar(
+        "stop_placement_v1.v17_9_3_macro_unicorn_enabled",
+        "true" if validated["v17_9_3_macro_unicorn_enabled"] else "false",
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_3_observe_only",
+        "true" if validated["v17_9_3_observe_only"] else "false",
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_3_mode",
+        str(validated["v17_9_3_mode"]),
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_3_macro_schedule_version",
+        str(validated["v17_9_3_macro_schedule_version"]),
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_3_require_confirmed_retest",
+        "true" if validated["v17_9_3_require_confirmed_retest"] else "false",
+    )
+    _upsert_scalar(
+        "stop_placement_v1.v17_9_3_require_htf_alignment",
+        "true" if validated["v17_9_3_require_htf_alignment"] else "false",
+    )
+    _upsert_scalar(
         "stop_placement_v1.v18_execution_policy_version",
         str(validated["v18_execution_policy_version"]),
     )
@@ -471,6 +568,12 @@ def update_stop_placement_policy(
         if validated["v17_9_2_structural_sl_enabled"]
         else ("OBSERVE_ONLY" if validated["v17_9_2_observe_only"] else "OFF")
     )
+    if validated["v17_9_3_macro_unicorn_enabled"] and validated["v17_9_3_mode"] in ("OFF", "OBSERVE_ONLY"):
+        eff_v1793_mode = "MACRO_PLUS_UNICORN_V1792_SL_TP"
+    elif validated["v17_9_3_observe_only"] and validated["v17_9_3_mode"] == "OFF":
+        eff_v1793_mode = "OBSERVE_ONLY"
+    else:
+        eff_v1793_mode = validated["v17_9_3_mode"]
 
     updated = StopPlacementPolicy(
         mode=validated["mode"],
@@ -496,5 +599,11 @@ def update_stop_placement_policy(
         v17_9_2_structural_sl_enabled=validated["v17_9_2_structural_sl_enabled"],
         v17_9_2_observe_only=validated["v17_9_2_observe_only"],
         v17_9_2_mode=v1792_mode,
+        v17_9_3_macro_unicorn_enabled=validated["v17_9_3_macro_unicorn_enabled"],
+        v17_9_3_observe_only=validated["v17_9_3_observe_only"],
+        v17_9_3_mode=eff_v1793_mode,
+        v17_9_3_macro_schedule_version=validated["v17_9_3_macro_schedule_version"],
+        v17_9_3_require_confirmed_retest=validated["v17_9_3_require_confirmed_retest"],
+        v17_9_3_require_htf_alignment=validated["v17_9_3_require_htf_alignment"],
     )
     return updated, True

@@ -39,6 +39,20 @@ def _candle_ohlc(c: Any) -> Tuple[float, float, float, float]:
     return float(c.open), float(c.high), float(c.low), float(c.close)
 
 
+class _AttrCandleDict(dict):
+    """Lightweight dict wrapper exposing OHLCV/timestamp attributes for smc_engine."""
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self:
+            return self[name]
+        if name == "timestamp" and "open_time" in self:
+            return self["open_time"]
+        if name == "open_time" and "timestamp" in self:
+            return self["timestamp"]
+        raise AttributeError(f"'_AttrCandleDict' object has no attribute '{name}'")
+
+
+
 def _tf_duration_ms(timeframe: str) -> int:
     tf = str(timeframe or "1M").upper()
     mapping = {
@@ -743,7 +757,11 @@ def detect_unicorn_evidence(
     elif candidate_fvgs is not None:
         fvgs = list(candidate_fvgs)
     else:
-        fvgs = smc_engine.detect_fvgs(valid_bars, timeframe=timeframe)
+        attr_bars = [
+            _AttrCandleDict(b) if isinstance(b, dict) and not hasattr(b, "low") else b
+            for b in valid_bars
+        ]
+        fvgs = smc_engine.detect_fvgs(attr_bars, timeframe=timeframe)
 
     if not fvgs:
         return _build_rejected_evidence(
