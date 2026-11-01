@@ -367,7 +367,7 @@ def build_v179311_resource_bounded_shards() -> List[Dict[str, Any]]:
         ]
     )
 
-    num_extra = 8
+    num_extra = 12
     buckets: List[List[str]] = [[] for _ in range(num_extra)]
     bucket_weights = [0 for _ in range(num_extra)]
     sized_remaining = sorted(
@@ -1163,6 +1163,7 @@ def run_full_verification(*, max_workers: int = 4) -> int:
         embargo_bars=180,
     )
     oos_report["run_id"] = run_id
+    art14 = oos_report
     art05 = {
         "schema_version": V17_9_3_1_1_SCHEMA_VERSION,
         "run_id": run_id,
@@ -1220,7 +1221,7 @@ def run_full_verification(*, max_workers: int = 4) -> int:
         )
     )
     zero_lookahead_ok = all(
-        bool((r.get("causal_pre_entry_features") or {}).get("causal_bar_close_invariants_passed"))
+        bool((r.get("causal_pre_entry_features") or {}).get("all_tf_candles_strictly_causal"))
         for r in forensic_rows
     )
     art08 = {
