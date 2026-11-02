@@ -679,6 +679,14 @@ def main() -> int:
         art_11_mut = fut_mut.result()
         art_08_col, art_09_bij = fut_pytest.result()
 
+    # Restore any tracked legacy test fixture dirtied by older tests during full regression
+    subprocess.run(
+        ["git", "checkout", "--", "backtest/trade_decision_lineage_reconciliation.json"],
+        cwd=str(APP_ROOT),
+        capture_output=True,
+        check=False,
+    )
+
     art_08_col["schema_version"] = V17_9_3_1_2_4_SCHEMA_VERSION
     art_09_bij["schema_version"] = V17_9_3_1_2_4_SCHEMA_VERSION
     atomic_write_json(run_dir / "08_full_pytest_collection_manifest.json", art_08_col)
