@@ -70,6 +70,18 @@ CANONICAL_SIGNAL_INTELLIGENCE_POLICY_IDS: Tuple[str, ...] = (
     "SI6_COMBINED_PREDECLARED",
 )
 
+CANONICAL_V1793123_POLICY_IDS: Tuple[str, ...] = (
+    "SI0_OFF_BASELINE",
+    "SI1_MODEL_QUALITY_AND_ARBITRATION",
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+    "SI6_COMBINED_PREDECLARED",
+    "SI7_CORE_TRADING_LOGIC_REPAIRED",
+    "SI8_RESEARCH_DISCOVERY_REPAIRED",
+)
+
 POLICY_ID_ALIASES_V1793122: Dict[str, str] = {
     "OFF": "SI0_OFF_BASELINE",
     "SI0": "SI0_OFF_BASELINE",
@@ -86,6 +98,10 @@ POLICY_ID_ALIASES_V1793122: Dict[str, str] = {
     "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
     "SI6": "SI6_COMBINED_PREDECLARED",
     "SI6_COMBINED_PREDECLARED": "SI6_COMBINED_PREDECLARED",
+    "SI7": "SI7_CORE_TRADING_LOGIC_REPAIRED",
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": "SI7_CORE_TRADING_LOGIC_REPAIRED",
+    "SI8": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": "SI8_RESEARCH_DISCOVERY_REPAIRED",
 }
 
 FORBIDDEN_PRODUCTION_ADAPTER_ORIGINS: Tuple[str, ...] = (
@@ -266,6 +282,9 @@ class SignalIntelligencePolicyV1793122:
     max_target_atr_m1_multiple: float = 8.0
     enabled_in_production: bool = False
     activation_ready: str = "NO"
+    enable_core_trading_logic_repair_v1793123: bool = False
+    enable_research_discovery_v1793123: bool = False
+    require_unswept_liquidity_pool_target: bool = False
 
     @property
     def arbitration_mode(self) -> str:
@@ -295,11 +314,19 @@ class SignalIntelligencePolicyV1793122:
     def require_reachable_pre_entry_target(self) -> bool:
         return bool(self.enable_structural_sl_and_reachable_target)
 
+    def _legacy_hash_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        if not self.enable_core_trading_logic_repair_v1793123 and not self.enable_research_discovery_v1793123 and not self.require_unswept_liquidity_pool_target:
+            d.pop("enable_core_trading_logic_repair_v1793123", None)
+            d.pop("enable_research_discovery_v1793123", None)
+            d.pop("require_unswept_liquidity_pool_target", None)
+        return d
+
     def policy_hash(self) -> str:
-        return _canonical_json_sha256(asdict(self))
+        return _canonical_json_sha256(self._legacy_hash_dict())
 
     def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
+        d = self._legacy_hash_dict()
         d["policy_hash"] = self.policy_hash()
         return d
 
@@ -398,10 +425,70 @@ PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122: Dict[str, SignalIntelligenceP
         min_net_rr=2.0,
         max_planned_risk_usd=2.50,
     ),
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": SignalIntelligencePolicyV1793122(
+        policy_id="SI7_CORE_TRADING_LOGIC_REPAIRED",
+        version="17.9.3.1.2.3",
+        description=(
+            "V17.9.3.1.2.3 core trading logic repair: strict FVG mitigation/retest verification, "
+            "model-specific Unicorn vs FVG/Sweep confluence (fixing SI4/SI6 zero-trade starvation), "
+            "causal HTF provenance enforcement, independent protected SL, unswept liquidity pool TP "
+            "with full StrategyDecisionSnapshot propagation, and pre-entry quality arbitration."
+        ),
+        hypothesis_id="H_SI7_CORE_TRADING_LOGIC_REPAIRED_V1793123",
+        enable_model_quality_arbitration=True,
+        enable_htf_structure_and_direction_validation=True,
+        enable_mss_displacement_confirmation=True,
+        enable_causal_sweep_and_strict_unicorn=True,
+        enable_structural_sl_and_reachable_target=True,
+        require_both_direction_evaluation=True,
+        prevent_unqualified_long_fallback=True,
+        min_displacement_body_atr_ratio=0.55,
+        max_fvg_age_bars_m1=24,
+        max_pending_confirmation_bars_m1=8,
+        min_net_rr=2.0,
+        max_planned_risk_usd=2.50,
+        enable_core_trading_logic_repair_v1793123=True,
+        enable_research_discovery_v1793123=False,
+        require_unswept_liquidity_pool_target=True,
+    ),
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": SignalIntelligencePolicyV1793122(
+        policy_id="SI8_RESEARCH_DISCOVERY_REPAIRED",
+        version="17.9.3.1.2.3",
+        description=(
+            "V17.9.3.1.2.3 independent research candidate discovery + core trading logic repair: "
+            "discovers valid causal setups across all 5 models and both directions directly from "
+            "closed market evidence via SharedStrategyEvaluator while keeping SI0 100% unchanged."
+        ),
+        hypothesis_id="H_SI8_RESEARCH_DISCOVERY_REPAIRED_V1793123",
+        enable_model_quality_arbitration=True,
+        enable_htf_structure_and_direction_validation=True,
+        enable_mss_displacement_confirmation=True,
+        enable_causal_sweep_and_strict_unicorn=True,
+        enable_structural_sl_and_reachable_target=True,
+        require_both_direction_evaluation=True,
+        prevent_unqualified_long_fallback=True,
+        min_displacement_body_atr_ratio=0.55,
+        max_fvg_age_bars_m1=24,
+        max_pending_confirmation_bars_m1=8,
+        min_net_rr=2.0,
+        max_planned_risk_usd=2.50,
+        enable_core_trading_logic_repair_v1793123=True,
+        enable_research_discovery_v1793123=True,
+        require_unswept_liquidity_pool_target=True,
+    ),
 }
 
 
 def compute_signal_intelligence_registry_hash_v1793122() -> str:
+    return _canonical_json_sha256(
+        {
+            k: PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122[k].to_dict()
+            for k in sorted(CANONICAL_SIGNAL_INTELLIGENCE_POLICY_IDS)
+        }
+    )
+
+
+def compute_signal_intelligence_registry_hash_v1793123() -> str:
     return _canonical_json_sha256(
         {k: v.to_dict() for k, v in sorted(PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122.items())}
     )
@@ -409,6 +496,9 @@ def compute_signal_intelligence_registry_hash_v1793122() -> str:
 
 compute_signal_intelligence_policy_registry_hash_v1793122 = (
     compute_signal_intelligence_registry_hash_v1793122
+)
+compute_signal_intelligence_policy_registry_hash_v1793123 = (
+    compute_signal_intelligence_registry_hash_v1793123
 )
 
 
@@ -465,6 +555,10 @@ class SignalQualityEvidenceV1793122:
     unicorn_overlap_low: Optional[float] = None
     unicorn_overlap_high: Optional[float] = None
     causal_feature_violations_count: int = 0
+
+    @property
+    def lookahead_violation_detected(self) -> bool:
+        return self.causal_feature_violations_count > 0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -536,6 +630,10 @@ class PendingConfirmationV1793122:
             object.__setattr__(self, "invalidation_price", float(self.setup_invalidation_price))
         elif self.setup_invalidation_price is None:
             object.__setattr__(self, "setup_invalidation_price", float(self.invalidation_price))
+
+    @property
+    def rejection_reason(self) -> Optional[str]:
+        return self.terminal_reason
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -697,47 +795,74 @@ def resolve_research_preferred_direction_v1793122(
     h1_bias: Optional[str] = None,
     m15_bias: Optional[str] = None,
     m5_bias: Optional[str] = None,
+    now_ms: Optional[int] = None,
+    h4_candles: Optional[Sequence[Any]] = None,
+    h1_candles: Optional[Sequence[Any]] = None,
+    m15_candles: Optional[Sequence[Any]] = None,
+    m5_candles: Optional[Sequence[Any]] = None,
 ) -> Tuple[Optional[str], str]:
     """
-    Section 02.A & Section 04 (SI2):
+    Section 02.A & Section 04 (SI2) & V17.9.3.1.2.3 STAGE G2:
     Resolves preferred direction without forcing `LONG` when H4/H1/M15 history is missing,
-    neutral, or conflicting.
-    Returns `(preferred_direction_or_None, reason_code)`.
-    When `None` is returned, the caller must either evaluate BOTH directions symmetrically
-    (if neutral/mixed structure is valid) or fail closed if HTF history is missing/insufficient.
+    neutral, or conflicting, and verifies causal bar provenance/freshness before honoring
+    `explicit_bias` or `context.htf_bias`.
     """
     eff_bias = str(explicit_bias or getattr(context, "htf_bias", "") or "").strip().upper()
-    if eff_bias == "BULLISH":
-        return ("LONG", "EXPLICIT_HTF_BIAS_BULLISH")
-    if eff_bias == "BEARISH":
-        return ("SHORT", "EXPLICIT_HTF_BIAS_BEARISH")
+    explicit_candles_passed = (
+        h4_candles is not None or h1_candles is not None or m15_candles is not None or m5_candles is not None
+    )
 
-    if context is not None:
-        now_ms = int(getattr(context, "decision_timestamp_ms", 0) or getattr(context, "now_ms", 0) or 0)
-        h4_bars = list(getattr(context, "closed_h4_candles", None) or getattr(context, "candles_4h", ()) or ())
-        h1_bars = list(getattr(context, "closed_h1_candles", None) or getattr(context, "candles_1h", ()) or ())
-        m15_bars = list(getattr(context, "closed_m15_candles", None) or getattr(context, "candles_15m", ()) or ())
-        m5_bars = list(getattr(context, "closed_m5_candles", None) or getattr(context, "candles_5m", ()) or ())
+    if context is not None or explicit_candles_passed:
+        eff_now_ms = int(
+            now_ms
+            if now_ms is not None
+            else (getattr(context, "decision_timestamp_ms", 0) or getattr(context, "now_ms", 0) or 0)
+        )
+        h4_bars = list(
+            h4_candles
+            if h4_candles is not None
+            else (getattr(context, "closed_h4_candles", None) or getattr(context, "candles_4h", ()) or ())
+        )
+        h1_bars = list(
+            h1_candles
+            if h1_candles is not None
+            else (getattr(context, "closed_h1_candles", None) or getattr(context, "candles_1h", ()) or ())
+        )
+        m15_bars = list(
+            m15_candles
+            if m15_candles is not None
+            else (getattr(context, "closed_m15_candles", None) or getattr(context, "candles_15m", ()) or ())
+        )
+        m5_bars = list(
+            m5_candles
+            if m5_candles is not None
+            else (getattr(context, "closed_m5_candles", None) or getattr(context, "candles_5m", ()) or ())
+        )
 
-        calc_h4, _, h4_ok = _infer_series_structure_bias(h4_bars, tf_ms=14_400_000, decision_timestamp_ms=now_ms)
-        calc_h1, _, h1_ok = _infer_series_structure_bias(h1_bars, tf_ms=3_600_000, decision_timestamp_ms=now_ms)
-        calc_m15, _, m15_ok = _infer_series_structure_bias(m15_bars, tf_ms=900_000, decision_timestamp_ms=now_ms)
+        calc_h4, _, h4_ok = _infer_series_structure_bias(h4_bars, tf_ms=14_400_000, decision_timestamp_ms=eff_now_ms)
+        calc_h1, _, h1_ok = _infer_series_structure_bias(h1_bars, tf_ms=3_600_000, decision_timestamp_ms=eff_now_ms)
+        calc_m15, _, m15_ok = _infer_series_structure_bias(m15_bars, tf_ms=900_000, decision_timestamp_ms=eff_now_ms)
         if not (h4_ok and h1_ok and m15_ok):
             return (None, "HTF_LOOKAHEAD_INVALID")
 
-        mtf_sum = getattr(context, "mtf_structure_bias_summary", None)
+        mtf_sum = getattr(context, "mtf_structure_bias_summary", None) if context is not None else None
         if isinstance(mtf_sum, Mapping):
             tf_map = mtf_sum.get("timeframes") if isinstance(mtf_sum.get("timeframes"), Mapping) else {}
             if isinstance(tf_map, Mapping):
                 h4_m = tf_map.get("H4") if isinstance(tf_map.get("H4"), Mapping) else {}
                 h1_m = tf_map.get("H1") if isinstance(tf_map.get("H1"), Mapping) else {}
-                if str(h4_m.get("trend_bias", "")).upper() in ("BULLISH", "BEARISH"):
+                if calc_h4 not in ("ABSENT", "INSUFFICIENT", "STALE") and str(h4_m.get("trend_bias", "")).upper() in ("BULLISH", "BEARISH"):
                     calc_h4 = str(h4_m["trend_bias"]).upper()
-                if str(h1_m.get("trend_bias", "")).upper() in ("BULLISH", "BEARISH"):
+                if calc_h1 not in ("ABSENT", "INSUFFICIENT", "STALE") and str(h1_m.get("trend_bias", "")).upper() in ("BULLISH", "BEARISH"):
                     calc_h1 = str(h1_m["trend_bias"]).upper()
-        h4_b = str(h4_bias or calc_h4).upper()
-        h1_b = str(h1_bias or calc_h1).upper()
-        m15_b = str(m15_bias or calc_m15).upper()
+        if explicit_candles_passed:
+            h4_b = str(calc_h4).upper()
+            h1_b = str(calc_h1).upper()
+            m15_b = str(calc_m15).upper()
+        else:
+            h4_b = str(h4_bias or calc_h4).upper()
+            h1_b = str(h1_bias or calc_h1).upper()
+            m15_b = str(m15_bias or calc_m15).upper()
     else:
         h4_bars = []
         h1_bars = []
@@ -746,6 +871,20 @@ def resolve_research_preferred_direction_v1793122(
         h4_b = str(h4_bias or "ABSENT").upper()
         h1_b = str(h1_bias or "ABSENT").upper()
         m15_b = str(m15_bias or "NEUTRAL").upper()
+
+    if eff_bias in ("BULLISH", "BEARISH"):
+        # Verify causal bar provenance and freshness before honoring explicit_bias
+        has_explicit_bar_args = (context is not None) or explicit_candles_passed or (h4_bias is not None) or (h1_bias is not None)
+        if has_explicit_bar_args:
+            if h4_b in ("ABSENT", "INSUFFICIENT", "STALE") and h1_b in ("ABSENT", "INSUFFICIENT", "STALE") and m15_b in ("ABSENT", "INSUFFICIENT", "STALE", "NEUTRAL"):
+                return (None, "EXPLICIT_HTF_BIAS_MISSING_CLOSED_CANDLE_PROVENANCE")
+            if h4_b == "STALE" or h1_b == "STALE":
+                return (None, "EXPLICIT_HTF_BIAS_STALE_BARS_REJECTED")
+            if eff_bias == "BULLISH" and h4_b == "BEARISH" and h1_b == "BEARISH":
+                return (None, "EXPLICIT_HTF_BIAS_CONFLICTS_WITH_CAUSAL_BARS")
+            if eff_bias == "BEARISH" and h4_b == "BULLISH" and h1_b == "BULLISH":
+                return (None, "EXPLICIT_HTF_BIAS_CONFLICTS_WITH_CAUSAL_BARS")
+        return ("LONG", "EXPLICIT_HTF_BIAS_BULLISH") if eff_bias == "BULLISH" else ("SHORT", "EXPLICIT_HTF_BIAS_BEARISH")
 
     if h4_b == "BULLISH" and h1_b in ("BULLISH", "NEUTRAL"):
         return ("LONG", "HTF_H4_H1_BULLISH")
@@ -756,13 +895,107 @@ def resolve_research_preferred_direction_v1793122(
     if h1_b == "BEARISH" and m15_b == "BEARISH" and h4_b != "BULLISH":
         return ("SHORT", "HTF_H1_M15_BEARISH")
 
-    if h4_b in ("ABSENT", "INSUFFICIENT") and h1_b in ("ABSENT", "INSUFFICIENT") and len(m15_bars) < 3 and len(m5_bars) < 3:
-        return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
-
     if (h4_b == "BULLISH" and h1_b == "BEARISH") or (h4_b == "BEARISH" and h1_b == "BULLISH"):
+        return (None, "HTF_MIXED_REQUIRE_LOCAL_CONFIRMATION")
+
+    if h4_b in ("ABSENT", "INSUFFICIENT", "STALE") and h1_b in ("ABSENT", "INSUFFICIENT", "STALE") and len(m15_bars) < 3 and len(m5_bars) < 3:
         return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
 
     return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
+
+
+def _resolve_unswept_liquidity_pool_target_v1793123(
+    *,
+    pools: Sequence[Any],
+    closed_1m: Sequence[Any],
+    direction: str,
+    entry_price: float,
+    selected_sl: Optional[float],
+    selected_target_id: Optional[str],
+    take_profit: Optional[float],
+    now_ms: int,
+    eff_atr_m1: float,
+    eff_atr_m5: float,
+    max_target_atr_m1_multiple: float = 8.0,
+) -> Tuple[Optional[str], Optional[float], int, bool, bool]:
+    """
+    Inspects `pools` (causal pre-entry liquidity pools) to verify whether `selected_target_id`
+    or another opposing pool is genuinely unswept as of `now_ms`.
+    Returns `(valid_pool_id, valid_pool_price, pool_known_at_ms, has_unswept_pool, explicit_pool_was_swept)`.
+    """
+    if not pools or entry_price <= 0.0:
+        return (None, take_profit, now_ms, False, False)
+
+    explicit_pool_was_swept = False
+    valid_candidates: List[Tuple[float, str, float, int]] = []
+
+    for p in pools:
+        if isinstance(p, Mapping):
+            p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
+            p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
+            k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
+            is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
+            swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
+        else:
+            p_id = str(getattr(p, "id", None) or getattr(p, "pool_id", None) or getattr(p, "level_id", "") or "")
+            p_px_raw = getattr(p, "price", None) if getattr(p, "price", None) is not None else getattr(p, "level_price", None)
+            k_ts_raw = (
+                getattr(p, "known_at_ms", None)
+                or getattr(p, "created_at_ms", None)
+                or getattr(p, "formed_at_ms", None)
+                or getattr(p, "timestamp_ms", None)
+            )
+            is_swept_flag = bool(
+                getattr(p, "swept", False)
+                or getattr(p, "mitigated", False)
+                or getattr(p, "is_swept", False)
+            )
+            swept_at_raw = getattr(p, "swept_at_ms", None) or getattr(p, "mitigated_at_ms", None)
+
+        if p_px_raw is None:
+            continue
+        p_px = round(float(p_px_raw), 2)
+        k_ts = int(k_ts_raw) if k_ts_raw is not None else now_ms
+        if k_ts > now_ms:
+            if selected_target_id and p_id == str(selected_target_id):
+                explicit_pool_was_swept = True
+            continue
+
+        swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
+        swept_by_bars = False
+        if k_ts_raw is not None and closed_1m:
+            post_pool_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > k_ts and _bar_close_ms(b, 60_000) <= now_ms]
+            if direction == "LONG" and p_px > entry_price:
+                swept_by_bars = any(_bar_float(b, "high") >= p_px + 0.02 for b in post_pool_bars)
+            elif direction == "SHORT" and p_px < entry_price:
+                swept_by_bars = any(_bar_float(b, "low") <= p_px - 0.02 for b in post_pool_bars)
+
+        if is_swept_flag or swept_by_ts or swept_by_bars:
+            if selected_target_id and p_id == str(selected_target_id):
+                explicit_pool_was_swept = True
+            continue
+
+        if direction == "LONG" and p_px <= entry_price:
+            continue
+        if direction == "SHORT" and p_px >= entry_price:
+            continue
+
+        room_m1 = abs(p_px - entry_price) / max(0.05, eff_atr_m1)
+        room_m5 = abs(p_px - entry_price) / max(0.10, eff_atr_m5)
+        if 1.2 <= room_m1 <= max_target_atr_m1_multiple and room_m5 <= 3.2:
+            valid_candidates.append((abs(p_px - entry_price), p_id or f"pool_{p_px}", p_px, k_ts))
+
+    if not valid_candidates:
+        return (None, None if explicit_pool_was_swept else take_profit, now_ms, False, explicit_pool_was_swept)
+
+    # If selected_target_id matches one of the valid unswept candidates, keep it; otherwise choose nearest valid pool
+    for dist, pid, ppx, kts in valid_candidates:
+        if selected_target_id and pid == str(selected_target_id):
+            return (pid, ppx, kts, True, False)
+
+    valid_candidates.sort(key=lambda item: (item[0], item[1]))
+    _, best_id, best_px, best_kts = valid_candidates[0]
+    return (best_id, best_px, best_kts, True, explicit_pool_was_swept)
 
 
 def build_signal_quality_evidence_v1793122(
@@ -804,13 +1037,6 @@ def build_signal_quality_evidence_v1793122(
     h1_bias, h1_ts, h1_ok = _infer_series_structure_bias(closed_h1, tf_ms=3_600_000, decision_timestamp_ms=now_ms)
     m15_bias, m15_ts, m15_ok = _infer_series_structure_bias(closed_15m, tf_ms=900_000, decision_timestamp_ms=now_ms)
     m5_bias, m5_ts, m5_ok = _infer_series_structure_bias(closed_5m, tf_ms=300_000, decision_timestamp_ms=now_ms)
-
-    ctx_htf_bias = str(getattr(context, "htf_bias", "UNKNOWN") or "UNKNOWN").upper()
-    if ctx_htf_bias in ("BULLISH", "BEARISH") and h4_bias in ("ABSENT", "INSUFFICIENT") and len(closed_h4) >= 3:
-        h4_bias = ctx_htf_bias
-    ctx_h1_align = str(getattr(context, "h1_alignment", "UNKNOWN") or "UNKNOWN").upper()
-    if ctx_h1_align in ("BULLISH", "BEARISH") and h1_bias in ("ABSENT", "INSUFFICIENT") and len(closed_h1) >= 3:
-        h1_bias = ctx_h1_align
 
     # Check if any swing in sh_1m / sl_1m or setup_descriptors has known_at_ms > now_ms
     swings_causal_ok = True
@@ -885,25 +1111,43 @@ def build_signal_quality_evidence_v1793122(
 
     if sel_brk is not None:
         brk_known = int(sel_brk.get("known_at_ms") or 0)
-        if 0 < brk_known <= now_ms:
+        ref_sw_known = int(sel_brk.get("reference_swing_known_at_ms") or brk_known)
+        if 0 < ref_sw_known <= brk_known <= now_ms:
             mss_confirmed = True
             mss_break_known_at_ms = brk_known
+        elif ref_sw_known > now_ms or brk_known > now_ms:
+            causal_violations += 1
     elif s_desc.get("selected_break_id"):
         brk_known = int(s_desc.get("mss_confirmed_at_ms") or now_ms)
-        if 0 < brk_known <= now_ms:
+        ref_sw_known = int(s_desc.get("mss_reference_swing_known_at_ms") or brk_known)
+        if 0 < ref_sw_known <= brk_known <= now_ms:
             mss_confirmed = True
             mss_break_known_at_ms = brk_known
+        elif ref_sw_known > now_ms or brk_known > now_ms:
+            causal_violations += 1
 
-    if closed_1m and sh_1m and sl_1m:
+    valid_sh_1m = [s for s in sh_1m if int(s.get("known_at_ms") or s.get("confirmed_at_ms") or 0) <= now_ms]
+    valid_sl_1m = [s for s in sl_1m if int(s.get("known_at_ms") or s.get("confirmed_at_ms") or 0) <= now_ms]
+    future_sh_count = sum(1 for s in sh_1m if int(s.get("known_at_ms") or s.get("confirmed_at_ms") or 0) > now_ms)
+    future_sl_count = sum(1 for s in sl_1m if int(s.get("known_at_ms") or s.get("confirmed_at_ms") or 0) > now_ms)
+    if future_sh_count > 0 or future_sl_count > 0:
+        causal_violations += future_sh_count + future_sl_count
+        if (direction == "LONG" and not valid_sh_1m and future_sh_count > 0) or (
+            direction == "SHORT" and not valid_sl_1m and future_sl_count > 0
+        ):
+            mss_confirmed = False
+            mss_break_known_at_ms = 0
+
+    if closed_1m and valid_sh_1m and valid_sl_1m:
         last_bar = closed_1m[-1]
-        last_sh_px = float(sh_1m[-1]["price"])
-        last_sl_px = float(sl_1m[-1]["price"])
+        last_sh_px = float(valid_sh_1m[-1]["price"])
+        last_sl_px = float(valid_sl_1m[-1]["price"])
         last_close = _bar_float(last_bar, "close")
         last_low = _bar_float(last_bar, "low")
         last_high = _bar_float(last_bar, "high")
 
         if direction == "LONG":
-            if last_close > last_sh_px + 0.02:
+            if last_close > last_sh_px + 0.02 and last_close > _bar_float(last_bar, "open"):
                 mss_confirmed = True
                 mss_break_known_at_ms = max(mss_break_known_at_ms, _bar_close_ms(last_bar, 60_000))
             if len(closed_1m) >= 4:
@@ -914,7 +1158,7 @@ def build_signal_quality_evidence_v1793122(
                 not_climax = (last_high - last_close) <= 0.45 * max(0.05, last_high - last_low)
                 continuation_retrace_valid = bool(has_pullback_bar and not_climax)
         else:
-            if last_close < last_sl_px - 0.02:
+            if last_close < last_sl_px - 0.02 and last_close < _bar_float(last_bar, "open"):
                 mss_confirmed = True
                 mss_break_known_at_ms = max(mss_break_known_at_ms, _bar_close_ms(last_bar, 60_000))
             if len(closed_1m) >= 4:
@@ -925,103 +1169,149 @@ def build_signal_quality_evidence_v1793122(
                 not_climax = (last_close - last_low) <= 0.45 * max(0.05, last_high - last_low)
                 continuation_retrace_valid = bool(has_pullback_bar and not_climax)
 
+    if "continuation_retrace_valid" in s_desc and s_desc.get("continuation_retrace_valid") is not None:
+        continuation_retrace_valid = bool(s_desc.get("continuation_retrace_valid"))
+
     displacement_valid = bool(displacement_body_atr_ratio >= 0.55 and mss_confirmed)
 
-    # Evaluate Liquidity Sweep & Reclaim
+    # Evaluate Liquidity Sweep & Reclaim (strictly requiring prior confirmed swing + reclaim close)
     sweep_confirmed = False
     sweep_reclaimed = False
     sweep_penetration_ticks = 0.0
     sweep_known_at_ms = 0
     sweep_level_price: Optional[float] = None
 
-    if closed_1m and sh_1m and sl_1m:
+    if closed_1m and valid_sh_1m and valid_sl_1m:
         last_close = _bar_float(closed_1m[-1], "close")
         recent_8 = closed_1m[-min(len(closed_1m), 8) :]
         if direction == "LONG":
-            ref_sl = sl_1m[-1]
+            ref_sl = valid_sl_1m[-1]
             ref_px = float(ref_sl["price"])
-            min_l = min(_bar_float(b, "low") for b in recent_8)
-            pen_ticks = round((ref_px - min_l) / 0.01, 2)
-            if pen_ticks >= 2.0 and last_close > ref_px:
-                sweep_confirmed = True
-                sweep_reclaimed = True
-                sweep_penetration_ticks = pen_ticks
-                sweep_level_price = ref_px
-                for b in reversed(recent_8):
-                    if _bar_float(b, "low") <= ref_px:
-                        sweep_known_at_ms = _bar_close_ms(b, 60_000)
-                        break
+            ref_k_ms = int(ref_sl.get("known_at_ms") or ref_sl.get("confirmed_at_ms") or 0)
+            post_swing_bars = [b for b in recent_8 if _bar_open_ms(b) >= ref_k_ms] if ref_k_ms > 0 else recent_8
+            if post_swing_bars:
+                min_l = min(_bar_float(b, "low") for b in post_swing_bars)
+                pen_ticks = round((ref_px - min_l) / 0.01, 2)
+                if pen_ticks >= 2.0:
+                    sweep_confirmed = True
+                    sweep_penetration_ticks = pen_ticks
+                    sweep_level_price = ref_px
+                    for b in reversed(post_swing_bars):
+                        if _bar_float(b, "low") <= ref_px:
+                            sweep_known_at_ms = _bar_close_ms(b, 60_000)
+                            break
+                    if last_close > ref_px:
+                        sweep_reclaimed = True
         else:
-            ref_sh = sh_1m[-1]
+            ref_sh = valid_sh_1m[-1]
             ref_px = float(ref_sh["price"])
-            max_h = max(_bar_float(b, "high") for b in recent_8)
-            pen_ticks = round((max_h - ref_px) / 0.01, 2)
-            if pen_ticks >= 2.0 and last_close < ref_px:
-                sweep_confirmed = True
-                sweep_reclaimed = True
-                sweep_penetration_ticks = pen_ticks
-                sweep_level_price = ref_px
-                for b in reversed(recent_8):
-                    if _bar_float(b, "high") >= ref_px:
-                        sweep_known_at_ms = _bar_close_ms(b, 60_000)
-                        break
+            ref_k_ms = int(ref_sh.get("known_at_ms") or ref_sh.get("confirmed_at_ms") or 0)
+            post_swing_bars = [b for b in recent_8 if _bar_open_ms(b) >= ref_k_ms] if ref_k_ms > 0 else recent_8
+            if post_swing_bars:
+                max_h = max(_bar_float(b, "high") for b in post_swing_bars)
+                pen_ticks = round((max_h - ref_px) / 0.01, 2)
+                if pen_ticks >= 2.0:
+                    sweep_confirmed = True
+                    sweep_penetration_ticks = pen_ticks
+                    sweep_level_price = ref_px
+                    for b in reversed(post_swing_bars):
+                        if _bar_float(b, "high") >= ref_px:
+                            sweep_known_at_ms = _bar_close_ms(b, 60_000)
+                            break
+                    if last_close < ref_px:
+                        sweep_reclaimed = True
 
     if sel_swp is not None:
         swp_k = int(sel_swp.get("known_at_ms") or sel_swp.get("occurred_at_ms") or 0)
-        if 0 < swp_k <= now_ms and sweep_known_at_ms == 0:
-            sweep_known_at_ms = swp_k
-            sweep_level_price = float(sel_swp.get("price", 0.0) or 0.0)
+        if 0 < swp_k <= now_ms:
+            if sweep_known_at_ms == 0:
+                sweep_known_at_ms = swp_k
+                sweep_level_price = float(sel_swp.get("price", 0.0) or 0.0)
+            if "reclaimed" in sel_swp:
+                sweep_confirmed = True
+                sweep_reclaimed = bool(sel_swp.get("reclaimed"))
     elif s_desc.get("selected_sweep_id"):
         occ_ms = int(s_desc.get("sweep_occurred_at_ms") or now_ms)
-        rec_ms = int(s_desc.get("sweep_reclaimed_at_ms") or occ_ms)
-        if 0 < occ_ms <= rec_ms <= now_ms:
-            sweep_confirmed = True
-            sweep_reclaimed = True
-            sweep_known_at_ms = rec_ms
-        elif 0 < occ_ms <= now_ms < rec_ms:
+        rec_raw = s_desc.get("sweep_reclaimed_at_ms")
+        if s_desc.get("sweep_reclaimed") is False:
             sweep_confirmed = True
             sweep_reclaimed = False
+            sweep_known_at_ms = occ_ms if 0 < occ_ms <= now_ms else 0
+        elif rec_raw is not None:
+            rec_ms = int(rec_raw)
+            if 0 < occ_ms <= rec_ms <= now_ms:
+                sweep_confirmed = True
+                sweep_reclaimed = True
+                sweep_known_at_ms = rec_ms
+            elif 0 < occ_ms <= now_ms and (rec_ms <= 0 or rec_ms > now_ms):
+                sweep_confirmed = True
+                sweep_reclaimed = False
+                sweep_known_at_ms = occ_ms
 
-    # Evaluate FVG freshness, mitigation, and retest
+    # Evaluate FVG freshness, mitigation, and chronological closed-bar retest (STAGE G3 / T01, T02, T03)
     fvg_present = False
     fvg_unmitigated = False
     fvg_retest_valid = False
     fvg_age_bars_m1 = 999
     fvg_known_at_ms = 0
 
-    if sel_fvg is not None and closed_1m:
-        f_top = float(sel_fvg.get("top", 0.0) or 0.0)
-        f_bot = float(sel_fvg.get("bottom", 0.0) or 0.0)
-        f_conf = int(sel_fvg.get("confirmed_at") or sel_fvg.get("timestamp") or 0)
-        if f_top > f_bot and 0 < f_conf <= now_ms:
-            fvg_present = True
-            fvg_known_at_ms = f_conf
-            fvg_age_bars_m1 = max(0, int((now_ms - f_conf) // 60_000))
-            post_fvg_bars = [b for b in closed_1m if _bar_open_ms(b) >= f_conf]
+    f_top_val: float = 0.0
+    f_bot_val: float = 0.0
+    f_conf_val: int = 0
+    if sel_fvg is not None:
+        f_top_val = float(sel_fvg.get("top", 0.0) or sel_fvg.get("fvg_top", 0.0) or 0.0)
+        f_bot_val = float(sel_fvg.get("bottom", 0.0) or sel_fvg.get("fvg_bottom", 0.0) or 0.0)
+        f_conf_val = int(sel_fvg.get("confirmed_at") or sel_fvg.get("timestamp") or sel_fvg.get("known_at_ms") or 0)
+    elif s_desc.get("selected_fvg_id"):
+        f_top_val = float(s_desc.get("fvg_top") or s_desc.get("fvg_high") or s_desc.get("entry_zone_high") or 0.0)
+        f_bot_val = float(s_desc.get("fvg_bottom") or s_desc.get("fvg_low") or s_desc.get("entry_zone_low") or 0.0)
+        f_conf_val = int(s_desc.get("fvg_formed_at_ms") or 0)
+
+    if 0 < f_conf_val <= now_ms:
+        fvg_present = True
+        fvg_known_at_ms = f_conf_val
+        fvg_age_bars_m1 = max(0, int((now_ms - f_conf_val) // 60_000))
+        if f_top_val > f_bot_val > 0.0 and closed_1m:
+            # Strictly evaluate bars that closed AFTER FVG formation (no self-bar retest shortcut)
+            post_fvg_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > f_conf_val and _bar_close_ms(b, 60_000) <= now_ms]
             if direction == "LONG":
-                mitigated = any(_bar_float(b, "close") < f_bot for b in post_fvg_bars)
-                retested = any(
-                    _bar_float(b, "low") <= f_top and _bar_float(b, "close") >= f_bot
-                    for b in post_fvg_bars[-min(len(post_fvg_bars), 4) :]
+                mitigated = bool(s_desc.get("fvg_mitigated", False)) or any(
+                    _bar_float(b, "close") < f_bot_val or _bar_float(b, "low") < f_bot_val - 0.05
+                    for b in post_fvg_bars
+                )
+                retested = (
+                    (s_desc.get("fvg_retest_at_ms") is not None and f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms)
+                    or bool(s_desc.get("fvg_retest_valid", False))
+                    or any(
+                        _bar_float(b, "low") <= f_top_val and _bar_float(b, "close") >= f_bot_val
+                        for b in post_fvg_bars[-min(len(post_fvg_bars), 8) :]
+                    )
                 )
             else:
-                mitigated = any(_bar_float(b, "close") > f_top for b in post_fvg_bars)
-                retested = any(
-                    _bar_float(b, "high") >= f_bot and _bar_float(b, "close") <= f_top
-                    for b in post_fvg_bars[-min(len(post_fvg_bars), 4) :]
+                mitigated = bool(s_desc.get("fvg_mitigated", False)) or any(
+                    _bar_float(b, "close") > f_top_val or _bar_float(b, "high") > f_top_val + 0.05
+                    for b in post_fvg_bars
                 )
-            fvg_unmitigated = not mitigated
+                retested = (
+                    (s_desc.get("fvg_retest_at_ms") is not None and f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms)
+                    or bool(s_desc.get("fvg_retest_valid", False))
+                    or any(
+                        _bar_float(b, "high") >= f_bot_val and _bar_float(b, "close") <= f_top_val
+                        for b in post_fvg_bars[-min(len(post_fvg_bars), 8) :]
+                    )
+                )
+            fvg_unmitigated = (not mitigated) and (fvg_age_bars_m1 <= 24)
             fvg_retest_valid = bool(fvg_unmitigated and retested and fvg_age_bars_m1 <= 24)
-    elif s_desc.get("selected_fvg_id"):
-        f_conf = int(s_desc.get("fvg_formed_at_ms") or now_ms)
-        if 0 < f_conf <= now_ms:
-            fvg_present = True
-            fvg_known_at_ms = f_conf
-            fvg_age_bars_m1 = max(0, int((now_ms - f_conf) // 60_000))
-            fvg_unmitigated = fvg_age_bars_m1 <= 24
-            fvg_retest_valid = fvg_unmitigated
+        else:
+            fvg_unmitigated = (not bool(s_desc.get("fvg_mitigated", False))) and (fvg_age_bars_m1 <= 24)
+            if "fvg_retest_valid" in s_desc and s_desc.get("fvg_retest_valid") is not None:
+                fvg_retest_valid = bool(s_desc.get("fvg_retest_valid")) and fvg_unmitigated
+            elif s_desc.get("fvg_retest_at_ms") is not None:
+                fvg_retest_valid = bool(f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms and fvg_unmitigated)
+            else:
+                fvg_retest_valid = bool(fvg_unmitigated)
 
-    # Evaluate strict Breaker + FVG Unicorn confluence vs FVG_ONLY
+    # Evaluate strict Breaker + FVG Unicorn confluence vs FVG_ONLY (STAGE G3 / T04, T05, T06)
     u_overlap_low: Optional[float] = None
     u_overlap_high: Optional[float] = None
     u_assess = evaluate_causal_unicorn_confluence(
@@ -1035,40 +1325,73 @@ def build_signal_quality_evidence_v1793122(
     )
     u_ev_dict = unicorn_evidence if isinstance(unicorn_evidence, Mapping) else {}
     brk_known_ev = int(u_ev_dict.get("breaker_known_at_ms") or fvg_known_at_ms or now_ms)
-    if brk_known_ev > now_ms or fvg_known_at_ms > now_ms:
-        if brk_known_ev > now_ms:
+    fvg_known_ev = int(u_ev_dict.get("fvg_known_at_ms") or fvg_known_at_ms or now_ms)
+    causal_order_invalid = bool(u_ev_dict.get("causal_order_invalid", False))
+    if "breaker_formed_after_retest" in u_ev_dict and bool(u_ev_dict.get("breaker_formed_after_retest")):
+        causal_order_invalid = True
+    if u_ev_dict.get("retest_known_at_ms") is not None and brk_known_ev > int(u_ev_dict["retest_known_at_ms"]):
+        causal_order_invalid = True
+
+    # Check explicit Breaker & FVG spatial overlap bounds if provided in u_ev_dict
+    ev_ov_low = u_ev_dict.get("overlap_low")
+    ev_ov_high = u_ev_dict.get("overlap_high")
+    if ev_ov_low is None and u_ev_dict.get("breaker_low") is not None and u_ev_dict.get("fvg_bottom") is not None:
+        ev_ov_low = max(float(u_ev_dict["breaker_low"]), float(u_ev_dict["fvg_bottom"]))
+    if ev_ov_high is None and u_ev_dict.get("breaker_high") is not None and u_ev_dict.get("fvg_top") is not None:
+        ev_ov_high = min(float(u_ev_dict["breaker_high"]), float(u_ev_dict["fvg_top"]))
+
+    spatial_overlap_ok = True
+    if ev_ov_low is not None and ev_ov_high is not None:
+        spatial_overlap_ok = float(ev_ov_low) < float(ev_ov_high)
+
+    if brk_known_ev > now_ms or fvg_known_ev > now_ms or fvg_known_at_ms > now_ms or causal_order_invalid:
+        if brk_known_ev > now_ms or fvg_known_ev > now_ms:
             causal_violations += 1
         unicorn_classification = "INVALID_UNICORN"
         unicorn_breaker_fvg_bound = False
-        unicorn_known_at_ms = brk_known_ev
-    elif u_ev_dict.get("fvg_present") and u_ev_dict.get("breaker_present") and u_ev_dict.get("overlap_valid"):
+        unicorn_known_at_ms = max(brk_known_ev, fvg_known_ev)
+    elif (
+        u_ev_dict.get("fvg_present")
+        and u_ev_dict.get("breaker_present")
+        and bool(u_ev_dict.get("overlap_valid", True))
+        and spatial_overlap_ok
+        and (ev_ov_low is None or ev_ov_high is None or float(ev_ov_low) < float(ev_ov_high))
+    ):
         unicorn_classification = "UNICORN_CONFIRMED"
         unicorn_breaker_fvg_bound = True
-        unicorn_known_at_ms = brk_known_ev
-        if u_ev_dict.get("overlap_low") is not None:
-            u_overlap_low = float(u_ev_dict["overlap_low"])
-        if u_ev_dict.get("overlap_high") is not None:
-            u_overlap_high = float(u_ev_dict["overlap_high"])
+        unicorn_known_at_ms = max(brk_known_ev, fvg_known_ev)
+        if ev_ov_low is not None:
+            u_overlap_low = float(ev_ov_low)
+        if ev_ov_high is not None:
+            u_overlap_high = float(ev_ov_high)
+    elif u_ev_dict.get("breaker_present") and u_ev_dict.get("fvg_present") and not spatial_overlap_ok:
+        unicorn_classification = "INVALID_UNICORN"
+        unicorn_breaker_fvg_bound = False
+        unicorn_known_at_ms = max(brk_known_ev, fvg_known_ev)
     elif (
         bool(getattr(u_assess, "is_valid_unicorn", False))
         and bool(getattr(u_assess, "breaker_id", None))
         and bool(getattr(u_assess, "fvg_id", None))
         and getattr(u_assess, "overlap_zone", None) is not None
     ):
-        unicorn_classification = "UNICORN_CONFIRMED"
-        unicorn_breaker_fvg_bound = True
-        unicorn_known_at_ms = int(
-            getattr(u_assess, "retest_timestamp_ms", None)
-            or getattr(u_assess, "confirmed_at_ms", None)
-            or getattr(u_assess, "known_at_ms", None)
-            or fvg_known_at_ms
-            or now_ms
-        )
         ov_zone = getattr(u_assess, "overlap_zone", None)
-        if isinstance(ov_zone, (tuple, list)) and len(ov_zone) >= 2:
+        if isinstance(ov_zone, (tuple, list)) and len(ov_zone) >= 2 and float(ov_zone[0]) < float(ov_zone[1]):
+            unicorn_classification = "UNICORN_CONFIRMED"
+            unicorn_breaker_fvg_bound = True
+            unicorn_known_at_ms = int(
+                getattr(u_assess, "retest_timestamp_ms", None)
+                or getattr(u_assess, "confirmed_at_ms", None)
+                or getattr(u_assess, "known_at_ms", None)
+                or fvg_known_at_ms
+                or now_ms
+            )
             u_overlap_low = float(ov_zone[0])
             u_overlap_high = float(ov_zone[1])
-    elif (fvg_present and fvg_unmitigated) or bool(u_ev_dict.get("fvg_present")):
+        else:
+            unicorn_classification = "INVALID_UNICORN"
+            unicorn_breaker_fvg_bound = False
+            unicorn_known_at_ms = fvg_known_at_ms
+    elif (fvg_present and fvg_unmitigated) or (bool(u_ev_dict.get("fvg_present")) and not bool(u_ev_dict.get("breaker_present"))):
         unicorn_classification = "FVG_ONLY"
         unicorn_breaker_fvg_bound = False
         unicorn_known_at_ms = fvg_known_at_ms
@@ -1081,7 +1404,7 @@ def build_signal_quality_evidence_v1793122(
         unicorn_breaker_fvg_bound = False
         unicorn_known_at_ms = 0
 
-    # Resolve independent pre-entry protected structure authority
+    # Resolve independent pre-entry protected structure authority (STAGE G5 / T17)
     prot_auth = resolve_v17931_protected_structure_authority(
         snapshot={
             "direction": direction,
@@ -1095,32 +1418,91 @@ def build_signal_quality_evidence_v1793122(
     prot_id = prot_auth.get("outer_anchor_id") or prot_auth.get("protected_structure_anchor_id")
     prot_px = prot_auth.get("protected_structure_price") if prot_id is not None else None
     prot_known = prot_auth.get("protected_structure_known_at_ms") or (now_ms if prot_id is not None else None)
-    if prot_px is None and sl_1m and direction == "LONG":
-        cand_sl = [s for s in sl_1m if int(s.get("known_at_ms") or 0) <= now_ms]
-        if cand_sl:
-            prot_id = str(cand_sl[-1].get("id") or "sl_1m_anchor")
-            prot_px = float(cand_sl[-1]["price"])
-            prot_known = int(cand_sl[-1].get("known_at_ms") or now_ms)
-    elif prot_px is None and sh_1m and direction == "SHORT":
-        cand_sh = [s for s in sh_1m if int(s.get("known_at_ms") or 0) <= now_ms]
-        if cand_sh:
-            prot_id = str(cand_sh[-1].get("id") or "sh_1m_anchor")
-            prot_px = float(cand_sh[-1]["price"])
-            prot_known = int(cand_sh[-1].get("known_at_ms") or now_ms)
+    if prot_px is None and valid_sl_1m and direction == "LONG":
+        prot_id = str(valid_sl_1m[-1].get("id") or "sl_1m_anchor")
+        prot_px = float(valid_sl_1m[-1]["price"])
+        prot_known = int(valid_sl_1m[-1].get("known_at_ms") or valid_sl_1m[-1].get("confirmed_at_ms") or now_ms)
+    elif prot_px is None and valid_sh_1m and direction == "SHORT":
+        prot_id = str(valid_sh_1m[-1].get("id") or "sh_1m_anchor")
+        prot_px = float(valid_sh_1m[-1]["price"])
+        prot_known = int(valid_sh_1m[-1].get("known_at_ms") or valid_sh_1m[-1].get("confirmed_at_ms") or now_ms)
 
+    if s_desc.get("protected_structure_anchor_id") is not None:
+        prot_id = str(s_desc.get("protected_structure_anchor_id"))
+    if s_desc.get("protected_structure_price") is not None:
+        prot_px = float(s_desc.get("protected_structure_price"))
+    if s_desc.get("protected_structure_known_at_ms") is not None:
+        prot_known = int(s_desc.get("protected_structure_known_at_ms"))
+
+    if prot_known is not None and int(prot_known) > now_ms:
+        causal_violations += 1
+
+    is_synthetic_from_sl = bool(
+        s_desc.get("anchor_derived_from_sl", False)
+        or (prot_id is not None and ("from_sl" in str(prot_id).lower() or "synthetic_sl" in str(prot_id).lower()))
+    )
+    prot_side_valid = bool(
+        prot_px is not None
+        and (
+            (direction == "LONG" and float(prot_px) < entry_price)
+            or (direction == "SHORT" and float(prot_px) > entry_price)
+        )
+    )
     prot_indep = bool(
-        prot_id is not None
+        not is_synthetic_from_sl
+        and prot_id is not None
         and prot_px is not None
         and prot_known is not None
-        and int(prot_known) <= now_ms
+        and 0 < int(prot_known) <= now_ms
         and selected_sl is not None
+        and prot_side_valid
         and abs(float(prot_px) - float(selected_sl)) >= 0.005
     )
 
-    # Target reachability check (pre-entry only, zero future MFE/MAE peeking)
+    # Target reachability & unswept liquidity pool check (STAGE G5 / T19, T20)
+    eff_atr_m5 = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else eff_atr_m1 * 2.2
+    pools = list(getattr(context, "liquidity_pools", ()) or ())
+    if not pools:
+        target_swings = sh_1m if direction == "LONG" else sl_1m
+        if selected_target_id is not None and any(str(s.get("id", "")) == str(selected_target_id) for s in target_swings):
+            pools = [
+                {
+                    "pool_id": str(s.get("id", "")),
+                    "price": float(s.get("price", 0.0) or 0.0),
+                    "pool_side": "BSL" if direction == "LONG" else "SSL",
+                    "known_at_ms": int(s.get("known_at_ms", s.get("occurred_at_ms", 0)) or 0),
+                    "swept": False,
+                }
+                for s in target_swings
+                if float(s.get("price", 0.0) or 0.0) > 0.0
+            ]
+    unswept_pool_id, unswept_pool_px, pool_known_ms, has_unswept_pool, explicit_pool_swept = (
+        _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=pools,
+            closed_1m=closed_1m,
+            direction=direction,
+            entry_price=entry_price,
+            selected_sl=selected_sl,
+            selected_target_id=selected_target_id,
+            take_profit=take_profit,
+            now_ms=now_ms,
+            eff_atr_m1=eff_atr_m1,
+            eff_atr_m5=eff_atr_m5,
+        )
+    )
+
+    target_known_at_ms = int(pool_known_ms)
+    eff_tp_for_room = take_profit
+    eff_target_pool_id: Optional[str] = selected_target_id
+    if pools:
+        if explicit_pool_swept and not has_unswept_pool:
+            eff_target_pool_id = None
+        elif has_unswept_pool and unswept_pool_id is not None:
+            eff_target_pool_id = unswept_pool_id
+
     target_room_atr_m1 = (
-        round(abs(float(take_profit) - entry_price) / eff_atr_m1, 4)
-        if take_profit is not None
+        round(abs(float(eff_tp_for_room) - entry_price) / eff_atr_m1, 4)
+        if eff_tp_for_room is not None
         else 0.0
     )
     stop_dist_atr_m1 = (
@@ -1128,38 +1510,23 @@ def build_signal_quality_evidence_v1793122(
         if selected_sl is not None
         else 0.0
     )
-    eff_atr_m5 = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else eff_atr_m1 * 2.2
     target_room_atr_m5 = (
-        round(abs(float(take_profit) - entry_price) / max(0.10, eff_atr_m5), 4)
-        if take_profit is not None
+        round(abs(float(eff_tp_for_room) - entry_price) / max(0.10, eff_atr_m5), 4)
+        if eff_tp_for_room is not None
         else 0.0
     )
 
-    target_known_at_ms = now_ms
-    pools = list(getattr(context, "liquidity_pools", ()) or ())
-    if selected_target_id and pools:
-        for p in pools:
-            p_id = p.get("id") if isinstance(p, Mapping) else getattr(p, "id", None)
-            if str(p_id) == str(selected_target_id):
-                k_ts = (
-                    p.get("known_at_ms") or p.get("created_at_ms")
-                    if isinstance(p, Mapping)
-                    else (getattr(p, "known_at_ms", None) or getattr(p, "created_at_ms", None))
-                )
-                if k_ts is not None:
-                    target_known_at_ms = int(k_ts)
-                break
-
     target_reachable = bool(
-        take_profit is not None
+        eff_tp_for_room is not None
         and selected_sl is not None
+        and not (pools and explicit_pool_swept and not has_unswept_pool)
         and target_known_at_ms <= now_ms
         and 1.2 <= target_room_atr_m1 <= 8.0
         and target_room_atr_m5 <= 3.2
         and stop_dist_atr_m1 >= 0.75
         and (
-            (direction == "LONG" and float(selected_sl) < entry_price < float(take_profit))
-            or (direction == "SHORT" and float(take_profit) < entry_price < float(selected_sl))
+            (direction == "LONG" and float(selected_sl) < entry_price < float(eff_tp_for_room))
+            or (direction == "SHORT" and float(eff_tp_for_room) < entry_price < float(selected_sl))
         )
     )
 
@@ -1260,7 +1627,7 @@ def build_signal_quality_evidence_v1793122(
         protected_structure_independent_of_sl=prot_indep,
         target_reachable=target_reachable,
         target_room_atr_m1=target_room_atr_m1,
-        target_unswept_pool_id=selected_target_id,
+        target_unswept_pool_id=eff_target_pool_id,
         target_known_at_ms=int(target_known_at_ms),
         quote_fresh=quote_fresh,
         quote_age_ms=quote_age_ms,
@@ -1452,6 +1819,9 @@ def evaluate_signal_intelligence_gate_v1793122(
                     gate_reasons.append("SI1_REV_UNCONFIRMED_SWEEP_RECLAIM")
                     gate_reasons.append("SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM")
                     rejection_stage = rejection_stage or "SI1_MODEL_QUALITY"
+                elif policy_obj.enable_core_trading_logic_repair_v1793123 and not evidence.mss_confirmed:
+                    gate_reasons.append("SI1_REV_MISSING_SEQUENCED_MSS_AFTER_SWEEP")
+                    rejection_stage = rejection_stage or "SI1_MODEL_QUALITY"
             elif model_id in (
                 ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
                 ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
@@ -1462,6 +1832,10 @@ def evaluate_signal_intelligence_gate_v1793122(
                     rejection_stage = rejection_stage or "SI1_MODEL_QUALITY"
                 elif evidence.fvg_age_bars_m1 > policy_obj.max_fvg_age_bars_m1:
                     gate_reasons.append("SI1_FVG_STALE_EXCEEDED_MAX_AGE")
+                    gate_reasons.append("SI_FVG_STALE_OR_MITIGATED")
+                    rejection_stage = rejection_stage or "SI1_MODEL_QUALITY"
+                elif not evidence.fvg_retest_valid:
+                    gate_reasons.append("SI1_FVG_NO_CHRONOLOGICAL_RETEST")
                     gate_reasons.append("SI_FVG_STALE_OR_MITIGATED")
                     rejection_stage = rejection_stage or "SI1_MODEL_QUALITY"
             elif model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value:
@@ -1510,33 +1884,72 @@ def evaluate_signal_intelligence_gate_v1793122(
 
         # SI4: Causal liquidity sweep & strict Unicorn (Breaker + FVG)
         if policy_obj.enable_causal_sweep_and_strict_unicorn:
-            if model_id in (
-                ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
-                ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            if evidence.fvg_present and (not evidence.fvg_unmitigated or evidence.fvg_age_bars_m1 > policy_obj.max_fvg_age_bars_m1):
+                gate_reasons.append("SI4_FVG_STALE_OR_ALREADY_MITIGATED")
+                rejection_stage = rejection_stage or "SI4_FVG_VALIDATION"
+            if (
+                evidence.unicorn_classification == "UNICORN_CONFIRMED"
+                and evidence.unicorn_overlap_low is not None
+                and evidence.unicorn_overlap_high is not None
+                and float(evidence.unicorn_overlap_low) < float(evidence.unicorn_overlap_high)
             ):
-                if evidence.unicorn_classification == "FVG_ONLY":
-                    gate_reasons.append("SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN")
-                    gate_reasons.append("SI_FVG_ONLY_NOT_TRUE_UNICORN")
-                    rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
-                elif evidence.unicorn_classification != "UNICORN_CONFIRMED" or not evidence.unicorn_breaker_fvg_bound:
-                    gate_reasons.append("SI4_UNICORN_BREAKER_FVG_NOT_BOUND")
-                    rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
-            elif model_id in (
-                ModelIdentifier.SMC_M1_REVERSAL.value,
-                ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
-            ):
-                if not (evidence.sweep_confirmed and evidence.sweep_reclaimed):
-                    gate_reasons.append("SI4_SWEEP_RECLAIM_NOT_CONFIRMED")
-                    rejection_stage = rejection_stage or "SI4_LIQUIDITY_SWEEP"
-                elif evidence.unicorn_classification != "UNICORN_CONFIRMED" and not evidence.fvg_retest_valid:
-                    gate_reasons.append("SI4_SWEEP_MISSING_UNICORN_OR_FVG_RETEST")
-                    rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
-            elif model_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
-                if evidence.unicorn_classification != "UNICORN_CONFIRMED" and not (
-                    evidence.sweep_confirmed and evidence.continuation_retrace_valid
+                prop_entry = round((float(evidence.unicorn_overlap_low) + float(evidence.unicorn_overlap_high)) / 2.0, 2)
+            if policy_obj.enable_core_trading_logic_repair_v1793123:
+                # V17.9.3.1.2.3 STAGE G3: Model-specific confluence (prevents starving non-Unicorn models)
+                if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+                    if evidence.unicorn_classification == "FVG_ONLY":
+                        gate_reasons.append("SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN")
+                        gate_reasons.append("SI_FVG_ONLY_NOT_TRUE_UNICORN")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                    elif evidence.unicorn_classification != "UNICORN_CONFIRMED" or not evidence.unicorn_breaker_fvg_bound:
+                        gate_reasons.append("SI4_UNICORN_BREAKER_FVG_NOT_BOUND")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                elif model_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value:
+                    if not (evidence.fvg_present and evidence.fvg_unmitigated and evidence.fvg_retest_valid):
+                        gate_reasons.append("SI4_FVG_CONTINUATION_ZONE_NOT_RETESTED_OR_MITIGATED")
+                        rejection_stage = rejection_stage or "SI4_FVG_VALIDATION"
+                elif model_id in (
+                    ModelIdentifier.SMC_M1_REVERSAL.value,
+                    ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
                 ):
-                    gate_reasons.append("SI4_CONT_NO_UNICORN_OR_SWEEP_RETRACE")
-                    rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                    if not (evidence.sweep_confirmed and evidence.sweep_reclaimed):
+                        gate_reasons.append("SI4_SWEEP_RECLAIM_NOT_CONFIRMED")
+                        rejection_stage = rejection_stage or "SI4_LIQUIDITY_SWEEP"
+                    elif not evidence.mss_confirmed:
+                        gate_reasons.append("SI4_SWEEP_MISSING_MSS_CONFIRMATION")
+                        rejection_stage = rejection_stage or "SI4_LIQUIDITY_SWEEP"
+                elif model_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
+                    if not (evidence.mss_confirmed and evidence.displacement_valid and evidence.continuation_retrace_valid):
+                        gate_reasons.append("SI4_CONT_MISSING_DISPLACEMENT_OR_RETRACE")
+                        rejection_stage = rejection_stage or "SI4_CONTINUATION_VALIDATION"
+            else:
+                if model_id in (
+                    ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                    ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                ):
+                    if evidence.unicorn_classification == "FVG_ONLY":
+                        gate_reasons.append("SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN")
+                        gate_reasons.append("SI_FVG_ONLY_NOT_TRUE_UNICORN")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                    elif evidence.unicorn_classification != "UNICORN_CONFIRMED" or not evidence.unicorn_breaker_fvg_bound:
+                        gate_reasons.append("SI4_UNICORN_BREAKER_FVG_NOT_BOUND")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                elif model_id in (
+                    ModelIdentifier.SMC_M1_REVERSAL.value,
+                    ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                ):
+                    if not (evidence.sweep_confirmed and evidence.sweep_reclaimed):
+                        gate_reasons.append("SI4_SWEEP_RECLAIM_NOT_CONFIRMED")
+                        rejection_stage = rejection_stage or "SI4_LIQUIDITY_SWEEP"
+                    elif evidence.unicorn_classification != "UNICORN_CONFIRMED" and not evidence.fvg_retest_valid:
+                        gate_reasons.append("SI4_SWEEP_MISSING_UNICORN_OR_FVG_RETEST")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
+                elif model_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
+                    if evidence.unicorn_classification != "UNICORN_CONFIRMED" and not (
+                        evidence.sweep_confirmed and evidence.continuation_retrace_valid
+                    ):
+                        gate_reasons.append("SI4_CONT_NO_UNICORN_OR_SWEEP_RETRACE")
+                        rejection_stage = rejection_stage or "SI4_STRICT_UNICORN"
 
         # SI5: Independent protected structure SL & reachable target with full risk recalculation
         if policy_obj.enable_structural_sl_and_reachable_target and baseline_entry is not None:
@@ -1563,6 +1976,48 @@ def evaluate_signal_intelligence_gate_v1793122(
                     if evidence.protected_structure_anchor_id:
                         prop_anchor_id = evidence.protected_structure_anchor_id
                         prop_anchor_kind = "INDEPENDENT_PROTECTED_SWING"
+
+            # V17.9.3.1.2.3 STAGE G5: Resolve unswept pre-entry liquidity pool target when pools are present or required
+            ctx_pools = list(getattr(context, "liquidity_pools", ()) or ())
+            if not ctx_pools and not evidence.target_reachable:
+                target_swings_for_pools = sh_1m if direction == "LONG" else sl_1m
+                ctx_pools = [
+                    {
+                        "pool_id": str(s.get("id", "")),
+                        "price": float(s.get("price", 0.0) or 0.0),
+                        "pool_side": "BSL" if direction == "LONG" else "SSL",
+                        "known_at_ms": int(s.get("known_at_ms", s.get("occurred_at_ms", 0)) or 0),
+                        "swept": False,
+                    }
+                    for s in target_swings_for_pools
+                    if float(s.get("price", 0.0) or 0.0) > 0.0
+                ]
+            raw_1m_for_pools = list(getattr(context, "closed_m1_candles", None) or getattr(context, "candles_1m", ()) or ())
+            closed_1m_for_pools, _ = _closed_bars_as_of(raw_1m_for_pools, now_ms, 60_000)
+            eff_atr_m1_for_pools = max(0.05, float(atr_m1 or 0.5))
+            eff_atr_m5_for_pools = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else eff_atr_m1_for_pools * 2.2
+            u_pool_id, u_pool_px, _, has_u_pool, exp_pool_swept = _resolve_unswept_liquidity_pool_target_v1793123(
+                pools=ctx_pools,
+                closed_1m=closed_1m_for_pools,
+                direction=direction,
+                entry_price=float(prop_entry or baseline_entry or 0.0),
+                selected_sl=prop_sl,
+                selected_target_id=prop_target_id,
+                take_profit=prop_tp,
+                now_ms=now_ms,
+                eff_atr_m1=eff_atr_m1_for_pools,
+                eff_atr_m5=eff_atr_m5_for_pools,
+                max_target_atr_m1_multiple=float(policy_obj.max_target_atr_m1_multiple),
+            )
+            if has_u_pool and u_pool_id is not None and u_pool_px is not None:
+                prop_target_id = u_pool_id
+                prop_tp = u_pool_px
+            elif (ctx_pools and (exp_pool_swept or not has_u_pool)) or (
+                policy_obj.require_unswept_liquidity_pool_target and not prop_target_id
+            ):
+                gate_reasons.append("SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT")
+                gate_reasons.append("SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE")
+                rejection_stage = rejection_stage or "SI5_STRUCTURAL_SL_TP"
 
             # Recompute risk/reward and quantity whenever SI5 evaluates geometry
             if prop_entry is not None and prop_sl is not None and prop_tp is not None:
@@ -1607,8 +2062,38 @@ def evaluate_signal_intelligence_gate_v1793122(
                     gate_reasons.append("SI5_INSUFFICIENT_NET_RR_AFTER_STRUCTURAL_SL")
                     rejection_stage = rejection_stage or "SI5_STRUCTURAL_SL_TP"
 
-            if not evidence.target_reachable:
-                gate_reasons.append("SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE")
+            # Re-verify target reachability with updated prop_tp and prop_sl
+            eff_room_m1 = (
+                round(abs(float(prop_tp) - float(prop_entry)) / max(0.05, float(atr_m1 or 0.5)), 4)
+                if (prop_tp is not None and prop_entry is not None)
+                else 0.0
+            )
+            eff_stop_m1 = (
+                round(abs(float(prop_entry) - float(prop_sl)) / max(0.05, float(atr_m1 or 0.5)), 4)
+                if (prop_sl is not None and prop_entry is not None)
+                else 0.0
+            )
+            eff_atr5_val = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else max(0.05, float(atr_m1 or 0.5)) * 2.2
+            eff_room_m5 = (
+                round(abs(float(prop_tp) - float(prop_entry)) / max(0.10, eff_atr5_val), 4)
+                if (prop_tp is not None and prop_entry is not None)
+                else 0.0
+            )
+            updated_target_reachable = bool(
+                prop_tp is not None
+                and prop_sl is not None
+                and prop_entry is not None
+                and 1.2 <= eff_room_m1 <= float(policy_obj.max_target_atr_m1_multiple)
+                and eff_room_m5 <= 3.2
+                and eff_stop_m1 >= float(policy_obj.min_stop_atr_m1_ratio)
+                and (
+                    (direction == "LONG" and float(prop_sl) < float(prop_entry) < float(prop_tp))
+                    or (direction == "SHORT" and float(prop_tp) < float(prop_entry) < float(prop_sl))
+                )
+            )
+            if not (evidence.target_reachable or updated_target_reachable):
+                if "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE" not in gate_reasons:
+                    gate_reasons.append("SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE")
                 rejection_stage = rejection_stage or "SI5_STRUCTURAL_SL_TP"
 
         # Determine final proposed status under RESEARCH_APPLY

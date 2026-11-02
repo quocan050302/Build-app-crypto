@@ -1107,6 +1107,10 @@ class StrategyDecisionSnapshot:
         return self.rejection_reason_codes
 
     @property
+    def v1793122_signal_intelligence_mode(self) -> Optional[str]:
+        return self.v1793122_mode
+
+    @property
     def v1793122_proposed_status(self) -> Optional[str]:
         if isinstance(self.v1793122_plan_dict, dict):
             return self.v1793122_plan_dict.get("proposed_status")
@@ -1827,10 +1831,18 @@ class SharedStrategyEvaluator:
         sl_1m: List[Dict[str, Any]],
         cfg: M1ScalpConfig,
         cutoff_ms: int,
+        strict_causal_repair: bool = False,
+        research_discovery_enabled: bool = False,
+        max_fvg_age_bars: int = 24,
     ) -> Dict[str, Any]:
         """
         Extracts causal FVG/Break/Sweep descriptors from confirmed M1 bars so that
         detect_unicorn_evidence and resolve_stop_anchor receive exact causal bindings.
+        When `strict_causal_repair=True` (V17.9.3.1.2.3 STAGE G3), rejects stale,
+        already-mitigated, or un-retested FVGs rather than blindly picking `dir_fvgs[-1]`.
+        When `research_discovery_enabled=True` (V17.9.3.1.2.3 STAGE G1), scans recent
+        causal M1 structure to discover valid unmitigated setups missed by naive last-element
+        selection while keeping `OFF` 100% unchanged.
         """
         if len(closed_1m) < 10 or not sh_1m or not sl_1m:
             return {"has_setup": False, "reason_code": "WAITING_M1_STRUCTURE"}
@@ -1884,10 +1896,62 @@ class SharedStrategyEvaluator:
             dir_fvgs = [f for f in valid_fvgs if str(f.get("type", "")).upper() == target_fvg_type]
             if not dir_fvgs:
                 return {"has_setup": False, "reason_code": "NO_VALID_FVG_SETUP"}
-            sel_fvg = dir_fvgs[-1]
+            last_2_open = _candle_open_ms(closed_1m[-2])
+
+            if strict_causal_repair or research_discovery_enabled:
+                # V17.9.3.1.2.3 STAGE G1/G3: Select most recent FVG that is fresh (<= max_fvg_age_bars),
+                # unmitigated by subsequent closed bars, and has an actual post-formation closed-bar retest.
+                chosen_fvg: Optional[Dict[str, Any]] = None
+                for cand_fvg in reversed(dir_fvgs):
+                    c_bot = float(cand_fvg["bottom"])
+                    c_top = float(cand_fvg["top"])
+                    c_ts = int(cand_fvg.get("timestamp") or cand_fvg.get("middle_bar_ms") or last_2_open)
+                    c_conf = int(cand_fvg.get("confirmed_at") or (c_ts + 60_000))
+                    if c_conf <= 0 or c_conf > cutoff_ms:
+                        continue
+                    age_bars = max(0, int((cutoff_ms - c_conf) // 60_000))
+                    if age_bars > max_fvg_age_bars:
+                        continue
+                    post_bars = [
+                        b for b in closed_1m
+                        if _candle_close_ms(b, 60_000) > c_conf and _candle_close_ms(b, 60_000) <= cutoff_ms
+                    ]
+                    if not post_bars:
+                        continue
+                    if direction == "LONG":
+                        is_mit = any(
+                            float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) < c_bot
+                            for b in post_bars
+                        )
+                        is_ret = any(
+                            float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= c_top
+                            and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) >= c_bot
+                            for b in post_bars[-min(len(post_bars), 6) :]
+                        )
+                    else:
+                        is_mit = any(
+                            float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) > c_top
+                            for b in post_bars
+                        )
+                        is_ret = any(
+                            float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= c_bot
+                            and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) <= c_top
+                            for b in post_bars[-min(len(post_bars), 6) :]
+                        )
+                    if not is_mit and is_ret:
+                        chosen_fvg = cand_fvg
+                        break
+                    # In strict_causal_repair without research_discovery_enabled, only inspect the candidate FVG
+                    if not research_discovery_enabled:
+                        break
+                if chosen_fvg is None:
+                    return {"has_setup": False, "reason_code": "FVG_STALE_MITIGATED_OR_UNRETESTED"}
+                sel_fvg = chosen_fvg
+            else:
+                sel_fvg = dir_fvgs[-1]
+
             f_bot = float(sel_fvg["bottom"])
             f_top = float(sel_fvg["top"])
-            last_2_open = _candle_open_ms(closed_1m[-2])
             f_ts = int(sel_fvg.get("timestamp") or sel_fvg.get("middle_bar_ms") or last_2_open)
             f_conf = int(sel_fvg.get("confirmed_at") or (f_ts + 60_000))
             f_id = str(sel_fvg.get("id") or f"fvg_{direction}_{f_ts}")
@@ -2859,6 +2923,25 @@ class SharedStrategyEvaluator:
                 swings_memo.clear()
             swings_memo[swings_memo_key] = (raw_m1_ref, sh_1m, sl_1m)
 
+        pol_id_u = str(raw_v1793122_pol_id or "").strip().upper()
+        mode_u = str(raw_v1793122_mode or "").strip().upper()
+        use_v1793123_strict_extractor = bool(
+            has_v1793122_active
+            and mode_u == "RESEARCH_APPLY"
+            and (
+                pol_id_u in ("SI7", "SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8", "SI8_RESEARCH_DISCOVERY_REPAIRED")
+                or bool(policy_dict.get("v17_9_3_1_2_3_strict_setup_extractor", False))
+            )
+        )
+        use_v1793123_discovery = bool(
+            has_v1793122_active
+            and mode_u == "RESEARCH_APPLY"
+            and (
+                pol_id_u in ("SI8", "SI8_RESEARCH_DISCOVERY_REPAIRED")
+                or bool(policy_dict.get("v17_9_3_1_2_3_research_discovery_enabled", False))
+            )
+        )
+
         raw_setup_memo = getattr(cls, "_RAW_SETUP_MEMO", None)
         if raw_setup_memo is None:
             raw_setup_memo = {}
@@ -2877,6 +2960,8 @@ class SharedStrategyEvaluator:
             cfg.tick_size,
             model_id,
             direction,
+            use_v1793123_strict_extractor,
+            use_v1793123_discovery,
         )
         setup_hit = raw_setup_memo.get(setup_memo_key) if can_use_setup_memo else None
         if setup_hit is not None and setup_hit[0] is raw_m1_ref and setup_hit[1] is raw_m5_ref:
@@ -2898,12 +2983,17 @@ class SharedStrategyEvaluator:
                     sl_1m=sl_1m,
                     cfg=cfg,
                     cutoff_ms=now_ms,
+                    strict_causal_repair=use_v1793123_strict_extractor,
+                    research_discovery_enabled=use_v1793123_discovery,
                 )
             if (
                 setup_info.get("has_setup", False)
                 and setup_info.get("legacy_sl") is not None
                 and setup_info.get("episode_id")
             ):
+                scalp_cand, cg01_res = None, None
+            elif use_v1793123_strict_extractor and not use_v1793123_discovery:
+                # In strict causal repair mode (non-discovery), do not fall back to unverified raw production candidate if setup extractor rejected stale/mitigated FVG
                 scalp_cand, cg01_res = None, None
             else:
                 scalp_cand, cg01_res, _ = cls._evaluate_raw_production_candidate(
@@ -3610,9 +3700,16 @@ class SharedStrategyEvaluator:
             )
             if si_plan.mode != "OBSERVE_ONLY":
                 v1793122_rej_stage = si_plan.rejection_stage
+                if si_plan.proposed_entry is not None:
+                    entry_ref = round(float(si_plan.proposed_entry), 2)
                 if si_plan.proposed_sl is not None:
                     selected_sl = float(si_plan.proposed_sl)
                     structural_sl = float(si_plan.proposed_sl)
+                if si_plan.proposed_tp is not None:
+                    target_price = round(float(si_plan.proposed_tp), 2)
+                    has_valid_target = True
+                if si_plan.proposed_target_id is not None:
+                    target_ev_id = str(si_plan.proposed_target_id)
                 if si_plan.proposed_invalidation_price is not None:
                     invalidation_px = round(float(si_plan.proposed_invalidation_price), 2)
                 if si_plan.proposed_anchor_id is not None:
@@ -3743,7 +3840,15 @@ class SharedStrategyEvaluator:
             res_dir, res_reason = resolve_research_preferred_direction_v1793122(context, explicit_bias)
             if res_dir in ("LONG", "SHORT"):
                 return res_dir
-            if res_reason in ("HTF_BIAS_MISSING_NO_DEFAULT_LONG", "HTF_LOOKAHEAD_INVALID"):
+            if res_reason in (
+                "HTF_BIAS_MISSING_NO_DEFAULT_LONG",
+                "HTF_DATA_INSUFFICIENT_OR_CONFLICTED",
+                "HTF_LOOKAHEAD_INVALID",
+                "EXPLICIT_HTF_BIAS_MISSING_CLOSED_CANDLE_PROVENANCE",
+                "EXPLICIT_HTF_BIAS_WITHOUT_CAUSAL_BAR_PROVENANCE_REJECTED",
+                "EXPLICIT_HTF_BIAS_STALE_BARS_REJECTED",
+                "EXPLICIT_HTF_BIAS_CONFLICTS_WITH_CAUSAL_BARS",
+            ):
                 return "NO_BIAS"
             return "NEUTRAL"
 

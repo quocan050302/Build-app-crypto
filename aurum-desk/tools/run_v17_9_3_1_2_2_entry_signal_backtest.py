@@ -80,6 +80,7 @@ from services.v17_9_3_1_2_2_signal_intelligence import (
     CANONICAL_DATASET_SHA256_V1793122,
     CANONICAL_SIGNAL_INTELLIGENCE_MODES,
     CANONICAL_SIGNAL_INTELLIGENCE_POLICY_IDS,
+    CANONICAL_V1793123_POLICY_IDS,
     MANDATORY_BRANCH_V1793122,
     PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122,
     PRODUCTION_MODEL_STATIC_PRIORITY,
@@ -171,6 +172,22 @@ def _map_si_policy_to_executable_research_policy_v1793122(
             rederive_structural_liquidity_target=True,
             max_realistic_target_net_rr=3.50,
         )
+    if pid in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED"):
+        return ExecutableResearchPolicyV179312(
+            variant_id=pid,
+            base_cohort_variant="A1_V1792_SL_TP_BASELINE",
+            intervention_type="ENTRY_SL_TP_COMBINED_EXECUTABLE",
+            hypothesis_description=si_pol.description,
+            cited_dev_loss_cause="CORE_TRADING_LOGIC_REPAIRED_V1793123",
+            require_causal_h1_h4_alignment=True,
+            wait_for_confirmed_mss_and_displacement=True,
+            wait_for_confirmed_breaker_fvg_retest=False,
+            max_wait_bars=int(si_pol.max_pending_confirmation_bars_m1),
+            rederive_outer_structural_stop=True,
+            min_sl_atr_m1_multiple=float(si_pol.min_sl_atr_m1_multiple),
+            rederive_structural_liquidity_target=True,
+            max_realistic_target_net_rr=float(si_pol.max_realistic_target_net_rr),
+        )
     # SI6_COMBINED_PREDECLARED
     return ExecutableResearchPolicyV179312(
         variant_id=pid,
@@ -245,8 +262,13 @@ def replay_single_si_policy_v1793122(
         opp_id = str(opp["opportunity_id"])
         feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
 
-        # Additional SI1 model-specific continuation/reversal quality filter before materialization
-        if policy_id in ("SI1_MODEL_QUALITY_AND_ARBITRATION", "SI6_COMBINED_PREDECLARED"):
+        # Additional SI1 / SI7 / SI8 model-specific continuation/reversal quality filter before materialization
+        if policy_id in (
+            "SI1_MODEL_QUALITY_AND_ARBITRATION",
+            "SI6_COMBINED_PREDECLARED",
+            "SI7_CORE_TRADING_LOGIC_REPAIRED",
+            "SI8_RESEARCH_DISCOVERY_REPAIRED",
+        ):
             m_id = str(opp.get("model_id") or "")
             if m_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
                 if float(feat.get("displacement_body_atr_ratio", 0.50) or 0.50) < si_pol.min_displacement_body_atr_ratio:
@@ -259,6 +281,47 @@ def replay_single_si_policy_v1793122(
                         "status": "REJECTED_BY_INTERVENTION",
                         "accepted": False,
                         "rejection_reason": "SI_CONTINUATION_WEAK_DISPLACEMENT_BODY",
+                        "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
+                        "new_checkpoint_index_1m": None,
+                        "new_decision_timestamp_ms": None,
+                        "changed_dimensions": [],
+                        "known_at_ms": int(opp["decision_timestamp_ms"]),
+                        "confirmation_subtype": "NONE",
+                    }
+                    materialized_list.append((opp, mat))
+                    continue
+            if policy_id in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED"):
+                if m_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value and str(feat.get("unicorn_classification") or "NONE") != "UNICORN_CONFIRMED":
+                    mat = {
+                        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "opportunity_id": opp_id,
+                        "setup_id": str(opp.get("setup_id") or ""),
+                        "variant_id": policy_id,
+                        "intervention_type": exec_pol.intervention_type,
+                        "status": "REJECTED_BY_INTERVENTION",
+                        "accepted": False,
+                        "rejection_reason": "SI4_UNICORN_NOT_CONFIRMED_FVG_ONLY",
+                        "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
+                        "new_checkpoint_index_1m": None,
+                        "new_decision_timestamp_ms": None,
+                        "changed_dimensions": [],
+                        "known_at_ms": int(opp["decision_timestamp_ms"]),
+                        "confirmation_subtype": "FVG_ONLY",
+                    }
+                    materialized_list.append((opp, mat))
+                    continue
+                if m_id in ("UNICORN_MODEL", ModelIdentifier.SMC_M1_FVG_CONTINUATION.value) and (
+                    not bool(feat.get("fvg_retest_valid", True)) or not bool(feat.get("fvg_unmitigated", True))
+                ):
+                    mat = {
+                        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "opportunity_id": opp_id,
+                        "setup_id": str(opp.get("setup_id") or ""),
+                        "variant_id": policy_id,
+                        "intervention_type": exec_pol.intervention_type,
+                        "status": "REJECTED_BY_INTERVENTION",
+                        "accepted": False,
+                        "rejection_reason": "SI4_FVG_RETEST_MISSING_OR_STALE",
                         "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
                         "new_checkpoint_index_1m": None,
                         "new_decision_timestamp_ms": None,
@@ -1114,7 +1177,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         )
 
     with ThreadPoolExecutor(max_workers=4) as ex_si:
-        for pid_k, pid_res in ex_si.map(_run_si_pol, CANONICAL_SIGNAL_INTELLIGENCE_POLICY_IDS):
+        for pid_k, pid_res in ex_si.map(_run_si_pol, CANONICAL_V1793123_POLICY_IDS):
             si_results_by_policy[pid_k] = pid_res
 
     # Census artifact 05 & Funnel artifact 06
@@ -1583,6 +1646,14 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         atomic_write_json(output_dir / fname, payload)
         evidence_by_key[k] = payload
 
+    evidence_by_key["_internal_context"] = {
+        "datasets": datasets,
+        "a1_episodes": a1_episodes,
+        "a1_eligible": a1_eligible,
+        "cand_index": cand_index,
+        "feat_by_opp_id": feat_by_opp_id,
+        "si_results_by_policy": si_results_by_policy,
+    }
     return evidence_by_key
 
 

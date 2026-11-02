@@ -149,12 +149,14 @@ def verify_collect_vs_junit_node_id_bijection_v1793122(
 
 
 def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> List[Tuple[str, List[str]]]:
+    s000 = [f for f in all_test_files if "v17_9_3_1_2_3" in f]
     s00a = [f for f in all_test_files if "v17_9_3_1_2_2" in f]
     s00b = [f for f in all_test_files if "v17_9_3_1_2_1" in f]
     s00c = [
         f
         for f in all_test_files
         if ("v17_9_3_1_2" in f or "v17_9_3_1_1" in f or "v17_9_3" in f)
+        and f not in s000
         and f not in s00a
         and f not in s00b
     ]
@@ -172,12 +174,14 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         )
     ]
     s04 = [f for f in all_test_files if f == "backend/tests/test_v16_23_red_reproductions.py"]
-    assigned = set(s00a + s00b + s00c + s01 + s02 + s03 + s04)
+    assigned = set(s000 + s00a + s00b + s00c + s01 + s02 + s03 + s04)
     remaining = [f for f in all_test_files if f not in assigned]
 
     shards: List[Tuple[str, List[str]]] = []
     s02_sorted = sorted(s02, key=lambda x: 0 if "runtime_integration" in x else (1 if "strict_eligibility" in x else 2))
     # 1. Resumable/fast shards first so completed XMLs resume at t=0 and fast shards flush to disk in <15s
+    if s000:
+        shards.append(("SHARD_000_V17_9_3_1_2_3", s000))
     if s00a:
         shards.append(("SHARD_00A_V17_9_3_1_2_2", s00a))
     for idx_s02, f_s02 in enumerate(s02_sorted[2:], start=2):
