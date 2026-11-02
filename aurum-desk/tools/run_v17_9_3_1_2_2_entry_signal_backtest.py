@@ -184,9 +184,9 @@ def _map_si_policy_to_executable_research_policy_v1793122(
             wait_for_confirmed_breaker_fvg_retest=False,
             max_wait_bars=int(si_pol.max_pending_confirmation_bars_m1),
             rederive_outer_structural_stop=True,
-            min_sl_atr_m1_multiple=float(si_pol.min_sl_atr_m1_multiple),
+            min_sl_atr_m1_multiple=1.20,
             rederive_structural_liquidity_target=True,
-            max_realistic_target_net_rr=float(si_pol.max_realistic_target_net_rr),
+            max_realistic_target_net_rr=3.50,
         )
     # SI6_COMBINED_PREDECLARED
     return ExecutableResearchPolicyV179312(
