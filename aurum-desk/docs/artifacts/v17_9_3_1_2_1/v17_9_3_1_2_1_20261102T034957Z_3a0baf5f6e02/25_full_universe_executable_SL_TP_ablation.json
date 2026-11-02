@@ -1,0 +1,104 @@
+{
+  "factorial_variants_summary": {
+    "R0_BASELINE_CONTROL": {
+      "closed_trades": 166,
+      "expectancy_r_mean": -0.8474,
+      "intervention_type": "BASELINE_CONTROL",
+      "loss_rate": 0.9458,
+      "losses": 157,
+      "max_drawdown_usd": 345.9,
+      "modeled_net_pnl_usd": -345.9,
+      "variant_id": "R0_BASELINE_CONTROL",
+      "wins": 9
+    },
+    "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY": {
+      "closed_trades": 111,
+      "expectancy_r_mean": -0.8458,
+      "intervention_type": "ENTRY_FILTER_ONLY",
+      "loss_rate": 0.955,
+      "losses": 106,
+      "max_drawdown_usd": 231.47,
+      "modeled_net_pnl_usd": -231.47,
+      "variant_id": "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY",
+      "wins": 5
+    },
+    "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE": {
+      "closed_trades": 73,
+      "expectancy_r_mean": -0.9157,
+      "intervention_type": "DELAYED_ENTRY_EXECUTABLE",
+      "loss_rate": 0.9726,
+      "losses": 71,
+      "max_drawdown_usd": 164.08,
+      "modeled_net_pnl_usd": -164.08,
+      "variant_id": "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE",
+      "wins": 2
+    },
+    "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE": {
+      "closed_trades": 119,
+      "expectancy_r_mean": -0.8954,
+      "intervention_type": "DELAYED_ENTRY_EXECUTABLE",
+      "loss_rate": 0.958,
+      "losses": 114,
+      "max_drawdown_usd": 261.79,
+      "modeled_net_pnl_usd": -261.79,
+      "variant_id": "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE",
+      "wins": 5
+    },
+    "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE": {
+      "closed_trades": 132,
+      "expectancy_r_mean": -0.8821,
+      "intervention_type": "STRUCTURAL_STOP_EXECUTABLE",
+      "loss_rate": 0.9545,
+      "losses": 126,
+      "max_drawdown_usd": 285.76,
+      "modeled_net_pnl_usd": -285.76,
+      "variant_id": "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE",
+      "wins": 6
+    },
+    "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE": {
+      "closed_trades": 48,
+      "expectancy_r_mean": -0.727,
+      "intervention_type": "STRUCTURAL_TP_EXECUTABLE",
+      "loss_rate": 0.8958,
+      "losses": 43,
+      "max_drawdown_usd": 85.8,
+      "modeled_net_pnl_usd": -85.8,
+      "variant_id": "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE",
+      "wins": 5
+    },
+    "R6_MACRO_SESSION_FILTER_ONLY": {
+      "closed_trades": 42,
+      "expectancy_r_mean": -0.9053,
+      "intervention_type": "ENTRY_FILTER_ONLY",
+      "loss_rate": 0.9524,
+      "losses": 40,
+      "max_drawdown_usd": 93.33,
+      "modeled_net_pnl_usd": -93.33,
+      "variant_id": "R6_MACRO_SESSION_FILTER_ONLY",
+      "wins": 2
+    },
+    "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE": {
+      "closed_trades": 1,
+      "expectancy_r_mean": -0.9941,
+      "intervention_type": "ENTRY_SL_TP_COMBINED_EXECUTABLE",
+      "loss_rate": 1.0,
+      "losses": 1,
+      "max_drawdown_usd": 2.43,
+      "modeled_net_pnl_usd": -2.43,
+      "variant_id": "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
+      "wins": 0
+    },
+    "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE": {
+      "closed_trades": 63,
+      "expectancy_r_mean": -0.9154,
+      "intervention_type": "ENTRY_SL_TP_COMBINED_EXECUTABLE",
+      "loss_rate": 0.9683,
+      "losses": 61,
+      "max_drawdown_usd": 141.42,
+      "modeled_net_pnl_usd": -141.42,
+      "variant_id": "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE",
+      "wins": 2
+    }
+  },
+  "schema_version": "17.9.3.1.2.1"
+}

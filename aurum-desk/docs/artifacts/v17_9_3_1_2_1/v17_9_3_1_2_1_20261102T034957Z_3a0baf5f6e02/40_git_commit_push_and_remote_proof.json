@@ -1,0 +1,11 @@
+{
+  "commit_protocol": "THREE_PHASE_NON_SELF_REFERENTIAL_PROVENANCE",
+  "executable_diff_since_phase_a_tested_code_sha": "",
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "merge_base_with_origin_master": "650e4535777421077443cd3d95507cad1d99ed42",
+  "phase_a_parent_sha": "f22353cfbc945d298fed370f01cee9c919065ce8",
+  "phase_a_tested_code_sha": "3a0baf5f6e0244d62375400ff047ff73053b6281",
+  "remote_branch_ls_remote_at_generation": "f22353cfbc945d298fed370f01cee9c919065ce8\trefs/heads/feature/v17-9-2-structural-sl-tp-from-qa",
+  "schema_version": "17.9.3.1.2.1",
+  "zero_executable_code_drift_since_phase_a": true
+}

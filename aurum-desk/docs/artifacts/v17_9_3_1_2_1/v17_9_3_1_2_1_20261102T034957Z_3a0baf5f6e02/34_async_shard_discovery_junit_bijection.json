@@ -1,0 +1,60 @@
+{
+  "async_worker_cap": 4,
+  "bijection_valid": true,
+  "collected_tests_count": 140,
+  "executed_tests_count": 140,
+  "failed_tests_count": 0,
+  "schema_version": "17.9.3.1.2.1",
+  "shards": [
+    {
+      "bijection_match": true,
+      "collected_count": 60,
+      "elapsed_seconds": 66.87,
+      "executed_junit_count": 60,
+      "exit_code": 0,
+      "failed_count": 0,
+      "junit_xml_path": "docs\\artifacts\\v17_9_3_1_2_1\\v17_9_3_1_2_1_20261102T034957Z_3a0baf5f6e02\\junit\\shard_01_v179312_regression.xml",
+      "shard_name": "shard_01_v179312_regression",
+      "skipped_count": 0,
+      "test_file": "backend/tests/test_v17_9_3_1_2_full_universe_executable_interventions.py"
+    },
+    {
+      "bijection_match": true,
+      "collected_count": 28,
+      "elapsed_seconds": 53.61,
+      "executed_junit_count": 28,
+      "exit_code": 0,
+      "failed_count": 0,
+      "junit_xml_path": "docs\\artifacts\\v17_9_3_1_2_1\\v17_9_3_1_2_1_20261102T034957Z_3a0baf5f6e02\\junit\\shard_02_opportunity_identity_T01_T28.xml",
+      "shard_name": "shard_02_opportunity_identity_T01_T28",
+      "skipped_count": 0,
+      "test_file": "backend/tests/test_v17_9_3_1_2_1_opportunity_identity.py"
+    },
+    {
+      "bijection_match": true,
+      "collected_count": 27,
+      "elapsed_seconds": 55.18,
+      "executed_junit_count": 27,
+      "exit_code": 0,
+      "failed_count": 0,
+      "junit_xml_path": "docs\\artifacts\\v17_9_3_1_2_1\\v17_9_3_1_2_1_20261102T034957Z_3a0baf5f6e02\\junit\\shard_03_portfolio_censoring_T29_T55.xml",
+      "shard_name": "shard_03_portfolio_censoring_T29_T55",
+      "skipped_count": 0,
+      "test_file": "backend/tests/test_v17_9_3_1_2_1_portfolio_censoring.py"
+    },
+    {
+      "bijection_match": true,
+      "collected_count": 25,
+      "elapsed_seconds": 77.65,
+      "executed_junit_count": 25,
+      "exit_code": 0,
+      "failed_count": 0,
+      "junit_xml_path": "docs\\artifacts\\v17_9_3_1_2_1\\v17_9_3_1_2_1_20261102T034957Z_3a0baf5f6e02\\junit\\shard_04_root_cause_evidence_T56_T80.xml",
+      "shard_name": "shard_04_root_cause_evidence_T56_T80",
+      "skipped_count": 0,
+      "test_file": "backend/tests/test_v17_9_3_1_2_1_root_cause_evidence.py"
+    }
+  ],
+  "shards_count": 4,
+  "skipped_tests_count": 0
+}

@@ -1,0 +1,101 @@
+{
+  "adverse_gap_open_stop_loss_episodes": [
+    {
+      "adverse_gap_beyond_sl_usd": 5.7814,
+      "checkpoint_index_1m": 30,
+      "decision_timestamp_ms": 1791439740000,
+      "direction": "SHORT",
+      "entry_fill_price": 4124.7,
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_FVG_CONTINUATION_30_1791439740000",
+      "exit_fill_price": 4179.46,
+      "planned_net_risk_usd": 2.35,
+      "realized_net_pnl_usd": -8.1314,
+      "realized_r": -3.4602,
+      "selected_sl": 4138.06
+    },
+    {
+      "adverse_gap_beyond_sl_usd": 3.4456,
+      "checkpoint_index_1m": 2585,
+      "decision_timestamp_ms": 1791716880000,
+      "direction": "SHORT",
+      "entry_fill_price": 4197.58,
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_CONTINUATION_2585_1791716880000",
+      "exit_fill_price": 4208.35,
+      "planned_net_risk_usd": 2.49,
+      "realized_net_pnl_usd": -5.9356,
+      "realized_r": -2.3838,
+      "selected_sl": 4200.05
+    },
+    {
+      "adverse_gap_beyond_sl_usd": 3.8221,
+      "checkpoint_index_1m": 8585,
+      "decision_timestamp_ms": 1792200780000,
+      "direction": "SHORT",
+      "entry_fill_price": 4170.17,
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_FVG_CONTINUATION_8585_1792200780000",
+      "exit_fill_price": 4179.98,
+      "planned_net_risk_usd": 2.49,
+      "realized_net_pnl_usd": -6.3121,
+      "realized_r": -2.535,
+      "selected_sl": 4171.93
+    }
+  ],
+  "adverse_gap_open_stop_loss_episodes_count": 3,
+  "censored_data_gap_open_episodes": [
+    {
+      "checkpoint_index_1m": 6086,
+      "decision_timestamp_ms": 1791958620000,
+      "direction": "SHORT",
+      "entry_fill_price": 4166.84,
+      "episode_index": 59,
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6086_1791958620000",
+      "executed_quantity": 0.22,
+      "legacy_180_outcome_label": "DATA_GAP_UNRESOLVED",
+      "legacy_180_release_ts_ms": 1791997920000,
+      "model_id": "SMC_M1_REVERSAL",
+      "mtm_at_180_bars": {
+        "estimated_exit_fee_usd": 0.5397,
+        "mtm_conservative_quote_price": 4088.61,
+        "mtm_mid_close_price": 4088.26,
+        "mtm_timestamp_ms": 1791997980000,
+        "unrealized_mtm_gross_pnl_usd": 17.2106,
+        "unrealized_mtm_net_pnl_usd": 16.3042,
+        "unrealized_mtm_r": 6.682
+      },
+      "mtm_at_terminal": {
+        "estimated_exit_fee_usd": 0.5397,
+        "mtm_conservative_quote_price": 4088.61,
+        "mtm_mid_close_price": 4088.26,
+        "mtm_timestamp_ms": 1791997980000,
+        "unrealized_mtm_gross_pnl_usd": 17.2106,
+        "unrealized_mtm_net_pnl_usd": 16.3042,
+        "unrealized_mtm_r": 6.682
+      },
+      "phantom_followon_trades_admitted_by_180_release_count": 182,
+      "phantom_followon_trades_admitted_keys": [
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6133_1791998880000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6139_1791999240000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6188_1792002180000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6197_1792002720000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6200_1792002900000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6222_1792004220000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6224_1792004340000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6225_1792004400000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6248_1792005780000",
+        "A1_V1792_SL_TP_BASELINE_SMC_M1_REVERSAL_6251_1792005960000"
+      ],
+      "selected_sl": 4174.48,
+      "take_profit": 4110.21,
+      "true_bars_held": 32,
+      "true_exit_fill_price": null,
+      "true_exit_fill_ts_ms": null,
+      "true_exit_type": "CENSORED_DATA_GAP_OPEN",
+      "true_realized_net_pnl_usd": 0.0,
+      "true_realized_r": null,
+      "true_slot_release_ts_ms": 1793196000000,
+      "true_terminal_state": "CENSORED_DATA_GAP_OPEN"
+    }
+  ],
+  "censored_data_gap_open_episodes_count": 1,
+  "schema_version": "17.9.3.1.2.1"
+}

@@ -1,0 +1,26 @@
+{
+  "canonical_risk_policy_contract": "RiskPolicySnapshotV179311(schema_version='17.9.3.1.1', policy_version='V17.9.3.1.1_CANONICAL_RISK_POLICY', symbol='XAUUSDT', capital_usdt=1000.0, risk_pct_percent=0.25, leverage=20, margin_mode='ISOLATED', min_net_rr=2.0, quantity_step=0.01, min_quantity=0.01, multiplier=1.0, tick_size=0.01, taker_fee_rate=0.0004, maker_fee_rate=0.0002, slippage_usd=0.1, spread_usd=0.2, risk_tolerance_epsilon_usd=1e-05)",
+  "critical_source_sha256": {
+    "aurum-desk/backend/services/shared_strategy_evaluator.py": "7f9db05572cd67b8de913815b2017e6de3879b2b94705bccd570518c549bf490",
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py": "8b93d6e2dd7d0cbfc19f7a48b428ffe8d591011344b88ded7850bc41df175331",
+    "aurum-desk/backend/services/v17_9_3_1_1_loss_forensics_and_research_service.py": "59476bfae37314517deec493b25650bee6ca742af8cf1e8771379d75cc2e813c",
+    "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py": "3aa8bb3b8ecb42a52cb69c1db9c40cb3246adc6a1c8b9b15f8415284d92b63f4",
+    "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py": "8bdec917e42cf791f91bd928949d5bbc62dfa363251bd72839d079f8dc5179d6"
+  },
+  "frozen_at_utc": "2026-11-02T03:51:18.965870+00:00",
+  "historical_reference_shas": {
+    "branch_base_master_sha": "650e4535777421077443cd3d95507cad1d99ed42",
+    "v17_9_3_1_2_remote_head_sha": "f22353cfbc945d298fed370f01cee9c919065ce8",
+    "v17_9_3_1_2_reported_executable_sha": "f0339ecae3152c2358eed44ff1707fb4d34e429d"
+  },
+  "policy_registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913",
+  "production_safety_contract": {
+    "live_or_auto_paper_orders_permitted": false,
+    "research_candidate_policies_enabled_in_production": false,
+    "v17_9_2_structural_sl_enabled": false,
+    "v17_9_3_macro_unicorn_enabled": false,
+    "v17_9_3_mode": "OFF"
+  },
+  "schema_version": "17.9.3.1.2.1",
+  "tested_code_sha": "3a0baf5f6e0244d62375400ff047ff73053b6281"
+}

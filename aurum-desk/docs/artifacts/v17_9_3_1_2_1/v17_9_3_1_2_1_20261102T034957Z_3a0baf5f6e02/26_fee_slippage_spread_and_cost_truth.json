@@ -1,0 +1,49 @@
+{
+  "a1_closed_trades": 166,
+  "flipped_gross_win_to_net_loss_count": 0,
+  "gross_wins_count": 9,
+  "identity_gross_minus_fees_equals_net": true,
+  "net_wins_count": 9,
+  "schema_version": "17.9.3.1.2.1",
+  "sum_embedded_quote_spread_and_slippage_usd": 25.08,
+  "sum_entry_taker_fees_usd": 101.55,
+  "sum_exit_taker_fees_usd": 101.56,
+  "sum_realized_gross_pnl_usd": -142.78,
+  "sum_realized_net_pnl_usd": -345.9,
+  "sum_total_taker_fees_usd": 203.11,
+  "three_fill_mode_comparison_a1": {
+    "LEGACY_CLOSE_FILL": {
+      "closed_trades": 164,
+      "expectancy_r_mean": -0.777,
+      "fill_mode": "LEGACY_CLOSE_FILL",
+      "loss_rate": 0.939,
+      "losses": 154,
+      "modeled_gross_pnl_usd": -110.3,
+      "modeled_net_pnl_usd": -313.65,
+      "modeled_total_costs_usd": 215.38,
+      "wins": 10
+    },
+    "NEXT_BAR_OPEN_BID_ASK": {
+      "closed_trades": 166,
+      "expectancy_r_mean": -0.8474,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "loss_rate": 0.9458,
+      "losses": 157,
+      "modeled_gross_pnl_usd": -142.78,
+      "modeled_net_pnl_usd": -345.9,
+      "modeled_total_costs_usd": 228.2,
+      "wins": 9
+    },
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+      "closed_trades": 173,
+      "expectancy_r_mean": -0.8968,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "loss_rate": 0.948,
+      "losses": 164,
+      "modeled_gross_pnl_usd": -168.91,
+      "modeled_net_pnl_usd": -381.77,
+      "modeled_total_costs_usd": 251.25,
+      "wins": 9
+    }
+  }
+}

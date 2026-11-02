@@ -1,0 +1,14 @@
+{
+  "defect_closed": "P0-D_HORIZON_CENSORING_AND_SLOT_AUTHORITY",
+  "legacy_a1_data_gap_unresolved_count": 1,
+  "legacy_a1_open_at_horizon_count": 74,
+  "phantom_followon_trades_admitted_by_legacy_180_release_total": 1380,
+  "post_180_true_terminal_state_breakdown": {
+    "CENSORED_DATA_GAP_OPEN": 5,
+    "CENSORED_END_OF_DATASET_OPEN": 5,
+    "CLOSED_SL": 54,
+    "CLOSED_TP": 11
+  },
+  "schema_version": "17.9.3.1.2.1",
+  "strict_hold_zero_phantom_releases_verified": true
+}

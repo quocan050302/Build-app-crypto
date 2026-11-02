@@ -1,0 +1,33 @@
+{
+  "htf_regime_performance": {
+    "HTF_ALIGNED": {
+      "closed_trades": 83,
+      "loss_rate": 0.9759,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.9163,
+        "upper_95": 0.9934
+      },
+      "losses": 81,
+      "net_pnl_usd": -191.97,
+      "open": 30,
+      "wins": 2
+    },
+    "HTF_CONFLICT": {
+      "closed_trades": 83,
+      "loss_rate": 0.9157,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.836,
+        "upper_95": 0.9585
+      },
+      "losses": 76,
+      "net_pnl_usd": -153.98,
+      "open": 45,
+      "wins": 7
+    }
+  },
+  "htf_status_counts": {
+    "HTF_ALIGNED": 113,
+    "HTF_CONFLICT": 128
+  },
+  "schema_version": "17.9.3.1.2.1"
+}

@@ -1,0 +1,237 @@
+{
+  "files": [
+    {
+      "relative_path": "01_git_source_data_preflight.json",
+      "sha256": "0788f5bfff47e71bbe5529a3ac08099499be294071a9fb710f0cebe146db47a3",
+      "size_bytes": 15045
+    },
+    {
+      "relative_path": "02_frozen_baseline_sha_and_contracts.json",
+      "sha256": "1cb4b1b4dede7e373718ba6c5b8313052f44e593a708f3bb48c4f714e66f9112",
+      "size_bytes": 2004
+    },
+    {
+      "relative_path": "03_hypotheses_and_estimands_pre_registration.json",
+      "sha256": "b4d13b3d6b4c33a71e2b0fdaa158b096bb9380fe271b0a67c0b4fe1b2afecd28",
+      "size_bytes": 7164
+    },
+    {
+      "relative_path": "04_opportunity_identity_full_outer_join_audit.json",
+      "sha256": "ffdd84b949a2b32fddfb816328948cb56c9cca26d1c621cd0d6cb0f2808faa2a",
+      "size_bytes": 52177
+    },
+    {
+      "relative_path": "05_full_intervention_candidate_coverage.json",
+      "sha256": "dd4c71ae3e2bda7bab6982ab376076669b898c9e4e0bf0a40975a85ff8fdb5d2",
+      "size_bytes": 6405
+    },
+    {
+      "relative_path": "06_full_event_sourced_intervention_replay.json",
+      "sha256": "c96f10b1271bb22dc727c60e231abb24ff600cc2979d31ff6703b289bdd33d05",
+      "size_bytes": 9892553
+    },
+    {
+      "relative_path": "07_unlocked_followon_trades_attribution.json",
+      "sha256": "e0cd60c02f1c0df58f3fdbde36096a8a841185ec194a6b4ec857f2e579548daa",
+      "size_bytes": 6623
+    },
+    {
+      "relative_path": "08_horizon_censoring_and_slot_authority.json",
+      "sha256": "a29d0e549206a32c3a3d87804ce0f511aa3a05821f9e2daa20118e9cf4c5bf68",
+      "size_bytes": 478
+    },
+    {
+      "relative_path": "09_74_open_positions_per_trade_resolution.json",
+      "sha256": "50cb97ab10ed483a55d11f171e878dc6597b9f3002da3de2f96d2a3c4fe30423",
+      "size_bytes": 127650
+    },
+    {
+      "relative_path": "10_three_portfolio_execution_semantics.json",
+      "sha256": "22b975b8ecde028b62160dd801bd36b215f599cf3f61faf4bd305cc6ae8364eb",
+      "size_bytes": 297040
+    },
+    {
+      "relative_path": "11_data_gap_execution_truth.json",
+      "sha256": "e6bc499087d15de79b5ae7872990cf008ab294fad6f2a1358e507c0520b44116",
+      "size_bytes": 3920
+    },
+    {
+      "relative_path": "12_independent_structure_anchor_ledger.json",
+      "sha256": "b4d75bb3ad72f793d44a18d75f864e78ef7c319a3b82bf18bc908876f013e4db",
+      "size_bytes": 186937
+    },
+    {
+      "relative_path": "13_stop_forensics_reclassification_A1_E1_C1_D1_D2.json",
+      "sha256": "cf8429d298cb3bbdd8d48d3eaa1bf98917f91e0b4fd8c8f67807071bfee49d16",
+      "size_bytes": 169512
+    },
+    {
+      "relative_path": "14_frozen_six_episode_anchor_reconciliation.json",
+      "sha256": "818313e1011fef76b4b55680639599c9ebad5ac9c7350480c12abe2b850f528c",
+      "size_bytes": 8488
+    },
+    {
+      "relative_path": "15_5model_full_funnel_and_selection_audit.json",
+      "sha256": "0fb0eec658f5d702a6f9ad960c29f47189f7f80d59d4c350849cacc2a7849130",
+      "size_bytes": 4766
+    },
+    {
+      "relative_path": "16_model_remove_one_at_a_time_executable_ablation.json",
+      "sha256": "9b8a25b7d7a2884ce175194a7768b5c2a7baa3ca53f0eb2eea2010fa537e309c",
+      "size_bytes": 1687263
+    },
+    {
+      "relative_path": "17_model_direction_and_priority_integrity.json",
+      "sha256": "9bc76772599268f37e0d22964916733f7c5e94ddd62d508db8686dc3caa52705",
+      "size_bytes": 4557
+    },
+    {
+      "relative_path": "18_venue_hours_quote_provenance_and_session_audit.json",
+      "sha256": "130712253a30e83bf13d83d6dc9b200a43503da68a886afa3ae9355de70f1b44",
+      "size_bytes": 6445
+    },
+    {
+      "relative_path": "19_session_counterfactual_and_regime_stratification.json",
+      "sha256": "aa9a46afdeb9c1bff32434c963f19b9b75f63f98d3277a223c34cf93d3322c9e",
+      "size_bytes": 2375
+    },
+    {
+      "relative_path": "20_pre_entry_multi_tf_causal_feature_ledger.json",
+      "sha256": "6c642bbb7ef09699053944bbb7d788b736b2bdff3f5fdc59c3276252fa1d13bb",
+      "size_bytes": 201432
+    },
+    {
+      "relative_path": "21_unicorn_breaker_fvg_episode_binding_audit.json",
+      "sha256": "c91b5c0ad077288b4fed2aa72dc13181b90af9e08a1e97ad262efc8e4adb8ad2",
+      "size_bytes": 905
+    },
+    {
+      "relative_path": "22_htf_conflict_and_MSS_displacement_ablation.json",
+      "sha256": "d99a99009235761a1990a2863b648b5adb1157f3f9f64cdcc8256023bef1a3b2",
+      "size_bytes": 679
+    },
+    {
+      "relative_path": "23_MFE_MAE_and_exit_path_audit.json",
+      "sha256": "357cd8932974af85f02182e64a796c960f8abb9294fec1a9d7b40cad29c301ad",
+      "size_bytes": 448
+    },
+    {
+      "relative_path": "24_TP_liquidity_reachability_ledger.json",
+      "sha256": "976c48c06b6bba5787dec433da7c00c70d7c83b2fe2735f19e7179affd55f097",
+      "size_bytes": 15234
+    },
+    {
+      "relative_path": "25_full_universe_executable_SL_TP_ablation.json",
+      "sha256": "36d94392c95ca99b5856a1cf94e5560c12267b8ba9bc2f795df1b35bb2f9b9b6",
+      "size_bytes": 3345
+    },
+    {
+      "relative_path": "26_fee_slippage_spread_and_cost_truth.json",
+      "sha256": "58ef0c701ea168479deae99c450ce122498aeeb193147169b2fd510f272c9ef7",
+      "size_bytes": 1488
+    },
+    {
+      "relative_path": "27_gross_to_net_reconciliation_by_model_and_session.json",
+      "sha256": "3b03fcb37f1f925d9c2c95458a7a20f9b8324f58b4d0092a799308f9c0f85afd",
+      "size_bytes": 1200
+    },
+    {
+      "relative_path": "28_measured_root_cause_feature_matrix.json",
+      "sha256": "78ebd5098217f5b3d3080df67a66cf15270a39b04e0fa34c9f938b9cbecf1327",
+      "size_bytes": 328437
+    },
+    {
+      "relative_path": "29_hypothesis_by_hypothesis_evidence_strength.json",
+      "sha256": "bc3b444db01f8a532d01a8ada332e717d8f41e1d147fae199c6227cecd011c62",
+      "size_bytes": 16051
+    },
+    {
+      "relative_path": "30_causality_limits_and_ranking.json",
+      "sha256": "bd6c6696c4248c83c035adf9324feed2cfcdfae11469d6af607b6f7f545a9409",
+      "size_bytes": 29025
+    },
+    {
+      "relative_path": "31_OOS_partition_censoring_temporal_integrity.json",
+      "sha256": "0b69d4ee6a952d691f80a8e2d8a976e5dc49334acaea20ac6373a6a9f53ed5a0",
+      "size_bytes": 334681
+    },
+    {
+      "relative_path": "32_walkforward_and_reused_holdout_disclosure.json",
+      "sha256": "5262d10bfe722454939df77c5eba9eab459ef6ba499d91a8bc7db708c7def817",
+      "size_bytes": 334600
+    },
+    {
+      "relative_path": "33_fresh_source_availability_or_blocker.json",
+      "sha256": "65f5a5778ce3b5555292efdabab84ab8f6e8bd97f3d1bb7cdbf6f164f3fe024c",
+      "size_bytes": 403
+    },
+    {
+      "relative_path": "34_async_shard_discovery_junit_bijection.json",
+      "sha256": "579270d5a08cf0886ed0f76d71b23b9568d017276024e39ea644a42bc9618eb6",
+      "size_bytes": 2254
+    },
+    {
+      "relative_path": "35_full_historical_replay_and_all_variants_manifest.json",
+      "sha256": "814e9e57751febdd8491b75a3e4829ad1d0f8b4876032b46fa7f941787b2d57a",
+      "size_bytes": 2199
+    },
+    {
+      "relative_path": "36_full_1v2v4_worker_determinism_and_resource_guard.json",
+      "sha256": "ff8e802e578683c339b4b5646c291c230f40d38c4ab67764c98d9462792aca86",
+      "size_bytes": 2494
+    },
+    {
+      "relative_path": "37_RED_GREEN_adversarial_test_results.json",
+      "sha256": "3eab7c40666c3f860a9c58917cd77a81ca25c8fbc1f1608a7abbbb92130de610",
+      "size_bytes": 5000
+    },
+    {
+      "relative_path": "38_acceptance_gates_G01_to_G46.json",
+      "sha256": "99d7e092542aa51ab32dcbb3785f9fec44d555db732dd2f7f250f2e3e460a328",
+      "size_bytes": 45760
+    },
+    {
+      "relative_path": "39_ENGINEERING_and_STRATEGY_dual_verdict.json",
+      "sha256": "64fee59f8827f049a72251a665c08025f042f269faa86f231d8d1c28347c26d2",
+      "size_bytes": 867
+    },
+    {
+      "relative_path": "40_git_commit_push_and_remote_proof.json",
+      "sha256": "0410c972087c63aadf38b41ecac90904029b0be4b298cd08e167b63376da81c6",
+      "size_bytes": 640
+    },
+    {
+      "relative_path": "junit/shard_01_v179312_regression.xml",
+      "sha256": "f70034f5d9209d5900f562d87d11b0cbee19f61d3715ac53babbaba46015fbe8",
+      "size_bytes": 12027
+    },
+    {
+      "relative_path": "junit/shard_02_opportunity_identity_T01_T28.xml",
+      "sha256": "371631fc540d883cd7a09b9d5d94d838ff319564086f5e8c6352f8cc6fd244cf",
+      "size_bytes": 4869
+    },
+    {
+      "relative_path": "junit/shard_03_portfolio_censoring_T29_T55.xml",
+      "sha256": "59831b3005641ab7edcb0eb86cf2c10b4b5bf4b5b689097b91c7d4f322bd11a6",
+      "size_bytes": 4550
+    },
+    {
+      "relative_path": "junit/shard_04_root_cause_evidence_T56_T80.xml",
+      "sha256": "dcb7a4ab0b6c8fd81376c8619e1d851328253f029921feb7c5b9d2a2083fa789",
+      "size_bytes": 4100
+    },
+    {
+      "relative_path": "latest_run.json",
+      "sha256": "fd67dc6e7bc1ca1886a952ef65b602c6aeb27c71a8983ebc86817aeb0725817b",
+      "size_bytes": 526
+    },
+    {
+      "relative_path": "ROOT_CAUSE_VALIDATION_EXECUTIVE_REPORT.md",
+      "sha256": "c63572869ea129234634bf0164dea267d46186915b9532e28e539ddd50c4096e",
+      "size_bytes": 8001
+    }
+  ],
+  "files_count": 46,
+  "generated_at_utc": "2026-11-02T03:53:28.570205+00:00",
+  "schema_version": "17.9.3.1.2.1"
+}

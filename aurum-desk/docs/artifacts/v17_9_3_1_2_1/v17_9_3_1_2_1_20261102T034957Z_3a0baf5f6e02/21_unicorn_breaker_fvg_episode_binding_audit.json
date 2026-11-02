@@ -1,0 +1,33 @@
+{
+  "defect_closed": "P1-H_TRUE_UNICORN_VS_ISOLATED_FVG_RETEST",
+  "r3_fvg_retest_including_isolated_fvg": {
+    "accepted_count": 7745,
+    "closed_trades": 119,
+    "confirmation_subtype_counts": {
+      "FVG_RETEST_ONLY": 8223,
+      "NONE": 10521
+    },
+    "expectancy_r_mean": -0.8954,
+    "loss_rate": 0.958,
+    "losses": 114,
+    "modeled_net_pnl_usd": -261.79,
+    "opportunities_evaluated": 18744,
+    "wins": 5
+  },
+  "r3_strict_true_unicorn_breaker_fvg_overlap": {
+    "accepted_count": 0,
+    "closed_trades": 0,
+    "confirmation_subtype_counts": {
+      "FVG_RETEST_ONLY_REJECTED_BY_STRICT_UNICORN": 8142,
+      "NONE": 10602
+    },
+    "expectancy_r_mean": null,
+    "loss_rate": null,
+    "losses": 0,
+    "modeled_net_pnl_usd": 0.0,
+    "opportunities_evaluated": 18744,
+    "rejected_missing_causal_breaker_binding_count": 8142,
+    "wins": 0
+  },
+  "schema_version": "17.9.3.1.2.1"
+}

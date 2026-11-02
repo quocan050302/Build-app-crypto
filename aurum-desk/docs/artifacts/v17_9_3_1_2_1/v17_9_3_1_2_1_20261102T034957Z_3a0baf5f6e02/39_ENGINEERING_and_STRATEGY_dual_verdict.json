@@ -1,0 +1,12 @@
+{
+  "ACTIVATION_READY": "NO",
+  "ENGINEERING_VERIFICATION_VERDICT": "PASS",
+  "STRATEGY_STATISTICAL_VERDICT": "NEGATIVE_EXPECTANCY",
+  "commercial_viability_summary": "All P0-A..P0-F and P1-G..P1-I engineering and forensic defects are closed and verified across 46 acceptance gates and 140 adversarial/regression tests. Empirically, all 5 production M1 models and all 9 executable research interventions (R0..R8) remain negative-expectancy after realistic spread, slippage, and taker fees on the Oct 2026 XAUUSDT dataset. Production activation remains strictly OFF.",
+  "passed_gates_count": 46,
+  "run_id": "v17_9_3_1_2_1_20261102T034957Z_3a0baf5f6e02",
+  "schema_version": "17.9.3.1.2.1",
+  "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "tested_code_sha": "3a0baf5f6e0244d62375400ff047ff73053b6281",
+  "total_gates": 46
+}

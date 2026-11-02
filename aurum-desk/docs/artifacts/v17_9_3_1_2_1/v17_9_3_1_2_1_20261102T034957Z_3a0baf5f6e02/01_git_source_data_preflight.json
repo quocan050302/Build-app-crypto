@@ -1,0 +1,333 @@
+{
+  "app_root": "aurum-desk/",
+  "dataset_provenance": {
+    "compressed_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "dataset_path": "D:\\build app-crypto\\aurum-desk\\backtest\\historical_dataset_XAUUSDT.json.gz",
+    "m1_bar_gaps_over_1m": [
+      {
+        "bar_index_after": 200,
+        "bar_index_before": 199,
+        "curr_open_time_ms": 1791515700000,
+        "gap_duration_ms": 65820000,
+        "gap_minutes": 1097.0,
+        "prev_close_time_ms": 1791449880000,
+        "price_after_open": 4179.26,
+        "price_before_close": 4132.18,
+        "price_jump_usd": 47.08
+      },
+      {
+        "bar_index_after": 283,
+        "bar_index_before": 282,
+        "curr_open_time_ms": 1791575820000,
+        "gap_duration_ms": 55140000,
+        "gap_minutes": 919.0,
+        "prev_close_time_ms": 1791520680000,
+        "price_after_open": 4201.25,
+        "price_before_close": 4189.4,
+        "price_jump_usd": 11.85
+      },
+      {
+        "bar_index_after": 2496,
+        "bar_index_before": 2495,
+        "curr_open_time_ms": 1791711480000,
+        "gap_duration_ms": 2880000,
+        "gap_minutes": 48.0,
+        "prev_close_time_ms": 1791708600000,
+        "price_after_open": 4199.8,
+        "price_before_close": 4198.91,
+        "price_jump_usd": 0.89
+      },
+      {
+        "bar_index_after": 2595,
+        "bar_index_before": 2594,
+        "curr_open_time_ms": 1791738660000,
+        "gap_duration_ms": 21240000,
+        "gap_minutes": 354.0,
+        "prev_close_time_ms": 1791717420000,
+        "price_after_open": 4208.15,
+        "price_before_close": 4197.71,
+        "price_jump_usd": 10.44
+      },
+      {
+        "bar_index_after": 3878,
+        "bar_index_before": 3877,
+        "curr_open_time_ms": 1791826080000,
+        "gap_duration_ms": 10440000,
+        "gap_minutes": 174.0,
+        "prev_close_time_ms": 1791815640000,
+        "price_after_open": 4175.32,
+        "price_before_close": 4174.12,
+        "price_jump_usd": 1.2
+      },
+      {
+        "bar_index_after": 6118,
+        "bar_index_before": 6117,
+        "curr_open_time_ms": 1791997920000,
+        "gap_duration_ms": 37440000,
+        "gap_minutes": 624.0,
+        "prev_close_time_ms": 1791960480000,
+        "price_after_open": 4087.88,
+        "price_before_close": 4156.7,
+        "price_jump_usd": -68.82
+      },
+      {
+        "bar_index_after": 8130,
+        "bar_index_before": 8129,
+        "curr_open_time_ms": 1792173420000,
+        "gap_duration_ms": 54780000,
+        "gap_minutes": 913.0,
+        "prev_close_time_ms": 1792118640000,
+        "price_after_open": 4171.53,
+        "price_before_close": 4169.07,
+        "price_jump_usd": 2.46
+      },
+      {
+        "bar_index_after": 8631,
+        "bar_index_before": 8630,
+        "curr_open_time_ms": 1792371120000,
+        "gap_duration_ms": 167640000,
+        "gap_minutes": 2794.0,
+        "prev_close_time_ms": 1792203480000,
+        "price_after_open": 4179.78,
+        "price_before_close": 4169.55,
+        "price_jump_usd": 10.23
+      }
+    ],
+    "m1_bar_gaps_over_1m_count": 8,
+    "m1_canonical_json_sha256": "fa6b1c69f361ac324e45e8104b9c621cff7a3be86a13ad4bdeb4d21790adadff",
+    "major_gaps_over_5m_count": 8,
+    "oos_window_freshness_assessment": "REPEATEDLY_VIEWED_HISTORICAL_WINDOW_NOT_UNTOUCHED_OOS",
+    "post_warmup_evaluated_m1_bars": 22346,
+    "price_units": "USD_PER_TROY_OUNCE_XAUUSDT_PERPETUAL",
+    "timeframes_coverage": {
+      "15m": {
+        "bar_count": 15090,
+        "first_open_time_ms": 1779289200000,
+        "first_open_utc": "2026-05-20T15:00:00+00:00",
+        "last_close_time_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00+00:00",
+        "max_high_price_usd": 4700.72,
+        "min_low_price_usd": 3950.28
+      },
+      "1D": {
+        "bar_count": 181,
+        "first_open_time_ms": 1777478400000,
+        "first_open_utc": "2026-04-29T16:00:00+00:00",
+        "last_close_time_ms": 1793116800000,
+        "last_close_utc": "2026-10-27T16:00:00+00:00",
+        "max_high_price_usd": 4776.53,
+        "min_low_price_usd": 3950.28
+      },
+      "1H": {
+        "bar_count": 3863,
+        "first_open_time_ms": 1779289200000,
+        "first_open_utc": "2026-05-20T15:00:00+00:00",
+        "last_close_time_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00+00:00",
+        "max_high_price_usd": 4700.72,
+        "min_low_price_usd": 3950.28
+      },
+      "1m": {
+        "bar_count": 22376,
+        "first_open_time_ms": 1791437880000,
+        "first_open_utc": "2026-10-08T05:38:00+00:00",
+        "last_close_time_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00+00:00",
+        "max_high_price_usd": 4222.7,
+        "min_low_price_usd": 3979.01
+      },
+      "4H": {
+        "bar_count": 965,
+        "first_open_time_ms": 1779292800000,
+        "first_open_utc": "2026-05-20T16:00:00+00:00",
+        "last_close_time_ms": 1793188800000,
+        "last_close_utc": "2026-10-28T12:00:00+00:00",
+        "max_high_price_usd": 4700.72,
+        "min_low_price_usd": 3950.28
+      },
+      "5m": {
+        "bar_count": 31609,
+        "first_open_time_ms": 1783436400000,
+        "first_open_utc": "2026-07-07T15:00:00+00:00",
+        "last_close_time_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00+00:00",
+        "max_high_price_usd": 4700.72,
+        "min_low_price_usd": 3967.3
+      }
+    },
+    "total_m1_bars": 22376,
+    "uncompressed_sha256": "8b58bcdb7b898c89d8a0ee80891568aa41ab3659a136c89238ff55ad7b1435d5",
+    "warmup_m1_bars": 30
+  },
+  "generated_at_utc": "2026-11-02T03:51:18.965870+00:00",
+  "git_status_porcelain": "?? aurum-desk/docs/artifacts/v17_9_3_1_2_1/",
+  "immutable_prior_artifact_dirs_status": {
+    "aurum-desk/docs/artifacts/v17_9_2": "",
+    "aurum-desk/docs/artifacts/v17_9_2_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_2": ""
+  },
+  "immutable_prior_artifacts_untouched": true,
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "merge_base_with_origin_master": "650e4535777421077443cd3d95507cad1d99ed42",
+  "parent_sha": "f22353cfbc945d298fed370f01cee9c919065ce8",
+  "recent_git_log": [
+    "3a0baf5 (HEAD -> feature/v17-9-2-structural-sl-tp-from-qa) fix(v17.9.3.1.2.1): truthful root-cause evidence and complete portfolio attribution",
+    "f22353c (origin/feature/v17-9-2-structural-sl-tp-from-qa) docs(v17.9.3.1.2): finalize remote HEAD proof SHA in verification manifest",
+    "5cfaeef docs(v17.9.3.1.2): publish full-universe replay and executable counterfactual verification artifacts (38/38 gates PASS)",
+    "59f86d4 fix(v17.9.3.1.2): align G04 G05 G06 G08 G34 gate predicates with empirical full-universe counts",
+    "f0339ec fix(v17.9.3.1.2): include policy_registry_manifest and complete verification dict keys",
+    "c4109b8 feat(v17.9.3.1.2): implement full-universe 22346 replay and executable R0-R8 counterfactual interventions",
+    "f455afc chore(v17.9.3.1.1): finalize remote SHA push proof for run v17_9_3_1_1_20261101T154301Z_e43c785a5bb9",
+    "8d9404a test(v17.9.3.1.1): publish loss forensics and bounded regression evidence",
+    "e43c785 fix(v17.9.3.1.1): restore 8-bucket regression sharding for 4686/4686 pass",
+    "ab3da30 fix(v17.9.3.1.1): bind art14 and all_tf_candles_strictly_causal in verification runner",
+    "7a816fb fix(v17.9.3.1.1): import verify_v1793_parallel_determinism from run_v17_9_3_verification",
+    "840eccd fix(v17.9.3.1.1): enforce real oos risk and coverage verification"
+  ],
+  "remote_branch_ls_remote": "f22353cfbc945d298fed370f01cee9c919065ce8\trefs/heads/feature/v17-9-2-structural-sl-tp-from-qa",
+  "repository": "quocan050302/Build-app-crypto",
+  "schema_version": "17.9.3.1.2.1",
+  "starting_head_sha": "3a0baf5f6e0244d62375400ff047ff73053b6281",
+  "truth_map": {
+    "boundaries": [
+      {
+        "boundary_id": "B01_COMPOSITE_OPPORTUNITY_IDENTITY",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py",
+          "tools/run_v17_9_3_1_2_full_universe_backtest.py"
+        ],
+        "defect_closed": "P0-B",
+        "file": "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "functions": [
+          "_snapshot_to_compact_decision_record_v179312",
+          "evaluate_executable_interventions_on_cohort_v179312",
+          "match_variants_on_causal_opportunity_v179312"
+        ],
+        "modification_summary": "Replaces lossy setup_id dictionary joins (which collapsed 2,112 records to 1,070 IDs and reported 120 fake newly-blocked trades in R0) with a lossless composite opportunity_id encoding symbol, model_id, direction, base_decision_timestamp_ms, base_checkpoint_index_1m, setup_episode_id, action fingerprint, and dataset hash.",
+        "v1793121_authority": [
+          "build_canonical_opportunity_id_v1793121",
+          "assert_opportunity_identity_unique_v1793121",
+          "match_counterfactuals_by_opportunity_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B02_FULL_CAUSAL_OPPORTUNITY_STREAM_REPLAY",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py",
+          "tools/run_v17_9_3_1_2_full_universe_backtest.py"
+        ],
+        "defect_closed": "P0-A",
+        "file": "tools/run_v17_9_3_1_2_full_universe_backtest.py",
+        "functions": [
+          "select_cohort_with_unlock_candidates_v179312"
+        ],
+        "modification_summary": "Removes the unlock_followups_per_episode=2 cap so all 18,744 unique eligible M1 timestamps (56,710 eligible model decisions) are evaluated and scheduled causally across R0..R8.",
+        "v1793121_authority": [
+          "build_full_intervention_candidate_index_v1793121",
+          "emit_causal_order_intents_v1793121",
+          "schedule_causal_pending_confirmation_v1793121",
+          "replay_policy_event_driven_portfolio_v1793121",
+          "reconcile_intervention_eligibility_and_coverage_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B03_HORIZON_CENSORING_AND_SLOT_RELEASE",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py"
+        ],
+        "defect_closed": "P0-D",
+        "file": "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "functions": [
+          "PortfolioReplayStateV179312",
+          "advance_portfolio_to_next_event_v179312",
+          "simulate_executable_candidate_v179312"
+        ],
+        "modification_summary": "Prevents artificial slot release at the 180-bar observation horizon without an exit fill. Evaluates STRICT_HOLD_UNTIL_EXIT_OR_DATA_END, LEGACY_ARTIFICIAL_RELEASE, and EXECUTABLE_180_BAR_TIME_STOP_INTERVENTION, resolving all 74 OPEN_AT_HORIZON and 1 DATA_GAP_UNRESOLVED positions and separating realized vs MTM PnL.",
+        "v1793121_authority": [
+          "classify_position_terminal_state_v1793121",
+          "advance_portfolio_to_next_event_v1793121",
+          "replay_portfolio_with_censoring_contract_v1793121",
+          "reconcile_open_position_lifecycle_v1793121",
+          "compute_realized_and_mtm_accounting_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B04_INDEPENDENT_PROTECTED_STRUCTURE_FORENSICS",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py"
+        ],
+        "defect_closed": "P0-C",
+        "file": "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "functions": [
+          "simulate_executable_candidate_v179312",
+          "classify_structure_stop_outcome"
+        ],
+        "modification_summary": "Eliminates circular stop forensics where protected_structure_price was set equal to inv_px/selected_sl. Resolves independent pre-entry causal M5/M15/M1 swing/breaker anchors (known_at_ms <= decision_ts) and classifies UNKNOWN_PROTECTED_STRUCTURE_NOT_ESTABLISHED when absent.",
+        "v1793121_authority": [
+          "resolve_pre_entry_protected_structure_authority_v1793121",
+          "validate_protected_anchor_independence_v1793121",
+          "classify_stop_vs_anchor_with_ohlc_uncertainty_v1793121",
+          "audit_stop_classification_consistency_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B05_EVIDENCE_RANKED_ROOT_CAUSE_ATTRIBUTION",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py"
+        ],
+        "defect_closed": "P0-E",
+        "file": "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "functions": [
+          "compute_loss_root_cause_matrix_v179312"
+        ],
+        "modification_summary": "Tags legacy static root-cause prose as HYPOTHESIS_ONLY and computes empirical causal attribution across H1..H9 with Evidence Hierarchy Levels (LEVEL_0..LEVEL_4).",
+        "v1793121_authority": [
+          "build_root_cause_hypothesis_feature_matrix_v1793121",
+          "estimate_conditional_failure_association_v1793121",
+          "run_matched_causal_ablation_for_hypothesis_v1793121",
+          "rank_loss_drivers_by_verified_counterfactual_impact_v1793121",
+          "classify_causal_evidence_strength_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B06_TRUE_UNICORN_VS_ISOLATED_FVG_RETEST",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py"
+        ],
+        "defect_closed": "P1-H",
+        "file": "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "functions": [
+          "find_next_causal_entry_confirmation_v179312"
+        ],
+        "modification_summary": "Separates isolated 3-bar FVG_RETEST_ONLY from UNICORN_CONFIRMED requiring causal Breaker + FVG overlap and temporal episode binding (sweep <= displacement/MSS <= breaker+FVG <= retest).",
+        "v1793121_authority": [
+          "validate_ic_timing_and_unicorn_episode_binding_v1793121",
+          "evaluate_true_unicorn_vs_fvg_only_v1793121"
+        ]
+      },
+      {
+        "boundary_id": "B07_SESSION_PROVIDER_MARKET_STATE_AND_MULTIPROCESS_EQUALITY",
+        "callers": [
+          "tools/run_v17_9_3_1_2_1_full_opportunity_replay.py",
+          "tools/run_v17_9_3_1_2_1_root_cause_verification.py"
+        ],
+        "defect_closed": "P1-G, P1-I",
+        "file": "tools/run_v17_9_3_1_2_full_universe_backtest.py",
+        "functions": [
+          "run_v17_9_3_1_2_full_universe_backtest_pipeline"
+        ],
+        "modification_summary": "Replaces hardcoded identical_intervention_replays=True with real 1-vs-2-vs-4 worker full-run SHA-256 equality checks and audits session/venue market state without conflating spot gold hours with unverified Bitget perpetual service state.",
+        "v1793121_authority": [
+          "classify_venue_market_state_asof_v1793121",
+          "audit_session_feature_confounding_v1793121",
+          "compare_1_vs_4_worker_full_run_hashes_v1793121"
+        ]
+      }
+    ],
+    "boundaries_count": 7,
+    "schema_version": "17.9.3.1.2.1"
+  }
+}

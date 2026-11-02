@@ -1,0 +1,121 @@
+{
+  "evidence_hierarchy_levels": [
+    "LEVEL_0_INVALID_OR_CONFOUNDED",
+    "LEVEL_1_DESCRIPTIVE_CORRELATE",
+    "LEVEL_2_CONTROLLED_ASSOCIATION",
+    "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+    "LEVEL_4_CHRONOLOGICALLY_PURGED_OOS_CONFIRMATION"
+  ],
+  "hypotheses": [
+    {
+      "causal_estimand": "Delta E[R] and Delta Net PnL under single-model-only, leave-one-out, and priority-reversal ablations on full 56,710 eligible decisions.",
+      "description": "SMC_M1_REVERSAL priority #1 dominance (152/166 closed A1 trades; 145L/7W) and ICT_2022_MODEL / SILVER_BULLET / CG01_SWEEP_MSS_FVG high conditional loss rates drive negative portfolio expectancy regardless of downstream tie-breaking.",
+      "hypothesis_id": "H1_MODEL_SELECTION_AND_ARBITRATION",
+      "intervention_variants": [
+        "ONLY_SMC_M1_REVERSAL",
+        "ONLY_ICT_2022_MODEL",
+        "ONLY_UNICORN_MODEL",
+        "ONLY_SILVER_BULLET",
+        "ONLY_CG01_SWEEP_MSS_FVG",
+        "DROP_SMC_M1_REVERSAL",
+        "REVERSE_PRIORITY_ORDER",
+        "HIGHEST_NET_RR_ARBITRATION"
+      ],
+      "target_denominator": "FULL_UNIVERSE_ALL_TIMESTAMPS",
+      "title": "Production Model Selection & Priority Arbitration Dominance"
+    },
+    {
+      "causal_estimand": "Delta E[R], Delta loss rate, and Delta Net PnL under R2 (MSS+displacement), R3 (FVG retest), and R3_TRUE_UNICORN on matched opportunities and full event-driven portfolio.",
+      "description": "Immediate next-bar open entry after an M1 trigger bar enters before orderflow displacement or causal Breaker+FVG retest is confirmed, causing rapid (<=3 bars) and low-MFE (<0.25R) stop-outs.",
+      "hypothesis_id": "H2_IMMEDIATE_M1_ENTRY_WITHOUT_CONFIRMATION",
+      "intervention_variants": [
+        "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE",
+        "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE",
+        "R3_TRUE_UNICORN_BREAKER_FVG_CONFLUENCE"
+      ],
+      "target_denominator": "RESEARCH_EXECUTABLE_INTERVENTION",
+      "title": "Immediate Next-Bar M1 Entry Without Post-Signal Displacement / Retest Confirmation"
+    },
+    {
+      "causal_estimand": "Conditional loss rate and Delta E[R] when requiring causal H1/H4 alignment (R1) vs counter-trend/neutral baseline trades.",
+      "description": "M1 entries taken against or without aligned causal H1/H4 structure bias experience adverse higher-timeframe continuation.",
+      "hypothesis_id": "H3_HTF_H1_H4_STRUCTURAL_CONFLICT",
+      "intervention_variants": [
+        "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY"
+      ],
+      "target_denominator": "RESEARCH_EXPLICIT_FILTER_ONLY",
+      "title": "Higher-Timeframe (H1/H4) Structural Trend Conflict at M1 Entry"
+    },
+    {
+      "causal_estimand": "Independent stop forensic share (SL_WICK_HIT_STRUCTURE_HELD vs SL_AND_STRUCTURE_BROKEN_SAME_BAR) and Delta E[R] under R4 (outer structural stop + recomputed qty).",
+      "description": "Stops placed near local M1 wicks without outer M5/M15 protected swing separation and causal noise buffer are wicked out while higher-timeframe structure holds.",
+      "hypothesis_id": "H4_LOCAL_M1_STOP_INSIDE_NOISE_ZONE",
+      "intervention_variants": [
+        "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE",
+        "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE"
+      ],
+      "target_denominator": "RESEARCH_EXECUTABLE_INTERVENTION",
+      "title": "Tight Local M1 Stop Placement Inside Normal M1/M5 Sweep Noise"
+    },
+    {
+      "causal_estimand": "Share of losses reaching >=0.50R / >=1.00R / >=2.00R MFE before SL and Delta E[R] under R5 (nearest causal liquidity target in [2.0, 3.5] net RR).",
+      "description": "Trades achieving positive MFE (>=0.50R or >=1.00R) fail to reach distant targets because intervening unswept M5/M15 liquidity pools or opposing FVGs cap price and reverse into SL.",
+      "hypothesis_id": "H5_UNREALISTIC_TARGET_DISTANCE_AND_MFE_REVERSAL",
+      "intervention_variants": [
+        "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE",
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE"
+      ],
+      "target_denominator": "RESEARCH_EXECUTABLE_INTERVENTION",
+      "title": "Over-Distant Target Placement Beyond Nearest Causal Liquidity Pool"
+    },
+    {
+      "causal_estimand": "Session-stratified loss rate, Wilson 95% CIs, and Delta E[R] under C1 / R6 (macro window filter) vs E1 (outside macro counterfactual).",
+      "description": "Unfiltered entries during WEEKEND_CLOSED (1W/34L), NY_PM (0W/30L), and outside ICT macro windows suffer extreme loss rates due to thin/choppy liquidity and wider effective spread.",
+      "hypothesis_id": "H6_OFF_HOURS_WEEKEND_AND_SESSION_REGIME_DRAG",
+      "intervention_variants": [
+        "C1_MACRO_PLUS_V1792_SL_TP",
+        "R6_MACRO_SESSION_FILTER_ONLY",
+        "E1_OUTSIDE_MACRO_COUNTERFACTUAL"
+      ],
+      "target_denominator": "RESEARCH_EXPLICIT_FILTER_ONLY",
+      "title": "Weekend-Closed, NY_PM, and Off-Macro Session Regime Degradation"
+    },
+    {
+      "causal_estimand": "Gross-to-net PnL and expectancy decomposition across NEXT_BAR_OPEN_BID_ASK, LEGACY_CLOSE_FILL, and STRESS_WIDER_SPREAD_SLIPPAGE_2X.",
+      "description": "Round-trip taker fees (0.06% per side) plus bid/ask spread and slippage consume a large fraction of tight M1 stop distances, degrading net RR and accelerating stop-outs.",
+      "hypothesis_id": "H7_EXECUTION_FRICTION_SPREAD_SLIPPAGE_FEE_DRAG",
+      "intervention_variants": [
+        "NEXT_BAR_OPEN_BID_ASK",
+        "LEGACY_CLOSE_FILL",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+      ],
+      "target_denominator": "FULL_UNIVERSE_ALL_TIMESTAMPS",
+      "title": "Bid/Ask Spread, Slippage, and Taker Fee Drag Relative to Stop Distance"
+    },
+    {
+      "causal_estimand": "Difference in trade count, loss rate, realized PnL, and MTM equity between STRICT_HOLD_UNTIL_EXIT_OR_DATA_END, LEGACY_ARTIFICIAL_RELEASE, and EXECUTABLE_180_BAR_TIME_STOP_INTERVENTION.",
+      "description": "Releasing portfolio slots at bar 180 for 74 OPEN_AT_HORIZON trades admits phantom follow-on entries while hiding post-180-bar realized or mark-to-market outcomes.",
+      "hypothesis_id": "H8_HORIZON_CENSORING_AND_ARTIFICIAL_SLOT_RELEASE",
+      "intervention_variants": [
+        "STRICT_HOLD_UNTIL_EXIT_OR_DATA_END",
+        "LEGACY_ARTIFICIAL_RELEASE",
+        "EXECUTABLE_180_BAR_TIME_STOP_INTERVENTION"
+      ],
+      "target_denominator": "FULL_UNIVERSE_ALL_TIMESTAMPS",
+      "title": "180-Bar Observation Horizon Censoring & Phantom Slot Release Distortion"
+    },
+    {
+      "causal_estimand": "Exact count and USD impact of ADVERSE_GAP_OPEN_STOP_LOSS and CENSORED_DATA_GAP_OPEN episodes.",
+      "description": "Multi-minute M1 data gaps (6 gaps > 1m) and modeled quotes derived from OHLC + session spread tables introduce adverse gap-open stop losses and censoring.",
+      "hypothesis_id": "H9_DATA_GAPS_AND_SYNTHETIC_QUOTE_MODELING",
+      "intervention_variants": [
+        "A1_V1792_SL_TP_BASELINE"
+      ],
+      "target_denominator": "FULL_UNIVERSE_ALL_TIMESTAMPS",
+      "title": "Intra-Dataset Candle Gaps & Synthetic OHLC Bid/Ask Quote Modeling"
+    }
+  ],
+  "hypotheses_count": 9,
+  "preregistered_before_evaluation": true,
+  "schema_version": "17.9.3.1.2.1"
+}

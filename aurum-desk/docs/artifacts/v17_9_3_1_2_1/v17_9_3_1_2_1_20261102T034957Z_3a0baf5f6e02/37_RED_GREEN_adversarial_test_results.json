@@ -1,0 +1,140 @@
+{
+  "all_mutations_caught_red_and_restored_green": true,
+  "mutations": [
+    {
+      "caught_red": true,
+      "description": "Inject duplicate_opportunity_ids_count=1 in 04_opportunity_identity_full_outer_join_audit",
+      "expected_failed_gate_id": "G05",
+      "mutation_id": "M01_DUPLICATE_OPPORTUNITY_ID_COLLISION",
+      "red_failed_gate_ids": [
+        "G05"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Inject all_policies_two_way_conserved=False in 04_opportunity_identity_full_outer_join_audit",
+      "expected_failed_gate_id": "G06",
+      "mutation_id": "M02_LOSSY_SETUP_ID_OUTER_JOIN_DRIFT",
+      "red_failed_gate_ids": [
+        "G06"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Inject newly_blocked_in_portfolio_count=120 on R0_BASELINE_CONTROL (legacy P0-B bug)",
+      "expected_failed_gate_id": "G08",
+      "mutation_id": "M03_R0_FAKE_NEWLY_BLOCKED_120_DEFECT",
+      "red_failed_gate_ids": [
+        "G08"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Truncate full_universe_unique_eligible_timestamps from 18,744 to 2,112 (legacy P0-A bug)",
+      "expected_failed_gate_id": "G09",
+      "mutation_id": "M04_TRUNCATED_2112_FOLLOWUP_CANDIDATE_CAP",
+      "red_failed_gate_ids": [
+        "G09"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Inject no_overlap_contract_valid=False in R4 independent portfolio replay",
+      "expected_failed_gate_id": "G11",
+      "mutation_id": "M05_PORTFOLIO_POSITION_INTERVAL_OVERLAP",
+      "red_failed_gate_ids": [
+        "G11"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set strict_hold_zero_phantom_releases_verified=False in 08_horizon_censoring_and_slot_authority (legacy P0-D bug)",
+      "expected_failed_gate_id": "G14",
+      "mutation_id": "M06_PHANTOM_180_BAR_HORIZON_SLOT_RELEASE",
+      "red_failed_gate_ids": [
+        "G14"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Drop total_open_at_horizon_resolved from 74 to 70 in 09_74_open_positions_per_trade_resolution",
+      "expected_failed_gate_id": "G15",
+      "mutation_id": "M07_INCOMPLETE_74_OPEN_AT_HORIZON_RESOLUTION",
+      "red_failed_gate_ids": [
+        "G15"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set zero_circular_stop_equals_anchor_without_provenance=False in 12_independent_structure_anchor_ledger (legacy P0-C bug)",
+      "expected_failed_gate_id": "G19",
+      "mutation_id": "M08_CIRCULAR_STOP_EQUALS_PROTECTED_ANCHOR",
+      "red_failed_gate_ids": [
+        "G19",
+        "G20"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set rejected_missing_causal_breaker_binding_count=0 in 21_unicorn_breaker_fvg_episode_binding_audit (legacy P1-H bug)",
+      "expected_failed_gate_id": "G28",
+      "mutation_id": "M09_ISOLATED_FVG_MISLABELED_AS_TRUE_UNICORN",
+      "red_failed_gate_ids": [
+        "G28"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set static_hardcoded_ranking_used=True in 30_causality_limits_and_ranking (legacy P0-E bug)",
+      "expected_failed_gate_id": "G35",
+      "mutation_id": "M10_STATIC_HARDCODED_ROOT_CAUSE_RANKING",
+      "red_failed_gate_ids": [
+        "G35"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set all_1_2_4_worker_hashes_identical=False in 36_full_1v2v4_worker_determinism_and_resource_guard (legacy P1-G bug)",
+      "expected_failed_gate_id": "G41",
+      "mutation_id": "M11_HARDCODED_OR_DRIFTED_1V2V4_WORKER_HASH",
+      "red_failed_gate_ids": [
+        "G41"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    },
+    {
+      "caught_red": true,
+      "description": "Set ACTIVATION_READY='YES' in 39_ENGINEERING_and_STRATEGY_dual_verdict",
+      "expected_failed_gate_id": "G45",
+      "mutation_id": "M12_UNAUTHORIZED_PRODUCTION_ACTIVATION_READY_YES",
+      "red_failed_gate_ids": [
+        "G45"
+      ],
+      "restored_green": true,
+      "status": "PASS_CAUGHT_RED_AND_RESTORED_GREEN"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.1",
+  "verified_red_green_mutations_count": 12
+}

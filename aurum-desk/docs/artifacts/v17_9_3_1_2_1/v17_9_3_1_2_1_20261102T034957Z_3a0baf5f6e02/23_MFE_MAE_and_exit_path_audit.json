@@ -1,0 +1,21 @@
+{
+  "losses_reaching_mfe_r_thresholds_before_sl": {
+    "ge_0.25R": 84,
+    "ge_0.50R": 60,
+    "ge_1.00R": 33,
+    "ge_1.50R": 19,
+    "ge_2.00R": 15,
+    "ge_2.50R": 11,
+    "ge_3.00R": 9
+  },
+  "schema_version": "17.9.3.1.2.1",
+  "time_to_stop_bars_held_distribution": {
+    "16_to_60_bars": 58,
+    "1_bar": 9,
+    "2_to_3_bars": 13,
+    "4_to_5_bars": 8,
+    "61_to_180_bars": 43,
+    "6_to_15_bars": 26
+  },
+  "total_a1_closed_losses": 157
+}

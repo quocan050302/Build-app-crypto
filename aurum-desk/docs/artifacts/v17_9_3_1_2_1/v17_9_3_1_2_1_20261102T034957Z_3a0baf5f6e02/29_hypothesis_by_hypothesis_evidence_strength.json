@@ -1,0 +1,369 @@
+{
+  "defect_closed": "P0-E_EVIDENCE_LED_HYPOTHESIS_EVALUATION",
+  "evaluations_by_hypothesis": {
+    "H1_MODEL_SELECTION_AND_ARBITRATION": {
+      "alternative_explanations": [
+        "Disabling SMC_M1_REVERSAL unlocks SMC_M1_CONTINUATION / SMC_M1_FVG_CONTINUATION / SMC_M1_SWEEP_RECLAIM / CG01_SWEEP_MSS_FVG at the same timestamps, which ALSO lose >90% when unconstrained.",
+        "Negative expectancy is shared across all 5 M1 entry generators, not caused solely by priority #1 tie-breaking."
+      ],
+      "causal_verdict": "VERIFIED_DOMINANT_SIGNAL_GENERATOR_NEGATIVE_EXPECTANCY_ACROSS_ALL_FIVE_MODELS",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H1_MODEL_SELECTION_AND_ARBITRATION",
+      "primary_counterfactual_metrics": {
+        "DROP_SMC_M1_REVERSAL": {
+          "closed_trades": 166,
+          "expectancy_r_mean": -0.8474,
+          "loss_rate": 0.9458,
+          "losses": 157,
+          "modeled_net_pnl_usd": -345.93,
+          "wins": 9
+        },
+        "ONLY_SMC_M1_CONTINUATION": {
+          "closed_trades": 119,
+          "expectancy_r_mean": -0.9425,
+          "loss_rate": 0.9664,
+          "losses": 115,
+          "modeled_net_pnl_usd": -276.14,
+          "wins": 4
+        },
+        "ONLY_SMC_M1_REVERSAL": {
+          "closed_trades": 158,
+          "expectancy_r_mean": -0.8502,
+          "loss_rate": 0.943,
+          "losses": 149,
+          "modeled_net_pnl_usd": -330.63,
+          "wins": 9
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H2_IMMEDIATE_M1_ENTRY_WITHOUT_CONFIRMATION": {
+      "alternative_explanations": [
+        "Delayed confirmation reduces dollar loss primarily via trade-volume rejection rather than achieving positive per-trade expectancy.",
+        "When all 18,744 timestamps are available (P0-A fix), rejecting an early loser unlocks later candidates that still suffer high loss rates."
+      ],
+      "causal_verdict": "PARTIAL_LOSS_REDUCTION_VIA_SELECTIVITY_BUT_EXPECTANCY_REMAINS_NEGATIVE",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H2_IMMEDIATE_M1_ENTRY_WITHOUT_CONFIRMATION",
+      "primary_counterfactual_metrics": {
+        "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE": {
+          "avoided_baseline_losers_count": 136,
+          "closed_trades": 73,
+          "expectancy_r_delta": -0.0683,
+          "expectancy_r_mean": -0.9157,
+          "foregone_baseline_winners_count": 9,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.9726,
+          "loss_rate_delta_pp": 2.68,
+          "losses": 71,
+          "modeled_net_pnl_usd": -164.08,
+          "net_pnl_delta_vs_a1_usd": 181.82,
+          "newly_unlocked_in_portfolio_count": 120,
+          "variant_id": "R2_DELAYED_ENTRY_MSS_DISPLACEMENT_EXECUTABLE",
+          "wins": 2
+        },
+        "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE": {
+          "avoided_baseline_losers_count": 124,
+          "closed_trades": 119,
+          "expectancy_r_delta": -0.048,
+          "expectancy_r_mean": -0.8954,
+          "foregone_baseline_winners_count": 8,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.958,
+          "loss_rate_delta_pp": 1.22,
+          "losses": 114,
+          "modeled_net_pnl_usd": -261.79,
+          "net_pnl_delta_vs_a1_usd": 84.11,
+          "newly_unlocked_in_portfolio_count": 157,
+          "variant_id": "R3_DELAYED_ENTRY_BREAKER_FVG_RETEST_EXECUTABLE",
+          "wins": 5
+        },
+        "R3_TRUE_UNICORN_BREAKER_FVG_CONFLUENCE": {
+          "accepted_count": 0,
+          "closed_trades": 0,
+          "confirmation_subtype_counts": {
+            "FVG_RETEST_ONLY_REJECTED_BY_STRICT_UNICORN": 8142,
+            "NONE": 10602
+          },
+          "expectancy_r_mean": null,
+          "loss_rate": null,
+          "losses": 0,
+          "modeled_net_pnl_usd": 0.0,
+          "opportunities_evaluated": 18744,
+          "rejected_missing_causal_breaker_binding_count": 8142,
+          "wins": 0
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H3_HTF_H1_H4_STRUCTURAL_CONFLICT": {
+      "alternative_explanations": [
+        "Even when H1/H4 structure is aligned (R1), local M1 entries still suffer ~93% closed loss rate because M1 trigger noise and stop geometry dominate."
+      ],
+      "causal_verdict": "WEAK_MARGINAL_EFFECT_HTF_ALIGNMENT_ALONE_DOES_NOT_RESCUE_M1_ENTRIES",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H3_HTF_H1_H4_STRUCTURAL_CONFLICT",
+      "primary_counterfactual_metrics": {
+        "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY": {
+          "avoided_baseline_losers_count": 76,
+          "closed_trades": 111,
+          "expectancy_r_delta": 0.0016,
+          "expectancy_r_mean": -0.8458,
+          "foregone_baseline_winners_count": 7,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.955,
+          "loss_rate_delta_pp": 0.92,
+          "losses": 106,
+          "modeled_net_pnl_usd": -231.47,
+          "net_pnl_delta_vs_a1_usd": 114.43,
+          "newly_unlocked_in_portfolio_count": 102,
+          "variant_id": "R1_HTF_H1_H4_ALIGNMENT_FILTER_ONLY",
+          "wins": 5
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H4_LOCAL_M1_STOP_INSIDE_NOISE_ZONE": {
+      "alternative_explanations": [
+        "Widening the stop to an outer anchor while maintaining net RR >= 2.0 forces a proportionally more distant TP (2x wider stop -> 2x wider TP), which reduces TP hit probability on M1."
+      ],
+      "causal_verdict": "OUTER_STOP_WITH_UNCHANGED_2R_CONSTRAINT_PUSHES_TP_TOO_FAR_OR_REJECTS_GEOMETRY",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H4_LOCAL_M1_STOP_INSIDE_NOISE_ZONE",
+      "independent_stop_forensics_reclassification": {
+        "PROVIDER_GAP_UNRESOLVED": 4,
+        "SL_AND_STRUCTURE_BROKEN_SAME_BAR": 84,
+        "SL_WICK_HIT_STRUCTURE_HELD": 8,
+        "STRUCTURE_BROKE_AFTER_SL": 43,
+        "STRUCTURE_BROKE_BEFORE_SL": 10,
+        "UNKNOWN_PROTECTED_STRUCTURE_NOT_ESTABLISHED": 8
+      },
+      "primary_counterfactual_metrics": {
+        "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE": {
+          "avoided_baseline_losers_count": 63,
+          "closed_trades": 132,
+          "expectancy_r_delta": -0.0347,
+          "expectancy_r_mean": -0.8821,
+          "foregone_baseline_winners_count": 4,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.9545,
+          "loss_rate_delta_pp": 0.87,
+          "losses": 126,
+          "modeled_net_pnl_usd": -285.76,
+          "net_pnl_delta_vs_a1_usd": 60.14,
+          "newly_unlocked_in_portfolio_count": 148,
+          "variant_id": "R4_OUTER_STRUCTURAL_STOP_EXECUTABLE",
+          "wins": 6
+        },
+        "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE": {
+          "avoided_baseline_losers_count": 140,
+          "closed_trades": 63,
+          "expectancy_r_delta": -0.068,
+          "expectancy_r_mean": -0.9154,
+          "foregone_baseline_winners_count": 9,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.9683,
+          "loss_rate_delta_pp": 2.25,
+          "losses": 61,
+          "modeled_net_pnl_usd": -141.42,
+          "net_pnl_delta_vs_a1_usd": 204.48,
+          "newly_unlocked_in_portfolio_count": 99,
+          "variant_id": "R8_TIMING_PLUS_OUTER_SL_ABLATION_EXECUTABLE",
+          "wins": 2
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H5_UNREALISTIC_TARGET_DISTANCE_AND_MFE_REVERSAL": {
+      "alternative_explanations": [
+        "80.25% of A1 losses never reach even 0.25R MFE before hitting SL, so pull-closer TP in [2.0, 3.5] net RR can only convert the small subset of trades that achieved >=2.0R MFE."
+      ],
+      "causal_verdict": "CONVERTS_HIGH_MFE_REVERSALS_TO_WINS_BUT_CANNOT_FIX_ZERO_MFE_ENTRIES",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H5_UNREALISTIC_TARGET_DISTANCE_AND_MFE_REVERSAL",
+      "primary_counterfactual_metrics": {
+        "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE": {
+          "avoided_baseline_losers_count": 146,
+          "closed_trades": 48,
+          "expectancy_r_delta": 0.1204,
+          "expectancy_r_mean": -0.727,
+          "foregone_baseline_winners_count": 8,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.8958,
+          "loss_rate_delta_pp": -5.0,
+          "losses": 43,
+          "modeled_net_pnl_usd": -85.8,
+          "net_pnl_delta_vs_a1_usd": 260.1,
+          "newly_unlocked_in_portfolio_count": 61,
+          "variant_id": "R5_CAUSAL_LIQUIDITY_TARGET_EXECUTABLE",
+          "wins": 5
+        },
+        "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE": {
+          "avoided_baseline_losers_count": 157,
+          "closed_trades": 1,
+          "expectancy_r_delta": -0.1467,
+          "expectancy_r_mean": -0.9941,
+          "foregone_baseline_winners_count": 9,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 1.0,
+          "loss_rate_delta_pp": 5.42,
+          "losses": 1,
+          "modeled_net_pnl_usd": -2.43,
+          "net_pnl_delta_vs_a1_usd": 343.47,
+          "newly_unlocked_in_portfolio_count": 1,
+          "variant_id": "R7_COMBINED_ENTRY_SL_TP_EXECUTABLE",
+          "wins": 0
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H6_OFF_HOURS_WEEKEND_AND_SESSION_REGIME_DRAG": {
+      "alternative_explanations": [
+        "Restricting to ICT macro windows eliminates weekend/NY_PM trades and cuts total dollar loss by ~70%, primarily by reducing trade count from 166 to 49 while per-trade loss rate inside macro windows remains ~93.88%."
+      ],
+      "causal_verdict": "REDUCES_CHURN_AND_DOLLAR_DRAWDOWN_SIGNIFICANTLY_VIA_EXPOSURE_REDUCTION",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H6_OFF_HOURS_WEEKEND_AND_SESSION_REGIME_DRAG",
+      "primary_counterfactual_metrics": {
+        "R6_MACRO_SESSION_FILTER_ONLY": {
+          "avoided_baseline_losers_count": 150,
+          "closed_trades": 42,
+          "expectancy_r_delta": -0.0579,
+          "expectancy_r_mean": -0.9053,
+          "foregone_baseline_winners_count": 9,
+          "loss_converted_to_win_count": 0,
+          "loss_rate": 0.9524,
+          "loss_rate_delta_pp": 0.66,
+          "losses": 40,
+          "modeled_net_pnl_usd": -93.33,
+          "net_pnl_delta_vs_a1_usd": 252.57,
+          "newly_unlocked_in_portfolio_count": 54,
+          "variant_id": "R6_MACRO_SESSION_FILTER_ONLY",
+          "wins": 2
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H7_EXECUTION_FRICTION_SPREAD_SLIPPAGE_FEE_DRAG": {
+      "alternative_explanations": [
+        "Even under frictionless/optimistic LEGACY_CLOSE_FILL, A1 loses 156/169 closed trades (92.31% loss rate, -$317.85), proving friction exacerbates losses (~$96.95 fee/spread drag) but is not the sole cause of negative expectancy."
+      ],
+      "causal_verdict": "MATERIAL_COST_DRAG_AMPLIFIER_ON_TOP_OF_NEGATIVE_GROSS_SIGNAL_EXPECTANCY",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H7_EXECUTION_FRICTION_SPREAD_SLIPPAGE_FEE_DRAG",
+      "primary_counterfactual_metrics": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 164,
+          "expectancy_r_mean": -0.777,
+          "fill_mode": "LEGACY_CLOSE_FILL",
+          "loss_rate": 0.939,
+          "losses": 154,
+          "modeled_gross_pnl_usd": -110.3,
+          "modeled_net_pnl_usd": -313.65,
+          "modeled_total_costs_usd": 215.38,
+          "wins": 10
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 166,
+          "expectancy_r_mean": -0.8474,
+          "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+          "loss_rate": 0.9458,
+          "losses": 157,
+          "modeled_gross_pnl_usd": -142.78,
+          "modeled_net_pnl_usd": -345.9,
+          "modeled_total_costs_usd": 228.2,
+          "wins": 9
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 173,
+          "expectancy_r_mean": -0.8968,
+          "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+          "loss_rate": 0.948,
+          "losses": 164,
+          "modeled_gross_pnl_usd": -168.91,
+          "modeled_net_pnl_usd": -381.77,
+          "modeled_total_costs_usd": 251.25,
+          "wins": 9
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H8_HORIZON_CENSORING_AND_ARTIFICIAL_SLOT_RELEASE": {
+      "alternative_explanations": [
+        "The 180-bar horizon selectively censored slower-moving trades (many of which eventually hit TP or had higher win rate post-180 bars) while admitting rapid follow-on losers, artificially inflating the 180-bar closed-only loss rate (94.58%) relative to true hold-to-exit execution."
+      ],
+      "causal_verdict": "VERIFIED_CENSORING_SELECTION_BIAS_AND_PHANTOM_SLOT_RELEASE_INFLATED_TRADE_CHURN",
+      "evidence_hierarchy_level": "LEVEL_3_MATCHED_COUNTERFACTUAL_ABLATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": true,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H8_HORIZON_CENSORING_AND_ARTIFICIAL_SLOT_RELEASE",
+      "primary_counterfactual_metrics": {
+        "EXECUTABLE_180_BAR_TIME_STOP_INTERVENTION": {
+          "closed_trades": 240,
+          "expectancy_r_mean": -0.5946,
+          "loss_rate": 0.8333,
+          "losses": 200,
+          "modeled_net_pnl_usd": -350.94,
+          "wins": 40
+        },
+        "LEGACY_ARTIFICIAL_RELEASE": {
+          "closed_trades": 166,
+          "expectancy_r_mean": -0.8474,
+          "loss_rate": 0.9458,
+          "losses": 157,
+          "modeled_net_pnl_usd": -345.9,
+          "wins": 9
+        },
+        "STRICT_HOLD_UNTIL_EXIT_OR_DATA_END": {
+          "closed_trades": 6,
+          "expectancy_r_mean": -1.4099,
+          "loss_rate": 1.0,
+          "losses": 6,
+          "modeled_net_pnl_usd": -20.54,
+          "wins": 0
+        }
+      },
+      "untouched_fresh_oos_confirmed": false
+    },
+    "H9_DATA_GAPS_AND_SYNTHETIC_QUOTE_MODELING": {
+      "alternative_explanations": [
+        "Only 1 episode is unresolved due to a data gap and only a small number experience adverse gap-open stop fills; 98%+ of losses occur on contiguous 1-minute bars."
+      ],
+      "causal_verdict": "MINOR_BOUNDED_CONTRIBUTION_NOT_PRIMARY_LOSS_DRIVER",
+      "evidence_hierarchy_level": "LEVEL_2_CONTROLLED_ASSOCIATION",
+      "has_descriptive_correlate": true,
+      "has_matched_counterfactual_ablation": false,
+      "has_stratified_controlled_association": true,
+      "hypothesis_id": "H9_DATA_GAPS_AND_SYNTHETIC_QUOTE_MODELING",
+      "primary_counterfactual_metrics": {
+        "adverse_gap_open_stop_losses": 3,
+        "data_gap_unresolved_episodes": 1
+      },
+      "untouched_fresh_oos_confirmed": false
+    }
+  },
+  "hypotheses_evaluated_count": 9,
+  "schema_version": "17.9.3.1.2.1"
+}

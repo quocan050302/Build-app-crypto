@@ -1,0 +1,69 @@
+{
+  "london_open_forensics": {
+    "closed_trades": 14,
+    "diagnostic_explanation": "LONDON_OPEN (07:00-10:00 UTC) volatility expansion sweeps tight local M1 stops (0 wins, 14 losses).",
+    "expectancy_r_mean": -1.1759,
+    "fast_stopout_le3_bars_count": 0,
+    "loss_rate": 1.0,
+    "loss_rate_wilson_95_ci": {
+      "lower_95": 0.7847,
+      "upper_95": 1.0
+    },
+    "losses": 14,
+    "m1_bars_in_dataset": 2207,
+    "mean_mfe_r": 0.5443,
+    "mean_stop_distance_usd": 5.9186,
+    "modeled_net_pnl_usd": -40.05,
+    "modeled_slippage_usd": 0.1,
+    "modeled_spread_usd": 0.35,
+    "modeled_total_costs_usd": 19.88,
+    "open_at_horizon_censored_count": 9,
+    "session": "LONDON_OPEN",
+    "wins": 0
+  },
+  "ny_pm_forensics": {
+    "closed_trades": 30,
+    "diagnostic_explanation": "NY_PM (16:00-21:00 UTC) post-London-close mean-reversion and late-session chop produces 0 wins and 30 losses (100.0% loss rate) on immediate M1 entries.",
+    "expectancy_r_mean": -0.9998,
+    "fast_stopout_le3_bars_count": 9,
+    "loss_rate": 1.0,
+    "loss_rate_wilson_95_ci": {
+      "lower_95": 0.8865,
+      "upper_95": 1.0
+    },
+    "losses": 30,
+    "m1_bars_in_dataset": 2554,
+    "mean_mfe_r": 0.8701,
+    "mean_stop_distance_usd": 3.433,
+    "modeled_net_pnl_usd": -73.96,
+    "modeled_slippage_usd": 0.1,
+    "modeled_spread_usd": 0.4,
+    "modeled_total_costs_usd": 42.72,
+    "open_at_horizon_censored_count": 8,
+    "session": "NY_PM",
+    "wins": 0
+  },
+  "schema_version": "17.9.3.1.2.1",
+  "weekend_closed_forensics": {
+    "closed_trades": 35,
+    "diagnostic_explanation": "Bitget XAUUSDT perpetual continues printing M1 candles over the weekend while spot gold is closed. Modeled weekend spread ($0.55) + slippage ($0.16) plus low weekend directional follow-through causes 34 losses out of 35 closed trades (97.14% loss rate).",
+    "expectancy_r_mean": -0.9328,
+    "fast_stopout_le3_bars_count": 1,
+    "loss_rate": 0.9714,
+    "loss_rate_wilson_95_ci": {
+      "lower_95": 0.8547,
+      "upper_95": 0.9949
+    },
+    "losses": 34,
+    "m1_bars_in_dataset": 5545,
+    "mean_mfe_r": 1.7566,
+    "mean_stop_distance_usd": 2.1103,
+    "modeled_net_pnl_usd": -80.7,
+    "modeled_slippage_usd": 0.16,
+    "modeled_spread_usd": 0.55,
+    "modeled_total_costs_usd": 62.33,
+    "open_at_horizon_censored_count": 17,
+    "session": "WEEKEND_CLOSED",
+    "wins": 1
+  }
+}

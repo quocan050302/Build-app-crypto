@@ -1,0 +1,67 @@
+{
+  "all_1_2_4_worker_hashes_identical": true,
+  "cleanup_report": {
+    "cleaned_at_utc": "2026-11-02T03:53:24.297912+00:00",
+    "orphan_worker_processes_remaining": 0,
+    "removed_temp_paths": [],
+    "removed_temp_paths_count": 0
+  },
+  "defect_closed": "P1-G_REAL_1_VS_2_VS_4_WORKER_DETERMINISTIC_HASH_EQUALITY",
+  "elapsed_seconds": 126.98,
+  "identical_intervention_replays": true,
+  "identical_oos_reports": true,
+  "identical_portfolio_replays": true,
+  "identical_stream_hash": true,
+  "intervention_replays_sha256_by_workers": {
+    "1": "7bf6dd4abc6ce2f3bbc98b9aa5504a8dac61fdddaf4e090762ce121f1450b69b",
+    "2": "7bf6dd4abc6ce2f3bbc98b9aa5504a8dac61fdddaf4e090762ce121f1450b69b",
+    "4": "7bf6dd4abc6ce2f3bbc98b9aa5504a8dac61fdddaf4e090762ce121f1450b69b"
+  },
+  "oos_report_sha256_by_workers": {
+    "1": "d100995cca50d52701229d80eb080aaaf4e7a4889ef154e1fbe6466a63c49cdb",
+    "2": "d100995cca50d52701229d80eb080aaaf4e7a4889ef154e1fbe6466a63c49cdb",
+    "4": "d100995cca50d52701229d80eb080aaaf4e7a4889ef154e1fbe6466a63c49cdb"
+  },
+  "portfolio_replays_sha256_by_workers": {
+    "1": "699400e7ede6fe3d09854c1b01af7472a673a2b230323208995849346dbb6576",
+    "2": "699400e7ede6fe3d09854c1b01af7472a673a2b230323208995849346dbb6576",
+    "4": "699400e7ede6fe3d09854c1b01af7472a673a2b230323208995849346dbb6576"
+  },
+  "resource_preflight": {
+    "checked_at_utc": "2026-11-02T03:53:24.296397+00:00",
+    "configured_max_workers": 4,
+    "cpu_logical_cores": 12,
+    "disk_guard_passed": true,
+    "drive_path": "D:\\",
+    "free_disk_gib": 65.017,
+    "hard_min_free_disk_gib": 5.0,
+    "schema_version": "17.9.3.1.2.1",
+    "soft_pause_free_disk_gib": 6.0,
+    "total_disk_gib": 144.021,
+    "used_disk_pct": 54.86
+  },
+  "resource_preflight_start": {
+    "checked_at_utc": "2026-11-02T03:51:17.322752+00:00",
+    "configured_max_workers": 4,
+    "cpu_logical_cores": 12,
+    "disk_guard_passed": true,
+    "drive_path": "D:\\",
+    "free_disk_gib": 65.017,
+    "hard_min_free_disk_gib": 5.0,
+    "schema_version": "17.9.3.1.2.1",
+    "soft_pause_free_disk_gib": 6.0,
+    "total_disk_gib": 144.021,
+    "used_disk_pct": 54.86
+  },
+  "schema_version": "17.9.3.1.2.1",
+  "stream_sha256_by_workers": {
+    "1": "cd86760e6e8e65c5658b78773301aea550a5c62650ef6a30ffad6accf28e7317",
+    "2": "cd86760e6e8e65c5658b78773301aea550a5c62650ef6a30ffad6accf28e7317",
+    "4": "cd86760e6e8e65c5658b78773301aea550a5c62650ef6a30ffad6accf28e7317"
+  },
+  "workers_compared": [
+    1,
+    2,
+    4
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "canonical_dataset_path": "D:\\build app-crypto\\aurum-desk\\backtest\\historical_dataset_XAUUSDT.json.gz",
+  "coverage_end_utc": "2026-10-28T03:15:00+00:00",
+  "coverage_start_utc": "2026-10-08T00:00:00+00:00",
+  "disclosed": true,
+  "schema_version": "17.9.3.1.2.1",
+  "status": "NO_NEW_HISTORICAL_CANDLES_BEYOND_2026_10_28_IN_CANONICAL_SNAPSHOT",
+  "untouched_fresh_oos_claim_permitted": false
+}

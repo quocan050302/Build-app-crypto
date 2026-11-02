@@ -1,0 +1,76 @@
+{
+  "a1_raw_eligible_decisions": 56710,
+  "a1_unique_eligible_timestamps": 18744,
+  "canonical_decision_stream_sha256": "cd86760e6e8e65c5658b78773301aea550a5c62650ef6a30ffad6accf28e7317",
+  "comparator_variants_summary_primary": {
+    "A0_FROZEN_BASELINE_OFF": {
+      "closed_trades": 6,
+      "data_gap_unresolved": 0,
+      "expectancy_r_mean": -0.9992,
+      "loss_rate": 1.0,
+      "losses": 6,
+      "modeled_net_pnl_usd": -14.8,
+      "open_at_horizon_censored": 0,
+      "wins": 0
+    },
+    "A1_V1792_SL_TP_BASELINE": {
+      "closed_trades": 166,
+      "data_gap_unresolved": 1,
+      "expectancy_r_mean": -0.8474,
+      "loss_rate": 0.9458,
+      "losses": 157,
+      "modeled_net_pnl_usd": -345.9,
+      "open_at_horizon_censored": 74,
+      "wins": 9
+    },
+    "C1_MACRO_PLUS_V1792_SL_TP": {
+      "closed_trades": 42,
+      "data_gap_unresolved": 1,
+      "expectancy_r_mean": -0.9053,
+      "loss_rate": 0.9524,
+      "losses": 40,
+      "modeled_net_pnl_usd": -93.33,
+      "open_at_horizon_censored": 18,
+      "wins": 2
+    },
+    "D1_V1793_MACRO_PLUS_UNICORN_V1792_SL_TP": {
+      "closed_trades": 16,
+      "data_gap_unresolved": 0,
+      "expectancy_r_mean": -0.8044,
+      "loss_rate": 0.9375,
+      "losses": 15,
+      "modeled_net_pnl_usd": -31.69,
+      "open_at_horizon_censored": 4,
+      "wins": 1
+    },
+    "D2_V1793_MACRO_PLUS_UNICORN_MTF_FULL": {
+      "closed_trades": 2,
+      "data_gap_unresolved": 0,
+      "expectancy_r_mean": 0.5617,
+      "loss_rate": 0.5,
+      "losses": 1,
+      "modeled_net_pnl_usd": 2.74,
+      "open_at_horizon_censored": 0,
+      "wins": 1
+    },
+    "E1_OUTSIDE_MACRO_COUNTERFACTUAL": {
+      "closed_trades": 132,
+      "data_gap_unresolved": 1,
+      "expectancy_r_mean": -0.8202,
+      "loss_rate": 0.9394,
+      "losses": 124,
+      "modeled_net_pnl_usd": -265.99,
+      "open_at_horizon_censored": 56,
+      "wins": 8
+    }
+  },
+  "evaluated_m1_bars": 22346,
+  "fill_modes_evaluated": [
+    "NEXT_BAR_OPEN_BID_ASK",
+    "LEGACY_CLOSE_FILL",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "model_evaluations_per_variant": 111730,
+  "schema_version": "17.9.3.1.2.1",
+  "tested_code_sha": "3a0baf5f6e0244d62375400ff047ff73053b6281"
+}

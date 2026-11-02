@@ -1,0 +1,34 @@
+{
+  "canonical_capital_usd": 1000.0,
+  "max_planned_net_risk_observed_usd": 2.5,
+  "min_net_rr_floor": 2.0,
+  "min_planned_net_risk_observed_usd": 2.33,
+  "planned_risk_cap_usd": 2.5,
+  "planned_risk_cap_violations_count": 0,
+  "realized_losses_exceeding_planned_risk_due_to_gap_or_slippage_count": 3,
+  "realized_losses_exceeding_planned_risk_episodes": [
+    {
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_FVG_CONTINUATION_30_1791439740000",
+      "excess_loss_usd": 5.7814,
+      "exit_type": "ADVERSE_GAP_OPEN_STOP_LOSS",
+      "planned_net_risk_usd": 2.35,
+      "realized_net_pnl_usd": -8.1314
+    },
+    {
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_CONTINUATION_2585_1791716880000",
+      "excess_loss_usd": 3.4456,
+      "exit_type": "ADVERSE_GAP_OPEN_STOP_LOSS",
+      "planned_net_risk_usd": 2.49,
+      "realized_net_pnl_usd": -5.9356
+    },
+    {
+      "episode_key": "A1_V1792_SL_TP_BASELINE_SMC_M1_FVG_CONTINUATION_8585_1792200780000",
+      "excess_loss_usd": 3.8221,
+      "exit_type": "ADVERSE_GAP_OPEN_STOP_LOSS",
+      "planned_net_risk_usd": 2.49,
+      "realized_net_pnl_usd": -6.3121
+    }
+  ],
+  "risk_pct_percent": 0.25,
+  "schema_version": "17.9.3.1.2.1"
+}
