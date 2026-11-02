@@ -1,0 +1,10 @@
+{
+  "branch_matches_mandatory": true,
+  "commit_protocol": "THREE_PHASE_NON_SELF_REFERENTIAL_PROVENANCE",
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "merge_base_with_origin_master": "650e4535777421077443cd3d95507cad1d99ed42",
+  "phase_a_parent_sha": "fa11b5f12b9b3a4925b603d16e49aacfdaf360a1",
+  "phase_a_tested_executable_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+  "schema_version": "17.9.3.1.2.2",
+  "zero_executable_code_drift_since_phase_a": true
+}

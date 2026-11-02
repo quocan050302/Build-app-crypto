@@ -1,0 +1,7 @@
+{
+  "future_outcome_leakage_into_entry_decisions": 0,
+  "policy_registry_hash": "8268f702817800272d35ef85bc750e5de29a531ab466f5839cff2e85ef7f4d65",
+  "pre_registered_before_holdout_evaluation": true,
+  "reused_holdout_disclosure": "The October 2026 XAUUSDT dataset was previously inspected in V17.9.2..V17.9.3.1.2.1. All holdout results are explicitly classified as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS.",
+  "schema_version": "17.9.3.1.2.2"
+}

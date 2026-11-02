@@ -1,0 +1,929 @@
+{
+  "schema_version": "17.9.3.1.2.2",
+  "smc_m1_fvg_continuation_audit": {
+    "closed_trades_count": 52,
+    "code_call_chain_defect": "SharedStrategyEvaluator._extract_causal_setup_descriptors (lines 1809-1920) selects dir_fvgs[-1] from a 120-bar M1 window without checking FVG staleness (>24 bars), whether price is actually retesting the FVG, or whether a causal Breaker overlaps the FVG.",
+    "failure_mechanism_breakdown": {
+      "HTF_DIRECTION_CONFLICT": 52,
+      "INSUFFICIENT_STRUCTURAL_ROOM_TO_TP": 0,
+      "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP": 52,
+      "MISSING_DISPLACEMENT_OR_INVALID_RETEST": 52,
+      "STALE_OR_ALREADY_MITIGATED_FVG_ZONE": 0,
+      "TRUE_UNICORN_CONFIRMED": 0
+    },
+    "losses_count": 49,
+    "representative_cases": [
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791439740000::idx30::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000::4124.80_4138",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791693840000::idx2249::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791693480000::4196.56_4197",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1791715680000::idx2565::ep_SMC_M1_FVG_CONTINUATION_LONG_1791706320000::4198.63_4197",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791760440000::idx2957::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791756780000::4196.51_4202",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1791765000000::idx3033::ep_SMC_M1_FVG_CONTINUATION_LONG_1791764460000::4211.38_4207",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1791768780000::idx3096::ep_SMC_M1_FVG_CONTINUATION_LONG_1791767880000::4211.11_4207",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1791769500000::idx3108::ep_SMC_M1_FVG_CONTINUATION_LONG_1791763800000::4207.91_4205",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791800100000::idx3618::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791796560000::4181.00_4184",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791836640000::idx4053::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791830160000::4177.31_4180",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791853920000::idx4341::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791849840000::4171.03_4173",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791853980000::idx4342::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791849840000::4171.96_4174",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791854220000::idx4346::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791849240000::4173.70_4181",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1791886920000::idx4891::ep_SMC_M1_FVG_CONTINUATION_SHORT_1791886620000::4188.98_4196",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792045560000::idx6911::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792041660000::4145.18_4151",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792052400000::idx7025::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792052280000::4159.90_4164",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792200780000::idx8585::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792199160000::4170.27_4171",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1792382820000::idx8825::ep_SMC_M1_FVG_CONTINUATION_LONG_1792379100000::4186.87_4184",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1792383240000::idx8832::ep_SMC_M1_FVG_CONTINUATION_LONG_1792379100000::4184.82_4184",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1792394220000::idx9015::ep_SMC_M1_FVG_CONTINUATION_LONG_1792393020000::4191.08_4181",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1792437300000::idx9733::ep_SMC_M1_FVG_CONTINUATION_LONG_1792431240000::4151.21_4150",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792459860000::idx10109::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792458600000::4129.65_4147",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792526520000::idx11220::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792525980000::4129.28_4131",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "LONG",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::LONG::ts1792548000000::idx11578::ep_SMC_M1_FVG_CONTINUATION_LONG_1792547640000::4127.02_4122",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792578060000::idx12079::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792576620000::4123.82_4134",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792592040000::idx12312::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792591080000::4135.64_4145",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792641720000::idx13140::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792641000000::4099.94_4102",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792673220000::idx13665::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792666200000::4093.07_4100",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      },
+      {
+        "direction": "SHORT",
+        "failure_tags": [
+          "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP",
+          "MISSING_DISPLACEMENT_OR_INVALID_RETEST",
+          "HTF_DIRECTION_CONFLICT"
+        ],
+        "fvg_age_bars_m1": 10,
+        "fvg_retest_valid": false,
+        "htf_alignment_state": "MIXED",
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_FVG_CONTINUATION::SHORT::ts1792762920000::idx15160::ep_SMC_M1_FVG_CONTINUATION_SHORT_1792761900000::4031.85_4043",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "unicorn_classification": "FVG_ONLY"
+      }
+    ],
+    "wins_count": 3
+  },
+  "smc_m1_reversal_audit": {
+    "closed_trades_count": 90,
+    "code_call_chain_defect": "SharedStrategyEvaluator._extract_causal_setup_descriptors (lines 1966-2053) accepts any 5-bar low/high touch with close back inside or 18-bar extreme with FVG without verifying MSS break or displacement, and takes priority #1 over all other models.",
+    "failure_mechanism_breakdown": {
+      "CONFIRMED_REVERSAL_WITH_SWEEP_AND_MSS": 0,
+      "COUNTER_INTACT_H1_H4_IMPULSE": 0,
+      "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM": 90,
+      "SL_WICK_HIT_PROTECTED_STRUCTURE_HELD": 0,
+      "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT": 90
+    },
+    "losses_count": 84,
+    "representative_cases": [
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1791595320000::idx607::ep_SMC_M1_REVERSAL_LONG_1791595140000::4195.81_4195",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791614280000::idx923::ep_SMC_M1_REVERSAL_SHORT_1791613980000::4194.55_4195",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791615540000::idx944::ep_SMC_M1_REVERSAL_SHORT_1791615240000::4195.71_4196",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791633000000::idx1235::ep_SMC_M1_REVERSAL_SHORT_1791632760000::4196.44_4197",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1791670500000::idx1860::ep_SMC_M1_REVERSAL_LONG_1791670200000::4196.89_4196",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1791670860000::idx1866::ep_SMC_M1_REVERSAL_LONG_1791670680000::4196.39_4195",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1791715020000::idx2554::ep_SMC_M1_REVERSAL_LONG_1791714840000::4199.15_4198",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1791739560000::idx2609::ep_SMC_M1_REVERSAL_LONG_1791739260000::4209.16_4205",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791752760000::idx2829::ep_SMC_M1_REVERSAL_SHORT_1791752460000::4205.22_4205",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791761820000::idx2980::ep_SMC_M1_REVERSAL_SHORT_1791761640000::4203.19_4205",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791842760000::idx4155::ep_SMC_M1_REVERSAL_SHORT_1791842580000::4180.80_4184",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791859440000::idx4433::ep_SMC_M1_REVERSAL_SHORT_1791859320000::4178.62_4194",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791864180000::idx4512::ep_SMC_M1_REVERSAL_SHORT_1791864000000::4195.36_4198",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791915360000::idx5365::ep_SMC_M1_REVERSAL_SHORT_1791915180000::4166.46_4171",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791939180000::idx5762::ep_SMC_M1_REVERSAL_SHORT_1791938880000::4162.46_4168",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791941580000::idx5802::ep_SMC_M1_REVERSAL_SHORT_1791941400000::4164.10_4174",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791998880000::idx6133::ep_SMC_M1_REVERSAL_SHORT_1791998700000::4093.99_4096",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1791999240000::idx6139::ep_SMC_M1_REVERSAL_SHORT_1791999060000::4098.18_4099",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792002180000::idx6188::ep_SMC_M1_REVERSAL_SHORT_1792002000000::4099.69_4101",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792002720000::idx6197::ep_SMC_M1_REVERSAL_SHORT_1792002540000::4102.79_4103",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792002900000::idx6200::ep_SMC_M1_REVERSAL_SHORT_1792002840000::4102.11_4104",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792004220000::idx6222::ep_SMC_M1_REVERSAL_SHORT_1792004100000::4102.62_4104",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792004340000::idx6224::ep_SMC_M1_REVERSAL_SHORT_1792004280000::4104.30_4105",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792004400000::idx6225::ep_SMC_M1_REVERSAL_SHORT_1792004340000::4104.28_4105",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792005780000::idx6248::ep_SMC_M1_REVERSAL_SHORT_1792005600000::4111.27_4113",
+        "outcome": "LOSS",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792063620000::idx7212::ep_SMC_M1_REVERSAL_SHORT_1792063560000::4162.97_4165",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792104420000::idx7892::ep_SMC_M1_REVERSAL_SHORT_1792104240000::4173.03_4175",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "SHORT",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::SHORT::ts1792408380000::idx9251::ep_SMC_M1_REVERSAL_SHORT_1792408200000::4179.61_4183",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      },
+      {
+        "direction": "LONG",
+        "displacement_valid": false,
+        "failure_tags": [
+          "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT",
+          "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"
+        ],
+        "htf_alignment_state": "MIXED",
+        "mss_confirmed": false,
+        "opportunity_id": "opp::XAUUSDT_OCT2026_9f301fee2e62::XAUUSDT::SMC_M1_REVERSAL::LONG::ts1792498860000::idx10759::ep_SMC_M1_REVERSAL_LONG_1792498560000::4124.24_4120",
+        "outcome": "WIN",
+        "realized_net_r": 0.0,
+        "signal_ts_ms": 0,
+        "sweep_confirmed": false
+      }
+    ],
+    "wins_count": 6
+  },
+  "starved_models_arbitration_root_cause": {
+    "CG01_SWEEP_MSS_FVG": {
+      "baseline_eligible_count": 17898,
+      "baseline_selected_count": 0,
+      "code_root_cause": "Shares the exact FVG branch in _extract_causal_setup_descriptors (lines 1809-1920) with SMC_M1_FVG_CONTINUATION (#3 priority), so whenever CG01_SWEEP_MSS_FVG (#5 priority) is eligible, SMC_M1_FVG_CONTINUATION is also eligible at the same timestamp and wins 100% of static ties."
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "baseline_eligible_count": 7991,
+      "baseline_selected_count": 0,
+      "code_root_cause": "Shares the exact 5-bar sweep-reclaim branch in _extract_causal_setup_descriptors (lines 1965-2053) with SMC_M1_REVERSAL, so whenever SMC_M1_SWEEP_RECLAIM is eligible, SMC_M1_REVERSAL (#1 priority) is also eligible at the same timestamp and wins 100% of static ties."
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "activation_ready": "NO",
+  "collected_backend_tests_count": 4890,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "engineering_verification_verdict": "PASS",
+  "executed_junit_tests_count": 4890,
+  "passed_gates_count": 52,
+  "run_dir": "docs/artifacts/v17_9_3_1_2_2/v17_9_3_1_2_2_20261102T082120Z_4b3edad9574b",
+  "run_id": "v17_9_3_1_2_2_20261102T082120Z_4b3edad9574b",
+  "schema_version": "17.9.3.1.2.2",
+  "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+  "tested_executable_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+  "total_gates": 52
+}

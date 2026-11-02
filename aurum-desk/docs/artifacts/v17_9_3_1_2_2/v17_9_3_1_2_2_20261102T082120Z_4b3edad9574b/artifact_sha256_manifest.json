@@ -1,0 +1,195 @@
+{
+  "corrupt_or_missing_files_count": 0,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "files": [
+    {
+      "filename": "01_git_source_branch_and_frozen_shas.json",
+      "sha256": "fe16874ace273bd99819514cd8af2da7e36dab177a8ab8342ceffe793656a594",
+      "size_bytes": 756
+    },
+    {
+      "filename": "02_baseline_policy_and_immutable_previous_artifacts.json",
+      "sha256": "e70ba4374d026df690e86545b8b3d82da5d56c78e4cc087b655d5bb44848d764",
+      "size_bytes": 629
+    },
+    {
+      "filename": "03_code_function_consumer_integration_map.json",
+      "sha256": "17d65c5e6bbd4da59d947e23bb1aa750bd1f72cb430a7a5a7f61c404cd121ae3",
+      "size_bytes": 1588
+    },
+    {
+      "filename": "04_signal_intelligence_policy_registry_predeclared.json",
+      "sha256": "97f6a947cefb22ed8d87b48f182677e2ef637280c0cdb8336a9e816e5259df21",
+      "size_bytes": 8884
+    },
+    {
+      "filename": "05_full_22346_m1_5model_decision_census.json",
+      "sha256": "12fd411814bec7330e7b8ff36ed460126b48253e78d851478339761d4fa8062c",
+      "size_bytes": 2379
+    },
+    {
+      "filename": "06_model_direction_and_arbitration_funnel.json",
+      "sha256": "f720a6b0d63604799aa78b7d3dbb9eb591381dd54b7a7e4a5fc587d6018e88ee",
+      "size_bytes": 6755
+    },
+    {
+      "filename": "07_smc_m1_continuation_24_losses_casebook.json",
+      "sha256": "ffccddf33de8e59a608b82c222d3aa6fc7d5271f550609ee203c91975b218b5e",
+      "size_bytes": 61388
+    },
+    {
+      "filename": "08_reversal_and_fvg_model_failure_casebook.json",
+      "sha256": "861bffb4abe50edf6389cf0dbb729bde08243b8ff80127757dfbd64841b5d97c",
+      "size_bytes": 37871
+    },
+    {
+      "filename": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "sha256": "b98769dae4f61fea6d8d200460bc695370cefa8bd99e14f9f0a9d12ee90a68e1",
+      "size_bytes": 1196
+    },
+    {
+      "filename": "10_liquidity_sweep_unicorn_breaker_fvg_retest_binding.json",
+      "sha256": "bc2d757873cd9638f1df452bbdee301bd32a7a2e363181a151df905c2c141a5e",
+      "size_bytes": 1165
+    },
+    {
+      "filename": "11_signal_intelligence_real_snapshot_before_after.json",
+      "sha256": "4e88dbb376eccb9cea619177fe02de581d01ba59113b706424c01f143d0d8ada",
+      "size_bytes": 27504
+    },
+    {
+      "filename": "12_feature_flag_off_observe_research_adapter_parity.json",
+      "sha256": "0bdac1eec97a0fb25bb9f5bb9c155ca85da0b67f8331c05f03f2870d47ca7dfd",
+      "size_bytes": 415
+    },
+    {
+      "filename": "13_all_7_signal_policy_executable_portfolio_replays.json",
+      "sha256": "c1c5f3020f7b6f90075d9e903ea92e400905c979d5c924d09b7ba12486f65844",
+      "size_bytes": 86202
+    },
+    {
+      "filename": "14_all_3_fill_mode_ledger_reconciliation.json",
+      "sha256": "4c3a46eb0234a37ea6b4c25859236d2bae269bc1bfcb53395f08d6ef36292d5f",
+      "size_bytes": 16427
+    },
+    {
+      "filename": "15_new_entry_geometry_risk_sl_tp_quantity_and_costs.json",
+      "sha256": "9aff59739f158e92dbc33c1d082eb893e5ff32f5707900a0f39c58ac7ddd011b",
+      "size_bytes": 194742
+    },
+    {
+      "filename": "16_full_opportunity_id_join_and_unlocked_portfolio_audit.json",
+      "sha256": "3d618d45812c28d41a411aa0c056253e8003505a31e55b0533c168f6cff3163d",
+      "size_bytes": 2226
+    },
+    {
+      "filename": "17_strict_hold_time_stop_legacy_censoring_comparison.json",
+      "sha256": "3ff92f72ed79581ac9da06956cb7c9ea04534d07f942bdafd0c6b69d88ef284d",
+      "size_bytes": 134552
+    },
+    {
+      "filename": "18_loss_rate_expectancy_pf_drawdown_exposure_by_policy.json",
+      "sha256": "e35f79fbb9763edbc736a47dd69e4e439b18a393c4ad805a3ed6b6cc294d89f6",
+      "size_bytes": 4115
+    },
+    {
+      "filename": "19_5model_solo_drop_arbitration_ablation.json",
+      "sha256": "02cbbf3a2971f2ceba609e6b849a3afe709c6e5cf52ea02131a97de6edecc8a9",
+      "size_bytes": 1686920
+    },
+    {
+      "filename": "20_session_volatility_quote_regime_stratification.json",
+      "sha256": "b8a6fbf35d0563dba6e639e5661e1eb91843ceae4c37a80ef19c8314b3061052",
+      "size_bytes": 9496
+    },
+    {
+      "filename": "21_OOS_walkforward_purging_and_freshness.json",
+      "sha256": "49aecb594f9edda7c136cc54f13b44cc72fa0a3f3b896205e7f5deace6f70f12",
+      "size_bytes": 4995
+    },
+    {
+      "filename": "22_holdout_pre_registration_and_no_future_leakage.json",
+      "sha256": "faec6a07c6975f98ab06bd136f42ece7e15ff12a80a8f988c2e03c1507f6398c",
+      "size_bytes": 446
+    },
+    {
+      "filename": "23_statistical_uncertainty_bootstrap_and_multiple_testing.json",
+      "sha256": "54dcfe79e4dc47e7d47af71d5a9065f0a7b80182594d34bff1b8b7a6c0c37b2c",
+      "size_bytes": 1916
+    },
+    {
+      "filename": "24_full_pytest_collection_node_ids_manifest.json",
+      "sha256": "df860dbb37f8cc16f62c2c612856292bb0370f884dc481563b845989ab4f6317",
+      "size_bytes": 36091
+    },
+    {
+      "filename": "25_full_regression_shard_junit_and_exact_bijection.json",
+      "sha256": "354266beee130cbf434ee32c0736d0624060e43a6d2cb0a63c6492fe4471a227",
+      "size_bytes": 37929
+    },
+    {
+      "filename": "26_executable_red_green_source_mutations_exit_codes.json",
+      "sha256": "48762c10b2c8754580054f76d1ad7c89173844a10d70da625c2f4c9a16359182",
+      "size_bytes": 6622
+    },
+    {
+      "filename": "27_evidence_only_mutation_gate_tests_separately.json",
+      "sha256": "e200071cfcaa0d07f7c7c3d37effc1899c5aac0c8365da6e5154b412e8e114f3",
+      "size_bytes": 2565
+    },
+    {
+      "filename": "28_independent_worker_1_full_run_manifest.json",
+      "sha256": "53490f6a0c8f96e2901f6757bba8d894d02dbca9b3ec484ab30ec95ce0c148c6",
+      "size_bytes": 4132
+    },
+    {
+      "filename": "29_independent_worker_2_full_run_manifest.json",
+      "sha256": "d204a7ceac09fa393bba74e163779ecc7f4d217a36bd419663c064700e7b5709",
+      "size_bytes": 4137
+    },
+    {
+      "filename": "30_independent_worker_4_full_run_manifest.json",
+      "sha256": "9d2210cd0a59f95c8a0a48c5d4f74fcc3ce63e85b86d7cc0ebed4b9e7647a504",
+      "size_bytes": 4159
+    },
+    {
+      "filename": "31_full_worker_1v2v4_hash_comparison.json",
+      "sha256": "07b0b9fd56a6ad928c7c0ea95cb560f55fe6b0a5b9276dcf58c535eb80b420f7",
+      "size_bytes": 5043
+    },
+    {
+      "filename": "32_resource_disk_ram_subprocess_guard_and_cleanup.json",
+      "sha256": "1da3b02dcdb4fd0983cdfc47bbb9ac3b25ec08b79cae98e359785162c0df22f0",
+      "size_bytes": 250
+    },
+    {
+      "filename": "33_acceptance_gates_G01_to_G52.json",
+      "sha256": "68cbfd4931e82dc5a9bc3e14118bcb5518b75c53108355f3e9052df5cefcb333",
+      "size_bytes": 40514
+    },
+    {
+      "filename": "34_engineering_and_strategy_dual_verdict.json",
+      "sha256": "c33cf0173299d4cd73f008693880e1f1a8829429347530ec906509399ac66fc8",
+      "size_bytes": 997
+    },
+    {
+      "filename": "35_tested_code_SHA_branch_source_integrity.json",
+      "sha256": "392e6d2bee6d08c1d06fc71ed2fa6b6aeb3fe41c6fdc8efd640da2ede6a7c934",
+      "size_bytes": 345
+    },
+    {
+      "filename": "36_git_commits_push_remote_verified_after_push.json",
+      "sha256": "5d1bf4b4cce8585f949a21d0dfd34b82f485032b7bb2e0782f4758f492b7aae7",
+      "size_bytes": 487
+    },
+    {
+      "filename": "EXECUTIVE_IMPLEMENTATION_AND_EDGE_REPORT.md",
+      "sha256": "547ee38753a6b14954755dc1880ff6d43435e304f42c56a8a6055403600be64c",
+      "size_bytes": 2478
+    }
+  ],
+  "run_id": "v17_9_3_1_2_2_20261102T082120Z_4b3edad9574b",
+  "schema_version": "17.9.3.1.2.2",
+  "tested_executable_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+  "verified_files_count": 37
+}

@@ -1,0 +1,1063 @@
+{
+  "all_52_engineering_gates_passed": true,
+  "failed_gate_ids": [],
+  "failed_gates_count": 0,
+  "gates": [
+    {
+      "exit_code": 0,
+      "expected": {
+        "ancestry_verified": true,
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+      },
+      "gate_id": "G01",
+      "inspected_count": 2,
+      "observed": {
+        "ancestry_verified": true,
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa"
+      },
+      "passed": true,
+      "reason": "Verified current branch and commit ancestry.",
+      "source_artifact": "01_git_source_branch_and_frozen_shas.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Mandatory existing branch and ancestry; no new branches",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "valid_hashes": true
+      },
+      "gate_id": "G02",
+      "inspected_count": 3,
+      "observed": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "policy_registry_hash": "8268f702817800272d35ef85bc750e5de29a531ab466f5839cff2e85ef7f4d65",
+        "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6"
+      },
+      "passed": true,
+      "reason": "Verified dataset SHA-256, policy registry SHA-256, and tested executable Git SHA.",
+      "source_artifact": "01_git_source_branch_and_frozen_shas.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Source/data/policy/baseline frozen with SHA",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "violated_files_count": 0
+      },
+      "gate_id": "G03",
+      "inspected_count": 6,
+      "observed": {
+        "verified_immutable_files_count": 6,
+        "violated_files_count": 0
+      },
+      "passed": true,
+      "reason": "Verified prior v17_9_2..v17_9_3_1_2_1 artifacts untouched.",
+      "source_artifact": "02_baseline_policy_and_immutable_previous_artifacts.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Prior historical artifacts preserved immutable",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "default_mode": "OFF",
+        "enabled_in_production": false
+      },
+      "gate_id": "G04",
+      "inspected_count": 2,
+      "observed": {
+        "default_mode": "OFF",
+        "enabled_in_production": false
+      },
+      "passed": true,
+      "reason": "Verified M1ScalpConfig default v17_9_3_1_2_2_signal_intelligence_mode == OFF.",
+      "source_artifact": "02_baseline_policy_and_immutable_previous_artifacts.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "New OFF default and production-safe flags read from real config",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "off_parity_mismatch_count": 0
+      },
+      "gate_id": "G05",
+      "inspected_count": 30,
+      "observed": {
+        "checked": 30,
+        "mismatches": 0
+      },
+      "passed": true,
+      "reason": "Verified bitwise action fingerprint parity when mode == OFF.",
+      "source_artifact": "12_feature_flag_off_observe_research_adapter_parity.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Baseline OFF evaluator action parity for all models",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "observe_only_action_mismatch_count": 0
+      },
+      "gate_id": "G06",
+      "inspected_count": 30,
+      "observed": {
+        "checked": 30,
+        "mismatches": 0
+      },
+      "passed": true,
+      "reason": "Verified OBSERVE_ONLY emits diagnostics while keeping identical trade_action_fingerprint to OFF.",
+      "source_artifact": "12_feature_flag_off_observe_research_adapter_parity.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "OBSERVE_ONLY trade-action parity",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "changed_decision_snapshots_count": "> 0"
+      },
+      "gate_id": "G07",
+      "inspected_count": 30,
+      "observed": {
+        "changed_decision_snapshots_count": 16
+      },
+      "passed": true,
+      "reason": "Verified SharedStrategyEvaluator.evaluate_model_direction produces changed snapshots under RESEARCH_APPLY.",
+      "source_artifact": "11_signal_intelligence_real_snapshot_before_after.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "RESEARCH_APPLY affects REAL shared evaluator output",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "cross_adapter_parity_mismatch_count": 0
+      },
+      "gate_id": "G08",
+      "inspected_count": 30,
+      "observed": {
+        "checked": 30,
+        "mismatches": 0
+      },
+      "passed": true,
+      "reason": "Verified Production, MARKET_SHADOW, and Backtest adapters consume SharedStrategyEvaluator.",
+      "source_artifact": "12_feature_flag_off_observe_research_adapter_parity.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Full Production/Shadow/Backtest adapter consumption parity",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "production_research_apply_blocked_verified": true
+      },
+      "gate_id": "G09",
+      "inspected_count": 3,
+      "observed": {
+        "production_research_apply_blocked_verified": true
+      },
+      "passed": true,
+      "reason": "Verified RESEARCH_APPLY is rejected fail-closed in PRODUCTION_ORCHESTRATOR / PAPER / LIVE.",
+      "source_artifact": "12_feature_flag_off_observe_research_adapter_parity.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No live/paper research action allowed",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "lookahead_violations_count": 0
+      },
+      "gate_id": "G10",
+      "inspected_count": 18744,
+      "observed": {
+        "inspected_opportunities_count": 18744,
+        "lookahead_violations_count": 0
+      },
+      "passed": true,
+      "reason": "Verified all H4/H1/M15/M5 candles and swings satisfy known_at_ms <= decision_timestamp_ms.",
+      "source_artifact": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Valid causal MTF H4/H1/M15 and known-at provenance",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "missing_htf_no_default_long_verified": true
+      },
+      "gate_id": "G11",
+      "inspected_count": 4,
+      "observed": {
+        "missing_htf_no_default_long_verified": true
+      },
+      "passed": true,
+      "reason": "Verified resolve_research_preferred_direction_v1793122 does not default missing HTF bias to LONG.",
+      "source_artifact": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No missing HTF => biased default LONG in research",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "model_specific_continuation_vs_reversal_verified": true
+      },
+      "gate_id": "G12",
+      "inspected_count": 5,
+      "observed": {
+        "model_specific_continuation_vs_reversal_verified": true
+      },
+      "passed": true,
+      "reason": "Verified continuation requires aligned HTF + displacement/retrace while reversal requires sweep+reclaim+MSS.",
+      "source_artifact": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Genuine model-specific continuation/reversal entry checks",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "pending_backdated_fill_violations": 0,
+        "pending_confirmations_created_count": "> 0"
+      },
+      "gate_id": "G13",
+      "inspected_count": 18744,
+      "observed": {
+        "pending_backdated_fill_violations": 0,
+        "pending_confirmations_created_count": 18744
+      },
+      "passed": true,
+      "reason": "Verified SI3/SI6 pending confirmations advance on closed M1 bars.",
+      "source_artifact": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Pending confirmation actual future closed-bar event semantics",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "backdate_violations": 0,
+        "pending_expired_or_invalidated_count": "> 0"
+      },
+      "gate_id": "G14",
+      "inspected_count": 18744,
+      "observed": {
+        "backdate_violations": 0,
+        "pending_expired_or_invalidated_count": 16497
+      },
+      "passed": true,
+      "reason": "Verified unconfirmed pending setups expire/invalidate cleanly without filling at past prices.",
+      "source_artifact": "09_mtf_htf_mss_displacement_causal_evidence.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No backdated/replayed phantom entry, pending expires correctly",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "fvg_only_separated_from_unicorn_confirmed": true
+      },
+      "gate_id": "G15",
+      "inspected_count": 899,
+      "observed": {
+        "fvg_only_count": 898,
+        "unicorn_confirmed_count": 1
+      },
+      "passed": true,
+      "reason": "Verified strict Breaker+FVG overlap is separated from FVG_ONLY.",
+      "source_artifact": "10_liquidity_sweep_unicorn_breaker_fvg_retest_binding.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "True Unicorn breaker+FVG causal binding, not FVG only",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "causal_sweep_and_target_room_verified": true
+      },
+      "gate_id": "G16",
+      "inspected_count": 18744,
+      "observed": {
+        "causal_sweep_and_target_room_verified": true
+      },
+      "passed": true,
+      "reason": "Verified sweep penetration/reclaim timing and pre-entry target reachability.",
+      "source_artifact": "10_liquidity_sweep_unicorn_breaker_fvg_retest_binding.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Causal liquidity sweep/reclaim and room-to-target valid",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "models_count": 5,
+        "pre_entry_arbitration_verified": true
+      },
+      "gate_id": "G17",
+      "inspected_count": 5,
+      "observed": {
+        "models_count": 5,
+        "pre_entry_arbitration_verified": true
+      },
+      "passed": true,
+      "reason": "Verified all 5 production models in funnel and pre-entry quality arbitration.",
+      "source_artifact": "06_model_direction_and_arbitration_funnel.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Preserved/correct five-model selection funnel and tie arbitration",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "cases_count": 24
+      },
+      "gate_id": "G18",
+      "inspected_count": 24,
+      "observed": {
+        "cases_count": 24
+      },
+      "passed": true,
+      "reason": "Audited all 24 SMC_M1_CONTINUATION closed baseline losses individually.",
+      "source_artifact": "07_smc_m1_continuation_24_losses_casebook.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Correct 24 continuation closed failures audited individually",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "drop_count": 5,
+        "solo_count": 5
+      },
+      "gate_id": "G19",
+      "inspected_count": 10,
+      "observed": {
+        "drop_count": 5,
+        "solo_count": 5
+      },
+      "passed": true,
+      "reason": "Replayed all 5 SOLO and 5 LEAVE-ONE-OUT model ablations.",
+      "source_artifact": "19_5model_solo_drop_arbitration_ablation.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Five SOLO and five DROP ablations replayed on full universe",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "total_decision_evaluations_per_policy": 111730
+      },
+      "gate_id": "G20",
+      "inspected_count": 111730,
+      "observed": {
+        "total_decision_evaluations_per_policy": 111730
+      },
+      "passed": true,
+      "reason": "Conserved 22,346 post-warmup M1 bars x 5 models = 111,730 evaluations per policy.",
+      "source_artifact": "05_full_22346_m1_5model_decision_census.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Identical candidate universe counts with model/direction proof",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "key_collapse_count": 0,
+        "si0_self_join_mismatch_count": 0
+      },
+      "gate_id": "G21",
+      "inspected_count": 56710,
+      "observed": {
+        "key_collapse_count": 0,
+        "si0_self_join_mismatch_count": 0
+      },
+      "passed": true,
+      "reason": "Verified 56,710 unique composite opportunity_ids with zero key collapse.",
+      "source_artifact": "16_full_opportunity_id_join_and_unlocked_portfolio_audit.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Unique composite IDs and full outer join no collapse",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "followup_truncation_cap": null,
+        "unique_eligible_timestamps_visited": 18744
+      },
+      "gate_id": "G22",
+      "inspected_count": 18744,
+      "observed": {
+        "followup_truncation_cap": null,
+        "unique_eligible_timestamps_visited": 18744
+      },
+      "passed": true,
+      "reason": "Verified full event-driven opportunity stream traversal without 2-follow-up truncation.",
+      "source_artifact": "16_full_opportunity_id_join_and_unlocked_portfolio_audit.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "All follow-on opportunities considered, no cap of 2",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "si0_matches_a1_baseline_exactly": true
+      },
+      "gate_id": "G23",
+      "inspected_count": 3,
+      "observed": {
+        "si0_matches_a1_baseline_exactly": true
+      },
+      "passed": true,
+      "reason": "Verified SI0_OFF_BASELINE reproduces A1 baseline portfolio across all 3 fill modes.",
+      "source_artifact": "13_all_7_signal_policy_executable_portfolio_replays.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Same-baseline independent replay/hash across all fills",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "research_policies_produce_distinct_portfolios": true
+      },
+      "gate_id": "G24",
+      "inspected_count": 6,
+      "observed": {
+        "research_policies_produce_distinct_portfolios": true
+      },
+      "passed": true,
+      "reason": "Verified SI1..SI6 produce distinct executable portfolios from real evaluator changes.",
+      "source_artifact": "13_all_7_signal_policy_executable_portfolio_replays.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "New executed changed-code entry/SL/TP/fill real differences",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0
+      },
+      "gate_id": "G25",
+      "inspected_count": 740,
+      "observed": {
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0
+      },
+      "passed": true,
+      "reason": "Verified every executed order satisfies planned_risk <= $2.50 and net_rr >= 2.0.",
+      "source_artifact": "15_new_entry_geometry_risk_sl_tp_quantity_and_costs.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Risk cap $2.50 and min net RR 2.0 (real calc evidence)",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "ledger_accounting_identity_violations": 0
+      },
+      "gate_id": "G26",
+      "inspected_count": 1497,
+      "observed": {
+        "ledger_accounting_identity_violations": 0
+      },
+      "passed": true,
+      "reason": "Verified net_usd == gross_usd - entry_fee - exit_fee with no double-counted spread.",
+      "source_artifact": "14_all_3_fill_mode_ledger_reconciliation.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Quote-side fill, fees, cost, qty, slippage identity",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "circular_sl_equals_protected_anchor_tautology_count": 0
+      },
+      "gate_id": "G27",
+      "inspected_count": 740,
+      "observed": {
+        "circular_sl_equals_protected_anchor_tautology_count": 0
+      },
+      "passed": true,
+      "reason": "Verified protected structure authority is resolved independently of selected_sl.",
+      "source_artifact": "15_new_entry_geometry_risk_sl_tp_quantity_and_costs.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Independent protected structure anchor not SL tautology",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "strict_hold_phantom_slot_release_violations": 0
+      },
+      "gate_id": "G28",
+      "inspected_count": 242,
+      "observed": {
+        "strict_hold_phantom_slot_release_violations": 0
+      },
+      "passed": true,
+      "reason": "Verified STRICT_HOLD_UNTIL_EXIT_OR_DATA_END never releases slot at 180 bars.",
+      "source_artifact": "17_strict_hold_time_stop_legacy_censoring_comparison.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No fabricated OPEN_AT_HORIZON exit/slot release",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "data_gap_censored": true,
+        "time_stop_pays_fees": true
+      },
+      "gate_id": "G29",
+      "inspected_count": 3,
+      "observed": {
+        "data_gap_censored": true,
+        "time_stop_pays_fees": true
+      },
+      "passed": true,
+      "reason": "Verified EXPLICIT_180_BAR_TIME_STOP pays exit fees/spread and DATA_GAP remains censored.",
+      "source_artifact": "17_strict_hold_time_stop_legacy_censoring_comparison.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Authentic time stop accounting and data-gap censoring",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "post_warmup_m1_bars": 22346
+      },
+      "gate_id": "G30",
+      "inspected_count": 22346,
+      "observed": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "post_warmup_m1_bars": 22346
+      },
+      "passed": true,
+      "reason": "Verified canonical dataset SHA-256 and 22,346 post-warmup M1 bars.",
+      "source_artifact": "05_full_22346_m1_5model_decision_census.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Historical dataset SHA, 22,346 M1 bars/5 model count",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "baseline_unique_eligible_m1_timestamps": 18744
+      },
+      "gate_id": "G31",
+      "inspected_count": 18744,
+      "observed": {
+        "baseline_unique_eligible_m1_timestamps": 18744
+      },
+      "passed": true,
+      "reason": "Conserved all 18,744 unique eligible M1 timestamps.",
+      "source_artifact": "05_full_22346_m1_5model_decision_census.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "18,744 eligible timestamp opportunity conservation",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "fill_modes_count": 3
+      },
+      "gate_id": "G32",
+      "inspected_count": 3,
+      "observed": {
+        "fill_modes_replayed": [
+          "NEXT_BAR_OPEN_BID_ASK",
+          "LEGACY_CLOSE_FILL",
+          "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+        ]
+      },
+      "passed": true,
+      "reason": "Replayed NEXT_BAR_OPEN_BID_ASK, LEGACY_CLOSE_FILL, and STRESS_WIDER_SPREAD_SLIPPAGE_2X.",
+      "source_artifact": "14_all_3_fill_mode_ledger_reconciliation.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "3 execution fill modes independently replayed",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "matched_coeval_and_independent_portfolios_reported": true
+      },
+      "gate_id": "G33",
+      "inspected_count": 7,
+      "observed": {
+        "matched_coeval_and_independent_portfolios_reported": true
+      },
+      "passed": true,
+      "reason": "Reported both matched same-opportunity transitions and independent chronological portfolios.",
+      "source_artifact": "16_full_opportunity_id_join_and_unlocked_portfolio_audit.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Same-window matched coeval & independent portfolios",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "cross_partition_leakage_count": 0,
+        "embargo_bars_m1": ">= 180"
+      },
+      "gate_id": "G34",
+      "inspected_count": 3,
+      "observed": {
+        "cross_partition_leakage_count": 0,
+        "embargo_bars_m1": 180
+      },
+      "passed": true,
+      "reason": "Verified chronological OOS splits purge crossing episodes by true exit timestamp + >=180-bar embargo.",
+      "source_artifact": "21_OOS_walkforward_purging_and_freshness.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "OOS partition and actual exit/pending embargo no leakage",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+      },
+      "gate_id": "G35",
+      "inspected_count": 1,
+      "observed": {
+        "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+      },
+      "passed": true,
+      "reason": "Explicitly labeled October 2026 holdout as reused history, not fresh untouched OOS.",
+      "source_artifact": "21_OOS_walkforward_purging_and_freshness.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Reusable OOS explicitly not labeled fresh or verified edge",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "verdict_computed_from_metrics_not_hardcoded": true
+      },
+      "gate_id": "G36",
+      "inspected_count": 7,
+      "observed": {
+        "computed": true,
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY"
+      },
+      "passed": true,
+      "reason": "Verified STRATEGY_STATISTICAL_VERDICT is computed dynamically from portfolio metrics and CIs.",
+      "source_artifact": "34_engineering_and_strategy_dual_verdict.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Statistical verdict derived from actual metrics + CIs",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "zero_trade_and_underpowered_guard_verified": true
+      },
+      "gate_id": "G37",
+      "inspected_count": 2,
+      "observed": {
+        "zero_trade_and_underpowered_guard_verified": true
+      },
+      "passed": true,
+      "reason": "Verified 0-trade and <30-trade cohorts return INCONCLUSIVE_UNDERPOWERED, never positive edge.",
+      "source_artifact": "23_statistical_uncertainty_bootstrap_and_multiple_testing.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Zero-trade and underpowered fail to edge-pass",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "multiple_testing_and_nonstationarity_disclosed": true
+      },
+      "gate_id": "G38",
+      "inspected_count": 7,
+      "observed": {
+        "multiple_testing_and_nonstationarity_disclosed": true
+      },
+      "passed": true,
+      "reason": "Reported Wilson 95% CIs, block-bootstrap 95% CIs, and Holm-Bonferroni multiple-testing adjustments.",
+      "source_artifact": "23_statistical_uncertainty_bootstrap_and_multiple_testing.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Uncertainty/overfitting/multiple comparisons disclosed",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "no_trade_cash_benchmark_included": true
+      },
+      "gate_id": "G39",
+      "inspected_count": 8,
+      "observed": {
+        "no_trade_cash_benchmark_included": true
+      },
+      "passed": true,
+      "reason": "Included NO_TRADE_CASH_PRESERVATION control alongside exposure and turnover metrics.",
+      "source_artifact": "18_loss_rate_expectancy_pf_drawdown_exposure_by_policy.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No-trade control, turnover and exposure reported",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "collected_count": ">= 4880",
+        "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6"
+      },
+      "gate_id": "G40",
+      "inspected_count": 4890,
+      "observed": {
+        "collected_count": 4890,
+        "executed_count": 4890,
+        "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6"
+      },
+      "passed": true,
+      "reason": "Discovered and executed entire backend pytest tree at exact tested executable SHA.",
+      "source_artifact": "25_full_regression_shard_junit_and_exact_bijection.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "ENTIRE backend suite discovered and executed at tested source SHA",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "exact_node_id_bijection_verified": true,
+        "extra": 0,
+        "missing": 0
+      },
+      "gate_id": "G41",
+      "inspected_count": 4890,
+      "observed": {
+        "exact_node_id_bijection_verified": true,
+        "extra": 0,
+        "missing": 0
+      },
+      "passed": true,
+      "reason": "Verified 1-to-1 node-ID set bijection between pytest --collect-only and shard JUnit XMLs.",
+      "source_artifact": "25_full_regression_shard_junit_and_exact_bijection.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Exact collected node IDs == JUnit executed node IDs",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "error_count": 0,
+        "failed_count": 0,
+        "nonzero_exit_shards_count": 0
+      },
+      "gate_id": "G42",
+      "inspected_count": 19,
+      "observed": {
+        "error_count": 0,
+        "failed_count": 0,
+        "nonzero_exit_shards_count": 0
+      },
+      "passed": true,
+      "reason": "Verified all pytest shards exited 0 with 0 failures and 0 errors.",
+      "source_artifact": "25_full_regression_shard_junit_and_exact_bijection.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "No hidden failed/blocked/skipped/timeout shards",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "all_caught_with_nonzero_red_and_zero_green": true,
+        "executable_mutations_count": ">= 12"
+      },
+      "gate_id": "G43",
+      "inspected_count": 16,
+      "observed": {
+        "caught_count": 16,
+        "executable_mutations_count": 16
+      },
+      "passed": true,
+      "reason": "Verified source-level mutations in isolated temp sandbox produce real subprocess exit != 0 on RED and 0 on GREEN.",
+      "source_artifact": "26_executable_red_green_source_mutations_exit_codes.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": ">=12 ACTUAL executable RED/GREEN mutation controls",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "count": ">= 12",
+        "separated_from_executable_red_green": true
+      },
+      "gate_id": "G44",
+      "inspected_count": 12,
+      "observed": {
+        "count": 12,
+        "separated_from_executable_red_green": true
+      },
+      "passed": true,
+      "reason": "Kept in-memory evidence gate mutations strictly separate in artifact 27.",
+      "source_artifact": "27_evidence_only_mutation_gate_tests_separately.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Evidence-dictionary mutations separate, not counted for G43",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "independent_execution_no_shared_digest_reuse": true
+      },
+      "gate_id": "G45",
+      "inspected_count": 3,
+      "observed": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "independent_execution_no_shared_digest_reuse": true
+      },
+      "passed": true,
+      "reason": "Verified independent 1, 2, and 4 worker executions produce identical SHA-256 across all 3 fill modes.",
+      "source_artifact": "31_full_worker_1v2v4_hash_comparison.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Full 1/2/4 independent worker 3-fill-mode results equal",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "disk_above_5gib": true,
+        "max_workers": "<= 4",
+        "orphans": 0
+      },
+      "gate_id": "G46",
+      "inspected_count": 3,
+      "observed": {
+        "disk_above_5gib": true,
+        "max_workers": 4,
+        "orphans": 0
+      },
+      "passed": true,
+      "reason": "Verified disk free space >= 5 GiB, worker cap <= 4, and 0 orphan subprocesses.",
+      "source_artifact": "32_resource_disk_ram_subprocess_guard_and_cleanup.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Disk > floor, RAM cap, <=4 workers, no orphan processes",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "corrupt_or_missing_files_count": 0,
+        "verified_files_count": ">= 35"
+      },
+      "gate_id": "G47",
+      "inspected_count": 36,
+      "observed": {
+        "corrupt_or_missing_files_count": 0,
+        "verified_files_count": 36
+      },
+      "passed": true,
+      "reason": "Independently hashed and schema-verified all required artifacts on disk.",
+      "source_artifact": "artifact_sha256_manifest.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "All required artifact bytes independently schema/hash verified",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "branch_matches_mandatory": true,
+        "executable_diff_files_since_tested_sha_count": 0
+      },
+      "gate_id": "G48",
+      "inspected_count": 2,
+      "observed": {
+        "branch_matches_mandatory": true,
+        "executable_diff_files_since_tested_sha_count": 0
+      },
+      "passed": true,
+      "reason": "Verified zero executable diff between tested SHA and HEAD on mandatory branch.",
+      "source_artifact": "35_tested_code_SHA_branch_source_integrity.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Exact remote HEAD after AUTO PUSH equals final local HEAD and no executable diff from tested source SHA",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "legacy_models_and_adapters_preserved": true
+      },
+      "gate_id": "G49",
+      "inspected_count": 5,
+      "observed": {
+        "legacy_models_and_adapters_preserved": true
+      },
+      "passed": true,
+      "reason": "Preserved all 5 production models and existing adapters/tools.",
+      "source_artifact": "03_code_function_consumer_integration_map.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Old models/adapters/tools preserved with regression compatibility",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "separated_verdict_fields": true
+      },
+      "gate_id": "G50",
+      "inspected_count": 3,
+      "observed": {
+        "activation_ready": "NO",
+        "engineering_verification_verdict": "PASS",
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY"
+      },
+      "passed": true,
+      "reason": "Explicitly separated ENGINEERING_VERIFICATION_VERDICT, STRATEGY_STATISTICAL_VERDICT, and ACTIVATION_READY.",
+      "source_artifact": "34_engineering_and_strategy_dual_verdict.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Engineering/business verdicts explicitly separated",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "activation_ready": "NO"
+      },
+      "gate_id": "G51",
+      "inspected_count": 1,
+      "observed": {
+        "activation_ready": "NO"
+      },
+      "passed": true,
+      "reason": "Verified ACTIVATION_READY == NO and all production flags remain OFF.",
+      "source_artifact": "34_engineering_and_strategy_dual_verdict.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "ACTIVATE/PAPER/LIVE always NO for this version",
+      "violated_count": 0
+    },
+    {
+      "exit_code": 0,
+      "expected": {
+        "verified_consumer_callsites": ">= 4"
+      },
+      "gate_id": "G52",
+      "inspected_count": 4,
+      "observed": {
+        "verified_consumer_callsites": 4
+      },
+      "passed": true,
+      "reason": "Documented and verified source-to-consumer call chain across Production, Shadow, and Backtest.",
+      "source_artifact": "03_code_function_consumer_integration_map.json",
+      "source_data_sha": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "status": "PASS",
+      "tested_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+      "title": "Source->function->consumer real path proof included",
+      "violated_count": 0
+    }
+  ],
+  "passed_gates_count": 52,
+  "schema_version": "17.9.3.1.2.2",
+  "total_gates": 52
+}

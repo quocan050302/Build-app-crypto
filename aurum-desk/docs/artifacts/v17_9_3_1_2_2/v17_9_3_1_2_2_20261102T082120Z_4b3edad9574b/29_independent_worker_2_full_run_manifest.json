@@ -1,0 +1,104 @@
+{
+  "canonical_results_sha256": "58a71118c721be415ae59628fd974499b820dcb95aaf171fb8b57fcddcace885",
+  "execution_engine": "ProcessPoolExecutor",
+  "fill_modes_verified": [
+    "NEXT_BAR_OPEN_BID_ASK",
+    "LEGACY_CLOSE_FILL",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "independent_execution_no_shared_digest_reuse": true,
+  "policies_verified_count": 4,
+  "results_by_policy": {
+    "SI0_OFF_BASELINE": {
+      "closed_trades_count": 166,
+      "expectancy_net_r": -0.8474,
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+        "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+      },
+      "losses_count": 157,
+      "oos_partition_net_usd": {
+        "D_DEV": -30.414,
+        "H_HOLDOUT": -203.4853,
+        "V_VAL": -111.9978
+      },
+      "policy_id": "SI0_OFF_BASELINE",
+      "primary_ledger_sha256": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+      "total_realized_net_usd": -345.8971,
+      "unique_eligible_timestamps_evaluated": 18744,
+      "wins_count": 9,
+      "worker_pid": 27112
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "closed_trades_count": 111,
+      "expectancy_net_r": -0.8458,
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e81263cec886619206a963ddd1faf51ebdefdb6a8adaa0658b5dc0bfed2555a2",
+        "NEXT_BAR_OPEN_BID_ASK": "b0ab3751777ff3471cf9380cadfddfc618e2eb6fc6e5e53fb26e4710a4fbd696",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a60e7c7926e05d4e327c862cbe4f95c2ec0b9f36ae583d85285c00cf8cb1cd29"
+      },
+      "losses_count": 106,
+      "oos_partition_net_usd": {
+        "D_DEV": -24.6803,
+        "H_HOLDOUT": -139.4911,
+        "V_VAL": -67.3001
+      },
+      "policy_id": "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+      "primary_ledger_sha256": "b0ab3751777ff3471cf9380cadfddfc618e2eb6fc6e5e53fb26e4710a4fbd696",
+      "total_realized_net_usd": -231.4715,
+      "unique_eligible_timestamps_evaluated": 18744,
+      "wins_count": 5,
+      "worker_pid": 11464
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "closed_trades_count": 45,
+      "expectancy_net_r": -0.7783,
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "274c98dd08ca9eeaa799fac006f05e7cb179bd45c0c8751de5c7777a4271cce0",
+        "NEXT_BAR_OPEN_BID_ASK": "6bdcdd82fb07e60a33cb55b48300866122f0e1e1a5e2851a41d1dacfed62cad1",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "64798fd33f0ac0b6e8ce2f3eb5f0205e94a621260085c3ef0368a3b6395f60f3"
+      },
+      "losses_count": 41,
+      "oos_partition_net_usd": {
+        "D_DEV": -8.1314,
+        "H_HOLDOUT": -31.4193,
+        "V_VAL": -46.3195
+      },
+      "policy_id": "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+      "primary_ledger_sha256": "6bdcdd82fb07e60a33cb55b48300866122f0e1e1a5e2851a41d1dacfed62cad1",
+      "total_realized_net_usd": -85.8702,
+      "unique_eligible_timestamps_evaluated": 18744,
+      "wins_count": 4,
+      "worker_pid": 27112
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "closed_trades_count": 0,
+      "expectancy_net_r": 0.0,
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "losses_count": 0,
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI6_COMBINED_PREDECLARED",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 18744,
+      "wins_count": 0,
+      "worker_pid": 11464
+    }
+  },
+  "schema_version": "17.9.3.1.2.2",
+  "wall_time_seconds": 7.743,
+  "worker_count": 2,
+  "worker_pids_observed": [
+    11464,
+    27112
+  ]
+}

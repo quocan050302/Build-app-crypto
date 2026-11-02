@@ -1,0 +1,46 @@
+{
+  "legacy_models_and_adapters_preserved": true,
+  "schema_version": "17.9.3.1.2.2",
+  "verified_consumer_callsites": [
+    {
+      "consumer": "SharedStrategyEvaluator.evaluate_model_direction",
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "function_called": "evaluate_signal_intelligence_gate_v1793122",
+      "modes_supported": [
+        "OFF",
+        "OBSERVE_ONLY",
+        "RESEARCH_APPLY"
+      ]
+    },
+    {
+      "consumer": "SharedStrategyEvaluator.evaluate_model_best_direction",
+      "file": "backend/services/shared_strategy_evaluator.py",
+      "function_called": "resolve_research_preferred_direction_v1793122",
+      "modes_supported": [
+        "OFF",
+        "OBSERVE_ONLY",
+        "RESEARCH_APPLY"
+      ]
+    },
+    {
+      "consumer": "Production Orchestrator / M1ScalpOrchestrator",
+      "file": "backend/services/m1_scalp_orchestrator.py",
+      "function_called": "SharedStrategyEvaluator.evaluate_model_best_direction",
+      "production_default_mode": "OFF"
+    },
+    {
+      "consumer": "Historical Backtest & Intervention Replay",
+      "file": "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function_called": "replay_single_si_policy_v1793122",
+      "policies_evaluated": [
+        "SI0_OFF_BASELINE",
+        "SI1_MODEL_QUALITY_AND_ARBITRATION",
+        "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+        "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+        "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+        "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+        "SI6_COMBINED_PREDECLARED"
+      ]
+    }
+  ]
+}

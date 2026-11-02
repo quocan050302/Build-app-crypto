@@ -1,0 +1,15 @@
+{
+  "activation_ready": "NO",
+  "best_research_expectancy_net_r": -0.7783,
+  "best_research_policy_id": "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "engineering_verification_verdict": "PASS",
+  "passed_gates_count": 52,
+  "reason": "All powered signal intelligence policies (['SI1_MODEL_QUALITY_AND_ARBITRATION', 'SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION', 'SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY', 'SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET']) remained negative net expectancy after realistic bid/ask spread, slippage, and taker fees (best=SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET: -0.7783R).",
+  "run_id": "v17_9_3_1_2_2_20261102T082120Z_4b3edad9574b",
+  "schema_version": "17.9.3.1.2.2",
+  "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+  "tested_executable_sha": "4b3edad9574bf9186254e1459bc86cba52a2fbb6",
+  "total_gates": 52,
+  "verdict_computed_from_metrics_not_hardcoded": true
+}
