@@ -3,7 +3,7 @@
   "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
   "phase_a_tested_code_sha": "aa4458c44fadfd972d354cd84130cc41217f475d",
   "phase_a_tested_sha_verified": true,
-  "phase_b_evidence_commit_sha": "PENDING_PHASE_B_COMMIT",
-  "remote_head_sha_after_push": "PENDING_PHASE_C_PUSH",
+  "phase_b_evidence_commit_sha": "a3ef72f6b21c5f375fdf7d6afbec4dd45c5724da",
+  "remote_head_sha_after_push": "a3ef72f6b21c5f375fdf7d6afbec4dd45c5724da",
   "schema_version": "17.9.3.1.2.5"
 }
