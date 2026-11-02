@@ -19,6 +19,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import time
 from typing import Any, Callable, Dict, List, Mapping, Tuple
@@ -326,7 +327,14 @@ def evaluate_v1793124_acceptance_gates_g01_g17(
     key_coll = int(e13.get("key_collapse_count", 1) if "key_collapse_count" in e13 else 1)
     trunc_cap = e13.get("followup_truncation_cap", 2)
     unique_ts = int(e13.get("unique_eligible_timestamps_visited", 0))
-    si8_unique_ts = int(((e13.get("metrics_by_policy") or {}).get("SI8_RESEARCH_DISCOVERY_REPAIRED") or {}).get("unique_eligible_timestamps_evaluated", 0))
+    si8_unique_ts = int(
+        (
+            ((e13.get("replays_by_policy") or {}).get("SI8_RESEARCH_DISCOVERY_REPAIRED") or {}).get("unique_eligible_timestamps_evaluated")
+            or ((e13.get("metrics_by_policy") or {}).get("SI8_RESEARCH_DISCOVERY_REPAIRED") or {}).get("unique_eligible_timestamps_evaluated")
+            or e06.get("si8_unique_eligible_timestamps_evaluated")
+            or 0
+        )
+    )
     _add(
         "G10",
         "Full 18,744 baseline eligible timestamp coverage (0 key collapse, no truncation) plus SI8 discovered candidate coverage (>= 18,744)",
@@ -640,6 +648,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run V17.9.3.1.2.4 Full Fresh Verification & Backtest")
     parser.add_argument("--tested-code-sha", type=str, default="", help="Frozen Phase A tested code SHA")
     parser.add_argument("--run-id", type=str, default="", help="Explicit run ID directory name")
+    parser.add_argument("--test-files-override", nargs="*", default=None, help="Optional subset of test files for smoke testing")
     args = parser.parse_args()
 
     tested_sha = args.tested_code_sha.strip() or _git_cmd(["rev-parse", "HEAD"])
@@ -664,6 +673,7 @@ def main() -> int:
             run_dir / "junit",
             tested_executable_sha=tested_sha,
             max_workers=4,
+            test_files_override=args.test_files_override,
             force_fresh_execution=True,
         )
         fut_bt = ex_main.submit(
