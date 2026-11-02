@@ -799,7 +799,7 @@ def compute_causal_noise_buffer(
         components["atr_m1_component"] = round(float(atr_m1) * float(k_m1), 4)
 
     if _is_valid_finite_price(atr_m5):
-        components["atr_m5":] = round(float(atr_m5) * float(k_m5), 4)
+        components["atr_m5:"] = round(float(atr_m5) * float(k_m5), 4)
         # Keep clean key name `atr_m5_component` while ensuring `"atr_m5"` substring check works
         components.pop("atr_m5:", None)
         components["atr_m5_component"] = round(float(atr_m5) * float(k_m5), 4)

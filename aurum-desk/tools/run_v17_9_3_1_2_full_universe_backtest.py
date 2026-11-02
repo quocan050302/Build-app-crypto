@@ -224,19 +224,18 @@ def build_matched_coeval_comparison_v179312(
 def select_cohort_with_unlock_candidates_v179312(
     all_a1_eligible_records: Sequence[Mapping[str, Any]],
     a1_portfolio_episodes: Sequence[Mapping[str, Any]],
-    c1_eligible_records: Sequence[Mapping[str, Any]],
+    c1_eligible_records: Sequence[Mapping[str, Any]] = (),
     *,
-    unlock_followups_per_episode: int = 2,
+    unlock_followups_per_episode: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Constructs the canonical `A1` opportunity cohort for `evaluate_executable_interventions_on_cohort_v179312`:
-      - Includes 100% of `A1` full-universe portfolio entry timestamps (`a1_portfolio_episodes`), so
-        `R0_CONTROL_A1_FULL_UNIVERSE` reproduces `A1` identically and every `A1` trade has a matched counterfactual.
-      - Includes up to `unlock_followups_per_episode` immediately following `BLOCKED_BY_OPEN_POSITION` `A1`
-        candidate timestamps during each `A1` trade's holding window, so when an intervention (`R1..R8`)
-        rejects an earlier `A1` trade or exits earlier (`R5`), previously blocked `A1` candidates can
-        genuinely unlock in the independent portfolio replay.
-      - Includes all `C1_MACRO_PLUS_V1792_SL_TP` eligible timestamps.
+      - When `unlock_followups_per_episode is None` (the default in V17.9.3.1.2.1), includes 100% of all
+        `18,744` unique eligible M1 timestamps in `all_a1_eligible_records` with ZERO follow-up truncation,
+        so every intervention variant (`R0..R8`) sees the full causal opportunity stream and independently
+        schedules all potentially unlocked trades.
+      - Only when an explicit integer `unlock_followups_per_episode` is passed (for legacy V17.9.3.1.2
+        truncation comparison), restricts follow-up candidates per baseline holding interval.
     """
     priority_map = {m: idx for idx, m in enumerate(CANONICAL_PRODUCTION_MODEL_PRIORITY)}
     by_idx: Dict[int, List[Mapping[str, Any]]] = {}
@@ -256,6 +255,9 @@ def select_cohort_with_unlock_candidates_v179312(
         winner_by_idx[idx] = dict(recs_sorted[0])
 
     all_sorted_indices = sorted(winner_by_idx.keys())
+    if unlock_followups_per_episode is None or int(unlock_followups_per_episode) < 0:
+        return [winner_by_idx[idx] for idx in all_sorted_indices]
+
     selected_indices: Set[int] = set()
 
     for ep in a1_portfolio_episodes:
@@ -264,7 +266,7 @@ def select_cohort_with_unlock_candidates_v179312(
         rel_ts = int(ep.get("release_ts_ms") or ep.get("exit_fill_ts") or ep.get("decision_timestamp_ms") or 0)
         pos = bisect.bisect_right(all_sorted_indices, ep_idx)
         added = 0
-        while pos < len(all_sorted_indices) and added < unlock_followups_per_episode:
+        while pos < len(all_sorted_indices) and added < int(unlock_followups_per_episode):
             cand_idx = all_sorted_indices[pos]
             cand_ts = int(winner_by_idx[cand_idx]["decision_timestamp_ms"])
             if cand_ts >= rel_ts:
@@ -584,7 +586,7 @@ def run_v17_9_3_1_2_full_universe_backtest_pipeline(
             "a1_portfolio_episodes_run2_sha256": a1_hash_2,
             "identical_stream_hash": single_sha == multi_subset_sha,
             "identical_portfolio_replays": a1_hash_1 == a1_hash_2,
-            "identical_intervention_replays": True,
+            "identical_intervention_replays": (single_sha == multi_subset_sha) and (a1_hash_1 == a1_hash_2),
             "hash_equivalent": (single_sha == multi_subset_sha) and (a1_hash_1 == a1_hash_2),
         }
 

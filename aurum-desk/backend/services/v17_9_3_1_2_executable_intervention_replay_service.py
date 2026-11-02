@@ -497,6 +497,32 @@ def extract_per_timeframe_causal_provenance_v179312(
     }
 
 
+def _build_composite_opportunity_id_internal_v179312(
+    *,
+    symbol: str,
+    model_id: str,
+    direction: str,
+    base_decision_ts_ms: int,
+    base_checkpoint_index_1m: int,
+    setup_episode_id: Optional[str],
+    disambiguator: Optional[str] = None,
+    dataset_namespace: str = "XAUUSDT_OCT2026_9f301fee2e62",
+) -> str:
+    """
+    Constructs an immutable composite opportunity ID containing:
+    dataset_namespace, symbol, canonical model_id, direction, base signal M1 close timestamp,
+    base checkpoint index, setup episode ID, and canonical action fingerprint disambiguator.
+    """
+    sym = str(symbol or "XAUUSDT").strip().upper()
+    mdl = str(model_id or "UNKNOWN_MODEL").strip()
+    dir_s = str(direction or "LONG").strip().upper()
+    ts = int(base_decision_ts_ms or 0)
+    idx = int(base_checkpoint_index_1m or 0)
+    ep = str(setup_episode_id or f"ep_{idx}_{mdl}_{dir_s}").strip()
+    dis = str(disambiguator or "default")[:12]
+    return f"opp::{dataset_namespace}::{sym}::{mdl}::{dir_s}::ts{ts}::idx{idx}::{ep}::{dis}"
+
+
 def _snapshot_to_compact_decision_record_v179312(
     snap: StrategyDecisionSnapshot,
     *,
@@ -506,9 +532,19 @@ def _snapshot_to_compact_decision_record_v179312(
     macro_primary_window_id: Optional[str],
     macro_eligible: bool,
 ) -> Dict[str, Any]:
+    opp_id = _build_composite_opportunity_id_internal_v179312(
+        symbol=str(snap.symbol),
+        model_id=str(snap.model_id),
+        direction=str(snap.direction),
+        base_decision_ts_ms=int(snap.decision_timestamp_ms),
+        base_checkpoint_index_1m=int(checkpoint_index_1m),
+        setup_episode_id=snap.setup_episode_id,
+        disambiguator=str(snap.trade_action_fingerprint or snap.decision_fingerprint or ""),
+    )
     return {
         "schema_version": V17_9_3_1_2_SCHEMA_VERSION,
         "provenance": "HISTORICAL_BACKTEST_V179312",
+        "opportunity_id": opp_id,
         "checkpoint_index_1m": int(checkpoint_index_1m),
         "decision_timestamp_ms": int(snap.decision_timestamp_ms),
         "variant": str(variant),
@@ -545,6 +581,9 @@ def _snapshot_to_compact_decision_record_v179312(
         "inside_legacy_screen": bool(inside_legacy_screen),
         "macro_primary_window_id": macro_primary_window_id,
         "macro_eligible": bool(macro_eligible),
+        "session": _session_for_ms(int(snap.decision_timestamp_ms)),
+        "venue_market_state_verification_status": "NOT_VERIFIED",
+        "quote_provenance": "MODELED_FROM_M1_OHLC_BID_ASK",
     }
 
 
@@ -1471,6 +1510,70 @@ def simulate_executable_candidate_v179312(
         if order_intent.structural_invalidation_price is not None
         else float(order_intent.selected_sl)
     )
+    ind_prot_px: Optional[float] = None
+    ind_anchor_id: Optional[str] = None
+    ind_anchor_kind: Optional[str] = None
+    ind_anchor_tf: Optional[str] = None
+    ind_anchor_known_ms: Optional[int] = None
+    ind_authority_source = "UNKNOWN_PROTECTED_STRUCTURE_NOT_ESTABLISHED"
+
+    if closed_bars_at_decision or closed_m5 or closed_m15:
+        c_m1 = list(closed_bars_at_decision or ())
+        c_m5 = list(closed_m5 or ())
+        c_m15 = list(closed_m15 or ())
+        dec_ts_int = int(order_intent.signal_timestamp_ms)
+        ent_px_f = float(ledger.entry_fill_price or order_intent.entry_reference)
+        sl_px_f = float(order_intent.selected_sl)
+        cands = collect_causal_stop_anchor_candidates(
+            model_id=order_intent.model_id,
+            direction=order_intent.direction,
+            entry_price=ent_px_f,
+            decision_timestamp_ms=dec_ts_int,
+            closed_m1=c_m1,
+            closed_m5=c_m5,
+            closed_m15=c_m15,
+            tick_size=0.01,
+            enforce_cross_tf_invalidation_check=True,
+        )
+        _, ranked_c, _ = rank_structure_valid_anchors(
+            cands,
+            model_id=order_intent.model_id,
+            direction=order_intent.direction,
+            entry_price=ent_px_f,
+            decision_timestamp_ms=dec_ts_int,
+        )
+        valid_prot = [
+            c
+            for c in ranked_c
+            if c.is_causal
+            and c.is_closed_bar
+            and not c.is_invalidated
+            and len(c.rejection_reasons) == 0
+            and int(c.known_at_ms) <= dec_ts_int
+            and int(c.source_bar_close_ms) <= dec_ts_int
+            and (c.timeframe in ("5M", "15M") or (c.is_protected_swing and not c.is_local_sweep_only))
+            and abs(float(c.anchor_price) - sl_px_f) > 1e-6
+        ]
+        # Prefer outer M15/M5 protected swing that is at or outside the trade's local invalidation
+        outer_htf = [
+            c
+            for c in valid_prot
+            if c.timeframe in ("5M", "15M")
+            and (
+                (order_intent.direction == "LONG" and float(c.anchor_price) <= inv_px + 0.05)
+                or (order_intent.direction == "SHORT" and float(c.anchor_price) >= inv_px - 0.05)
+            )
+        ]
+        chosen_ind = outer_htf[0] if outer_htf else (valid_prot[0] if valid_prot else None)
+        if chosen_ind is not None:
+            ind_prot_px = round(float(chosen_ind.anchor_price), 2)
+            ind_anchor_id = str(chosen_ind.anchor_id)
+            ind_anchor_kind = str(chosen_ind.anchor_kind)
+            ind_anchor_tf = str(chosen_ind.timeframe)
+            ind_anchor_known_ms = int(chosen_ind.known_at_ms)
+            ind_authority_source = f"INDEPENDENT_{ind_anchor_tf}_PROTECTED_SWING_AUTHORITY"
+
+    eff_prot_px = ind_prot_px if ind_prot_px is not None else inv_px
     stop_diag = classify_structure_stop_outcome(
         episode_id=f"{order_intent.variant}_{order_intent.model_id}_{order_intent.checkpoint_index_1m}",
         model_id=order_intent.model_id,
@@ -1479,10 +1582,20 @@ def simulate_executable_candidate_v179312(
         sl_price=float(order_intent.selected_sl),
         tp_price=float(order_intent.take_profit),
         invalidation_price=inv_px,
-        protected_structure_price=inv_px,
+        protected_structure_price=eff_prot_px,
         decision_timestamp_ms=int(order_intent.signal_timestamp_ms),
         forward_bars=forward_bars[:180],
         provenance="HISTORICAL_BACKTEST_V179312",
+    )
+
+    opp_id = _build_composite_opportunity_id_internal_v179312(
+        symbol=order_intent.symbol,
+        model_id=order_intent.model_id,
+        direction=order_intent.direction,
+        base_decision_ts_ms=order_intent.signal_timestamp_ms,
+        base_checkpoint_index_1m=order_intent.checkpoint_index_1m,
+        setup_episode_id=order_intent.setup_episode_id,
+        disambiguator=f"{order_intent.entry_reference:.2f}_{order_intent.selected_sl:.2f}_{order_intent.take_profit:.2f}",
     )
 
     return {
@@ -1491,6 +1604,7 @@ def simulate_executable_candidate_v179312(
         "execution_truth_class": "MODELED_HISTORICAL_BAR_EXECUTION",
         "execution_fill_mode": fill_mode,
         "episode_key": led_dict["episode_key"],
+        "opportunity_id": opp_id,
         "variant": order_intent.variant,
         "model_id": order_intent.model_id,
         "symbol": order_intent.symbol,
@@ -1544,11 +1658,15 @@ def simulate_executable_candidate_v179312(
         "execution_ledger": led_dict,
         "stop_outcome_diagnostic": stop_diag.to_dict(),
         "protected_structure_authority": {
-            "protected_structure_price": inv_px,
+            "protected_structure_price": eff_prot_px,
+            "independent_protected_structure_price": ind_prot_px,
             "local_invalidation_price": inv_px,
-            "outer_anchor_id": order_intent.selected_anchor_id,
-            "outer_anchor_kind": order_intent.anchor_kind,
-            "authority_source": "V1792_OUTER_STRUCTURAL_ANCHOR",
+            "outer_anchor_id": ind_anchor_id or order_intent.selected_anchor_id,
+            "outer_anchor_kind": ind_anchor_kind or order_intent.anchor_kind,
+            "independent_anchor_timeframe": ind_anchor_tf,
+            "independent_anchor_known_at_ms": ind_anchor_known_ms,
+            "anchor_independence_established": ind_prot_px is not None,
+            "authority_source": ind_authority_source if ind_prot_px is not None else "V1792_OUTER_STRUCTURAL_ANCHOR",
         },
     }
 
@@ -2833,6 +2951,21 @@ def derive_executable_structural_target_v179312(
     from services.liquidity_scenario_service import identify_confirmed_swings
 
     seen_px = {round(float(c["price"]), 2) for c in raw_targets if c.get("price") is not None}
+
+    # Precompute M1 suffix high/low arrays by close_time and open_time for O(log N) sweep checks
+    m1_len = len(closed_m1)
+    m1_open_ts = [int(b.get("open_time") or b.get("timestamp") or 0) for b in closed_m1]
+    m1_close_ts = [int(b.get("close_time") or 0) for b in closed_m1]
+    m1_suf_high = [0.0] * (m1_len + 1)
+    m1_suf_low = [float("inf")] * (m1_len + 1)
+    for k in range(m1_len - 1, -1, -1):
+        bh = float(closed_m1[k]["high"])
+        bl = float(closed_m1[k]["low"])
+        m1_suf_high[k] = bh if bh > m1_suf_high[k + 1] else m1_suf_high[k + 1]
+        m1_suf_low[k] = bl if bl < m1_suf_low[k + 1] else m1_suf_low[k + 1]
+
+    stop_dist = abs(float(entry) - float(selected_stop))
+
     for tf_bars, tf_label, tf_dur_ms in (
         (closed_m1, "1M", 60_000),
         (closed_m5, "5M", 300_000),
@@ -2841,6 +2974,16 @@ def derive_executable_structural_target_v179312(
     ):
         if len(tf_bars) < 3:
             continue
+        tf_len = len(tf_bars)
+        tf_open_ts = [int(b.get("open_time") or b.get("timestamp") or 0) for b in tf_bars]
+        tf_suf_high = [0.0] * (tf_len + 1)
+        tf_suf_low = [float("inf")] * (tf_len + 1)
+        for k in range(tf_len - 1, -1, -1):
+            bh = float(tf_bars[k]["high"])
+            bl = float(tf_bars[k]["low"])
+            tf_suf_high[k] = bh if bh > tf_suf_high[k + 1] else tf_suf_high[k + 1]
+            tf_suf_low[k] = bl if bl < tf_suf_low[k + 1] else tf_suf_low[k + 1]
+
         sh_micro, sl_micro = identify_confirmed_swings(
             tf_bars, timeframe=tf_label, left_bars=1, right_bars=1, as_of_ms=cutoff_ms
         )
@@ -2857,19 +3000,16 @@ def derive_executable_structural_target_v179312(
                 norm_dir == "SHORT" and sw_px >= float(entry) - 0.30
             ):
                 continue
-            swept = False
-            for chk_bars in (tf_bars, closed_m1):
-                for b in chk_bars:
-                    b_open = int(b.get("open_time") or b.get("timestamp") or 0)
-                    if b_open <= sw_occ:
-                        continue
-                    if (norm_dir == "LONG" and float(b["high"]) >= sw_px) or (
-                        norm_dir == "SHORT" and float(b["low"]) <= sw_px
-                    ):
-                        swept = True
-                        break
-                if swept:
-                    break
+            pos_tf = bisect.bisect_right(tf_open_ts, sw_occ)
+            pos_m1 = bisect.bisect_right(m1_open_ts, sw_occ)
+            if norm_dir == "LONG":
+                swept = (pos_tf < tf_len and tf_suf_high[pos_tf] >= sw_px) or (
+                    pos_m1 < m1_len and m1_suf_high[pos_m1] >= sw_px
+                )
+            else:
+                swept = (pos_tf < tf_len and tf_suf_low[pos_tf] <= sw_px) or (
+                    pos_m1 < m1_len and m1_suf_low[pos_m1] <= sw_px
+                )
             if not swept:
                 seen_px.add(sw_px)
                 raw_targets.append(
@@ -2887,7 +3027,7 @@ def derive_executable_structural_target_v179312(
                 )
         # Also check unmitigated opposing FVG / imbalance boundary levels on 5M/15M/1H
         if tf_label in ("5M", "15M", "1H"):
-            for idx_b in range(2, len(tf_bars)):
+            for idx_b in range(2, tf_len):
                 b0 = tf_bars[idx_b - 2]
                 b2 = tf_bars[idx_b]
                 c2_ms = int(b2.get("close_time") or b2.get("close_time_ms") or 0)
@@ -2900,6 +3040,9 @@ def derive_executable_structural_target_v179312(
                 elif float(b2["high"]) < float(b0["low"]):
                     bot, top = float(b2["high"]), float(b0["low"])
                     fvg_candidates.extend([("FVG_PROXIMAL", top), ("FVG_CE", 0.5 * (bot + top)), ("FVG_DISTAL", bot)])
+                if not fvg_candidates:
+                    continue
+                pos_m1_c2 = bisect.bisect_right(m1_close_ts, c2_ms)
                 for f_kind, f_raw in fvg_candidates:
                     f_px = round(f_raw, 2)
                     if f_px in seen_px:
@@ -2908,22 +3051,14 @@ def derive_executable_structural_target_v179312(
                         norm_dir == "SHORT" and f_px >= float(entry) - 0.30
                     ):
                         continue
-                    swept_f = False
-                    for b_after in tf_bars[idx_b + 1 :]:
-                        if (norm_dir == "LONG" and float(b_after["high"]) >= f_px) or (
-                            norm_dir == "SHORT" and float(b_after["low"]) <= f_px
-                        ):
-                            swept_f = True
-                            break
-                    if not swept_f:
-                        for b_m1 in closed_m1:
-                            if int(b_m1.get("close_time") or 0) <= c2_ms:
-                                continue
-                            if (norm_dir == "LONG" and float(b_m1["high"]) >= f_px) or (
-                                norm_dir == "SHORT" and float(b_m1["low"]) <= f_px
-                            ):
-                                swept_f = True
-                                break
+                    if norm_dir == "LONG":
+                        swept_f = (idx_b + 1 < tf_len and tf_suf_high[idx_b + 1] >= f_px) or (
+                            pos_m1_c2 < m1_len and m1_suf_high[pos_m1_c2] >= f_px
+                        )
+                    else:
+                        swept_f = (idx_b + 1 < tf_len and tf_suf_low[idx_b + 1] <= f_px) or (
+                            pos_m1_c2 < m1_len and m1_suf_low[pos_m1_c2] <= f_px
+                        )
                     if not swept_f:
                         seen_px.add(f_px)
                         raw_targets.append(
@@ -2951,22 +3086,15 @@ def derive_executable_structural_target_v179312(
                     norm_dir == "SHORT" and c_px >= float(entry) - 0.30
                 ):
                     continue
-                swept_c = False
-                for b_after in tf_bars[idx_c + 1 :]:
-                    if (norm_dir == "LONG" and float(b_after["high"]) >= c_px) or (
-                        norm_dir == "SHORT" and float(b_after["low"]) <= c_px
-                    ):
-                        swept_c = True
-                        break
-                if not swept_c:
-                    for b_m1 in closed_m1:
-                        if int(b_m1.get("close_time") or 0) <= bc_close_ms:
-                            continue
-                        if (norm_dir == "LONG" and float(b_m1["high"]) >= c_px) or (
-                            norm_dir == "SHORT" and float(b_m1["low"]) <= c_px
-                        ):
-                            swept_c = True
-                            break
+                pos_m1_bc = bisect.bisect_right(m1_close_ts, bc_close_ms)
+                if norm_dir == "LONG":
+                    swept_c = (idx_c + 1 < tf_len and tf_suf_high[idx_c + 1] >= c_px) or (
+                        pos_m1_bc < m1_len and m1_suf_high[pos_m1_bc] >= c_px
+                    )
+                else:
+                    swept_c = (idx_c + 1 < tf_len and tf_suf_low[idx_c + 1] <= c_px) or (
+                        pos_m1_bc < m1_len and m1_suf_low[pos_m1_bc] <= c_px
+                    )
                 if not swept_c:
                     seen_px.add(c_px)
                     raw_targets.append(
@@ -2991,6 +3119,12 @@ def derive_executable_structural_target_v179312(
         known_ms = int(cand.get("known_at_ms") or cutoff_ms)
         if known_ms > cutoff_ms:
             raise ValueError(f"TARGET_CANDIDATE_FUTURE_LEAK:{known_ms}>{cutoff_ms}")
+
+        # Fast causal pre-filter: since net_rr <= gross_rr (fees > 0), any target with gross_rr < min_net_rr cannot have net_rr >= min_net_rr
+        if stop_dist > 1e-6:
+            gross_rr_est = abs(t_px - float(entry)) / stop_dist
+            if gross_rr_est + 1e-6 < float(min_net_rr):
+                continue
 
         sz_eval = recalculate_trade_risk_quantity_v179312(
             entry=float(entry),
@@ -3893,6 +4027,18 @@ def evaluate_executable_interventions_on_cohort_v179312(
         winner["setup_id"] = str(
             winner.get("setup_episode_id") or f"setup_{idx_1m}_{winner['model_id']}_{winner['direction']}"
         )
+        winner["opportunity_id"] = str(
+            winner.get("opportunity_id")
+            or _build_composite_opportunity_id_internal_v179312(
+                symbol=str(winner.get("symbol") or "XAUUSDT"),
+                model_id=str(winner.get("model_id") or ""),
+                direction=str(winner.get("direction") or ""),
+                base_decision_ts_ms=int(winner.get("decision_timestamp_ms") or 0),
+                base_checkpoint_index_1m=idx_1m,
+                setup_episode_id=winner["setup_id"],
+                disambiguator=str(winner.get("trade_action_fingerprint") or winner.get("decision_fingerprint") or ""),
+            )
+        )
         canonical_opportunities.append(winner)
 
     results_by_policy: Dict[str, Any] = {}
@@ -3920,6 +4066,7 @@ def evaluate_executable_interventions_on_cohort_v179312(
                 close_ts_index=c_ts,
                 rebuilt_ctx_cache=ctx_cache,
             )
+            mat["opportunity_id"] = str(opp["opportunity_id"])
             materialized_list.append((opp, mat))
             if not mat["accepted"]:
                 rejected_count += 1
@@ -3956,11 +4103,12 @@ def evaluate_executable_interventions_on_cohort_v179312(
                 )
             )
 
-            accepted_by_setup_id: Dict[str, Dict[str, Any]] = {}
-            portfolio_status_by_setup_id: Dict[str, str] = {}
+            accepted_by_opp_id: Dict[str, Dict[str, Any]] = {}
+            portfolio_status_by_opp_id: Dict[str, str] = {}
 
             for opp, mat in accepted_pairs:
                 s_id = str(opp["setup_id"])
+                opp_id = str(opp["opportunity_id"])
                 new_ts = int(mat["new_decision_timestamp_ms"])
                 rep = replay_intervention_outcome_v179312(
                     mat, bars_1m, mode=f_mode, base_record=opp
@@ -3968,18 +4116,19 @@ def evaluate_executable_interventions_on_cohort_v179312(
                 if f_mode == "NEXT_BAR_OPEN_BID_ASK":
                     assert_intervention_is_real_v179312(opp, rep, v_pol.intervention_type, raise_on_error=True)
 
-                accepted_by_setup_id[s_id] = rep
+                accepted_by_opp_id[opp_id] = rep
                 ep_rec = rep["episode_record"]
                 assert ep_rec is not None
+                ep_rec["opportunity_id"] = opp_id
 
                 # Advance portfolio state up to `new_ts`
                 advance_portfolio_to_next_event_v179312(state, None, new_ts)
                 if state.active_episode is not None and new_ts < state.active_release_ts_ms:
                     blocked_by_open_pos += 1
-                    portfolio_status_by_setup_id[s_id] = "BLOCKED_BY_OPEN_POSITION"
+                    portfolio_status_by_opp_id[opp_id] = "BLOCKED_BY_OPEN_POSITION"
                     continue
 
-                portfolio_status_by_setup_id[s_id] = "EXECUTED_IN_PORTFOLIO"
+                portfolio_status_by_opp_id[opp_id] = "EXECUTED_IN_PORTFOLIO"
                 ep_copy = dict(ep_rec)
                 ep_copy["episode_index"] = len(mode_episodes) + 1
                 mode_episodes.append(ep_copy)
@@ -3997,10 +4146,16 @@ def evaluate_executable_interventions_on_cohort_v179312(
                 primary_episodes = mode_episodes
                 for opp, mat in materialized_list:
                     s_id = str(opp["setup_id"])
-                    rep_m = accepted_by_setup_id.get(s_id)
-                    p_st = portfolio_status_by_setup_id.get(s_id, "REJECTED_BY_INTERVENTION")
+                    opp_id = str(opp["opportunity_id"])
+                    rep_m = accepted_by_opp_id.get(opp_id)
+                    p_st = portfolio_status_by_opp_id.get(opp_id, "REJECTED_BY_INTERVENTION")
                     rec_item = {
+                        "opportunity_id": opp_id,
                         "setup_id": s_id,
+                        "base_checkpoint_index_1m": int(opp["checkpoint_index_1m"]),
+                        "base_decision_timestamp_ms": int(opp["decision_timestamp_ms"]),
+                        "model_id": str(opp["model_id"]),
+                        "direction": str(opp["direction"]),
                         "variant_id": vid,
                         "intervention_type": v_pol.intervention_type,
                         "accepted": bool(mat["accepted"]),
@@ -4109,6 +4264,49 @@ def evaluate_executable_interventions_on_cohort_v179312(
 # ==============================================================================
 # SECTION 07 — SEPARATE MATCHED-OPPORTUNITY STUDIES FROM INDEPENDENT REPLAY
 # ==============================================================================
+def _extract_canonical_opportunity_join_key_v179312(rec: Mapping[str, Any]) -> str:
+    """
+    Extracts a lossless composite opportunity identity `(symbol, setup_id, base_checkpoint_index_1m,
+    model_id, direction, base_decision_timestamp_ms)` so repeated `setup_id`s across distinct
+    timestamps never collide or overwrite in `match_variants_on_causal_opportunity_v179312`.
+    """
+    if rec.get("opportunity_id"):
+        return str(rec["opportunity_id"])
+    old_plan = rec.get("old_plan") if isinstance(rec.get("old_plan"), Mapping) else {}
+    s_id = str(
+        rec.get("setup_id")
+        or rec.get("base_setup_id")
+        or rec.get("setup_episode_id")
+        or f"setup_{rec.get('checkpoint_index_1m')}_{rec.get('model_id')}_{rec.get('direction')}"
+    )
+    chk_idx = rec.get("base_checkpoint_index_1m")
+    if chk_idx is None:
+        chk_idx = old_plan.get("checkpoint_index_1m")
+    if chk_idx is None:
+        chk_idx = rec.get("checkpoint_index_1m")
+
+    dec_ts = rec.get("base_decision_timestamp_ms")
+    if dec_ts is None:
+        dec_ts = old_plan.get("decision_timestamp_ms")
+    if dec_ts is None:
+        dec_ts = rec.get("decision_timestamp_ms")
+
+    model_id = str(rec.get("model_id") or old_plan.get("model_id") or "")
+    direction = str(rec.get("direction") or old_plan.get("direction") or "")
+
+    if chk_idx is not None or dec_ts is not None:
+        return _build_composite_opportunity_id_internal_v179312(
+            symbol=str(rec.get("symbol") or "XAUUSDT"),
+            model_id=model_id,
+            direction=direction,
+            base_decision_ts_ms=int(dec_ts or 0),
+            base_checkpoint_index_1m=int(chk_idx or 0),
+            setup_episode_id=s_id,
+            disambiguator=str(rec.get("trade_action_fingerprint") or old_plan.get("trade_action_fingerprint") or "default"),
+        )
+    return s_id
+
+
 def match_variants_on_causal_opportunity_v179312(
     baseline_records: Sequence[Mapping[str, Any]],
     variant_records_map: Mapping[str, Sequence[Mapping[str, Any]]],
@@ -4116,8 +4314,9 @@ def match_variants_on_causal_opportunity_v179312(
     baseline_portfolio_episodes: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
-    Section 07: Joins baseline and counterfactual variants on causal opportunity key
-    `(symbol, setup_id, model_id, direction, base_decision_timestamp_ms)` and decomposes:
+    Section 07: Joins baseline and counterfactual variants on lossless composite causal opportunity key
+    `(symbol, setup_id, base_checkpoint_index_1m, model_id, direction, base_decision_timestamp_ms)`
+    (never collapsing repeated `setup_id`s) and decomposes:
       - selected vs non-selected
       - changed entry time (`decision_timestamp_ms`)
       - changed entry reference (`entry_reference`)
@@ -4127,28 +4326,38 @@ def match_variants_on_causal_opportunity_v179312(
       - changed outcome (`WIN` -> `LOSS`, `LOSS` -> `WIN`, `LOSS` -> `REJECTED`, `WIN` -> `REJECTED`, etc.)
       - subsequent trade blocking / newly unlocked trades in independent portfolio replay.
     """
-    base_by_setup: Dict[str, Mapping[str, Any]] = {}
+    base_by_opp_key: Dict[str, Mapping[str, Any]] = {}
+    duplicate_baseline_keys: List[str] = []
     for b in baseline_records:
-        s_id = str(
-            b.get("setup_id")
-            or b.get("base_setup_id")
-            or f"setup_{b.get('checkpoint_index_1m')}_{b.get('model_id')}_{b.get('direction')}"
-        )
-        base_by_setup[s_id] = b
+        opp_key = _extract_canonical_opportunity_join_key_v179312(b)
+        if opp_key in base_by_opp_key:
+            duplicate_baseline_keys.append(opp_key)
+        base_by_opp_key[opp_key] = b
 
-    base_port_set: Set[str] = set()
+    if duplicate_baseline_keys:
+        raise ValueError(
+            f"DUPLICATE_BASELINE_OPPORTUNITY_KEYS_DETECTED:count={len(duplicate_baseline_keys)},sample={duplicate_baseline_keys[:5]}"
+        )
+
+    base_port_opp_keys: Set[str] = set()
     if baseline_portfolio_episodes:
         for ep in baseline_portfolio_episodes:
-            s_id = str(
-                ep.get("base_setup_id")
-                or ep.get("setup_episode_id")
-                or f"setup_{ep.get('checkpoint_index_1m')}_{ep.get('model_id')}_{ep.get('direction')}"
-            )
-            base_port_set.add(s_id)
+            base_port_opp_keys.add(_extract_canonical_opportunity_join_key_v179312(ep))
 
     comparisons: Dict[str, Any] = {}
     for vid, v_recs in variant_records_map.items():
-        v_by_setup = {str(r.get("setup_id") or r.get("base_setup_id")): r for r in v_recs}
+        v_by_opp_key: Dict[str, Mapping[str, Any]] = {}
+        dup_var_keys: List[str] = []
+        for r in v_recs:
+            k = _extract_canonical_opportunity_join_key_v179312(r)
+            if k in v_by_opp_key:
+                dup_var_keys.append(k)
+            v_by_opp_key[k] = r
+        if dup_var_keys:
+            raise ValueError(
+                f"DUPLICATE_VARIANT_OPPORTUNITY_KEYS_DETECTED:variant={vid},count={len(dup_var_keys)}"
+            )
+
         changed_entry_ts_count = 0
         changed_entry_px_count = 0
         changed_sl_count = 0
@@ -4163,14 +4372,29 @@ def match_variants_on_causal_opportunity_v179312(
         newly_blocked_in_portfolio = 0
         matched_rows_sample: List[Dict[str, Any]] = []
 
-        for s_id, b_rec in sorted(base_by_setup.items()):
-            v_rec = v_by_setup.get(s_id)
+        for opp_key, b_rec in sorted(base_by_opp_key.items()):
+            s_id = str(
+                b_rec.get("setup_id")
+                or b_rec.get("base_setup_id")
+                or f"setup_{b_rec.get('checkpoint_index_1m')}_{b_rec.get('model_id')}_{b_rec.get('direction')}"
+            )
+            v_rec = v_by_opp_key.get(opp_key)
             b_out = str(b_rec.get("outcome_label") or "")
+
+            if "portfolio_execution_status" in b_rec:
+                in_base_port = str(b_rec.get("portfolio_execution_status")) == "EXECUTED_IN_PORTFOLIO"
+            elif base_port_opp_keys:
+                in_base_port = opp_key in base_port_opp_keys
+            else:
+                in_base_port = True
+
             if v_rec is None or not bool(v_rec.get("accepted", False)):
                 if b_out == "LOSS":
                     avoided_baseline_losers += 1
                 elif b_out == "WIN":
                     foregone_baseline_winners += 1
+                if in_base_port:
+                    newly_blocked_in_portfolio += 1
                 continue
 
             dims = list(v_rec.get("changed_dimensions") or ())
@@ -4191,7 +4415,6 @@ def match_variants_on_causal_opportunity_v179312(
             elif b_out == "WIN" and v_out == "LOSS":
                 win_converted_to_loss += 1
 
-            in_base_port = s_id in base_port_set if base_port_set else True
             in_var_port = str(v_rec.get("portfolio_execution_status")) == "EXECUTED_IN_PORTFOLIO"
             if in_var_port and not in_base_port:
                 newly_unlocked_in_portfolio += 1
@@ -4201,6 +4424,7 @@ def match_variants_on_causal_opportunity_v179312(
             if len(matched_rows_sample) < 25 and (len(dims) > 0 or b_out != v_out):
                 matched_rows_sample.append(
                     {
+                        "opportunity_id": opp_key,
                         "setup_id": s_id,
                         "base_outcome": b_out,
                         "variant_outcome": v_out,
@@ -4220,7 +4444,9 @@ def match_variants_on_causal_opportunity_v179312(
 
         comparisons[vid] = {
             "variant_id": vid,
-            "total_baseline_opportunities": len(base_by_setup),
+            "total_baseline_opportunities": len(base_by_opp_key),
+            "unique_opportunity_keys_count": len(base_by_opp_key),
+            "collapsed_records_count": len(baseline_records) - len(base_by_opp_key),
             "changed_entry_timestamp_count": changed_entry_ts_count,
             "changed_entry_price_count": changed_entry_px_count,
             "changed_entry_reference_count": changed_entry_px_count,
@@ -4241,8 +4467,9 @@ def match_variants_on_causal_opportunity_v179312(
 
     return {
         "schema_version": V17_9_3_1_2_SCHEMA_VERSION,
-        "total_baseline_opportunities": len(base_by_setup),
-        "baseline_opportunities_count": len(base_by_setup),
+        "total_baseline_opportunities": len(base_by_opp_key),
+        "baseline_opportunities_count": len(base_by_opp_key),
+        "collapsed_records_count": len(baseline_records) - len(base_by_opp_key),
         "comparisons_by_variant": comparisons,
     }
 
@@ -4540,14 +4767,27 @@ def compute_loss_root_cause_matrix_v179312(
             "by_session": by_session_table,
         }
 
+    a1_mat = cohort_matrices.get("A1_V1792_SL_TP_BASELINE", {})
     return {
         "schema_version": V17_9_3_1_2_SCHEMA_VERSION,
         "full_universe_cohorts": cohort_matrices,
+        "epistemic_classification_disclosure": (
+            "Descriptive root-cause hypotheses below are tagged HYPOTHESIS_ONLY (LEVEL_1_DESCRIPTIVE_CORRELATE) "
+            "until evaluated via matched counterfactual ablation in rank_loss_drivers_by_verified_counterfactual_impact_v1793121."
+        ),
         "ranked_root_causes": [
             {
                 "rank": 1,
+                "status": "HYPOTHESIS_ONLY",
+                "evidence_hierarchy_level": "LEVEL_1_DESCRIPTIVE_CORRELATE",
                 "root_cause": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
                 "cause_id": "IMMEDIATE_M1_ENTRY_WITHOUT_POST_SIGNAL_DISPLACEMENT_CONFIRMATION",
+                "measured_descriptive_metric": {
+                    "low_mfe_lt_0_25r_losses_count": a1_mat.get("low_mfe_lt_0_25r_losses_count", 0),
+                    "low_mfe_lt_0_25r_losses_pct": a1_mat.get("low_mfe_lt_0_25r_losses_pct", 0.0),
+                    "fast_stopout_le3_bars_count": a1_mat.get("fast_stopout_le3_bars_count", 0),
+                    "fast_stopout_le3_bars_pct": a1_mat.get("fast_stopout_le3_bars_pct", 0.0),
+                },
                 "mechanism": (
                     "Entering at next-bar open immediately after an M1 candidate bar without requiring post-signal "
                     "displacement/MSS continuation or retest confirmation leads to high low-MFE (<0.25R) and fast (<=3 bar) stop-outs."
@@ -4560,8 +4800,13 @@ def compute_loss_root_cause_matrix_v179312(
             },
             {
                 "rank": 2,
+                "status": "HYPOTHESIS_ONLY",
+                "evidence_hierarchy_level": "LEVEL_1_DESCRIPTIVE_CORRELATE",
                 "root_cause": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
                 "cause_id": "M1_LOCAL_STOP_INSIDE_SWEEP_NOISE_ZONE",
+                "measured_descriptive_metric": {
+                    "stop_classification_counts": a1_mat.get("stop_classification_counts", {}),
+                },
                 "mechanism": (
                     "When M1 stop placement sits near the local trigger wick without outer M5/M15 structural anchor "
                     "separation + dynamic spread/ATR buffer, routine liquidity re-probes stop out the position before structure breaks."
@@ -4574,8 +4819,14 @@ def compute_loss_root_cause_matrix_v179312(
             },
             {
                 "rank": 3,
+                "status": "HYPOTHESIS_ONLY",
+                "evidence_hierarchy_level": "LEVEL_1_DESCRIPTIVE_CORRELATE",
                 "root_cause": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
                 "cause_id": "DISTANT_UNREALISTIC_TP_CAUSING_MFE_REVERSAL_INTO_STOP",
+                "measured_descriptive_metric": {
+                    "reversal_after_0_50r_mfe_losses_count": a1_mat.get("reversal_after_0_50r_mfe_losses_count", 0),
+                    "reversal_after_0_50r_mfe_losses_pct": a1_mat.get("reversal_after_0_50r_mfe_losses_pct", 0.0),
+                },
                 "mechanism": (
                     "Trades that achieve >=0.50R MFE fail to reach distant targets when an intervening unswept M5/M15 "
                     "liquidity pool or opposing zone caps price action and reverses the trade back into SL."
@@ -4587,8 +4838,14 @@ def compute_loss_root_cause_matrix_v179312(
             },
             {
                 "rank": 4,
+                "status": "HYPOTHESIS_ONLY",
+                "evidence_hierarchy_level": "LEVEL_1_DESCRIPTIVE_CORRELATE",
                 "root_cause": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
                 "cause_id": "UNFILTERED_OFF_HOURS_AND_MULTI_MODEL_CHURN_OUTSIDE_MACRO_WINDOWS",
+                "measured_descriptive_metric": {
+                    "outside_legacy_screen_losses": a1_mat.get("outside_legacy_screen_losses", 0),
+                    "by_session": a1_mat.get("by_session", {}),
+                },
                 "mechanism": (
                     "Across all 22,346 timestamps, unfiltered M1 models fire continuously across low-quality off-hours "
                     "bars, compounding spread and taker fee drag across hundreds of consecutive portfolio trades."
@@ -4601,8 +4858,13 @@ def compute_loss_root_cause_matrix_v179312(
             },
             {
                 "rank": 5,
+                "status": "HYPOTHESIS_ONLY",
+                "evidence_hierarchy_level": "LEVEL_1_DESCRIPTIVE_CORRELATE",
                 "root_cause": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
                 "cause_id": "HTF_STRUCTURE_COUNTERTREND_CONFLICT_H1_H4",
+                "measured_descriptive_metric": {
+                    "by_model": a1_mat.get("by_model", {}),
+                },
                 "mechanism": (
                     "M1 setups taken against causal H1/H4 trend bias suffer elevated failure rates when higher-timeframe "
                     "orderflow resumes against the local M1 trigger."
