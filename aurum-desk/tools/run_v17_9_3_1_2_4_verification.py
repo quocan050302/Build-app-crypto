@@ -655,15 +655,30 @@ def main() -> int:
     staging_bt_dir.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"[1/4] Running 100% FRESH backend pytest discovery & sharded JUnit execution (force_fresh_execution=True) -> {run_dir / 'junit'}",
+        f"[1..2/4] Launching 100% FRESH sharded pytest JUnit + SI0..SI8 backtest + 16 source mutations concurrently -> {run_dir}",
         flush=True,
     )
-    art_08_col, art_09_bij = run_full_backend_pytest_collection_and_sharded_junit_v1793122(
-        run_dir / "junit",
-        tested_executable_sha=tested_sha,
-        max_workers=4,
-        force_fresh_execution=True,
-    )
+    with ThreadPoolExecutor(max_workers=3) as ex_main:
+        fut_pytest = ex_main.submit(
+            run_full_backend_pytest_collection_and_sharded_junit_v1793122,
+            run_dir / "junit",
+            tested_executable_sha=tested_sha,
+            max_workers=4,
+            force_fresh_execution=True,
+        )
+        fut_bt = ex_main.submit(
+            run_v17_9_3_1_2_2_entry_signal_backtest_pipeline,
+            staging_bt_dir,
+            tested_executable_sha=tested_sha,
+        )
+        fut_mut = ex_main.submit(
+            run_16_executable_red_green_source_mutations_v1793122,
+            tested_executable_sha=tested_sha,
+        )
+        bt_ev = fut_bt.result()
+        art_11_mut = fut_mut.result()
+        art_08_col, art_09_bij = fut_pytest.result()
+
     art_08_col["schema_version"] = V17_9_3_1_2_4_SCHEMA_VERSION
     art_09_bij["schema_version"] = V17_9_3_1_2_4_SCHEMA_VERSION
     atomic_write_json(run_dir / "08_full_pytest_collection_manifest.json", art_08_col)
@@ -702,23 +717,6 @@ def main() -> int:
         "exact_bijection": all(bool(s.get("exact_bijection", False)) for s in targeted_shards),
     }
     atomic_write_json(run_dir / "07_targeted_v17_9_3_1_2_4_test_results.json", art_07_targeted)
-
-    print(
-        f"[2/4] Running full SI0..SI8 backtest + 16 executable RED/GREEN source mutations concurrently -> {run_dir}",
-        flush=True,
-    )
-    with ThreadPoolExecutor(max_workers=2) as ex_main:
-        fut_bt = ex_main.submit(
-            run_v17_9_3_1_2_2_entry_signal_backtest_pipeline,
-            staging_bt_dir,
-            tested_executable_sha=tested_sha,
-        )
-        fut_mut = ex_main.submit(
-            run_16_executable_red_green_source_mutations_v1793122,
-            tested_executable_sha=tested_sha,
-        )
-        bt_ev = fut_bt.result()
-        art_11_mut = fut_mut.result()
 
     art_11_mut["schema_version"] = V17_9_3_1_2_4_SCHEMA_VERSION
     atomic_write_json(run_dir / "11_executable_red_green_source_mutations.json", art_11_mut)
@@ -909,7 +907,7 @@ def main() -> int:
         "tested_executable_sha": tested_sha,
         "fill_modes_replayed": list(FILL_MODES),
         "ledger_accounting_identity_violations": bt_ev["14"]["ledger_accounting_identity_violations"],
-        "fill_mode_reconciliation_by_policy": bt_ev["14"]["reconciliation_by_policy"],
+        "fill_mode_reconciliation_by_policy": bt_ev["14"]["replays_by_policy_and_fill_mode"],
         "worker_1_sha256": bt_ev["31"]["worker_1_sha256"],
         "worker_2_sha256": bt_ev["31"]["worker_2_sha256"],
         "worker_4_sha256": bt_ev["31"]["worker_4_sha256"],
