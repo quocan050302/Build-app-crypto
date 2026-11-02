@@ -3842,7 +3842,6 @@ class SharedStrategyEvaluator:
                 return res_dir
             if res_reason in (
                 "HTF_BIAS_MISSING_NO_DEFAULT_LONG",
-                "HTF_DATA_INSUFFICIENT_OR_CONFLICTED",
                 "HTF_LOOKAHEAD_INVALID",
                 "EXPLICIT_HTF_BIAS_MISSING_CLOSED_CANDLE_PROVENANCE",
                 "EXPLICIT_HTF_BIAS_WITHOUT_CAUSAL_BAR_PROVENANCE_REJECTED",

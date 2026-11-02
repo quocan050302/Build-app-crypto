@@ -898,8 +898,8 @@ def resolve_research_preferred_direction_v1793122(
     if (h4_b == "BULLISH" and h1_b == "BEARISH") or (h4_b == "BEARISH" and h1_b == "BULLISH"):
         return (None, "HTF_MIXED_REQUIRE_LOCAL_CONFIRMATION")
 
-    if h4_b in ("ABSENT", "INSUFFICIENT", "STALE") and h1_b in ("ABSENT", "INSUFFICIENT", "STALE") and len(m15_bars) < 3 and len(m5_bars) < 3:
-        return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
+    if context is not None and h4_b in ("ABSENT", "INSUFFICIENT", "STALE") and h1_b in ("ABSENT", "INSUFFICIENT", "STALE") and len(m15_bars) < 3 and len(m5_bars) < 3:
+        return (None, "HTF_BIAS_MISSING_NO_DEFAULT_LONG")
 
     return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
 
