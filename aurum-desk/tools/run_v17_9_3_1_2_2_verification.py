@@ -149,6 +149,7 @@ def verify_collect_vs_junit_node_id_bijection_v1793122(
 
 
 def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> List[Tuple[str, List[str]]]:
+    s00000 = [f for f in all_test_files if "v17_9_3_1_2_5" in f]
     s0000 = [f for f in all_test_files if "v17_9_3_1_2_4" in f]
     s000 = [f for f in all_test_files if "v17_9_3_1_2_3" in f]
     s00a = [f for f in all_test_files if "v17_9_3_1_2_2" in f]
@@ -157,6 +158,7 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         f
         for f in all_test_files
         if ("v17_9_3_1_2" in f or "v17_9_3_1_1" in f or "v17_9_3" in f)
+        and f not in s00000
         and f not in s0000
         and f not in s000
         and f not in s00a
@@ -176,12 +178,14 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         )
     ]
     s04 = [f for f in all_test_files if f == "backend/tests/test_v16_23_red_reproductions.py"]
-    assigned = set(s0000 + s000 + s00a + s00b + s00c + s01 + s02 + s03 + s04)
+    assigned = set(s00000 + s0000 + s000 + s00a + s00b + s00c + s01 + s02 + s03 + s04)
     remaining = [f for f in all_test_files if f not in assigned]
 
     shards: List[Tuple[str, List[str]]] = []
     s02_sorted = sorted(s02, key=lambda x: 0 if "runtime_integration" in x else (1 if "strict_eligibility" in x else 2))
     # 1. Fast shards first so fast shards flush to disk in <15s and heavy shards are interleaved
+    if s00000:
+        shards.append(("SHARD_00000_V17_9_3_1_2_5", s00000))
     if s0000:
         shards.append(("SHARD_0000_V17_9_3_1_2_4", s0000))
     if s000:

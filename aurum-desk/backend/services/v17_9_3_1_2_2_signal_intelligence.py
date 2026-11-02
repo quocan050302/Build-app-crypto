@@ -136,6 +136,8 @@ def _canonical_json_sha256(payload: Any) -> str:
 
 
 def _bar_open_ms(bar: Any) -> int:
+    if type(bar) is dict:
+        return int(bar.get("open_time") or bar.get("open_time_ms") or bar.get("timestamp") or 0)
     if isinstance(bar, Mapping):
         return int(bar.get("open_time") or bar.get("open_time_ms") or bar.get("timestamp") or 0)
     return int(
@@ -147,6 +149,12 @@ def _bar_open_ms(bar: Any) -> int:
 
 
 def _bar_close_ms(bar: Any, tf_ms: int = 60_000) -> int:
+    if type(bar) is dict:
+        c = bar.get("close_time") or bar.get("close_time_ms")
+        if c is not None:
+            return int(c)
+        o = bar.get("open_time") or bar.get("open_time_ms") or bar.get("timestamp") or 0
+        return int(o) + tf_ms if o else 0
     if isinstance(bar, Mapping):
         c = bar.get("close_time") or bar.get("close_time_ms")
         if c is not None:
@@ -161,7 +169,9 @@ def _bar_close_ms(bar: Any, tf_ms: int = 60_000) -> int:
 
 
 def _bar_float(bar: Any, key: str, default: float = 0.0) -> float:
-    if isinstance(bar, Mapping):
+    if type(bar) is dict:
+        val = bar.get(key, default)
+    elif isinstance(bar, Mapping):
         val = bar.get(key, default)
     else:
         val = getattr(bar, key, default)
@@ -904,6 +914,28 @@ def resolve_research_preferred_direction_v1793122(
     return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
 
 
+def _extract_fast_m1_candles(
+    closed_1m: Sequence[Any],
+    now_ms: int,
+) -> List[Tuple[int, float, float]]:
+    fast_bars: List[Tuple[int, float, float]] = []
+    for b in closed_1m:
+        if type(b) is dict:
+            c = b.get("close_time") or b.get("close_time_ms")
+            if c is not None:
+                c_ms = int(c)
+            else:
+                o = b.get("open_time") or b.get("open_time_ms") or b.get("timestamp") or 0
+                c_ms = int(o) + 60_000 if o else 0
+            if c_ms <= now_ms:
+                fast_bars.append((c_ms, float(b.get("high", 0.0)), float(b.get("low", 0.0))))
+        else:
+            c_ms = _bar_close_ms(b, 60_000)
+            if c_ms <= now_ms:
+                fast_bars.append((c_ms, _bar_float(b, "high"), _bar_float(b, "low")))
+    return fast_bars
+
+
 def _build_causal_swing_pools_from_swings_v1793124(
     target_swings: Sequence[Mapping[str, Any]],
     closed_1m: Sequence[Any],
@@ -916,6 +948,7 @@ def _build_causal_swing_pools_from_swings_v1793124(
     and `now_ms` to determine whether price already traded through/swept the swing level
     (`swept_at_ms <= now_ms`). Never blindly marks fallback swings `swept=False`.
     """
+    fast_bars = _extract_fast_m1_candles(closed_1m, now_ms) if closed_1m else []
     out: List[Dict[str, Any]] = []
     for s in target_swings:
         px = float(s.get("price", 0.0) or 0.0)
@@ -926,16 +959,15 @@ def _build_causal_swing_pools_from_swings_v1793124(
         start_check_ms = min(occ_ms, k_ms) if (occ_ms > 0 and k_ms > 0) else max(occ_ms, k_ms)
         swept_flag = bool(s.get("swept", False) or s.get("mitigated", False))
         swept_at_ms: Optional[int] = s.get("swept_at_ms") or s.get("mitigated_at_ms")
-        if not swept_flag and start_check_ms > 0 and closed_1m:
-            for b in closed_1m:
-                b_close_ms = _bar_close_ms(b, 60_000)
-                if b_close_ms <= start_check_ms or b_close_ms > now_ms:
+        if not swept_flag and start_check_ms > 0 and fast_bars:
+            for b_close_ms, b_high, b_low in fast_bars:
+                if b_close_ms <= start_check_ms:
                     continue
-                if direction == "LONG" and _bar_float(b, "high") >= px:
+                if direction == "LONG" and b_high >= px:
                     swept_flag = True
                     swept_at_ms = b_close_ms
                     break
-                if direction == "SHORT" and _bar_float(b, "low") <= px:
+                if direction == "SHORT" and b_low <= px:
                     swept_flag = True
                     swept_at_ms = b_close_ms
                     break
@@ -977,11 +1009,19 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
     if not pools or entry_price <= 0.0:
         return (None, take_profit, now_ms, False, False)
 
+    fast_bars = _extract_fast_m1_candles(closed_1m, now_ms) if closed_1m else []
     explicit_pool_was_swept = False
     valid_candidates: List[Tuple[float, str, float, int]] = []
 
     for p in pools:
-        if isinstance(p, Mapping):
+        if type(p) is dict:
+            p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
+            p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
+            k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
+            occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
+            is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
+            swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
+        elif isinstance(p, Mapping):
             p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
             p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
             k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
@@ -1017,12 +1057,11 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
         swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
         swept_by_bars = False
         check_start_ts = min(int(occ_ts_raw), k_ts) if occ_ts_raw is not None else k_ts
-        if k_ts_raw is not None and closed_1m:
-            post_pool_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > check_start_ts and _bar_close_ms(b, 60_000) <= now_ms]
+        if k_ts_raw is not None and fast_bars:
             if direction == "LONG" and p_px > entry_price:
-                swept_by_bars = any(_bar_float(b, "high") >= p_px for b in post_pool_bars)
+                swept_by_bars = any(h >= p_px for c_ts, h, _ in fast_bars if check_start_ts < c_ts <= now_ms)
             elif direction == "SHORT" and p_px < entry_price:
-                swept_by_bars = any(_bar_float(b, "low") <= p_px for b in post_pool_bars)
+                swept_by_bars = any(l <= p_px for c_ts, _, l in fast_bars if check_start_ts < c_ts <= now_ms)
 
         if is_swept_flag or swept_by_ts or swept_by_bars:
             if selected_target_id and p_id == str(selected_target_id):
@@ -2598,11 +2637,20 @@ def score_candidate_record_pre_entry_v1793122(
     f = dict(feature_row or rec.get("pre_entry_features") or {})
     htf_align = str(f.get("htf_alignment_state") or rec.get("htf_alignment_state") or "NEUTRAL").upper()
     unicorn_cls = str(f.get("unicorn_classification") or rec.get("unicorn_validity") or "NONE").upper()
-    sweep_ok = bool(f.get("sweep_confirmed", rec.get("selected_sweep_id") is not None))
-    mss_ok = bool(f.get("mss_confirmed", rec.get("selected_break_id") is not None))
-    disp_ok = bool(f.get("displacement_valid", True))
-    retest_ok = bool(f.get("fvg_retest_valid", rec.get("selected_fvg_id") is not None))
-    reach_ok = bool(f.get("target_reachable", True))
+    sweep_ok = bool(
+        f.get("sweep_confirmed", False)
+        or (f.get("sweep_confirmed") is None and rec.get("selected_sweep_id") is not None)
+    )
+    mss_ok = bool(
+        f.get("mss_confirmed", False)
+        or (f.get("mss_confirmed") is None and rec.get("selected_break_id") is not None)
+    )
+    disp_ok = bool(f.get("displacement_valid", False))
+    retest_ok = bool(
+        f.get("fvg_retest_valid", False)
+        or (f.get("fvg_retest_valid") is None and rec.get("selected_fvg_id") is not None)
+    )
+    reach_ok = bool(f.get("target_reachable", False))
     net_rr = round(float(rec.get("net_rr") or 0.0), 4)
     m_id = str(rec.get("model_id") or "")
     tie_rank = -int(RESEARCH_MODEL_BASE_TIE_RANK.get(m_id, 99))
@@ -2736,10 +2784,10 @@ def compute_strategy_statistical_verdict_v1793122(
         }
 
     research_ids = [
-        pid for pid in CANONICAL_SIGNAL_INTELLIGENCE_POLICY_IDS if pid != "SI0_OFF_BASELINE" and pid in policy_metrics_by_id
+        pid for pid in CANONICAL_V1793123_POLICY_IDS if pid != "SI0_OFF_BASELINE" and pid in policy_metrics_by_id
     ]
     if not research_ids:
-        research_ids = list(policy_metrics_by_id.keys())
+        research_ids = [pid for pid in policy_metrics_by_id.keys() if pid != "SI0_OFF_BASELINE"]
 
     # Evaluate each research policy on primary NEXT_BAR_OPEN_BID_ASK strict hold
     positive_powered_policies: List[str] = []
@@ -2813,11 +2861,18 @@ def compute_strategy_statistical_verdict_v1793122(
             f"({underpowered_negative_or_zero}); sample is underpowered to claim positive edge."
         )
 
+    best_usd = (
+        round(float(policy_metrics_by_id[best_pid].get("total_realized_net_usd", 0.0) or 0.0), 4)
+        if (best_pid is not None and best_pid in policy_metrics_by_id)
+        else None
+    )
+
     return {
         "strategy_statistical_verdict": verdict,
         "activation_ready": "NO",
         "best_research_policy_id": best_pid,
         "best_research_expectancy_net_r": round(best_exp_r, 4) if best_pid is not None else None,
+        "best_research_net_usd": best_usd,
         "positive_powered_policies": positive_powered_policies,
         "positive_underpowered_policies": positive_underpowered_policies,
         "negative_powered_policies": negative_powered_policies,

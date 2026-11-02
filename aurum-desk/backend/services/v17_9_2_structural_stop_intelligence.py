@@ -55,6 +55,12 @@ def _is_valid_finite_price(val: Any) -> bool:
 
 
 def _candle_close_ms(bar: Any, tf_ms: int = 60_000) -> int:
+    if type(bar) is dict:
+        ct = bar.get("close_time")
+        if ct is not None and not isinstance(ct, bool):
+            return int(ct)
+        ot = bar.get("open_time", bar.get("timestamp", 0))
+        return int(ot) + tf_ms
     if isinstance(bar, Mapping):
         ct = bar.get("close_time")
         if ct is not None and not isinstance(ct, bool):
@@ -69,7 +75,9 @@ def _candle_close_ms(bar: Any, tf_ms: int = 60_000) -> int:
 
 
 def _candle_is_closed(bar: Any, cutoff_ms: int, tf_ms: int = 60_000) -> bool:
-    if isinstance(bar, Mapping):
+    if type(bar) is dict:
+        is_c = bar.get("is_closed", True)
+    elif isinstance(bar, Mapping):
         is_c = bar.get("is_closed", True)
     else:
         is_c = getattr(bar, "is_closed", True)

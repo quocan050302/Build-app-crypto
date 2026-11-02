@@ -17,9 +17,11 @@ Implements:
 """
 from __future__ import annotations
 
+import bisect
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 from services.scalp_m1_types import ModelIdentifier
 from services.shared_strategy_evaluator import (
@@ -42,6 +44,7 @@ from services.v17_9_3_1_2_executable_intervention_replay_service import (
 )
 
 V17_9_3_1_2_3_SCHEMA_VERSION = "17.9.3.1.2.3"
+V17_9_3_1_2_5_SCHEMA_VERSION = "17.9.3.1.2.5"
 
 CANONICAL_LOSS_ROOT_CAUSE_TAXONOMY_V1793123: Tuple[str, ...] = (
     "WRONG_SIDE_HTF",
@@ -411,60 +414,124 @@ def build_ground_truth_loss_forensics_v1793123(
     }
 
 
-def discover_research_candidates_v1793123(
+DEFAULT_TEST_ONLY_SAMPLE_INDICES_V1793123: Tuple[int, ...] = (
+    5000,
+    5577,
+    5600,
+    6075,
+    6324,
+    6490,
+    7400,
+    8000,
+    8897,
+    9312,
+    9800,
+    10400,
+    11387,
+    11802,
+    12200,
+    17600,
+    18800,
+    19770,
+    19853,
+    20000,
+)
+
+
+def iter_causal_decision_checkpoints_v1793125(
     datasets: Mapping[str, Any],
     *,
-    sample_indices_1m: Sequence[int] = (
-        5000,
-        5577,
-        5600,
-        6075,
-        6324,
-        6490,
-        7400,
-        8000,
-        8897,
-        9312,
-        9800,
-        10400,
-        11387,
-        11802,
-        12200,
-        17600,
-        18800,
-        19770,
-        19853,
-        20000,
-    ),
-) -> Dict[str, Any]:
+    warmup_bars: int = 30,
+    m1_lookback: int = 180,
+    m5_lookback: int = 80,
+    m15_lookback: int = 60,
+    h1_lookback: int = 48,
+    h4_lookback: int = 30,
+    test_only_checkpoint_override: Optional[Sequence[int]] = None,
+) -> Iterator[Dict[str, Any]]:
     """
-    STAGE G1 / V17.9.3.1.2.4 Stage R1 (`04_candidate_generation_and_model_starvation_repair.json` /
-    `05_si8_candidate_discovery_funnel_by_model.json`):
-    Evaluates the real `SharedStrategyEvaluator` across all 5 canonical models and
-    both directions under:
-      1. `OFF` / `SI0_OFF_BASELINE` (exact legacy baseline parity, 0 discovery rescues)
-      2. `RESEARCH_APPLY` / `SI7_CORE_TRADING_LOGIC_REPAIRED` (non-rescue for rejected baseline,
-         strict causal repair on eligible setups)
-      3. `RESEARCH_APPLY` / `SI8_RESEARCH_DISCOVERY_REPAIRED` (independent causal candidate
-         discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)
-      4. Also verifies that legacy mismatch mode `"RESEARCH_DISCOVERY"` fails closed with
-         `SI_INVALID_MODE_FAIL_CLOSED`.
+    V17.9.3.1.2.5 Stage 1: Streaming causal decision checkpoint generator.
+    Emits EVERY post-warmup M1 decision-close timestamp across the canonical dataset
+    (or test_only_checkpoint_override if explicitly passed).
+    Guarantees strict causal ordering and no lookahead across M1/M5/M15/H1/H4 timeframes.
     """
-    evaluator = SharedStrategyEvaluator()
     bars_1m = list(datasets["1m"])
     bars_5m = list(datasets.get("5m", []))
     bars_15m = list(datasets.get("15m", []))
     bars_1h = list(datasets.get("1H", []))
     bars_4h = list(datasets.get("4H", []))
-    pol_hash = compute_research_policy_registry_hash_v179312()
 
+    ts_5m = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_5m]
+    ts_15m = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_15m]
+    ts_1h = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_1h]
+    ts_4h = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_4h]
+
+    target_indices = (
+        test_only_checkpoint_override
+        if test_only_checkpoint_override is not None
+        else range(warmup_bars, len(bars_1m))
+    )
+
+    for idx_1m in target_indices:
+        if idx_1m < warmup_bars or idx_1m >= len(bars_1m):
+            continue
+        w_1m = bars_1m[max(0, idx_1m - m1_lookback) : idx_1m + 1]
+        cur_ts = int(w_1m[-1]["close_time"])
+        i5 = bisect.bisect_right(ts_5m, cur_ts)
+        w_5m = bars_5m[max(0, i5 - m5_lookback) : i5]
+        i15 = bisect.bisect_right(ts_15m, cur_ts)
+        w_15m = bars_15m[max(0, i15 - m15_lookback) : i15]
+        i1h = bisect.bisect_right(ts_1h, cur_ts)
+        w_1h = bars_1h[max(0, i1h - h1_lookback) : i1h]
+        i4h = bisect.bisect_right(ts_4h, cur_ts)
+        w_4h = bars_4h[max(0, i4h - h4_lookback) : i4h]
+        last_c = float(w_1m[-1]["close"])
+
+        data_sufficient = bool(
+            len(w_1m) >= 30 and len(w_5m) >= 10 and len(w_15m) >= 10 and len(w_1h) >= 5 and len(w_4h) >= 2
+        )
+
+        yield {
+            "checkpoint_index_1m": int(idx_1m),
+            "decision_timestamp_ms": int(cur_ts),
+            "data_sufficiency_status": "SUFFICIENT" if data_sufficient else "INSUFFICIENT",
+            "m1_candles": w_1m,
+            "m5_candles": w_5m,
+            "m15_candles": w_15m,
+            "h1_candles": w_1h,
+            "h4_candles": w_4h,
+            "bid": round(last_c - 0.10, 2),
+            "ask": round(last_c + 0.10, 2),
+            "quote_timestamp_ms": int(cur_ts),
+        }
+
+
+def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]:
+    (
+        chunk_indices,
+        bars_1m,
+        bars_5m,
+        bars_15m,
+        bars_1h,
+        bars_4h,
+        ts_5m,
+        ts_15m,
+        ts_1h,
+        ts_4h,
+    ) = payload
+
+    evaluator = SharedStrategyEvaluator()
     off_eligible_by_model: Counter[str] = Counter()
     si7_eligible_by_model: Counter[str] = Counter()
     si8_eligible_by_model: Counter[str] = Counter()
     si8_discovered_by_model: Counter[str] = Counter()
     si8_incremental_eligible_by_model: Counter[str] = Counter()
     si7_rescued_from_off_rejected = 0
+    si7_upgraded_invalid = 0
     si8_rescued_invalid_baseline = 0
+    new_si8_valid_when_baseline_no_setup = 0
+    new_si8_valid_when_baseline_waiting = 0
+
     discovered_samples: List[Dict[str, Any]] = []
     si8_discovered_decisions_by_checkpoint_index: Dict[int, List[Dict[str, Any]]] = {}
     si8_discovered_feature_ledger_by_opp_id: Dict[str, Dict[str, Any]] = {}
@@ -486,15 +553,19 @@ def discover_research_candidates_v1793123(
     legacy_mismatch_verified = False
     legacy_mismatch_rejection_reasons: List[str] = []
 
-    for idx_1m in sample_indices_1m:
+    for idx_1m in chunk_indices:
         if idx_1m >= len(bars_1m):
             continue
         w_1m = bars_1m[max(0, idx_1m - 180) : idx_1m + 1]
         cur_ts = int(w_1m[-1]["close_time"])
-        w_5m = [b for b in bars_5m if int(b["close_time"]) <= cur_ts][-80:]
-        w_15m = [b for b in bars_15m if int(b["close_time"]) <= cur_ts][-60:]
-        w_1h = [b for b in bars_1h if int(b["close_time"]) <= cur_ts][-48:]
-        w_4h = [b for b in bars_4h if int(b["close_time"]) <= cur_ts][-30:]
+        i5 = bisect.bisect_right(ts_5m, cur_ts)
+        w_5m = bars_5m[max(0, i5 - 80) : i5]
+        i15 = bisect.bisect_right(ts_15m, cur_ts)
+        w_15m = bars_15m[max(0, i15 - 60) : i15]
+        i1h = bisect.bisect_right(ts_1h, cur_ts)
+        w_1h = bars_1h[max(0, i1h - 48) : i1h]
+        i4h = bisect.bisect_right(ts_4h, cur_ts)
+        w_4h = bars_4h[max(0, i4h - 30) : i4h]
         last_c = float(w_1m[-1]["close"])
         base_ctx = build_market_decision_context(
             symbol="XAUUSDT",
@@ -584,12 +655,27 @@ def discover_research_candidates_v1793123(
                 s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
                 s_si8 = evaluator.evaluate_model_direction(ctx_si8, m_id, d_side, adapter_origin="BACKTEST")
 
+                baseline_has_desc = bool(s_off.selected_sweep_id or s_off.selected_break_id or s_off.selected_fvg_id)
+                baseline_invalid_setup = (str(s_off.setup_validity) == "INVALID") or (
+                    s_off.decision_status == "REJECTED" and any("INVALID" in str(r) or "MALFORMED" in str(r) for r in s_off.rejection_reasons)
+                )
+                baseline_waiting = (
+                    not baseline_invalid_setup
+                    and (
+                        str(s_off.setup_validity) == "WAITING"
+                        or any("WAIT" in str(r) or "PENDING" in str(r) for r in s_off.rejection_reasons)
+                    )
+                )
+                baseline_no_setup = not baseline_has_desc and str(s_off.setup_validity) != "VALID"
+
                 if s_off.decision_status == "ELIGIBLE":
                     off_eligible_by_model[m_id] += 1
                 if s_si7.decision_status == "ELIGIBLE":
                     si7_eligible_by_model[m_id] += 1
                     if s_off.decision_status != "ELIGIBLE":
                         si7_rescued_from_off_rejected += 1
+                        if baseline_invalid_setup:
+                            si7_upgraded_invalid += 1
 
                 has_desc = bool(s_si8.selected_sweep_id or s_si8.selected_break_id or s_si8.selected_fvg_id)
                 if has_desc:
@@ -600,6 +686,15 @@ def discover_research_candidates_v1793123(
                 if s_si8.decision_status == "ELIGIBLE":
                     si8_eligible_by_model[m_id] += 1
                     funnel_by_model[m_id]["eligible_after_risk"] += 1
+                    if s_off.decision_status != "ELIGIBLE":
+                        if baseline_invalid_setup:
+                            if not has_desc or str(s_si8.setup_validity) != "VALID":
+                                si8_rescued_invalid_baseline += 1
+                        elif baseline_no_setup:
+                            new_si8_valid_when_baseline_no_setup += 1
+                        elif baseline_waiting:
+                            new_si8_valid_when_baseline_waiting += 1
+
                     if s_si7.decision_status != "ELIGIBLE":
                         si8_incremental_eligible_by_model[m_id] += 1
                         funnel_by_model[m_id]["incremental_vs_si7"] += 1
@@ -660,15 +755,20 @@ def discover_research_candidates_v1793123(
                         base_rec["opportunity_id"] = opp_id
                         si8_discovered_decisions_by_checkpoint_index.setdefault(int(idx_1m), []).append(base_rec)
                         si8_discovered_feature_ledger_by_opp_id[opp_id] = {
-                            "htf_alignment_state": str(s_si8.v1793122_htf_alignment_state or "ALIGNED"),
-                            "unicorn_classification": str(s_si8.v1793122_unicorn_classification or "NONE"),
-                            "displacement_body_atr_ratio": float(q_ev_d.get("displacement_body_atr_ratio") or 0.65),
-                            "fvg_retest_valid": True,
-                            "fvg_unmitigated": True,
-                            "sweep_reclaimed": True,
-                            "mss_confirmed": True,
-                            "protected_structure_independent_of_sl": True,
-                            "target_reachable": True,
+                            "htf_alignment_state": str(s_si8.v1793122_htf_alignment_state or q_ev_d.get("htf_alignment_state") or "MIXED"),
+                            "unicorn_classification": str(s_si8.v1793122_unicorn_classification or q_ev_d.get("unicorn_classification") or "NONE"),
+                            "displacement_body_atr_ratio": float(q_ev_d.get("displacement_body_atr_ratio", 0.0) or 0.0),
+                            "displacement_valid": bool(q_ev_d.get("displacement_valid", False)),
+                            "fvg_retest_valid": bool(q_ev_d.get("fvg_retest_valid", False)),
+                            "fvg_unmitigated": bool(q_ev_d.get("fvg_unmitigated", False)),
+                            "sweep_confirmed": bool(q_ev_d.get("sweep_confirmed", False)),
+                            "sweep_reclaimed": bool(q_ev_d.get("sweep_reclaimed", False)),
+                            "mss_confirmed": bool(q_ev_d.get("mss_confirmed", False)),
+                            "protected_structure_independent_of_sl": bool(q_ev_d.get("protected_structure_independent_of_sl", False)),
+                            "target_reachable": bool(q_ev_d.get("target_reachable", False)),
+                            "status": "PROVEN_TRUE" if bool(q_ev_d.get("target_reachable", False)) else "UNPROVEN",
+                            "source_known_at_ms": int(q_ev_d.get("target_known_at_ms") or cur_ts),
+                            "decision_timestamp_ms": int(cur_ts),
                         }
                         si8_incremental_eligible_records.append(base_rec)
                 else:
@@ -683,7 +783,7 @@ def discover_research_candidates_v1793123(
                         si8_discovered_by_model[m_id] += 1
                     elif not (s_off.selected_sweep_id and s_off.selected_break_id and s_off.selected_fvg_id):
                         si8_discovered_by_model[m_id] += 1
-                    if len(discovered_samples) < 25 and (
+                    if len(discovered_samples) < 5 and (
                         s_si8.decision_status == "ELIGIBLE" and s_si7.decision_status != "ELIGIBLE"
                     ):
                         discovered_samples.append(
@@ -707,6 +807,162 @@ def discover_research_candidates_v1793123(
                             }
                         )
 
+    return {
+        "off_eligible_by_model": off_eligible_by_model,
+        "si7_eligible_by_model": si7_eligible_by_model,
+        "si8_eligible_by_model": si8_eligible_by_model,
+        "si8_discovered_by_model": si8_discovered_by_model,
+        "si8_incremental_eligible_by_model": si8_incremental_eligible_by_model,
+        "si7_rescued_from_off_rejected": si7_rescued_from_off_rejected,
+        "si7_upgraded_invalid": si7_upgraded_invalid,
+        "si8_rescued_invalid_baseline": si8_rescued_invalid_baseline,
+        "new_si8_valid_when_baseline_no_setup": new_si8_valid_when_baseline_no_setup,
+        "new_si8_valid_when_baseline_waiting": new_si8_valid_when_baseline_waiting,
+        "discovered_samples": discovered_samples,
+        "si8_discovered_decisions_by_checkpoint_index": si8_discovered_decisions_by_checkpoint_index,
+        "si8_discovered_feature_ledger_by_opp_id": si8_discovered_feature_ledger_by_opp_id,
+        "si8_incremental_eligible_records": si8_incremental_eligible_records,
+        "funnel_by_model": {
+            m_k: {**m_v, "rejected_by_reason": dict(m_v["rejected_by_reason"])}
+            for m_k, m_v in funnel_by_model.items()
+        },
+        "legacy_mismatch_verified": legacy_mismatch_verified,
+        "legacy_mismatch_rejection_reasons": legacy_mismatch_rejection_reasons,
+    }
+
+
+def discover_research_candidates_v1793123(
+    datasets: Mapping[str, Any],
+    *,
+    sample_indices_1m: Optional[Sequence[int]] = None,
+    test_only_checkpoint_override: Optional[Sequence[int]] = None,
+    full_universe: bool = False,
+    batch_size: int = 250,
+    max_workers: int = 4,
+) -> Dict[str, Any]:
+    """
+    STAGE G1 / V17.9.3.1.2.5 Full-Universe Independent Causal Candidate Discovery.
+    Evaluates the real SharedStrategyEvaluator across all 5 canonical models and
+    both directions under:
+      1. OFF / SI0_OFF_BASELINE (exact legacy baseline parity, 0 discovery rescues)
+      2. RESEARCH_APPLY / SI7_CORE_TRADING_LOGIC_REPAIRED (non-rescue for rejected baseline,
+         strict causal repair on eligible setups)
+      3. RESEARCH_APPLY / SI8_RESEARCH_DISCOVERY_REPAIRED (independent causal candidate
+         discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)
+      4. Also verifies that legacy mismatch mode RESEARCH_DISCOVERY fails closed with
+         SI_INVALID_MODE_FAIL_CLOSED.
+    """
+    bars_1m = list(datasets["1m"])
+    bars_5m = list(datasets.get("5m", []))
+    bars_15m = list(datasets.get("15m", []))
+    bars_1h = list(datasets.get("1H", []))
+    bars_4h = list(datasets.get("4H", []))
+
+    ts_5m = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_5m]
+    ts_15m = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_15m]
+    ts_1h = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_1h]
+    ts_4h = [int(b.get("close_time") or b.get("close_time_ms") or 0) for b in bars_4h]
+
+    if test_only_checkpoint_override is not None:
+        target_indices = list(test_only_checkpoint_override)
+        is_official_full_universe = False
+        test_only_override_applied = True
+    elif sample_indices_1m is not None:
+        target_indices = list(sample_indices_1m)
+        is_official_full_universe = False
+        test_only_override_applied = True
+    elif full_universe:
+        target_indices = list(range(30, len(bars_1m)))
+        is_official_full_universe = True
+        test_only_override_applied = False
+    else:
+        target_indices = list(DEFAULT_TEST_ONLY_SAMPLE_INDICES_V1793123)
+        is_official_full_universe = False
+        test_only_override_applied = True
+
+    total_inspected = len(target_indices)
+
+    # Shard across batch_size chunks
+    chunk_size = max(20, int(batch_size))
+    chunks = [target_indices[i : i + chunk_size] for i in range(0, len(target_indices), chunk_size)]
+    payloads = [
+        (chk, bars_1m, bars_5m, bars_15m, bars_1h, bars_4h, ts_5m, ts_15m, ts_1h, ts_4h)
+        for chk in chunks
+    ]
+
+    effective_workers = min(max_workers, len(chunks)) if len(chunks) > 1 else 1
+    if effective_workers <= 1:
+        chunk_results = [_eval_checkpoints_chunk_v1793125(p) for p in payloads]
+    else:
+        with ProcessPoolExecutor(max_workers=effective_workers) as pool:
+            chunk_results = list(pool.map(_eval_checkpoints_chunk_v1793125, payloads))
+
+    # Deterministic sequential aggregation
+    off_eligible_by_model: Counter[str] = Counter()
+    si7_eligible_by_model: Counter[str] = Counter()
+    si8_eligible_by_model: Counter[str] = Counter()
+    si8_discovered_by_model: Counter[str] = Counter()
+    si8_incremental_eligible_by_model: Counter[str] = Counter()
+    si7_rescued_from_off_rejected = 0
+    si7_upgraded_invalid = 0
+    si8_rescued_invalid_baseline = 0
+    new_si8_valid_when_baseline_no_setup = 0
+    new_si8_valid_when_baseline_waiting = 0
+
+    discovered_samples: List[Dict[str, Any]] = []
+    si8_discovered_decisions_by_checkpoint_index: Dict[int, List[Dict[str, Any]]] = {}
+    si8_discovered_feature_ledger_by_opp_id: Dict[str, Dict[str, Any]] = {}
+    si8_incremental_eligible_records: List[Dict[str, Any]] = []
+
+    funnel_by_model: Dict[str, Dict[str, Any]] = {
+        m_id: {
+            "model_id": m_id,
+            "observed": 0,
+            "descriptor_found": 0,
+            "setup_valid": 0,
+            "eligible_after_risk": 0,
+            "incremental_vs_si7": 0,
+            "rejected_by_reason": Counter(),
+        }
+        for m_id in CANONICAL_5_MODELS_V1793123
+    }
+    legacy_mismatch_verified = False
+    legacy_mismatch_rejection_reasons: List[str] = []
+
+    for cr in chunk_results:
+        off_eligible_by_model.update(cr["off_eligible_by_model"])
+        si7_eligible_by_model.update(cr["si7_eligible_by_model"])
+        si8_eligible_by_model.update(cr["si8_eligible_by_model"])
+        si8_discovered_by_model.update(cr["si8_discovered_by_model"])
+        si8_incremental_eligible_by_model.update(cr["si8_incremental_eligible_by_model"])
+        si7_rescued_from_off_rejected += cr["si7_rescued_from_off_rejected"]
+        si7_upgraded_invalid += cr["si7_upgraded_invalid"]
+        si8_rescued_invalid_baseline += cr["si8_rescued_invalid_baseline"]
+        new_si8_valid_when_baseline_no_setup += cr["new_si8_valid_when_baseline_no_setup"]
+        new_si8_valid_when_baseline_waiting += cr["new_si8_valid_when_baseline_waiting"]
+
+        if len(discovered_samples) < 50:
+            discovered_samples.extend(cr["discovered_samples"][: 50 - len(discovered_samples)])
+
+        for k_idx, d_list in cr["si8_discovered_decisions_by_checkpoint_index"].items():
+            si8_discovered_decisions_by_checkpoint_index.setdefault(int(k_idx), []).extend(d_list)
+        si8_discovered_feature_ledger_by_opp_id.update(cr["si8_discovered_feature_ledger_by_opp_id"])
+        si8_incremental_eligible_records.extend(cr["si8_incremental_eligible_records"])
+
+        for m_id in CANONICAL_5_MODELS_V1793123:
+            f_src = cr["funnel_by_model"][m_id]
+            f_dst = funnel_by_model[m_id]
+            f_dst["observed"] += f_src["observed"]
+            f_dst["descriptor_found"] += f_src["descriptor_found"]
+            f_dst["setup_valid"] += f_src["setup_valid"]
+            f_dst["eligible_after_risk"] += f_src["eligible_after_risk"]
+            f_dst["incremental_vs_si7"] += f_src["incremental_vs_si7"]
+            f_dst["rejected_by_reason"].update(f_src["rejected_by_reason"])
+
+        if cr.get("legacy_mismatch_verified"):
+            legacy_mismatch_verified = True
+            legacy_mismatch_rejection_reasons = cr.get("legacy_mismatch_rejection_reasons", [])
+
     serializable_funnel_by_model = {
         m_k: {
             **m_v,
@@ -716,10 +972,14 @@ def discover_research_candidates_v1793123(
     }
 
     return {
-        "schema_version": V17_9_3_1_2_3_SCHEMA_VERSION,
+        "schema_version": V17_9_3_1_2_5_SCHEMA_VERSION,
         "evaluated_models": list(CANONICAL_5_MODELS_V1793123),
-        "sample_timestamps_inspected": len(sample_indices_1m),
-        "total_model_direction_evaluations": len(sample_indices_1m) * len(CANONICAL_5_MODELS_V1793123) * 2,
+        "is_official_full_universe": is_official_full_universe,
+        "test_only_checkpoint_override_applied": test_only_override_applied,
+        "sampled_checkpoint_count": total_inspected if test_only_override_applied else 0,
+        "causal_checkpoint_count": total_inspected,
+        "sample_timestamps_inspected": total_inspected,
+        "total_model_direction_evaluations": total_inspected * len(CANONICAL_5_MODELS_V1793123) * 2,
         "si8_canonical_mode": "RESEARCH_APPLY",
         "si8_canonical_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
         "legacy_mode_mismatch_reproduction": {
@@ -730,7 +990,10 @@ def discover_research_candidates_v1793123(
         },
         "si0_off_baseline_preserved": True,
         "si7_rejected_baseline_rescued_count": si7_rescued_from_off_rejected,
+        "si7_upgraded_invalid": si7_upgraded_invalid,
         "si8_rejected_baseline_rescued_count": si8_rescued_invalid_baseline,
+        "new_si8_valid_when_baseline_no_setup": new_si8_valid_when_baseline_no_setup,
+        "new_si8_valid_when_baseline_waiting": new_si8_valid_when_baseline_waiting,
         "si8_research_discovery_enabled": True,
         "si8_newly_discovered_setups_count": sum(si8_discovered_by_model.values()),
         "si8_discovered_setups_by_model": dict(si8_discovered_by_model),
@@ -758,6 +1021,9 @@ def discover_research_candidates_v1793123(
         "si8_discovered_decisions_by_checkpoint_index": si8_discovered_decisions_by_checkpoint_index,
         "si8_discovered_feature_ledger_by_opp_id": si8_discovered_feature_ledger_by_opp_id,
     }
+
+
+discover_research_candidates_v1793125 = discover_research_candidates_v1793123
 
 
 def evaluate_v1793123_acceptance_gates_cr01_cr15(

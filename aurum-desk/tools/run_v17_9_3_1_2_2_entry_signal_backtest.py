@@ -234,7 +234,7 @@ def replay_single_si_policy_v1793122(
         if si8_by_idx is None:
             from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
 
-            disc_res = discover_research_candidates_v1793123(datasets)
+            disc_res = discover_research_candidates_v1793123(datasets, full_universe=True)
             si8_by_idx = disc_res.get("si8_discovered_decisions_by_checkpoint_index") or {}
             si8_feat = disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {}
         if si8_feat:
@@ -786,7 +786,7 @@ def execute_independent_worker_determinism_runs_v1793122(
     ):
         from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
 
-        disc_res = discover_research_candidates_v1793123(datasets)
+        disc_res = discover_research_candidates_v1793123(datasets, full_universe=True)
         cand_index = {
             **cand_index,
             "si8_discovered_decisions_by_checkpoint_index": disc_res.get("si8_discovered_decisions_by_checkpoint_index")
@@ -1239,6 +1239,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         f_disc = ex_pre.submit(
             discover_research_candidates_v1793123,
             datasets,
+            full_universe=True,
         )
         art_20_feat, art_22_htf = f_feat.result()
         art_21_uni = f_uni.result()
