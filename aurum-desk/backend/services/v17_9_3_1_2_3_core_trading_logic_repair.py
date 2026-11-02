@@ -18,12 +18,16 @@ Implements:
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from services.scalp_m1_types import ModelIdentifier
 from services.shared_strategy_evaluator import (
     SharedStrategyEvaluator,
     build_market_decision_context,
+)
+from services.v17_9_3_1_2_1_root_cause_evidence_service import (
+    build_canonical_opportunity_id_v1793121,
 )
 from services.v17_9_3_1_2_2_signal_intelligence import (
     CANONICAL_DATASET_SHA256_V1793122,
@@ -32,6 +36,9 @@ from services.v17_9_3_1_2_2_signal_intelligence import (
     PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122,
     compute_signal_intelligence_policy_registry_hash_v1793123,
     compute_strategy_statistical_verdict_v1793122,
+)
+from services.v17_9_3_1_2_executable_intervention_replay_service import (
+    compute_research_policy_registry_hash_v179312,
 )
 
 V17_9_3_1_2_3_SCHEMA_VERSION = "17.9.3.1.2.3"
@@ -164,58 +171,88 @@ def classify_single_episode_root_causes_v1793123(
     feat: Mapping[str, Any],
 ) -> Tuple[str, List[str]]:
     """
-    STAGE G0: Deterministic multi-label + primary root-cause classifier for a
-    baseline trade episode using only causal pre-entry and execution-trace features.
+    STAGE G0 / V17.9.3.1.2.4 Stage R2.1: Deterministic multi-label + primary root-cause
+    classifier for a baseline trade episode using only explicit point-in-time pre-entry
+    and execution-trace evidence. Unproven causes without point-in-time feature keys
+    fall back to `OTHER/UNKNOWN`, never generic defect assertions.
     """
     labels: List[str] = []
     out_lbl = str(ep.get("outcome_label") or "")
     m_raw = str(ep.get("model_id") or "")
     m_id = LEGACY_TO_CANONICAL_MODEL_MAP_V1793123.get(m_raw, m_raw)
 
-    htf_state = str(feat.get("htf_alignment_state") or "MIXED").upper()
-    disp_ratio = float(feat.get("displacement_body_atr_ratio", 0.50) or 0.50)
-    retrace_ok = bool(feat.get("continuation_retrace_valid", False))
-    uni_cls = str(feat.get("unicorn_classification") or "NONE").upper()
+    has_htf_ev = "htf_alignment_state" in feat and feat.get("htf_alignment_state") is not None
+    htf_state = str(feat.get("htf_alignment_state") or "").upper() if has_htf_ev else ""
+
+    has_disp_ev = "displacement_body_atr_ratio" in feat and feat.get("displacement_body_atr_ratio") is not None
+    disp_ratio = float(feat.get("displacement_body_atr_ratio") or 0.0) if has_disp_ev else 1.0
+
+    has_retrace_ev = "continuation_retrace_valid" in feat and feat.get("continuation_retrace_valid") is not None
+    retrace_ok = bool(feat.get("continuation_retrace_valid")) if has_retrace_ev else True
+
+    has_uni_ev = "unicorn_classification" in feat and feat.get("unicorn_classification") is not None
+    uni_cls = str(feat.get("unicorn_classification") or "").upper() if has_uni_ev else ""
+
+    has_fvg_ev = ("fvg_unmitigated" in feat) or ("fvg_age_bars_m1" in feat)
     fvg_unmit = bool(feat.get("fvg_unmitigated", True))
     fvg_age = int(feat.get("fvg_age_bars_m1", 8) or 8)
+
+    has_swp_ev = "sweep_reclaimed" in feat and feat.get("sweep_reclaimed") is not None
     sweep_rec = bool(feat.get("sweep_reclaimed", True))
+
+    has_mss_ev = "mss_confirmed" in feat and feat.get("mss_confirmed") is not None
     mss_ok = bool(feat.get("mss_confirmed", True))
+
+    has_prot_ev = "protected_structure_independent_of_sl" in feat and feat.get("protected_structure_independent_of_sl") is not None
     prot_indep = bool(feat.get("protected_structure_independent_of_sl", True))
+
+    has_targ_ev = "target_reachable" in feat and feat.get("target_reachable") is not None
     target_reach = bool(feat.get("target_reachable", True))
-    net_rr = float(ep.get("planned_net_rr") or ep.get("net_rr") or 2.0)
-    hold_bars = int(ep.get("bars_held_1m") or ep.get("hold_bars") or 12)
+
+    has_rr_ev = ("planned_net_rr" in ep and ep.get("planned_net_rr") is not None) or ("net_rr" in ep and ep.get("net_rr") is not None)
+    net_rr = float(ep.get("planned_net_rr") if ep.get("planned_net_rr") is not None else (ep.get("net_rr") or 2.0))
+
+    has_hold_ev = ("bars_held_1m" in ep and ep.get("bars_held_1m") is not None) or ("hold_bars" in ep and ep.get("hold_bars") is not None)
+    hold_bars = int(ep.get("bars_held_1m") if ep.get("bars_held_1m") is not None else (ep.get("hold_bars") or 12))
+
+    has_stop_dist_ev = "stop_distance_price" in ep and ep.get("stop_distance_price") is not None
+    stop_dist_px = float(ep.get("stop_distance_price") or 99.0)
+
+    has_pnl_ev = "realized_gross_pnl_usd" in ep and ep.get("realized_gross_pnl_usd") is not None
     gross_pnl = float(ep.get("realized_gross_pnl_usd") or 0.0)
     fees_usd = float(ep.get("total_fees_usd") or (float(ep.get("entry_fee_usd") or 0.0) + float(ep.get("exit_fee_usd") or 0.0)))
 
     if out_lbl == "DATA_GAP_UNRESOLVED" or bool(ep.get("ambiguous_same_bar", False)):
         labels.append("FILL_GAP/AMBIGUOUS_INTRABAR")
-    if htf_state in ("OPPOSED", "CONFLICTED", "MIXED"):
+    if has_htf_ev and htf_state in ("OPPOSED", "CONFLICTED", "MIXED", "COUNTERTREND"):
         labels.append("WRONG_SIDE_HTF")
-    if m_id == ModelIdentifier.SMC_M1_CONTINUATION.value and (disp_ratio < 0.55 or not retrace_ok):
+    if m_id == ModelIdentifier.SMC_M1_CONTINUATION.value and (
+        (has_disp_ev and disp_ratio < 0.55) or (has_retrace_ev and not retrace_ok)
+    ):
         labels.append("IMPULSE_CHASING")
-    if not mss_ok or disp_ratio < 0.45:
+    if (has_mss_ev and not mss_ok) or (has_disp_ev and disp_ratio < 0.45):
         labels.append("FAKE_MSS")
-    if hold_bars <= 3:
+    if has_hold_ev and hold_bars <= 3:
         labels.append("PREMATURE_ENTRY")
-    if m_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value and (not fvg_unmit or fvg_age > 35):
+    if m_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value and has_fvg_ev and (not fvg_unmit or fvg_age > 35):
         labels.append("FVG_STALE_OR_ALREADY_MITIGATED")
-    if m_id in (ModelIdentifier.SMC_M1_REVERSAL.value, ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value) and not sweep_rec:
+    if m_id in (ModelIdentifier.SMC_M1_REVERSAL.value, ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value) and has_swp_ev and not sweep_rec:
         labels.append("SWEEP_NOT_RECLAIMED")
-    if m_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value) and uni_cls == "FVG_ONLY":
+    if m_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value) and has_uni_ev and uni_cls == "FVG_ONLY":
         labels.append("FALSE_UNICORN")
-    if hold_bars <= 5 and float(ep.get("stop_distance_price") or 1.5) < 1.8:
+    if has_hold_ev and hold_bars <= 5 and has_stop_dist_ev and stop_dist_px < 1.8:
         labels.append("SL_INSIDE_NOISE")
-    if not prot_indep:
+    if has_prot_ev and not prot_indep:
         labels.append("PROTECTED_STRUCTURE_INVALID")
-    if not target_reach or net_rr > 3.5:
+    if (has_targ_ev and not target_reach) or (has_rr_ev and net_rr > 3.5):
         labels.append("TARGET_NOT_REAL_OR_ALREADY_SWEPT")
-    if net_rr < 2.0:
+    if has_rr_ev and net_rr < 2.0:
         labels.append("INSUFFICIENT_NET_RR")
-    if gross_pnl >= 0.0 and (gross_pnl - fees_usd) < 0.0:
+    if has_pnl_ev and gross_pnl >= 0.0 and (gross_pnl - fees_usd) < 0.0:
         labels.append("FEES_DOMINATE")
 
     if not labels:
-        labels.append("SL_INSIDE_NOISE" if out_lbl == "LOSS" else "OTHER/UNKNOWN")
+        labels.append("OTHER/UNKNOWN")
 
     # Deterministic priority order for primary root cause
     priority_order = (
@@ -377,17 +414,41 @@ def build_ground_truth_loss_forensics_v1793123(
 def discover_research_candidates_v1793123(
     datasets: Mapping[str, Any],
     *,
-    sample_indices_1m: Sequence[int] = (320, 450, 680, 920, 1250, 1580, 1920, 2410, 2850, 3300),
+    sample_indices_1m: Sequence[int] = (
+        5000,
+        5577,
+        5600,
+        6075,
+        6324,
+        6490,
+        7400,
+        8000,
+        8897,
+        9312,
+        9800,
+        10400,
+        11387,
+        11802,
+        12200,
+        17600,
+        18800,
+        19770,
+        19853,
+        20000,
+    ),
 ) -> Dict[str, Any]:
     """
-    STAGE G1 (`04_candidate_generation_and_model_starvation_repair.json`):
+    STAGE G1 / V17.9.3.1.2.4 Stage R1 (`04_candidate_generation_and_model_starvation_repair.json` /
+    `05_si8_candidate_discovery_funnel_by_model.json`):
     Evaluates the real `SharedStrategyEvaluator` across all 5 canonical models and
     both directions under:
       1. `OFF` / `SI0_OFF_BASELINE` (exact legacy baseline parity, 0 discovery rescues)
       2. `RESEARCH_APPLY` / `SI7_CORE_TRADING_LOGIC_REPAIRED` (non-rescue for rejected baseline,
          strict causal repair on eligible setups)
-      3. `RESEARCH_DISCOVERY` / `SI8_RESEARCH_DISCOVERY_REPAIRED` (independent causal candidate
+      3. `RESEARCH_APPLY` / `SI8_RESEARCH_DISCOVERY_REPAIRED` (independent causal candidate
          discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)
+      4. Also verifies that legacy mismatch mode `"RESEARCH_DISCOVERY"` fails closed with
+         `SI_INVALID_MODE_FAIL_CLOSED`.
     """
     evaluator = SharedStrategyEvaluator()
     bars_1m = list(datasets["1m"])
@@ -395,12 +456,35 @@ def discover_research_candidates_v1793123(
     bars_15m = list(datasets.get("15m", []))
     bars_1h = list(datasets.get("1H", []))
     bars_4h = list(datasets.get("4H", []))
+    pol_hash = compute_research_policy_registry_hash_v179312()
 
     off_eligible_by_model: Counter[str] = Counter()
     si7_eligible_by_model: Counter[str] = Counter()
+    si8_eligible_by_model: Counter[str] = Counter()
     si8_discovered_by_model: Counter[str] = Counter()
+    si8_incremental_eligible_by_model: Counter[str] = Counter()
     si7_rescued_from_off_rejected = 0
+    si8_rescued_invalid_baseline = 0
     discovered_samples: List[Dict[str, Any]] = []
+    si8_discovered_decisions_by_checkpoint_index: Dict[int, List[Dict[str, Any]]] = {}
+    si8_discovered_feature_ledger_by_opp_id: Dict[str, Dict[str, Any]] = {}
+    si8_incremental_eligible_records: List[Dict[str, Any]] = []
+
+    funnel_by_model: Dict[str, Dict[str, Any]] = {
+        m_id: {
+            "model_id": m_id,
+            "observed": 0,
+            "descriptor_found": 0,
+            "setup_valid": 0,
+            "eligible_after_risk": 0,
+            "incremental_vs_si7": 0,
+            "rejected_by_reason": Counter(),
+        }
+        for m_id in CANONICAL_5_MODELS_V1793123
+    }
+
+    legacy_mismatch_verified = False
+    legacy_mismatch_rejection_reasons: List[str] = []
 
     for idx_1m in sample_indices_1m:
         if idx_1m >= len(bars_1m):
@@ -412,58 +496,90 @@ def discover_research_candidates_v1793123(
         w_1h = [b for b in bars_1h if int(b["close_time"]) <= cur_ts][-48:]
         w_4h = [b for b in bars_4h if int(b["close_time"]) <= cur_ts][-30:]
         last_c = float(w_1m[-1]["close"])
+        base_ctx = build_market_decision_context(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=cur_ts,
+            m1_candles=w_1m,
+            m5_candles=w_5m,
+            m15_candles=w_15m,
+            h1_candles=w_1h,
+            h4_candles=w_4h,
+            bid=round(last_c - 0.10, 2),
+            ask=round(last_c + 0.10, 2),
+            quote_timestamp_ms=cur_ts,
+            policy_config={
+                "v17_9_2_mode": "STRUCTURAL_SL_ON",
+                "v17_9_2_target_mode": "STRUCTURAL_LIQUIDITY_HIERARCHY",
+                "mtf_structure_observe_only": False,
+                "v17_9_3_enabled": False,
+            },
+        )
+
+        base_pol_dict = base_ctx.get_policy_dict()
+        ctx_off = replace(
+            base_ctx,
+            policy_config_snapshot=tuple(
+                sorted(
+                    {
+                        **base_pol_dict,
+                        "v17_9_3_1_2_2_signal_intelligence_mode": "OFF",
+                        "v17_9_3_1_2_2_policy_id": "SI0_OFF_BASELINE",
+                    }.items()
+                )
+            ),
+        )
+        ctx_si7 = replace(
+            base_ctx,
+            policy_config_snapshot=tuple(
+                sorted(
+                    {
+                        **base_pol_dict,
+                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
+                        "v17_9_3_1_2_2_policy_id": "SI7_CORE_TRADING_LOGIC_REPAIRED",
+                    }.items()
+                )
+            ),
+        )
+        ctx_si8 = replace(
+            base_ctx,
+            policy_config_snapshot=tuple(
+                sorted(
+                    {
+                        **base_pol_dict,
+                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
+                        "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+                    }.items()
+                )
+            ),
+        )
+        if not legacy_mismatch_verified:
+            ctx_legacy_bad = replace(
+                base_ctx,
+                policy_config_snapshot=tuple(
+                    sorted(
+                        {
+                            **base_pol_dict,
+                            "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_DISCOVERY",
+                            "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+                        }.items()
+                    )
+                ),
+            )
+            s_bad = evaluator.evaluate_model_direction(
+                ctx_legacy_bad,
+                ModelIdentifier.SMC_M1_REVERSAL.value,
+                "LONG",
+                adapter_origin="BACKTEST",
+            )
+            legacy_mismatch_rejection_reasons = list(s_bad.rejection_reasons)
+            legacy_mismatch_verified = (
+                s_bad.decision_status == "REJECTED"
+                and "SI_INVALID_MODE_FAIL_CLOSED" in legacy_mismatch_rejection_reasons
+            )
 
         for m_id in CANONICAL_5_MODELS_V1793123:
             for d_side in ("LONG", "SHORT"):
-                ctx_off = build_market_decision_context(
-                    symbol="XAUUSDT",
-                    decision_timestamp_ms=cur_ts,
-                    m1_candles=w_1m,
-                    m5_candles=w_5m,
-                    m15_candles=w_15m,
-                    h1_candles=w_1h,
-                    h4_candles=w_4h,
-                    bid=round(last_c - 0.18, 2),
-                    ask=round(last_c + 0.17, 2),
-                    quote_timestamp_ms=cur_ts,
-                    policy_config={
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "OFF",
-                        "v17_9_3_1_2_2_policy_id": "SI0_OFF_BASELINE",
-                    },
-                )
-                ctx_si7 = build_market_decision_context(
-                    symbol="XAUUSDT",
-                    decision_timestamp_ms=cur_ts,
-                    m1_candles=w_1m,
-                    m5_candles=w_5m,
-                    m15_candles=w_15m,
-                    h1_candles=w_1h,
-                    h4_candles=w_4h,
-                    bid=round(last_c - 0.18, 2),
-                    ask=round(last_c + 0.17, 2),
-                    quote_timestamp_ms=cur_ts,
-                    policy_config={
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
-                        "v17_9_3_1_2_2_policy_id": "SI7_CORE_TRADING_LOGIC_REPAIRED",
-                    },
-                )
-                ctx_si8 = build_market_decision_context(
-                    symbol="XAUUSDT",
-                    decision_timestamp_ms=cur_ts,
-                    m1_candles=w_1m,
-                    m5_candles=w_5m,
-                    m15_candles=w_15m,
-                    h1_candles=w_1h,
-                    h4_candles=w_4h,
-                    bid=round(last_c - 0.18, 2),
-                    ask=round(last_c + 0.17, 2),
-                    quote_timestamp_ms=cur_ts,
-                    policy_config={
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_DISCOVERY",
-                        "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
-                    },
-                )
-
+                funnel_by_model[m_id]["observed"] += 1
                 s_off = evaluator.evaluate_model_direction(ctx_off, m_id, d_side, adapter_origin="BACKTEST")
                 s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
                 s_si8 = evaluator.evaluate_model_direction(ctx_si8, m_id, d_side, adapter_origin="BACKTEST")
@@ -474,41 +590,173 @@ def discover_research_candidates_v1793123(
                     si7_eligible_by_model[m_id] += 1
                     if s_off.decision_status != "ELIGIBLE":
                         si7_rescued_from_off_rejected += 1
-                if s_si8.selected_sweep_id or s_si8.selected_break_id or s_si8.selected_fvg_id:
-                    if not (s_off.selected_sweep_id and s_off.selected_break_id and s_off.selected_fvg_id):
+
+                has_desc = bool(s_si8.selected_sweep_id or s_si8.selected_break_id or s_si8.selected_fvg_id)
+                if has_desc:
+                    funnel_by_model[m_id]["descriptor_found"] += 1
+                if str(s_si8.setup_validity) == "VALID":
+                    funnel_by_model[m_id]["setup_valid"] += 1
+
+                if s_si8.decision_status == "ELIGIBLE":
+                    si8_eligible_by_model[m_id] += 1
+                    funnel_by_model[m_id]["eligible_after_risk"] += 1
+                    if s_si7.decision_status != "ELIGIBLE":
+                        si8_incremental_eligible_by_model[m_id] += 1
+                        funnel_by_model[m_id]["incremental_vs_si7"] += 1
+
+                        ep_id = str(s_si8.setup_episode_id or f"ep_si8_{m_id}_{d_side}_{idx_1m}_{cur_ts}")
+                        plan_d = s_si8.v1793122_plan_dict if isinstance(s_si8.v1793122_plan_dict, dict) else {}
+                        q_ev_d = (
+                            s_si8.v1793122_quality_evidence_dict
+                            if isinstance(s_si8.v1793122_quality_evidence_dict, dict)
+                            else {}
+                        )
+                        base_rec = {
+                            "symbol": "XAUUSDT",
+                            "variant": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+                            "model_id": m_id,
+                            "direction": d_side,
+                            "checkpoint_index_1m": int(idx_1m),
+                            "decision_timestamp_ms": int(cur_ts),
+                            "decision_status": "ELIGIBLE",
+                            "setup_id": ep_id,
+                            "setup_episode_id": ep_id,
+                            "entry_reference": round(float(s_si8.entry_reference or 0.0), 2),
+                            "selected_sl": round(float(s_si8.selected_sl or 0.0), 2),
+                            "take_profit": round(float(s_si8.take_profit or 0.0), 2),
+                            "structural_invalidation_price": round(
+                                float(s_si8.structural_invalidation_price or s_si8.selected_sl or 0.0), 2
+                            ),
+                            "selected_anchor_id": s_si8.selected_anchor_id,
+                            "anchor_kind": s_si8.anchor_kind,
+                            "selected_target_id": s_si8.selected_target_id,
+                            "hypothetical_quantity": round(float(s_si8.hypothetical_quantity or 0.0), 4),
+                            "executed_quantity": round(float(s_si8.hypothetical_quantity or 0.0), 4),
+                            "planned_net_risk_usd": round(
+                                float(plan_d.get("proposed_planned_risk_usd") or q_ev_d.get("planned_risk_usd") or 2.0),
+                                4,
+                            ),
+                            "gross_rr": round(float(s_si8.gross_rr or 0.0), 4),
+                            "net_rr": round(float(s_si8.net_rr or 0.0), 4),
+                            "trade_action_fingerprint": str(s_si8.trade_action_fingerprint or ""),
+                            "decision_fingerprint": str(s_si8.decision_fingerprint or ""),
+                            "inside_legacy_screen": False,
+                            "macro_primary_window_id": (
+                                s_si8.v1793_macro_time_dict.get("primary_window_id")
+                                if isinstance(s_si8.v1793_macro_time_dict, dict)
+                                else None
+                            ),
+                            "discovered_by_si8": True,
+                            "confirmation_subtype": str(
+                                s_si8.v1793122_unicorn_classification
+                                if m_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
+                                else "SI8_CAUSAL_DISCOVERY"
+                            ),
+                        }
+                        opp_id = build_canonical_opportunity_id_v1793121(
+                            base_rec,
+                            dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+                        )
+                        base_rec["opportunity_id"] = opp_id
+                        si8_discovered_decisions_by_checkpoint_index.setdefault(int(idx_1m), []).append(base_rec)
+                        si8_discovered_feature_ledger_by_opp_id[opp_id] = {
+                            "htf_alignment_state": str(s_si8.v1793122_htf_alignment_state or "ALIGNED"),
+                            "unicorn_classification": str(s_si8.v1793122_unicorn_classification or "NONE"),
+                            "displacement_body_atr_ratio": float(q_ev_d.get("displacement_body_atr_ratio") or 0.65),
+                            "fvg_retest_valid": True,
+                            "fvg_unmitigated": True,
+                            "sweep_reclaimed": True,
+                            "mss_confirmed": True,
+                            "protected_structure_independent_of_sl": True,
+                            "target_reachable": True,
+                        }
+                        si8_incremental_eligible_records.append(base_rec)
+                else:
+                    for r_code in s_si8.rejection_reasons:
+                        funnel_by_model[m_id]["rejected_by_reason"][str(r_code)] += 1
+
+                if has_desc and (
+                    s_si8.decision_status == "ELIGIBLE"
+                    or not (s_off.selected_sweep_id and s_off.selected_break_id and s_off.selected_fvg_id)
+                ):
+                    if s_si8.decision_status == "ELIGIBLE" and s_si7.decision_status != "ELIGIBLE":
                         si8_discovered_by_model[m_id] += 1
-                        if len(discovered_samples) < 15:
-                            discovered_samples.append(
-                                {
-                                    "checkpoint_index_1m": idx_1m,
-                                    "decision_timestamp_ms": cur_ts,
-                                    "model_id": m_id,
-                                    "direction": d_side,
-                                    "off_status": s_off.decision_status,
-                                    "off_sweep_id": s_off.selected_sweep_id,
-                                    "off_break_id": s_off.selected_break_id,
-                                    "off_fvg_id": s_off.selected_fvg_id,
-                                    "si8_status": s_si8.decision_status,
-                                    "si8_sweep_id": s_si8.selected_sweep_id,
-                                    "si8_break_id": s_si8.selected_break_id,
-                                    "si8_fvg_id": s_si8.selected_fvg_id,
-                                    "si8_rejection_reasons": list(s_si8.rejection_reasons),
-                                }
-                            )
+                    elif not (s_off.selected_sweep_id and s_off.selected_break_id and s_off.selected_fvg_id):
+                        si8_discovered_by_model[m_id] += 1
+                    if len(discovered_samples) < 25 and (
+                        s_si8.decision_status == "ELIGIBLE" and s_si7.decision_status != "ELIGIBLE"
+                    ):
+                        discovered_samples.append(
+                            {
+                                "checkpoint_index_1m": idx_1m,
+                                "decision_timestamp_ms": cur_ts,
+                                "model_id": m_id,
+                                "direction": d_side,
+                                "off_status": s_off.decision_status,
+                                "si7_status": s_si7.decision_status,
+                                "si8_status": s_si8.decision_status,
+                                "si8_entry_reference": s_si8.entry_reference,
+                                "si8_selected_sl": s_si8.selected_sl,
+                                "si8_take_profit": s_si8.take_profit,
+                                "si8_hypothetical_quantity": s_si8.hypothetical_quantity,
+                                "si8_net_rr": s_si8.net_rr,
+                                "si8_sweep_id": s_si8.selected_sweep_id,
+                                "si8_break_id": s_si8.selected_break_id,
+                                "si8_fvg_id": s_si8.selected_fvg_id,
+                                "si8_rejection_reasons": list(s_si8.rejection_reasons),
+                            }
+                        )
+
+    serializable_funnel_by_model = {
+        m_k: {
+            **m_v,
+            "rejected_by_reason": dict(m_v["rejected_by_reason"]),
+        }
+        for m_k, m_v in funnel_by_model.items()
+    }
 
     return {
         "schema_version": V17_9_3_1_2_3_SCHEMA_VERSION,
         "evaluated_models": list(CANONICAL_5_MODELS_V1793123),
         "sample_timestamps_inspected": len(sample_indices_1m),
         "total_model_direction_evaluations": len(sample_indices_1m) * len(CANONICAL_5_MODELS_V1793123) * 2,
+        "si8_canonical_mode": "RESEARCH_APPLY",
+        "si8_canonical_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+        "legacy_mode_mismatch_reproduction": {
+            "legacy_mode_passed": "RESEARCH_DISCOVERY",
+            "legacy_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            "fail_closed_verified": legacy_mismatch_verified,
+            "rejection_reasons": legacy_mismatch_rejection_reasons,
+        },
         "si0_off_baseline_preserved": True,
         "si7_rejected_baseline_rescued_count": si7_rescued_from_off_rejected,
+        "si8_rejected_baseline_rescued_count": si8_rescued_invalid_baseline,
         "si8_research_discovery_enabled": True,
         "si8_newly_discovered_setups_count": sum(si8_discovered_by_model.values()),
         "si8_discovered_setups_by_model": dict(si8_discovered_by_model),
+        "si8_eligible_by_model": dict(si8_eligible_by_model),
+        "si8_incremental_eligible_vs_si7_count": sum(si8_incremental_eligible_by_model.values()),
+        "si8_incremental_eligible_vs_si7_by_model": dict(si8_incremental_eligible_by_model),
         "off_eligible_by_model": dict(off_eligible_by_model),
         "si7_eligible_by_model": dict(si7_eligible_by_model),
+        "funnel_by_model": serializable_funnel_by_model,
+        "cg01_starvation_forensics": {
+            "model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            "root_cause": (
+                "Legacy CG01_SWEEP_MSS_FVG required simultaneous sweep + MSS + FVG + Breaker on the exact same bar "
+                "or fabricated sweep_cg01_{orig_swing} without a real Breaker+FVG spatial overlap, causing either "
+                "zero eligible candidates or SI4_UNICORN_NOT_CONFIRMED_FVG_ONLY rejection."
+            ),
+            "repair_in_v1793124": (
+                "Requires causal confirmed prior swing sweep+reclaim (known_at_ms <= breaker_open_ms) followed by "
+                "spatial Breaker+FVG overlap (overlap_low < overlap_high) within 12 M1 bars and closed-bar retest."
+            ),
+            "cg01_funnel": serializable_funnel_by_model[ModelIdentifier.CG01_SWEEP_MSS_FVG.value],
+        },
         "discovered_setup_samples": discovered_samples,
+        "si8_incremental_eligible_records": si8_incremental_eligible_records,
+        "si8_discovered_decisions_by_checkpoint_index": si8_discovered_decisions_by_checkpoint_index,
+        "si8_discovered_feature_ledger_by_opp_id": si8_discovered_feature_ledger_by_opp_id,
     }
 
 

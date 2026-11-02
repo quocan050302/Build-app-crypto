@@ -904,6 +904,55 @@ def resolve_research_preferred_direction_v1793122(
     return (None, "HTF_DATA_INSUFFICIENT_OR_CONFLICTED")
 
 
+def _build_causal_swing_pools_from_swings_v1793124(
+    target_swings: Sequence[Mapping[str, Any]],
+    closed_1m: Sequence[Any],
+    direction: str,
+    now_ms: int,
+) -> List[Dict[str, Any]]:
+    """
+    V17.9.3.1.2.4 Stage R2.2: Converts confirmed swings into causal liquidity pools,
+    explicitly inspecting closed M1 candles between `min(occurred_at_ms, known_at_ms)`
+    and `now_ms` to determine whether price already traded through/swept the swing level
+    (`swept_at_ms <= now_ms`). Never blindly marks fallback swings `swept=False`.
+    """
+    out: List[Dict[str, Any]] = []
+    for s in target_swings:
+        px = float(s.get("price", 0.0) or 0.0)
+        if px <= 0.0:
+            continue
+        occ_ms = int(s.get("occurred_at_ms", 0) or 0)
+        k_ms = int(s.get("known_at_ms", occ_ms) or occ_ms or 0)
+        start_check_ms = min(occ_ms, k_ms) if (occ_ms > 0 and k_ms > 0) else max(occ_ms, k_ms)
+        swept_flag = bool(s.get("swept", False) or s.get("mitigated", False))
+        swept_at_ms: Optional[int] = s.get("swept_at_ms") or s.get("mitigated_at_ms")
+        if not swept_flag and start_check_ms > 0 and closed_1m:
+            for b in closed_1m:
+                b_close_ms = _bar_close_ms(b, 60_000)
+                if b_close_ms <= start_check_ms or b_close_ms > now_ms:
+                    continue
+                if direction == "LONG" and _bar_float(b, "high") >= px:
+                    swept_flag = True
+                    swept_at_ms = b_close_ms
+                    break
+                if direction == "SHORT" and _bar_float(b, "low") <= px:
+                    swept_flag = True
+                    swept_at_ms = b_close_ms
+                    break
+        out.append(
+            {
+                "pool_id": str(s.get("id", "")),
+                "price": px,
+                "pool_side": "BSL" if direction == "LONG" else "SSL",
+                "occurred_at_ms": occ_ms if occ_ms > 0 else k_ms,
+                "known_at_ms": k_ms,
+                "swept": swept_flag,
+                "swept_at_ms": swept_at_ms,
+            }
+        )
+    return out
+
+
 def _resolve_unswept_liquidity_pool_target_v1793123(
     *,
     pools: Sequence[Any],
@@ -917,6 +966,8 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
     eff_atr_m1: float,
     eff_atr_m5: float,
     max_target_atr_m1_multiple: float = 8.0,
+    max_target_atr_m5_multiple: float = 3.2,
+    min_required_target_distance: float = 0.0,
 ) -> Tuple[Optional[str], Optional[float], int, bool, bool]:
     """
     Inspects `pools` (causal pre-entry liquidity pools) to verify whether `selected_target_id`
@@ -934,6 +985,7 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
             p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
             p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
             k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
+            occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
             is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
             swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
         else:
@@ -945,6 +997,7 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
                 or getattr(p, "formed_at_ms", None)
                 or getattr(p, "timestamp_ms", None)
             )
+            occ_ts_raw = getattr(p, "occurred_at_ms", None) or getattr(p, "formed_at_ms", None) or k_ts_raw
             is_swept_flag = bool(
                 getattr(p, "swept", False)
                 or getattr(p, "mitigated", False)
@@ -963,12 +1016,13 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
 
         swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
         swept_by_bars = False
+        check_start_ts = min(int(occ_ts_raw), k_ts) if occ_ts_raw is not None else k_ts
         if k_ts_raw is not None and closed_1m:
-            post_pool_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > k_ts and _bar_close_ms(b, 60_000) <= now_ms]
+            post_pool_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > check_start_ts and _bar_close_ms(b, 60_000) <= now_ms]
             if direction == "LONG" and p_px > entry_price:
-                swept_by_bars = any(_bar_float(b, "high") >= p_px + 0.02 for b in post_pool_bars)
+                swept_by_bars = any(_bar_float(b, "high") >= p_px for b in post_pool_bars)
             elif direction == "SHORT" and p_px < entry_price:
-                swept_by_bars = any(_bar_float(b, "low") <= p_px - 0.02 for b in post_pool_bars)
+                swept_by_bars = any(_bar_float(b, "low") <= p_px for b in post_pool_bars)
 
         if is_swept_flag or swept_by_ts or swept_by_bars:
             if selected_target_id and p_id == str(selected_target_id):
@@ -980,10 +1034,14 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
         if direction == "SHORT" and p_px >= entry_price:
             continue
 
-        room_m1 = abs(p_px - entry_price) / max(0.05, eff_atr_m1)
-        room_m5 = abs(p_px - entry_price) / max(0.10, eff_atr_m5)
-        if 1.2 <= room_m1 <= max_target_atr_m1_multiple and room_m5 <= 3.2:
-            valid_candidates.append((abs(p_px - entry_price), p_id or f"pool_{p_px}", p_px, k_ts))
+        dist_px = abs(p_px - entry_price)
+        if min_required_target_distance > 0.0 and dist_px < min_required_target_distance:
+            continue
+
+        room_m1 = dist_px / max(0.05, eff_atr_m1)
+        room_m5 = dist_px / max(0.10, eff_atr_m5)
+        if 1.2 <= room_m1 <= max_target_atr_m1_multiple and room_m5 <= max_target_atr_m5_multiple:
+            valid_candidates.append((dist_px, p_id or f"pool_{p_px}", p_px, k_ts))
 
     if not valid_candidates:
         return (None, None if explicit_pool_was_swept else take_profit, now_ms, False, explicit_pool_was_swept)
@@ -1105,7 +1163,23 @@ def build_signal_quality_evidence_v1793122(
     continuation_retrace_valid = False
 
     if closed_1m:
-        recent_3 = closed_1m[-min(len(closed_1m), 4) :]
+        recent_3 = list(closed_1m[-min(len(closed_1m), 4) :])
+        if sel_brk is not None:
+            brk_open_ts = int(sel_brk.get("break_open_ms") or sel_brk.get("broken_at_ms") or 0)
+            brk_k_ts = int(sel_brk.get("known_at_ms") or (brk_open_ts + 60_000))
+            if 0 < brk_open_ts and brk_k_ts <= now_ms:
+                for b_cand in closed_1m[-min(len(closed_1m), 25) :]:
+                    if _bar_open_ms(b_cand) == brk_open_ts:
+                        recent_3.append(b_cand)
+                        break
+        if sel_fvg is not None:
+            fvg_mid_ts = int(sel_fvg.get("middle_bar_ms") or sel_fvg.get("timestamp") or 0)
+            fvg_k_ts = int(sel_fvg.get("confirmed_at") or (fvg_mid_ts + 60_000))
+            if 0 < fvg_mid_ts and fvg_k_ts <= now_ms:
+                for b_cand in closed_1m[-min(len(closed_1m), 25) :]:
+                    if _bar_open_ms(b_cand) == fvg_mid_ts:
+                        recent_3.append(b_cand)
+                        break
         bodies = [abs(_bar_float(b, "close") - _bar_float(b, "open")) for b in recent_3]
         displacement_body_atr_ratio = round(max(bodies) / eff_atr_m1, 4) if bodies else 0.0
 
@@ -1465,17 +1539,9 @@ def build_signal_quality_evidence_v1793122(
     if not pools:
         target_swings = sh_1m if direction == "LONG" else sl_1m
         if selected_target_id is not None and any(str(s.get("id", "")) == str(selected_target_id) for s in target_swings):
-            pools = [
-                {
-                    "pool_id": str(s.get("id", "")),
-                    "price": float(s.get("price", 0.0) or 0.0),
-                    "pool_side": "BSL" if direction == "LONG" else "SSL",
-                    "known_at_ms": int(s.get("known_at_ms", s.get("occurred_at_ms", 0)) or 0),
-                    "swept": False,
-                }
-                for s in target_swings
-                if float(s.get("price", 0.0) or 0.0) > 0.0
-            ]
+            pools = _build_causal_swing_pools_from_swings_v1793124(
+                target_swings, closed_1m, direction, now_ms
+            )
     unswept_pool_id, unswept_pool_px, pool_known_ms, has_unswept_pool, explicit_pool_swept = (
         _resolve_unswept_liquidity_pool_target_v1793123(
             pools=pools,
@@ -1977,25 +2043,93 @@ def evaluate_signal_intelligence_gate_v1793122(
                         prop_anchor_id = evidence.protected_structure_anchor_id
                         prop_anchor_kind = "INDEPENDENT_PROTECTED_SWING"
 
-            # V17.9.3.1.2.3 STAGE G5: Resolve unswept pre-entry liquidity pool target when pools are present or required
+            # V17.9.3.1.2.3 STAGE G5 / V17.9.3.1.2.4: Resolve unswept pre-entry liquidity pool target
             ctx_pools = list(getattr(context, "liquidity_pools", ()) or ())
-            if not ctx_pools and not evidence.target_reachable:
-                target_swings_for_pools = sh_1m if direction == "LONG" else sl_1m
-                ctx_pools = [
-                    {
-                        "pool_id": str(s.get("id", "")),
-                        "price": float(s.get("price", 0.0) or 0.0),
-                        "pool_side": "BSL" if direction == "LONG" else "SSL",
-                        "known_at_ms": int(s.get("known_at_ms", s.get("occurred_at_ms", 0)) or 0),
-                        "swept": False,
-                    }
-                    for s in target_swings_for_pools
-                    if float(s.get("price", 0.0) or 0.0) > 0.0
-                ]
             raw_1m_for_pools = list(getattr(context, "closed_m1_candles", None) or getattr(context, "candles_1m", ()) or ())
             closed_1m_for_pools, _ = _closed_bars_as_of(raw_1m_for_pools, now_ms, 60_000)
+            raw_5m_for_pools = list(getattr(context, "closed_m5_candles", None) or getattr(context, "candles_5m", ()) or ())
+            raw_15m_for_pools = list(getattr(context, "closed_m15_candles", None) or getattr(context, "candles_15m", ()) or ())
+            raw_h1_for_pools = list(getattr(context, "closed_h1_candles", None) or getattr(context, "candles_1h", ()) or ())
+            has_mtf_pools_ctx = bool(raw_5m_for_pools or raw_15m_for_pools or raw_h1_for_pools)
+
+            if not ctx_pools and not evidence.target_reachable:
+                target_swings_for_pools = list(sh_1m if direction == "LONG" else sl_1m)
+                ctx_pools = _build_causal_swing_pools_from_swings_v1793124(
+                    target_swings_for_pools, closed_1m_for_pools, direction, now_ms
+                )
+            if policy_obj.enable_core_trading_logic_repair_v1793123 and has_mtf_pools_ctx and not evidence.target_reachable:
+                from services.liquidity_scenario_service import identify_confirmed_swings
+                mtf_swings_for_pools: List[Dict[str, Any]] = []
+                existing_ids = {
+                    str(p.get("id") or p.get("pool_id") or "") if isinstance(p, Mapping) else str(getattr(p, "id", None) or getattr(p, "pool_id", "") or "")
+                    for p in ctx_pools
+                }
+                for tf_raw_b, tf_lbl_b, tf_ms_b in (
+                    (raw_5m_for_pools, "5M", 300_000),
+                    (raw_15m_for_pools, "15M", 900_000),
+                    (raw_h1_for_pools, "1H", 3_600_000),
+                ):
+                    closed_tf_b, _ = _closed_bars_as_of(tf_raw_b, now_ms, tf_ms_b)
+                    if len(closed_tf_b) >= 5:
+                        sh_tf_b, sl_tf_b = identify_confirmed_swings(
+                            closed_tf_b, timeframe=tf_lbl_b, left_bars=1, right_bars=1, as_of_ms=now_ms
+                        )
+                        for sw_b in (sh_tf_b if direction == "LONG" else sl_tf_b):
+                            sw_id_b = str(sw_b.get("id") or f"pool_{tf_lbl_b}_{sw_b.get('occurred_at_ms')}")
+                            if sw_id_b in existing_ids:
+                                continue
+                            sw_px_b = float(sw_b.get("price", 0.0) or 0.0)
+                            sw_occ_b = int(sw_b.get("occurred_at_ms", 0) or 0)
+                            sw_k_b = int(sw_b.get("known_at_ms") or (sw_occ_b + tf_ms_b))
+                            # Check TF bars after swing formation as well as closed_1m_for_pools
+                            post_tf_b = [b for b in closed_tf_b if _bar_close_ms(b, tf_ms_b) > min(sw_occ_b, sw_k_b) and _bar_close_ms(b, tf_ms_b) <= now_ms]
+                            swept_on_tf = (
+                                any(_bar_float(b, "high") >= sw_px_b for b in post_tf_b)
+                                if direction == "LONG"
+                                else any(_bar_float(b, "low") <= sw_px_b for b in post_tf_b)
+                            )
+                            mtf_swings_for_pools.append(
+                                {
+                                    "id": sw_id_b,
+                                    "price": sw_px_b,
+                                    "occurred_at_ms": sw_occ_b,
+                                    "known_at_ms": sw_k_b,
+                                    "swept": swept_on_tf,
+                                }
+                            )
+                            existing_ids.add(sw_id_b)
+                if (
+                    prop_tp is not None
+                    and prop_target_id
+                    and str(prop_target_id) not in existing_ids
+                ):
+                    mtf_swings_for_pools.append(
+                        {
+                            "id": str(prop_target_id),
+                            "price": float(prop_tp),
+                            "occurred_at_ms": now_ms - 300_000,
+                            "known_at_ms": now_ms,
+                        }
+                    )
+                if mtf_swings_for_pools:
+                    ctx_pools.extend(
+                        _build_causal_swing_pools_from_swings_v1793124(
+                            mtf_swings_for_pools, closed_1m_for_pools, direction, now_ms
+                        )
+                    )
             eff_atr_m1_for_pools = max(0.05, float(atr_m1 or 0.5))
             eff_atr_m5_for_pools = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else eff_atr_m1_for_pools * 2.2
+            eff_max_m1_mult = float(policy_obj.max_target_atr_m1_multiple)
+            eff_max_m5_mult = 3.2
+            min_req_dist = 0.0
+            if policy_obj.enable_core_trading_logic_repair_v1793123 and has_mtf_pools_ctx and prop_entry is not None and prop_sl is not None:
+                fee_rt = float(prop_entry) * 2.0 * float(getattr(costs_obj, "taker_fee_rate", 0.0004)) + float(getattr(costs_obj, "slippage_usd", 0.10))
+                stop_d = abs(float(prop_entry) - float(prop_sl))
+                min_req_dist = float(policy_obj.min_net_rr) * (stop_d + fee_rt) + fee_rt
+                max_reach_dist = 3.8 * (stop_d + fee_rt) + fee_rt
+                eff_max_m1_mult = max(eff_max_m1_mult, 28.0, round(max_reach_dist / eff_atr_m1_for_pools, 4))
+                eff_max_m5_mult = max(10.5, round(max_reach_dist / eff_atr_m5_for_pools, 4))
+
             u_pool_id, u_pool_px, _, has_u_pool, exp_pool_swept = _resolve_unswept_liquidity_pool_target_v1793123(
                 pools=ctx_pools,
                 closed_1m=closed_1m_for_pools,
@@ -2007,7 +2141,9 @@ def evaluate_signal_intelligence_gate_v1793122(
                 now_ms=now_ms,
                 eff_atr_m1=eff_atr_m1_for_pools,
                 eff_atr_m5=eff_atr_m5_for_pools,
-                max_target_atr_m1_multiple=float(policy_obj.max_target_atr_m1_multiple),
+                max_target_atr_m1_multiple=eff_max_m1_mult,
+                max_target_atr_m5_multiple=eff_max_m5_mult,
+                min_required_target_distance=min_req_dist,
             )
             if has_u_pool and u_pool_id is not None and u_pool_px is not None:
                 prop_target_id = u_pool_id
@@ -2083,8 +2219,8 @@ def evaluate_signal_intelligence_gate_v1793122(
                 prop_tp is not None
                 and prop_sl is not None
                 and prop_entry is not None
-                and 1.2 <= eff_room_m1 <= float(policy_obj.max_target_atr_m1_multiple)
-                and eff_room_m5 <= 3.2
+                and 1.2 <= eff_room_m1 <= eff_max_m1_mult
+                and eff_room_m5 <= eff_max_m5_mult
                 and eff_stop_m1 >= float(policy_obj.min_stop_atr_m1_ratio)
                 and (
                     (direction == "LONG" and float(prop_sl) < float(prop_entry) < float(prop_tp))

@@ -224,30 +224,53 @@ def replay_single_si_policy_v1793122(
     si_pol = PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122[policy_id]
     exec_pol = _map_si_policy_to_executable_research_policy_v1793122(si_pol)
     bars_1m = list(datasets["1m"])
-    by_idx: Mapping[int, List[Dict[str, Any]]] = candidate_index["decisions_by_checkpoint_index"]
+    base_by_idx: Mapping[int, List[Dict[str, Any]]] = candidate_index["decisions_by_checkpoint_index"]
     raw_decisions_total = int(candidate_index["raw_eligible_decisions_count"])
 
-    # Step 1: At each of the 18,744 eligible M1 timestamps, select the winning candidate
+    eff_feature_ledger: Dict[str, Mapping[str, Any]] = dict(feature_ledger_by_opp_id)
+    if policy_id == "SI8_RESEARCH_DISCOVERY_REPAIRED":
+        si8_by_idx = candidate_index.get("si8_discovered_decisions_by_checkpoint_index")
+        si8_feat = candidate_index.get("si8_discovered_feature_ledger_by_opp_id")
+        if si8_by_idx is None:
+            from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
+
+            disc_res = discover_research_candidates_v1793123(datasets)
+            si8_by_idx = disc_res.get("si8_discovered_decisions_by_checkpoint_index") or {}
+            si8_feat = disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {}
+        if si8_feat:
+            eff_feature_ledger.update(si8_feat)
+        merged_by_idx: Dict[int, List[Dict[str, Any]]] = {int(k): list(v) for k, v in base_by_idx.items()}
+        for k_idx, disc_list in (si8_by_idx or {}).items():
+            merged_by_idx.setdefault(int(k_idx), []).extend(disc_list)
+            raw_decisions_total += len(disc_list)
+        by_idx: Mapping[int, List[Dict[str, Any]]] = merged_by_idx
+    else:
+        by_idx = base_by_idx
+
+    # Step 1: At each eligible M1 timestamp, select the winning candidate
     # via the policy's arbitration mode (`STATIC_PRODUCTION_PRIORITY` for SI0, SI2..SI5;
-    # `PRE_ENTRY_QUALITY_TUPLE` for SI1, SI6).
+    # `PRE_ENTRY_QUALITY_TUPLE` for SI1, SI6, SI7, SI8).
     arb_mode = si_pol.arbitration_mode
     selected_opportunities: List[Dict[str, Any]] = []
     suppressed_ties_count = 0
     selected_by_model: Counter[str] = Counter()
+    si8_selected_incremental_by_model: Counter[str] = Counter()
 
     for idx_1m in sorted(by_idx.keys()):
         cands = by_idx[idx_1m]
         winner, losers = arbitrate_competing_model_intents_v1793122(
             cands,
             arbitration_mode=arb_mode,
-            feature_ledger_by_opp_id=feature_ledger_by_opp_id,
+            feature_ledger_by_opp_id=eff_feature_ledger,
         )
         if winner is not None:
             selected_opportunities.append(winner)
             selected_by_model[str(winner["model_id"])] += 1
+            if bool(winner.get("discovered_by_si8", False)):
+                si8_selected_incremental_by_model[str(winner["model_id"])] += 1
             suppressed_ties_count += len(losers)
 
-    # Step 2: Materialize causal order intents for all 18,744 selected opportunities
+    # Step 2: Materialize causal order intents for all selected opportunities
     materialized_list: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
     rejection_reasons_counter: Counter[str] = Counter()
     changed_dim_counts: Counter[str] = Counter()
@@ -260,7 +283,86 @@ def replay_single_si_policy_v1793122(
 
     for opp in selected_opportunities:
         opp_id = str(opp["opportunity_id"])
-        feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
+        feat = dict(eff_feature_ledger.get(opp_id) or {})
+
+        if policy_id == "SI8_RESEARCH_DISCOVERY_REPAIRED" and bool(opp.get("discovered_by_si8", False)):
+            ent_px = round(float(opp["entry_reference"]), 2)
+            sl_px = round(float(opp["selected_sl"]), 2)
+            tp_px = round(float(opp["take_profit"]), 2)
+            idx_1m_i = int(opp["checkpoint_index_1m"])
+            dec_ts_i = int(opp["decision_timestamp_ms"])
+            dir_u = str(opp["direction"]).upper()
+            m_id_s = str(opp["model_id"])
+            sz_res = recalculate_trade_risk_quantity_v179312(
+                ent_px, sl_px, tp_px, direction=dir_u, decision_ts=dec_ts_i
+            )
+            old_plan = {
+                "opportunity_id": opp_id,
+                "model_id": m_id_s,
+                "direction": dir_u,
+                "checkpoint_index_1m": idx_1m_i,
+                "decision_timestamp_ms": dec_ts_i,
+                "entry_reference": ent_px,
+                "selected_sl": sl_px,
+                "take_profit": tp_px,
+                "quantity": sz_res["quantity"],
+                "planned_net_risk_usd": sz_res["planned_net_risk_usd"],
+                "net_rr": sz_res["net_rr"],
+            }
+            if not sz_res["can_execute"]:
+                mat = {
+                    "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                    "opportunity_id": opp_id,
+                    "setup_id": str(opp.get("setup_id") or ""),
+                    "variant_id": policy_id,
+                    "intervention_type": exec_pol.intervention_type,
+                    "status": "REJECTED_BY_INTERVENTION",
+                    "accepted": False,
+                    "rejection_reason": str(sz_res["rejection_reason"] or "REJECTED_BY_RISK_CALCULATOR"),
+                    "old_plan": old_plan,
+                    "new_checkpoint_index_1m": None,
+                    "new_decision_timestamp_ms": None,
+                    "changed_dimensions": [],
+                    "known_at_ms": dec_ts_i,
+                    "confirmation_subtype": str(opp.get("confirmation_subtype") or "SI8_CAUSAL_DISCOVERY"),
+                }
+            else:
+                mat = {
+                    "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                    "opportunity_id": opp_id,
+                    "setup_id": str(opp.get("setup_id") or ""),
+                    "variant_id": policy_id,
+                    "intervention_type": exec_pol.intervention_type,
+                    "status": "ACCEPTED_MODIFIED_EXECUTABLE_GEOMETRY",
+                    "accepted": True,
+                    "rejection_reason": None,
+                    "old_plan": old_plan,
+                    "new_checkpoint_index_1m": idx_1m_i,
+                    "new_decision_timestamp_ms": dec_ts_i,
+                    "new_entry_reference": ent_px,
+                    "new_selected_sl": sl_px,
+                    "new_take_profit": tp_px,
+                    "new_quantity": sz_res["quantity"],
+                    "new_planned_net_risk_usd": sz_res["planned_net_risk_usd"],
+                    "new_net_rr": sz_res["net_rr"],
+                    "new_gross_rr": sz_res["gross_rr"],
+                    "new_structural_invalidation_price": float(opp.get("structural_invalidation_price") or sl_px),
+                    "new_selected_anchor_id": opp.get("selected_anchor_id"),
+                    "new_anchor_kind": opp.get("anchor_kind"),
+                    "new_selected_target_id": opp.get("selected_target_id"),
+                    "changed_dimensions": [
+                        "discovered_by_si8",
+                        "entry_reference",
+                        "selected_sl",
+                        "take_profit",
+                        "quantity",
+                    ],
+                    "known_at_ms": dec_ts_i,
+                    "confirmation_subtype": str(opp.get("confirmation_subtype") or "SI8_CAUSAL_DISCOVERY"),
+                    "new_trade_fingerprint": str(opp.get("trade_action_fingerprint") or ""),
+                }
+            materialized_list.append((opp, mat))
+            continue
 
         # Additional SI1 / SI7 / SI8 model-specific continuation/reversal quality filter before materialization
         if policy_id in (
@@ -513,6 +615,7 @@ def replay_single_si_policy_v1793122(
         "unique_eligible_timestamps_evaluated": len(selected_opportunities),
         "suppressed_same_timestamp_tie_count": suppressed_ties_count,
         "selected_winners_by_model": dict(selected_by_model),
+        "si8_selected_incremental_winners_by_model": dict(si8_selected_incremental_by_model),
         "accepted_modified_executable_geometry_count": accepted_modified_count,
         "accepted_unchanged_noop_count": accepted_noop_count,
         "rejected_by_signal_intelligence_count": rejected_count,
@@ -650,6 +753,8 @@ def execute_independent_worker_determinism_runs_v1793122(
         "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
         "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
         "SI6_COMBINED_PREDECLARED",
+        "SI7_CORE_TRADING_LOGIC_REPAIRED",
+        "SI8_RESEARCH_DISCOVERY_REPAIRED",
     ),
     preloaded_context: Optional[Tuple[Any, Any]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
@@ -674,6 +779,20 @@ def execute_independent_worker_determinism_runs_v1793122(
         cand_index = build_full_intervention_candidate_index_v1793121(
             a1_eligible, datasets, pol_hash, close_ts_index=close_ts
         )
+
+    if (
+        "SI8_RESEARCH_DISCOVERY_REPAIRED" in policies_to_verify
+        and "si8_discovered_decisions_by_checkpoint_index" not in cand_index
+    ):
+        from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
+
+        disc_res = discover_research_candidates_v1793123(datasets)
+        cand_index = {
+            **cand_index,
+            "si8_discovered_decisions_by_checkpoint_index": disc_res.get("si8_discovered_decisions_by_checkpoint_index")
+            or {},
+            "si8_discovered_feature_ledger_by_opp_id": disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {},
+        }
 
     feat_map: Dict[str, Dict[str, Any]] = {}
     for opp in cand_index["canonical_opportunities"]:
@@ -1103,7 +1222,9 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         pol_hash_v179312,
         close_ts_index=close_ts,
     )
-    with ThreadPoolExecutor(max_workers=2) as ex_pre:
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
+
+    with ThreadPoolExecutor(max_workers=3) as ex_pre:
         f_feat = ex_pre.submit(
             build_pre_entry_feature_ledger_v1793121,
             a1_episodes,
@@ -1115,8 +1236,20 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
             cand_index,
             datasets,
         )
+        f_disc = ex_pre.submit(
+            discover_research_candidates_v1793123,
+            datasets,
+        )
         art_20_feat, art_22_htf = f_feat.result()
         art_21_uni = f_uni.result()
+        si8_discovery_report = f_disc.result()
+
+    cand_index["si8_discovered_decisions_by_checkpoint_index"] = (
+        si8_discovery_report.get("si8_discovered_decisions_by_checkpoint_index") or {}
+    )
+    cand_index["si8_discovered_feature_ledger_by_opp_id"] = (
+        si8_discovery_report.get("si8_discovered_feature_ledger_by_opp_id") or {}
+    )
     feat_by_opp_id: Dict[str, Dict[str, Any]] = {}
     for row in art_20_feat.get("sample_records", []):
         oid = str(row.get("opportunity_id") or "")
@@ -1653,6 +1786,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         "cand_index": cand_index,
         "feat_by_opp_id": feat_by_opp_id,
         "si_results_by_policy": si_results_by_policy,
+        "si8_discovery_report": si8_discovery_report,
     }
     return evidence_by_key
 

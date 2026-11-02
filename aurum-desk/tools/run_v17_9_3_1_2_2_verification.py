@@ -149,6 +149,7 @@ def verify_collect_vs_junit_node_id_bijection_v1793122(
 
 
 def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> List[Tuple[str, List[str]]]:
+    s0000 = [f for f in all_test_files if "v17_9_3_1_2_4" in f]
     s000 = [f for f in all_test_files if "v17_9_3_1_2_3" in f]
     s00a = [f for f in all_test_files if "v17_9_3_1_2_2" in f]
     s00b = [f for f in all_test_files if "v17_9_3_1_2_1" in f]
@@ -156,6 +157,7 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         f
         for f in all_test_files
         if ("v17_9_3_1_2" in f or "v17_9_3_1_1" in f or "v17_9_3" in f)
+        and f not in s0000
         and f not in s000
         and f not in s00a
         and f not in s00b
@@ -174,12 +176,14 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         )
     ]
     s04 = [f for f in all_test_files if f == "backend/tests/test_v16_23_red_reproductions.py"]
-    assigned = set(s000 + s00a + s00b + s00c + s01 + s02 + s03 + s04)
+    assigned = set(s0000 + s000 + s00a + s00b + s00c + s01 + s02 + s03 + s04)
     remaining = [f for f in all_test_files if f not in assigned]
 
     shards: List[Tuple[str, List[str]]] = []
     s02_sorted = sorted(s02, key=lambda x: 0 if "runtime_integration" in x else (1 if "strict_eligibility" in x else 2))
-    # 1. Resumable/fast shards first so completed XMLs resume at t=0 and fast shards flush to disk in <15s
+    # 1. Fast shards first so fast shards flush to disk in <15s and heavy shards are interleaved
+    if s0000:
+        shards.append(("SHARD_0000_V17_9_3_1_2_4", s0000))
     if s000:
         shards.append(("SHARD_000_V17_9_3_1_2_3", s000))
     if s00a:
@@ -211,18 +215,28 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         buckets[idx].append(rel)
         bucket_weights[idx] += (APP_ROOT / rel).stat().st_size if (APP_ROOT / rel).exists() else 1
 
-    # Interleave the 8 fast regression shards (~18s each) with the remaining 3 heavy shards
-    # so at most 2 heavy dataset-loading shards ever run concurrently!
+    # Split s00c into individual files and interleave heavy shards early with fast shards
+    # so there is no straggler tail at the end of the 4-worker pool and at most 2 heavy
+    # dataset-loading shards run simultaneously.
+    s00c_shards = [(f"SHARD_00C_{idx}_{Path(f).stem[:18]}", [f]) for idx, f in enumerate(sorted(s00c))]
     reg_shards = [(f"SHARD_{i:02d}_REGRESSION", sorted(b_files)) for i, b_files in enumerate(buckets, start=6) if b_files]
-    shards.extend(reg_shards[:3])
-    if len(s02_sorted) >= 2:
-        shards.append(("SHARD_02B_V17_9_0_1", [s02_sorted[1]]))
-    shards.extend(reg_shards[3:6])
-    if s00c:
-        shards.append(("SHARD_00C_V17_9_3_1_2", s00c))
-    shards.extend(reg_shards[6:])
+
+    heavy_queue: List[Tuple[str, List[str]]] = []
     if s00b:
-        shards.append(("SHARD_00B_V17_9_3_1_2_1", s00b))
+        heavy_queue.append(("SHARD_00B_V17_9_3_1_2_1", s00b))
+    if len(s02_sorted) >= 2:
+        heavy_queue.append(("SHARD_02B_V17_9_0_1", [s02_sorted[1]]))
+    heavy_queue.extend(s00c_shards)
+
+    fast_tail = list(shards[3:]) + reg_shards
+    shards = list(shards[:3])
+    while heavy_queue or fast_tail:
+        if heavy_queue:
+            shards.append(heavy_queue.pop(0))
+        if fast_tail:
+            shards.append(fast_tail.pop(0))
+        if fast_tail:
+            shards.append(fast_tail.pop(0))
 
     return [(name, files) for name, files in shards if files]
 
@@ -233,9 +247,10 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
     tested_executable_sha: str,
     max_workers: int = 4,
     test_files_override: Optional[Sequence[str]] = None,
+    force_fresh_execution: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Section 07 (Truth Closure #1):
+    Section 07 (Truth Closure #1) & V17.9.3.1.2.4 Stage R3 (Fresh Regression Truth):
     1. Discovers all `backend/tests/test_*.py` files in the repository (or `test_files_override`
        in isolated unit tests).
     2. Runs `pytest --collect-only -q` across the discovered test suite and records all
@@ -243,10 +258,19 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
     3. Shards the test files across `<= 4` parallel pytest subprocesses with `--junitxml`,
        parses every `<testcase>` node ID, and verifies 1-to-1 node-ID bijection
        (`25_full_regression_shard_junit_and_exact_bijection.json`).
+    When `force_fresh_execution=True` (mandatory for V17.9.3.1.2.4), deletes any pre-existing
+    XML files in `junit_dir` before running and forbids any XML resume shortcut.
     """
     junit_dir.mkdir(parents=True, exist_ok=True)
+    run_start_epoch_ns = time.time_ns()
+    if force_fresh_execution:
+        for old_xml in junit_dir.glob("*.xml"):
+            old_xml.unlink(missing_ok=True)
+
     py_exe = sys.executable
     n_workers = max(1, min(int(max_workers), 4))
+    env_fingerprint_src = f"{py_exe}|{sys.version}|{tested_executable_sha}|{os.environ.get('PYTHONPATH', '')}"
+    env_sha256 = hashlib.sha256(env_fingerprint_src.encode("utf-8")).hexdigest()
 
     if test_files_override is not None:
         all_test_files = sorted(str(f).replace("\\", "/") for f in test_files_override)
@@ -293,8 +317,8 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         for rp in rel_paths:
             shard_collected_ids.extend(collected_by_file.get(rp, []))
 
-        # Resume if XML already exists and matches collected node IDs with 0 failures
-        if xml_path.exists() and xml_path.stat().st_size > 100:
+        # Resume ONLY if force_fresh_execution is False and XML already exists and matches collected node IDs
+        if (not force_fresh_execution) and xml_path.exists() and xml_path.stat().st_size > 100:
             try:
                 root_pre = ET.parse(xml_path).getroot()
                 suites_pre = [root_pre] if root_pre.tag == "testsuite" else list(root_pre.findall("testsuite"))
@@ -320,34 +344,52 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
                         f"  [Shard {shard_name}] RESUMED files={len(rel_paths)} junit={len(pre_ids)} bij=True",
                         flush=True,
                     )
+                    st_stat = xml_path.stat()
                     return {
                         "shard_name": shard_name,
+                        "reused": True,
+                        "tested_executable_sha": tested_executable_sha,
+                        "env_sha256": env_sha256,
+                        "command_argv": [],
+                        "start_time_utc": None,
+                        "end_time_utc": None,
+                        "pid": None,
                         "test_files_count": len(rel_paths),
                         "test_files": rel_paths,
                         "collect_exit_code": col_proc.returncode,
                         "pytest_exit_code": 0,
                         "collected_count": len(shard_collected_ids),
                         "executed_junit_count": len(pre_ids),
+                        "passed_count": len(pre_ids) - pre_f - pre_e - pre_s,
                         "xml_tests_attr": pre_t,
                         "failed_count": pre_f,
                         "error_count": pre_e,
                         "skipped_count": pre_s,
                         "exact_bijection": True,
                         "elapsed_seconds": 0.01,
+                        "xml_mtime_ns": int(st_stat.st_mtime_ns),
+                        "xml_sha256": hashlib.sha256(xml_path.read_bytes()).hexdigest(),
+                        "stderr_tail": "",
                         "junit_xml_path": str(xml_path.relative_to(APP_ROOT)) if xml_path.is_relative_to(APP_ROOT) else str(xml_path),
                         "_junit_ids": pre_ids,
                     }
             except Exception:
                 pass
 
-        # Execute shard with JUnit XML
-        run_proc = subprocess.run(
-            [py_exe, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"],
+        # Execute shard in a fresh pytest subprocess with JUnit XML
+        cmd_argv = [py_exe, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"]
+        start_utc = datetime.now(timezone.utc).isoformat()
+        proc = subprocess.Popen(
+            cmd_argv,
             cwd=str(APP_ROOT),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            check=False,
         )
+        shard_pid = int(proc.pid)
+        out_str, err_str = proc.communicate()
+        ret_code = int(proc.returncode or 0)
+        end_utc = datetime.now(timezone.utc).isoformat()
         elapsed = round(time.time() - t_s, 2)
 
         shard_junit_ids: List[str] = []
@@ -355,7 +397,12 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         xml_failures = 0
         xml_errors = 0
         xml_skipped = 0
+        xml_mtime_ns = 0
+        xml_sha256 = ""
         if xml_path.exists():
+            st_stat = xml_path.stat()
+            xml_mtime_ns = int(st_stat.st_mtime_ns)
+            xml_sha256 = hashlib.sha256(xml_path.read_bytes()).hexdigest()
             root = ET.parse(xml_path).getroot()
             suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
             for st in suites:
@@ -372,24 +419,35 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
 
         bij = verify_collect_vs_junit_node_id_bijection_v1793122(shard_collected_ids, shard_junit_ids)
         print(
-            f"  [Shard {shard_name}] files={len(rel_paths)} junit={len(shard_junit_ids)} "
-            f"rc={run_proc.returncode} bij={bij['exact_node_id_bijection_verified']} in {elapsed}s",
+            f"  [Shard {shard_name}] FRESH pid={shard_pid} files={len(rel_paths)} junit={len(shard_junit_ids)} "
+            f"rc={ret_code} bij={bij['exact_node_id_bijection_verified']} in {elapsed}s",
             flush=True,
         )
         return {
             "shard_name": shard_name,
+            "reused": False,
+            "tested_executable_sha": tested_executable_sha,
+            "env_sha256": env_sha256,
+            "command_argv": cmd_argv,
+            "start_time_utc": start_utc,
+            "end_time_utc": end_utc,
+            "pid": shard_pid,
             "test_files_count": len(rel_paths),
             "test_files": rel_paths,
             "collect_exit_code": col_proc.returncode,
-            "pytest_exit_code": run_proc.returncode,
+            "pytest_exit_code": ret_code,
             "collected_count": len(shard_collected_ids),
             "executed_junit_count": len(shard_junit_ids),
+            "passed_count": len(shard_junit_ids) - xml_failures - xml_errors - xml_skipped,
             "xml_tests_attr": xml_tests,
             "failed_count": xml_failures,
             "error_count": xml_errors,
             "skipped_count": xml_skipped,
             "exact_bijection": bij["exact_node_id_bijection_verified"],
             "elapsed_seconds": elapsed,
+            "xml_mtime_ns": xml_mtime_ns,
+            "xml_sha256": xml_sha256,
+            "stderr_tail": (err_str or "")[-400:],
             "junit_xml_path": str(xml_path.relative_to(APP_ROOT)) if xml_path.is_relative_to(APP_ROOT) else str(xml_path),
             "_junit_ids": shard_junit_ids,
         }
@@ -414,6 +472,8 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
     tot_failed = sum(int(s["failed_count"]) for s in clean_shards)
     tot_errors = sum(int(s["error_count"]) for s in clean_shards)
     tot_skipped = sum(int(s["skipped_count"]) for s in clean_shards)
+    reused_cnt = sum(1 for s in clean_shards if bool(s.get("reused", False)))
+    fresh_cnt = sum(1 for s in clean_shards if not bool(s.get("reused", False)))
     nonzero_shards = sum(
         1 for s in clean_shards if int(s["pytest_exit_code"]) != 0 or int(s["collect_exit_code"]) != 0
     )
@@ -434,7 +494,11 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "defect_closed": "TRUTH_CLOSURE_1_SHARD_JUNIT_NODE_ID_BIJECTION",
         "tested_executable_sha": tested_executable_sha,
+        "force_fresh_execution": force_fresh_execution,
+        "run_start_epoch_ns": run_start_epoch_ns,
         "shard_count": len(clean_shards),
+        "freshly_executed_shards_count": fresh_cnt,
+        "reused_shards_count": reused_cnt,
         "max_workers": n_workers,
         "collected_node_ids_count": len(all_collected_ids),
         "executed_junit_node_ids_count": len(all_junit_ids),
@@ -452,10 +516,64 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             and nonzero_shards == 0
             and tot_failed == 0
             and tot_errors == 0
+            and (not force_fresh_execution or reused_cnt == 0)
         ),
         "shards": clean_shards,
     }
     return art_24, art_25
+
+
+def verify_fresh_junit_shards_attestation_v1793124(
+    junit_report: Mapping[str, Any],
+    *,
+    expected_tested_executable_sha: str,
+    min_mtime_ns: int = 0,
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1.2.4 Stage R3: Verifies that every shard in `junit_report` was freshly
+    executed on `expected_tested_executable_sha` after `min_mtime_ns`, with `reused=False`,
+    valid subprocess PID, non-empty `xml_sha256`, `pytest_exit_code == 0`, and 1-to-1
+    node-ID bijection. Rejects stale/reused/wrong-SHA JUnit XML RED.
+    """
+    shards = list(junit_report.get("shards") or [])
+    violations: List[str] = []
+    if not shards:
+        violations.append("NO_SHARDS_PRESENT")
+    rep_sha = str(junit_report.get("tested_executable_sha") or "")
+    if rep_sha != expected_tested_executable_sha:
+        violations.append(f"REPORT_TESTED_SHA_MISMATCH:{rep_sha}!={expected_tested_executable_sha}")
+    if int(junit_report.get("reused_shards_count", 0)) > 0:
+        violations.append(f"REUSED_SHARDS_COUNT_NONZERO:{junit_report.get('reused_shards_count')}")
+
+    eff_min_ns = max(int(min_mtime_ns), int(junit_report.get("run_start_epoch_ns") or 0))
+    for sh in shards:
+        s_name = str(sh.get("shard_name") or "UNKNOWN")
+        if bool(sh.get("reused", False)):
+            violations.append(f"SHARD_REUSED_FORBIDDEN:{s_name}")
+        if str(sh.get("tested_executable_sha") or "") != expected_tested_executable_sha:
+            violations.append(f"SHARD_SHA_MISMATCH:{s_name}:{sh.get('tested_executable_sha')}")
+        if int(sh.get("pid") or 0) <= 0:
+            violations.append(f"SHARD_MISSING_SUBPROCESS_PID:{s_name}")
+        if int(sh.get("xml_mtime_ns") or 0) < eff_min_ns:
+            violations.append(f"SHARD_STALE_MTIME_BEFORE_RUN_START:{s_name}")
+        if not str(sh.get("xml_sha256") or ""):
+            violations.append(f"SHARD_MISSING_XML_SHA256:{s_name}")
+        if int(sh.get("pytest_exit_code", -1)) != 0:
+            violations.append(f"SHARD_NONZERO_EXIT_CODE:{s_name}:{sh.get('pytest_exit_code')}")
+        if int(sh.get("failed_count", 0)) != 0 or int(sh.get("error_count", 0)) != 0:
+            violations.append(f"SHARD_FAILURES_OR_ERRORS:{s_name}")
+        if not bool(sh.get("exact_bijection", False)):
+            violations.append(f"SHARD_BIJECTION_FAILED:{s_name}")
+
+    return {
+        "passed": len(violations) == 0,
+        "expected_tested_executable_sha": expected_tested_executable_sha,
+        "shard_count": len(shards),
+        "freshly_executed_shards_count": sum(1 for s in shards if not bool(s.get("reused", False))),
+        "reused_shards_count": sum(1 for s in shards if bool(s.get("reused", False))),
+        "violations_count": len(violations),
+        "violations": violations,
+    }
 
 
 def run_16_executable_red_green_source_mutations_v1793122(

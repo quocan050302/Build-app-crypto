@@ -1899,10 +1899,13 @@ class SharedStrategyEvaluator:
             last_2_open = _candle_open_ms(closed_1m[-2])
 
             if strict_causal_repair or research_discovery_enabled:
-                # V17.9.3.1.2.3 STAGE G1/G3: Select most recent FVG that is fresh (<= max_fvg_age_bars),
-                # unmitigated by subsequent closed bars, and has an actual post-formation closed-bar retest.
+                # V17.9.3.1.2.3 STAGE G1/G3 & V17.9.3.1.2.4 SI8 Discovery:
+                # In SI7 (research_discovery_enabled=False), strictly validate the baseline candidate FVG (dir_fvgs[-1]).
+                # In SI8 (research_discovery_enabled=True), scan recent unmitigated retested FVGs (and for CG01, require
+                # causal Breaker overlap + prior swing sweep+reclaim).
                 chosen_fvg: Optional[Dict[str, Any]] = None
-                for cand_fvg in reversed(dir_fvgs):
+                cand_fvg_pool = list(reversed(dir_fvgs)) if research_discovery_enabled else [dir_fvgs[-1]]
+                for cand_fvg in cand_fvg_pool:
                     c_bot = float(cand_fvg["bottom"])
                     c_top = float(cand_fvg["top"])
                     c_ts = int(cand_fvg.get("timestamp") or cand_fvg.get("middle_bar_ms") or last_2_open)
@@ -1918,15 +1921,17 @@ class SharedStrategyEvaluator:
                     ]
                     if not post_bars:
                         continue
+                    retest_window_bars = post_bars[-min(len(post_bars), 12 if research_discovery_enabled else 6) :]
+                    retest_tol = 0.25 if research_discovery_enabled else 0.0
                     if direction == "LONG":
                         is_mit = any(
                             float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) < c_bot
                             for b in post_bars
                         )
                         is_ret = any(
-                            float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= c_top
+                            float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= c_top + retest_tol
                             and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) >= c_bot
-                            for b in post_bars[-min(len(post_bars), 6) :]
+                            for b in retest_window_bars
                         )
                     else:
                         is_mit = any(
@@ -1934,15 +1939,33 @@ class SharedStrategyEvaluator:
                             for b in post_bars
                         )
                         is_ret = any(
-                            float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= c_bot
+                            float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= c_bot - retest_tol
                             and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) <= c_top
-                            for b in post_bars[-min(len(post_bars), 6) :]
+                            for b in retest_window_bars
                         )
                     if not is_mit and is_ret:
+                        if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value and research_discovery_enabled:
+                            if direction in brk_by_dir:
+                                c_breakers = brk_by_dir[direction]
+                            else:
+                                c_breakers = detect_breaker_blocks(
+                                    list(closed_1m),
+                                    symbol=symbol,
+                                    direction=direction,
+                                    timeframe="1M",
+                                    as_of_ms=cutoff_ms,
+                                    confirmed_swings=(sh_1m, sl_1m),
+                                )
+                                brk_by_dir[direction] = c_breakers
+                            ov_b = [
+                                b for b in c_breakers
+                                if b.confirmed_at_ms <= cutoff_ms
+                                and abs(int(b.break_bar_open_ms) - c_ts) <= 12 * 60_000
+                                and min(float(b.high), c_top) > max(float(b.low), c_bot)
+                            ]
+                            if not ov_b:
+                                continue
                         chosen_fvg = cand_fvg
-                        break
-                    # In strict_causal_repair without research_discovery_enabled, only inspect the candidate FVG
-                    if not research_discovery_enabled:
                         break
                 if chosen_fvg is None:
                     return {"has_setup": False, "reason_code": "FVG_STALE_MITIGATED_OR_UNRETESTED"}
@@ -1975,7 +1998,7 @@ class SharedStrategyEvaluator:
             overlapping_breakers = [
                 b for b in causal_breakers
                 if b.confirmed_at_ms <= cutoff_ms
-                and abs(int(b.break_bar_open_ms) - f_ts) <= 5 * 60_000
+                and abs(int(b.break_bar_open_ms) - f_ts) <= ((12 if research_discovery_enabled else 5) * 60_000)
                 and min(float(b.high), f_top) > max(float(b.low), f_bot)
             ]
             matched_breaker = overlapping_breakers[-1] if overlapping_breakers else None
@@ -1993,6 +2016,55 @@ class SharedStrategyEvaluator:
             if ref_swing is None or orig_swing is None:
                 return {"has_setup": False, "reason_code": "WAITING_M1_STRUCTURE"}
 
+            if strict_causal_repair and model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+                if matched_breaker is None:
+                    return {"has_setup": False, "reason_code": "CG01_MISSING_CAUSAL_BREAKER_OVERLAP"}
+                brk_open_ms_cg = int(matched_breaker.break_bar_open_ms)
+                causal_origs = [
+                    s for s in orig_swings
+                    if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= brk_open_ms_cg
+                ]
+                if not causal_origs:
+                    return {"has_setup": False, "reason_code": "CG01_MISSING_PRIOR_SWING_FOR_SWEEP"}
+                swept_cg_orig = None
+                swept_cg_bar_ms = 0
+                swept_cg_px = 0.0
+                window_bars_cg = [
+                    b for b in closed_1m
+                    if (f_conf - 18 * 60_000) <= _candle_open_ms(b) <= brk_open_ms_cg
+                ]
+                for cand_orig in reversed(causal_origs[-6:]):
+                    o_px = float(cand_orig["price"])
+                    o_k_ms = int(cand_orig.get("known_at_ms") or cand_orig.get("occurred_at_ms") or 0)
+                    bars_after_orig = [b for b in window_bars_cg if _candle_open_ms(b) >= o_k_ms]
+                    if not bars_after_orig:
+                        continue
+                    if direction == "LONG":
+                        min_l = min(float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) for b in bars_after_orig)
+                        last_c_cg = float(closed_1m[-1].get("close") if isinstance(closed_1m[-1], dict) else getattr(closed_1m[-1], "close", 0.0))
+                        if min_l <= o_px - 0.02 and last_c_cg > o_px:
+                            swept_cg_orig = cand_orig
+                            swept_cg_px = min_l
+                            swept_cg_bar_ms = min(
+                                _candle_open_ms(b) for b in bars_after_orig
+                                if float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) == min_l
+                            )
+                            break
+                    else:
+                        max_h = max(float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) for b in bars_after_orig)
+                        last_c_cg = float(closed_1m[-1].get("close") if isinstance(closed_1m[-1], dict) else getattr(closed_1m[-1], "close", 0.0))
+                        if max_h >= o_px + 0.02 and last_c_cg < o_px:
+                            swept_cg_orig = cand_orig
+                            swept_cg_px = max_h
+                            swept_cg_bar_ms = min(
+                                _candle_open_ms(b) for b in bars_after_orig
+                                if float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) == max_h
+                            )
+                            break
+                if swept_cg_orig is None:
+                    return {"has_setup": False, "reason_code": "CG01_MISSING_CAUSAL_SWEEP_RECLAIM"}
+                orig_swing = swept_cg_orig
+
             broken_swing_id_str = (
                 str(matched_breaker.broken_swing_id)
                 if (matched_breaker is not None and matched_breaker.broken_swing_id)
@@ -2000,6 +2072,35 @@ class SharedStrategyEvaluator:
             )
             eff_break_open_ms = int(matched_breaker.break_bar_open_ms) if matched_breaker is not None else f_ts
             eff_break_known_ms = int(matched_breaker.confirmed_at_ms) if matched_breaker is not None else f_conf
+
+            is_disc_si8_fvg = bool(
+                research_discovery_enabled
+                and (
+                    sel_fvg is not dir_fvgs[-1]
+                    or (matched_breaker is not None and abs(int(matched_breaker.break_bar_open_ms) - f_ts) > 5 * 60_000)
+                )
+            )
+            if research_discovery_enabled and not is_disc_si8_fvg:
+                # Check if dir_fvgs[-1] only passed because of SI8 extended 12-bar/tolerance retest window
+                post_b_d1 = [
+                    b for b in closed_1m
+                    if _candle_close_ms(b, 60_000) > f_conf and _candle_close_ms(b, 60_000) <= cutoff_ms
+                ]
+                strict_ret_6 = (
+                    any(
+                        float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= f_top
+                        and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) >= f_bot
+                        for b in post_b_d1[-min(len(post_b_d1), 6) :]
+                    )
+                    if direction == "LONG"
+                    else any(
+                        float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= f_bot
+                        and float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) <= f_top
+                        for b in post_b_d1[-min(len(post_b_d1), 6) :]
+                    )
+                )
+                if not strict_ret_6:
+                    is_disc_si8_fvg = True
 
             legacy_sl = (
                 round(f_bot - cfg.sl_buffer_ticks * cfg.tick_size, 2)
@@ -2033,23 +2134,35 @@ class SharedStrategyEvaluator:
             }
             sel_sweep = None
             if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
-                sel_sweep = {
-                    "id": f"sweep_cg01_{orig_swing.get('occurred_at_ms')}",
-                    "price": float(orig_swing["price"]),
-                    "occurred_at_ms": int(orig_swing["occurred_at_ms"]),
-                    "known_at_ms": int(orig_swing.get("known_at_ms") or orig_swing["occurred_at_ms"]),
-                }
+                if strict_causal_repair:
+                    sel_sweep = {
+                        "id": f"sweep_cg01_{swept_cg_bar_ms}",
+                        "price": float(swept_cg_px),
+                        "occurred_at_ms": int(swept_cg_bar_ms),
+                        "known_at_ms": int(swept_cg_bar_ms + 60_000),
+                        "reclaimed": True,
+                    }
+                else:
+                    sel_sweep = {
+                        "id": f"sweep_cg01_{orig_swing.get('occurred_at_ms')}",
+                        "price": float(orig_swing["price"]),
+                        "occurred_at_ms": int(orig_swing["occurred_at_ms"]),
+                        "known_at_ms": int(orig_swing.get("known_at_ms") or orig_swing["occurred_at_ms"]),
+                    }
+            ep_prefix = "ep_si8" if is_disc_si8_fvg else "ep"
             return {
                 "has_setup": True,
                 "direction": direction,
                 "legacy_sl": legacy_sl,
-                "episode_id": f"ep_{model_id}_{direction}_{f_ts}",
+                "episode_id": f"{ep_prefix}_{model_id}_{direction}_{f_ts}",
                 "selected_fvg": sel_fvg_desc,
                 "selected_break": sel_break_desc,
                 "selected_sweep": sel_sweep,
                 "selected_reference": ref_swing,
                 "entry_zone_low": round(f_bot, 2),
                 "entry_zone_high": round(f_top, 2),
+                **({"fvg_retest_valid": True} if (strict_causal_repair or research_discovery_enabled) else {}),
+                "discovered_by_si8": is_disc_si8_fvg,
             }
 
         if model_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
@@ -2057,14 +2170,144 @@ class SharedStrategyEvaluator:
             last_sl = sl_1m[-1]
             last_bar = closed_1m[-1]
             last_close = float(last_bar.get("close") if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
+            last_open = float(last_bar.get("open") if isinstance(last_bar, dict) else getattr(last_bar, "open", 0.0))
             last_open_ms = _candle_open_ms(last_bar)
             last_close_ms = _candle_close_ms(last_bar, 60_000)
-            if direction == "LONG" and last_close > float(last_sh["price"]):
+            if direction == "LONG" and last_close > float(last_sh["price"]) and (not strict_causal_repair or float(last_sl["price"]) < last_close):
                 legacy_sl = round(float(last_sl["price"]) - cfg.sl_buffer_ticks * cfg.tick_size, 2)
                 orig, ref = last_sl, last_sh
-            elif direction == "SHORT" and last_close < float(last_sl["price"]):
+            elif direction == "SHORT" and last_close < float(last_sl["price"]) and (not strict_causal_repair or float(last_sh["price"]) > last_close):
                 legacy_sl = round(float(last_sh["price"]) + cfg.sl_buffer_ticks * cfg.tick_size, 2)
                 orig, ref = last_sh, last_sl
+            elif research_discovery_enabled and len(closed_1m) >= 12:
+                # V17.9.3.1.2.4 SI8 Research Discovery: Causal BOS + Pullback Continuation within recent 14 bars
+                disc_bos_bar = None
+                disc_ref = None
+                disc_orig = None
+                recent_cont_bars = closed_1m[-min(len(closed_1m) - 2, 14) : -1]
+                for cand_b in reversed(recent_cont_bars):
+                    b_open_ms = _candle_open_ms(cand_b)
+                    b_close = float(cand_b.get("close") if isinstance(cand_b, dict) else getattr(cand_b, "close", 0.0))
+                    b_open = float(cand_b.get("open") if isinstance(cand_b, dict) else getattr(cand_b, "open", 0.0))
+                    if direction == "LONG":
+                        prior_shs = [
+                            s for s in sh_1m
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= b_open_ms
+                        ]
+                        prior_sls = [
+                            s for s in sl_1m
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= cutoff_ms
+                            and float(s["price"]) < last_close - 0.30
+                        ]
+                        if not prior_shs or not prior_sls or (b_close - b_open) < 0.20:
+                            continue
+                        o_sw = prior_sls[-1]
+                        o_px = float(o_sw["price"])
+                        matched_r_sw = next(
+                            (
+                                s for s in reversed(prior_shs[-4:])
+                                if o_px < float(s["price"]) and b_close > float(s["price"]) + 0.02
+                            ),
+                            None,
+                        )
+                        if matched_r_sw is None:
+                            continue
+                        bars_since_bos = [b for b in closed_1m if _candle_open_ms(b) > b_open_ms and _candle_close_ms(b, 60_000) <= cutoff_ms]
+                        if not bars_since_bos:
+                            continue
+                        min_l_since = min(float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) for b in bars_since_bos)
+                        if min_l_since <= o_px or last_close <= o_px + 0.30:
+                            continue
+                        has_pb = any(
+                            float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                            < float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                            or float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= b_close - 0.10
+                            for b in bars_since_bos
+                        )
+                        if has_pb and last_close >= o_px + 0.35 * max(0.20, b_close - o_px):
+                            disc_bos_bar = cand_b
+                            disc_ref = matched_r_sw
+                            disc_orig = o_sw
+                            break
+                    else:
+                        prior_sls = [
+                            s for s in sl_1m
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= b_open_ms
+                        ]
+                        prior_shs = [
+                            s for s in sh_1m
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= cutoff_ms
+                            and float(s["price"]) > last_close + 0.30
+                        ]
+                        if not prior_sls or not prior_shs or (b_open - b_close) < 0.20:
+                            continue
+                        o_sw = prior_shs[-1]
+                        o_px = float(o_sw["price"])
+                        matched_r_sw = next(
+                            (
+                                s for s in reversed(prior_sls[-4:])
+                                if o_px > float(s["price"]) and b_close < float(s["price"]) - 0.02
+                            ),
+                            None,
+                        )
+                        if matched_r_sw is None:
+                            continue
+                        bars_since_bos = [b for b in closed_1m if _candle_open_ms(b) > b_open_ms and _candle_close_ms(b, 60_000) <= cutoff_ms]
+                        if not bars_since_bos:
+                            continue
+                        max_h_since = max(float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) for b in bars_since_bos)
+                        if max_h_since >= o_px or last_close >= o_px - 0.30:
+                            continue
+                        has_pb = any(
+                            float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                            > float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                            or float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= b_close + 0.10
+                            for b in bars_since_bos
+                        )
+                        if has_pb and last_close <= o_px - 0.35 * max(0.20, o_px - b_close):
+                            disc_bos_bar = cand_b
+                            disc_ref = matched_r_sw
+                            disc_orig = o_sw
+                            break
+                if disc_bos_bar is None or disc_ref is None or disc_orig is None:
+                    return {"has_setup": False, "reason_code": "WAITING_M1_BOS"}
+                bos_open_ms = _candle_open_ms(disc_bos_bar)
+                bos_close_ms = _candle_close_ms(disc_bos_bar, 60_000)
+                legacy_sl = (
+                    round(float(disc_orig["price"]) - cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                    if direction == "LONG"
+                    else round(float(disc_orig["price"]) + cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                )
+                return {
+                    "has_setup": True,
+                    "direction": direction,
+                    "legacy_sl": legacy_sl,
+                    "episode_id": f"ep_si8_cont_{direction}_{bos_open_ms}",
+                    "selected_fvg": None,
+                    "selected_break": {
+                        "break_id": f"bos_si8_{direction}_{bos_open_ms}",
+                        "break_open_ms": bos_open_ms,
+                        "broken_at_ms": bos_open_ms,
+                        "known_at_ms": bos_close_ms,
+                        "reference_swing_known_at_ms": int(disc_ref.get("known_at_ms") or disc_ref.get("occurred_at_ms") or bos_open_ms),
+                        "broken_swing_id": str(disc_ref.get("id")),
+                        "origin_pivot_id": str(disc_orig.get("id")),
+                        "origin_price": float(disc_orig["price"]),
+                        "origin_occurred_at_ms": int(disc_orig["occurred_at_ms"]),
+                        "episode_start_ms": int(disc_orig["occurred_at_ms"]),
+                    },
+                    "selected_sweep": {
+                        "id": f"anchor_si8_cont_{disc_orig.get('occurred_at_ms')}",
+                        "price": float(disc_orig["price"]),
+                        "occurred_at_ms": int(disc_orig["occurred_at_ms"]),
+                        "known_at_ms": int(disc_orig.get("known_at_ms") or disc_orig["occurred_at_ms"]),
+                    },
+                    "selected_reference": disc_ref,
+                    "entry_zone_low": None,
+                    "entry_zone_high": None,
+                    "continuation_retrace_valid": True,
+                    "discovered_by_si8": True,
+                }
             else:
                 return {"has_setup": False, "reason_code": "WAITING_M1_BOS"}
             return {
@@ -2165,24 +2408,220 @@ class SharedStrategyEvaluator:
                         "entry_zone_low": round(float(fvg["bottom"]), 2),
                         "entry_zone_high": round(float(fvg["top"]), 2),
                     }
+            if research_discovery_enabled and len(closed_1m) >= 15:
+                # V17.9.3.1.2.4 SI8 Research Discovery: Sequenced Sweep -> Reclaim -> MSS Break within 15 M1 bars
+                window_15 = closed_1m[-15:]
+                target_swings_swp = sl_1m if direction == "LONG" else sh_1m
+                opp_swings_mss = sh_1m if direction == "LONG" else sl_1m
+                for cand_sw in reversed(target_swings_swp[-6:]):
+                    sw_px = float(cand_sw["price"])
+                    sw_k_ms = int(cand_sw.get("known_at_ms") or cand_sw.get("occurred_at_ms") or 0)
+                    if sw_k_ms <= 0 or sw_k_ms >= cutoff_ms:
+                        continue
+                    post_sw_bars = [b for b in window_15 if _candle_open_ms(b) >= sw_k_ms]
+                    if not post_sw_bars:
+                        continue
+                    if direction == "LONG":
+                        min_l = min(float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) for b in post_sw_bars)
+                        if min_l > sw_px - 0.02 or last_close <= sw_px:
+                            continue
+                        sw_ts = min(
+                            _candle_open_ms(b) for b in post_sw_bars
+                            if float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) == min_l
+                        )
+                        bars_after_sw = [b for b in post_sw_bars if _candle_open_ms(b) >= sw_ts]
+                        prior_opps = [
+                            s for s in opp_swings_mss
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= cutoff_ms
+                        ]
+                        if not prior_opps or not bars_after_sw:
+                            continue
+                        ref_mss_sw = prior_opps[-1]
+                        mss_bars = [
+                            b for b in bars_after_sw
+                            if float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                            > float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                            and (
+                                float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) > float(ref_mss_sw["price"])
+                                or (
+                                    float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) > sw_px + 0.10
+                                    and (
+                                        float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                                        - float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                                    ) >= 0.30
+                                )
+                            )
+                        ]
+                        if not mss_bars:
+                            continue
+                        mss_b = mss_bars[-1]
+                        mss_open_ms = _candle_open_ms(mss_b)
+                        mss_close_ms = _candle_close_ms(mss_b, 60_000)
+                        leg_sl = round(min_l - cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                        fvg_after = [
+                            f for f in dir_fvgs
+                            if int(f.get("timestamp") or f.get("middle_bar_ms") or 0) >= sw_ts
+                            and int(f.get("confirmed_at") or 0) <= cutoff_ms
+                        ]
+                        chosen_f = fvg_after[-1] if fvg_after else None
+                        return {
+                            "has_setup": True,
+                            "direction": direction,
+                            "legacy_sl": leg_sl,
+                            "episode_id": f"ep_si8_{model_id}_{direction}_{sw_ts}",
+                            "selected_fvg": chosen_f,
+                            "selected_break": {
+                                "break_id": f"mss_si8_{model_id}_{direction}_{mss_open_ms}",
+                                "break_open_ms": mss_open_ms,
+                                "broken_at_ms": mss_open_ms,
+                                "known_at_ms": mss_close_ms,
+                                "reference_swing_known_at_ms": int(ref_mss_sw.get("known_at_ms") or ref_mss_sw.get("occurred_at_ms") or sw_k_ms),
+                                "broken_swing_id": str(ref_mss_sw.get("id") or f"sh_{ref_mss_sw.get('occurred_at_ms')}"),
+                                "origin_pivot_id": str(cand_sw.get("id") or f"sl_{cand_sw.get('occurred_at_ms')}"),
+                                "origin_price": float(min_l),
+                                "origin_occurred_at_ms": int(sw_ts),
+                                "episode_start_ms": int(sw_ts),
+                            },
+                            "selected_sweep": {
+                                "id": f"sweep_si8_{model_id}_{sw_ts}",
+                                "price": float(min_l),
+                                "occurred_at_ms": int(sw_ts),
+                                "known_at_ms": int(sw_ts + 60_000),
+                                "reclaimed": True,
+                            },
+                            "selected_reference": cand_sw,
+                            "entry_zone_low": round(float(chosen_f["bottom"]), 2) if chosen_f else None,
+                            "entry_zone_high": round(float(chosen_f["top"]), 2) if chosen_f else None,
+                            "discovered_by_si8": True,
+                        }
+                    else:
+                        max_h = max(float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) for b in post_sw_bars)
+                        if max_h < sw_px + 0.02 or last_close >= sw_px:
+                            continue
+                        sw_ts = min(
+                            _candle_open_ms(b) for b in post_sw_bars
+                            if float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) == max_h
+                        )
+                        bars_after_sw = [b for b in post_sw_bars if _candle_open_ms(b) >= sw_ts]
+                        prior_opps = [
+                            s for s in opp_swings_mss
+                            if int(s.get("known_at_ms") or s.get("occurred_at_ms") or 0) <= cutoff_ms
+                        ]
+                        if not prior_opps or not bars_after_sw:
+                            continue
+                        ref_mss_sw = prior_opps[-1]
+                        mss_bars = [
+                            b for b in bars_after_sw
+                            if float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                            < float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                            and (
+                                float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) < float(ref_mss_sw["price"])
+                                or (
+                                    float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0)) < sw_px - 0.10
+                                    and (
+                                        float(b.get("open") if isinstance(b, dict) else getattr(b, "open", 0.0))
+                                        - float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                                    ) >= 0.30
+                                )
+                            )
+                        ]
+                        if not mss_bars:
+                            continue
+                        mss_b = mss_bars[-1]
+                        mss_open_ms = _candle_open_ms(mss_b)
+                        mss_close_ms = _candle_close_ms(mss_b, 60_000)
+                        leg_sl = round(max_h + cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                        fvg_after = [
+                            f for f in dir_fvgs
+                            if int(f.get("timestamp") or f.get("middle_bar_ms") or 0) >= sw_ts
+                            and int(f.get("confirmed_at") or 0) <= cutoff_ms
+                        ]
+                        chosen_f = fvg_after[-1] if fvg_after else None
+                        return {
+                            "has_setup": True,
+                            "direction": direction,
+                            "legacy_sl": leg_sl,
+                            "episode_id": f"ep_si8_{model_id}_{direction}_{sw_ts}",
+                            "selected_fvg": chosen_f,
+                            "selected_break": {
+                                "break_id": f"mss_si8_{model_id}_{direction}_{mss_open_ms}",
+                                "break_open_ms": mss_open_ms,
+                                "broken_at_ms": mss_open_ms,
+                                "known_at_ms": mss_close_ms,
+                                "reference_swing_known_at_ms": int(ref_mss_sw.get("known_at_ms") or ref_mss_sw.get("occurred_at_ms") or sw_k_ms),
+                                "broken_swing_id": str(ref_mss_sw.get("id") or f"sl_{ref_mss_sw.get('occurred_at_ms')}"),
+                                "origin_pivot_id": str(cand_sw.get("id") or f"sh_{cand_sw.get('occurred_at_ms')}"),
+                                "origin_price": float(max_h),
+                                "origin_occurred_at_ms": int(sw_ts),
+                                "episode_start_ms": int(sw_ts),
+                            },
+                            "selected_sweep": {
+                                "id": f"sweep_si8_{model_id}_{sw_ts}",
+                                "price": float(max_h),
+                                "occurred_at_ms": int(sw_ts),
+                                "known_at_ms": int(sw_ts + 60_000),
+                                "reclaimed": True,
+                            },
+                            "selected_reference": cand_sw,
+                            "entry_zone_low": round(float(chosen_f["bottom"]), 2) if chosen_f else None,
+                            "entry_zone_high": round(float(chosen_f["top"]), 2) if chosen_f else None,
+                            "discovered_by_si8": True,
+                        }
             return {"has_setup": False, "reason_code": "WAITING_SWEEP_RECLAIM"}
+
+        sel_brk_for_swp = None
+        is_disc_swp_mss = False
+        if research_discovery_enabled:
+            ref_sw_for_brk = last_sh if direction == "LONG" else last_sl
+            orig_sw_for_brk = last_sl if direction == "LONG" else last_sh
+            ref_px_swp = float(ref_sw_for_brk["price"])
+            orig_px_swp = float(orig_sw_for_brk["price"])
+            bars_from_swp = [b for b in recent_bars if _candle_open_ms(b) >= sweep_ts]
+            mss_b_swp = None
+            for b_cand in reversed(bars_from_swp):
+                bc = float(b_cand.get("close") if isinstance(b_cand, dict) else getattr(b_cand, "close", 0.0))
+                bo = float(b_cand.get("open") if isinstance(b_cand, dict) else getattr(b_cand, "open", 0.0))
+                if direction == "LONG" and bc > bo and (bc > ref_px_swp or (bc > orig_px_swp + 0.08 and (bc - bo) >= 0.25)):
+                    mss_b_swp = b_cand
+                    break
+                if direction == "SHORT" and bc < bo and (bc < ref_px_swp or (bc < orig_px_swp - 0.08 and (bo - bc) >= 0.25)):
+                    mss_b_swp = b_cand
+                    break
+            if mss_b_swp is not None:
+                mss_open_swp = _candle_open_ms(mss_b_swp)
+                mss_close_swp = _candle_close_ms(mss_b_swp, 60_000)
+                sel_brk_for_swp = {
+                    "break_id": f"mss_si8_{model_id}_{direction}_{mss_open_swp}",
+                    "break_open_ms": mss_open_swp,
+                    "broken_at_ms": mss_open_swp,
+                    "known_at_ms": mss_close_swp,
+                    "reference_swing_known_at_ms": int(ref_sw_for_brk.get("known_at_ms") or ref_sw_for_brk.get("occurred_at_ms") or sweep_ts),
+                    "broken_swing_id": str(ref_sw_for_brk.get("id") or f"ref_{ref_sw_for_brk.get('occurred_at_ms')}"),
+                    "origin_pivot_id": str(orig_sw_for_brk.get("id") or f"orig_{orig_sw_for_brk.get('occurred_at_ms')}"),
+                    "origin_price": float(sweep_px),
+                    "origin_occurred_at_ms": int(sweep_ts),
+                    "episode_start_ms": int(sweep_ts),
+                }
+                is_disc_swp_mss = True
 
         return {
             "has_setup": True,
             "direction": direction,
             "legacy_sl": legacy_sl,
-            "episode_id": f"ep_{model_id}_{direction}_{sweep_ts}",
+            "episode_id": f"ep_{'si8_' if is_disc_swp_mss else ''}{model_id}_{direction}_{sweep_ts}",
             "selected_fvg": None,
-            "selected_break": None,
+            "selected_break": sel_brk_for_swp,
             "selected_sweep": {
                 "id": f"sweep_{model_id}_{sweep_ts}",
                 "price": sweep_px,
                 "occurred_at_ms": sweep_ts,
                 "known_at_ms": sweep_ts + 60_000,
+                **({"reclaimed": True} if research_discovery_enabled else {}),
             },
             "selected_reference": last_sl if direction == "LONG" else last_sh,
             "entry_zone_low": None,
             "entry_zone_high": None,
+            "discovered_by_si8": is_disc_swp_mss,
         }
 
     @classmethod
@@ -2992,8 +3431,8 @@ class SharedStrategyEvaluator:
                 and setup_info.get("episode_id")
             ):
                 scalp_cand, cg01_res = None, None
-            elif use_v1793123_strict_extractor and not use_v1793123_discovery:
-                # In strict causal repair mode (non-discovery), do not fall back to unverified raw production candidate if setup extractor rejected stale/mitigated FVG
+            elif use_v1793123_strict_extractor:
+                # In strict causal repair / discovery mode (SI7 / SI8), do not fall back to unverified raw production candidate if setup extractor rejected stale/mitigated setup
                 scalp_cand, cg01_res = None, None
             else:
                 scalp_cand, cg01_res, _ = cls._evaluate_raw_production_candidate(
@@ -3219,8 +3658,83 @@ class SharedStrategyEvaluator:
                 decision_cutoff=now_ms,
             )
 
+            eff_pools_for_target = list(context.liquidity_pools)
+            if not eff_pools_for_target and use_v1793123_discovery and bool(setup_info.get("discovered_by_si8", False)):
+                cand_swings_t = sh_1m if direction == "LONG" else sl_1m
+                for sw_t in cand_swings_t:
+                    sw_px_t = float(sw_t.get("price", 0.0) or 0.0)
+                    sw_occ_t = int(sw_t.get("occurred_at_ms", 0) or 0)
+                    sw_k_t = int(sw_t.get("known_at_ms") or sw_occ_t or now_ms)
+                    if sw_px_t <= 0.0 or sw_k_t > now_ms:
+                        continue
+                    post_sw_b = [
+                        b for b in closed_1m
+                        if _candle_close_ms(b, 60_000) > min(sw_occ_t, sw_k_t) and _candle_close_ms(b, 60_000) <= now_ms
+                    ]
+                    if direction == "LONG":
+                        was_swept_t = any(
+                            float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= sw_px_t
+                            for b in post_sw_b
+                        )
+                    else:
+                        was_swept_t = any(
+                            float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= sw_px_t
+                            for b in post_sw_b
+                        )
+                    if not was_swept_t:
+                        eff_pools_for_target.append(
+                            {
+                                "id": str(sw_t.get("id") or f"sw_pool_{sw_occ_t}"),
+                                "price": round(sw_px_t, 2),
+                                "side": "BUY_SIDE" if direction == "LONG" else "SELL_SIDE",
+                                "timeframe": "1M",
+                                "known_at_ms": sw_k_t,
+                                "swept": False,
+                            }
+                        )
+                # Also check closed M5 and M15 causal swings for unswept opposing liquidity targets
+                for tf_bars_t, tf_lbl_t, tf_dur_t in (
+                    (list(context.closed_m5_candles), "5M", 300_000),
+                    (list(context.closed_m15_candles), "15M", 900_000),
+                ):
+                    if len(tf_bars_t) >= 5:
+                        sh_tf, sl_tf = identify_confirmed_swings(
+                            tf_bars_t, timeframe=tf_lbl_t, left_bars=1, right_bars=1, as_of_ms=now_ms
+                        )
+                        for sw_t in (sh_tf if direction == "LONG" else sl_tf):
+                            sw_px_t = float(sw_t.get("price", 0.0) or 0.0)
+                            sw_occ_t = int(sw_t.get("occurred_at_ms", 0) or 0)
+                            sw_k_t = int(sw_t.get("known_at_ms") or (sw_occ_t + tf_dur_t) or now_ms)
+                            if sw_px_t <= 0.0 or sw_k_t > now_ms:
+                                continue
+                            post_sw_b = [
+                                b for b in closed_1m
+                                if _candle_close_ms(b, 60_000) > min(sw_occ_t, sw_k_t) and _candle_close_ms(b, 60_000) <= now_ms
+                            ]
+                            if direction == "LONG":
+                                was_swept_t = any(
+                                    float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) >= sw_px_t
+                                    for b in post_sw_b
+                                )
+                            else:
+                                was_swept_t = any(
+                                    float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) <= sw_px_t
+                                    for b in post_sw_b
+                                )
+                            if not was_swept_t:
+                                eff_pools_for_target.append(
+                                    {
+                                        "id": str(sw_t.get("id") or f"{tf_lbl_t}_pool_{sw_occ_t}"),
+                                        "price": round(sw_px_t, 2),
+                                        "side": "BUY_SIDE" if direction == "LONG" else "SELL_SIDE",
+                                        "timeframe": tf_lbl_t,
+                                        "known_at_ms": sw_k_t,
+                                        "swept": False,
+                                    }
+                                )
+
             target_dec = resolve_target_fn(
-                list(context.liquidity_pools),
+                eff_pools_for_target,
                 direction,
                 entry_ref,
                 as_of_ms=now_ms,
