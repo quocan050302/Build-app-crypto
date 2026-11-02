@@ -1,0 +1,104 @@
+{
+  "distributions_by_policy": {
+    "SI0_OFF_BASELINE": {
+      "closed_trades_count": 166,
+      "data_gap_unresolved_count": 1,
+      "max_net_r": 2.8574,
+      "mean_net_r": -0.8474,
+      "median_net_r": -0.9997,
+      "min_net_r": -3.4602,
+      "open_at_horizon_count": 74,
+      "sl_exits_count": 157,
+      "tp_exits_count": 9
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "closed_trades_count": 92,
+      "data_gap_unresolved_count": 2,
+      "max_net_r": 2.4677,
+      "mean_net_r": -0.8266,
+      "median_net_r": -0.9865,
+      "min_net_r": -2.2342,
+      "open_at_horizon_count": 44,
+      "sl_exits_count": 87,
+      "tp_exits_count": 5
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "closed_trades_count": 111,
+      "data_gap_unresolved_count": 1,
+      "max_net_r": 3.5971,
+      "mean_net_r": -0.8458,
+      "median_net_r": -0.9996,
+      "min_net_r": -2.2319,
+      "open_at_horizon_count": 46,
+      "sl_exits_count": 106,
+      "tp_exits_count": 5
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "closed_trades_count": 83,
+      "data_gap_unresolved_count": 1,
+      "max_net_r": 2.2844,
+      "mean_net_r": -0.8875,
+      "median_net_r": -0.9865,
+      "min_net_r": -2.2342,
+      "open_at_horizon_count": 51,
+      "sl_exits_count": 80,
+      "tp_exits_count": 3
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "closed_trades_count": 0,
+      "data_gap_unresolved_count": 0,
+      "max_net_r": 0.0,
+      "mean_net_r": 0.0,
+      "median_net_r": 0.0,
+      "min_net_r": 0.0,
+      "open_at_horizon_count": 0,
+      "sl_exits_count": 0,
+      "tp_exits_count": 0
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "closed_trades_count": 45,
+      "data_gap_unresolved_count": 0,
+      "max_net_r": 2.1397,
+      "mean_net_r": -0.7783,
+      "median_net_r": -1.0002,
+      "min_net_r": -3.3601,
+      "open_at_horizon_count": 23,
+      "sl_exits_count": 41,
+      "tp_exits_count": 4
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "closed_trades_count": 0,
+      "data_gap_unresolved_count": 0,
+      "max_net_r": 0.0,
+      "mean_net_r": 0.0,
+      "median_net_r": 0.0,
+      "min_net_r": 0.0,
+      "open_at_horizon_count": 0,
+      "sl_exits_count": 0,
+      "tp_exits_count": 0
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "closed_trades_count": 2,
+      "data_gap_unresolved_count": 0,
+      "max_net_r": -0.9918,
+      "mean_net_r": -0.9926,
+      "median_net_r": -0.9918,
+      "min_net_r": -0.9933,
+      "open_at_horizon_count": 0,
+      "sl_exits_count": 2,
+      "tp_exits_count": 0
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "closed_trades_count": 2,
+      "data_gap_unresolved_count": 0,
+      "max_net_r": -0.9918,
+      "mean_net_r": -0.9926,
+      "median_net_r": -0.9918,
+      "min_net_r": -0.9933,
+      "open_at_horizon_count": 0,
+      "sl_exits_count": 2,
+      "tp_exits_count": 0
+    }
+  },
+  "schema_version": "17.9.3.1.2.3"
+}

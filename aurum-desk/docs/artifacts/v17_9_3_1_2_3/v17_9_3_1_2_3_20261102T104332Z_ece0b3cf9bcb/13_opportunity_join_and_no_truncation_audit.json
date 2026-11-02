@@ -1,0 +1,74 @@
+{
+  "followup_truncation_cap": null,
+  "key_collapse_count": 0,
+  "matched_coeval_and_independent_portfolios_reported": true,
+  "schema_version": "17.9.3.1.2.3",
+  "si0_self_join_mismatch_count": 0,
+  "total_eligible_decisions_indexed": 56710,
+  "transition_matrix_by_policy": {
+    "SI0_OFF_BASELINE": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 0,
+      "newly_unlocked_followon_trades_count": 0,
+      "policy_executed_count": 242,
+      "retained_from_baseline_count": 242
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 242,
+      "newly_unlocked_followon_trades_count": 138,
+      "policy_executed_count": 138,
+      "retained_from_baseline_count": 0
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 186,
+      "newly_unlocked_followon_trades_count": 102,
+      "policy_executed_count": 158,
+      "retained_from_baseline_count": 56
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 232,
+      "newly_unlocked_followon_trades_count": 125,
+      "policy_executed_count": 135,
+      "retained_from_baseline_count": 10
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 242,
+      "newly_unlocked_followon_trades_count": 0,
+      "policy_executed_count": 0,
+      "retained_from_baseline_count": 0
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 232,
+      "newly_unlocked_followon_trades_count": 58,
+      "policy_executed_count": 68,
+      "retained_from_baseline_count": 10
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 242,
+      "newly_unlocked_followon_trades_count": 0,
+      "policy_executed_count": 0,
+      "retained_from_baseline_count": 0
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 242,
+      "newly_unlocked_followon_trades_count": 2,
+      "policy_executed_count": 2,
+      "retained_from_baseline_count": 0
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "baseline_executed_count": 242,
+      "filtered_or_displaced_from_baseline_count": 242,
+      "newly_unlocked_followon_trades_count": 2,
+      "policy_executed_count": 2,
+      "retained_from_baseline_count": 0
+    }
+  },
+  "unique_eligible_timestamps_visited": 18744
+}

@@ -1,0 +1,129 @@
+{
+  "all_caught": true,
+  "evidence_gate_mutations_count": 15,
+  "mutations": [
+    {
+      "failed_gate_ids": [
+        "CR01"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR01_WRONG_BRANCH",
+      "target_gate_id": "CR01"
+    },
+    {
+      "failed_gate_ids": [
+        "CR02"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR02_BROKEN_LOSS_FORENSICS",
+      "target_gate_id": "CR02"
+    },
+    {
+      "failed_gate_ids": [
+        "CR03"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR03_OFF_PARITY_MISMATCH",
+      "target_gate_id": "CR03"
+    },
+    {
+      "failed_gate_ids": [
+        "CR04"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR04_NO_SNAPSHOT_CHANGES",
+      "target_gate_id": "CR04"
+    },
+    {
+      "failed_gate_ids": [
+        "CR05"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR05_SI7_RESCUED_REJECTED_BASELINE",
+      "target_gate_id": "CR05"
+    },
+    {
+      "failed_gate_ids": [
+        "CR06"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR06_LOOKAHEAD_VIOLATION",
+      "target_gate_id": "CR06"
+    },
+    {
+      "failed_gate_ids": [
+        "CR07"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR07_BACKDATED_PENDING_FILL",
+      "target_gate_id": "CR07"
+    },
+    {
+      "failed_gate_ids": [
+        "CR08"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR08_CIRCULAR_SL_ANCHOR",
+      "target_gate_id": "CR08"
+    },
+    {
+      "failed_gate_ids": [
+        "CR09"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR09_LEDGER_IDENTITY_VIOLATION",
+      "target_gate_id": "CR09"
+    },
+    {
+      "failed_gate_ids": [
+        "CR10"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR10_OPPORTUNITY_KEY_COLLAPSE",
+      "target_gate_id": "CR10"
+    },
+    {
+      "failed_gate_ids": [
+        "CR11"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR11_PHANTOM_SLOT_RELEASE",
+      "target_gate_id": "CR11"
+    },
+    {
+      "failed_gate_ids": [
+        "CR12"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR12_MISSING_JUNIT_NODE_IDS",
+      "target_gate_id": "CR12"
+    },
+    {
+      "failed_gate_ids": [
+        "CR13"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR13_UNCAUGHT_SOURCE_MUTATION",
+      "target_gate_id": "CR13"
+    },
+    {
+      "failed_gate_ids": [
+        "CR14"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR14_WORKER_HASH_MISMATCH",
+      "target_gate_id": "CR14"
+    },
+    {
+      "failed_gate_ids": [
+        "CR15"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_CR15_ACTIVATION_READY_YES",
+      "target_gate_id": "CR15"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.3",
+  "separated_from_executable_red_green": true,
+  "test_class": "EVIDENCE_GATE_MUTATION_TESTS"
+}

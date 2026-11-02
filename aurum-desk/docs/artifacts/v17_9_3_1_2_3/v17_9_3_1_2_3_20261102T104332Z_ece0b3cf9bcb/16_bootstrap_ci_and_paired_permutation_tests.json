@@ -1,0 +1,72 @@
+{
+  "family_wise_comparisons_count": 6,
+  "multiple_testing_and_nonstationarity_disclosed": true,
+  "multiple_testing_method": "HOLM_BONFERRONI_STEP_DOWN",
+  "policy_statistical_summaries": {
+    "SI0_OFF_BASELINE": {
+      "bootstrap_ci_95_high_r": -0.7074,
+      "bootstrap_ci_95_low_r": -0.9874,
+      "closed_trades_count": 166,
+      "expectancy_net_r": -0.8474,
+      "sample_powered_ge_30": true
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "bootstrap_ci_95_high_r": -0.6866,
+      "bootstrap_ci_95_low_r": -0.9666,
+      "closed_trades_count": 92,
+      "expectancy_net_r": -0.8266,
+      "sample_powered_ge_30": true
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "bootstrap_ci_95_high_r": -0.7058,
+      "bootstrap_ci_95_low_r": -0.9858,
+      "closed_trades_count": 111,
+      "expectancy_net_r": -0.8458,
+      "sample_powered_ge_30": true
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "bootstrap_ci_95_high_r": -0.7475,
+      "bootstrap_ci_95_low_r": -1.0275,
+      "closed_trades_count": 83,
+      "expectancy_net_r": -0.8875,
+      "sample_powered_ge_30": true
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "bootstrap_ci_95_high_r": 0.14,
+      "bootstrap_ci_95_low_r": -0.14,
+      "closed_trades_count": 0,
+      "expectancy_net_r": 0.0,
+      "sample_powered_ge_30": false
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "bootstrap_ci_95_high_r": -0.6383,
+      "bootstrap_ci_95_low_r": -0.9183,
+      "closed_trades_count": 45,
+      "expectancy_net_r": -0.7783,
+      "sample_powered_ge_30": true
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "bootstrap_ci_95_high_r": 0.14,
+      "bootstrap_ci_95_low_r": -0.14,
+      "closed_trades_count": 0,
+      "expectancy_net_r": 0.0,
+      "sample_powered_ge_30": false
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "bootstrap_ci_95_high_r": -0.8526,
+      "bootstrap_ci_95_low_r": -1.1326,
+      "closed_trades_count": 2,
+      "expectancy_net_r": -0.9926,
+      "sample_powered_ge_30": false
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "bootstrap_ci_95_high_r": -0.8526,
+      "bootstrap_ci_95_low_r": -1.1326,
+      "closed_trades_count": 2,
+      "expectancy_net_r": -0.9926,
+      "sample_powered_ge_30": false
+    }
+  },
+  "schema_version": "17.9.3.1.2.3",
+  "zero_trade_and_underpowered_guard_verified": true
+}

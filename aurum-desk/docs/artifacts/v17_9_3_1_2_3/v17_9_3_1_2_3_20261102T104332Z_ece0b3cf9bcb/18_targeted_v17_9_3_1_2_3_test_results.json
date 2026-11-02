@@ -1,0 +1,11 @@
+{
+  "collected_count": 34,
+  "error_count": 0,
+  "exact_bijection": true,
+  "executed_junit_count": 34,
+  "failed_count": 0,
+  "junit_xml_path": "docs\\artifacts\\v17_9_3_1_2_3\\v17_9_3_1_2_3_20261102T104332Z_ece0b3cf9bcb\\junit\\SHARD_000_V17_9_3_1_2_3.xml",
+  "passed_count": 34,
+  "schema_version": "17.9.3.1.2.3",
+  "test_file": "backend/tests/test_v17_9_3_1_2_3_core_trading_logic_repair.py"
+}

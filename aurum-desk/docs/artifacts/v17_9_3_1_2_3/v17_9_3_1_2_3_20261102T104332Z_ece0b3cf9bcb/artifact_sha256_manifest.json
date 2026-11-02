@@ -1,0 +1,155 @@
+{
+  "corrupt_or_missing_files_count": 0,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "files": [
+    {
+      "filename": "01_git_branch_head_env_and_dataset_sha256.json",
+      "sha256": "02b86e0db5cdaa626c42964259ad113fcf4e13be61505af11d4f6ff5640004c9",
+      "size_bytes": 703
+    },
+    {
+      "filename": "02_callgraph_function_responsibility_matrix.json",
+      "sha256": "524923dac9f8ab3af3fb82c4d8d4bec09a6cc0856093c53970d454f2d9ffb8cb",
+      "size_bytes": 5072
+    },
+    {
+      "filename": "02_callgraph_function_responsibility_matrix.md",
+      "sha256": "3fc1c80be95c020fa052c5332a2be9cb07ab3b34ac9e0494f1c90e619002c2aa",
+      "size_bytes": 4112
+    },
+    {
+      "filename": "03_loss_forensics_166_closed_74_open_by_model.json",
+      "sha256": "53e6a94a4a823da877c267f8a49d803528b5a059f4cbe4d71538b9ba3ff5f35f",
+      "size_bytes": 206953
+    },
+    {
+      "filename": "04_candidate_generation_and_model_starvation_repair.json",
+      "sha256": "20020d11157e211e06405030150dc0a91bf8846bd3125e52e1c903581bba4505",
+      "size_bytes": 11886
+    },
+    {
+      "filename": "05_causal_htf_bias_and_direction_repair_proof.json",
+      "sha256": "9c4fd005605deb57517e8ea1c293c5b339f8a2db7d42c387a13045694f3631ca",
+      "size_bytes": 1296
+    },
+    {
+      "filename": "06_fvg_freshness_retest_and_unicorn_validation_proof.json",
+      "sha256": "188fa2026e00b012511ff2a73b770c22e887f1af0e4654f960d4f810197dfd33",
+      "size_bytes": 1279
+    },
+    {
+      "filename": "07_pending_confirmation_state_machine_ledger.json",
+      "sha256": "06a06b00da62b8a3f22fcf6fe4332bde67d0d4fea72432dcb84f9f33de574bfb",
+      "size_bytes": 318
+    },
+    {
+      "filename": "08_protected_sl_unswept_liquidity_tp_and_risk_sizing_proof.json",
+      "sha256": "65a531d82592c896e18dbe8ef6c569ac02aec83055612afafac0294307cae7fb",
+      "size_bytes": 194846
+    },
+    {
+      "filename": "09_shared_evaluator_snapshot_propagation_and_parity_proof.json",
+      "sha256": "04d1f0026f917fc906884c7677b93104470193cb7ec74a782fe35b8dff82b8d5",
+      "size_bytes": 465
+    },
+    {
+      "filename": "10_before_after_real_decision_diffs_by_model.json",
+      "sha256": "3e4554a160c7bdad35a6a19ab0492aa6fd3699cc2107263d04608b3b6d4e7429",
+      "size_bytes": 29094
+    },
+    {
+      "filename": "11_full_replay_metrics_by_policy_and_model.json",
+      "sha256": "ed64f53c0c71ffc18d9c79948cee79495f8ac6f6a4568844d82e49046753bb4f",
+      "size_bytes": 9368
+    },
+    {
+      "filename": "12_three_fill_mode_sensitivity_matrix.json",
+      "sha256": "79063e9dc2ce6a79e8f4328dc094831b38a7eac15523c5ab9c93088304e7c5dc",
+      "size_bytes": 20951
+    },
+    {
+      "filename": "13_opportunity_join_and_no_truncation_audit.json",
+      "sha256": "8a25eb3427ad6a1382a88c9c5d70af8cadfacca4318246b2a200d3b735999104",
+      "size_bytes": 2756
+    },
+    {
+      "filename": "14_open_at_horizon_time_stop_and_data_gap_audit.json",
+      "sha256": "164857dd2a41fd8998f65bd97434f5d2eb7c0a9adb6a9ae4c7a33c050b44b1d0",
+      "size_bytes": 134552
+    },
+    {
+      "filename": "15_mae_mfe_r_multiple_and_exit_reason_distributions.json",
+      "sha256": "652a5857774b8f07e4148e3c64cf6c862bf74fa31c40de5248642bc9f03e3231",
+      "size_bytes": 2966
+    },
+    {
+      "filename": "16_bootstrap_ci_and_paired_permutation_tests.json",
+      "sha256": "5f3ffb76347e9b544e79192e6ea1668d45287f15c947671a3a0732fd151085fb",
+      "size_bytes": 2380
+    },
+    {
+      "filename": "17_chronological_split_and_walk_forward_honesty_report.json",
+      "sha256": "42a281aa8bff8393e1b20080332709fba29246a336a08c7821f312be7b05216f",
+      "size_bytes": 6804
+    },
+    {
+      "filename": "18_targeted_v17_9_3_1_2_3_test_results.json",
+      "sha256": "83a4889fc02d31491e712740a090ce91310ca268c8738cf758848b3d1d9fcb81",
+      "size_bytes": 399
+    },
+    {
+      "filename": "19_full_pytest_collection_manifest.json",
+      "sha256": "6023541c74ea5ece5ec69f0fbd624352291eb8943c189f71538810eceaf007b0",
+      "size_bytes": 36160
+    },
+    {
+      "filename": "20_full_pytest_shard_junit_bijection_proof.json",
+      "sha256": "3afd9e933f0dc257c601f22b76d48a4907db5965ba66c912b2c35bf62936a1b4",
+      "size_bytes": 38548
+    },
+    {
+      "filename": "21_executable_red_green_source_mutation_results.json",
+      "sha256": "a17ba3f0e28682e42a868ff639804d1fea946ceaa78b4d775500d6985394c822",
+      "size_bytes": 6622
+    },
+    {
+      "filename": "22_worker_1_2_4_determinism_proof.json",
+      "sha256": "74f5d39a3decb3fe312e9dabacc5b463406c2662d395457da25c1289928f3c28",
+      "size_bytes": 5906
+    },
+    {
+      "filename": "23_evidence_gate_mutation_tests.json",
+      "sha256": "f2600a76a20e0e760ed3b38fb870243eaa5381d30719e3d99dc007bdfe2a0457",
+      "size_bytes": 3050
+    },
+    {
+      "filename": "24_acceptance_gates_v17_9_3_1_2_3.json",
+      "sha256": "2bd3b805c570f89f203490d7c4cdd76c73ab0d315534cac333507f78d826790d",
+      "size_bytes": 6590
+    },
+    {
+      "filename": "25_dual_verdict_engineering_vs_strategy_edge.json",
+      "sha256": "fe4e0d660359b3a955bdca8fb604c2e3d6514d64e850a70e2ead70b360c8b4a2",
+      "size_bytes": 1123
+    },
+    {
+      "filename": "26_tested_code_sha_and_zero_drift_audit.json",
+      "sha256": "c30704607669d00b1338e0f4247053927a493920580f3b1faa654940ba9a08b3",
+      "size_bytes": 345
+    },
+    {
+      "filename": "27_git_commit_push_and_remote_sha_verification.json",
+      "sha256": "4789827b0b2ae7814e2042f820ee3c54e2d1ec222b05694da7a8513497792480",
+      "size_bytes": 487
+    },
+    {
+      "filename": "EXECUTIVE_TRADING_LOGIC_REPAIR_AND_EDGE_REPORT.md",
+      "sha256": "bc9a9d290e4f235f7d2f5e652f77ebb045059098470c77a3767ca1de8453ba59",
+      "size_bytes": 3464
+    }
+  ],
+  "run_id": "v17_9_3_1_2_3_20261102T104332Z_ece0b3cf9bcb",
+  "schema_version": "17.9.3.1.2.3",
+  "tested_executable_sha": "ece0b3cf9bcbd9011842d9e52b99bcce4ccb8274",
+  "verified_files_count": 29
+}

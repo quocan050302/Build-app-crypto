@@ -1,0 +1,9 @@
+{
+  "invalidation_before_confirmation_verified": true,
+  "pending_backdated_fill_violations": 0,
+  "pending_confirmations_created_count": 18744,
+  "pending_confirmed_on_future_closed_bar_count": 2247,
+  "pending_expired_or_invalidated_count": 16497,
+  "schema_version": "17.9.3.1.2.3",
+  "ttl_expiry_verified": true
+}

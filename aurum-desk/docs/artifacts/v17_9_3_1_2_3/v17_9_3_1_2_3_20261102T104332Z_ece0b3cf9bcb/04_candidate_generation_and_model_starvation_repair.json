@@ -1,0 +1,296 @@
+{
+  "discovered_setup_samples": [
+    {
+      "checkpoint_index_1m": 320,
+      "decision_timestamp_ms": 1791578100000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_REVERSAL",
+      "off_break_id": null,
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_REVERSAL_1791577800000",
+      "si8_break_id": null,
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5340 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.31 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_REVERSAL_1791577800000"
+    },
+    {
+      "checkpoint_index_1m": 320,
+      "decision_timestamp_ms": 1791578100000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_LONG_1791577200000",
+      "off_fvg_id": "fvg-bull-1M-1791577200000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_LONG_1791577200000",
+      "si8_fvg_id": "fvg-bull-1M-1791577200000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5485 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.36 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 320,
+      "decision_timestamp_ms": 1791578100000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_SHORT_1791577800000",
+      "off_fvg_id": "fvg-bear-1M-1791577800000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_SHORT_1791577800000",
+      "si8_fvg_id": "fvg-bear-1M-1791577800000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5340 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.31 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 320,
+      "decision_timestamp_ms": 1791578100000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "off_break_id": null,
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_SWEEP_RECLAIM_1791577800000",
+      "si8_break_id": null,
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5340 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.31 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_SWEEP_RECLAIM_1791577800000"
+    },
+    {
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_REVERSAL",
+      "off_break_id": null,
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_REVERSAL_1791585600000",
+      "si8_break_id": null,
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_REVERSAL_1791585600000"
+    },
+    {
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_LONG_1791585480000",
+      "off_fvg_id": "fvg-bull-1M-1791585480000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_LONG_1791585480000",
+      "si8_fvg_id": "fvg-bull-1M-1791585480000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5639 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.39 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_SHORT_1791584880000",
+      "off_fvg_id": "fvg-bear-1M-1791584880000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_SHORT_1791584880000",
+      "si8_fvg_id": "fvg-bear-1M-1791584880000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.1375 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.34 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_SWEEP_RECLAIM",
+      "off_break_id": null,
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_SWEEP_RECLAIM_1791585600000",
+      "si8_break_id": null,
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_SWEEP_RECLAIM_1791585600000"
+    },
+    {
+      "checkpoint_index_1m": 680,
+      "decision_timestamp_ms": 1791599700000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_CONTINUATION",
+      "off_break_id": "bos_SHORT_1791599640000",
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "anchor_cont_1791599220000",
+      "si8_break_id": "bos_SHORT_1791599640000",
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5930 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.48 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "anchor_cont_1791599220000"
+    },
+    {
+      "checkpoint_index_1m": 680,
+      "decision_timestamp_ms": 1791599700000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_LONG_1791598380000",
+      "off_fvg_id": "fvg-bull-1M-1791598380000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_LONG_1791598380000",
+      "si8_fvg_id": "fvg-bull-1M-1791598380000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5176 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.29 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 680,
+      "decision_timestamp_ms": 1791599700000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_SHORT_1791599580000",
+      "off_fvg_id": "fvg-bear-1M-1791599580000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_SHORT_1791599580000",
+      "si8_fvg_id": "fvg-bear-1M-1791599580000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5930 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.48 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 920,
+      "decision_timestamp_ms": 1791614100000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_REVERSAL",
+      "off_break_id": null,
+      "off_fvg_id": "fvg-bull-1M-1791613740000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_REVERSAL_1791613020000",
+      "si8_break_id": null,
+      "si8_fvg_id": "fvg-bull-1M-1791613740000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5683 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.40 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_REVERSAL_1791613020000"
+    },
+    {
+      "checkpoint_index_1m": 920,
+      "decision_timestamp_ms": 1791614100000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_LONG_1791613740000",
+      "off_fvg_id": "fvg-bull-1M-1791613740000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_LONG_1791613740000",
+      "si8_fvg_id": "fvg-bull-1M-1791613740000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5683 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.40 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 920,
+      "decision_timestamp_ms": 1791614100000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "off_break_id": "brk_SHORT_1791612960000",
+      "off_fvg_id": "fvg-bear-1M-1791612960000",
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": null,
+      "si8_break_id": "brk_SHORT_1791612960000",
+      "si8_fvg_id": "fvg-bear-1M-1791612960000",
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5690 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.40 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": null
+    },
+    {
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_REVERSAL",
+      "off_break_id": null,
+      "off_fvg_id": null,
+      "off_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "off_sweep_id": "sweep_SMC_M1_REVERSAL_1791633600000",
+      "si8_break_id": null,
+      "si8_fvg_id": null,
+      "si8_rejection_reasons": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.6711 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.67 <= 0 sau chi phí)",
+        "SI_INVALID_MODE_FAIL_CLOSED"
+      ],
+      "si8_status": "REJECTED",
+      "si8_sweep_id": "sweep_SMC_M1_REVERSAL_1791633600000"
+    }
+  ],
+  "evaluated_models": [
+    "SMC_M1_REVERSAL",
+    "SMC_M1_CONTINUATION",
+    "SMC_M1_FVG_CONTINUATION",
+    "SMC_M1_SWEEP_RECLAIM",
+    "CG01_SWEEP_MSS_FVG"
+  ],
+  "off_eligible_by_model": {},
+  "sample_timestamps_inspected": 10,
+  "schema_version": "17.9.3.1.2.3",
+  "si0_off_baseline_preserved": true,
+  "si7_eligible_by_model": {},
+  "si7_rejected_baseline_rescued_count": 0,
+  "si8_discovered_setups_by_model": {
+    "SMC_M1_CONTINUATION": 2,
+    "SMC_M1_FVG_CONTINUATION": 18,
+    "SMC_M1_REVERSAL": 8,
+    "SMC_M1_SWEEP_RECLAIM": 7
+  },
+  "si8_newly_discovered_setups_count": 35,
+  "si8_research_discovery_enabled": true,
+  "total_model_direction_evaluations": 100
+}

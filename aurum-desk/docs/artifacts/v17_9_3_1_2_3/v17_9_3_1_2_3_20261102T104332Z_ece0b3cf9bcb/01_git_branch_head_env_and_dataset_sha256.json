@@ -1,0 +1,12 @@
+{
+  "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "policy_registry_hash": "32840efa24ed23654a119bcd24b12eac5e814c58521f4964a3fca0ec9b4ee131",
+  "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "run_id": "v17_9_3_1_2_3_20261102T104332Z_ece0b3cf9bcb",
+  "schema_version": "17.9.3.1.2.3",
+  "starting_branch_head_sha": "7f20639ffb4170eee09927234226b8339851b68b",
+  "tested_executable_sha": "ece0b3cf9bcbd9011842d9e52b99bcce4ccb8274",
+  "violated_prior_artifact_files_count": 0
+}

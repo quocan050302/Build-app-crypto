@@ -1,0 +1,8 @@
+{
+  "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "executable_diff_files_since_tested_sha_count": 0,
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "schema_version": "17.9.3.1.2.3",
+  "tested_executable_sha": "ece0b3cf9bcbd9011842d9e52b99bcce4ccb8274",
+  "zero_executable_code_drift_since_phase_a": true
+}
