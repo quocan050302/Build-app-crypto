@@ -1,0 +1,234 @@
+{
+  "all_17_acceptance_gates_passed": true,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "failed_gate_ids": [],
+  "failed_gates_count": 0,
+  "gates": [
+    {
+      "details": {
+        "ancestry_verified": true,
+        "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "violated_prior_artifact_files_count": 0
+      },
+      "gate_id": "G01",
+      "passed": true,
+      "title": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa, ancestry verified, and prior artifact directories untouched"
+    },
+    {
+      "details": {
+        "sha_01": "13df4606efeb20bcdbe864845746da82cca7bfda",
+        "sha_08": "13df4606efeb20bcdbe864845746da82cca7bfda",
+        "sha_09": "13df4606efeb20bcdbe864845746da82cca7bfda",
+        "sha_13": "13df4606efeb20bcdbe864845746da82cca7bfda",
+        "tested_executable_sha": "13df4606efeb20bcdbe864845746da82cca7bfda"
+      },
+      "gate_id": "G02",
+      "passed": true,
+      "title": "Frozen Phase A tested executable SHA matches across preflight, fresh pytest collection, fresh JUnit shards, and SI0..SI8 backtest"
+    },
+    {
+      "details": {
+        "invalid_mode_fail_closed_verified": true,
+        "si8_canonical_mode": "RESEARCH_APPLY",
+        "si8_canonical_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED"
+      },
+      "gate_id": "G03",
+      "passed": true,
+      "title": "SI8 mode/consumer mismatch fixed (RESEARCH_APPLY + SI8_RESEARCH_DISCOVERY_REPAIRED) and invalid mode RESEARCH_DISCOVERY fails closed"
+    },
+    {
+      "details": {
+        "si7_rejected_baseline_rescued_count": 0,
+        "si8_incremental_eligible_vs_si7_count": 30,
+        "si8_newly_discovered_setups_count": 100,
+        "si8_rejected_baseline_rescued_count": 0
+      },
+      "gate_id": "G04",
+      "passed": true,
+      "title": "SI8 discovers real causal candidates across the historical dataset without rescuing invalid baseline candidates in SI7 or SI8"
+    },
+    {
+      "details": {
+        "si7_primary_ledger_sha256": "7a3461bd989667593c1a7ed488de51eb212809885efcbedec5a930bab55eb0e7",
+        "si7_vs_si8_distinct_replayed_outcomes_verified": true,
+        "si8_incremental_selected_after_arbitration_count": 9,
+        "si8_primary_ledger_sha256": "ce74ad234ed2615de2a33f1998ba34c744ce165e8e0fcd3e1f62b93836ce3aab"
+      },
+      "gate_id": "G05",
+      "passed": true,
+      "title": "SI7 and SI8 are evaluated and replayed independently in SharedStrategyEvaluator and portfolio replay with distinct candidate sets and ledger hashes"
+    },
+    {
+      "details": {
+        "cg01_funnel": {
+          "closed": 0,
+          "descriptor_found": 8,
+          "eligible_after_risk": 2,
+          "filled": 1,
+          "incremental_vs_si7": 1,
+          "model_id": "CG01_SWEEP_MSS_FVG",
+          "observed": 40,
+          "open_at_horizon": 1,
+          "rejected_by_reason": {
+            "FVG_STALE_MITIGATED_OR_UNRETESTED": 26,
+            "NET_RR_TOO_LOW": 3,
+            "NET_RR_TOO_LOW: Net R:R 1:0.1261 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.1265 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.3616 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.3637 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:1.4354 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NO_VALID_FVG_SETUP": 6,
+            "SHADOW_REJECTED_INSUFFICIENT_NET_RR": 3,
+            "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN": 4,
+            "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT": 5,
+            "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE": 5,
+            "SI_FVG_ONLY_NOT_TRUE_UNICORN": 4
+          },
+          "selected_after_arbitration": 1,
+          "setup_valid": 8
+        },
+        "models_present": [
+          "CG01_SWEEP_MSS_FVG",
+          "SMC_M1_CONTINUATION",
+          "SMC_M1_FVG_CONTINUATION",
+          "SMC_M1_REVERSAL",
+          "SMC_M1_SWEEP_RECLAIM"
+        ]
+      },
+      "gate_id": "G06",
+      "passed": true,
+      "title": "All 5 canonical models accounted for across the SI8 discovery funnel with explicit CG01_SWEEP_MSS_FVG diagnosis and causal candidates"
+    },
+    {
+      "details": {
+        "lookahead_violations_count": 0,
+        "missing_htf_no_default_long_verified": true,
+        "pending_backdated_fill_violations": 0
+      },
+      "gate_id": "G07",
+      "passed": true,
+      "title": "Zero lookahead violations across MTF/HTF candles, swings, sweeps, FVGs, Breakers, targets, and delayed confirmation"
+    },
+    {
+      "details": {
+        "circular_sl_equals_protected_anchor_tautology_count": 0,
+        "unswept_liquidity_pool_target_verified": true
+      },
+      "gate_id": "G08",
+      "passed": true,
+      "title": "Protected SL anchor is non-circular (0 tautologies) and TP is selected from unswept pre-entry liquidity pools"
+    },
+    {
+      "details": {
+        "fill_modes_replayed_count": 3,
+        "ledger_accounting_identity_violations": 0,
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0
+      },
+      "gate_id": "G09",
+      "passed": true,
+      "title": "Planned risk <= $2.50, net_rr >= 2.0, and ledger accounting identity (gross - fees == net) holds across all policies and all 3 fill modes"
+    },
+    {
+      "details": {
+        "followup_truncation_cap": null,
+        "key_collapse_count": 0,
+        "si8_unique_eligible_timestamps_evaluated": 18746,
+        "unique_eligible_timestamps_visited": 18744
+      },
+      "gate_id": "G10",
+      "passed": true,
+      "title": "Full 18,744 baseline eligible timestamp coverage (0 key collapse, no truncation) plus SI8 discovered candidate coverage (>= 18,744)"
+    },
+    {
+      "details": {
+        "data_gap_remains_censored_verified": true,
+        "explicit_180_bar_time_stop_pays_fees_and_spread": true,
+        "strict_hold_phantom_slot_release_violations": 0
+      },
+      "gate_id": "G11",
+      "passed": true,
+      "title": "Strict hold vs explicit 180-bar time-stop vs legacy censoring verified with 0 phantom slot releases and DATA_GAP_UNRESOLVED preserved"
+    },
+    {
+      "details": {
+        "observe_only_action_mismatch_count": 0,
+        "off_parity_mismatch_count": 0,
+        "production_research_apply_blocked_verified": true,
+        "si0_baseline_exact": true
+      },
+      "gate_id": "G12",
+      "passed": true,
+      "title": "Feature-OFF baseline parity (166 closed, 9W/157L, -$345.90, 74 OPEN_AT_HORIZON), OBSERVE_ONLY 100% action parity, and LIVE/PAPER/AUTO production guard verified"
+    },
+    {
+      "details": {
+        "collected_node_ids_count": 4930,
+        "error_count": 0,
+        "exact_node_id_bijection_verified": true,
+        "executed_junit_node_ids_count": 4930,
+        "failed_count": 0,
+        "freshly_executed_shards_count": 24,
+        "reused_shards_count": 0,
+        "stale_junit_negative_controls_rejected_red": true
+      },
+      "gate_id": "G13",
+      "passed": true,
+      "title": "Full fresh pytest collection matches freshly executed JUnit testcases (reused_shards_count == 0, 0 failed, 0 error) and stale JUnit negative controls rejected RED"
+    },
+    {
+      "details": {
+        "all_mutations_caught_red_and_restored_green": true,
+        "evidence_gate_mutations_all_caught": true,
+        "executable_mutations_caught_count": 16,
+        "executable_mutations_count": 16
+      },
+      "gate_id": "G14",
+      "passed": true,
+      "title": "Executable RED/GREEN source-level mutations (>= 16) fail with non-zero exit code on injected defect, pass on restored code, and are separated from evidence-gate mutations"
+    },
+    {
+      "details": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "independent_execution_no_shared_digest_reuse": true,
+        "policies_verified": [
+          "SI0_OFF_BASELINE",
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+          "SI6_COMBINED_PREDECLARED",
+          "SI7_CORE_TRADING_LOGIC_REPAIRED",
+          "SI8_RESEARCH_DISCOVERY_REPAIRED"
+        ],
+        "worker_1_sha256": "07a622c580ee31e766d1515f825ab97d35c1c29ea7e5f5f4be9a8c97c7db2204"
+      },
+      "gate_id": "G15",
+      "passed": true,
+      "title": "Independent 1, 2, and 4 OS-process worker runs produce identical SHA-256 digests across SI0, SI5, SI7, SI8 and all 3 fill modes"
+    },
+    {
+      "details": {
+        "activation_ready": "NO",
+        "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+        "verdict_computed_from_metrics_not_hardcoded": true
+      },
+      "gate_id": "G16",
+      "passed": true,
+      "title": "Strategy statistical verdict is computed dynamically from metrics, discloses REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS, and keeps ACTIVATION_READY == NO"
+    },
+    {
+      "details": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "phase_a_tested_code_sha": "13df4606efeb20bcdbe864845746da82cca7bfda",
+        "phase_a_tested_sha_verified": true
+      },
+      "gate_id": "G17",
+      "passed": true,
+      "title": "Three-phase Git commit & push protocol verified on mandatory branch feature/v17-9-2-structural-sl-tp-from-qa"
+    }
+  ],
+  "passed_gates_count": 17,
+  "schema_version": "17.9.3.1.2.4",
+  "tested_executable_sha": "13df4606efeb20bcdbe864845746da82cca7bfda",
+  "total_gates": 17
+}

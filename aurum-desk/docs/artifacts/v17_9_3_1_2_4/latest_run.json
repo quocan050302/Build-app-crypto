@@ -1,0 +1,13 @@
+{
+  "activation_ready": "NO",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "engineering_verification_verdict": "PASS",
+  "passed_gates_count": 17,
+  "run_dir": "docs/artifacts/v17_9_3_1_2_4/v17_9_3_1_2_4_20261102T150439Z_13df4606efeb",
+  "run_id": "v17_9_3_1_2_4_20261102T150439Z_13df4606efeb",
+  "schema_version": "17.9.3.1.2.4",
+  "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+  "tested_executable_sha": "13df4606efeb20bcdbe864845746da82cca7bfda",
+  "total_gates": 17,
+  "updated_at_utc": "2026-11-02T15:09:34.977662+00:00"
+}
