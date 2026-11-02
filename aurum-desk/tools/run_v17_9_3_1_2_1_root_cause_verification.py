@@ -58,18 +58,39 @@ def _git_cmd(args: Sequence[str]) -> str:
     return res.stdout.strip()
 
 
-def run_bounded_async_pytest_shards(junit_dir: Path, max_workers: int = 4) -> Dict[str, Any]:
+def run_bounded_async_pytest_shards(
+    junit_dir: Path,
+    max_workers: int = 4,
+    *,
+    discover_full_suite: bool = True,
+) -> Dict[str, Any]:
     junit_dir.mkdir(parents=True, exist_ok=True)
     py_exe = sys.executable
+    n_workers = max(1, min(int(max_workers), 4))
 
-    def _run_shard(spec: Tuple[str, str]) -> Dict[str, Any]:
-        shard_name, rel_path = spec
-        abs_test_path = str(APP_ROOT / rel_path)
+    if discover_full_suite:
+        all_test_files = sorted(
+            str(p.relative_to(APP_ROOT)).replace("\\", "/")
+            for p in (BACKEND_ROOT / "tests").glob("test_*.py")
+            if p.is_file()
+        )
+        buckets: List[List[str]] = [[] for _ in range(n_workers)]
+        for idx, rel_f in enumerate(all_test_files):
+            buckets[idx % n_workers].append(rel_f)
+        shard_specs: List[Tuple[str, List[str]]] = [
+            (f"shard_{i + 1:02d}_of_{n_workers:02d}", b) for i, b in enumerate(buckets) if b
+        ]
+    else:
+        shard_specs = [(name, [rel]) for name, rel in SHARD_TEST_FILES]
+
+    def _run_shard(spec: Tuple[str, List[str]]) -> Dict[str, Any]:
+        shard_name, rel_paths = spec
+        abs_test_paths = [str(APP_ROOT / rp) for rp in rel_paths]
         xml_path = junit_dir / f"{shard_name}.xml"
 
         # 1. Collect-only count
         col_proc = subprocess.run(
-            [py_exe, "-m", "pytest", abs_test_path, "--collect-only", "-q"],
+            [py_exe, "-m", "pytest", *abs_test_paths, "--collect-only", "-q"],
             cwd=str(APP_ROOT),
             capture_output=True,
             text=True,
@@ -84,7 +105,7 @@ def run_bounded_async_pytest_shards(junit_dir: Path, max_workers: int = 4) -> Di
         # 2. Execute shard with JUnit XML
         t_s = time.time()
         run_proc = subprocess.run(
-            [py_exe, "-m", "pytest", abs_test_path, f"--junitxml={xml_path}", "-q"],
+            [py_exe, "-m", "pytest", *abs_test_paths, f"--junitxml={xml_path}", "-q"],
             cwd=str(APP_ROOT),
             capture_output=True,
             text=True,
@@ -107,7 +128,8 @@ def run_bounded_async_pytest_shards(junit_dir: Path, max_workers: int = 4) -> Di
 
         return {
             "shard_name": shard_name,
-            "test_file": rel_path,
+            "test_file": rel_paths[0] if len(rel_paths) == 1 else f"{len(rel_paths)}_files",
+            "test_files": rel_paths,
             "exit_code": run_proc.returncode,
             "collected_count": len(collected_ids),
             "executed_junit_count": xml_tests,
@@ -118,8 +140,8 @@ def run_bounded_async_pytest_shards(junit_dir: Path, max_workers: int = 4) -> Di
             "junit_xml_path": str(xml_path.relative_to(APP_ROOT)),
         }
 
-    with ThreadPoolExecutor(max_workers=max(1, min(int(max_workers), 4))) as ex:
-        shard_results = list(ex.map(_run_shard, SHARD_TEST_FILES))
+    with ThreadPoolExecutor(max_workers=n_workers) as ex:
+        shard_results = list(ex.map(_run_shard, shard_specs))
 
     tot_col = sum(s["collected_count"] for s in shard_results)
     tot_exe = sum(s["executed_junit_count"] for s in shard_results)
@@ -130,6 +152,7 @@ def run_bounded_async_pytest_shards(junit_dir: Path, max_workers: int = 4) -> Di
     return {
         "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
         "async_worker_cap": max_workers,
+        "discover_full_suite": discover_full_suite,
         "shards_count": len(shard_results),
         "collected_tests_count": tot_col,
         "executed_tests_count": tot_exe,
@@ -471,14 +494,41 @@ def main() -> int:
     )
     bundle["34_async_shard_discovery_junit_bijection"] = ju_34
 
+    results_by_pol = (
+        bundle.get("06_full_event_sourced_intervention_replay", {}).get("results_by_policy", {})
+    )
+    oos_by_pol = (
+        bundle.get("31_OOS_partition_censoring_temporal_integrity", {}).get("oos_metrics_by_policy", {})
+    )
+    any_pos_net = False
+    any_oos_pos = False
+    for pid, pdata in results_by_pol.items():
+        if float(pdata.get("realized_net_pnl_usd", -1.0)) > 0.0:
+            any_pos_net = True
+        oos_p = oos_by_pol.get(pid, {})
+        if (
+            float(oos_p.get("D_DEV_2026_10_01_TO_10_10", {}).get("realized_net_pnl_usd", -1.0)) > 0.0
+            and float(oos_p.get("V_VAL_2026_10_11_TO_10_16", {}).get("realized_net_pnl_usd", -1.0)) > 0.0
+            and float(oos_p.get("H_HOLDOUT_2026_10_17_TO_10_23", {}).get("realized_net_pnl_usd", -1.0)) > 0.0
+        ):
+            any_oos_pos = True
+    computed_strategy_verdict = (
+        "CANDIDATE_IMPROVED_RESEARCH_ONLY"
+        if (any_pos_net and any_oos_pos)
+        else ("INCONCLUSIVE" if any_pos_net else "NEGATIVE_EXPECTANCY")
+    )
+
     verdict_39 = {
         "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
         "run_id": run_id,
         "tested_code_sha": tested_sha,
         "source_data_sha": CANONICAL_DATASET_SHA256,
         "ENGINEERING_VERIFICATION_VERDICT": "PASS",
-        "STRATEGY_STATISTICAL_VERDICT": "NEGATIVE_EXPECTANCY",
+        "STRATEGY_STATISTICAL_VERDICT": computed_strategy_verdict,
         "ACTIVATION_READY": "NO",
+        "verdict_computed_from_metrics": True,
+        "any_policy_positive_full_sample_net_pnl": any_pos_net,
+        "any_policy_positive_across_all_oos_partitions": any_oos_pos,
         "commercial_viability_summary": (
             "All P0-A..P0-F and P1-G..P1-I engineering and forensic defects are closed and verified across "
             "46 acceptance gates and 140 adversarial/regression tests. Empirically, all 5 production M1 models "

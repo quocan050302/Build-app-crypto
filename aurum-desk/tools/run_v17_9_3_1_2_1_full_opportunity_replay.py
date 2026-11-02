@@ -240,14 +240,10 @@ def run_v17_9_3_1_2_1_full_opportunity_replay_pipeline(
         close_ts_index=close_ts,
     )
 
-    # 5. Execute R0..R8 on full 18,744 candidate index under 1, 2, and 4 workers (P0-A, P0-B, P1-G)
+    # 5. Execute R0..R8 on full 18,744 candidate index under 1, 2, and 4 workers across all 3 fill modes (P0-A, P0-B, P1-G, Truth Closure #3)
     int_4w = _replay_all_policies_with_workers(cand_index, datasets, workers=4, fill_modes=FILL_MODES)
-    int_1w = _replay_all_policies_with_workers(
-        cand_index, datasets, workers=1, fill_modes=("NEXT_BAR_OPEN_BID_ASK",)
-    )
-    int_2w = _replay_all_policies_with_workers(
-        cand_index, datasets, workers=2, fill_modes=("NEXT_BAR_OPEN_BID_ASK",)
-    )
+    int_1w = _replay_all_policies_with_workers(cand_index, datasets, workers=1, fill_modes=FILL_MODES)
+    int_2w = _replay_all_policies_with_workers(cand_index, datasets, workers=2, fill_modes=FILL_MODES)
 
     # Also replay truncated 2,112 cohort to quantify exact unlocked follow-on trades missed by P0-A
     int_truncated = _replay_all_policies_with_workers(
@@ -417,35 +413,47 @@ def run_v17_9_3_1_2_1_full_opportunity_replay_pipeline(
                     "closed_independent_episodes_count"
                 ],
                 "primary_expectancy_r": imap[pid]["independent_portfolio_replay_primary"]["expectancy_r_mean"],
+                "by_fill_mode": {
+                    fm: imap[pid].get("independent_portfolio_replays_by_fill_mode", {}).get(fm, {}).get("modeled_net_pnl_usd")
+                    for fm in FILL_MODES
+                },
             }
             for pid in sorted(imap.keys())
         }
 
-    port_digest = {
-        fm: {
-            vk: replays_by_mode[fm][vk]["modeled_net_pnl_usd"]
-            for vk in sorted(replays_by_mode[fm].keys())
+    def _build_independent_worker_payload(imap: Mapping[str, Any]) -> Dict[str, Any]:
+        indep_port_digest = {
+            fm: {
+                pid: imap[pid].get("independent_portfolio_replays_by_fill_mode", {}).get(fm, {}).get("modeled_net_pnl_usd")
+                for pid in sorted(imap.keys())
+            }
+            for fm in FILL_MODES
         }
-        for fm in FILL_MODES
-    }
-    w1_payload = {
-        "canonical_stream_sha256": stream_sha256,
-        "portfolio_replays": port_digest,
-        "intervention_replays": _digest_intervention_map(int_1w),
-        "oos_report": oos_31["oos_holdout_freshness_status"],
-    }
-    w2_payload = {
-        "canonical_stream_sha256": stream_sha256,
-        "portfolio_replays": port_digest,
-        "intervention_replays": _digest_intervention_map(int_2w),
-        "oos_report": oos_31["oos_holdout_freshness_status"],
-    }
-    w4_payload = {
-        "canonical_stream_sha256": stream_sha256,
-        "portfolio_replays": port_digest,
-        "intervention_replays": _digest_intervention_map(int_4w),
-        "oos_report": oos_31["oos_holdout_freshness_status"],
-    }
+        indep_eps = {
+            pid: imap[pid].get("independent_portfolio_episodes") or []
+            for pid in sorted(imap.keys())
+        }
+        indep_oos = assert_replay_oos_temporal_and_feature_integrity_v179312(
+            indep_eps,
+            datasets["1m"],
+            policy_registry_hash=pol_hash,
+            expected_frozen_policy_registry_hash=pol_hash,
+            embargo_bars=180,
+            oos_previously_inspected=True,
+        )
+        return {
+            "canonical_stream_sha256": stream_sha256,
+            "portfolio_replays": indep_port_digest,
+            "intervention_replays": _digest_intervention_map(imap),
+            "oos_report": {
+                "status": indep_oos["oos_holdout_freshness_status"],
+                "purged_count": indep_oos["delayed_entry_cross_partition_purged_count"],
+            },
+        }
+
+    w1_payload = _build_independent_worker_payload(int_1w)
+    w2_payload = _build_independent_worker_payload(int_2w)
+    w4_payload = _build_independent_worker_payload(int_4w)
 
     res_guard_end = preflight_runtime_resource_limits_v1793121(
         WORKSPACE_ROOT, hard_min_free_disk_gib=5.0, max_workers_cap=4

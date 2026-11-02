@@ -463,6 +463,13 @@ class M1ScalpConfig:
     pool_max_age_bars: int = 120
     sweep_min_penetration_ticks: int = 2
     sweep_reclaim_buffer_ticks: int = 0
+    # V17.9.3.1.2.2 Entry Signal Intelligence Config (Default OFF)
+    v17_9_3_1_2_2_signal_intelligence_mode: str = "OFF"
+    v17_9_3_1_2_2_policy_id: str = "SI0_OFF_BASELINE"
+    v17_9_3_1_2_2_version: str = "17.9.3.1.2.2"
+    execution_mode: Optional[str] = None
+    risk_per_trade_pct: Optional[float] = None
+    max_risk_usd: float = 2.50
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
@@ -492,6 +499,38 @@ class M1ScalpConfig:
             self.swing_right_bars_m15,
         ) < 1:
             raise ValueError("INVALID_CONFIG: swing_left/right_bars must be >= 1")
+        if (
+            isinstance(self.v17_9_3_1_2_2_signal_intelligence_mode, bool)
+            or not isinstance(self.v17_9_3_1_2_2_signal_intelligence_mode, str)
+            or self.v17_9_3_1_2_2_signal_intelligence_mode not in ("OFF", "OBSERVE_ONLY", "RESEARCH_APPLY")
+        ):
+            raise ValueError(
+                f"SI_INVALID_MODE_FAIL_CLOSED: INVALID_V1793122_MODE: {self.v17_9_3_1_2_2_signal_intelligence_mode}"
+            )
+        if (
+            isinstance(self.v17_9_3_1_2_2_policy_id, bool)
+            or not isinstance(self.v17_9_3_1_2_2_policy_id, str)
+            or self.v17_9_3_1_2_2_policy_id
+            not in (
+                "SI0_OFF_BASELINE",
+                "SI1_MODEL_QUALITY_AND_ARBITRATION",
+                "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+                "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+                "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+                "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+                "SI6_COMBINED_PREDECLARED",
+            )
+        ):
+            raise ValueError(
+                f"SI_INVALID_POLICY_ID_FAIL_CLOSED: INVALID_V1793122_POLICY_ID: {self.v17_9_3_1_2_2_policy_id}"
+            )
+        if self.v17_9_3_1_2_2_signal_intelligence_mode == "RESEARCH_APPLY" and (
+            self.scalp_m1_mode in (ScalpMode.PAPER.value, "LIVE", "AUTO_PAPER")
+            or str(self.execution_mode or "").strip().upper() in ("PAPER", "LIVE", "AUTO_PAPER", "AUTO_LIVE")
+        ):
+            raise ValueError(
+                "SI_FORBIDDEN_IN_PRODUCTION_EXECUTION_MODE: RESEARCH_APPLY_FORBIDDEN_IN_PAPER_OR_LIVE: v17_9_3_1_2_2_signal_intelligence_mode='RESEARCH_APPLY' cannot be enabled in PAPER or LIVE mode"
+            )
         # Validate quality_arm_threshold (Rule 034)
         import math
         if (

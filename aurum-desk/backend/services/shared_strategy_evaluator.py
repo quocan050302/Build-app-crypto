@@ -474,6 +474,30 @@ class MarketDecisionContext:
     mtf_context: Optional[Any] = None
     mtf_diagnostic_error: Optional[str] = None
 
+    @property
+    def now_ms(self) -> int:
+        return self.decision_timestamp_ms
+
+    @property
+    def candles_1m(self) -> Tuple[Any, ...]:
+        return self.closed_m1_candles
+
+    @property
+    def candles_5m(self) -> Tuple[Any, ...]:
+        return self.closed_m5_candles
+
+    @property
+    def candles_15m(self) -> Tuple[Any, ...]:
+        return self.closed_m15_candles
+
+    @property
+    def candles_1h(self) -> Tuple[Any, ...]:
+        return self.closed_h1_candles
+
+    @property
+    def candles_4h(self) -> Tuple[Any, ...]:
+        return self.closed_h4_candles
+
     def validate_mtf_context_invariant(self) -> Tuple[bool, Optional[str]]:
         if self.mtf_context is None and self.mtf_quality_state == "VALID":
             return False, "MTF_INVARIANT_VIOLATION_NULL_CONTEXT_VALID_STATE"
@@ -532,6 +556,9 @@ class MarketDecisionContext:
             "risk": self.risk_config_snapshot,
             "cost": self.cost_config_snapshot,
         })
+
+
+SharedStrategyContext = MarketDecisionContext
 
 
 def build_market_decision_context(
@@ -1063,10 +1090,39 @@ class StrategyDecisionSnapshot:
     v1793_unicorn_confluence_dict: Optional[Dict[str, Any]] = None
     v1793_plan_dict: Optional[Dict[str, Any]] = None
     v1793_rejection_stage: Optional[str] = None
+    # V17.9.3.1.2.2 Additive Entry Signal Intelligence Fields
+    v1793122_mode: str = "OFF"
+    v1793122_policy_id: str = "SI0_OFF_BASELINE"
+    v1793122_plan_dict: Optional[Dict[str, Any]] = None
+    v1793122_quality_evidence_dict: Optional[Dict[str, Any]] = None
+    v1793122_pending_setup_dict: Optional[Dict[str, Any]] = None
+    v1793122_rejection_stage: Optional[str] = None
 
     @property
     def trade_action_fingerprint(self) -> str:
         return self.decision_fingerprint
+
+    @property
+    def rejection_reasons(self) -> Tuple[str, ...]:
+        return self.rejection_reason_codes
+
+    @property
+    def v1793122_proposed_status(self) -> Optional[str]:
+        if isinstance(self.v1793122_plan_dict, dict):
+            return self.v1793122_plan_dict.get("proposed_status")
+        return self.decision_status
+
+    @property
+    def v1793122_htf_alignment_state(self) -> Optional[str]:
+        if isinstance(self.v1793122_quality_evidence_dict, dict):
+            return self.v1793122_quality_evidence_dict.get("htf_alignment_state")
+        return None
+
+    @property
+    def v1793122_unicorn_classification(self) -> Optional[str]:
+        if isinstance(self.v1793122_quality_evidence_dict, dict):
+            return self.v1793122_quality_evidence_dict.get("unicorn_classification")
+        return None
 
     @property
     def metadata_fingerprint(self) -> str:
@@ -1088,6 +1144,13 @@ class StrategyDecisionSnapshot:
             payload["v1793_mode"] = self.v1793_mode
             if isinstance(self.v1793_plan_dict, dict):
                 payload["v1793_observe_metadata_fingerprint"] = self.v1793_plan_dict.get(
+                    "observe_metadata_fingerprint"
+                )
+        if self.v1793122_mode and self.v1793122_mode != "OFF":
+            payload["v1793122_mode"] = self.v1793122_mode
+            payload["v1793122_policy_id"] = self.v1793122_policy_id
+            if isinstance(self.v1793122_plan_dict, dict):
+                payload["v1793122_observe_metadata_fingerprint"] = self.v1793122_plan_dict.get(
                     "observe_metadata_fingerprint"
                 )
         return _canonical_hash(payload)
@@ -1207,6 +1270,12 @@ class StrategyDecisionSnapshot:
             "v1793_unicorn_confluence_dict": self.v1793_unicorn_confluence_dict,
             "v1793_plan_dict": self.v1793_plan_dict,
             "v1793_rejection_stage": self.v1793_rejection_stage,
+            "v1793122_mode": self.v1793122_mode,
+            "v1793122_policy_id": self.v1793122_policy_id,
+            "v1793122_plan_dict": self.v1793122_plan_dict,
+            "v1793122_quality_evidence_dict": self.v1793122_quality_evidence_dict,
+            "v1793122_pending_setup_dict": self.v1793122_pending_setup_dict,
+            "v1793122_rejection_stage": self.v1793122_rejection_stage,
         }
 
 
@@ -2180,12 +2249,53 @@ class SharedStrategyEvaluator:
         else:
             eff_v1793_mode_raw = "OFF"
 
+        raw_v1793122_mode = policy_dict.get(
+            "v17_9_3_1_2_2_signal_intelligence_mode",
+            policy_dict.get("v17_9_3_1_2_2_mode", getattr(cfg, "v17_9_3_1_2_2_signal_intelligence_mode", "OFF")),
+        )
+        raw_v1793122_pol_id = policy_dict.get(
+            "v17_9_3_1_2_2_policy_id",
+            policy_dict.get("signal_policy_id", getattr(cfg, "v17_9_3_1_2_2_policy_id", "SI0_OFF_BASELINE")),
+        )
+        has_v1793122_active = (
+            raw_v1793122_mode not in (None, "", "OFF")
+            or raw_v1793122_pol_id not in (None, "", "OFF", "SI0", "SI0_OFF_BASELINE")
+        )
+
         def _build_early_v1793_kwargs(
             setup_desc: Optional[Mapping[str, Any]] = None,
             entry_px: Optional[float] = None,
         ) -> Tuple[Dict[str, Any], Tuple[str, ...]]:
+            extra_si_rej: List[str] = []
+            si_kw: Dict[str, Any] = {}
+            if has_v1793122_active:
+                from services.v17_9_3_1_2_2_signal_intelligence import (
+                    is_research_apply_forbidden_in_adapter_v1793122,
+                    normalize_signal_intelligence_mode_v1793122,
+                    normalize_signal_intelligence_policy_id_v1793122,
+                )
+                n_m, m_ok, m_err = normalize_signal_intelligence_mode_v1793122(raw_v1793122_mode)
+                n_p, p_ok, p_err = normalize_signal_intelligence_policy_id_v1793122(
+                    raw_v1793122_pol_id, mode=n_m if m_ok else "OFF"
+                )
+                si_kw["v1793122_mode"] = n_m
+                si_kw["v1793122_policy_id"] = n_p
+                if n_m != "OBSERVE_ONLY":
+                    if not m_ok and m_err:
+                        extra_si_rej.append(m_err)
+                    if not p_ok and p_err:
+                        extra_si_rej.append(p_err)
+                    if n_m == "RESEARCH_APPLY":
+                        forbid_p, forbid_c = is_research_apply_forbidden_in_adapter_v1793122(
+                            adapter_origin, policy_dict=policy_dict
+                        )
+                        if forbid_p and forbid_c:
+                            extra_si_rej.append(forbid_c)
+
             if eff_v1793_mode_raw == "OFF":
-                return {"v1793_mode": "OFF"}, ()
+                base_kw = {"v1793_mode": "OFF"}
+                base_kw.update(si_kw)
+                return base_kw, tuple(extra_si_rej)
             sched_cfg = policy_dict.get("v17_9_3_schedule_config")
             req_ret = bool(policy_dict.get("v17_9_3_require_confirmed_retest", True))
             req_htf = bool(policy_dict.get("v17_9_3_require_htf_alignment", True))
@@ -2193,7 +2303,7 @@ class SharedStrategyEvaluator:
             if early_memo is None:
                 early_memo = {}
                 cls._EARLY_V1793_MEMO = early_memo
-            can_use_early = sched_cfg is None and (
+            can_use_early = sched_cfg is None and not has_v1793122_active and (
                 setup_desc is None or not bool(setup_desc.get("has_setup"))
             )
             early_key = (
@@ -2232,7 +2342,11 @@ class SharedStrategyEvaluator:
                 require_confirmed_retest=req_ret,
                 require_htf_alignment=req_htf,
             )
-            extra_rej: Tuple[str, ...] = ("INVALID_V1793_MODE",) if not early_plan.mode_valid else ()
+            extra_rej_list: List[str] = ["INVALID_V1793_MODE"] if not early_plan.mode_valid else []
+            for r_si in extra_si_rej:
+                if r_si not in extra_rej_list:
+                    extra_rej_list.append(r_si)
+            extra_rej: Tuple[str, ...] = tuple(extra_rej_list)
             res_kw = {
                 "v1793_mode": early_plan.mode,
                 "v1793_macro_time_dict": early_plan.macro_state.to_dict(),
@@ -2240,6 +2354,7 @@ class SharedStrategyEvaluator:
                 "v1793_plan_dict": early_plan.to_dict(),
                 "v1793_rejection_stage": early_plan.rejection_stage if early_plan.mode != "OBSERVE_ONLY" else None,
             }
+            res_kw.update(si_kw)
             if can_use_early:
                 if len(early_memo) >= 256:
                     early_memo.clear()
@@ -2463,6 +2578,86 @@ class SharedStrategyEvaluator:
         min_net_rr = float(risk_dict.get("min_net_rr", cfg.min_net_rr))
         if isinstance(production_eval_spec, Mapping) and production_eval_spec.get("config") is not None:
             min_net_rr = float(getattr(production_eval_spec["config"], "min_net_rr", min_net_rr))
+
+        # 2a. Reject unresolved / non-directional research direction ("NO_BIAS" / "NEUTRAL")
+        if direction not in ("LONG", "SHORT"):
+            v1793_kw, v1793_extra_rej = _build_early_v1793_kwargs(entry_px=None)
+            nb_reasons_l = ["SI2_MISSING_OR_NEUTRAL_HTF_BIAS_NO_DEFAULT_LONG"]
+            if early_mtf_rej_code and early_mtf_rej_code not in nb_reasons_l:
+                nb_reasons_l.append(early_mtf_rej_code)
+            for r in v1793_extra_rej:
+                if r not in nb_reasons_l:
+                    nb_reasons_l.append(r)
+            nb_reasons = tuple(nb_reasons_l)
+            ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
+                context=context,
+                model_id=model_id,
+                direction=str(direction),
+                setup_validity="INVALID",
+                entry_reference=None,
+                selected_fvg_id=None,
+                selected_break_id=None,
+                selected_sweep_id=None,
+                setup_episode_id=None,
+                unicorn_validity="INVALID",
+                selected_anchor_id=None,
+                structural_invalidation_price=None,
+                selected_sl=None,
+                take_profit=None,
+                hypothetical_quantity=None,
+                net_rr=None,
+                decision_status=DecisionStatus.NO_VALID_SETUP.value,
+                rejection_reason_codes=nb_reasons,
+            )
+            return StrategyDecisionSnapshot(
+                model_id=model_id,
+                symbol=context.symbol,
+                decision_timestamp_ms=now_ms,
+                direction=str(direction),
+                setup_validity="INVALID",
+                entry_reference=None,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                selected_fvg_id=None,
+                selected_break_id=None,
+                selected_sweep_id=None,
+                setup_episode_id=None,
+                unicorn_validity="INVALID",
+                unicorn_failure_stage="SI2_MISSING_OR_NEUTRAL_HTF_BIAS_NO_DEFAULT_LONG",
+                selected_anchor_id=None,
+                anchor_kind=None,
+                structural_invalidation_price=None,
+                buffer_value=None,
+                selected_sl=None,
+                legacy_sl=None,
+                take_profit=None,
+                selected_target_id=None,
+                atr_m1=context.atr_m1,
+                atr_m5=context.atr_m5,
+                spread=context.spread,
+                hypothetical_quantity=None,
+                stop_distance_price=None,
+                target_distance_price=None,
+                gross_rr=None,
+                net_rr=None,
+                decision_status=DecisionStatus.NO_VALID_SETUP.value,
+                rejection_reason_codes=nb_reasons,
+                evidence_fingerprint=ev_fp,
+                policy_fingerprint=pol_fp,
+                decision_fingerprint=dec_fp,
+                adapter_origin=adapter_origin,
+                raw_candidate_reason_code=nb_reasons[0],
+                mtf_context_id=getattr(context, "mtf_context_id", None),
+                mtf_context_hash=getattr(context, "mtf_context_hash", None),
+                mtf_algorithm_version=getattr(context, "mtf_algorithm_version", "17.9.1"),
+                mtf_quality_state=eff_mtf_q,
+                mtf_structure_bias_summary=getattr(context, "mtf_structure_bias_summary", None),
+                mtf_liquidity_summary=getattr(context, "mtf_liquidity_summary", None),
+                mtf_diagnostic_error=eff_mtf_diag,
+                adapter_call_id=call_id,
+                v1792_mode=eff_v1792_mode,
+                **v1793_kw,
+            )
 
         # 2b. HTF structure conflict check if enforce_htf_bias_alignment is enabled
         ctx_htf_bias = str(context.htf_bias or policy_dict.get("htf_bias") or "UNKNOWN")
@@ -3359,9 +3554,85 @@ class SharedStrategyEvaluator:
             else DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
         )
 
+        opp_id = f"shopp_{model_id}_{context.symbol}_{direction}_{episode_id}"
+
+        v1793122_mode_final = "OFF"
+        v1793122_policy_id_final = "SI0_OFF_BASELINE"
+        v1793122_plan_dict: Optional[Dict[str, Any]] = None
+        v1793122_evidence_dict: Optional[Dict[str, Any]] = None
+        v1793122_pending_dict: Optional[Dict[str, Any]] = None
+        v1793122_rej_stage: Optional[str] = None
+
+        if has_v1793122_active:
+            from services.v17_9_3_1_2_2_signal_intelligence import (
+                evaluate_signal_intelligence_gate_v1793122,
+            )
+
+            si_plan = evaluate_signal_intelligence_gate_v1793122(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                candidate_key=opp_id,
+                setup_episode_id=episode_id,
+                setup_descriptors=setup_info,
+                sh_1m=sh_1m,
+                sl_1m=sl_1m,
+                baseline_status=decision_status,
+                baseline_rejection_reasons=rejection_reasons,
+                baseline_entry=entry_ref,
+                baseline_sl=structural_sl,
+                baseline_tp=target_price,
+                baseline_qty=hypothetical_qty,
+                baseline_gross_rr=gross_rr,
+                baseline_net_rr=net_rr,
+                baseline_anchor_id=selected_anchor_id,
+                baseline_anchor_kind=anchor_kind,
+                baseline_invalidation_price=invalidation_px,
+                baseline_target_id=target_ev_id,
+                atr_m1=atr_m1_val,
+                atr_m5=atr_m5_val,
+                unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+                policy_settings=policy_settings,
+                raw_mode=raw_v1793122_mode,
+                raw_policy_id=raw_v1793122_pol_id,
+                adapter_origin=adapter_origin,
+            )
+            v1793122_mode_final = si_plan.mode
+            v1793122_policy_id_final = si_plan.policy_id
+            v1793122_plan_dict = si_plan.to_dict()
+            v1793122_evidence_dict = (
+                si_plan.quality_evidence.to_dict() if si_plan.quality_evidence is not None else None
+            )
+            v1793122_pending_dict = (
+                si_plan.pending_confirmation.to_dict()
+                if si_plan.pending_confirmation is not None
+                else None
+            )
+            if si_plan.mode != "OBSERVE_ONLY":
+                v1793122_rej_stage = si_plan.rejection_stage
+                if si_plan.proposed_sl is not None:
+                    selected_sl = float(si_plan.proposed_sl)
+                    structural_sl = float(si_plan.proposed_sl)
+                if si_plan.proposed_invalidation_price is not None:
+                    invalidation_px = round(float(si_plan.proposed_invalidation_price), 2)
+                if si_plan.proposed_anchor_id is not None:
+                    selected_anchor_id = str(si_plan.proposed_anchor_id)
+                if si_plan.proposed_anchor_kind is not None:
+                    anchor_kind = str(si_plan.proposed_anchor_kind)
+                if si_plan.proposed_qty is not None:
+                    hypothetical_qty = round(float(si_plan.proposed_qty), 6)
+                if si_plan.proposed_gross_rr is not None:
+                    gross_rr = round(float(si_plan.proposed_gross_rr), 4)
+                if si_plan.proposed_net_rr is not None:
+                    net_rr = round(float(si_plan.proposed_net_rr), 4)
+                for r_si in si_plan.rejection_reason_codes:
+                    if r_si not in rejection_reasons:
+                        rejection_reasons.append(r_si)
+                decision_status = si_plan.proposed_status
+                is_eligible = decision_status == DecisionStatus.ELIGIBLE.value
+
         stop_dist_px = round(abs(entry_ref - selected_sl), 4) if selected_sl is not None else None
         target_dist_px = round(abs(target_price - entry_ref), 4) if target_price is not None else None
-        opp_id = f"shopp_{model_id}_{context.symbol}_{direction}_{episode_id}"
 
         final_reasons = tuple(rejection_reasons)
         ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
@@ -3446,6 +3717,12 @@ class SharedStrategyEvaluator:
             v1793_unicorn_confluence_dict=v1793_unicorn_dict,
             v1793_plan_dict=v1793_plan_dict,
             v1793_rejection_stage=v1793_rej_stage,
+            v1793122_mode=v1793122_mode_final,
+            v1793122_policy_id=v1793122_policy_id_final,
+            v1793122_plan_dict=v1793122_plan_dict,
+            v1793122_quality_evidence_dict=v1793122_evidence_dict,
+            v1793122_pending_setup_dict=v1793122_pending_dict,
+            v1793122_rejection_stage=v1793122_rej_stage,
         )
 
     @staticmethod
@@ -3453,6 +3730,23 @@ class SharedStrategyEvaluator:
         context: MarketDecisionContext,
         explicit_bias: Optional[str] = None,
     ) -> str:
+        pol_dict = context.get_policy_dict() if hasattr(context, "get_policy_dict") else {}
+        si_mode = str(
+            pol_dict.get("v17_9_3_1_2_2_signal_intelligence_mode")
+            or pol_dict.get("v17_9_3_1_2_2_mode")
+            or "OFF"
+        ).strip().upper()
+        if si_mode == "RESEARCH_APPLY":
+            from services.v17_9_3_1_2_2_signal_intelligence import (
+                resolve_research_preferred_direction_v1793122,
+            )
+            res_dir, res_reason = resolve_research_preferred_direction_v1793122(context, explicit_bias)
+            if res_dir in ("LONG", "SHORT"):
+                return res_dir
+            if res_reason in ("HTF_BIAS_MISSING_NO_DEFAULT_LONG", "HTF_LOOKAHEAD_INVALID"):
+                return "NO_BIAS"
+            return "NEUTRAL"
+
         eff_bias = str(explicit_bias or getattr(context, "htf_bias", "") or "").upper()
         if eff_bias == "BULLISH":
             return "LONG"
@@ -3491,11 +3785,57 @@ class SharedStrategyEvaluator:
         for FVG/CG01 models if preferred_direction has no valid setup) and returns the deterministic
         StrategyDecisionSnapshot.
         """
+        pol_dict = context.get_policy_dict() if hasattr(context, "get_policy_dict") else {}
+        si_mode = str(
+            pol_dict.get("v17_9_3_1_2_2_signal_intelligence_mode")
+            or pol_dict.get("v17_9_3_1_2_2_mode")
+            or "OFF"
+        ).strip().upper()
+
         primary_dir = (
             preferred_direction
             if preferred_direction in ("LONG", "SHORT")
             else cls.resolve_canonical_preferred_direction(context)
         )
+        if si_mode == "RESEARCH_APPLY" and primary_dir not in ("LONG", "SHORT"):
+            if primary_dir == "NO_BIAS":
+                return cls.evaluate_model_direction(
+                    context=context,
+                    model_id=model_id,
+                    direction="NO_BIAS",
+                    adapter_origin=adapter_origin,
+                    target_resolver=target_resolver,
+                    production_eval_spec=production_eval_spec,
+                )
+            # NEUTRAL / MIXED under RESEARCH_APPLY: evaluate both directions symmetrically and rank by pre-entry quality
+            snap_long = cls.evaluate_model_direction(
+                context=context,
+                model_id=model_id,
+                direction="LONG",
+                adapter_origin=adapter_origin,
+                target_resolver=target_resolver,
+                production_eval_spec=production_eval_spec,
+            )
+            snap_short = cls.evaluate_model_direction(
+                context=context,
+                model_id=model_id,
+                direction="SHORT",
+                adapter_origin=adapter_origin,
+                target_resolver=target_resolver,
+                production_eval_spec=production_eval_spec,
+            )
+            if snap_long.decision_status == DecisionStatus.ELIGIBLE.value and snap_short.decision_status != DecisionStatus.ELIGIBLE.value:
+                return snap_long
+            if snap_short.decision_status == DecisionStatus.ELIGIBLE.value and snap_long.decision_status != DecisionStatus.ELIGIBLE.value:
+                return snap_short
+            if snap_long.decision_status == DecisionStatus.ELIGIBLE.value and snap_short.decision_status == DecisionStatus.ELIGIBLE.value:
+                q_long = tuple((snap_long.v1793122_quality_evidence_dict or {}).get("candidate_quality_tuple") or ())
+                q_short = tuple((snap_short.v1793122_quality_evidence_dict or {}).get("candidate_quality_tuple") or ())
+                return snap_short if q_short > q_long else snap_long
+            if snap_short.setup_validity == "VALID" and snap_long.setup_validity != "VALID":
+                return snap_short
+            return snap_long
+
         primary_snap = cls.evaluate_model_direction(
             context=context,
             model_id=model_id,
@@ -4725,6 +5065,7 @@ def verify_no_synthetic_index_signals_in_source(
 
 # V17.9.1 Section 6 Shared Evaluator Adapter & Evidence Exports
 SharedStrategyEvaluator.evaluate = SharedStrategyEvaluator.evaluate_decision  # type: ignore[attr-defined]
+resolve_canonical_preferred_direction = SharedStrategyEvaluator.resolve_canonical_preferred_direction
 
 from backend.services.mtf_structure_liquidity_service import (  # noqa: E402, F401
     MtfContextCache,
