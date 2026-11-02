@@ -1,0 +1,25 @@
+{
+  "comparison_title": "SI7 (Logic Repaired) vs SI8 (Research Discovery Repaired) Independent Replay Comparison",
+  "schema_version": "17.9.3.1.2.5",
+  "si7_closed_trades_count": 2,
+  "si7_expectancy_net_r": -0.9926,
+  "si7_open_at_horizon_count": 0,
+  "si7_primary_ledger_sha256": "7a3461bd989667593c1a7ed488de51eb212809885efcbedec5a930bab55eb0e7",
+  "si7_realized_net_usd": -4.8931,
+  "si7_vs_si8_distinct_replayed_outcomes_verified": true,
+  "si8_closed_trades_count": 177,
+  "si8_expectancy_net_r": -0.812,
+  "si8_incremental_candidates_generated_count": 19144,
+  "si8_incremental_selected_after_arbitration_count": 4436,
+  "si8_incremental_selected_by_model": {
+    "CG01_SWEEP_MSS_FVG": 53,
+    "SMC_M1_CONTINUATION": 469,
+    "SMC_M1_FVG_CONTINUATION": 177,
+    "SMC_M1_SWEEP_RECLAIM": 3737
+  },
+  "si8_open_at_horizon_count": 56,
+  "si8_primary_ledger_sha256": "b3e4b3af604529fb940af37443d4e445faa70edc948d71c612c736d34da8dc7b",
+  "si8_realized_net_usd": -354.0582,
+  "si8_unique_eligible_timestamps_evaluated": 20009,
+  "tested_executable_sha": "aa4458c44fadfd972d354cd84130cc41217f475d"
+}

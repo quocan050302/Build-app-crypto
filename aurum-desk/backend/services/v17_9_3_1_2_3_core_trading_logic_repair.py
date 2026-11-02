@@ -553,6 +553,49 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
     legacy_mismatch_verified = False
     legacy_mismatch_rejection_reasons: List[str] = []
 
+    base_policy_cfg = {
+        "v17_9_2_mode": "STRUCTURAL_SL_ON",
+        "v17_9_2_target_mode": "STRUCTURAL_LIQUIDITY_HIERARCHY",
+        "mtf_structure_observe_only": False,
+        "v17_9_3_enabled": False,
+    }
+    snap_off = tuple(
+        sorted(
+            {
+                **base_policy_cfg,
+                "v17_9_3_1_2_2_signal_intelligence_mode": "OFF",
+                "v17_9_3_1_2_2_policy_id": "SI0_OFF_BASELINE",
+            }.items()
+        )
+    )
+    snap_si7 = tuple(
+        sorted(
+            {
+                **base_policy_cfg,
+                "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
+                "v17_9_3_1_2_2_policy_id": "SI7_CORE_TRADING_LOGIC_REPAIRED",
+            }.items()
+        )
+    )
+    snap_si8 = tuple(
+        sorted(
+            {
+                **base_policy_cfg,
+                "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
+                "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            }.items()
+        )
+    )
+    snap_bad = tuple(
+        sorted(
+            {
+                **base_policy_cfg,
+                "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_DISCOVERY",
+                "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            }.items()
+        )
+    )
+
     for idx_1m in chunk_indices:
         if idx_1m >= len(bars_1m):
             continue
@@ -578,64 +621,14 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
             bid=round(last_c - 0.10, 2),
             ask=round(last_c + 0.10, 2),
             quote_timestamp_ms=cur_ts,
-            policy_config={
-                "v17_9_2_mode": "STRUCTURAL_SL_ON",
-                "v17_9_2_target_mode": "STRUCTURAL_LIQUIDITY_HIERARCHY",
-                "mtf_structure_observe_only": False,
-                "v17_9_3_enabled": False,
-            },
+            policy_config=base_policy_cfg,
         )
 
-        base_pol_dict = base_ctx.get_policy_dict()
-        ctx_off = replace(
-            base_ctx,
-            policy_config_snapshot=tuple(
-                sorted(
-                    {
-                        **base_pol_dict,
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "OFF",
-                        "v17_9_3_1_2_2_policy_id": "SI0_OFF_BASELINE",
-                    }.items()
-                )
-            ),
-        )
-        ctx_si7 = replace(
-            base_ctx,
-            policy_config_snapshot=tuple(
-                sorted(
-                    {
-                        **base_pol_dict,
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
-                        "v17_9_3_1_2_2_policy_id": "SI7_CORE_TRADING_LOGIC_REPAIRED",
-                    }.items()
-                )
-            ),
-        )
-        ctx_si8 = replace(
-            base_ctx,
-            policy_config_snapshot=tuple(
-                sorted(
-                    {
-                        **base_pol_dict,
-                        "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
-                        "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
-                    }.items()
-                )
-            ),
-        )
+        ctx_off = replace(base_ctx, policy_config_snapshot=snap_off)
+        ctx_si7 = replace(base_ctx, policy_config_snapshot=snap_si7)
+        ctx_si8 = replace(base_ctx, policy_config_snapshot=snap_si8)
         if not legacy_mismatch_verified:
-            ctx_legacy_bad = replace(
-                base_ctx,
-                policy_config_snapshot=tuple(
-                    sorted(
-                        {
-                            **base_pol_dict,
-                            "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_DISCOVERY",
-                            "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
-                        }.items()
-                    )
-                ),
-            )
+            ctx_legacy_bad = replace(base_ctx, policy_config_snapshot=snap_bad)
             s_bad = evaluator.evaluate_model_direction(
                 ctx_legacy_bad,
                 ModelIdentifier.SMC_M1_REVERSAL.value,

@@ -1,0 +1,19 @@
+{
+  "collected_count": 109,
+  "error_count": 0,
+  "exact_bijection": true,
+  "executed_junit_count": 109,
+  "failed_count": 0,
+  "passed_count": 109,
+  "reused_shards_count": 0,
+  "run_id": "v17_9_3_1_2_5_20261102T164701Z_aa4458c44fad",
+  "schema_version": "17.9.3.1.2.5",
+  "targeted_shards": [
+    "SHARD_00000_V17_9_3_1_2_5",
+    "SHARD_0000_V17_9_3_1_2_4",
+    "SHARD_000_V17_9_3_1_2_3",
+    "SHARD_00A_V17_9_3_1_2_2"
+  ],
+  "targeted_test_files_count": 7,
+  "tested_executable_sha": "aa4458c44fadfd972d354cd84130cc41217f475d"
+}

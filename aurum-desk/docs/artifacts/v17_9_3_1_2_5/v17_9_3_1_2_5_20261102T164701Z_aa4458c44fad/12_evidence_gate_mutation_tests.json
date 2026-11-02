@@ -1,0 +1,162 @@
+{
+  "all_caught": true,
+  "evidence_gate_mutations_count": 19,
+  "mutations": [
+    {
+      "failed_gate_ids": [
+        "G01"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G01_WRONG_BRANCH",
+      "target_gate_id": "G01"
+    },
+    {
+      "failed_gate_ids": [
+        "G02"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G02_SHA_DRIFT",
+      "target_gate_id": "G02"
+    },
+    {
+      "failed_gate_ids": [
+        "G03"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G03_SAMPLED_CHECKPOINTS_USED",
+      "target_gate_id": "G03"
+    },
+    {
+      "failed_gate_ids": [
+        "G04"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G04_BASELINE_COUNT_TAMPERED",
+      "target_gate_id": "G04"
+    },
+    {
+      "failed_gate_ids": [
+        "G05"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G05_FABRICATED_TRUE_FEATURE",
+      "target_gate_id": "G05"
+    },
+    {
+      "failed_gate_ids": [
+        "G06"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G06_OPTIMISTIC_DEFAULT_SCORING",
+      "target_gate_id": "G06"
+    },
+    {
+      "failed_gate_ids": [
+        "G07"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G07_RESCUED_INVALID_BASELINE",
+      "target_gate_id": "G07"
+    },
+    {
+      "failed_gate_ids": [
+        "G08"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G08_MISSING_CG01_MODEL",
+      "target_gate_id": "G08"
+    },
+    {
+      "failed_gate_ids": [
+        "G09"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G09_LEDGER_IDENTITY_VIOLATION",
+      "target_gate_id": "G09"
+    },
+    {
+      "failed_gate_ids": [
+        "G10"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G10_LOOKAHEAD_VIOLATION",
+      "target_gate_id": "G10"
+    },
+    {
+      "failed_gate_ids": [
+        "G11"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G11_FILL_MODES_COUNT_TAMPERED",
+      "target_gate_id": "G11"
+    },
+    {
+      "failed_gate_ids": [
+        "G12"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G12_REUSED_JUNIT_SHARD",
+      "target_gate_id": "G12"
+    },
+    {
+      "failed_gate_ids": [
+        "G13"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G13_UNCAUGHT_SOURCE_MUTATION",
+      "target_gate_id": "G13"
+    },
+    {
+      "failed_gate_ids": [
+        "G14"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G14_WORKER_HASH_MISMATCH",
+      "target_gate_id": "G14"
+    },
+    {
+      "failed_gate_ids": [
+        "G15"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G15_OMITTED_BEST_USD",
+      "target_gate_id": "G15"
+    },
+    {
+      "failed_gate_ids": [
+        "G16"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G16_ACTIVATION_READY_YES",
+      "target_gate_id": "G16"
+    },
+    {
+      "failed_gate_ids": [
+        "G17"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G17_DISK_SPACE_TOO_LOW",
+      "target_gate_id": "G17"
+    },
+    {
+      "failed_gate_ids": [
+        "G18"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G18_UNVERIFIED_GIT_PHASE",
+      "target_gate_id": "G18"
+    },
+    {
+      "failed_gate_ids": [
+        "G04",
+        "G19"
+      ],
+      "gate_failed_as_expected": true,
+      "mutation_id": "EGM_G19_PRODUCTION_GUARD_TAMPERED",
+      "target_gate_id": "G19"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.5",
+  "separated_from_executable_red_green": true,
+  "test_class": "EVIDENCE_GATE_MUTATION_TESTS"
+}

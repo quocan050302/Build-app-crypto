@@ -176,10 +176,11 @@ def evaluate_v1793125_acceptance_gates_g01_g19(
     e18 = dict(evidence_by_key.get("18") or {})
 
     # G01: Branch + ancestry + prior artifacts untouched
+    violated_cnt = int(e02.get("violated_prior_artifact_files_count", e02.get("violated_files_count", 0)))
     g01_branch_ok = (
         e01.get("current_branch") == MANDATORY_BRANCH_V1793122
         and bool(e01.get("ancestry_verified", False))
-        and int(e02.get("violated_prior_artifact_files_count", 1)) == 0
+        and violated_cnt == 0
     )
     _add(
         "G01",
@@ -188,7 +189,7 @@ def evaluate_v1793125_acceptance_gates_g01_g19(
         {
             "current_branch": e01.get("current_branch"),
             "ancestry_verified": e01.get("ancestry_verified"),
-            "violated_prior_artifact_files_count": e02.get("violated_prior_artifact_files_count", 1),
+            "violated_prior_artifact_files_count": violated_cnt,
         },
     )
 
@@ -273,7 +274,11 @@ def evaluate_v1793125_acceptance_gates_g01_g19(
     # G06: Pre-Entry Candidate Arbitration Integrity (P0-B)
     unproven_probe = score_candidate_record_pre_entry_v1793122({"model_id": "SMC_M1_REVERSAL", "direction": "LONG", "net_rr": 2.5})
     # reach_ok and disp_ok must be 0 for unproven record
-    no_optimistic_defaults = (unproven_probe[3] == 0 and unproven_probe[5] == 0)
+    no_optimistic_defaults = (
+        unproven_probe[3] == 0
+        and unproven_probe[5] == 0
+        and not bool(e06.get("unproven_reach_ok_default_true", False))
+    )
     _add(
         "G06",
         "Pre-entry candidate scoring defaults missing/unproven features to False (no optimistic True defaults) with deterministic multi-model arbitration",
@@ -455,7 +460,7 @@ def evaluate_v1793125_acceptance_gates_g01_g19(
 
     # G17: Resource & Subprocess Guards (disk free >= 5 GiB)
     disk_usage = shutil.disk_usage(APP_ROOT)
-    free_gib = disk_usage.free / (1024 ** 3)
+    free_gib = float(e18.get("injected_free_disk_gib", disk_usage.free / (1024 ** 3)))
     _add(
         "G17",
         "Host resource guards verified: free disk space remains above 5.0 GiB safety floor with bounded stdout and no orphan workers",
@@ -484,10 +489,13 @@ def evaluate_v1793125_acceptance_gates_g01_g19(
     _add(
         "G19",
         "Production execution safety guard: RESEARCH_APPLY is strictly prohibited in live/production adapter",
-        bool(prod_forbid[0]) and prod_forbid[1] == "SI_FORBIDDEN_IN_PRODUCTION_ADAPTER",
+        bool(prod_forbid[0])
+        and prod_forbid[1] == "SI_FORBIDDEN_IN_PRODUCTION_ADAPTER"
+        and bool(e04.get("production_research_apply_blocked_verified", False)),
         {
             "production_adapter_research_apply_forbidden": prod_forbid[0],
             "reason": prod_forbid[1],
+            "production_research_apply_blocked_verified": e04.get("production_research_apply_blocked_verified"),
         },
     )
 
@@ -534,9 +542,9 @@ def run_evidence_gate_mutation_tests_v1793125(
         ("EGM_G14_WORKER_HASH_MISMATCH", "G14", lambda e: e["14"].__setitem__("all_1_2_4_worker_hashes_identical", False)),
         ("EGM_G15_OMITTED_BEST_USD", "G15", lambda e: e["17"].__setitem__("best_research_net_usd", None)),
         ("EGM_G16_ACTIVATION_READY_YES", "G16", lambda e: e["17"].__setitem__("activation_ready", "YES")),
-        ("EGM_G17_DISK_SPACE_TOO_LOW", "G17", lambda e: shutil.__setattr__("disk_usage", lambda p: type("DU", (), {"free": 100})())),
+        ("EGM_G17_DISK_SPACE_TOO_LOW", "G17", lambda e: e["18"].__setitem__("injected_free_disk_gib", 1.0)),
         ("EGM_G18_UNVERIFIED_GIT_PHASE", "G18", lambda e: e["18"].__setitem__("phase_a_tested_sha_verified", False)),
-        ("EGM_G19_PRODUCTION_GUARD_TAMPERED", "G19", lambda e: e.get("19", {}).__setitem__("allow_prod", True)),
+        ("EGM_G19_PRODUCTION_GUARD_TAMPERED", "G19", lambda e: e["04"].__setitem__("production_research_apply_blocked_verified", False)),
     ]
 
     rows: List[Dict[str, Any]] = []

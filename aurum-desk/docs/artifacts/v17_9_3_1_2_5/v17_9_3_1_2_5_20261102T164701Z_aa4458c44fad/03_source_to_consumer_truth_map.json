@@ -1,0 +1,138 @@
+{
+  "baseline_loss_forensics_summary": {
+    "closed_trades_count": 166,
+    "data_gap_unresolved_count": 1,
+    "losses_count": 157,
+    "open_at_horizon_count": 74,
+    "primary_loss_causes_breakdown": {
+      "OTHER/UNKNOWN": 109,
+      "TARGET_NOT_REAL_OR_ALREADY_SWEPT": 48
+    },
+    "wins_count": 9
+  },
+  "callgraph_matrix": {
+    "callgraph_stages_count": 7,
+    "schema_version": "17.9.3.1.2.3",
+    "stages": [
+      {
+        "defects_repaired_in_v1793123": [
+          "Hard block against RESEARCH_APPLY / RESEARCH_DISCOVERY in PRODUCTION_ORCHESTRATOR, LIVE, PAPER, AUTO_PAPER, AUTO_LIVE."
+        ],
+        "file": "backend/services/m1_scalp_orchestrator.py",
+        "function": "M1ScalpOrchestrator._evaluate_shared_strategy_candidates",
+        "responsibility": "Production/Shadow consumer calling SharedStrategyEvaluator with default OFF mode and production adapter guard.",
+        "stage_id": "STAGE_01_ORCHESTRATOR_AND_BACKTEST_CONSUMERS"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T09: Explicit HTF bias strings cannot override absent, unclosed, or stale H4/H1 candles.",
+          "T10: Missing/neutral HTF never defaults to LONG (returns None / NO_BIAS).",
+          "T11: Mixed HTF allows symmetric LONG/SHORT evaluation only when closed causal evidence exists."
+        ],
+        "file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+        "function": "resolve_research_preferred_direction_v1793122",
+        "responsibility": "Resolves causal H4/H1/M15/M5 directional bias and model-specific continuation vs reversal alignment.",
+        "stage_id": "STAGE_02_DIRECTION_PREFERENCE_AND_HTF_PROVENANCE"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T01/T02/T03: Enforces strict post-formation closed-bar FVG mitigation & chronological retest checks.",
+          "STAGE G1 (RESEARCH_DISCOVERY): Scans closed M1 windows to discover valid causal setups across all 5 models when baseline heuristics miss them."
+        ],
+        "file": "backend/services/shared_strategy_evaluator.py",
+        "function": "SharedStrategyEvaluator._extract_causal_setup_descriptors",
+        "responsibility": "Extracts causal sweep, MSS/BOS, FVG, and breaker descriptors from closed M1/M5 bars.",
+        "stage_id": "STAGE_03_SETUP_DISCOVERY_AND_FVG_FRESHNESS"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T04/T05/T06: Separates FVG_ONLY from UNICORN_CONFIRMED; requires positive Breaker+FVG overlap (overlap_low < overlap_high) and valid causal order.",
+          "T07/T08: Requires confirmed prior swing sweep + reclaim close and MSS swing known_at_ms <= now_ms.",
+          "T17: Rejects circular/synthetic protected anchors equal to selected_sl or on the wrong side of entry.",
+          "T19/T20: Resolves TP from real unswept pre-entry liquidity pools instead of already-swept or arbitrary RR multiples."
+        ],
+        "file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+        "function": "build_signal_quality_evidence_v1793122 & _resolve_unswept_liquidity_pool_target_v1793123",
+        "responsibility": "Validates FVG retest chronology, Unicorn spatial overlap, sweep+reclaim close, MSS swing known_at_ms, independent protected SL anchor, and unswept liquidity pool target.",
+        "stage_id": "STAGE_04_SIGNAL_QUALITY_UNICORN_SWEEP_MSS_TARGET"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T14/T15/T16: Confirmation never fills at the earlier signal bar; invalidates immediately if protected structure breaks first; expires after TTL."
+        ],
+        "file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+        "function": "advance_pending_confirmation_state_v1793122",
+        "responsibility": "Advances WAITING_CONFIRMATION setups across subsequent closed M1 bars to CONFIRMED, INVALIDATED, EXPIRED, or CANCELLED_GAP.",
+        "stage_id": "STAGE_05_PENDING_CONFIRMATION_STATE_MACHINE"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T18/T20/T21/T22/T23: Propagates proposed_entry, proposed_sl, proposed_tp, proposed_target_id, proposed_qty, proposed_gross_rr, proposed_net_rr, proposed_anchor_id, proposed_invalidation_price, and recomputed decision_fingerprint into StrategyDecisionSnapshot.",
+          "Resolves SI4/SI6 zero-trade starvation via SI7_CORE_TRADING_LOGIC_REPAIRED and SI8_RESEARCH_DISCOVERY_REPAIRED model-specific confluence."
+        ],
+        "file": "backend/services/shared_strategy_evaluator.py",
+        "function": "SharedStrategyEvaluator.evaluate_model_direction",
+        "responsibility": "Applies SignalIntelligenceGateResultV1793122 to StrategyDecisionSnapshot under RESEARCH_APPLY / RESEARCH_DISCOVERY.",
+        "stage_id": "STAGE_06_GATE_EVALUATION_AND_SNAPSHOT_PROPAGATION"
+      },
+      {
+        "defects_repaired_in_v1793123": [
+          "T24: Strictly forbids post-entry PnL/MFE/MAE/outcome labels in arbitration.",
+          "T25..T28: Enforces single-position slot blocking, strict hold vs 180-bar time-stop vs legacy censoring, and exact gross - fees == net accounting."
+        ],
+        "file": "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+        "function": "arbitrate_competing_model_intents_v1793122 & replay_single_si_policy_v1793122",
+        "responsibility": "Arbitrates competing same-timestamp candidates using pre-entry causal quality tuples and replays single-slot portfolios across 3 fill modes.",
+        "stage_id": "STAGE_07_PRE_ENTRY_ARBITRATION_AND_PORTFOLIO_REPLAY"
+      }
+    ]
+  },
+  "consumer_integration": {
+    "legacy_models_and_adapters_preserved": true,
+    "schema_version": "17.9.3.1.2.2",
+    "verified_consumer_callsites": [
+      {
+        "consumer": "SharedStrategyEvaluator.evaluate_model_direction",
+        "file": "backend/services/shared_strategy_evaluator.py",
+        "function_called": "evaluate_signal_intelligence_gate_v1793122",
+        "modes_supported": [
+          "OFF",
+          "OBSERVE_ONLY",
+          "RESEARCH_APPLY"
+        ]
+      },
+      {
+        "consumer": "SharedStrategyEvaluator.evaluate_model_best_direction",
+        "file": "backend/services/shared_strategy_evaluator.py",
+        "function_called": "resolve_research_preferred_direction_v1793122",
+        "modes_supported": [
+          "OFF",
+          "OBSERVE_ONLY",
+          "RESEARCH_APPLY"
+        ]
+      },
+      {
+        "consumer": "Production Orchestrator / M1ScalpOrchestrator",
+        "file": "backend/services/m1_scalp_orchestrator.py",
+        "function_called": "SharedStrategyEvaluator.evaluate_model_best_direction",
+        "production_default_mode": "OFF"
+      },
+      {
+        "consumer": "Historical Backtest & Intervention Replay",
+        "file": "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+        "function_called": "replay_single_si_policy_v1793122",
+        "policies_evaluated": [
+          "SI0_OFF_BASELINE",
+          "SI1_MODEL_QUALITY_AND_ARBITRATION",
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+          "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+          "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+          "SI6_COMBINED_PREDECLARED"
+        ]
+      }
+    ]
+  },
+  "schema_version": "17.9.3.1.2.5",
+  "tested_executable_sha": "aa4458c44fadfd972d354cd84130cc41217f475d"
+}

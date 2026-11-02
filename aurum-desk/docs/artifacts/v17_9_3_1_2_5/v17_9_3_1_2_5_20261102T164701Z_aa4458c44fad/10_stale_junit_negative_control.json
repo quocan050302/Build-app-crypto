@@ -1,0 +1,32 @@
+{
+  "all_negative_controls_rejected_red": true,
+  "fresh_attestation_passed": true,
+  "freshly_executed_shards_count": 25,
+  "negative_controls": [
+    {
+      "control_id": "NC01_SEEDED_REUSED_SHARD_REJECTED",
+      "rejected_red_as_expected": true,
+      "violations": [
+        "REUSED_SHARDS_COUNT_NONZERO:1",
+        "SHARD_REUSED_FORBIDDEN:SHARD_00000_V17_9_3_1_2_5"
+      ]
+    },
+    {
+      "control_id": "NC02_WRONG_TESTED_SHA_SHARD_REJECTED",
+      "rejected_red_as_expected": true,
+      "violations": [
+        "SHARD_SHA_MISMATCH:SHARD_00000_V17_9_3_1_2_5:0000000000000000000000000000000000000000"
+      ]
+    },
+    {
+      "control_id": "NC03_STALE_MTIME_XML_SHARD_REJECTED",
+      "rejected_red_as_expected": true,
+      "violations": [
+        "SHARD_STALE_MTIME_BEFORE_RUN_START:SHARD_00000_V17_9_3_1_2_5"
+      ]
+    }
+  ],
+  "reused_shards_count": 0,
+  "schema_version": "17.9.3.1.2.5",
+  "tested_executable_sha": "aa4458c44fadfd972d354cd84130cc41217f475d"
+}
