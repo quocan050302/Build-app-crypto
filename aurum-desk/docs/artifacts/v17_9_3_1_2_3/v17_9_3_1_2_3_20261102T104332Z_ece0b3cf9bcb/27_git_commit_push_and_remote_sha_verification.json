@@ -5,6 +5,10 @@
   "merge_base_with_origin_master": "650e4535777421077443cd3d95507cad1d99ed42",
   "phase_a_parent_sha": "7f20639ffb4170eee09927234226b8339851b68b",
   "phase_a_tested_executable_sha": "ece0b3cf9bcbd9011842d9e52b99bcce4ccb8274",
+  "phase_b_evidence_commit_sha": "431d91311fb1fb807495c2511aebb4133c57d36a",
+  "remote_matches_phase_b_sha": true,
+  "remote_verified_sha_after_phase_b_push": "431d91311fb1fb807495c2511aebb4133c57d36a",
   "schema_version": "17.9.3.1.2.3",
+  "starting_branch_head_sha": "cef4f289dc8aa6c6fbc0fbd5afab43a8fcadab45",
   "zero_executable_code_drift_since_phase_a": true
 }

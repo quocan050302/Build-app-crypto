@@ -5,6 +5,7 @@
   "engineering_verification_verdict": "PASS",
   "executed_junit_tests_count": 4924,
   "passed_gates_count": 15,
+  "phase_b_evidence_commit_sha": "431d91311fb1fb807495c2511aebb4133c57d36a",
   "run_dir": "docs/artifacts/v17_9_3_1_2_3/v17_9_3_1_2_3_20261102T104332Z_ece0b3cf9bcb",
   "run_id": "v17_9_3_1_2_3_20261102T104332Z_ece0b3cf9bcb",
   "schema_version": "17.9.3.1.2.3",
