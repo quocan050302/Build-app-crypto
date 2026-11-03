@@ -255,9 +255,21 @@ def replay_single_si_policy_v1793122(
     suppressed_ties_count = 0
     selected_by_model: Counter[str] = Counter()
     si8_selected_incremental_by_model: Counter[str] = Counter()
+    proof_rejected_before_arbitration: Counter[str] = Counter()
 
     for idx_1m in sorted(by_idx.keys()):
         cands = by_idx[idx_1m]
+        if candidate_index.get("v1793127_causal_truth_required") and policy_id != "SI0_OFF_BASELINE":
+            from services.v17_9_3_1_2_7_causal_signal_truth import required_proof_rejection_v1793127
+            proven_candidates = []
+            for candidate in cands:
+                reason = required_proof_rejection_v1793127(
+                    eff_feature_ledger.get(str(candidate.get("opportunity_id")), {}), str(candidate.get("model_id")))
+                if reason:
+                    proof_rejected_before_arbitration[reason] += 1
+                else:
+                    proven_candidates.append(candidate)
+            cands = proven_candidates
         winner, losers = arbitrate_competing_model_intents_v1793122(
             cands,
             arbitration_mode=arb_mode,
@@ -414,7 +426,7 @@ def replay_single_si_policy_v1793122(
                     materialized_list.append((opp, mat))
                     continue
                 if m_id in ("UNICORN_MODEL", ModelIdentifier.SMC_M1_FVG_CONTINUATION.value) and (
-                    not bool(feat.get("fvg_retest_valid", True)) or not bool(feat.get("fvg_unmitigated", True))
+                    not bool(feat.get("fvg_retest_valid", False)) or not bool(feat.get("fvg_unmitigated", False))
                 ):
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
@@ -546,6 +558,7 @@ def replay_single_si_policy_v1793122(
 
             ep_rec["opportunity_id"] = opp_id
             ep_rec["policy_id"] = policy_id
+            ep_rec["fill_mode"] = f_mode
             ep_rec["confirmation_subtype"] = mat.get("confirmation_subtype")
             ep_rec["changed_dimensions"] = list(mat.get("changed_dimensions") or [])
             ep_rec["entry_ts_ms"] = int(ep_rec.get("entry_fill_ts") or ep_rec.get("decision_timestamp_ms") or 0)
@@ -648,9 +661,37 @@ def replay_single_si_policy_v1793122(
             primary_episodes = mode_episodes
 
     prim = mode_replays["NEXT_BAR_OPEN_BID_ASK"]
+    mat_index = {str(o["opportunity_id"]): m for o, m in materialized_list}
+    decision_ledger = []
+    for checkpoint in sorted(by_idx):
+        for row in sorted(by_idx[checkpoint], key=lambda r: str(r["opportunity_id"])):
+            oid = str(row["opportunity_id"])
+            feature = eff_feature_ledger.get(oid, {})
+            mat = mat_index.get(oid)
+            reason = None
+            if candidate_index.get("v1793127_causal_truth_required") and policy_id != "SI0_OFF_BASELINE":
+                reason = required_proof_rejection_v1793127(feature, str(row.get("model_id")))
+            decision_ledger.append({
+                "opportunity_id": oid, "decision_timestamp_ms": int(row["decision_timestamp_ms"]),
+                "source_snapshot_hash": feature.get("source_snapshot_hash"),
+                "proof_hash": feature.get("proof_hash"), "policy_id": policy_id,
+                **(dict(mat) if mat else {"accepted": False, "status": "REJECTED_UNPROVEN" if reason else "SUPPRESSED_SAME_TIMESTAMP_TIE", "rejection_reason": reason}),
+            })
+    for mode_result in mode_replays.values():
+        canonical_decisions = {str(r["opportunity_id"]): r for group in by_idx.values() for r in group}
+        for ep in mode_result.get("episodes", []):
+            feat = eff_feature_ledger.get(str(ep["opportunity_id"]), {})
+            ep["source_snapshot_hash"] = feat.get("source_snapshot_hash")
+            ep["proof_hash"] = feat.get("proof_hash")
+            ep["quote_source_kind"] = feat.get("quote_source_kind", "UNKNOWN")
+            ep["canonical_decision_timestamp_ms"] = canonical_decisions[str(ep["opportunity_id"])]["decision_timestamp_ms"]
+
     return {
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "policy_id": policy_id,
+        "policy_decision_ledger": decision_ledger,
+        "proof_rejected_before_arbitration_count": sum(proof_rejected_before_arbitration.values()),
+        "proof_rejections_by_reason": dict(proof_rejected_before_arbitration),
         "arbitration_mode": arb_mode,
         "raw_eligible_decisions_count": raw_decisions_total,
         "unique_eligible_timestamps_evaluated": len(selected_opportunities),
@@ -720,14 +761,9 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
         cand_index = build_full_intervention_candidate_index_v1793121(
             a1_eligible, datasets, pol_hash, close_ts_index=close_ts
         )
-        feat_map = {}
-        for opp in cand_index["canonical_opportunities"]:
-            opp_id = str(opp["opportunity_id"])
-            feat_map[opp_id] = {
-                "htf_alignment_state": "ALIGNED" if opp.get("htf_aligned", False) else "MIXED",
-                "unicorn_classification": "UNICORN_CONFIRMED" if opp.get("model_id") == "UNICORN_MODEL" else "FVG_ONLY",
-                "displacement_body_atr_ratio": float(opp.get("displacement_ratio") or 0.60),
-            }
+        from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+        feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
+            cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
         _WORKER_PROCESS_CONTEXT_CACHE[ctx_source_str] = (datasets, cand_index, feat_map)
 
     res = replay_single_si_policy_v1793122(
@@ -764,8 +800,21 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
         ),
         4,
     )
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127, canonical_hash
+    from services.v17_9_3_1_2_7_matched_ab import compute_matched_policy_ab_v1793127
+    all_features={**feat_map,**cand_index.get("si8_discovered_feature_ledger_by_opp_id",{})}
+    forensic_hash=canonical_hash(build_forensic_causal_evidence_join_v1793127(res["primary_episodes"],all_features))
+    baseline=res if policy_id=="SI0_OFF_BASELINE" else replay_single_si_policy_v1793122("SI0_OFF_BASELINE",cand_index,datasets,feat_map,fill_modes=FILL_MODES)
+    ab_hashes={mode:canonical_hash(compute_matched_policy_ab_v1793127(
+        baseline["policy_decision_ledger"],res["policy_decision_ledger"],
+        baseline["all_mode_episodes"][mode],res["all_mode_episodes"][mode],
+        comparison_id="SI0_TO_"+policy_id,fill_mode=mode)) for mode in FILL_MODES}
     worker_summary = {
         "policy_id": policy_id,
+        "forensic_sha256": forensic_hash,
+        "matched_ab_sha256_by_fill": ab_hashes,
+        "decision_rows_sha256": hashlib.sha256(json.dumps(res["policy_decision_ledger"],sort_keys=True).encode()).hexdigest(),
+        "feature_proof_sha256": hashlib.sha256(json.dumps({k:v.get("proof_hash") for k,v in sorted(feat_map.items())},sort_keys=True).encode()).hexdigest(),
         "worker_pid": os.getpid(),
         "unique_eligible_timestamps_evaluated": res["unique_eligible_timestamps_evaluated"],
         "closed_trades_count": res["closed_trades_count"],
@@ -774,6 +823,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
         "total_realized_net_usd": res["total_realized_net_usd"],
         "expectancy_net_r": res["expectancy_net_r"],
         "primary_ledger_sha256": res["primary_ledger_sha256"],
+        "raw_all_mode_trades_sha256": hashlib.sha256(json.dumps(res["all_mode_episodes"],sort_keys=True).encode()).hexdigest(),
         "fill_mode_hashes": {
             fm: res["replays_by_fill_mode"][fm]["ledger_sha256"] for fm in FILL_MODES
         },
@@ -789,14 +839,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
 def execute_independent_worker_determinism_runs_v1793122(
     chunks_dir: Path,
     *,
-    policies_to_verify: Sequence[str] = (
-        "SI0_OFF_BASELINE",
-        "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
-        "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
-        "SI6_COMBINED_PREDECLARED",
-        "SI7_CORE_TRADING_LOGIC_REPAIRED",
-        "SI8_RESEARCH_DISCOVERY_REPAIRED",
-    ),
+    policies_to_verify: Sequence[str] = CANONICAL_V1793123_POLICY_IDS,
     preloaded_context: Optional[Tuple[Any, Any]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
     """
@@ -835,15 +878,10 @@ def execute_independent_worker_determinism_runs_v1793122(
             "si8_discovered_feature_ledger_by_opp_id": disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {},
         }
 
-    feat_map: Dict[str, Dict[str, Any]] = {}
-    for opp in cand_index["canonical_opportunities"]:
-        opp_id = str(opp["opportunity_id"])
-        feat_map[opp_id] = {
-            "htf_alignment_state": "ALIGNED" if opp.get("htf_aligned", False) else "MIXED",
-            "unicorn_classification": "UNICORN_CONFIRMED" if opp.get("model_id") == "UNICORN_MODEL" else "FVG_ONLY",
-            "displacement_body_atr_ratio": float(opp.get("displacement_ratio") or 0.60),
-        }
-
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+    feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
+        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
+    cand_index["v1793127_causal_truth_required"] = True
     fd, tmp_pkl_path = tempfile.mkstemp(prefix="v1793122_worker_ctx_", suffix=".pkl")
     os.close(fd)
     try:
@@ -1225,7 +1263,8 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "registry_hash": pol_reg_hash_v1793122,
         "policies_count": len(PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122),
-        "pre_registered_before_holdout_evaluation": True,
+        "pre_registered_before_holdout_evaluation": False,
+        "pre_registration_status": "NOT_PROVEN_REUSED_HOLDOUT",
         "policies": {
             pid: pol.to_dict()
             for pid, pol in PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122.items()
@@ -1250,7 +1289,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         )
         return fm, {vk: vo.to_dict(include_episodes=True) for vk, vo in outs.items()}
 
-    with ThreadPoolExecutor(max_workers=3) as ex_fm:
+    with ThreadPoolExecutor(max_workers=min(4,max(1,int(os.getenv("AURUM_RESEARCH_STAGE_WORKERS", "1"))))) as ex_fm:
         for fm_k, fm_v in ex_fm.map(_run_a1_fm, FILL_MODES):
             replays_by_mode[fm_k] = fm_v
 
@@ -1266,7 +1305,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     )
     from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
 
-    with ThreadPoolExecutor(max_workers=3) as ex_pre:
+    with ThreadPoolExecutor(max_workers=min(4,max(1,int(os.getenv("AURUM_RESEARCH_STAGE_WORKERS", "1"))))) as ex_pre:
         f_feat = ex_pre.submit(
             build_pre_entry_feature_ledger_v1793121,
             a1_episodes,
@@ -1282,6 +1321,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
             discover_research_candidates_v1793123,
             datasets,
             full_universe=full_universe_si8,
+            max_workers=int(os.getenv("AURUM_RESEARCH_PROCESS_WORKERS", "1")),
         )
         art_20_feat, art_22_htf = f_feat.result()
         art_21_uni = f_uni.result()
@@ -1293,52 +1333,20 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     cand_index["si8_discovered_feature_ledger_by_opp_id"] = (
         si8_discovery_report.get("si8_discovered_feature_ledger_by_opp_id") or {}
     )
-    feat_by_opp_id: Dict[str, Dict[str, Any]] = {}
-    for row in art_20_feat.get("sample_records", []):
-        oid = str(row.get("opportunity_id") or "")
-        if oid:
-            feat_by_opp_id[oid] = dict(row)
-    # Also populate deterministic pre-entry features for all 56,710 eligible decisions from causal OHLC/ATR
-    for idx_1m, recs in cand_index["decisions_by_checkpoint_index"].items():
-        atr_1m = float(cand_index["atr_m1_by_idx"][idx_1m])
-        b_1m = datasets["1m"][idx_1m]
-        b_prev = datasets["1m"][max(0, idx_1m - 1)]
-        body_ratio = round(abs(float(b_1m["close"]) - float(b_1m["open"])) / max(1e-6, atr_1m), 4)
-        retrace_depth = abs(float(b_1m["open"]) - float(b_prev["close"]))
-        for r in recs:
-            oid = str(r["opportunity_id"])
-            if oid not in feat_by_opp_id:
-                m_id = str(r["model_id"])
-                dir_u = str(r["direction"]).upper()
-                trend_match = (
-                    (dir_u == "LONG" and float(b_1m["close"]) >= float(b_prev["close"]))
-                    or (dir_u == "SHORT" and float(b_1m["close"]) <= float(b_prev["close"]))
-                )
-                feat_by_opp_id[oid] = {
-                    "opportunity_id": oid,
-                    "checkpoint_index_1m": idx_1m,
-                    "model_id": m_id,
-                    "direction": r["direction"],
-                    "htf_alignment_state": "ALIGNED" if trend_match else "MIXED",
-                    "unicorn_classification": (
-                        "UNICORN_CONFIRMED"
-                        if m_id in ("UNICORN_MODEL", "SMC_M1_FVG_CONTINUATION") and body_ratio >= 0.65
-                        else ("FVG_ONLY" if m_id in ("UNICORN_MODEL", "SMC_M1_FVG_CONTINUATION", "CG01_SWEEP_MSS_FVG") else "NONE")
-                    ),
-                    "displacement_body_atr_ratio": body_ratio,
-                    "displacement_valid": body_ratio >= 0.55,
-                    "continuation_retrace_valid": body_ratio >= 0.45 and retrace_depth <= 0.80 * atr_1m,
-                    "sweep_confirmed": m_id in ("SMC_M1_REVERSAL", "SMC_M1_SWEEP_RECLAIM", "CG01_SWEEP_MSS_FVG"),
-                    "sweep_reclaimed": True,
-                    "mss_confirmed": body_ratio >= 0.45,
-                    "fvg_retest_valid": m_id in ("UNICORN_MODEL", "SMC_M1_FVG_CONTINUATION", "CG01_SWEEP_MSS_FVG"),
-                    "fvg_age_bars_m1": 8,
-                    "fvg_unmitigated": True,
-                    "protected_structure_independent_of_sl": True,
-                    "target_reachable": float(r.get("net_rr") or 0.0) <= 3.5,
-                    "target_room_atr_m1": 3.2,
-                    "spread_to_atr_m1_ratio": round(0.35 / max(0.20, atr_1m), 4),
-                }
+    from services.v17_9_3_1_2_7_causal_signal_truth import (
+        build_verified_baseline_pre_entry_feature_ledger_v1793127,
+    )
+    feat_by_opp_id = build_verified_baseline_pre_entry_feature_ledger_v1793127(
+        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+    )
+    # Discovered records use exactly the same OHLC-derived schema as baseline.
+    discovered_index = {"decisions_by_checkpoint_index": cand_index["si8_discovered_decisions_by_checkpoint_index"]}
+    verified_discovery = build_verified_baseline_pre_entry_feature_ledger_v1793127(
+        discovered_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+    )
+    cand_index["si8_discovered_feature_ledger_by_opp_id"] = verified_discovery
+    si8_discovery_report["si8_discovered_feature_ledger_by_opp_id"] = verified_discovery
+    cand_index["v1793127_causal_truth_required"] = True
 
     # 3. Replay all 7 Signal Intelligence policies (SI0..SI6) across all 3 fill modes in parallel
     si_results_by_policy: Dict[str, Dict[str, Any]] = {}
@@ -1352,7 +1360,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
             fill_modes=FILL_MODES,
         )
 
-    with ThreadPoolExecutor(max_workers=4) as ex_si:
+    with ThreadPoolExecutor(max_workers=min(4,max(1,int(os.getenv("AURUM_RESEARCH_STAGE_WORKERS", "1"))))) as ex_si:
         for pid_k, pid_res in ex_si.map(_run_si_pol, CANONICAL_V1793123_POLICY_IDS):
             si_results_by_policy[pid_k] = pid_res
 
@@ -1475,7 +1483,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
 
     # 6. Run real SharedStrategyEvaluator snapshots, stop forensics, lifecycle censoring,
     #    5-model ablation, and session confounding in parallel across 4 threads
-    with ThreadPoolExecutor(max_workers=4) as ex_forensics:
+    with ThreadPoolExecutor(max_workers=min(4,max(1,int(os.getenv("AURUM_RESEARCH_STAGE_WORKERS", "1"))))) as ex_forensics:
         fut_eval_11_12 = ex_forensics.submit(
             evaluate_real_shared_evaluator_snapshots_and_adapter_parity_v1793122,
             datasets,
@@ -1531,7 +1539,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
             pid: {
                 k: v
                 for k, v in res.items()
-                if k not in ("primary_episodes", "all_mode_episodes", "executed_opportunity_ids")
+                if k not in ("primary_episodes", "all_mode_episodes", "executed_opportunity_ids", "policy_decision_ledger")
             }
             for pid, res in si_results_by_policy.items()
         },
@@ -1725,8 +1733,10 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     art_22 = {
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "policy_registry_hash": pol_reg_hash_v1793122,
-        "pre_registered_before_holdout_evaluation": True,
-        "future_outcome_leakage_into_entry_decisions": 0,
+        "pre_registered_before_holdout_evaluation": False,
+        "pre_registration_status": "NOT_PROVEN_REUSED_HOLDOUT",
+        "future_outcome_leakage_into_entry_decisions": None,
+        "leakage_attestation_status": "REQUIRES_INDEPENDENT_CAUSAL_SOURCE_CHECK",
         "reused_holdout_disclosure": (
             "The October 2026 XAUUSDT dataset was previously inspected in V17.9.2..V17.9.3.1.2.1. "
             "All holdout results are explicitly classified as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS."
@@ -1747,22 +1757,15 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         and under_check["strategy_statistical_verdict"] == "INCONCLUSIVE_UNDERPOWERED"
     )
 
+    from tools.v17_9_3_1_2_7_proof_checks import empirical_policy_statistics
+    measured_statistics = empirical_policy_statistics(si_results_by_policy)
     art_23 = {
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "zero_trade_and_underpowered_guard_verified": up_guard_ok,
         "multiple_testing_and_nonstationarity_disclosed": True,
-        "family_wise_comparisons_count": 6,
-        "multiple_testing_method": "HOLM_BONFERRONI_STEP_DOWN",
-        "policy_statistical_summaries": {
-            pid: {
-                "closed_trades_count": m["closed_trades_count"],
-                "expectancy_net_r": m["expectancy_net_r"],
-                "bootstrap_ci_95_low_r": round(float(m["expectancy_net_r"]) - 0.14, 4),
-                "bootstrap_ci_95_high_r": round(float(m["expectancy_net_r"]) + 0.14, 4),
-                "sample_powered_ge_30": int(m["closed_trades_count"]) >= 30,
-            }
-            for pid, m in art_18["metrics_by_policy"].items()
-        },
+        "family_wise_comparisons_count": len(measured_statistics["policies"])-1,
+        "multiple_testing_method": measured_statistics["method"],
+        "policy_statistical_summaries": measured_statistics["policies"],
     }
 
     # 11. Independent 1/2/4-Worker Full-Run Determinism (28, 29, 30, 31) & Resource Guard (32)

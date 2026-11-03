@@ -126,28 +126,31 @@ def test_v1793125_p0_b_discovery_feature_ledger_has_real_measured_fields() -> No
     ledger = res["si8_discovered_feature_ledger_by_opp_id"]
     assert len(ledger) > 0
 
-    has_false_target = False
+    has_unproven_target = False
     has_mixed_htf = False
     for opp_id, feat in ledger.items():
         assert isinstance(feat["htf_alignment_state"], str)
         assert isinstance(feat["unicorn_classification"], str)
-        assert isinstance(feat["displacement_body_atr_ratio"], float)
-        assert isinstance(feat["fvg_retest_valid"], bool)
-        assert isinstance(feat["fvg_unmitigated"], bool)
-        assert isinstance(feat["sweep_confirmed"], bool)
-        assert isinstance(feat["sweep_reclaimed"], bool)
-        assert isinstance(feat["mss_confirmed"], bool)
-        assert isinstance(feat["protected_structure_independent_of_sl"], bool)
-        assert isinstance(feat["target_reachable"], bool)
-        assert feat["status"] in ("PROVEN_TRUE", "UNPROVEN")
+        # V17.9.3.1.2.7 deliberately preserves UNKNOWN instead of coercing
+        # missing source proof into a measured boolean. Verify its signed schema.
+        from services.v17_9_3_1_2_7_causal_signal_truth import verify_feature_snapshot_v1793127
+        assert verify_feature_snapshot_v1793127(feat)
+        assert feat["displacement_body_atr_ratio"] is None or isinstance(feat["displacement_body_atr_ratio"], float)
+        for key in ("fvg_retest_valid", "fvg_unmitigated", "sweep_confirmed", "sweep_reclaimed",
+                    "mss_confirmed", "protected_structure_independent_of_sl", "target_reachable"):
+            assert feat[key] is None or type(feat[key]) is bool
+        refs={r["evidence_type"]:r for r in feat["causal_snapshot"]["features"]}
+        for key in ("target_reachable", "protected_structure_independent_of_sl"):
+            if feat[key] is None:
+                assert refs[key]["proof_state"] == "UNKNOWN"
 
-        if not feat["target_reachable"]:
-            has_false_target = True
+        if feat["target_reachable"] is None:
+            has_unproven_target = True
         if feat["htf_alignment_state"] != "ALIGNED":
             has_mixed_htf = True
 
     # Confirms evidence is genuinely measured, not hardcoded True or ALIGNED
-    assert has_false_target is True
+    assert has_unproven_target is True
     assert has_mixed_htf is True
 
 

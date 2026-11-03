@@ -489,6 +489,7 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         "discovered_test_files_count": len(all_test_files),
         "collected_node_ids_count": len(all_collected_ids),
         "collected_node_ids_sha256": col_sha,
+        "collected_node_ids": all_collected_ids,
         "discovered_test_files": all_test_files,
         "collected_node_ids_first_50": all_collected_ids[:50],
         "collected_node_ids_last_50": all_collected_ids[-50:],
@@ -513,6 +514,7 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         "nonzero_exit_shards_count": nonzero_shards,
         "collected_node_ids_sha256": col_sha,
         "executed_junit_node_ids_sha256": junit_sha,
+        "executed_junit_node_ids": all_junit_ids,
         "missing_from_junit_count": global_bij["missing_from_junit_count"],
         "unexpected_in_junit_count": global_bij["unexpected_in_junit_count"],
         "exact_node_id_bijection_verified": (

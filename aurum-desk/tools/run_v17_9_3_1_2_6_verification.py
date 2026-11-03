@@ -228,7 +228,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
 
     # G03: Input dataset SHA, chronology, closed MTF bars and gap validation
     d_sha = str(e02.get("dataset_sha256") or e01.get("dataset_sha256") or "")
-    g03_ok = d_sha == CANONICAL_DATASET_SHA256_V1793122 and bool(e02.get("causal_chronology_verified", True))
+    g03_ok = d_sha == CANONICAL_DATASET_SHA256_V1793122 and bool(e02.get("causal_chronology_verified", False))
     _add(
         "G03",
         "Canonical historical dataset SHA-256 matches exactly with verified closed MTF chronology and gap validation",
@@ -236,7 +236,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
         {
             "dataset_sha256": d_sha,
             "expected_dataset_sha256": CANONICAL_DATASET_SHA256_V1793122,
-            "causal_chronology_verified": e02.get("causal_chronology_verified", True),
+            "causal_chronology_verified": e02.get("causal_chronology_verified", False),
         },
     )
 
@@ -257,7 +257,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
 
     # G05: Per-record proof ledger re-derived from source, zero fabricated truth
     ledger = dict(e05.get("si8_discovered_feature_ledger_by_opp_id") or {})
-    has_unproven = any(f.get("status") == "UNPROVEN" or not bool(f.get("target_reachable", True)) for f in ledger.values()) if ledger else True
+    has_unproven = any(f.get("status") == "UNPROVEN" or not bool(f.get("target_reachable", False)) for f in ledger.values()) if ledger else True
     has_mixed = any(f.get("htf_alignment_state") != "ALIGNED" for f in ledger.values()) if ledger else True
     _add(
         "G05",
@@ -271,7 +271,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G06: No source_known_at fallback or future-known evidence
-    no_fallback = bool(e06.get("zero_cur_ts_fallback_verified", True))
+    no_fallback = bool(e06.get("zero_cur_ts_fallback_verified", False))
     zero_future = int(e06.get("future_known_evidence_violations", 0)) == 0
     _add(
         "G06",
@@ -284,7 +284,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G07: FVG unmitigated-but-never-retested is REJECTED/UNPROVEN
-    fvg_unmit_rejected = bool(e04.get("fvg_unmitigated_never_retested_rejected_verified", True))
+    fvg_unmit_rejected = bool(e04.get("fvg_unmitigated_never_retested_rejected_verified", False))
     _add(
         "G07",
         "FVG unmitigated-but-never-retested is verified REJECTED/UNPROVEN (unmitigated != retested)",
@@ -296,7 +296,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G08: True postformation price-zone retest remains verified, precise bar IDs
-    true_retest_ok = bool(e04.get("true_retest_positive_control_verified", True))
+    true_retest_ok = bool(e04.get("true_retest_positive_control_verified", False))
     _add(
         "G08",
         "True postformation price-zone retest remains verified with precise closed-bar IDs and valid price touch",
@@ -307,7 +307,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G09: Descriptor spoof/uncertainty/future test negatives all fail closed
-    spoof_rejected = bool(e04.get("descriptor_spoof_and_future_negatives_rejected", True))
+    spoof_rejected = bool(e04.get("descriptor_spoof_and_future_negatives_rejected", False))
     _add(
         "G09",
         "Descriptor spoof, touch-before-formation, future bar, and inverted zone negatives all fail closed",
@@ -318,7 +318,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G10: Unicorn overlap and chronological Breaker/FVG requirements verified
-    uni_ok = bool(e04.get("unicorn_overlap_and_chronology_verified", True))
+    uni_ok = bool(e04.get("unicorn_overlap_and_chronology_verified", False))
     _add(
         "G10",
         "Breaker + FVG spatial overlap and strict chronological sequence verified with FVG_ONLY separation",
@@ -365,7 +365,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G13: SI7/SI8/new hypothesis research decisions really change executable snapshots
-    diff_ok = bool(e10.get("executable_decision_diff_verified", True))
+    diff_ok = bool(e10.get("executable_decision_diff_verified", False))
     _add(
         "G13",
         "SI7, SI8, and SI9 research policies produce traceable before/after decision changes and distinct order intents",
@@ -376,7 +376,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G14: Quote provenance/actual vs synthetic assumptions disclosed per fill
-    quote_prov_ok = bool(e07.get("quote_provenance_disclosed", True))
+    quote_prov_ok = bool(e07.get("quote_provenance_disclosed", False))
     _add(
         "G14",
         "Quote provenance explicitly classified as SYNTHETIC_RESEARCH_QUOTE across all fill modes and episodes",
@@ -401,7 +401,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G16: Full per-trade forensic loss ledger exhaustive, zero duplicate/missing ID, accounting reconciled
-    loss_rec = bool(e08.get("primary_loss_causes_match_total_losses", True))
+    loss_rec = bool(e08.get("primary_loss_causes_match_total_losses", False))
     zero_dups = int(e09.get("duplicate_trade_ids_count", 0)) == 0
     _add(
         "G16",
@@ -414,7 +414,7 @@ def evaluate_v1793126_acceptance_gates_g01_g25(
     )
 
     # G17: Before/after matched A/B and full SI policy metrics, honest denominators
-    ab_ok = bool(e11.get("matched_ab_verified", True))
+    ab_ok = bool(e11.get("matched_ab_verified", False))
     _add(
         "G17",
         "Matched A/B baseline vs repaired policy comparisons evaluated with identical timeline and honest denominators",
@@ -831,7 +831,7 @@ def main() -> int:
         "schema_version": V17_9_3_1_2_6_SCHEMA_VERSION,
         "tested_executable_sha": tested_sha,
         "evaluated_models": list(CANONICAL_5_MODELS_V1793123),
-        "is_official_full_universe": si8_discovery_report.get("is_official_full_universe", True),
+        "is_official_full_universe": si8_discovery_report.get("is_official_full_universe", False),
         "sampled_checkpoint_count": si8_discovery_report.get("sampled_checkpoint_count", 0),
         "causal_checkpoint_count": si8_discovery_report.get("causal_checkpoint_count", 22346),
         "si8_newly_discovered_setups_count": si8_discovery_report["si8_newly_discovered_setups_count"],
@@ -883,7 +883,7 @@ def main() -> int:
     art_10 = {
         "schema_version": V17_9_3_1_2_6_SCHEMA_VERSION,
         "tested_executable_sha": tested_sha,
-        "executable_decision_diff_verified": True,
+        "executable_decision_diff_verified": False,
         "hypotheses": {
             "H1": "Reject would-be FVG retests without proved postformation closed-bar contact",
             "H2": "Reject cases with unaligned HTF structure",
@@ -901,8 +901,8 @@ def main() -> int:
     art_11 = {
         "schema_version": V17_9_3_1_2_6_SCHEMA_VERSION,
         "tested_executable_sha": tested_sha,
-        "matched_ab_verified": True,
-        "si0_vs_si8_diff_verified": True,
+        "matched_ab_verified": False,
+        "si0_vs_si8_diff_verified": False,
     }
 
     # Build Artifact 12: All policy 3 fill mode portfolio metrics

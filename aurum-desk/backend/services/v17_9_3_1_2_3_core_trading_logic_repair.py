@@ -179,103 +179,8 @@ def classify_single_episode_root_causes_v1793123(
     and execution-trace evidence. Unproven causes without point-in-time feature keys
     fall back to `OTHER/UNKNOWN`, never generic defect assertions.
     """
-    labels: List[str] = []
-    out_lbl = str(ep.get("outcome_label") or "")
-    m_raw = str(ep.get("model_id") or "")
-    m_id = LEGACY_TO_CANONICAL_MODEL_MAP_V1793123.get(m_raw, m_raw)
-
-    has_htf_ev = "htf_alignment_state" in feat and feat.get("htf_alignment_state") is not None
-    htf_state = str(feat.get("htf_alignment_state") or "").upper() if has_htf_ev else ""
-
-    has_disp_ev = "displacement_body_atr_ratio" in feat and feat.get("displacement_body_atr_ratio") is not None
-    disp_ratio = float(feat.get("displacement_body_atr_ratio") or 0.0) if has_disp_ev else 1.0
-
-    has_retrace_ev = "continuation_retrace_valid" in feat and feat.get("continuation_retrace_valid") is not None
-    retrace_ok = bool(feat.get("continuation_retrace_valid")) if has_retrace_ev else True
-
-    has_uni_ev = "unicorn_classification" in feat and feat.get("unicorn_classification") is not None
-    uni_cls = str(feat.get("unicorn_classification") or "").upper() if has_uni_ev else ""
-
-    has_fvg_ev = ("fvg_unmitigated" in feat) or ("fvg_age_bars_m1" in feat)
-    fvg_unmit = bool(feat.get("fvg_unmitigated", True))
-    fvg_age = int(feat.get("fvg_age_bars_m1", 8) or 8)
-
-    has_swp_ev = "sweep_reclaimed" in feat and feat.get("sweep_reclaimed") is not None
-    sweep_rec = bool(feat.get("sweep_reclaimed", True))
-
-    has_mss_ev = "mss_confirmed" in feat and feat.get("mss_confirmed") is not None
-    mss_ok = bool(feat.get("mss_confirmed", True))
-
-    has_prot_ev = "protected_structure_independent_of_sl" in feat and feat.get("protected_structure_independent_of_sl") is not None
-    prot_indep = bool(feat.get("protected_structure_independent_of_sl", True))
-
-    has_targ_ev = "target_reachable" in feat and feat.get("target_reachable") is not None
-    target_reach = bool(feat.get("target_reachable", True))
-
-    has_rr_ev = ("planned_net_rr" in ep and ep.get("planned_net_rr") is not None) or ("net_rr" in ep and ep.get("net_rr") is not None)
-    net_rr = float(ep.get("planned_net_rr") if ep.get("planned_net_rr") is not None else (ep.get("net_rr") or 2.0))
-
-    has_hold_ev = ("bars_held_1m" in ep and ep.get("bars_held_1m") is not None) or ("hold_bars" in ep and ep.get("hold_bars") is not None)
-    hold_bars = int(ep.get("bars_held_1m") if ep.get("bars_held_1m") is not None else (ep.get("hold_bars") or 12))
-
-    has_stop_dist_ev = "stop_distance_price" in ep and ep.get("stop_distance_price") is not None
-    stop_dist_px = float(ep.get("stop_distance_price") or 99.0)
-
-    has_pnl_ev = "realized_gross_pnl_usd" in ep and ep.get("realized_gross_pnl_usd") is not None
-    gross_pnl = float(ep.get("realized_gross_pnl_usd") or 0.0)
-    fees_usd = float(ep.get("total_fees_usd") or (float(ep.get("entry_fee_usd") or 0.0) + float(ep.get("exit_fee_usd") or 0.0)))
-
-    if out_lbl == "DATA_GAP_UNRESOLVED" or bool(ep.get("ambiguous_same_bar", False)):
-        labels.append("FILL_GAP/AMBIGUOUS_INTRABAR")
-    if has_htf_ev and htf_state in ("OPPOSED", "CONFLICTED", "MIXED", "COUNTERTREND"):
-        labels.append("WRONG_SIDE_HTF")
-    if m_id == ModelIdentifier.SMC_M1_CONTINUATION.value and (
-        (has_disp_ev and disp_ratio < 0.55) or (has_retrace_ev and not retrace_ok)
-    ):
-        labels.append("IMPULSE_CHASING")
-    if (has_mss_ev and not mss_ok) or (has_disp_ev and disp_ratio < 0.45):
-        labels.append("FAKE_MSS")
-    if has_hold_ev and hold_bars <= 3:
-        labels.append("PREMATURE_ENTRY")
-    if m_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value and has_fvg_ev and (not fvg_unmit or fvg_age > 35):
-        labels.append("FVG_STALE_OR_ALREADY_MITIGATED")
-    if m_id in (ModelIdentifier.SMC_M1_REVERSAL.value, ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value) and has_swp_ev and not sweep_rec:
-        labels.append("SWEEP_NOT_RECLAIMED")
-    if m_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value) and has_uni_ev and uni_cls == "FVG_ONLY":
-        labels.append("FALSE_UNICORN")
-    if has_hold_ev and hold_bars <= 5 and has_stop_dist_ev and stop_dist_px < 1.8:
-        labels.append("SL_INSIDE_NOISE")
-    if has_prot_ev and not prot_indep:
-        labels.append("PROTECTED_STRUCTURE_INVALID")
-    if (has_targ_ev and not target_reach) or (has_rr_ev and net_rr > 3.5):
-        labels.append("TARGET_NOT_REAL_OR_ALREADY_SWEPT")
-    if has_rr_ev and net_rr < 2.0:
-        labels.append("INSUFFICIENT_NET_RR")
-    if has_pnl_ev and gross_pnl >= 0.0 and (gross_pnl - fees_usd) < 0.0:
-        labels.append("FEES_DOMINATE")
-
-    if not labels:
-        labels.append("OTHER/UNKNOWN")
-
-    # Deterministic priority order for primary root cause
-    priority_order = (
-        "FILL_GAP/AMBIGUOUS_INTRABAR",
-        "FEES_DOMINATE",
-        "INSUFFICIENT_NET_RR",
-        "FALSE_UNICORN",
-        "FVG_STALE_OR_ALREADY_MITIGATED",
-        "IMPULSE_CHASING",
-        "SWEEP_NOT_RECLAIMED",
-        "WRONG_SIDE_HTF",
-        "TARGET_NOT_REAL_OR_ALREADY_SWEPT",
-        "SL_INSIDE_NOISE",
-        "PREMATURE_ENTRY",
-        "FAKE_MSS",
-        "PROTECTED_STRUCTURE_INVALID",
-        "OTHER/UNKNOWN",
-    )
-    primary = next((c for c in priority_order if c in labels), labels[0])
-    return primary, labels
+    from services.v17_9_3_1_2_7_causal_signal_truth import classify_observed_loss_v1793127
+    return classify_observed_loss_v1793127(ep, feat)
 
 
 def build_ground_truth_loss_forensics_v1793123(
@@ -346,9 +251,9 @@ def build_ground_truth_loss_forensics_v1793123(
             "realized_r": round(float(ep.get("realized_r") or 0.0), 4),
             "primary_root_cause": primary_cause if out_lbl != "WIN" else "WIN_REALIZED_TP",
             "root_cause_labels": all_causes if out_lbl != "WIN" else ["WIN_REALIZED_TP"],
-            "htf_alignment_state": str(feat.get("htf_alignment_state") or "MIXED"),
-            "unicorn_classification": str(feat.get("unicorn_classification") or "NONE"),
-            "displacement_body_atr_ratio": float(feat.get("displacement_body_atr_ratio", 0.5) or 0.5),
+            "htf_alignment_state": feat.get("htf_alignment_state"),
+            "unicorn_classification": feat.get("unicorn_classification"),
+            "displacement_body_atr_ratio": feat.get("displacement_body_atr_ratio"),
         }
 
         if out_lbl in ("WIN", "LOSS"):
@@ -785,23 +690,10 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                         source_known_at_ms = int(tgt_known) if (tgt_known and int(tgt_known) > 0) else None
 
                         si8_discovered_decisions_by_checkpoint_index.setdefault(int(idx_1m), []).append(base_rec)
-                        si8_discovered_feature_ledger_by_opp_id[opp_id] = {
-                            "htf_alignment_state": str(s_si8.v1793122_htf_alignment_state or q_ev_d.get("htf_alignment_state") or "MIXED"),
-                            "unicorn_classification": str(s_si8.v1793122_unicorn_classification or q_ev_d.get("unicorn_classification") or "NONE"),
-                            "displacement_body_atr_ratio": float(q_ev_d.get("displacement_body_atr_ratio", 0.0) or 0.0),
-                            "displacement_valid": bool(q_ev_d.get("displacement_valid", False)),
-                            "fvg_retest_valid": bool(q_ev_d.get("fvg_retest_valid", False)),
-                            "fvg_unmitigated": bool(q_ev_d.get("fvg_unmitigated", False)),
-                            "sweep_confirmed": bool(q_ev_d.get("sweep_confirmed", False)),
-                            "sweep_reclaimed": bool(q_ev_d.get("sweep_reclaimed", False)),
-                            "mss_confirmed": bool(q_ev_d.get("mss_confirmed", False)),
-                            "protected_structure_independent_of_sl": bool(q_ev_d.get("protected_structure_independent_of_sl", False)),
-                            "target_reachable": tgt_reach,
-                            "status": "PROVEN_TRUE" if tgt_reach and source_known_at_ms is not None else "UNPROVEN",
-                            "source_known_at_ms": source_known_at_ms,
-                            "decision_timestamp_ms": int(cur_ts),
-                            "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
-                        }
+                        from services.v17_9_3_1_2_7_causal_signal_truth import derive_pre_entry_features_from_causal_context_v1793127
+                        si8_discovered_feature_ledger_by_opp_id[opp_id] = derive_pre_entry_features_from_causal_context_v1793127(
+                            base_rec, ctx_si8, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
+
                         si8_incremental_eligible_records.append(base_rec)
                 else:
                     for r_code in s_si8.rejection_reasons:

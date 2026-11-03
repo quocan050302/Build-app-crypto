@@ -474,6 +474,7 @@ class MarketDecisionContext:
     mtf_context: Optional[Any] = None
     mtf_diagnostic_error: Optional[str] = None
     quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE"
+    quote_provider_source_id: Optional[str] = None
 
     @property
     def now_ms(self) -> int:
@@ -534,6 +535,8 @@ class MarketDecisionContext:
             "ask": self.ask,
             "spread": self.spread,
             "quote_timestamp_ms": self.quote_timestamp_ms,
+            "quote_source_kind": self.quote_source_kind,
+            "quote_provider_source_id": self.quote_provider_source_id,
             "atr_m1": self.atr_m1,
             "atr_m5": self.atr_m5,
             "m1_status": self.m1_status,
@@ -588,6 +591,7 @@ def build_market_decision_context(
     session_restricted: bool = False,
     session_restriction_reason: Optional[str] = None,
     quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE",
+    quote_provider_source_id: Optional[str] = None,
 ) -> MarketDecisionContext:
     """
     Constructs an immutable MarketDecisionContext, enforcing causal candle filtering
@@ -837,10 +841,14 @@ def build_market_decision_context(
     fp_payload = {
         "symbol": symbol,
         "decision_timestamp_ms": decision_timestamp_ms,
-        "m1": _candle_summary(closed_m1, 60_000),
-        "m5": _candle_summary(closed_m5, 300_000),
-        "m15": _candle_summary(closed_m15, 900_000),
-        "h1": _candle_summary(closed_h1, 3_600_000),
+        "m1": _canonical_candle_series(closed_m1, 60_000),
+        "m5": _canonical_candle_series(closed_m5, 300_000),
+        "m15": _canonical_candle_series(closed_m15, 900_000),
+        "h1": _canonical_candle_series(closed_h1, 3_600_000),
+        "h4": _canonical_candle_series(closed_h4, 14_400_000),
+        "quote_timestamp_ms": quote_timestamp_ms,
+        "quote_source_kind": quote_source_kind,
+        "quote_provider_source_id": quote_provider_source_id,
         "bid": eff_bid,
         "ask": eff_ask,
         "spread": spread,
@@ -1020,6 +1028,7 @@ def build_market_decision_context(
         mtf_context=mtf_eval_ctx,
         mtf_diagnostic_error=mtf_diag_err,
         quote_source_kind=quote_source_kind,
+        quote_provider_source_id=quote_provider_source_id,
     )
 
 
@@ -1857,22 +1866,7 @@ class SharedStrategyEvaluator:
             SharedStrategyEvaluator._FVG_BRK_MEMO = fvg_brk_memo
         last_b = closed_1m[-1]
         first_b = closed_1m[0]
-        fb_key = (
-            symbol,
-            cutoff_ms,
-            len(closed_1m),
-            _candle_close_ms(last_b, 60_000),
-            (
-                float(last_b.get("open", 0.0) if isinstance(last_b, dict) else getattr(last_b, "open", 0.0)),
-                float(last_b.get("high", 0.0) if isinstance(last_b, dict) else getattr(last_b, "high", 0.0)),
-                float(last_b.get("low", 0.0) if isinstance(last_b, dict) else getattr(last_b, "low", 0.0)),
-                float(last_b.get("close", 0.0) if isinstance(last_b, dict) else getattr(last_b, "close", 0.0)),
-            ),
-            (
-                float(first_b.get("open", 0.0) if isinstance(first_b, dict) else getattr(first_b, "open", 0.0)),
-                float(first_b.get("close", 0.0) if isinstance(first_b, dict) else getattr(first_b, "close", 0.0)),
-            ),
-        )
+        fb_key = (symbol, cutoff_ms, _canonical_hash(_canonical_candle_series(closed_1m, 60_000)))
         fb_hit = fvg_brk_memo.get(fb_key)
         if fb_hit is not None:
             valid_fvgs = fb_hit[0]
@@ -4336,6 +4330,7 @@ class SharedStrategyEvaluator:
             v1793122_policy_id=v1793122_policy_id_final,
             v1793122_plan_dict=v1793122_plan_dict,
             v1793122_quality_evidence_dict=v1793122_evidence_dict,
+            quote_source_kind=context.quote_source_kind,
             v1793122_pending_setup_dict=v1793122_pending_dict,
             v1793122_rejection_stage=v1793122_rej_stage,
         )

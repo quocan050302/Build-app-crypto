@@ -148,12 +148,12 @@ def main():
     artifacts_ok = empirical_res.get("artifacts_verified", False)
 
     log(f"Empirical Replay Complete:")
-    log(f"  Closed trades: {empirical_res["closed_count"]}")
-    log(f"  Net PnL: +${empirical_res["total_net_pnl"]} USD")
-    log(f"  Winrate: {empirical_res["win_rate_pct"]}%")
-    log(f"  Max Drawdown: {empirical_res["max_drawdown_pct"]}%")
-    log(f"  Cadence: {empirical_res.get("cadence_summary", {}).get("coverage_pct")}% coverage")
-    log(f"  Integrity Summary Status: {empirical_res.get("integrity_summary", {}).get("status")}")
+    log(f"  Closed trades: {empirical_res['closed_count']}")
+    log(f"  Net PnL: +${empirical_res['total_net_pnl']} USD")
+    log(f"  Winrate: {empirical_res['win_rate_pct']}%")
+    log(f"  Max Drawdown: {empirical_res['max_drawdown_pct']}%")
+    log(f"  Cadence: {empirical_res.get('cadence_summary', {}).get('coverage_pct')}% coverage")
+    log(f"  Integrity Summary Status: {empirical_res.get('integrity_summary', {}).get('status')}")
     log(f"  Artifacts Verified: {artifacts_ok}")
 
     manifest = {

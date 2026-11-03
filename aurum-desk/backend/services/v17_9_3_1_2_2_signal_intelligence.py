@@ -650,6 +650,7 @@ class SignalQualityEvidenceV1793122:
     fvg_retest_bar_id: Optional[str] = None
     fvg_retest_at_ms: Optional[int] = None
     provenance_evidence_map: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    verified_causal_snapshot_v1793127: Optional[Dict[str, Any]] = None
 
     @property
     def lookahead_violation_detected(self) -> bool:
@@ -2437,6 +2438,27 @@ def evaluate_signal_intelligence_gate_v1793122(
                 if gr not in reasons:
                     reasons.append(gr)
 
+    # V17.9.3.1.2.7 explicit research-only source truth contract.
+    context_policy = context.get_policy_dict() if hasattr(context, "get_policy_dict") else {}
+    if context_policy.get("v1793127_causal_truth_required") is True and norm_mode in ("RESEARCH_APPLY", "OBSERVE_ONLY"):
+        from dataclasses import replace
+        from services.v17_9_3_1_2_7_causal_signal_truth import (
+            derive_pre_entry_features_from_causal_context_v1793127, required_proof_rejection_v1793127,
+        )
+        verified = derive_pre_entry_features_from_causal_context_v1793127({
+            "opportunity_id": candidate_key, "setup_episode_id": setup_episode_id,
+            "model_id": model_id, "direction": direction, "entry_reference": baseline_entry,
+            "selected_sl": baseline_sl, "take_profit": baseline_tp,
+            "selected_anchor_id": baseline_anchor_id, "selected_target_id": baseline_target_id,
+            "selected_fvg_id": (setup_descriptors or {}).get("selected_fvg_id"),
+        }, context, dataset_sha256=context_policy.get("source_dataset_sha256", "UNAVAILABLE"))
+        evidence = replace(evidence, verified_causal_snapshot_v1793127=verified)
+        proof_rejection = required_proof_rejection_v1793127(verified, model_id)
+        if proof_rejection:
+            reasons.append(proof_rejection)
+            rejection_stage = "CAUSAL_PROOF_UNPROVEN"
+            prop_status, prop_qty = "REJECTED", 0.0
+
     if not mode_valid or not policy_valid:
         applied_status = "REJECTED"
         applied_qty = 0.0
@@ -2895,9 +2917,7 @@ def compute_strategy_statistical_verdict_v1793122(
             "reason": "Historical dataset or quote provenance failed data quality checks.",
         }
 
-    research_ids = [
-        pid for pid in CANONICAL_V1793123_POLICY_IDS if pid != "SI0_OFF_BASELINE" and pid in policy_metrics_by_id
-    ]
+    research_ids = sorted(pid for pid in policy_metrics_by_id if pid != "SI0_OFF_BASELINE")
     if not research_ids:
         research_ids = [pid for pid in policy_metrics_by_id.keys() if pid != "SI0_OFF_BASELINE"]
 
