@@ -1,0 +1,316 @@
+{
+  "all_mutations_caught_red_and_restored_green": true,
+  "defect_closed": "TRUTH_CLOSURE_2_EXECUTABLE_RED_GREEN_SOURCE_MUTATIONS",
+  "evidence_gate_mutations": {
+    "all_caught": true,
+    "evidence_gate_mutations_count": 17,
+    "mutations": [
+      {
+        "failed_gate_ids": [
+          "G01"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G01_WRONG_BRANCH",
+        "target_gate_id": "G01"
+      },
+      {
+        "failed_gate_ids": [
+          "G02"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G02_SHA_DRIFT",
+        "target_gate_id": "G02"
+      },
+      {
+        "failed_gate_ids": [
+          "G03"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G03_INVALID_SI8_MODE",
+        "target_gate_id": "G03"
+      },
+      {
+        "failed_gate_ids": [
+          "G04"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G04_SI8_RESCUED_INVALID_BASELINE",
+        "target_gate_id": "G04"
+      },
+      {
+        "failed_gate_ids": [
+          "G05"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G05_SI7_SI8_IDENTICAL_SHA",
+        "target_gate_id": "G05"
+      },
+      {
+        "failed_gate_ids": [
+          "G06"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G06_MISSING_CG01_MODEL",
+        "target_gate_id": "G06"
+      },
+      {
+        "failed_gate_ids": [
+          "G07"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G07_LOOKAHEAD_VIOLATION",
+        "target_gate_id": "G07"
+      },
+      {
+        "failed_gate_ids": [
+          "G08"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G08_CIRCULAR_SL_ANCHOR",
+        "target_gate_id": "G08"
+      },
+      {
+        "failed_gate_ids": [
+          "G09"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G09_LEDGER_IDENTITY_VIOLATION",
+        "target_gate_id": "G09"
+      },
+      {
+        "failed_gate_ids": [
+          "G10"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G10_OPPORTUNITY_KEY_COLLAPSE",
+        "target_gate_id": "G10"
+      },
+      {
+        "failed_gate_ids": [
+          "G11"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G11_PHANTOM_SLOT_RELEASE",
+        "target_gate_id": "G11"
+      },
+      {
+        "failed_gate_ids": [
+          "G12"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G12_PRODUCTION_GUARD_BROKEN",
+        "target_gate_id": "G12"
+      },
+      {
+        "failed_gate_ids": [
+          "G13"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G13_REUSED_JUNIT_SHARD",
+        "target_gate_id": "G13"
+      },
+      {
+        "failed_gate_ids": [
+          "G14"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G14_UNCAUGHT_SOURCE_MUTATION",
+        "target_gate_id": "G14"
+      },
+      {
+        "failed_gate_ids": [
+          "G15"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G15_WORKER_HASH_MISMATCH",
+        "target_gate_id": "G15"
+      },
+      {
+        "failed_gate_ids": [
+          "G16"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G16_ACTIVATION_READY_YES",
+        "target_gate_id": "G16"
+      },
+      {
+        "failed_gate_ids": [
+          "G17"
+        ],
+        "gate_failed_as_expected": true,
+        "mutation_id": "EGM_G17_UNVERIFIED_GIT_PHASE",
+        "target_gate_id": "G17"
+      }
+    ],
+    "schema_version": "17.9.3.1.2.4",
+    "separated_from_executable_red_green": true,
+    "test_class": "EVIDENCE_GATE_MUTATION_TESTS"
+  },
+  "executable_mutations_caught_count": 16,
+  "executable_mutations_count": 16,
+  "mutations": [
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/scalp_m1_types.py",
+      "mutation_id": "M01_ENABLE_RESEARCH_BY_DEFAULT_WHEN_FLAG_OFF",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Default v17_9_3_1_2_2_signal_intelligence_mode changed from OFF to RESEARCH_APPLY"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M02_ALLOW_OBSERVE_ONLY_TO_ALTER_LIVE_ACTION",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow OBSERVE_ONLY mode to apply proposed status instead of preserving baseline status"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M03_USE_UNCLOSED_FUTURE_H1_BAR_IN_HTF_BIAS",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Disable lookahead guard in _closed_bars_as_of so future unclosed H1 bars leak into HTF bias"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M04_DEFAULT_MISSING_HTF_BIAS_TO_LONG",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Default missing/insufficient HTF bias to LONG instead of returning None"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M05_PASS_FVG_ONLY_AS_UNICORN_CONFIRMED",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Classify isolated FVG_ONLY without Breaker overlap as UNICORN_CONFIRMED"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M06_FILL_DELAYED_CONFIRMATION_AT_EARLIER_SIGNAL_BAR",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Backdate confirmed pending entry to earlier signal_ts_ms instead of confirmation bar close_time"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M07_REUSE_SELECTED_SL_AS_PROTECTED_ANCHOR",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Circular tautology setting protected_structure_independent_of_sl=True even when anchor equals selected_sl"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M08_FREEZE_OLD_QUANTITY_WHEN_SL_WIDENS",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Keep old baseline_qty when SI5/SI6 widens SL instead of recomputing quantity from risk calculator"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M09_BYPASS_PLANNED_RISK_CAP_2_50_USD",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow planned risk > $2.50 in SI5/SI6 risk sizing check"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M10_GATE_G28_ALLOW_PHANTOM_SLOT_RELEASE",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow strict_hold_phantom_slot_release_violations > 0 in Gate G28"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M11_GATE_G21_ALLOW_OPPORTUNITY_ID_KEY_COLLAPSE",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow key_collapse_count > 0 in Gate G21"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M12_GATE_G22_ALLOW_2_FOLLOWUP_TRUNCATION_CAP",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow followup_truncation_cap=2 in Gate G22"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M13_ARBITRATE_USING_POST_ENTRY_WIN_LOSS_LABEL",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Disable lookahead arbitration guard in score_candidate_record_pre_entry_v1793122"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M14_GATE_G41_ALLOW_JUNIT_MISSING_COLLECTED_TESTS",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow missing_from_junit_count > 0 in Gate G41"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M15_GATE_G45_ALLOW_SHARED_WORKER_DIGEST_REUSE",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Allow independent_execution_no_shared_digest_reuse=False in Gate G45"
+    },
+    {
+      "caught_red": true,
+      "green_exit_code": 0,
+      "mutated_file": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "mutation_id": "M16_CONVERT_ZERO_TRADE_COHORT_TO_POSITIVE_EDGE",
+      "passed_control": true,
+      "red_exit_code": 1,
+      "restored_green": true,
+      "title": "Return VERIFIED_RESEARCH_SIGNAL_ONLY_IF_FRESH_HOLDOUT_PROOF on 0 closed trades"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.4",
+  "test_class": "EXECUTABLE_RED_GREEN_TESTS",
+  "tested_executable_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b"
+}

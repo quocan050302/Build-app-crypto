@@ -1,0 +1,272 @@
+{
+  "all_15_acceptance_gates_passed": true,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "failed_gate_ids": [],
+  "failed_gates_count": 0,
+  "gates": [
+    {
+      "details": {
+        "ancestry_verified": true,
+        "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "sha_01": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "sha_08": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "sha_09": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "sha_13": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "tested_executable_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "violated_prior_artifact_files_count": 0
+      },
+      "gate_id": "G01",
+      "passed": true,
+      "title": "Correct branch, preserved history, clean final working tree, untouched previous artifact directories"
+    },
+    {
+      "details": {
+        "closed_trades_count": 166,
+        "data_gap_unresolved_count": 1,
+        "expectancy_net_r": -0.8474,
+        "loss_rate": 0.945783,
+        "losses_count": 157,
+        "max_drawdown_usd": 345.8971,
+        "max_losing_streak": 47,
+        "open_at_horizon_count": 74,
+        "profit_factor": 0.1335,
+        "total_fees_usd": 203.1135,
+        "total_realized_gross_usd": -142.7836,
+        "total_realized_net_usd": -345.8971,
+        "win_rate": 0.054217,
+        "wins_count": 9
+      },
+      "gate_id": "G02",
+      "passed": true,
+      "title": "SI0 baseline reproduction exact (166 closed, 9W/157L, -$345.90, 74 OPEN_AT_HORIZON)"
+    },
+    {
+      "details": {
+        "observe_only_action_mismatch_count": 0,
+        "off_parity_mismatch_count": 0,
+        "production_research_apply_blocked_verified": true
+      },
+      "gate_id": "G03",
+      "passed": true,
+      "title": "Feature-OFF and OBSERVE_ONLY parity = 100%; Production/LIVE/PAPER blocks research apply"
+    },
+    {
+      "details": {
+        "invalid_mode_fail_closed_verified": true,
+        "si8_canonical_mode": "RESEARCH_APPLY",
+        "si8_canonical_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED"
+      },
+      "gate_id": "G04",
+      "passed": true,
+      "title": "SI8 mode mismatch fixed; valid SI8 calls have 0 SI_INVALID_MODE_FAIL_CLOSED; invalid modes still fail closed"
+    },
+    {
+      "details": {
+        "si7_rejected_baseline_rescued_count": 0,
+        "si8_incremental_eligible_vs_si7_count": 30,
+        "si8_newly_discovered_setups_count": 100,
+        "si8_rejected_baseline_rescued_count": 0
+      },
+      "gate_id": "G05",
+      "passed": true,
+      "title": "SI8 produces > 0 newly discovered causally valid setups across the historical scan and does not rescue invalid baseline setups"
+    },
+    {
+      "details": {
+        "cg01_funnel": {
+          "SI8_policy_normalized_count": 40,
+          "closed": 0,
+          "descriptor_differences_count": 33,
+          "descriptor_found": 8,
+          "detector_descriptors_identified": 8,
+          "eligible_after_risk": 2,
+          "filled": 1,
+          "incremental_vs_si7": 1,
+          "independently_valid_setup_count": 8,
+          "model_id": "CG01_SWEEP_MSS_FVG",
+          "new_causally_valid_setup_count": 1,
+          "observed": 40,
+          "open_at_horizon": 1,
+          "rejected_by_reason": {
+            "FVG_STALE_MITIGATED_OR_UNRETESTED": 26,
+            "NET_RR_TOO_LOW": 3,
+            "NET_RR_TOO_LOW: Net R:R 1:0.1261 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.1265 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.3616 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:0.3637 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NET_RR_TOO_LOW: Net R:R 1:1.4354 chưa đạt ngưỡng tối thiểu 1:2.0": 1,
+            "NO_VALID_FVG_SETUP": 6,
+            "SHADOW_REJECTED_INSUFFICIENT_NET_RR": 3,
+            "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN": 4,
+            "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT": 5,
+            "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE": 5,
+            "SI_FVG_ONLY_NOT_TRUE_UNICORN": 4
+          },
+          "risk_eligible_count": 2,
+          "selected_after_arbitration": 1,
+          "setup_valid": 8,
+          "signal_evidence_complete_count": 4
+        },
+        "models_present": [
+          "CG01_SWEEP_MSS_FVG",
+          "SMC_M1_CONTINUATION",
+          "SMC_M1_FVG_CONTINUATION",
+          "SMC_M1_REVERSAL",
+          "SMC_M1_SWEEP_RECLAIM"
+        ],
+        "si7_primary_ledger_sha256": "7a3461bd989667593c1a7ed488de51eb212809885efcbedec5a930bab55eb0e7",
+        "si7_vs_si8_distinct_replayed_outcomes_verified": true,
+        "si8_incremental_selected_after_arbitration_count": 9,
+        "si8_primary_ledger_sha256": "ce74ad234ed2615de2a33f1998ba34c744ce165e8e0fcd3e1f62b93836ce3aab"
+      },
+      "gate_id": "G06",
+      "passed": true,
+      "title": "SI7 and SI8 are non-identical at discovery and/or replay level, with full 10-stage funnel accounting for all 5 models"
+    },
+    {
+      "details": {
+        "lookahead_violations_count": 0,
+        "missing_htf_no_default_long_verified": true,
+        "pending_backdated_fill_violations": 0
+      },
+      "gate_id": "G07",
+      "passed": true,
+      "title": "Zero lookahead violations across MTF/HTF, swings, sweeps, FVGs, Breakers, confirmations, and targets"
+    },
+    {
+      "details": {
+        "circular_sl_equals_protected_anchor_tautology_count": 0,
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0,
+        "unswept_liquidity_pool_target_verified": true
+      },
+      "gate_id": "G08",
+      "passed": true,
+      "title": "Non-circular protected SL (protected_price != selected_sl) and unswept reachable liquidity TP (net_rr >= 2.0, risk <= $2.50)"
+    },
+    {
+      "details": {
+        "fill_modes_replayed_count": 3,
+        "ledger_accounting_identity_violations": 0,
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0
+      },
+      "gate_id": "G09",
+      "passed": true,
+      "title": "Exact ledger identity (gross - fees == net) across all policies and all 3 fill modes"
+    },
+    {
+      "details": {
+        "data_gap_remains_censored_verified": true,
+        "explicit_180_bar_time_stop_pays_fees_and_spread": true,
+        "followup_truncation_cap": null,
+        "key_collapse_count": 0,
+        "si8_unique_eligible_timestamps_evaluated": 18746,
+        "strict_hold_phantom_slot_release_violations": 0,
+        "unique_eligible_timestamps_visited": 18744
+      },
+      "gate_id": "G10",
+      "passed": true,
+      "title": "Full opportunity-ID join (0 key collapse, no truncation cap) and honest open-horizon/time-stop/data-gap accounting"
+    },
+    {
+      "details": {
+        "collected_node_ids_count": 4953,
+        "error_count": 0,
+        "exact_node_id_bijection_verified": true,
+        "executed_junit_node_ids_count": 4953,
+        "failed_count": 0,
+        "freshly_executed_shards_count": 25,
+        "reused_shards_count": 0,
+        "stale_junit_negative_controls_rejected_red": true
+      },
+      "gate_id": "G11",
+      "passed": true,
+      "title": "Full backend pytest collection equals freshly executed JUnit testcases (reused_shards_count == 0, failed == 0, errors == 0)"
+    },
+    {
+      "details": {
+        "all_negative_controls_rejected_red": true,
+        "fresh_attestation_passed": true,
+        "freshly_executed_shards_count": 25,
+        "negative_controls": [
+          {
+            "control_id": "NC01_SEEDED_REUSED_SHARD_REJECTED",
+            "rejected_red_as_expected": true,
+            "violations": [
+              "REUSED_SHARDS_COUNT_NONZERO:1",
+              "SHARD_REUSED_FORBIDDEN:SHARD_00000_V17_9_3_1_2_5"
+            ]
+          },
+          {
+            "control_id": "NC02_WRONG_TESTED_SHA_SHARD_REJECTED",
+            "rejected_red_as_expected": true,
+            "violations": [
+              "SHARD_SHA_MISMATCH:SHARD_00000_V17_9_3_1_2_5:0000000000000000000000000000000000000000"
+            ]
+          },
+          {
+            "control_id": "NC03_STALE_MTIME_XML_SHARD_REJECTED",
+            "rejected_red_as_expected": true,
+            "violations": [
+              "SHARD_STALE_MTIME_BEFORE_RUN_START:SHARD_00000_V17_9_3_1_2_5"
+            ]
+          }
+        ],
+        "reused_shards_count": 0,
+        "schema_version": "17.9.3.1.2.4",
+        "tested_executable_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b"
+      },
+      "gate_id": "G12",
+      "passed": true,
+      "title": "Stale/reused JUnit negative control fails RED as expected"
+    },
+    {
+      "details": {
+        "all_mutations_caught_red_and_restored_green": true,
+        "evidence_gate_mutations_all_caught": true,
+        "executable_mutations_caught_count": 16,
+        "executable_mutations_count": 16
+      },
+      "gate_id": "G13",
+      "passed": true,
+      "title": "Executable RED/GREEN source mutations fail RED on injected defect and pass GREEN on restored code (0 leftover diff)"
+    },
+    {
+      "details": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "independent_execution_no_shared_digest_reuse": true,
+        "policies_verified": [
+          "SI0_OFF_BASELINE",
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+          "SI6_COMBINED_PREDECLARED",
+          "SI7_CORE_TRADING_LOGIC_REPAIRED",
+          "SI8_RESEARCH_DISCOVERY_REPAIRED"
+        ],
+        "worker_1_sha256": "77117d5a7c5bdd1d0d0c114c0730155c56b20d8f9069f6c532fa2206b38e0482"
+      },
+      "gate_id": "G14",
+      "passed": true,
+      "title": "Independent 1/2/4-worker digests identical across SI0, SI5, SI7, SI8 and all 3 fill modes"
+    },
+    {
+      "details": {
+        "activation_ready": "NO",
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+        "phase_a_tested_code_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+        "phase_a_tested_sha_verified": true,
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+        "verdict_computed_from_metrics_not_hardcoded": true
+      },
+      "gate_id": "G15",
+      "passed": true,
+      "title": "Strategy verdict computed from real metrics, reused holdout disclosed as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS, ACTIVATION_READY == NO, and remote Git SHA verified"
+    }
+  ],
+  "passed_gates_count": 15,
+  "schema_version": "17.9.3.1.2.4",
+  "tested_executable_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
+  "total_gates": 15
+}

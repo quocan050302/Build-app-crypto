@@ -1,0 +1,16 @@
+{
+  "collected_count": 122,
+  "error_count": 0,
+  "exact_bijection": true,
+  "executed_junit_count": 122,
+  "failed_count": 0,
+  "passed_count": 122,
+  "reused_shards_count": 0,
+  "schema_version": "17.9.3.1.2.4",
+  "targeted_shards": [
+    "SHARD_0000_V17_9_3_1_2_4",
+    "SHARD_000_V17_9_3_1_2_3",
+    "SHARD_00A_V17_9_3_1_2_2"
+  ],
+  "tested_executable_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b"
+}
