@@ -242,7 +242,18 @@ def _build_resource_bounded_shards_v1793122(all_test_files: Sequence[str]) -> Li
         if fast_tail:
             shards.append(fast_tail.pop(0))
 
-    return [(name, files) for name, files in shards if files]
+    result=[(name, files) for name, files in shards if files]
+    file_cap=int(os.environ.get("AURUM_RESEARCH_MAX_FILES_PER_SHARD","0"))
+    if file_cap>0:
+        bounded=[]
+        for name,files in result:
+            db_files=[f for f in files if Path(f).name=="test_v17_7_database_safety.py"]
+            regular=[f for f in files if f not in db_files]
+            for offset in range(0,len(regular),file_cap):
+                bounded.append((f"{name}_B{offset//file_cap:03d}",regular[offset:offset+file_cap]))
+            if db_files:bounded.append((name+"_DB_OWNERSHIP",db_files))
+        return bounded
+    return result
 
 
 def run_full_backend_pytest_collection_and_sharded_junit_v1793122(

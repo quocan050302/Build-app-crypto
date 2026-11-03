@@ -392,3 +392,18 @@ def test_compact_source_cache_roundtrip_preserves_proofs_and_cannot_be_poisoned(
     assert verify_feature_snapshot_v1793127(restored["o1"])
     assert restored.dataset_hashes=={"a"*64}
     assert restored.encoded_bytes>0
+
+
+def test_memory_bounded_shards_preserve_every_file_and_isolate_db_interpreter_group(monkeypatch):
+    from collections import Counter
+    from pathlib import Path
+    from tools.run_v17_9_3_1_2_2_verification import _build_resource_bounded_shards_v1793122
+    app=Path(__file__).resolve().parents[2]
+    files=sorted(str(p.relative_to(app)).replace("\\","/") for p in (app/"backend/tests").glob("test_*.py"))
+    monkeypatch.setenv("AURUM_RESEARCH_MAX_FILES_PER_SHARD","0")
+    original=_build_resource_bounded_shards_v1793122(files)
+    monkeypatch.setenv("AURUM_RESEARCH_MAX_FILES_PER_SHARD","4")
+    bounded=_build_resource_bounded_shards_v1793122(files)
+    assert Counter(f for _,group in original for f in group)==Counter(f for _,group in bounded for f in group)
+    assert all(len(group)<=4 for _,group in bounded)
+    assert all(len(group)==1 for _,group in bounded if any(Path(f).name=="test_v17_7_database_safety.py" for f in group))
