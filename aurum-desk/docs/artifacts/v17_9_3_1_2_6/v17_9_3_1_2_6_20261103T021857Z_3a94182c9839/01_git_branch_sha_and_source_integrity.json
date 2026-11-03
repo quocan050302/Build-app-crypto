@@ -1,0 +1,14 @@
+{
+  "ancestry_verified": true,
+  "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "merge_base_with_origin_master": "650e4535777421077443cd3d95507cad1d99ed42",
+  "policy_registry_hash": "138fad3cffba72fef16eb832999c2cbed5c3fbee8b154e8ca6b242d0a94c69d1",
+  "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "run_id": "v17_9_3_1_2_6_20261103T021857Z_3a94182c9839",
+  "schema_version": "17.9.3.1.2.6",
+  "starting_branch_head_sha": "64e73914388bda629131f44bee7c7e7028857c95",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "timestamp_utc": "2026-11-03T02:41:07.460819+00:00"
+}

@@ -1,0 +1,117 @@
+{
+  "all_caught": true,
+  "caught_count": 18,
+  "mutations": [
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM01_WRONG_BRANCH",
+      "target_gate": "G01"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM02_WRONG_TESTED_SHA",
+      "target_gate": "G02"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM03_CORRUPTED_DATASET_SHA",
+      "target_gate": "G03"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM04_SAMPLED_DISCOVERY",
+      "target_gate": "G04"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM05_EMPTY_LEDGER",
+      "target_gate": "G05"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM06_CUR_TS_FALLBACK",
+      "target_gate": "G06"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM07_UNMITIGATED_FVG_ACCEPTED",
+      "target_gate": "G07"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM08_TRUE_RETEST_FAILED",
+      "target_gate": "G08"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM09_SPOOF_ACCEPTED",
+      "target_gate": "G09"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM10_UNICORN_INVALID",
+      "target_gate": "G10"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM11_SI0_CORRUPTED",
+      "target_gate": "G12"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM12_QUOTE_PROV_MISSING",
+      "target_gate": "G14"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM13_RISK_CAP_VIOLATED",
+      "target_gate": "G15"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM14_DUPLICATE_TRADES",
+      "target_gate": "G16"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM15_REUSED_SHARDS",
+      "target_gate": "G19"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM16_WORKER_MISMATCH",
+      "target_gate": "G21"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM17_LOW_DISK_SPACE",
+      "target_gate": "G22"
+    },
+    {
+      "caught_red": true,
+      "gate_passed_after_mutation": false,
+      "mutation_id": "EGM18_ACTIVATION_READY_YES",
+      "target_gate": "G24"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "total_evidence_gate_mutations": 18
+}

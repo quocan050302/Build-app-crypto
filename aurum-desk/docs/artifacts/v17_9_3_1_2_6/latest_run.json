@@ -1,0 +1,13 @@
+{
+  "activation_ready": "NO",
+  "all_25_acceptance_gates_passed": true,
+  "engineering_verification_verdict": "PASS",
+  "passed_gates_count": 25,
+  "run_directory": "docs/artifacts/v17_9_3_1_2_6/v17_9_3_1_2_6_20261103T021857Z_3a94182c9839",
+  "run_id": "v17_9_3_1_2_6_20261103T021857Z_3a94182c9839",
+  "schema_version": "17.9.3.1.2.6",
+  "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "timestamp_utc": "2026-11-03T02:41:10.326528+00:00",
+  "total_gates": 25
+}

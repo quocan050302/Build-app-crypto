@@ -1,0 +1,19 @@
+{
+  "causal_chronology_verified": true,
+  "default_policy_id": "SI0_OFF_BASELINE",
+  "default_signal_intelligence_mode": "OFF",
+  "enabled_in_production": false,
+  "prior_artifact_directories_verified": {
+    "aurum-desk/docs/artifacts/v17_9_2": "",
+    "aurum-desk/docs/artifacts/v17_9_2_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_2": ""
+  },
+  "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "verified_immutable_files_count": 6,
+  "violated_files_count": 0
+}

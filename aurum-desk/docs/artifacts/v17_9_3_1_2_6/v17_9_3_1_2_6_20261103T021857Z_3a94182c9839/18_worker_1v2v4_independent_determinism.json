@@ -1,0 +1,9 @@
+{
+  "all_1_2_4_worker_hashes_identical": true,
+  "independent_execution_no_shared_digest_reuse": true,
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "worker_1_sha256": "5fb8a9d06aa5a93dd2cf4eefb54bfa3531631e4b7012d4ecc32bcddad25732ca",
+  "worker_2_sha256": "5fb8a9d06aa5a93dd2cf4eefb54bfa3531631e4b7012d4ecc32bcddad25732ca",
+  "worker_4_sha256": "5fb8a9d06aa5a93dd2cf4eefb54bfa3531631e4b7012d4ecc32bcddad25732ca"
+}

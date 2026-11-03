@@ -1,0 +1,49 @@
+{
+  "future_known_evidence_violations": 0,
+  "sample_ledger_hashes": [
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx35_ts1791440040000_ep_si8_SMC_M1_REVERSAL_LONG_1791439800000_ef00a75c50",
+      "proof_hash": "6adf3a98e15e53b2c83df31e625e7ad116a414e6b9bbfb7fba2712c8a45bff37"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_SWEEP_RECLAIM_LONG_idx35_ts1791440040000_ep_si8_SMC_M1_SWEEP_RECLAIM_LONG_1791439800000_0c682439d0",
+      "proof_hash": "6adf3a98e15e53b2c83df31e625e7ad116a414e6b9bbfb7fba2712c8a45bff37"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx37_ts1791440160000_ep_si8_SMC_M1_REVERSAL_LONG_1791439980000_39c87361b2",
+      "proof_hash": "557c7074f4b075362175bcd66c58fb28a7cfeba88308fbe7c0350164794a898c"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx37_ts1791440160000_ep_si8_SMC_M1_REVERSAL_SHORT_1791440040000_1fc73f883e",
+      "proof_hash": "18fb938676899d9f8a906b2221248083c7c5dd0d25431a7f646a4f17cb9a896c"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_SWEEP_RECLAIM_LONG_idx37_ts1791440160000_ep_si8_SMC_M1_SWEEP_RECLAIM_LONG_1791439980000_b59aad5af0",
+      "proof_hash": "557c7074f4b075362175bcd66c58fb28a7cfeba88308fbe7c0350164794a898c"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_SWEEP_RECLAIM_SHORT_idx37_ts1791440160000_ep_si8_SMC_M1_SWEEP_RECLAIM_SHORT_1791440040000_a8a4777e6d",
+      "proof_hash": "18fb938676899d9f8a906b2221248083c7c5dd0d25431a7f646a4f17cb9a896c"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx38_ts1791440220000_ep_si8_SMC_M1_REVERSAL_SHORT_1791440040000_841d99b610",
+      "proof_hash": "2c0f584651062e8389742dde397def07268e7d89e527ba4629e3e76b56d5529d"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_SWEEP_RECLAIM_SHORT_idx38_ts1791440220000_ep_si8_SMC_M1_SWEEP_RECLAIM_SHORT_1791440040000_0e58ced7d1",
+      "proof_hash": "2c0f584651062e8389742dde397def07268e7d89e527ba4629e3e76b56d5529d"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx39_ts1791440280000_ep_si8_SMC_M1_REVERSAL_SHORT_1791440040000_05d99f206f",
+      "proof_hash": "1b18331b71be5b47d04003c8d5808bb8e8148866a4680e89ba6fe216f78ca7e7"
+    },
+    {
+      "opp_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_SWEEP_RECLAIM_SHORT_idx39_ts1791440280000_ep_si8_SMC_M1_SWEEP_RECLAIM_SHORT_1791440040000_fae0e50055",
+      "proof_hash": "1b18331b71be5b47d04003c8d5808bb8e8148866a4680e89ba6fe216f78ca7e7"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "total_records_in_ledger": 18815,
+  "zero_cur_ts_fallback_verified": true
+}

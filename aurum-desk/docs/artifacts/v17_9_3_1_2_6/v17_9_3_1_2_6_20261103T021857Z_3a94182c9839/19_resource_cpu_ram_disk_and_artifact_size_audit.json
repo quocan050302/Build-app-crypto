@@ -1,0 +1,8 @@
+{
+  "free_disk_gib": 64.68,
+  "safety_floor_gib": 5.0,
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "total_disk_gib": 144.02,
+  "worker_concurrency_cap": 4
+}

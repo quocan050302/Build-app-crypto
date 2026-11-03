@@ -1,0 +1,39 @@
+{
+  "executable_decision_diff_verified": true,
+  "hypotheses": {
+    "H1": "Reject would-be FVG retests without proved postformation closed-bar contact",
+    "H2": "Reject cases with unaligned HTF structure",
+    "H3": "Require causally valid sweep->reclaim->MSS->retest sequence",
+    "H4": "Anchor SL at genuine protected swing with risk-controlled quantity",
+    "H5": "TP from independently sourced unswept liquidity pool with cost-aware RR >= 2.0",
+    "H6": "Predeclared session / volatility bounds without post hoc loss tuning"
+  },
+  "schema_version": "17.9.3.1.2.6",
+  "si9_policy_definition": {
+    "activation_ready": "NO",
+    "description": "V17.9.3.1.2.6 causal signal provenance and edge diagnosis: strict post-formation closed-bar FVG retest confirmation (P0-A), zero timestamp fallback (P0-B), strictly verified pre-entry proof flags without ID-presence fallback (P0-C), explicit synthetic research quote labeling (P1-E), structural SL, reachable unswept liquidity TP with cost-aware RR >= 2.0, and pre-registered hypotheses H1..H6.",
+    "enable_causal_sweep_and_strict_unicorn": true,
+    "enable_core_trading_logic_repair_v1793123": true,
+    "enable_htf_structure_and_direction_validation": true,
+    "enable_model_quality_arbitration": true,
+    "enable_mss_displacement_confirmation": true,
+    "enable_research_discovery_v1793123": true,
+    "enable_structural_sl_and_reachable_target": true,
+    "enabled_in_production": false,
+    "hypothesis_id": "H_SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_V1793126",
+    "max_fvg_age_bars_m1": 24,
+    "max_pending_confirmation_bars_m1": 8,
+    "max_planned_risk_usd": 2.5,
+    "max_target_atr_m1_multiple": 8.0,
+    "min_displacement_body_atr_ratio": 0.55,
+    "min_net_rr": 2.0,
+    "min_stop_atr_m1_ratio": 0.75,
+    "policy_hash": "ac67d2235032eefb7b41b212c603d395149306d4e728088481ec763eb982ad04",
+    "policy_id": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+    "prevent_unqualified_long_fallback": true,
+    "require_both_direction_evaluation": true,
+    "require_unswept_liquidity_pool_target": true,
+    "version": "17.9.3.1.2.6"
+  },
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb"
+}

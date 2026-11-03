@@ -1,0 +1,262 @@
+{
+  "all_25_acceptance_gates_passed": true,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "failed_gate_ids": [],
+  "failed_gates_count": 0,
+  "gates": [
+    {
+      "details": {
+        "ancestry_verified": true,
+        "current_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "violated_prior_artifact_files_count": 0
+      },
+      "gate_id": "G01",
+      "passed": true,
+      "title": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa, ancestry verified, zero prior artifact files altered"
+    },
+    {
+      "details": {
+        "sha_01": "3a94182c9839872f128c804e0791f03f723a01fb",
+        "sha_14": "3a94182c9839872f128c804e0791f03f723a01fb",
+        "sha_15": "3a94182c9839872f128c804e0791f03f723a01fb",
+        "sha_18": "3a94182c9839872f128c804e0791f03f723a01fb",
+        "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb"
+      },
+      "gate_id": "G02",
+      "passed": true,
+      "title": "Frozen Phase A tested executable SHA matches across preflight, fresh pytest collection, JUnit shards, and backtest"
+    },
+    {
+      "details": {
+        "causal_chronology_verified": true,
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "expected_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+      },
+      "gate_id": "G03",
+      "passed": true,
+      "title": "Canonical historical dataset SHA-256 matches exactly with verified closed MTF chronology and gap validation"
+    },
+    {
+      "details": {
+        "causal_checkpoint_count": 22346,
+        "is_official_full_universe": true,
+        "sampled_checkpoint_count": 0
+      },
+      "gate_id": "G04",
+      "passed": true,
+      "title": "Full-universe causal candidate discovery evaluated across all post-warmup M1 bars without sample-index shortcut"
+    },
+    {
+      "details": {
+        "contains_mixed_htf_alignment": true,
+        "contains_unproven_measured_fields": true,
+        "records_in_ledger": 18815
+      },
+      "gate_id": "G05",
+      "passed": true,
+      "title": "Per-record discovered feature ledger derived strictly from source evidence with zero fabricated truth"
+    },
+    {
+      "details": {
+        "future_known_evidence_violations": 0,
+        "zero_cur_ts_fallback_verified": true
+      },
+      "gate_id": "G06",
+      "passed": true,
+      "title": "Zero fallback to decision timestamp for missing provenance (unknown is recorded as UNKNOWN/None) and no future-known evidence"
+    },
+    {
+      "details": {
+        "fvg_unmitigated_never_retested_rejected_verified": true,
+        "retest_counterexamples_count": 7
+      },
+      "gate_id": "G07",
+      "passed": true,
+      "title": "FVG unmitigated-but-never-retested is verified REJECTED/UNPROVEN (unmitigated != retested)"
+    },
+    {
+      "details": {
+        "true_retest_positive_control_verified": true
+      },
+      "gate_id": "G08",
+      "passed": true,
+      "title": "True postformation price-zone retest remains verified with precise closed-bar IDs and valid price touch"
+    },
+    {
+      "details": {
+        "descriptor_spoof_and_future_negatives_rejected": true
+      },
+      "gate_id": "G09",
+      "passed": true,
+      "title": "Descriptor spoof, touch-before-formation, future bar, and inverted zone negatives all fail closed"
+    },
+    {
+      "details": {
+        "unicorn_overlap_and_chronology_verified": true
+      },
+      "gate_id": "G10",
+      "passed": true,
+      "title": "Breaker + FVG spatial overlap and strict chronological sequence verified with FVG_ONLY separation"
+    },
+    {
+      "details": {
+        "no_id_fallback_verified": true,
+        "unproven_probe_score_tuple": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2.5,
+          -4
+        ]
+      },
+      "gate_id": "G11",
+      "passed": true,
+      "title": "Pre-entry candidate scoring uses only verified Boolean proof flags with zero ID-presence fallbacks and zero post-entry outcome leakage"
+    },
+    {
+      "details": {
+        "closed_trades_count": 166,
+        "losses_count": 157,
+        "si0_baseline_exact": true,
+        "total_realized_net_usd": -345.8971,
+        "wins_count": 9
+      },
+      "gate_id": "G12",
+      "passed": true,
+      "title": "Feature-OFF baseline parity (166 closed, 9W/157L, -$345.90, 74 OPEN_AT_HORIZON) and OBSERVE_ONLY 100% action parity exact"
+    },
+    {
+      "details": {
+        "executable_decision_diff_verified": true
+      },
+      "gate_id": "G13",
+      "passed": true,
+      "title": "SI7, SI8, and SI9 research policies produce traceable before/after decision changes and distinct order intents"
+    },
+    {
+      "details": {
+        "quote_provenance_disclosed": true,
+        "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE"
+      },
+      "gate_id": "G14",
+      "passed": true,
+      "title": "Quote provenance explicitly classified as SYNTHETIC_RESEARCH_QUOTE across all fill modes and episodes"
+    },
+    {
+      "details": {
+        "min_net_rr_violations_count": 0,
+        "planned_risk_cap_violations_count": 0
+      },
+      "gate_id": "G15",
+      "passed": true,
+      "title": "Protected structural SL anchor, unswept liquidity TP, cost-aware net RR >= 2.0, and <= $2.50 USD risk cap invariants hold"
+    },
+    {
+      "details": {
+        "duplicate_trade_ids_count": 0,
+        "primary_loss_causes_match_total_losses": true
+      },
+      "gate_id": "G16",
+      "passed": true,
+      "title": "Full per-trade forensic loss ledger exhaustive with zero duplicate opportunity IDs and signed fees/gross/net accounting reconciled"
+    },
+    {
+      "details": {
+        "matched_ab_verified": true
+      },
+      "gate_id": "G17",
+      "passed": true,
+      "title": "Matched A/B baseline vs repaired policy comparisons evaluated with identical timeline and honest denominators"
+    },
+    {
+      "details": {
+        "fill_modes": [
+          "NEXT_BAR_OPEN_BID_ASK",
+          "LEGACY_CLOSE_FILL",
+          "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+        ],
+        "fill_modes_count": 3
+      },
+      "gate_id": "G18",
+      "passed": true,
+      "title": "Three distinct fill modes (NEXT_BAR_OPEN_BID_ASK, LEGACY_CLOSE_FILL, STRESS_WIDER_SPREAD_SLIPPAGE_2X) replayed with spread, fees, and slippage"
+    },
+    {
+      "details": {
+        "collected_node_ids_count": 4967,
+        "error_count": 0,
+        "exact_node_id_bijection_verified": true,
+        "executed_junit_node_ids_count": 4967,
+        "failed_count": 0,
+        "reused_shards_count": 0
+      },
+      "gate_id": "G19",
+      "passed": true,
+      "title": "Full fresh pytest collection matches freshly executed JUnit testcases (0 reused shards, 0 failed, 0 error, exact bijection)"
+    },
+    {
+      "details": {
+        "all_mutations_caught_red_and_restored_green": true,
+        "executable_mutations_caught_count": 16,
+        "executable_mutations_count": 16
+      },
+      "gate_id": "G20",
+      "passed": true,
+      "title": "Executable RED/GREEN source mutations (>= 16) fail with non-zero exit on injected defect and pass on restored code"
+    },
+    {
+      "details": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "worker_1_sha256": "5fb8a9d06aa5a93dd2cf4eefb54bfa3531631e4b7012d4ecc32bcddad25732ca"
+      },
+      "gate_id": "G21",
+      "passed": true,
+      "title": "Independent 1, 2, and 4 OS-process worker runs produce identical SHA-256 digests across all required policies and fill modes"
+    },
+    {
+      "details": {
+        "free_disk_gib": 64.68,
+        "safety_floor_gib": 5.0
+      },
+      "gate_id": "G22",
+      "passed": true,
+      "title": "Host resource guards verified: free disk space remains above 5.0 GiB safety floor with bounded OS worker budget (<= 4 processes)"
+    },
+    {
+      "details": {
+        "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+      },
+      "gate_id": "G23",
+      "passed": true,
+      "title": "Walk-forward purge/embargo verified and fresh OOS status disclosed honestly as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+    },
+    {
+      "details": {
+        "activation_ready": "NO",
+        "best_research_net_usd": -85.8702,
+        "best_research_policy_id": "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+        "strategy_statistical_verdict": "NEGATIVE_EXPECTANCY"
+      },
+      "gate_id": "G24",
+      "passed": true,
+      "title": "Strategy statistical verdict evaluates all registered policies SI1..SI9 dynamically, accurately returns net USD, keeps ACTIVATION_READY == NO"
+    },
+    {
+      "details": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "phase_a_tested_code_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+        "phase_a_tested_sha_verified": true
+      },
+      "gate_id": "G25",
+      "passed": true,
+      "title": "Three-phase Git commit & push receipt verified on mandatory branch feature/v17-9-2-structural-sl-tp-from-qa"
+    }
+  ],
+  "passed_gates_count": 25,
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "total_gates": 25
+}

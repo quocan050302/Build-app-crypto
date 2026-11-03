@@ -1,0 +1,52 @@
+{
+  "counterexamples": [
+    {
+      "id": "CE1",
+      "name": "fvg_unmitigated_never_retested",
+      "rejected": true
+    },
+    {
+      "id": "CE2",
+      "name": "descriptor_spoof_retest_valid_true",
+      "rejected": true
+    },
+    {
+      "id": "CE3",
+      "name": "retest_timestamp_before_formation",
+      "rejected": true
+    },
+    {
+      "id": "CE4",
+      "name": "retest_from_future",
+      "rejected": true
+    },
+    {
+      "id": "CE5",
+      "name": "wick_touches_invalid_or_swept_zone",
+      "rejected": true
+    },
+    {
+      "id": "CE6",
+      "name": "missing_ohlc_or_zone_geometry",
+      "rejected": true
+    },
+    {
+      "id": "CE7",
+      "name": "same_bar_manufactured_retest",
+      "rejected": true
+    }
+  ],
+  "descriptor_spoof_and_future_negatives_rejected": true,
+  "fvg_unmitigated_never_retested_rejected_verified": true,
+  "positive_controls": [
+    {
+      "confirmed": true,
+      "id": "PC1",
+      "name": "valid_postformation_closed_bar_touch"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.6",
+  "tested_executable_sha": "3a94182c9839872f128c804e0791f03f723a01fb",
+  "true_retest_positive_control_verified": true,
+  "unicorn_overlap_and_chronology_verified": true
+}
