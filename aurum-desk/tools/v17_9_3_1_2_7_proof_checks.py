@@ -102,6 +102,117 @@ def verify_features_from_disk(path):
     return {"status":"PASS" if total and total==valid else "FAIL","total":total,"valid":valid}
 
 
+def verify_checkpoint_coverage_from_disk(path,datasets):
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import CANONICAL_5_MODELS_V1793123
+    import gzip
+    seen=set()
+    violations=[]
+    parity_mismatches=0
+    for row in read_jsonl(path):
+        key=(row["checkpoint_index_1m"],row["model_id"],row["direction"])
+        idx=key[0]
+        if key in seen:violations.append("DUPLICATE_CHECKPOINT_MODEL_DIRECTION")
+        seen.add(key)
+        if not 30<=idx<len(datasets["1m"]) or key[1] not in CANONICAL_5_MODELS_V1793123 or key[2] not in ("LONG","SHORT"):
+            violations.append("UNEXPECTED_CHECKPOINT_MODEL_DIRECTION")
+        elif row["decision_timestamp_ms"]!=int(datasets["1m"][idx]["close_time"]):
+            violations.append("CHECKPOINT_SOURCE_TIMESTAMP_MISMATCH")
+        if row["max_closed_bar_ms"]>row["decision_timestamp_ms"] or len(row.get("source_snapshot_hash",""))!=64:
+            violations.append("INVALID_CHECKPOINT_CAUSAL_SOURCE")
+        if not row.get("off_action_hash") or row.get("off_action_hash")!=row.get("observe_action_hash"):
+            parity_mismatches+=1
+    expected=(len(datasets["1m"])-30)*len(CANONICAL_5_MODELS_V1793123)*2
+    if len(seen)!=expected:violations.append("MISSING_CHECKPOINT_MODEL_DIRECTION")
+    return {"status":"FAIL" if violations else "PASS","expected_rows":expected,"actual_unique_rows":len(seen),
+            "violations":dict(Counter(violations)),"off_observe_action_mismatches":parity_mismatches,
+            "canonical_keys_sha256":canonical_hash(sorted(seen))}
+
+
+def verify_raw_accounting_and_worker_proofs(run):
+    """Recompute published economics and worker digests from separate raw files."""
+    from services.v17_9_3_1_2_7_matched_ab import _money, _index
+    metrics=json.loads((run/"15_all_policies_all_three_fill_modes_metrics.json").read_text())
+    stats=json.loads((run/"24_engineering_strategy_activation_dual_verdict.json").read_text())
+    workers=json.loads((run/"21_1v2v4_independent_determinism_sha_manifest.json").read_text())
+    errors=[]
+    from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets
+    datasets,_=load_canonical_xauusdt_datasets()
+    coverage=verify_checkpoint_coverage_from_disk(run/"05_full_checkpoint_model_direction_execution_audit.jsonl.gz",datasets)
+    if coverage["status"]!="PASS" or coverage["off_observe_action_mismatches"]:
+        errors.append("RAW_CHECKPOINT_COVERAGE_OR_OFF_OBSERVE_MISMATCH")
+    del datasets
+    hashes=[]
+    for key,count in (("28",1),("29",2),("30",4)):
+        report=workers[key]
+        payload={pid:{k:v for k,v in r.items() if k!="worker_pid"} for pid,r in sorted(report["results_by_policy"].items())}
+        digest=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
+        hashes.append(digest)
+        if digest!=report["canonical_results_sha256"] or report["worker_count"]!=count or len(report["worker_pids_observed"])!=count:
+            errors.append("WORKER_EXECUTION_OR_DIGEST_MISMATCH:"+key)
+        if set(payload)!=set(metrics): errors.append("WORKER_POLICY_COVERAGE_MISMATCH:"+key)
+    if len(set(hashes))!=1: errors.append("INDEPENDENT_WORKER_DIGEST_DIVERGENCE")
+    result_inputs={}
+    oos=json.loads((run/"16_walkforward_purge_embargo_oos_freshness_and_uncertainty.json").read_text())
+    if oos.get("split_boundaries_ms")!=[1791676800000,1792195200000] or oos.get("embargo_bars_m1")!=180 or oos.get("fresh_oos_verification_status")!="REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS":
+        errors.append("RAW_OOS_SPLIT_OR_FRESHNESS_MISMATCH")
+    for pid,modes in metrics.items():
+        import psutil
+        if psutil.virtual_memory().available<512*1024**2:
+            raise RuntimeError("BLOCKED_LOW_RAM_DISK_ACCOUNTING")
+        decisions=read_jsonl(run/(pid+"_decisions.jsonl.gz"))
+        _index(decisions)
+        decision_hash=hashlib.sha256(json.dumps(decisions,sort_keys=True).encode()).hexdigest()
+        all_trades={}
+        for mode,claimed in modes.items():
+            trades=read_jsonl(run/(pid+"_"+mode+"_trades.jsonl.gz"))
+            all_trades[mode]=trades
+            _index(trades)
+            for row in trades: _money(row)
+            closed=[r for r in trades if r.get("filled") and r.get("outcome_label") in ("WIN","LOSS")]
+            actual={"closed_trades_count":len(closed),"wins_count":sum(r["outcome_label"]=="WIN" for r in closed),
+                    "losses_count":sum(r["outcome_label"]=="LOSS" for r in closed),
+                    "total_realized_net_usd":round(sum(float(r["realized_net_pnl_usd"]) for r in closed),4),
+                    "total_fees_usd":round(sum(float(r["entry_fee_usd"])+float(r["exit_fee_usd"]) for r in closed),4)}
+            if any(claimed.get(k)!=v for k,v in actual.items()):
+                errors.append("RAW_METRICS_MISMATCH:"+pid+":"+mode)
+            for r in trades:
+                if r.get("filled") and (r.get("planned_net_risk_usd") is None or not 0<float(r["planned_net_risk_usd"])<=2.5001 or r.get("net_rr") is None or float(r["net_rr"])<1.9999):
+                    errors.append("RAW_RISK_COST_ENVELOPE_VIOLATION:"+pid+":"+mode)
+        trade_hash=hashlib.sha256(json.dumps(all_trades,sort_keys=True).encode()).hexdigest()
+        for key in ("28","29","30"):
+            row=workers[key]["results_by_policy"].get(pid,{})
+            if row.get("decision_rows_sha256")!=decision_hash or row.get("raw_all_mode_trades_sha256")!=trade_hash:
+                errors.append("WORKER_HASH_NOT_BOUND_TO_RAW_LEDGER:"+pid+":"+key)
+        result_inputs[pid]={"primary_episodes":all_trades["NEXT_BAR_OPEN_BID_ASK"]}
+        closed=[r for r in all_trades["NEXT_BAR_OPEN_BID_ASK"] if r.get("filled") and r.get("outcome_label") in ("WIN","LOSS")]
+        b1,b2,embargo=1791676800000,1792195200000,180*60000
+        groups=([r for r in closed if int(r["exit_ts_ms"])<=b1-embargo],
+                [r for r in closed if int(r["entry_ts_ms"])>=b1+embargo and int(r["exit_ts_ms"])<=b2-embargo],
+                [r for r in closed if int(r["entry_ts_ms"])>=b2+embargo])
+        for name,group in zip(("D_DEV_2026_10_01_TO_10_10","V_VAL_2026_10_11_TO_10_16","H_HOLDOUT_2026_10_17_TO_10_23"),groups):
+            n=len(group)
+            expected={"closed_trades":n,"wins":sum(r["outcome_label"]=="WIN" for r in group),"losses":sum(r["outcome_label"]=="LOSS" for r in group),
+                      "net_usd":round(sum(float(r["realized_net_pnl_usd"]) for r in group),4),
+                      "expectancy_net_r":round(sum(float(r["realized_r"]) for r in group)/n,4) if n else 0.0}
+            if oos.get("policies",{}).get(pid,{}).get(name)!=expected:
+                errors.append("RAW_OOS_PARTITION_ACCOUNTING_MISMATCH:"+pid+":"+name)
+    if empirical_policy_statistics(result_inputs)!=stats:
+        errors.append("RAW_STATISTICS_OR_POLICY_COVERAGE_MISMATCH")
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127
+    episodes=read_jsonl(run/"13_baseline_raw_execution_episodes.jsonl.gz")
+    wanted={r["opportunity_id"] for r in episodes}
+    features={}
+    import gzip
+    with gzip.open(run/"07_verified_causal_features.jsonl.gz","rt",encoding="utf-8") as stream:
+        for line in stream:
+            row=json.loads(line)
+            if row["opportunity_id"] in wanted:features[row["opportunity_id"]]=row
+    rebuilt=build_forensic_causal_evidence_join_v1793127(episodes,features)
+    if rebuilt!=read_jsonl(run/"13_per_trade_forensics_observed_vs_hypothesized.jsonl.gz"):
+        errors.append("RAW_FORENSIC_SOURCE_JOIN_OR_LABEL_MISMATCH")
+    return {"status":"FAIL" if errors else "PASS","errors":errors,"policies":len(metrics),"worker_hashes":hashes}
+
+
 def reconstruct_feature_sources_from_disk(run):
     """Rebuild from immutable canonical OHLC + raw decisions, ignoring produced flags."""
     from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets

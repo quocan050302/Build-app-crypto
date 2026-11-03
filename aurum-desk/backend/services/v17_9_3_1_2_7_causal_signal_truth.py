@@ -175,12 +175,14 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     bars = series["1m"]
     sh, sl = derived["swings"]["1m"]
     quote_kind = str(_get(context, "quote_source_kind", "UNKNOWN"))
-    if quote_kind == "REAL_PROVIDER_QUOTE" and not _get(context, "quote_provider_source_id"):
-        quote_kind = "UNVERIFIED_PROVIDER_QUOTE"
+    if quote_kind == "REAL_PROVIDER_QUOTE":
+        quote_ts=_get(context,"quote_timestamp_ms")
+        if not _get(context,"quote_provider_source_id") or isinstance(quote_ts,bool) or not isinstance(quote_ts,int) or not 0<quote_ts<=cutoff:
+            quote_kind = "UNVERIFIED_PROVIDER_QUOTE"
     refs = []
     flat = {}
 
-    def record(name, value, proof_bars=(), tf="1m", known=None, reason="MEASURED_FROM_CLOSED_OHLC"):
+    def record(name, value, proof_bars=(), tf="1m", known=None, occurred=None, reason="MEASURED_FROM_CLOSED_OHLC"):
         pb = list(proof_bars)
         state = UNKNOWN if value is None else (TRUE if bool(value) else FALSE)
         end = max((b["close_time"] for b in pb), default=None)
@@ -195,7 +197,10 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             # Exact interval endpoints + count + hash resolve the entire range in the
             # immutable dataset, without duplicating 181 IDs in every feature row.
             source_bar_ids=tuple(dict.fromkeys(f"{symbol}:{tf}:{b['open_time']}" for b in ([pb[0],pb[-1]] if pb else []))),
-            source_bar_open_ms=start, source_bar_close_ms=end, occurred_at_ms=start,
+            # Window start is source coverage, not a market event timestamp.
+            # Measurement availability comes from the last closed source bar;
+            # an event occurrence stays absent unless a detector actually found it.
+            source_bar_open_ms=start, source_bar_close_ms=end, occurred_at_ms=occurred,
             confirmed_at_ms=known, known_at_ms=known, source_dataset_sha256=dataset_sha256,
             source_row_hash=canonical_hash(pb), quote_source_kind=quote_kind,
             measured_value=value, proof_state=state, reason_code=reason, source_bar_count=len(pb))
@@ -238,9 +243,9 @@ def derive_pre_entry_features_from_causal_context_v1793127(
                 if not any((x["close"] > s["price"] if direction == "LONG" else x["close"] < s["price"]) for x in before):
                     break_pair = (s, b)
     sweep_bars = bars if sweep_pair is None else [x for x in bars if x["close_time"] >= known_swing(sweep_pair[0])]
-    record("sweep_confirmed", bool(sweep_pair) if relevant else None, sweep_bars)
-    record("sweep_reclaimed", bool(sweep_pair and sweep_pair[2]) if relevant else None, sweep_bars)
-    record("mss_confirmed", bool(break_pair) if break_refs else None, bars)
+    record("sweep_confirmed", bool(sweep_pair) if relevant else None, sweep_bars, occurred=sweep_pair[1]["open_time"] if sweep_pair else None)
+    record("sweep_reclaimed", bool(sweep_pair and sweep_pair[2]) if relevant else None, sweep_bars, occurred=sweep_pair[2]["open_time"] if sweep_pair and sweep_pair[2] else None)
+    record("mss_confirmed", bool(break_pair) if break_refs else None, bars, occurred=break_pair[1]["open_time"] if break_pair else None)
     atr = derived["atr"]
     ratio = None
     if break_pair and atr.status == "AVAILABLE" and atr.value > 0:
@@ -253,7 +258,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     candidates = [f for f in derived["fvgs"] if f.get("type") == ftype and 0 < int(f.get("confirmed_at", 0)) <= cutoff]
     selected_id = decision.get("selected_fvg_id")
     fvg = next((f for f in reversed(candidates) if not selected_id or f["id"] == selected_id), None)
-    record("fvg_present", bool(fvg) if len(bars) >= 3 else None, bars)
+    record("fvg_present", bool(fvg) if len(bars) >= 3 else None, bars, occurred=int(fvg["timestamp"]) if fvg else None)
     touch, fbars = None, []
     if fvg:
         mid = next((i for i,b in enumerate(bars) if b["open_time"] == fvg["timestamp"]), None)
@@ -261,7 +266,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             fbars = bars[mid-1:mid+2]
             later = [b for b in bars if b["open_time"] >= fvg["confirmed_at"]]
             touch = next((b for b in later if b["high"] >= fvg["bottom"] and b["low"] <= fvg["top"]), None)
-    record("fvg_retest_valid", bool(touch) if fbars else None, fbars + ([touch] if touch else []))
+    record("fvg_retest_valid", bool(touch) if fbars else None, fbars + ([touch] if touch else []), occurred=touch["open_time"] if touch else None)
     record("fvg_unmitigated", fvg.get("state") in ("confirmed", "partially_mitigated") if fvg else None, bars if fvg else ())
     flat["fvg_age_bars_m1"] = (cutoff-int(fvg["confirmed_at"]))//60_000 if fvg else None
     uni = detect_unicorn_evidence(bars, direction, cutoff, symbol=symbol,

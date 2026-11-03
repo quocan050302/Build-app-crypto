@@ -306,7 +306,9 @@ def test_v17_9_0_1_runtime_spy_production_and_shadow(monkeypatch: pytest.MonkeyP
                 "bid": series["bid"],
                 "ask": series["ask"],
                 "last": round((series["bid"] + series["ask"]) / 2.0, 2),
-                "timestamp": decision_ms - 50,
+                # Match the exchange quote used by MARKET_SHADOW below. Quote
+                # timestamps are now part of the causal input identity.
+                "timestamp": quote.exchange_ts_ms,
                 "source": "WS",
                 "status": "VALID",
                 "freshness_sec": 0.05,

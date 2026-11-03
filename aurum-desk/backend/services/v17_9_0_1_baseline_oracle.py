@@ -3223,7 +3223,7 @@ def execute_isolated_historical_baseline_scenarios(
     env["PYTHONPATH"] = str(hist_backend_dir)
     try:
         proc = subprocess.run(
-            [sys.executable, str(harness_path)],
+            [os.environ.get("AURUM_VERIFY_VENV_PYTHON",sys.executable), str(harness_path)],
             cwd=str(hist_backend_dir),
             env=env,
             capture_output=True,

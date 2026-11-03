@@ -1846,7 +1846,10 @@ class ScalpWatcherOrchestrator:
             d1_candles=c_1d,
             bid=bid,
             ask=ask,
-            quote_timestamp_ms=getattr(q, "exchange_ts_ms", None) or getattr(q, "received_at_ms", None) or t_recv,
+            # normalize_execution_quote returns ValidatedQuote, whose preserved
+            # timestamps are exchange_time / observed_at. Evaluation time is
+            # not quote provenance.
+            quote_timestamp_ms=getattr(q, "exchange_time", None) or getattr(q, "observed_at", None),
             htf_zones=bounded_zones if len(c_5m) < 3 else None,
             liquidity_pools=liq_levels if len(c_5m) < 3 else None,
             htf_bias=bias,

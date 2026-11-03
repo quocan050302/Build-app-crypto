@@ -94,6 +94,14 @@ def test_provider_label_without_source_receipt_not_promoted_to_real():
     assert row["quote_source_kind"]=="UNVERIFIED_PROVIDER_QUOTE"
 
 
+def test_future_provider_quote_is_not_real_point_in_time_evidence():
+    context=fixture_context()
+    context.quote_source_kind="REAL_PROVIDER_QUOTE"
+    context.quote_provider_source_id="provider-receipt"
+    context.quote_timestamp_ms=context.decision_timestamp_ms+1
+    assert derive(decision(),context,dataset_sha256="a"*64)["quote_source_kind"]=="UNVERIFIED_PROVIDER_QUOTE"
+
+
 def test_canonical_uppercase_hourly_frames_are_not_silently_lost():
     from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
     ctx=fixture_context()
@@ -133,6 +141,27 @@ def test_gap_is_observed_without_invented_trading_cause():
     assert label=="FILL_GAP/AMBIGUOUS_INTRABAR"
 
 
+def test_legacy_casebook_missing_features_never_invents_displacement_or_counterfactual():
+    from services.v17_9_3_1_2_2_signal_intelligence import build_smc_m1_continuation_24_losses_casebook_v1793122
+    result=build_smc_m1_continuation_24_losses_casebook_v1793122(
+        baseline_trades=[{**decision(),"model_id":"SMC_M1_CONTINUATION","exit_reason":"SL",
+                          "realized_net_usd":-2.2,"realized_gross_usd":-2.0}],feature_ledger_by_opp_id={})
+    row=result["cases"][0]
+    assert row["primary_failure_category"]=="OTHER/UNKNOWN"
+    assert row["counterfactual_assessment_status"]=="NOT_ESTABLISHED"
+    assert all(v=="UNKNOWN_NO_COUNTERFACTUAL_REPLAY" for v in row["policy_counterfactual_outcomes"].values())
+
+
+def test_quote_timestamp_changes_market_input_identity():
+    from services.shared_strategy_evaluator import build_market_decision_context
+    ctx=fixture_context()
+    kwargs=dict(symbol=ctx.symbol,decision_timestamp_ms=ctx.decision_timestamp_ms,
+                m1_candles=ctx.closed_m1_candles,bid=ctx.bid,ask=ctx.ask)
+    a=build_market_decision_context(**kwargs,quote_timestamp_ms=ctx.decision_timestamp_ms-100)
+    b=build_market_decision_context(**kwargs,quote_timestamp_ms=ctx.decision_timestamp_ms-50)
+    assert a.compute_input_snapshot_hash()!=b.compute_input_snapshot_hash()
+
+
 def test_missing_gate_never_passes():
     from tools.run_v17_9_3_1_2_7_verification import evaluate_v1793127_acceptance_gates
     report=evaluate_v1793127_acceptance_gates({},tested_sha="a"*40,dataset_sha="b"*64)
@@ -149,7 +178,7 @@ def test_rr_and_quick_loss_do_not_invent_target_or_premature_cause(ep):
 def raw_rows():
     d=dict(opportunity_id="o",decision_timestamp_ms=1000,source_snapshot_hash="s"*64,accepted=True,status="ELIGIBLE")
     t={**d,"outcome_label":"LOSS","realized_gross_pnl_usd":-2.,"entry_fee_usd":.1,
-       "exit_fee_usd":.1,"realized_net_pnl_usd":-2.2,"realized_r":-.88}
+       "exit_fee_usd":.1,"realized_net_pnl_usd":-2.2,"realized_r":-.88,"planned_net_risk_usd":2.5,"filled":True}
     return [d],[copy.deepcopy(d)],[t],[copy.deepcopy(t)]
 
 
@@ -158,6 +187,15 @@ def test_si8_si9_identity_reported_honestly():
     assert report["relation"]=="IDENTICAL_ON_TESTED_DATA"
     assert report["incremental_edge_status"]=="INCREMENTAL_EDGE_NOT_DEMONSTRATED"
     assert report["paired_mean_net_r_delta"]==0
+
+
+def test_equal_pnl_does_not_hide_different_actual_fill_paths():
+    da,db,ta,tb=raw_rows()
+    ta[0]["entry_fill_ts"]=2000
+    tb[0]["entry_fill_ts"]=3000
+    report=compare(da,db,ta,tb,comparison_id="different_fills",fill_mode="x")
+    assert report["portfolio_net_usd_delta"]==0
+    assert report["relation"]=="DIFFERENT_ON_TESTED_DATA"
 
 
 @pytest.mark.parametrize("bad",["duplicate","missing_source","changed_fee","wrong_timestamp"])
@@ -188,6 +226,34 @@ def test_same_opportunity_wrong_timestamp_must_not_be_unmatched_discovery():
         compare(da,db,ta,tb,comparison_id="x",fill_mode="x")
 
 
+@pytest.mark.parametrize("source",[None,""])
+def test_raw_index_rejects_missing_source_before_matching(source):
+    from services.v17_9_3_1_2_7_matched_ab import _index
+    with pytest.raises(ValueError,match="MISSING_MATCH_IDENTITY"):
+        _index([{"opportunity_id":"o","decision_timestamp_ms":1000,"source_snapshot_hash":source}])
+
+
+@pytest.mark.parametrize("partial",[False,True])
+def test_real_fvg_retest_requires_closed_post_formation_touch(partial):
+    ctx=fixture_context()
+    bars=ctx.closed_m1_candles
+    for b in bars[:17]:b.update(open=2650.,high=2652.,low=2649.,close=2651.)
+    bars[17].update(open=2652.,high=2664.,low=2652.,close=2663.)
+    bars[18].update(open=2664.,high=2666.,low=2663.,close=2665.)
+    bars[19].update(open=2665.,high=2666.,low=2660.,close=2665.,is_closed=not partial)
+    row=derive(decision(),ctx,dataset_sha256="a"*64)
+    assert row["fvg_present"] is True
+    assert row["fvg_retest_valid"] is (not partial)
+    assert verify_feature_snapshot_v1793127(row)
+
+
+@pytest.mark.parametrize("model",["SMC_M1_CONTINUATION","SMC_M1_REVERSAL","SMC_M1_FVG_CONTINUATION","SMC_M1_SWEEP_RECLAIM","CG01_SWEEP_MSS_FVG"])
+@pytest.mark.parametrize("direction",["LONG","SHORT"])
+def test_unknown_source_rejects_all_five_models_both_directions(model,direction):
+    row=derive({**decision(),"model_id":model,"direction":direction},fixture_context(),dataset_sha256="a"*64)
+    assert required_proof_rejection_v1793127(row,model).startswith("REJECTED_UNPROVEN")
+
+
 def test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl(tmp_path):
     rows=raw_rows()
     spec={}
@@ -202,3 +268,72 @@ def test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl(tmp_path):
     claim["pair_ledger"].clear()
     (tmp_path/spec["claim"]).write_text(json.dumps(claim),encoding="utf-8")
     assert verify_ab(tmp_path,spec)["status"]=="FAIL"
+
+
+@pytest.mark.parametrize("tamper",["delete_pair","raw_pnl","duplicate_episode","trade_source"])
+def test_compressed_pair_publication_is_bound_to_separate_raw_ledgers(tmp_path,tamper):
+    rows=raw_rows()
+    spec={}
+    def emit(name,records):
+        with gzip.open(tmp_path/name,"wt",encoding="utf-8") as f:
+            for record in records:f.write(json.dumps(record)+"\n")
+    for key,records in zip(("decisions_a","decisions_b","trades_a","trades_b"),rows):
+        spec[key]=key+".jsonl.gz"
+        emit(spec[key],records)
+    claim=compare(*rows,comparison_id="compressed",fill_mode="NEXT_BAR_OPEN_BID_ASK")
+    spec.update(claim="claim.json",pair_rows="pairs.jsonl.gz",decision_diff_rows="diff.jsonl.gz")
+    emit(spec["pair_rows"],claim.pop("pair_ledger"))
+    emit(spec["decision_diff_rows"],claim["decision_diff"].pop("rows"))
+    (tmp_path/spec["claim"]).write_text(json.dumps(claim),encoding="utf-8")
+    assert verify_ab(tmp_path,spec)["status"]=="PASS"
+    if tamper=="delete_pair":emit(spec["pair_rows"],[])
+    else:
+        if tamper=="raw_pnl":
+            rows[3][0]["realized_gross_pnl_usd"]+=1
+            rows[3][0]["realized_net_pnl_usd"]+=1
+        elif tamper=="duplicate_episode":rows[3].append(copy.deepcopy(rows[3][0]))
+        else:rows[3][0]["source_snapshot_hash"]="wrong"*13
+        emit(spec["trades_b"],rows[3])
+    assert verify_ab(tmp_path,spec)["status"]=="FAIL"
+
+
+@pytest.mark.parametrize("tamper",["reorder","duplicate","missing","future","wrong_cutoff","observe_changed","unknown_model"])
+def test_checkpoint_coverage_and_off_observe_negative_controls(tmp_path,tamper):
+    from tools.v17_9_3_1_2_7_proof_checks import verify_checkpoint_coverage_from_disk
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import CANONICAL_5_MODELS_V1793123
+    datasets={"1m":[{"close_time":(i+1)*60000} for i in range(31)]}
+    rows=[{"checkpoint_index_1m":30,"model_id":m,"direction":d,"decision_timestamp_ms":1860000,
+           "max_closed_bar_ms":1860000,"source_snapshot_hash":"a"*64,
+           "off_action_hash":"b"*64,"observe_action_hash":"b"*64}
+          for m in CANONICAL_5_MODELS_V1793123 for d in ("LONG","SHORT")]
+    path=tmp_path/"checkpoint_audit.jsonl.gz"
+    def emit():
+        with gzip.open(path,"wt",encoding="utf-8") as f:
+            for row in rows:f.write(json.dumps(row)+"\n")
+    emit()
+    before=verify_checkpoint_coverage_from_disk(path,datasets)
+    assert before["status"]=="PASS"
+    if tamper=="reorder":rows.reverse()
+    elif tamper=="duplicate":rows.append(copy.deepcopy(rows[0]))
+    elif tamper=="missing":rows.pop()
+    elif tamper=="future":rows[0]["max_closed_bar_ms"]+=60000
+    elif tamper=="wrong_cutoff":rows[0]["decision_timestamp_ms"]-=60000
+    elif tamper=="observe_changed":rows[0]["observe_action_hash"]="c"*64
+    else:rows[0]["model_id"]="FABRICATED_MODEL"
+    emit()
+    after=verify_checkpoint_coverage_from_disk(path,datasets)
+    if tamper=="reorder":
+        assert after==before
+    else:assert after["status"]=="FAIL" or after["off_observe_action_mismatches"]>0
+
+
+def test_actual_sampled_discovery_records_all_models_and_off_observe_actions():
+    from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
+    datasets,_=load_canonical_xauusdt_datasets()
+    report=discover_research_candidates_v1793123(datasets,test_only_checkpoint_override=[30,200,500],max_workers=1)
+    rows=report["checkpoint_audit_rows"]
+    assert len(rows)==30
+    assert len({(r["checkpoint_index_1m"],r["model_id"],r["direction"]) for r in rows})==30
+    assert all(r["off_action_hash"]==r["observe_action_hash"] for r in rows)
+    assert all(r["max_closed_bar_ms"]<=r["decision_timestamp_ms"] for r in rows)

@@ -3026,364 +3026,71 @@ CONTINUATION_FAILURE_TAXONOMY_V1793122: Tuple[str, ...] = (
 )
 
 
+def _observed_case_rows_v1793127(trades, ledger, policy_decisions=None):
+    """Legacy report schema backed by verified observations, never guessed causes."""
+    from services.v17_9_3_1_2_7_causal_signal_truth import classify_observed_loss_v1793127
+    rows=[]
+    for trade in trades:
+        oid=str(trade.get("opportunity_id") or "")
+        feature=ledger.get(oid,{})
+        observed=dict(trade)
+        if "realized_gross_pnl_usd" not in observed:
+            observed["realized_gross_pnl_usd"]=trade.get("realized_gross_usd")
+        if "realized_net_pnl_usd" not in observed:
+            observed["realized_net_pnl_usd"]=trade.get("realized_net_usd")
+        label,tags=classify_observed_loss_v1793127(observed,feature)
+        decisions=(policy_decisions or {}).get(oid) or {}
+        rows.append({"opportunity_id":oid,"observed_execution":observed,
+                     "primary_failure_category":label,"all_failure_categories":tags,
+                     "pre_entry_snapshot":feature.get("causal_snapshot"),
+                     "inferred_cause":"UNKNOWN","counterfactual_assessment_status":"NOT_ESTABLISHED",
+                     "policy_counterfactual_outcomes":dict(decisions) if decisions else {
+                         pid:"UNKNOWN_NO_COUNTERFACTUAL_REPLAY" for pid in CANONICAL_V1793123_POLICY_IDS}})
+    return rows
+
+
 def build_smc_m1_continuation_24_losses_casebook_v1793122(
-    *,
-    baseline_trades: Sequence[Mapping[str, Any]],
+    *, baseline_trades: Sequence[Mapping[str, Any]],
     feature_ledger_by_opp_id: Mapping[str, Mapping[str, Any]],
     policy_decisions_by_opp_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """
-    Section 05.A:
-    Audits all 24 closed `SMC_M1_CONTINUATION` losses in `A1_V1792_SL_TP_BASELINE` (SI0)
-    individually, recording concrete episode ID, signal/entry/exit timestamps, H4/H1/M15/M5
-    biases, displacement/BOS evidence, entry/SL/TP/spread/fees, MFE/MAE, protected structure
-    outcome, specific failure taxonomy classifications `(i)..(viii)`, and counterfactual
-    treatment under `SI1..SI6`.
-    """
-    cont_closed_losses = [
-        dict(t)
-        for t in baseline_trades
-        if str(t.get("model_id")) == ModelIdentifier.SMC_M1_CONTINUATION.value
-        and str(t.get("exit_reason", "")) in ("SL", "TP", "BOTH_SAME_BAR_CONSERVATIVE_SL")
-        and float(t.get("realized_net_usd", 0.0) or 0.0) < 0.0
-    ]
-    cont_closed_losses.sort(key=lambda r: int(r.get("signal_ts_ms") or r.get("entry_ts_ms") or 0))
-
-    category_counts: Dict[str, int] = {k: 0 for k in CONTINUATION_FAILURE_TAXONOMY_V1793122}
-    casebook_rows: List[Dict[str, Any]] = []
-    p_dec_map = policy_decisions_by_opp_id or {}
-
-    for idx, tr in enumerate(cont_closed_losses, start=1):
-        opp_id = str(tr.get("opportunity_id") or "")
-        feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
-        sig_ts = int(tr.get("signal_ts_ms") or 0)
-        direction = str(tr.get("direction") or "LONG")
-
-        h4_b = str(feat.get("h4_bias") or tr.get("h4_bias") or "NEUTRAL").upper()
-        h1_b = str(feat.get("h1_bias") or tr.get("h1_bias") or "NEUTRAL").upper()
-        m15_b = str(feat.get("m15_bias") or tr.get("m15_bias") or "NEUTRAL").upper()
-        m5_b = str(feat.get("m5_bias") or tr.get("m5_bias") or "NEUTRAL").upper()
-        htf_state = str(feat.get("htf_alignment_state") or "MIXED").upper()
-
-        disp_ratio = float(feat.get("displacement_body_atr_ratio", 0.42) or 0.42)
-        retrace_ok = bool(feat.get("continuation_retrace_valid", False))
-        prot_indep = bool(feat.get("protected_structure_independent_of_sl", False))
-        target_reach = bool(feat.get("target_reachable", False))
-        target_room_atr = float(feat.get("target_room_atr_m1", 3.5) or 3.5)
-        spread_ratio = float(feat.get("spread_to_atr_m1_ratio", 0.35) or 0.35)
-        stop_forensic = str(tr.get("stop_vs_structure_classification") or "SL_AND_STRUCTURE_BROKEN_SAME_BAR")
-
-        # Determine all applicable taxonomy categories for this specific episode
-        categories: List[str] = []
-        if disp_ratio < 0.55:
-            categories.append("CAUSAL_SETUP_GENUINELY_BAD_WEAK_DISPLACEMENT")
-        if direction == "LONG" and h4_b in ("ABSENT", "INSUFFICIENT", "NEUTRAL") and h1_b in ("ABSENT", "INSUFFICIENT", "NEUTRAL", "BEARISH"):
-            categories.append("WRONG_DIRECTION_FALLBACK_ON_MISSING_OR_NEUTRAL_HTF")
-        if htf_state in ("COUNTERTREND", "MIXED"):
-            categories.append("MISSING_OR_COUNTER_HTF_TREND_ALIGNMENT")
-        if not retrace_ok:
-            categories.append("DELAYED_OR_MISSING_RETRACE_RETEST_IMPULSE_CHASE")
-        if stop_forensic == "SL_WICK_HIT_STRUCTURE_HELD" or not prot_indep:
-            categories.append("MICRO_LIQUIDITY_SWEPT_BEFORE_CONFIRMATION")
-        if not target_reach or target_room_atr > 6.5:
-            categories.append("POOR_TARGET_ROOM_OR_OPPOSING_LIQUIDITY_WALL")
-        if spread_ratio > 0.55 or str(tr.get("session", "")) in ("WEEKEND_CLOSED", "ASIA_OFF_HOURS"):
-            categories.append("QUOTE_SPREAD_OR_INTRASESSION_DATA_GAP")
-        if not categories:
-            categories.append("GENUINE_POST_ENTRY_ADVERSE_EXCURSION_UNKNOWN")
-
-        primary_category = categories[0]
-        for c in categories:
-            category_counts[c] = category_counts.get(c, 0) + 1
-
-        si_outcomes = dict(p_dec_map.get(opp_id) or {})
-        if not si_outcomes:
-            si_outcomes = {
-                "SI1_MODEL_QUALITY_AND_ARBITRATION": (
-                    "REJECTED_BY_SI1_CONT_QUALITY"
-                    if (disp_ratio < 0.55 or not retrace_ok)
-                    else "ARBITRATION_EVALUATED"
-                ),
-                "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": (
-                    "REJECTED_BY_SI2_HTF_MISALIGNMENT"
-                    if htf_state != "ALIGNED"
-                    else "ELIGIBLE_HTF_ALIGNED"
-                ),
-                "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": (
-                    "WAITING_CONFIRMATION_NO_BACKDATE"
-                    if (disp_ratio < 0.55 or not retrace_ok)
-                    else "CONFIRMED_DISPLACEMENT"
-                ),
-                "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": (
-                    "REJECTED_BY_SI4_NO_UNICORN_OR_SWEEP"
-                    if str(feat.get("unicorn_classification", "NONE")) != "UNICORN_CONFIRMED"
-                    else "ELIGIBLE_UNICORN"
-                ),
-                "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": (
-                    "REJECTED_BY_SI5_STRUCTURE_OR_TARGET"
-                    if (not prot_indep or not target_reach)
-                    else "ELIGIBLE_STRUCTURAL_SL_TP"
-                ),
-                "SI6_COMBINED_PREDECLARED": "REJECTED_OR_WAITING_CONFIRMATION",
-            }
-
-        casebook_rows.append(
-            {
-                "case_index": idx,
-                "opportunity_id": opp_id,
-                "episode_id": str(tr.get("setup_episode_id") or f"ep_cont_{direction}_{sig_ts}"),
-                "checkpoint_index_1m": int(tr.get("checkpoint_index_1m") or 0),
-                "signal_ts_ms": sig_ts,
-                "entry_ts_ms": int(tr.get("entry_ts_ms") or (sig_ts + 60_000)),
-                "exit_ts_ms": int(tr.get("exit_ts_ms") or 0),
-                "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
-                "direction": direction,
-                "session": str(tr.get("session") or "UNKNOWN"),
-                "h4_bias": h4_b,
-                "h1_bias": h1_b,
-                "m15_bias": m15_b,
-                "m5_bias": m5_b,
-                "htf_alignment_state": htf_state,
-                "displacement_body_atr_ratio": round(disp_ratio, 4),
-                "continuation_retrace_valid": retrace_ok,
-                "entry_reference": float(tr.get("planned_entry") or tr.get("entry_price") or 0.0),
-                "executed_entry_price": float(tr.get("entry_price") or 0.0),
-                "selected_sl": float(tr.get("selected_sl") or 0.0),
-                "protected_structure_price": feat.get("protected_structure_price"),
-                "protected_structure_independent_of_sl": prot_indep,
-                "take_profit": float(tr.get("take_profit") or 0.0),
-                "quantity": float(tr.get("quantity") or 0.0),
-                "spread_usd": float(tr.get("spread_usd") or 0.35),
-                "total_fees_usd": float(tr.get("total_fees_usd") or 0.0),
-                "mfe_r": round(float(tr.get("mfe_r") or 0.0), 4),
-                "mae_r": round(float(tr.get("mae_r") or -1.0), 4),
-                "realized_gross_usd": round(float(tr.get("realized_gross_usd") or 0.0), 4),
-                "realized_net_usd": round(float(tr.get("realized_net_usd") or 0.0), 4),
-                "realized_net_r": round(float(tr.get("realized_net_r") or -1.0), 4),
-                "stop_vs_structure_classification": stop_forensic,
-                "primary_failure_category": primary_category,
-                "all_failure_categories": categories,
-                "policy_counterfactual_outcomes": si_outcomes,
-                "code_defect_call_chain": (
-                    "SharedStrategyEvaluator._extract_causal_setup_descriptors(SMC_M1_CONTINUATION) "
-                    "triggered on single M1 close > last_sh without displacement body check, "
-                    "retrace check, or H4/H1 trend alignment."
-                ),
-            }
-        )
-
-    return {
-        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
-        "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
-        "baseline_closed_trades_count": len(cont_closed_losses),
-        "baseline_wins_count": 0,
-        "baseline_losses_count": len(cont_closed_losses),
-        "baseline_loss_rate": 1.0 if cont_closed_losses else 0.0,
-        "failure_taxonomy_counts": category_counts,
-        "verified_code_level_defects": [
-            {
-                "defect_id": "DEF-CONT-01",
-                "location": "backend/services/shared_strategy_evaluator.py::_extract_causal_setup_descriptors (lines 1922-1963)",
-                "mechanism": "Triggers continuation whenever last_close > last_sh.price on any M1 bar regardless of candle body size vs ATR1M or upper wick rejection.",
-                "repair_in_v1793122": "SI1/SI3/SI6 require displacement_body_atr_ratio >= 0.55 and confirmed close or place setup in WAITING_CONFIRMATION.",
-            },
-            {
-                "defect_id": "DEF-CONT-02",
-                "location": "backend/services/shared_strategy_evaluator.py::resolve_canonical_preferred_direction (lines 3452-3477)",
-                "mechanism": "Defaults missing/neutral HTF bias to LONG or 10-bar close delta without verifying H4/H1 structural trend alignment.",
-                "repair_in_v1793122": "SI2/SI6 enforce resolve_research_preferred_direction_v1793122 and require htf_alignment_state == ALIGNED for continuation.",
-            },
-            {
-                "defect_id": "DEF-CONT-03",
-                "location": "backend/services/shared_strategy_evaluator.py::_extract_causal_setup_descriptors (lines 1929-1935)",
-                "mechanism": "Enters at impulse breakout extreme without checking whether a pullback/retrace occurred.",
-                "repair_in_v1793122": "SI1/SI3/SI6 require continuation_retrace_valid or wait for retest confirmation.",
-            },
-        ],
-        "cases": casebook_rows,
-    }
+    """All observed closed continuation losses, retaining UNKNOWN without proof."""
+    from collections import Counter
+    trades=[dict(t) for t in baseline_trades
+            if str(t.get("model_id"))==ModelIdentifier.SMC_M1_CONTINUATION.value
+            and str(t.get("exit_reason","")) in ("SL","TP","BOTH_SAME_BAR_CONSERVATIVE_SL")
+            and float(t.get("realized_net_usd",0) or 0)<0]
+    rows=_observed_case_rows_v1793127(trades,feature_ledger_by_opp_id,policy_decisions_by_opp_id)
+    return {"schema_version":"17.9.3.1.2.7","model_id":ModelIdentifier.SMC_M1_CONTINUATION.value,
+            "baseline_closed_trades_count":len(trades),"baseline_wins_count":0,
+            "baseline_losses_count":len(trades),"baseline_loss_rate":1.0 if trades else None,
+            "failure_taxonomy_counts":dict(Counter(r["primary_failure_category"] for r in rows)),
+            "verified_code_level_defects":[],"cases":rows}
 
 
 def build_reversal_and_fvg_failure_casebook_v1793122(
-    *,
-    baseline_trades: Sequence[Mapping[str, Any]],
+    *, baseline_trades: Sequence[Mapping[str, Any]],
     feature_ledger_by_opp_id: Mapping[str, Mapping[str, Any]],
 ) -> Dict[str, Any]:
-    """
-    Section 05.B, 05.C, 05.D:
-    Audits `SMC_M1_REVERSAL` (6W/84L) and `SMC_M1_FVG_CONTINUATION` (3W/49L) closed trades,
-    plus `SMC_M1_SWEEP_RECLAIM` and `CG01_SWEEP_MSS_FVG` static priority starvation.
-    """
-    rev_trades = [
-        dict(t)
-        for t in baseline_trades
-        if str(t.get("model_id")) == ModelIdentifier.SMC_M1_REVERSAL.value
-        and str(t.get("exit_reason", "")) in ("SL", "TP", "BOTH_SAME_BAR_CONSERVATIVE_SL")
-    ]
-    fvg_trades = [
-        dict(t)
-        for t in baseline_trades
-        if str(t.get("model_id")) == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value
-        and str(t.get("exit_reason", "")) in ("SL", "TP", "BOTH_SAME_BAR_CONSERVATIVE_SL")
-    ]
-
-    rev_breakdown: Dict[str, int] = {
-        "TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT": 0,
-        "COUNTER_INTACT_H1_H4_IMPULSE": 0,
-        "NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM": 0,
-        "SL_WICK_HIT_PROTECTED_STRUCTURE_HELD": 0,
-        "CONFIRMED_REVERSAL_WITH_SWEEP_AND_MSS": 0,
-    }
-    rev_samples: List[Dict[str, Any]] = []
-
-    for t in rev_trades:
-        opp_id = str(t.get("opportunity_id") or "")
-        feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
-        is_win = float(t.get("realized_net_usd", 0.0) or 0.0) > 0.0
-        disp_ok = bool(feat.get("displacement_valid", False))
-        mss_ok = bool(feat.get("mss_confirmed", False))
-        swp_ok = bool(feat.get("sweep_confirmed", False) and feat.get("sweep_reclaimed", False))
-        htf_st = str(feat.get("htf_alignment_state", "MIXED")).upper()
-        stop_cls = str(t.get("stop_vs_structure_classification") or "")
-
-        tags: List[str] = []
-        if not (mss_ok and disp_ok):
-            rev_breakdown["TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT"] += 1
-            tags.append("TAKEN_BEFORE_CONFIRMED_MSS_DISPLACEMENT")
-        if htf_st == "COUNTERTREND":
-            rev_breakdown["COUNTER_INTACT_H1_H4_IMPULSE"] += 1
-            tags.append("COUNTER_INTACT_H1_H4_IMPULSE")
-        if not swp_ok:
-            rev_breakdown["NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM"] += 1
-            tags.append("NOISE_SWEEP_UNDER_2_TICKS_OR_NO_RECLAIM")
-        if stop_cls == "SL_WICK_HIT_STRUCTURE_HELD":
-            rev_breakdown["SL_WICK_HIT_PROTECTED_STRUCTURE_HELD"] += 1
-            tags.append("SL_WICK_HIT_PROTECTED_STRUCTURE_HELD")
-        if swp_ok and mss_ok and disp_ok:
-            rev_breakdown["CONFIRMED_REVERSAL_WITH_SWEEP_AND_MSS"] += 1
-            tags.append("CONFIRMED_REVERSAL_WITH_SWEEP_AND_MSS")
-
-        if len(rev_samples) < 25 or is_win:
-            rev_samples.append(
-                {
-                    "opportunity_id": opp_id,
-                    "signal_ts_ms": int(t.get("signal_ts_ms") or 0),
-                    "direction": t.get("direction"),
-                    "outcome": "WIN" if is_win else "LOSS",
-                    "realized_net_r": round(float(t.get("realized_net_r") or 0.0), 4),
-                    "htf_alignment_state": htf_st,
-                    "sweep_confirmed": swp_ok,
-                    "mss_confirmed": mss_ok,
-                    "displacement_valid": disp_ok,
-                    "failure_tags": tags,
-                }
-            )
-
-    fvg_breakdown: Dict[str, int] = {
-        "ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP": 0,
-        "STALE_OR_ALREADY_MITIGATED_FVG_ZONE": 0,
-        "MISSING_DISPLACEMENT_OR_INVALID_RETEST": 0,
-        "HTF_DIRECTION_CONFLICT": 0,
-        "INSUFFICIENT_STRUCTURAL_ROOM_TO_TP": 0,
-        "TRUE_UNICORN_CONFIRMED": 0,
-    }
-    fvg_samples: List[Dict[str, Any]] = []
-
-    for t in fvg_trades:
-        opp_id = str(t.get("opportunity_id") or "")
-        feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
-        is_win = float(t.get("realized_net_usd", 0.0) or 0.0) > 0.0
-        u_cls = str(feat.get("unicorn_classification") or "FVG_ONLY").upper()
-        fvg_age = int(feat.get("fvg_age_bars_m1", 10) or 10)
-        fvg_unmit = bool(feat.get("fvg_unmitigated", True))
-        fvg_ret = bool(feat.get("fvg_retest_valid", False))
-        disp_ok = bool(feat.get("displacement_valid", False))
-        htf_st = str(feat.get("htf_alignment_state", "MIXED")).upper()
-        reach_ok = bool(feat.get("target_reachable", True))
-
-        tags = []
-        if u_cls != "UNICORN_CONFIRMED":
-            fvg_breakdown["ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP"] += 1
-            tags.append("ISOLATED_FVG_ONLY_NO_CAUSAL_BREAKER_OVERLAP")
-        else:
-            fvg_breakdown["TRUE_UNICORN_CONFIRMED"] += 1
-            tags.append("TRUE_UNICORN_CONFIRMED")
-        if fvg_age > 24 or not fvg_unmit:
-            fvg_breakdown["STALE_OR_ALREADY_MITIGATED_FVG_ZONE"] += 1
-            tags.append("STALE_OR_ALREADY_MITIGATED_FVG_ZONE")
-        if not (disp_ok and fvg_ret):
-            fvg_breakdown["MISSING_DISPLACEMENT_OR_INVALID_RETEST"] += 1
-            tags.append("MISSING_DISPLACEMENT_OR_INVALID_RETEST")
-        if htf_st != "ALIGNED":
-            fvg_breakdown["HTF_DIRECTION_CONFLICT"] += 1
-            tags.append("HTF_DIRECTION_CONFLICT")
-        if not reach_ok:
-            fvg_breakdown["INSUFFICIENT_STRUCTURAL_ROOM_TO_TP"] += 1
-            tags.append("INSUFFICIENT_STRUCTURAL_ROOM_TO_TP")
-
-        if len(fvg_samples) < 25 or is_win:
-            fvg_samples.append(
-                {
-                    "opportunity_id": opp_id,
-                    "signal_ts_ms": int(t.get("signal_ts_ms") or 0),
-                    "direction": t.get("direction"),
-                    "outcome": "WIN" if is_win else "LOSS",
-                    "realized_net_r": round(float(t.get("realized_net_r") or 0.0), 4),
-                    "unicorn_classification": u_cls,
-                    "fvg_age_bars_m1": fvg_age,
-                    "fvg_retest_valid": fvg_ret,
-                    "htf_alignment_state": htf_st,
-                    "failure_tags": tags,
-                }
-            )
-
-    return {
-        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
-        "smc_m1_reversal_audit": {
-            "closed_trades_count": len(rev_trades),
-            "wins_count": sum(1 for t in rev_trades if float(t.get("realized_net_usd", 0.0) or 0.0) > 0.0),
-            "losses_count": sum(1 for t in rev_trades if float(t.get("realized_net_usd", 0.0) or 0.0) <= 0.0),
-            "failure_mechanism_breakdown": rev_breakdown,
-            "code_call_chain_defect": (
-                "SharedStrategyEvaluator._extract_causal_setup_descriptors (lines 1966-2053) "
-                "accepts any 5-bar low/high touch with close back inside or 18-bar extreme with FVG "
-                "without verifying MSS break or displacement, and takes priority #1 over all other models."
-            ),
-            "representative_cases": rev_samples,
-        },
-        "smc_m1_fvg_continuation_audit": {
-            "closed_trades_count": len(fvg_trades),
-            "wins_count": sum(1 for t in fvg_trades if float(t.get("realized_net_usd", 0.0) or 0.0) > 0.0),
-            "losses_count": sum(1 for t in fvg_trades if float(t.get("realized_net_usd", 0.0) or 0.0) <= 0.0),
-            "failure_mechanism_breakdown": fvg_breakdown,
-            "code_call_chain_defect": (
-                "SharedStrategyEvaluator._extract_causal_setup_descriptors (lines 1809-1920) "
-                "selects dir_fvgs[-1] from a 120-bar M1 window without checking FVG staleness (>24 bars), "
-                "whether price is actually retesting the FVG, or whether a causal Breaker overlaps the FVG."
-            ),
-            "representative_cases": fvg_samples,
-        },
-        "starved_models_arbitration_root_cause": {
-            "SMC_M1_SWEEP_RECLAIM": {
-                "baseline_eligible_count": 7991,
-                "baseline_selected_count": 0,
-                "code_root_cause": (
-                    "Shares the exact 5-bar sweep-reclaim branch in _extract_causal_setup_descriptors "
-                    "(lines 1965-2053) with SMC_M1_REVERSAL, so whenever SMC_M1_SWEEP_RECLAIM is eligible, "
-                    "SMC_M1_REVERSAL (#1 priority) is also eligible at the same timestamp and wins 100% of static ties."
-                ),
-            },
-            "CG01_SWEEP_MSS_FVG": {
-                "baseline_eligible_count": 17898,
-                "baseline_selected_count": 0,
-                "code_root_cause": (
-                    "Shares the exact FVG branch in _extract_causal_setup_descriptors (lines 1809-1920) "
-                    "with SMC_M1_FVG_CONTINUATION (#3 priority), so whenever CG01_SWEEP_MSS_FVG (#5 priority) "
-                    "is eligible, SMC_M1_FVG_CONTINUATION is also eligible at the same timestamp and wins 100% of static ties."
-                ),
-            },
-        },
-    }
+    """Observed model accounting and source-bound tags; no invented starvation counts."""
+    from collections import Counter
+    result={"schema_version":"17.9.3.1.2.7"}
+    for model,key in ((ModelIdentifier.SMC_M1_REVERSAL.value,"smc_m1_reversal_audit"),
+                      (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,"smc_m1_fvg_continuation_audit")):
+        trades=[dict(t) for t in baseline_trades if str(t.get("model_id"))==model
+                and str(t.get("exit_reason","")) in ("SL","TP","BOTH_SAME_BAR_CONSERVATIVE_SL")]
+        rows=_observed_case_rows_v1793127(trades,feature_ledger_by_opp_id)
+        result[key]={"closed_trades_count":len(trades),
+                     "wins_count":sum(float(t.get("realized_net_usd",0) or 0)>0 for t in trades),
+                     "losses_count":sum(float(t.get("realized_net_usd",0) or 0)<=0 for t in trades),
+                     "failure_mechanism_breakdown":dict(Counter(r["primary_failure_category"] for r in rows)),
+                     "code_call_chain_defect":"NOT_ESTABLISHED_FROM_TRADE_OUTCOMES",
+                     "representative_cases":rows}
+    result["starved_models_arbitration_root_cause"]={
+        model:{"baseline_eligible_count":None,"baseline_selected_closed_count":sum(str(t.get("model_id"))==model for t in baseline_trades),
+               "code_root_cause":"UNKNOWN_REQUIRES_FULL_OPPORTUNITY_AND_ARBITRATION_LEDGER"}
+        for model in (ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,ModelIdentifier.CG01_SWEEP_MSS_FVG.value)}
+    return result
 
 
 def evaluate_all_52_acceptance_gates_v1793122(

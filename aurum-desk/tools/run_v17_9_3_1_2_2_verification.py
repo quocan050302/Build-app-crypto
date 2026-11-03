@@ -387,8 +387,11 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         cmd_argv = [py_exe, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"]
         start_utc = datetime.now(timezone.utc).isoformat()
         log_path=xml_path.with_suffix(".log")
+        child_env=dict(os.environ)
+        child_budget=max(1,int(child_env.get("AURUM_GLOBAL_PROCESS_BUDGET","4"))-1)
+        child_env["AURUM_GLOBAL_PROCESS_BUDGET"]=str(child_budget)
         with log_path.open("w",encoding="utf-8") as log:
-            proc = subprocess.Popen(cmd_argv,cwd=str(APP_ROOT),stdout=log,stderr=subprocess.STDOUT,text=True)
+            proc = subprocess.Popen(cmd_argv,cwd=str(APP_ROOT),env=child_env,stdout=log,stderr=subprocess.STDOUT,text=True)
             shard_pid = int(proc.pid)
             try: proc.wait(timeout=1800)
             except subprocess.TimeoutExpired:
@@ -459,6 +462,7 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             "xml_sha256": xml_sha256,
             "stderr_tail": (err_str or "")[-400:],
             "stdout_stderr_log_path":str(log_path),
+            "nested_process_budget":child_budget,
             "junit_xml_path": str(xml_path.relative_to(APP_ROOT)) if xml_path.is_relative_to(APP_ROOT) else str(xml_path),
             "_junit_ids": shard_junit_ids,
         }
@@ -860,31 +864,42 @@ def run_16_executable_red_green_source_mutations_v1793122(
                 if f_key == "types"
                 else sandbox_services / "v17_9_3_1_2_2_signal_intelligence.py"
             )
+            original_bytes=target_path.read_bytes()
             orig_text = orig_types_text if f_key == "types" else orig_si_text
             assert target_s in orig_text, f"Target string for {m_id} not found in {target_path.name}"
 
             # 1. Apply source mutation (RED run)
             mut_text = orig_text.replace(target_s, repl_s)
-            target_path.write_text(mut_text, encoding="utf-8")
-            red_proc = subprocess.run(
+            target_path.write_bytes(mut_text.encode("utf-8"))
+            red_source_sha=hashlib.sha256(target_path.read_bytes()).hexdigest()
+            red_start_ns=time.time_ns()
+            red_proc = subprocess.Popen(
                 [py_exe, "-c", probe_code],
                 cwd=str(tmp_root),
                 env=env,
-                capture_output=True,
-                text=True,
-                check=False,
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,
             )
 
+            try:red_out,red_err=red_proc.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                red_proc.terminate();red_proc.wait(timeout=15);raise
+            red_end_ns=time.time_ns()
+
             # 2. Restore original source (GREEN run)
-            target_path.write_text(orig_text, encoding="utf-8")
-            green_proc = subprocess.run(
+            target_path.write_bytes(original_bytes)
+            green_start_ns=time.time_ns()
+            green_proc = subprocess.Popen(
                 [py_exe, "-c", probe_code],
                 cwd=str(tmp_root),
                 env=env,
-                capture_output=True,
-                text=True,
-                check=False,
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,
             )
+
+            try:green_out,green_err=green_proc.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                green_proc.terminate();green_proc.wait(timeout=15);raise
+            green_end_ns=time.time_ns()
+            restored_source=target_path.read_bytes()==original_bytes
 
             caught_red = red_proc.returncode != 0
             restored_green = green_proc.returncode == 0
@@ -896,7 +911,12 @@ def run_16_executable_red_green_source_mutations_v1793122(
                 "green_exit_code": green_proc.returncode,
                 "caught_red": caught_red,
                 "restored_green": restored_green,
-                "passed_control": bool(caught_red and restored_green),
+                "passed_control": bool(caught_red and restored_green and restored_source),
+                "red_pid":red_proc.pid,"green_pid":green_proc.pid,
+                "red_start_ns":red_start_ns,"red_end_ns":red_end_ns,"green_start_ns":green_start_ns,"green_end_ns":green_end_ns,
+                "red_source_sha256":red_source_sha,"original_source_sha256":hashlib.sha256(original_bytes).hexdigest(),
+                "restored_source_sha256":hashlib.sha256(target_path.read_bytes()).hexdigest(),
+                "red_stderr_tail":red_err[-400:],"green_stderr_tail":green_err[-400:],
             }
 
     with ThreadPoolExecutor(max_workers=max(1,min(4,int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS","1"))))) as ex_mut:

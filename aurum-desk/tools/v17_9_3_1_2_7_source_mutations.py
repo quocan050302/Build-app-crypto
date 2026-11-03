@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import xml.etree.ElementTree as ET
 
 APP=Path(__file__).resolve().parents[1]
 SPECS=(
@@ -22,6 +24,16 @@ SPECS=(
  ("ab",'if actual!=claim:', 'if False:'),
  ("ab",'"IDENTICAL_ON_TESTED_DATA" if diff["changed_count"]==0 and all(r["net_usd_delta"]==0 for r in pairs)', '"DIFFERENT_ON_TESTED_DATA" if diff["changed_count"]==0 and all(r["net_usd_delta"]==0 for r in pairs)'),
 )
+SELECTORS=("test_injected_optimistic_feature_without_proof_rejected",
+ "test_edit_flat_flag_invalidates_proof", "test_point_in_time_and_source_hash and partial",
+ "test_missing_decision_timestamp_fails_closed", "test_missing_baseline_proof_remains_unknown_and_synthetic",
+ "test_provider_label_without_source_receipt_not_promoted_to_real",
+ "test_rr_and_quick_loss_do_not_invent_target_or_premature_cause",
+ "test_matched_identity_and_accounting_negative_controls and duplicate",
+ "test_raw_index_rejects_missing_source_before_matching",
+ "test_matched_identity_and_accounting_negative_controls and changed_fee",
+ "test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl",
+ "test_si8_si9_identity_reported_honestly")
 
 
 def run_new_source_mutations(output_dir):
@@ -43,19 +55,39 @@ def run_new_source_mutations(output_dir):
             source=target.read_text(encoding="utf-8")
             if old not in source: raise ValueError("MUTATION_TARGET_NOT_FOUND:"+old)
             target.write_text(source.replace(old,new,1),encoding="utf-8")
+            red_source_sha=hashlib.sha256(target.read_bytes()).hexdigest()
             env=os.environ.copy()
             env["PYTHONPATH"]=os.pathsep.join([str(temp),str(APP/"backend"),str(APP),env.get("PYTHONPATH","")])
             env["PYTHONDONTWRITEBYTECODE"]="1"
-            cmd=[sys.executable,"-B","-m","pytest",str(test),"--noconftest","-q"]
+            cmd=[sys.executable,"-B","-m","pytest",str(test),"--noconftest","-q","-k",SELECTORS[n-1]]
             log=output_dir/f"M{n:02d}_red.log"
             with log.open("w",encoding="utf-8") as stream:
-                red=subprocess.run(cmd,cwd=temp,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=120)
+                red_start=time.time_ns()
+                red=subprocess.Popen(cmd+["--junitxml="+str(output_dir/f"M{n:02d}_red.xml")],cwd=temp,env=env,stdout=stream,stderr=subprocess.STDOUT)
+                try:red.wait(timeout=120)
+                except subprocess.TimeoutExpired:
+                    red.terminate();red.wait(timeout=15);raise
+                red_end=time.time_ns()
             shutil.copyfile(originals[kind],target)
             with (output_dir/f"M{n:02d}_green.log").open("w",encoding="utf-8") as stream:
-                green=subprocess.run(cmd,cwd=temp,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=120)
+                green_start=time.time_ns()
+                green=subprocess.Popen(cmd+["--junitxml="+str(output_dir/f"M{n:02d}_green.xml")],cwd=temp,env=env,stdout=stream,stderr=subprocess.STDOUT)
+                try:green.wait(timeout=120)
+                except subprocess.TimeoutExpired:
+                    green.terminate();green.wait(timeout=15);raise
+                green_end=time.time_ns()
+            red_cases=list(ET.parse(output_dir/f"M{n:02d}_red.xml").getroot().iter("testcase"))
+            green_cases=list(ET.parse(output_dir/f"M{n:02d}_green.xml").getroot().iter("testcase"))
+            red_failed=[c.get("name") for c in red_cases if c.find("failure") is not None]
+            executed_same=bool(green_cases) and sorted(c.get("name") for c in red_cases)==sorted(c.get("name") for c in green_cases)
             rows.append({"id":f"NEW_M{n:02d}","source":str(originals[kind].relative_to(APP)),
                          "target":old,"red_exit_code":red.returncode,"green_exit_code":green.returncode,
-                         "red_sha256":hashlib.sha256(log.read_bytes()).hexdigest()})
+                         "red_failed_test_names":red_failed,"same_selected_tests_executed":executed_same,
+                         "red_pid":red.pid,"green_pid":green.pid,"red_start_ns":red_start,"red_end_ns":red_end,
+                         "green_start_ns":green_start,"green_end_ns":green_end,
+                         "red_source_sha256":red_source_sha,"restored_source_sha256":hashlib.sha256(target.read_bytes()).hexdigest(),
+                         "red_log_sha256":hashlib.sha256(log.read_bytes()).hexdigest(),
+                         "green_log_sha256":hashlib.sha256((output_dir/f"M{n:02d}_green.log").read_bytes()).hexdigest()})
     unchanged=all(hashlib.sha256(p.read_bytes()).hexdigest()==digests[k] for k,p in originals.items())
-    return {"status":"PASS" if unchanged and all(r["red_exit_code"]!=0 and r["green_exit_code"]==0 for r in rows) else "FAIL",
+    return {"status":"PASS" if unchanged and all(r["red_exit_code"]==1 and r["green_exit_code"]==0 and r["red_failed_test_names"] and r["same_selected_tests_executed"] for r in rows) else "FAIL",
             "count":len(rows),"source_restored":unchanged,"mutations":rows}

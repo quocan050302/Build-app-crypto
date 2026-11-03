@@ -142,6 +142,9 @@ class BoundedAsyncTestOrchestrator:
             1,
             min(8, int(max_global_workers if max_global_workers is not None else self.max_pytest_workers)),
         )
+        inherited_budget=os.environ.get("AURUM_GLOBAL_PROCESS_BUDGET")
+        if inherited_budget is not None:
+            self.max_global_workers=min(self.max_global_workers,max(1,int(inherited_budget)))
         self._global_semaphore = asyncio.Semaphore(self.max_global_workers)
         self._semaphores: Dict[str, asyncio.Semaphore] = {}
         self._active_workers: int = 0

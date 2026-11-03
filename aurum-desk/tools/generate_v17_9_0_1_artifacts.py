@@ -476,7 +476,10 @@ def evaluate_historical_multi_runtime_parity(
         )
         bt_lineage_reconciliation.update(regenerated_prov)
         bt_lineage_reconciliation["cache_provenance"] = dict(regenerated_prov)
-        _write_lf_bytes(lineage_rec_path, json.dumps(bt_lineage_reconciliation, indent=2) + "\n")
+        artifact_root=os.environ.get("AURUM_VERIFICATION_ARTIFACT_ROOT")
+        lineage_output=(Path(artifact_root)/"legacy_trade_decision_lineage_reconciliation.json") if artifact_root else lineage_rec_path
+        lineage_output.parent.mkdir(parents=True,exist_ok=True)
+        _write_lf_bytes(lineage_output, json.dumps(bt_lineage_reconciliation, indent=2) + "\n")
         cache_validation_report = validate_cached_trade_ledger_provenance(
             bt_lineage_reconciliation,
             regenerated_prov,
@@ -677,7 +680,7 @@ def evaluate_historical_multi_runtime_parity(
                         "bid": bid,
                         "ask": ask,
                         "last": last_close,
-                        "timestamp": ts - 50,
+                        "timestamp": quote.exchange_ts_ms,
                         "source": "HISTORICAL_PARITY_REPLAY",
                         "status": "VALID",
                         "freshness_sec": 0.05,
@@ -1786,7 +1789,7 @@ def compute_cross_runtime_parity_report(
                     "bid": series["bid"],
                     "ask": series["ask"],
                     "last": round((series["bid"] + series["ask"]) / 2.0, 2),
-                    "timestamp": decision_ms - 50,
+                    "timestamp": quote.exchange_ts_ms,
                     "source": "WS",
                     "status": "VALID",
                     "freshness_sec": 0.05,

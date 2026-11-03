@@ -1680,6 +1680,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
 
     # 10. OOS Walk-Forward Purging, Holdout Pre-Registration & Statistical Uncertainty (21, 22, 23)
     oos_policies: Dict[str, Any] = {}
+    measured_cross_partition_leakage=0
     embargo_ms = 180 * 60_000
     b1_ms = 1791676800000  # 2026-10-11T00:00:00Z
     b2_ms = 1792195200000  # 2026-10-17T00:00:00Z
@@ -1699,6 +1700,8 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         ]
         hold_eps = [e for e in eps if int(e.get("entry_ts_ms") or 0) >= b2_ms + embargo_ms]
         purged_cnt = len(eps) - (len(dev_eps) + len(val_eps) + len(hold_eps))
+        groups=[{str(e["opportunity_id"]) for e in rows} for rows in (dev_eps,val_eps,hold_eps)]
+        measured_cross_partition_leakage += sum(len(groups[i]&groups[j]) for i in range(3) for j in range(i+1,3))
 
         def _part_stat(p_eps: List[Dict[str, Any]]) -> Dict[str, Any]:
             n = len(p_eps)
@@ -1725,7 +1728,8 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
         "total_splits_evaluated": 3,
         "embargo_bars_m1": 180,
-        "cross_partition_leakage_count": 0,
+        "cross_partition_leakage_count": measured_cross_partition_leakage,
+        "split_boundaries_ms": [b1_ms,b2_ms],
         "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
         "policies": oos_policies,
     }

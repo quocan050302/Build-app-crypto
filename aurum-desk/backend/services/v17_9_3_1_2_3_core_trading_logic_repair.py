@@ -438,6 +438,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
     new_si8_valid_when_baseline_no_setup = 0
     new_si8_valid_when_baseline_waiting = 0
 
+    checkpoint_audit_rows: List[Dict[str, Any]] = []
     discovered_samples: List[Dict[str, Any]] = []
     si8_discovered_decisions_by_checkpoint_index: Dict[int, List[Dict[str, Any]]] = {}
     si8_discovered_feature_ledger_by_opp_id: Dict[str, Dict[str, Any]] = {}
@@ -541,6 +542,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
         ctx_off = replace(base_ctx, policy_config_snapshot=snap_off)
         ctx_si7 = replace(base_ctx, policy_config_snapshot=snap_si7)
         ctx_si8 = replace(base_ctx, policy_config_snapshot=snap_si8)
+        ctx_observe = replace(base_ctx,policy_config_snapshot=tuple(sorted({**dict(snap_si8),"v17_9_3_1_2_2_signal_intelligence_mode":"OBSERVE_ONLY"}.items())))
         if not legacy_mismatch_verified:
             ctx_legacy_bad = replace(base_ctx, policy_config_snapshot=snap_bad)
             s_bad = evaluator.evaluate_model_direction(
@@ -555,15 +557,23 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                 and "SI_INVALID_MODE_FAIL_CLOSED" in legacy_mismatch_rejection_reasons
             )
 
+        audit_source_hash=base_ctx.compute_market_input_hash()
+        audit_max_closed=max((int(b.get("close_time",0)) for seq in (w_1m,w_5m,w_15m,w_1h,w_4h) for b in seq),default=0)
         for m_id in CANONICAL_5_MODELS_V1793123:
             for d_side in ("LONG", "SHORT"):
                 funnel_by_model[m_id]["observed"] += 1
                 s_off = evaluator.evaluate_model_direction(ctx_off, m_id, d_side, adapter_origin="BACKTEST")
                 s_si8 = evaluator.evaluate_model_direction(ctx_si8, m_id, d_side, adapter_origin="BACKTEST")
-                if s_off.decision_status == "ELIGIBLE" or s_si8.decision_status == "ELIGIBLE":
-                    s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
-                else:
-                    s_si7 = s_si8
+                s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
+                s_observe = evaluator.evaluate_model_direction(ctx_observe,m_id,d_side,adapter_origin="BACKTEST")
+                checkpoint_audit_rows.append({
+                    "checkpoint_index_1m":idx_1m,"decision_timestamp_ms":cur_ts,
+                    "model_id":m_id,"direction":d_side,
+                    "off_status":s_off.decision_status,"si7_status":s_si7.decision_status,"si8_status":s_si8.decision_status,
+                    "off_action_hash":s_off.trade_action_fingerprint,"observe_action_hash":s_observe.trade_action_fingerprint,
+                    "source_snapshot_hash":audit_source_hash,
+                    "max_closed_bar_ms":audit_max_closed,
+                    "quote_source_kind":base_ctx.quote_source_kind})
 
                 baseline_has_desc = bool(s_off.selected_sweep_id or s_off.selected_break_id or s_off.selected_fvg_id)
                 baseline_waiting = (
@@ -732,6 +742,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                         )
 
     return {
+        "checkpoint_audit_rows":checkpoint_audit_rows,
         "off_eligible_by_model": off_eligible_by_model,
         "si7_eligible_by_model": si7_eligible_by_model,
         "si8_eligible_by_model": si8_eligible_by_model,
@@ -815,11 +826,39 @@ def discover_research_candidates_v1793123(
     ]
 
     effective_workers = min(max_workers, len(chunks)) if len(chunks) > 1 else 1
+    def persist_checkpoint(result,part):
+        import os,json,gzip,hashlib
+        from pathlib import Path
+        target=os.environ.get("AURUM_DISCOVERY_CHECKPOINT_DIR")
+        if not target:return
+        directory=Path(target)
+        directory.mkdir(parents=True,exist_ok=True)
+        rows=result["checkpoint_audit_rows"]
+        rows_hash=hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
+        path=directory/f"checkpoint_{part:05d}_{rows_hash[:16]}.json.gz"
+        payload={"tested_executable_sha":os.environ.get("AURUM_TESTED_EXECUTABLE_SHA"),
+                 "dataset_sha256":CANONICAL_DATASET_SHA256_V1793122,
+                 "core_source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                 "audit_rows_sha256":rows_hash,"rows":rows}
+        temp=path.with_suffix(path.suffix+".partial")
+        with temp.open("wb") as raw:
+            with gzip.GzipFile(fileobj=raw,mode="wb",mtime=0) as compressed:
+                compressed.write(json.dumps(payload,sort_keys=True,allow_nan=False).encode())
+            raw.flush()
+            os.fsync(raw.fileno())
+        os.replace(temp,path)
+        if part%5==0 or part==len(payloads):print(f"[discovery] {part}/{len(payloads)} checkpoint batches persisted",flush=True)
+    chunk_results=[]
     if effective_workers <= 1:
-        chunk_results = [_eval_checkpoints_chunk_v1793125(p) for p in payloads]
+        for part,payload in enumerate(payloads,1):
+            result=_eval_checkpoints_chunk_v1793125(payload)
+            persist_checkpoint(result,part)
+            chunk_results.append(result)
     else:
         with ProcessPoolExecutor(max_workers=effective_workers) as pool:
-            chunk_results = list(pool.map(_eval_checkpoints_chunk_v1793125, payloads))
+            for part,result in enumerate(pool.map(_eval_checkpoints_chunk_v1793125,payloads),1):
+                persist_checkpoint(result,part)
+                chunk_results.append(result)
 
     # Deterministic sequential aggregation
     off_eligible_by_model: Counter[str] = Counter()
@@ -860,7 +899,9 @@ def discover_research_candidates_v1793123(
     legacy_mismatch_verified = False
     legacy_mismatch_rejection_reasons: List[str] = []
 
+    checkpoint_audit_rows=[]
     for cr in chunk_results:
+        checkpoint_audit_rows.extend(cr["checkpoint_audit_rows"])
         off_eligible_by_model.update(cr["off_eligible_by_model"])
         si7_eligible_by_model.update(cr["si7_eligible_by_model"])
         si8_eligible_by_model.update(cr["si8_eligible_by_model"])
@@ -911,6 +952,7 @@ def discover_research_candidates_v1793123(
 
     return {
         "schema_version": V17_9_3_1_2_5_SCHEMA_VERSION,
+        "checkpoint_audit_rows":sorted(checkpoint_audit_rows,key=lambda r:(r["checkpoint_index_1m"],r["model_id"],r["direction"])),
         "evaluated_models": list(CANONICAL_5_MODELS_V1793123),
         "is_official_full_universe": is_official_full_universe,
         "test_only_checkpoint_override_applied": test_only_override_applied,

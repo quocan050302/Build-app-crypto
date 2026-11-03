@@ -9,7 +9,9 @@ from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 INTENT_FIELDS = ("accepted", "status", "new_decision_timestamp_ms", "new_entry_reference",
                  "new_selected_sl", "new_take_profit", "new_quantity", "rejection_reason")
 TRADE_FIELDS = ("entry_fill_ts", "exit_fill_ts", "entry_fill_price", "exit_fill_price",
-                "outcome_label", "realized_net_pnl_usd", "entry_fee_usd", "exit_fee_usd")
+                "outcome_label", "realized_net_pnl_usd", "entry_fee_usd", "exit_fee_usd",
+                "entry_reference","selected_sl","take_profit","executed_quantity",
+                "planned_net_risk_usd","realized_r","release_ts_ms")
 
 
 def _index(rows):
@@ -30,13 +32,20 @@ def _index(rows):
 def _money(row):
     if row is None or row.get("outcome_label") not in ("WIN", "LOSS"):
         return 0., 0.
+    if row.get("filled") is not True:
+        raise ValueError("CLOSED_OUTCOME_WITHOUT_FILL")
     fields = ("realized_gross_pnl_usd", "realized_net_pnl_usd", "entry_fee_usd", "exit_fee_usd")
     if any(row.get(k) is None or isinstance(row[k], bool) or not math.isfinite(float(row[k])) for k in fields):
         raise ValueError("MISSING_ACCOUNTING_COMPONENT")
     gross, net, ent, ext = (float(row[k]) for k in fields)
     if min(ent, ext)<0 or abs(gross-ent-ext-net)>.001:
         raise ValueError("FEE_NET_RECONCILIATION_MISMATCH")
-    return net, float(row.get("realized_r", 0.))
+    risk,r=row.get("planned_net_risk_usd"),row.get("realized_r")
+    if risk is None or r is None or isinstance(r,bool) or not math.isfinite(float(r)) or not math.isfinite(float(risk)) or float(risk)<=0:
+        raise ValueError("MISSING_REALIZED_R_OR_PLANNED_RISK")
+    if abs(float(r)-round(net/float(risk),4))>.0002:
+        raise ValueError("REALIZED_R_RISK_RECONCILIATION_MISMATCH")
+    return net, float(r)
 
 
 def compute_policy_decision_diff_v1793127(rows_a, rows_b):
@@ -68,6 +77,12 @@ def compute_policy_decision_diff_v1793127(rows_a, rows_b):
 def compute_matched_policy_ab_v1793127(decisions_a, decisions_b, trades_a, trades_b, *, comparison_id, fill_mode):
     diff=compute_policy_decision_diff_v1793127(decisions_a,decisions_b)
     a,b=_index(trades_a),_index(trades_b)
+    for decisions,trades in ((_index(decisions_a),a),(_index(decisions_b),b)):
+        for key in trades:
+            if key not in decisions:
+                raise ValueError("TRADE_WITHOUT_CANONICAL_DECISION")
+            if trades[key].get("filled") and decisions[key].get("accepted") is not True:
+                raise ValueError("FILLED_TRADE_FROM_REJECTED_DECISION")
     pairs=[]
     for key in sorted(a.keys()|b.keys()):
         ra,rb=a.get(key),b.get(key)
@@ -81,12 +96,15 @@ def compute_matched_policy_ab_v1793127(decisions_a, decisions_b, trades_a, trade
                       "paired_net_r_delta":xb-xa if paired_closed else None,
                       "net_usd_delta":round(nb-na,8)})
     deltas=[r["paired_net_r_delta"] for r in pairs if r["paired_closed"]]
+    trade_rows_equal=a.keys()==b.keys() and all(all(a[key].get(f)==b[key].get(f) for f in TRADE_FIELDS) for key in a)
     return {"comparison_id":comparison_id,"fill_mode":fill_mode,"pair_ledger":pairs,
             "pair_ledger_sha256":canonical_hash(pairs),"decision_diff":diff,
             "matched_closed_count":len(deltas),"paired_mean_net_r_delta":sum(deltas)/len(deltas) if deltas else None,
             "portfolio_net_usd_delta":round(sum(r["net_usd_delta"] for r in pairs),8),
+            "portfolio_accounting_basis":"CLOSED_REALIZED_ONLY_OPEN_AND_GAP_NOT_IMPUTED",
+            "marked_to_market_portfolio_delta":None,
             "incremental_edge_status":"INCREMENTAL_EDGE_NOT_DEMONSTRATED" if diff["changed_count"]==0 else "REQUIRES_STATISTICAL_VALIDATION",
-            "relation":"IDENTICAL_ON_TESTED_DATA" if diff["changed_count"]==0 and all(r["net_usd_delta"]==0 for r in pairs) else "DIFFERENT_ON_TESTED_DATA"}
+            "relation":"IDENTICAL_ON_TESTED_DATA" if diff["changed_count"]==0 and all(r["net_usd_delta"]==0 for r in pairs) and trade_rows_equal else "DIFFERENT_ON_TESTED_DATA"}
 
 
 def read_jsonl(path):
@@ -110,6 +128,16 @@ def verify_matched_ab_against_raw_ledgers_v1793127(root: Path, spec):
         if not claim_path.is_relative_to(Path(root).resolve()):
             raise ValueError("FOREIGN_CLAIM_PATH")
         claim=json.loads(claim_path.read_text(encoding="utf-8"))
+        # Compact publications keep complete row evidence in separate compressed
+        # streams; restoring these streams is mandatory before exact comparison.
+        if "pair_rows" in spec or "decision_diff_rows" in spec:
+            for key in ("pair_rows","decision_diff_rows"):
+                path=(Path(root)/spec[key]).resolve()
+                if not path.is_relative_to(Path(root).resolve()):
+                    raise ValueError("FOREIGN_PAIR_PATH")
+                records=read_jsonl(path)
+                if key=="pair_rows": claim["pair_ledger"]=records
+                else: claim["decision_diff"]["rows"]=records
         for rows in (da,db,ta,tb):
             _index(rows)
         for rows in (ta,tb):
