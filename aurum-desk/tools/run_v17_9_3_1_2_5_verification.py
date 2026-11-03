@@ -684,6 +684,7 @@ def main() -> int:
             run_v17_9_3_1_2_2_entry_signal_backtest_pipeline,
             staging_bt_dir,
             tested_executable_sha=tested_sha,
+            full_universe_si8=True,
         )
         f_mut = ex_main.submit(
             run_16_executable_red_green_source_mutations_v1793122,

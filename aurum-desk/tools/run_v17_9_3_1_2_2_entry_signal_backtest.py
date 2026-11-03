@@ -1099,6 +1099,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     output_dir: Path,
     *,
     tested_executable_sha: str,
+    full_universe_si8: bool = False,
 ) -> Dict[str, Any]:
     """
     Executes the complete V17.9.3.1.2.2 Entry Signal Intelligence historical backtest
@@ -1239,7 +1240,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         f_disc = ex_pre.submit(
             discover_research_candidates_v1793123,
             datasets,
-            full_universe=True,
+            full_universe=full_universe_si8,
         )
         art_20_feat, art_22_htf = f_feat.result()
         art_21_uni = f_uni.result()

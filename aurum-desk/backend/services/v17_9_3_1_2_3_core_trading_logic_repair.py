@@ -542,9 +542,16 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
             "model_id": m_id,
             "observed": 0,
             "descriptor_found": 0,
+            "detector_descriptors_identified": 0,
             "setup_valid": 0,
+            "independently_valid_setup_count": 0,
+            "SI8_policy_normalized_count": 0,
+            "signal_evidence_complete_count": 0,
             "eligible_after_risk": 0,
+            "risk_eligible_count": 0,
             "incremental_vs_si7": 0,
+            "new_causally_valid_setup_count": 0,
+            "descriptor_differences_count": 0,
             "rejected_by_reason": Counter(),
         }
         for m_id in CANONICAL_5_MODELS_V1793123
@@ -645,21 +652,28 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
             for d_side in ("LONG", "SHORT"):
                 funnel_by_model[m_id]["observed"] += 1
                 s_off = evaluator.evaluate_model_direction(ctx_off, m_id, d_side, adapter_origin="BACKTEST")
-                s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
                 s_si8 = evaluator.evaluate_model_direction(ctx_si8, m_id, d_side, adapter_origin="BACKTEST")
+                if s_off.decision_status == "ELIGIBLE" or s_si8.decision_status == "ELIGIBLE":
+                    s_si7 = evaluator.evaluate_model_direction(ctx_si7, m_id, d_side, adapter_origin="BACKTEST")
+                else:
+                    s_si7 = s_si8
 
                 baseline_has_desc = bool(s_off.selected_sweep_id or s_off.selected_break_id or s_off.selected_fvg_id)
-                baseline_invalid_setup = (str(s_off.setup_validity) == "INVALID") or (
-                    s_off.decision_status == "REJECTED" and any("INVALID" in str(r) or "MALFORMED" in str(r) for r in s_off.rejection_reasons)
-                )
                 baseline_waiting = (
-                    not baseline_invalid_setup
-                    and (
-                        str(s_off.setup_validity) == "WAITING"
-                        or any("WAIT" in str(r) or "PENDING" in str(r) for r in s_off.rejection_reasons)
-                    )
+                    str(s_off.decision_status) == "WAITING_CONFIRMATION"
+                    or str(s_off.setup_validity) == "WAITING"
+                    or any("WAIT" in str(r) or "PENDING" in str(r) for r in s_off.rejection_reasons)
                 )
-                baseline_no_setup = not baseline_has_desc and str(s_off.setup_validity) != "VALID"
+                baseline_no_setup = (not baseline_waiting) and (
+                    str(s_off.decision_status) == "NO_VALID_SETUP"
+                    or (not baseline_has_desc and str(s_off.setup_validity) != "VALID")
+                )
+                baseline_invalid_setup = (
+                    not baseline_waiting
+                    and not baseline_no_setup
+                    and s_off.decision_status == "REJECTED"
+                    and any("INVALID" in str(r) or "MALFORMED" in str(r) for r in s_off.rejection_reasons)
+                )
 
                 if s_off.decision_status == "ELIGIBLE":
                     off_eligible_by_model[m_id] += 1
@@ -671,14 +685,30 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                             si7_upgraded_invalid += 1
 
                 has_desc = bool(s_si8.selected_sweep_id or s_si8.selected_break_id or s_si8.selected_fvg_id)
+                desc_diff = (s_si8.selected_sweep_id, s_si8.selected_break_id, s_si8.selected_fvg_id) != (
+                    s_off.selected_sweep_id,
+                    s_off.selected_break_id,
+                    s_off.selected_fvg_id,
+                )
+                if desc_diff:
+                    funnel_by_model[m_id]["descriptor_differences_count"] += 1
+                if str(s_si8.v1793122_signal_intelligence_mode) == "RESEARCH_APPLY" and "SI_INVALID_MODE_FAIL_CLOSED" not in s_si8.rejection_reasons:
+                    funnel_by_model[m_id]["SI8_policy_normalized_count"] += 1
                 if has_desc:
                     funnel_by_model[m_id]["descriptor_found"] += 1
+                    funnel_by_model[m_id]["detector_descriptors_identified"] += 1
                 if str(s_si8.setup_validity) == "VALID":
                     funnel_by_model[m_id]["setup_valid"] += 1
+                    funnel_by_model[m_id]["independently_valid_setup_count"] += 1
+                    if has_desc and not any(
+                        str(r).startswith(("SI1_", "SI2_", "SI3_", "SI4_")) for r in s_si8.rejection_reasons
+                    ):
+                        funnel_by_model[m_id]["signal_evidence_complete_count"] += 1
 
                 if s_si8.decision_status == "ELIGIBLE":
                     si8_eligible_by_model[m_id] += 1
                     funnel_by_model[m_id]["eligible_after_risk"] += 1
+                    funnel_by_model[m_id]["risk_eligible_count"] += 1
                     if s_off.decision_status != "ELIGIBLE":
                         if baseline_invalid_setup:
                             if not has_desc or str(s_si8.setup_validity) != "VALID":
@@ -691,6 +721,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                     if s_si7.decision_status != "ELIGIBLE":
                         si8_incremental_eligible_by_model[m_id] += 1
                         funnel_by_model[m_id]["incremental_vs_si7"] += 1
+                        funnel_by_model[m_id]["new_causally_valid_setup_count"] += 1
 
                         ep_id = str(s_si8.setup_episode_id or f"ep_si8_{m_id}_{d_side}_{idx_1m}_{cur_ts}")
                         plan_d = s_si8.v1793122_plan_dict if isinstance(s_si8.v1793122_plan_dict, dict) else {}
@@ -912,9 +943,16 @@ def discover_research_candidates_v1793123(
             "model_id": m_id,
             "observed": 0,
             "descriptor_found": 0,
+            "detector_descriptors_identified": 0,
             "setup_valid": 0,
+            "independently_valid_setup_count": 0,
+            "SI8_policy_normalized_count": 0,
+            "signal_evidence_complete_count": 0,
             "eligible_after_risk": 0,
+            "risk_eligible_count": 0,
             "incremental_vs_si7": 0,
+            "new_causally_valid_setup_count": 0,
+            "descriptor_differences_count": 0,
             "rejected_by_reason": Counter(),
         }
         for m_id in CANONICAL_5_MODELS_V1793123
@@ -947,9 +985,16 @@ def discover_research_candidates_v1793123(
             f_dst = funnel_by_model[m_id]
             f_dst["observed"] += f_src["observed"]
             f_dst["descriptor_found"] += f_src["descriptor_found"]
+            f_dst["detector_descriptors_identified"] += f_src["detector_descriptors_identified"]
             f_dst["setup_valid"] += f_src["setup_valid"]
+            f_dst["independently_valid_setup_count"] += f_src["independently_valid_setup_count"]
+            f_dst["SI8_policy_normalized_count"] += f_src["SI8_policy_normalized_count"]
+            f_dst["signal_evidence_complete_count"] += f_src["signal_evidence_complete_count"]
             f_dst["eligible_after_risk"] += f_src["eligible_after_risk"]
+            f_dst["risk_eligible_count"] += f_src["risk_eligible_count"]
             f_dst["incremental_vs_si7"] += f_src["incremental_vs_si7"]
+            f_dst["new_causally_valid_setup_count"] += f_src["new_causally_valid_setup_count"]
+            f_dst["descriptor_differences_count"] += f_src["descriptor_differences_count"]
             f_dst["rejected_by_reason"].update(f_src["rejected_by_reason"])
 
         if cr.get("legacy_mismatch_verified"):
@@ -973,6 +1018,13 @@ def discover_research_candidates_v1793123(
         "causal_checkpoint_count": total_inspected,
         "sample_timestamps_inspected": total_inspected,
         "total_model_direction_evaluations": total_inspected * len(CANONICAL_5_MODELS_V1793123) * 2,
+        "detector_descriptors_identified": sum(f["detector_descriptors_identified"] for f in funnel_by_model.values()),
+        "independently_valid_setup_count": sum(f["independently_valid_setup_count"] for f in funnel_by_model.values()),
+        "SI8_policy_normalized_count": sum(f["SI8_policy_normalized_count"] for f in funnel_by_model.values()),
+        "signal_evidence_complete_count": sum(f["signal_evidence_complete_count"] for f in funnel_by_model.values()),
+        "risk_eligible_count": sum(f["risk_eligible_count"] for f in funnel_by_model.values()),
+        "descriptor_differences_count": sum(f["descriptor_differences_count"] for f in funnel_by_model.values()),
+        "new_causally_valid_setup_count": sum(f["new_causally_valid_setup_count"] for f in funnel_by_model.values()),
         "si8_canonical_mode": "RESEARCH_APPLY",
         "si8_canonical_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
         "legacy_mode_mismatch_reproduction": {

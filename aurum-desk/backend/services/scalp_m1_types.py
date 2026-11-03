@@ -500,13 +500,23 @@ class M1ScalpConfig:
         ) < 1:
             raise ValueError("INVALID_CONFIG: swing_left/right_bars must be >= 1")
         if (
+            isinstance(self.v17_9_3_1_2_2_signal_intelligence_mode, str)
+            and self.v17_9_3_1_2_2_signal_intelligence_mode not in ("OFF", "OBSERVE_ONLY")
+            and (
+                self.scalp_m1_mode in (ScalpMode.PAPER.value, "LIVE", "AUTO_PAPER")
+                or str(self.execution_mode or "").strip().upper() in ("PAPER", "LIVE", "AUTO_PAPER", "AUTO_LIVE")
+            )
+        ):
+            raise ValueError(
+                "SI_FORBIDDEN_IN_PRODUCTION_EXECUTION_MODE: FORBIDDEN_IN_LIVE_OR_PAPER_EXECUTION_MODE: RESEARCH_APPLY_FORBIDDEN_IN_PAPER_OR_LIVE: SI_INVALID_MODE_FAIL_CLOSED: v17_9_3_1_2_2_signal_intelligence_mode cannot be enabled in PAPER or LIVE mode"
+            )
+        if (
             isinstance(self.v17_9_3_1_2_2_signal_intelligence_mode, bool)
             or not isinstance(self.v17_9_3_1_2_2_signal_intelligence_mode, str)
             or self.v17_9_3_1_2_2_signal_intelligence_mode not in (
                 "OFF",
                 "OBSERVE_ONLY",
                 "RESEARCH_APPLY",
-                "RESEARCH_DISCOVERY",
             )
         ):
             raise ValueError(
@@ -530,13 +540,6 @@ class M1ScalpConfig:
         ):
             raise ValueError(
                 f"SI_INVALID_POLICY_ID_FAIL_CLOSED: INVALID_V1793122_POLICY_ID: {self.v17_9_3_1_2_2_policy_id}"
-            )
-        if self.v17_9_3_1_2_2_signal_intelligence_mode in ("RESEARCH_APPLY", "RESEARCH_DISCOVERY") and (
-            self.scalp_m1_mode in (ScalpMode.PAPER.value, "LIVE", "AUTO_PAPER")
-            or str(self.execution_mode or "").strip().upper() in ("PAPER", "LIVE", "AUTO_PAPER", "AUTO_LIVE")
-        ):
-            raise ValueError(
-                "SI_FORBIDDEN_IN_PRODUCTION_EXECUTION_MODE: FORBIDDEN_IN_LIVE_OR_PAPER_EXECUTION_MODE: RESEARCH_APPLY_FORBIDDEN_IN_PAPER_OR_LIVE: v17_9_3_1_2_2_signal_intelligence_mode cannot be enabled in PAPER or LIVE mode"
             )
         # Validate quality_arm_threshold (Rule 034)
         import math

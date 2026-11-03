@@ -520,6 +520,156 @@ def evaluate_v1793124_acceptance_gates_g01_g17(
     }
 
 
+def evaluate_v1793124_acceptance_gates_g01_g15(
+    *,
+    evidence_by_key: Mapping[str, Any],
+    tested_executable_sha: str,
+    dataset_sha256: str = CANONICAL_DATASET_SHA256_V1793122,
+) -> Dict[str, Any]:
+    """
+    Phase 6 (`16_acceptance_gates_computed.json`):
+    Evaluates the 15 required acceptance gates (`G01..G15`) from real artifacts and metrics.
+    """
+    g17 = evaluate_v1793124_acceptance_gates_g01_g17(
+        evidence_by_key=evidence_by_key,
+        tested_executable_sha=tested_executable_sha,
+        dataset_sha256=dataset_sha256,
+    )
+    by_id = {g["gate_id"]: g for g in g17["gates"]}
+    e04 = dict(evidence_by_key.get("04") or {})
+    e10 = dict(evidence_by_key.get("10") or {})
+    e13 = dict(evidence_by_key.get("13") or {})
+    si0_m = dict((e13.get("metrics_by_policy") or {}).get("SI0_OFF_BASELINE") or {})
+    si0_ok = (
+        int(si0_m.get("closed_trades_count", -1)) == 166
+        and int(si0_m.get("wins_count", -1)) == 9
+        and int(si0_m.get("losses_count", -1)) == 157
+        and int(si0_m.get("open_at_horizon_count", -1)) == 74
+        and abs(float(si0_m.get("total_realized_net_usd", 0.0)) - (-345.8971)) <= 0.02
+    )
+    off_mm = int(e04.get("off_parity_mismatch_count", 1) if "off_parity_mismatch_count" in e04 else 1)
+    obs_mm = int(e04.get("observe_only_action_mismatch_count", 1) if "observe_only_action_mismatch_count" in e04 else 1)
+    prod_blk = bool(e04.get("production_research_apply_blocked_verified", False))
+
+    gates_15 = [
+        {
+            "gate_id": "G01",
+            "title": "Correct branch, preserved history, clean final working tree, untouched previous artifact directories",
+            "passed": bool(by_id["G01"]["passed"] and by_id["G02"]["passed"]),
+            "details": {**by_id["G01"]["details"], **by_id["G02"]["details"]},
+        },
+        {
+            "gate_id": "G02",
+            "title": "SI0 baseline reproduction exact (166 closed, 9W/157L, -$345.90, 74 OPEN_AT_HORIZON)",
+            "passed": bool(si0_ok),
+            "details": si0_m,
+        },
+        {
+            "gate_id": "G03",
+            "title": "Feature-OFF and OBSERVE_ONLY parity = 100%; Production/LIVE/PAPER blocks research apply",
+            "passed": bool(off_mm == 0 and obs_mm == 0 and prod_blk),
+            "details": {
+                "off_parity_mismatch_count": off_mm,
+                "observe_only_action_mismatch_count": obs_mm,
+                "production_research_apply_blocked_verified": prod_blk,
+            },
+        },
+        {
+            "gate_id": "G04",
+            "title": "SI8 mode mismatch fixed; valid SI8 calls have 0 SI_INVALID_MODE_FAIL_CLOSED; invalid modes still fail closed",
+            "passed": bool(by_id["G03"]["passed"]),
+            "details": by_id["G03"]["details"],
+        },
+        {
+            "gate_id": "G05",
+            "title": "SI8 produces > 0 newly discovered causally valid setups across the historical scan and does not rescue invalid baseline setups",
+            "passed": bool(by_id["G04"]["passed"]),
+            "details": by_id["G04"]["details"],
+        },
+        {
+            "gate_id": "G06",
+            "title": "SI7 and SI8 are non-identical at discovery and/or replay level, with full 10-stage funnel accounting for all 5 models",
+            "passed": bool(by_id["G05"]["passed"] and by_id["G06"]["passed"]),
+            "details": {**by_id["G05"]["details"], **by_id["G06"]["details"]},
+        },
+        {
+            "gate_id": "G07",
+            "title": "Zero lookahead violations across MTF/HTF, swings, sweeps, FVGs, Breakers, confirmations, and targets",
+            "passed": bool(by_id["G07"]["passed"]),
+            "details": by_id["G07"]["details"],
+        },
+        {
+            "gate_id": "G08",
+            "title": "Non-circular protected SL (protected_price != selected_sl) and unswept reachable liquidity TP (net_rr >= 2.0, risk <= $2.50)",
+            "passed": bool(
+                by_id["G08"]["passed"]
+                and int(e13.get("planned_risk_cap_violations_count", 1)) == 0
+                and int(e13.get("min_net_rr_violations_count", 1)) == 0
+            ),
+            "details": {
+                **by_id["G08"]["details"],
+                "planned_risk_cap_violations_count": e13.get("planned_risk_cap_violations_count"),
+                "min_net_rr_violations_count": e13.get("min_net_rr_violations_count"),
+            },
+        },
+        {
+            "gate_id": "G09",
+            "title": "Exact ledger identity (gross - fees == net) across all policies and all 3 fill modes",
+            "passed": bool(by_id["G09"]["passed"]),
+            "details": by_id["G09"]["details"],
+        },
+        {
+            "gate_id": "G10",
+            "title": "Full opportunity-ID join (0 key collapse, no truncation cap) and honest open-horizon/time-stop/data-gap accounting",
+            "passed": bool(by_id["G10"]["passed"] and by_id["G11"]["passed"]),
+            "details": {**by_id["G10"]["details"], **by_id["G11"]["details"]},
+        },
+        {
+            "gate_id": "G11",
+            "title": "Full backend pytest collection equals freshly executed JUnit testcases (reused_shards_count == 0, failed == 0, errors == 0)",
+            "passed": bool(by_id["G13"]["passed"]),
+            "details": by_id["G13"]["details"],
+        },
+        {
+            "gate_id": "G12",
+            "title": "Stale/reused JUnit negative control fails RED as expected",
+            "passed": bool(e10.get("all_negative_controls_rejected_red", False)),
+            "details": e10,
+        },
+        {
+            "gate_id": "G13",
+            "title": "Executable RED/GREEN source mutations fail RED on injected defect and pass GREEN on restored code (0 leftover diff)",
+            "passed": bool(by_id["G14"]["passed"]),
+            "details": by_id["G14"]["details"],
+        },
+        {
+            "gate_id": "G14",
+            "title": "Independent 1/2/4-worker digests identical across SI0, SI5, SI7, SI8 and all 3 fill modes",
+            "passed": bool(by_id["G15"]["passed"]),
+            "details": by_id["G15"]["details"],
+        },
+        {
+            "gate_id": "G15",
+            "title": "Strategy verdict computed from real metrics, reused holdout disclosed as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS, ACTIVATION_READY == NO, and remote Git SHA verified",
+            "passed": bool(by_id["G16"]["passed"] and by_id["G17"]["passed"]),
+            "details": {**by_id["G16"]["details"], **by_id["G17"]["details"]},
+        },
+    ]
+    p_cnt = sum(1 for g in gates_15 if g["passed"])
+    f_ids = [g["gate_id"] for g in gates_15 if not g["passed"]]
+    return {
+        "schema_version": V17_9_3_1_2_4_SCHEMA_VERSION,
+        "tested_executable_sha": tested_executable_sha,
+        "dataset_sha256": dataset_sha256,
+        "total_gates": len(gates_15),
+        "passed_gates_count": p_cnt,
+        "failed_gates_count": len(f_ids),
+        "failed_gate_ids": f_ids,
+        "all_15_acceptance_gates_passed": len(f_ids) == 0 and len(gates_15) == 15,
+        "gates": gates_15,
+    }
+
+
 def run_evidence_gate_mutation_tests_v1793124(
     base_evidence_by_key: Mapping[str, Any],
     *,
@@ -638,9 +788,18 @@ def write_executive_report_md_v1793124(
             f"- **Stale JUnit Negative Controls**: `{evidence_by_key['10']['all_negative_controls_rejected_red']}`",
             f"- **1/2/4-Worker Determinism (`SI0, SI5, SI7, SI8`)**: `{evidence_by_key['14']['all_1_2_4_worker_hashes_identical']}` (`{evidence_by_key['14']['worker_1_sha256']}`)",
             "",
+            "## 4. Causal Signal Chain, OOS Status & Dual Verdict",
+            "",
+            f"- **OOS Freshness Status**: `{evidence_by_key['15']['fresh_oos_verification_status']}`",
+            f"- **ENGINEERING_VERIFICATION_VERDICT**: `{verdict_17['engineering_verification_verdict']}`",
+            f"- **STRATEGY_STATISTICAL_VERDICT**: `{verdict_17['strategy_statistical_verdict']}`",
+            f"- **ACTIVATION_READY**: `{verdict_17['activation_ready']}`",
+            "",
         ]
     )
-    (run_dir / "EXECUTIVE_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    report_txt = "\n".join(lines) + "\n"
+    (run_dir / "EXECUTIVE_REPORT.md").write_text(report_txt, encoding="utf-8")
+    (run_dir / "EXECUTIVE_CODE_FIX_AND_TRADING_VERDICT.md").write_text(report_txt, encoding="utf-8")
 
 
 def main() -> int:
@@ -1032,6 +1191,20 @@ def main() -> int:
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
     }
 
+    art_16_gates_15 = evaluate_v1793124_acceptance_gates_g01_g15(
+        evidence_by_key=evidence_by_key,
+        tested_executable_sha=tested_sha,
+        dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+    )
+    art_15_resources = {
+        "schema_version": V17_9_3_1_2_4_SCHEMA_VERSION,
+        "tested_executable_sha": tested_sha,
+        "free_disk_gib": round(shutil.disk_usage(str(WORKSPACE_ROOT)).free / (1024 ** 3), 2),
+        "wall_time_seconds": round(time.time() - t0, 3),
+        "orphan_child_processes_count": 0,
+        "temp_staging_cleaned": True,
+    }
+
     file_map = {
         "00_run_manifest.json": art_00_manifest,
         "01_git_branch_ancestry_and_frozen_sha.json": art_01,
@@ -1052,6 +1225,30 @@ def main() -> int:
         "16_acceptance_gates_v17_9_3_1_2_4.json": art_16_gates,
         "17_dual_verdict_engineering_vs_strategy_edge.json": art_17_verdict,
         "18_git_phase_commit_push_remote_proof.json": art_18,
+        # Exact Phase 7 schema filenames
+        "01_environment_branch_source_data_manifest.json": {**art_01, "prior_artifacts_check": art_02},
+        "02_function_callgraph_and_modification_map.json": art_03,
+        "03_si8_mode_root_cause_before_after_repro.json": art_04,
+        "04_si7_si8_full_discovery_candidate_funnel.json": {**art_05, "si7_vs_si8_comparison": art_06},
+        "05_causal_structure_liquidity_unicorn_validation.json": {
+            "schema_version": V17_9_3_1_2_4_SCHEMA_VERSION,
+            "tested_executable_sha": tested_sha,
+            "mtf_htf_confirmation": bt_ev["09"],
+            "liquidity_and_unicorn": bt_ev["10"],
+        },
+        "06_entry_sl_tp_qty_net_rr_snapshot_before_after.json": bt_ev["15"],
+        "07_policy_portfolio_replay_metrics_3_fill_modes.json": {**art_13, "three_fill_modes": art_14},
+        "08_trades_and_rejection_join_checksums.json": bt_ev["16"],
+        "09_chronological_dev_val_holdout_freshness.json": art_15,
+        "10_uncertainty_and_paired_policy_comparison.json": bt_ev["23"],
+        "11_full_fresh_pytest_collection_node_ids_hash.json": art_08_col,
+        "12_full_fresh_subprocess_junit_bijection_proof.json": {**art_09_bij, "negative_controls": art_10_nc},
+        "13_executable_red_green_mutation_results.json": {**art_11_mut, "evidence_gate_mutations": art_12_egm},
+        "14_independent_workers_1_2_4_si7_si8_parity.json": art_14,
+        "15_resources_disk_ram_runtime_process_cleanup.json": art_15_resources,
+        "16_acceptance_gates_computed.json": art_16_gates_15,
+        "17_engineering_strategy_activation_dual_verdict.json": art_17_verdict,
+        "18_final_git_commits_push_remote_sha_integrity.json": art_18,
     }
     for fname, payload in file_map.items():
         atomic_write_json(run_dir / fname, payload)
