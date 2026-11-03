@@ -272,7 +272,7 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             old_xml.unlink(missing_ok=True)
 
     py_exe = sys.executable
-    n_workers = max(1, min(int(max_workers), 4))
+    n_workers = max(1, min(int(max_workers), 4, int(os.environ.get("AURUM_RESEARCH_TEST_WORKERS","4"))))
     env_fingerprint_src = f"{py_exe}|{sys.version}|{tested_executable_sha}|{os.environ.get('PYTHONPATH', '')}"
     env_sha256 = hashlib.sha256(env_fingerprint_src.encode("utf-8")).hexdigest()
 
@@ -835,6 +835,9 @@ def run_16_executable_red_green_source_mutations_v1793122(
     py_exe = sys.executable
 
     def _run_single_mutation(spec: Tuple[str, str, str, str, str, str]) -> Dict[str, Any]:
+        abort_path=os.environ.get("AURUM_RESOURCE_GUARD_ABORT_FILE")
+        if abort_path and Path(abort_path).exists():
+            raise RuntimeError("RESOURCE_GUARD_ABORTED_MUTATIONS")
         f_key, m_id, title, target_s, repl_s, probe_code = spec
         with tempfile.TemporaryDirectory(prefix=f"v1793122_mut_{m_id}_") as tmp_root_str:
             tmp_root = Path(tmp_root_str)
@@ -896,7 +899,7 @@ def run_16_executable_red_green_source_mutations_v1793122(
                 "passed_control": bool(caught_red and restored_green),
             }
 
-    with ThreadPoolExecutor(max_workers=4) as ex_mut:
+    with ThreadPoolExecutor(max_workers=max(1,min(4,int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS","1"))))) as ex_mut:
         results = list(ex_mut.map(_run_single_mutation, mutation_specs))
 
     caught_cnt = sum(1 for r in results if r["passed_control"])

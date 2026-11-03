@@ -194,6 +194,7 @@ def main():
     env=subprocess.run([sys.executable,"-m","pip","freeze"],capture_output=True,text=True,check=True)
     write(run/"02_environment_package_manifest.json",{"python":sys.executable,"version":sys.version,"packages":env.stdout.splitlines(),"source_manifest":before})
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"]="1"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"]="1"
     os.environ["AURUM_RESEARCH_PROCESS_WORKERS"]="1"
     proofs={"G01":{"status":"PASS","source":"01_git_preflight_and_frozen_executable_sha.json","measured":sha}}
     dataset_sha="UNAVAILABLE"
