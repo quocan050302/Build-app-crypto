@@ -80,7 +80,10 @@ CANONICAL_V1793123_POLICY_IDS: Tuple[str, ...] = (
     "SI6_COMBINED_PREDECLARED",
     "SI7_CORE_TRADING_LOGIC_REPAIRED",
     "SI8_RESEARCH_DISCOVERY_REPAIRED",
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
 )
+
+CANONICAL_V1793126_POLICY_IDS: Tuple[str, ...] = CANONICAL_V1793123_POLICY_IDS
 
 POLICY_ID_ALIASES_V1793122: Dict[str, str] = {
     "OFF": "SI0_OFF_BASELINE",
@@ -102,6 +105,8 @@ POLICY_ID_ALIASES_V1793122: Dict[str, str] = {
     "SI7_CORE_TRADING_LOGIC_REPAIRED": "SI7_CORE_TRADING_LOGIC_REPAIRED",
     "SI8": "SI8_RESEARCH_DISCOVERY_REPAIRED",
     "SI8_RESEARCH_DISCOVERY_REPAIRED": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+    "SI9": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
 }
 
 FORBIDDEN_PRODUCTION_ADAPTER_ORIGINS: Tuple[str, ...] = (
@@ -486,6 +491,33 @@ PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122: Dict[str, SignalIntelligenceP
         enable_research_discovery_v1793123=True,
         require_unswept_liquidity_pool_target=True,
     ),
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": SignalIntelligencePolicyV1793122(
+        policy_id="SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+        version="17.9.3.1.2.6",
+        description=(
+            "V17.9.3.1.2.6 causal signal provenance and edge diagnosis: strict post-formation "
+            "closed-bar FVG retest confirmation (P0-A), zero timestamp fallback (P0-B), strictly verified "
+            "pre-entry proof flags without ID-presence fallback (P0-C), explicit synthetic research quote "
+            "labeling (P1-E), structural SL, reachable unswept liquidity TP with cost-aware RR >= 2.0, "
+            "and pre-registered hypotheses H1..H6."
+        ),
+        hypothesis_id="H_SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_V1793126",
+        enable_model_quality_arbitration=True,
+        enable_htf_structure_and_direction_validation=True,
+        enable_mss_displacement_confirmation=True,
+        enable_causal_sweep_and_strict_unicorn=True,
+        enable_structural_sl_and_reachable_target=True,
+        require_both_direction_evaluation=True,
+        prevent_unqualified_long_fallback=True,
+        min_displacement_body_atr_ratio=0.55,
+        max_fvg_age_bars_m1=24,
+        max_pending_confirmation_bars_m1=8,
+        min_net_rr=2.0,
+        max_planned_risk_usd=2.50,
+        enable_core_trading_logic_repair_v1793123=True,
+        enable_research_discovery_v1793123=True,
+        require_unswept_liquidity_pool_target=True,
+    ),
 }
 
 
@@ -510,6 +542,55 @@ compute_signal_intelligence_policy_registry_hash_v1793122 = (
 compute_signal_intelligence_policy_registry_hash_v1793123 = (
     compute_signal_intelligence_registry_hash_v1793123
 )
+compute_signal_intelligence_registry_hash_v1793126 = (
+    compute_signal_intelligence_registry_hash_v1793123
+)
+compute_signal_intelligence_policy_registry_hash_v1793126 = (
+    compute_signal_intelligence_registry_hash_v1793123
+)
+
+
+@dataclass
+class ProvenanceEvidence:
+    """
+    V17.9.3.1.2.6 (Task A1): Explicit, versioned provenance record tracking
+    measured pre-entry evidence and verifiable source hashes.
+    """
+    evidence_type: str
+    evidence_status: str
+    symbol: str = "XAUUSDT"
+    market: str = "CRYPTO"
+    provider: str = "BITGET"
+    timeframe: str = "M1"
+    source_bar_id: Optional[str] = None
+    source_bar_open_ms: Optional[int] = None
+    source_bar_close_ms: Optional[int] = None
+    occurred_at_ms: Optional[int] = None
+    known_at_ms: Optional[int] = None
+    decision_at_ms: Optional[int] = None
+    zone_low: Optional[float] = None
+    zone_high: Optional[float] = None
+    confirmed_retest_bar_id: Optional[str] = None
+    confirmed_retest_close_ms: Optional[int] = None
+    source_input_sha256: Optional[str] = None
+    derivation_version: str = "17.9.3.1.2.6"
+    rejection_reason: Optional[str] = None
+    proof_hash_sha256: str = ""
+
+    def compute_proof_hash(self) -> str:
+        payload = (
+            f"{self.evidence_type}:{self.evidence_status}:{self.timeframe}:{self.source_bar_id}:"
+            f"{self.occurred_at_ms}:{self.known_at_ms}:{self.decision_at_ms}:{self.zone_low}:"
+            f"{self.zone_high}:{self.confirmed_retest_bar_id}:{self.source_input_sha256}:{self.rejection_reason}"
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def __post_init__(self) -> None:
+        if not self.proof_hash_sha256:
+            self.proof_hash_sha256 = self.compute_proof_hash()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -565,6 +646,10 @@ class SignalQualityEvidenceV1793122:
     unicorn_overlap_low: Optional[float] = None
     unicorn_overlap_high: Optional[float] = None
     causal_feature_violations_count: int = 0
+    quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE"
+    fvg_retest_bar_id: Optional[str] = None
+    fvg_retest_at_ms: Optional[int] = None
+    provenance_evidence_map: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     @property
     def lookahead_violation_detected(self) -> bool:
@@ -1007,7 +1092,7 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
     Returns `(valid_pool_id, valid_pool_price, pool_known_at_ms, has_unswept_pool, explicit_pool_was_swept)`.
     """
     if not pools or entry_price <= 0.0:
-        return (None, take_profit, now_ms, False, False)
+        return (None, take_profit, 0, False, False)
 
     fast_bars = _extract_fast_m1_candles(closed_1m, now_ms) if closed_1m else []
     explicit_pool_was_swept = False
@@ -1083,7 +1168,7 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
             valid_candidates.append((dist_px, p_id or f"pool_{p_px}", p_px, k_ts))
 
     if not valid_candidates:
-        return (None, None if explicit_pool_was_swept else take_profit, now_ms, False, explicit_pool_was_swept)
+        return (None, None if explicit_pool_was_swept else take_profit, 0, False, explicit_pool_was_swept)
 
     # If selected_target_id matches one of the valid unswept candidates, keep it; otherwise choose nearest valid pool
     for dist, pid, ppx, kts in valid_candidates:
@@ -1100,17 +1185,17 @@ def build_signal_quality_evidence_v1793122(
     context: Any,
     model_id: str,
     direction: str,
-    setup_descriptors: Optional[Mapping[str, Any]],
-    sh_1m: Sequence[Mapping[str, Any]],
-    sl_1m: Sequence[Mapping[str, Any]],
-    entry_price: float,
-    selected_sl: Optional[float],
-    take_profit: Optional[float],
-    selected_target_id: Optional[str],
-    atr_m1: float,
-    atr_m5: Optional[float],
-    prospective_net_rr: float,
-    planned_risk_usd: float,
+    setup_descriptors: Optional[Mapping[str, Any]] = None,
+    sh_1m: Sequence[Mapping[str, Any]] = (),
+    sl_1m: Sequence[Mapping[str, Any]] = (),
+    entry_price: float = 0.0,
+    selected_sl: Optional[float] = None,
+    take_profit: Optional[float] = None,
+    selected_target_id: Optional[str] = None,
+    atr_m1: Optional[float] = None,
+    atr_m5: Optional[float] = None,
+    prospective_net_rr: float = 2.0,
+    planned_risk_usd: float = 2.0,
     unicorn_evidence: Optional[Any] = None,
 ) -> SignalQualityEvidenceV1793122:
     """
@@ -1380,49 +1465,61 @@ def build_signal_quality_evidence_v1793122(
         f_bot_val = float(s_desc.get("fvg_bottom") or s_desc.get("fvg_low") or s_desc.get("entry_zone_low") or 0.0)
         f_conf_val = int(s_desc.get("fvg_formed_at_ms") or 0)
 
-    if 0 < f_conf_val <= now_ms:
+    fvg_retest_bar_id: Optional[str] = None
+    fvg_retest_at_ms: Optional[int] = None
+
+    if 0 < f_conf_val <= now_ms and f_top_val > f_bot_val > 0.0:
         fvg_present = True
         fvg_known_at_ms = f_conf_val
         fvg_age_bars_m1 = max(0, int((now_ms - f_conf_val) // 60_000))
-        if f_top_val > f_bot_val > 0.0 and closed_1m:
+
+        # Check descriptor timestamps for pre-invalidation / future violations
+        desc_retest_ts = int(s_desc.get("fvg_retest_at_ms") or 0)
+        if desc_retest_ts > 0 and (desc_retest_ts <= f_conf_val or desc_retest_ts > now_ms):
+            retest_chronology_valid = False
+        else:
+            retest_chronology_valid = True
+
+        if closed_1m and retest_chronology_valid:
             # Strictly evaluate bars that closed AFTER FVG formation (no self-bar retest shortcut)
             post_fvg_bars = [b for b in closed_1m if _bar_close_ms(b, 60_000) > f_conf_val and _bar_close_ms(b, 60_000) <= now_ms]
+
             if direction == "LONG":
                 mitigated = bool(s_desc.get("fvg_mitigated", False)) or any(
                     _bar_float(b, "close") < f_bot_val or _bar_float(b, "low") < f_bot_val - 0.05
                     for b in post_fvg_bars
                 )
-                retested = (
-                    (s_desc.get("fvg_retest_at_ms") is not None and f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms)
-                    or bool(s_desc.get("fvg_retest_valid", False))
-                    or any(
-                        _bar_float(b, "low") <= f_top_val and _bar_float(b, "close") >= f_bot_val
-                        for b in post_fvg_bars[-min(len(post_fvg_bars), 8) :]
-                    )
-                )
+                touching_bars = [
+                    b for b in post_fvg_bars
+                    if _bar_float(b, "low") <= f_top_val and _bar_float(b, "high") >= f_bot_val and _bar_float(b, "close") >= f_bot_val
+                ]
             else:
                 mitigated = bool(s_desc.get("fvg_mitigated", False)) or any(
                     _bar_float(b, "close") > f_top_val or _bar_float(b, "high") > f_top_val + 0.05
                     for b in post_fvg_bars
                 )
-                retested = (
-                    (s_desc.get("fvg_retest_at_ms") is not None and f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms)
-                    or bool(s_desc.get("fvg_retest_valid", False))
-                    or any(
-                        _bar_float(b, "high") >= f_bot_val and _bar_float(b, "close") <= f_top_val
-                        for b in post_fvg_bars[-min(len(post_fvg_bars), 8) :]
-                    )
-                )
+                touching_bars = [
+                    b for b in post_fvg_bars
+                    if _bar_float(b, "high") >= f_bot_val and _bar_float(b, "low") <= f_top_val and _bar_float(b, "close") <= f_top_val
+                ]
+
             fvg_unmitigated = (not mitigated) and (fvg_age_bars_m1 <= 24)
+            retested = False
+            if touching_bars and fvg_unmitigated:
+                last_touch_bar = touching_bars[-1]
+                retested = True
+                fvg_retest_bar_id = str(last_touch_bar.get("bar_id") or last_touch_bar.get("open_time") or _bar_close_ms(last_touch_bar, 60_000))
+                fvg_retest_at_ms = _bar_close_ms(last_touch_bar, 60_000)
+
             fvg_retest_valid = bool(fvg_unmitigated and retested and fvg_age_bars_m1 <= 24)
         else:
+            # Missing postformation closed-bar evidence or invalid chronology -> UNPROVEN / False
             fvg_unmitigated = (not bool(s_desc.get("fvg_mitigated", False))) and (fvg_age_bars_m1 <= 24)
-            if "fvg_retest_valid" in s_desc and s_desc.get("fvg_retest_valid") is not None:
-                fvg_retest_valid = bool(s_desc.get("fvg_retest_valid")) and fvg_unmitigated
-            elif s_desc.get("fvg_retest_at_ms") is not None:
-                fvg_retest_valid = bool(f_conf_val <= int(s_desc["fvg_retest_at_ms"]) <= now_ms and fvg_unmitigated)
-            else:
-                fvg_retest_valid = bool(fvg_unmitigated)
+            fvg_retest_valid = False
+    else:
+        fvg_present = False
+        fvg_unmitigated = False
+        fvg_retest_valid = False
 
     # Evaluate strict Breaker + FVG Unicorn confluence vs FVG_ONLY (STAGE G3 / T04, T05, T06)
     u_overlap_low: Optional[float] = None
@@ -1749,6 +1846,30 @@ def build_signal_quality_evidence_v1793122(
         unicorn_overlap_low=u_overlap_low,
         unicorn_overlap_high=u_overlap_high,
         causal_feature_violations_count=causal_violations,
+        quote_source_kind=str(getattr(context, "quote_source_kind", "SYNTHETIC_RESEARCH_QUOTE") or "SYNTHETIC_RESEARCH_QUOTE"),
+        fvg_retest_bar_id=fvg_retest_bar_id,
+        fvg_retest_at_ms=fvg_retest_at_ms,
+        provenance_evidence_map={
+            "fvg_retest": ProvenanceEvidence(
+                evidence_type="FVG_RETEST",
+                evidence_status="PROVEN_TRUE" if fvg_retest_valid else ("PROVEN_FALSE" if fvg_present else "UNKNOWN"),
+                timeframe="M1",
+                known_at_ms=fvg_retest_at_ms or fvg_known_at_ms or 0,
+                decision_at_ms=now_ms,
+                zone_low=f_bot_val,
+                zone_high=f_top_val,
+                confirmed_retest_bar_id=fvg_retest_bar_id,
+                confirmed_retest_close_ms=fvg_retest_at_ms,
+            ).to_dict(),
+            "target": ProvenanceEvidence(
+                evidence_type="TARGET",
+                evidence_status="PROVEN_TRUE" if target_reachable else "UNKNOWN",
+                timeframe="M1",
+                known_at_ms=target_known_at_ms,
+                decision_at_ms=now_ms,
+                rejection_reason="UNREACHABLE_OR_SWEPT" if not target_reachable else None,
+            ).to_dict(),
+        },
     )
 
 
@@ -2637,19 +2758,10 @@ def score_candidate_record_pre_entry_v1793122(
     f = dict(feature_row or rec.get("pre_entry_features") or {})
     htf_align = str(f.get("htf_alignment_state") or rec.get("htf_alignment_state") or "NEUTRAL").upper()
     unicorn_cls = str(f.get("unicorn_classification") or rec.get("unicorn_validity") or "NONE").upper()
-    sweep_ok = bool(
-        f.get("sweep_confirmed", False)
-        or (f.get("sweep_confirmed") is None and rec.get("selected_sweep_id") is not None)
-    )
-    mss_ok = bool(
-        f.get("mss_confirmed", False)
-        or (f.get("mss_confirmed") is None and rec.get("selected_break_id") is not None)
-    )
+    sweep_ok = bool(f.get("sweep_confirmed", False))
+    mss_ok = bool(f.get("mss_confirmed", False))
     disp_ok = bool(f.get("displacement_valid", False))
-    retest_ok = bool(
-        f.get("fvg_retest_valid", False)
-        or (f.get("fvg_retest_valid") is None and rec.get("selected_fvg_id") is not None)
-    )
+    retest_ok = bool(f.get("fvg_retest_valid", False))
     reach_ok = bool(f.get("target_reachable", False))
     net_rr = round(float(rec.get("net_rr") or 0.0), 4)
     m_id = str(rec.get("model_id") or "")

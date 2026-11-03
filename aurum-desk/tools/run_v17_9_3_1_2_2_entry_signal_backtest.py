@@ -172,7 +172,7 @@ def _map_si_policy_to_executable_research_policy_v1793122(
             rederive_structural_liquidity_target=True,
             max_realistic_target_net_rr=3.50,
         )
-    if pid in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED"):
+    if pid in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"):
         return ExecutableResearchPolicyV179312(
             variant_id=pid,
             base_cohort_variant="A1_V1792_SL_TP_BASELINE",
@@ -228,7 +228,7 @@ def replay_single_si_policy_v1793122(
     raw_decisions_total = int(candidate_index["raw_eligible_decisions_count"])
 
     eff_feature_ledger: Dict[str, Mapping[str, Any]] = dict(feature_ledger_by_opp_id)
-    if policy_id == "SI8_RESEARCH_DISCOVERY_REPAIRED":
+    if policy_id in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"):
         si8_by_idx = candidate_index.get("si8_discovered_decisions_by_checkpoint_index")
         si8_feat = candidate_index.get("si8_discovered_feature_ledger_by_opp_id")
         if si8_by_idx is None:
@@ -285,7 +285,7 @@ def replay_single_si_policy_v1793122(
         opp_id = str(opp["opportunity_id"])
         feat = dict(eff_feature_ledger.get(opp_id) or {})
 
-        if policy_id == "SI8_RESEARCH_DISCOVERY_REPAIRED" and bool(opp.get("discovered_by_si8", False)):
+        if policy_id in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS") and bool(opp.get("discovered_by_si8", False)):
             ent_px = round(float(opp["entry_reference"]), 2)
             sl_px = round(float(opp["selected_sl"]), 2)
             tp_px = round(float(opp["take_profit"]), 2)
@@ -364,12 +364,13 @@ def replay_single_si_policy_v1793122(
             materialized_list.append((opp, mat))
             continue
 
-        # Additional SI1 / SI7 / SI8 model-specific continuation/reversal quality filter before materialization
+        # Additional SI1 / SI7 / SI8 / SI9 model-specific continuation/reversal quality filter before materialization
         if policy_id in (
             "SI1_MODEL_QUALITY_AND_ARBITRATION",
             "SI6_COMBINED_PREDECLARED",
             "SI7_CORE_TRADING_LOGIC_REPAIRED",
             "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
         ):
             m_id = str(opp.get("model_id") or "")
             if m_id == ModelIdentifier.SMC_M1_CONTINUATION.value:
@@ -392,7 +393,7 @@ def replay_single_si_policy_v1793122(
                     }
                     materialized_list.append((opp, mat))
                     continue
-            if policy_id in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED"):
+            if policy_id in ("SI7_CORE_TRADING_LOGIC_REPAIRED", "SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"):
                 if m_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value and str(feat.get("unicorn_classification") or "NONE") != "UNICORN_CONFIRMED":
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
@@ -424,6 +425,46 @@ def replay_single_si_policy_v1793122(
                         "status": "REJECTED_BY_INTERVENTION",
                         "accepted": False,
                         "rejection_reason": "SI4_FVG_RETEST_MISSING_OR_STALE",
+                        "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
+                        "new_checkpoint_index_1m": None,
+                        "new_decision_timestamp_ms": None,
+                        "changed_dimensions": [],
+                        "known_at_ms": int(opp["decision_timestamp_ms"]),
+                        "confirmation_subtype": "NONE",
+                    }
+                    materialized_list.append((opp, mat))
+                    continue
+            if policy_id == "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS":
+                # Strict H1..H6 causal validation for SI9
+                if str(feat.get("htf_alignment_state") or "MIXED").upper() != "ALIGNED":
+                    mat = {
+                        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "opportunity_id": opp_id,
+                        "setup_id": str(opp.get("setup_id") or ""),
+                        "variant_id": policy_id,
+                        "intervention_type": exec_pol.intervention_type,
+                        "status": "REJECTED_BY_INTERVENTION",
+                        "accepted": False,
+                        "rejection_reason": "SI9_H2_HTF_NOT_ALIGNED",
+                        "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
+                        "new_checkpoint_index_1m": None,
+                        "new_decision_timestamp_ms": None,
+                        "changed_dimensions": [],
+                        "known_at_ms": int(opp["decision_timestamp_ms"]),
+                        "confirmation_subtype": "NONE",
+                    }
+                    materialized_list.append((opp, mat))
+                    continue
+                if not bool(feat.get("target_reachable", False)) or feat.get("status") != "PROVEN_TRUE":
+                    mat = {
+                        "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "opportunity_id": opp_id,
+                        "setup_id": str(opp.get("setup_id") or ""),
+                        "variant_id": policy_id,
+                        "intervention_type": exec_pol.intervention_type,
+                        "status": "REJECTED_BY_INTERVENTION",
+                        "accepted": False,
+                        "rejection_reason": "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN",
                         "old_plan": {"opportunity_id": opp_id, "model_id": m_id},
                         "new_checkpoint_index_1m": None,
                         "new_decision_timestamp_ms": None,

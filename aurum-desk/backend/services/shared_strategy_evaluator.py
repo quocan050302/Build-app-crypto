@@ -473,6 +473,7 @@ class MarketDecisionContext:
     mtf_liquidity_summary: Optional[Dict[str, Any]] = None
     mtf_context: Optional[Any] = None
     mtf_diagnostic_error: Optional[str] = None
+    quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE"
 
     @property
     def now_ms(self) -> int:
@@ -586,6 +587,7 @@ def build_market_decision_context(
     h1_alignment: Optional[str] = None,
     session_restricted: bool = False,
     session_restriction_reason: Optional[str] = None,
+    quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE",
 ) -> MarketDecisionContext:
     """
     Constructs an immutable MarketDecisionContext, enforcing causal candle filtering
@@ -1017,6 +1019,7 @@ def build_market_decision_context(
         mtf_liquidity_summary=mtf_liq_summary,
         mtf_context=mtf_eval_ctx,
         mtf_diagnostic_error=mtf_diag_err,
+        quote_source_kind=quote_source_kind,
     )
 
 
@@ -1097,6 +1100,7 @@ class StrategyDecisionSnapshot:
     v1793122_quality_evidence_dict: Optional[Dict[str, Any]] = None
     v1793122_pending_setup_dict: Optional[Dict[str, Any]] = None
     v1793122_rejection_stage: Optional[str] = None
+    quote_source_kind: str = "SYNTHETIC_RESEARCH_QUOTE"
 
     @property
     def trade_action_fingerprint(self) -> str:

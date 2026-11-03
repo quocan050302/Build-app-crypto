@@ -503,6 +503,7 @@ def iter_causal_decision_checkpoints_v1793125(
             "bid": round(last_c - 0.10, 2),
             "ask": round(last_c + 0.10, 2),
             "quote_timestamp_ms": int(cur_ts),
+            "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
         }
 
 
@@ -628,6 +629,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
             bid=round(last_c - 0.10, 2),
             ask=round(last_c + 0.10, 2),
             quote_timestamp_ms=cur_ts,
+            quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
             policy_config=base_policy_cfg,
         )
 
@@ -766,6 +768,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                                 else None
                             ),
                             "discovered_by_si8": True,
+                            "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
                             "confirmation_subtype": str(
                                 s_si8.v1793122_unicorn_classification
                                 if m_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
@@ -777,6 +780,10 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                             dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
                         )
                         base_rec["opportunity_id"] = opp_id
+                        tgt_known = q_ev_d.get("target_known_at_ms")
+                        tgt_reach = bool(q_ev_d.get("target_reachable", False)) and bool(tgt_known and int(tgt_known) > 0)
+                        source_known_at_ms = int(tgt_known) if (tgt_known and int(tgt_known) > 0) else None
+
                         si8_discovered_decisions_by_checkpoint_index.setdefault(int(idx_1m), []).append(base_rec)
                         si8_discovered_feature_ledger_by_opp_id[opp_id] = {
                             "htf_alignment_state": str(s_si8.v1793122_htf_alignment_state or q_ev_d.get("htf_alignment_state") or "MIXED"),
@@ -789,10 +796,11 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                             "sweep_reclaimed": bool(q_ev_d.get("sweep_reclaimed", False)),
                             "mss_confirmed": bool(q_ev_d.get("mss_confirmed", False)),
                             "protected_structure_independent_of_sl": bool(q_ev_d.get("protected_structure_independent_of_sl", False)),
-                            "target_reachable": bool(q_ev_d.get("target_reachable", False)),
-                            "status": "PROVEN_TRUE" if bool(q_ev_d.get("target_reachable", False)) else "UNPROVEN",
-                            "source_known_at_ms": int(q_ev_d.get("target_known_at_ms") or cur_ts),
+                            "target_reachable": tgt_reach,
+                            "status": "PROVEN_TRUE" if tgt_reach and source_known_at_ms is not None else "UNPROVEN",
+                            "source_known_at_ms": source_known_at_ms,
                             "decision_timestamp_ms": int(cur_ts),
+                            "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
                         }
                         si8_incremental_eligible_records.append(base_rec)
                 else:
