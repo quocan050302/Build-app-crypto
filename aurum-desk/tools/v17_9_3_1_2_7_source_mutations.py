@@ -44,7 +44,7 @@ def run_new_source_mutations(output_dir):
             if old not in source: raise ValueError("MUTATION_TARGET_NOT_FOUND:"+old)
             target.write_text(source.replace(old,new,1),encoding="utf-8")
             env=os.environ.copy()
-            env["PYTHONPATH"]=os.pathsep.join([str(temp),str(APP/"backend"),str(APP)])
+            env["PYTHONPATH"]=os.pathsep.join([str(temp),str(APP/"backend"),str(APP),env.get("PYTHONPATH","")])
             env["PYTHONDONTWRITEBYTECODE"]="1"
             cmd=[sys.executable,"-B","-m","pytest",str(test),"--noconftest","-q"]
             log=output_dir/f"M{n:02d}_red.log"

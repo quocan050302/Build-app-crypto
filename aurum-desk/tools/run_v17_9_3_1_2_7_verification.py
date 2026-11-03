@@ -72,15 +72,19 @@ class ResourceMonitor:
         self.stop_event=threading.Event()
         self.samples=[]
         self.error=None
+        self.abort_path=None
     def check(self):
         import psutil
         proc=psutil.Process()
         children=proc.children(recursive=True)
         ram=psutil.virtual_memory().available
         free=shutil.disk_usage(ROOT).free
+        def child_rss(child):
+            try: return child.memory_info().rss
+            except psutil.NoSuchProcess: return 0
         row={"epoch_ns":time.time_ns(),"free_disk_bytes":free,"available_ram_bytes":ram,
              "worker_pids":[p.pid for p in children],"rss_bytes":proc.memory_info().rss,
-             "child_rss_bytes":sum(p.memory_info().rss for p in children if p.is_running())}
+             "child_rss_bytes":sum(child_rss(p) for p in children)}
         self.samples.append(row)
         if len(self.samples)>10000: self.samples=self.samples[::2]
         if free<5*1024**3: self.error="BLOCKED_LOW_DISK"
@@ -92,6 +96,8 @@ class ResourceMonitor:
             try: self.check()
             except Exception as exc:
                 self.error=str(exc)
+                if self.abort_path:
+                    write(self.abort_path,{"status":"BLOCKED","reason":self.error,"last_sample":self.samples[-1] if self.samples else None})
                 # Guarded checkpoints propagate; do not kill unrelated applications.
                 import psutil
                 for child in reversed(psutil.Process().children(recursive=True)):
@@ -157,6 +163,17 @@ def main():
     ap.add_argument("--tested-code-sha",required=True)
     ap.add_argument("--run-id",default="")
     args=ap.parse_args()
+    # Windows venv python.exe and Git/cmd are process redirectors. Launch the
+    # underlying binaries, retaining this venv's packages in child PYTHONPATH,
+    # so four workers mean four OS processes rather than eight redirectors.
+    if os.name=="nt":
+        packages=str(Path(sys.prefix)/"Lib/site-packages")
+        os.environ["PYTHONPATH"]=os.pathsep.join([packages,os.environ.get("PYTHONPATH","")])
+        sys.executable=getattr(sys,"_base_executable",sys.executable)
+        found=shutil.which("git")
+        direct=Path(found).parents[1]/"mingw64/bin" if found else None
+        if direct and (direct/"git.exe").is_file():
+            os.environ["PATH"]=str(direct)+os.pathsep+os.environ.get("PATH","")
     sha=git("rev-parse","HEAD")
     if sha!=args.tested_code_sha or git("diff","--name-only","HEAD","--","aurum-desk/backend","aurum-desk/tools"):
         raise SystemExit("FROZEN_EXECUTABLE_SHA_MISMATCH_OR_DIRTY_SOURCE")
@@ -182,6 +199,8 @@ def main():
     dataset_sha="UNAVAILABLE"
     specs=[]
     monitor=ResourceMonitor()
+    monitor.abort_path=run/"resource_abort.json"
+    os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"]=str(monitor.abort_path)
     failure=None
     try:
         monitor.start()

@@ -312,6 +312,9 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             all_collected_ids.append(cid)
 
     def _run_shard(spec: Tuple[str, List[str]]) -> Dict[str, Any]:
+        abort_path=os.environ.get("AURUM_RESOURCE_GUARD_ABORT_FILE")
+        if abort_path and Path(abort_path).exists():
+            raise RuntimeError("RESOURCE_GUARD_ABORTED_FRESH_SHARDS")
         shard_name, rel_paths = spec
         abs_paths = [str(APP_ROOT / rp) for rp in rel_paths]
         xml_path = junit_dir / f"{shard_name}.xml"
@@ -383,15 +386,18 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         # Execute shard in a fresh pytest subprocess with JUnit XML
         cmd_argv = [py_exe, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"]
         start_utc = datetime.now(timezone.utc).isoformat()
-        proc = subprocess.Popen(
-            cmd_argv,
-            cwd=str(APP_ROOT),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        shard_pid = int(proc.pid)
-        out_str, err_str = proc.communicate()
+        log_path=xml_path.with_suffix(".log")
+        with log_path.open("w",encoding="utf-8") as log:
+            proc = subprocess.Popen(cmd_argv,cwd=str(APP_ROOT),stdout=log,stderr=subprocess.STDOUT,text=True)
+            shard_pid = int(proc.pid)
+            try: proc.wait(timeout=1800)
+            except subprocess.TimeoutExpired:
+                proc.terminate()
+                proc.wait(timeout=15)
+                raise RuntimeError("FRESH_PYTEST_SHARD_TIMEOUT:"+shard_name)
+        with log_path.open("rb") as log:
+            log.seek(max(0,log_path.stat().st_size-400))
+            err_str=log.read().decode("utf-8",errors="replace")
         ret_code = int(proc.returncode or 0)
         end_utc = datetime.now(timezone.utc).isoformat()
         elapsed = round(time.time() - t_s, 2)
@@ -452,6 +458,7 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             "xml_mtime_ns": xml_mtime_ns,
             "xml_sha256": xml_sha256,
             "stderr_tail": (err_str or "")[-400:],
+            "stdout_stderr_log_path":str(log_path),
             "junit_xml_path": str(xml_path.relative_to(APP_ROOT)) if xml_path.is_relative_to(APP_ROOT) else str(xml_path),
             "_junit_ids": shard_junit_ids,
         }
@@ -843,7 +850,7 @@ def run_16_executable_red_green_source_mutations_v1793122(
                 shutil.copy2(py_f, sandbox_services / py_f.name)
 
             env = dict(os.environ)
-            env["PYTHONPATH"] = os.pathsep.join([str(tmp_root), str(BACKEND_ROOT), str(APP_ROOT)])
+            env["PYTHONPATH"] = os.pathsep.join([str(tmp_root), str(BACKEND_ROOT), str(APP_ROOT),env.get("PYTHONPATH","")])
 
             target_path = (
                 sandbox_services / "scalp_m1_types.py"
