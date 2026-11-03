@@ -1,9 +1,11 @@
 {
   "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "clean_working_tree_verified": true,
   "mandatory_branch": "feature/v17-9-2-structural-sl-tp-from-qa",
   "phase_a_tested_code_sha": "51f79a177fa5b5ecfd972bf626477e6904a9f62b",
   "phase_a_tested_sha_verified": true,
-  "phase_b_evidence_commit_sha": "PENDING_PHASE_B_COMMIT",
-  "remote_head_sha_after_push": "PENDING_PHASE_C_PUSH",
-  "schema_version": "17.9.3.1.2.4"
+  "phase_b_evidence_commit_sha": "50fb1a852c47cc19ddfe5d947baf89f741978fb3",
+  "remote_head_sha_after_push": "50fb1a852c47cc19ddfe5d947baf89f741978fb3",
+  "schema_version": "17.9.3.1.2.4",
+  "starting_head_sha": "4f70fddd02b8d02b046b0888f3445e180f14b3ed"
 }
