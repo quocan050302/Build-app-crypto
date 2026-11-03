@@ -6,7 +6,7 @@ or enables execution. Phase receipts are verified separately after a clean run.
 """
 from __future__ import annotations
 import argparse
-from collections import Counter
+from collections import ChainMap, Counter
 from datetime import datetime, timezone
 import gzip
 import hashlib
@@ -234,6 +234,7 @@ def main():
     env=subprocess.run([sys.executable,"-m","pip","freeze"],capture_output=True,text=True,check=True)
     write(run/"02_environment_package_manifest.json",{"python":sys.executable,"version":sys.version,"packages":env.stdout.splitlines(),"source_manifest":before})
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"]="1"
+    os.environ["AURUM_TESTED_EXECUTABLE_SHA"]=sha
     os.environ["AURUM_RESEARCH_TEST_WORKERS"]="1"
     os.environ["AURUM_RESEARCH_PROCESS_WORKERS"]="1"
     proofs={"G01":{"status":"PASS","source":"01_git_preflight_and_frozen_executable_sha.json","measured":sha}}
@@ -283,7 +284,7 @@ def main():
         evidence=run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(run/"raw_backtest",tested_executable_sha=sha,full_universe_si8=True)
         internal=evidence.pop("_internal_context")
         dataset_sha=evidence["01"]["dataset_sha256"]
-        features={**internal["feat_by_opp_id"],**internal["cand_index"].get("si8_discovered_feature_ledger_by_opp_id",{})}
+        features=ChainMap(internal["cand_index"].get("si8_discovered_feature_ledger_by_opp_id",{}),internal["feat_by_opp_id"])
         write_rows(run/"07_verified_causal_features.jsonl.gz",features.values())
         states=Counter((ref["evidence_type"],ref["proof_state"]) for r in features.values() for ref in r["causal_snapshot"]["features"])
         write(run/"06_causal_evidence_contract_and_proof_state_counts.json",{"rows":len(features),"proof_states":{name:dict((state,n) for (feature,state),n in states.items() if feature==name) for name in sorted({key[0] for key in states})},"schema":"VerifiedPreEntryFeatureSnapshot","unknown_eligibility":"REJECTED_UNPROVEN"})
@@ -345,7 +346,9 @@ def main():
         write_rows(run/"13_baseline_raw_execution_episodes.jsonl.gz",internal["a1_episodes"])
         write_rows(run/"13_per_trade_forensics_observed_vs_hypothesized.jsonl.gz",forensic)
         write(run/"14_forensic_root_cause_evidence_and_unknown_breakdown.json",dict(Counter(r["primary_label"] for r in forensic)))
-        write(run/"07_cache_metrics.json",evidence_cache_metrics())
+        write(run/"07_cache_metrics.json",{**evidence_cache_metrics(),
+              "baseline_encoded_payload_bytes":getattr(internal["feat_by_opp_id"],"encoded_bytes",None),
+              "discovery_encoded_payload_bytes":getattr(internal["cand_index"].get("si8_discovered_feature_ledger_by_opp_id"),"encoded_bytes",None)})
         stats=empirical_policy_statistics(results)
         write(run/"24_engineering_strategy_activation_dual_verdict.json",stats)
         write(run/"16_walkforward_purge_embargo_oos_freshness_and_uncertainty.json",evidence["21"])

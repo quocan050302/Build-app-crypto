@@ -6,11 +6,13 @@ a second strategy evaluator. Missing proof stays UNKNOWN in persisted output.
 from __future__ import annotations
 
 import bisect
-from collections import OrderedDict
+from collections import OrderedDict, Counter, ChainMap
+from collections.abc import MutableMapping
 from dataclasses import asdict, dataclass
 import hashlib
 import json
 import math
+import zlib
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
@@ -18,7 +20,47 @@ VERSION = "17.9.3.1.2.7"
 TF = {"1m": 60_000, "5m": 300_000, "15m": 900_000,
       "1h": 3_600_000, "4h": 14_400_000}
 TRUE, FALSE, UNKNOWN = "PROVEN_TRUE", "PROVEN_FALSE", "UNKNOWN"
+GEOMETRY_FIELDS=("model_id","direction","entry_reference","selected_sl","take_profit",
+                 "hypothetical_quantity","selected_anchor_id","selected_target_id",
+                 "selected_fvg_id","selected_breaker_id","selected_sweep_id","selected_break_id","setup_episode_id")
 SOURCE_IMPLEMENTATION_HASH = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+
+class CompressedFeatureLedger(MutableMapping):
+    """Bounded-memory pure input cache; each read returns an independent record."""
+    def __init__(self):
+        self._encoded={}
+        self.proof_hashes={}
+        self._datasets={}
+        self._dataset_counts=Counter()
+    def __getitem__(self,key):
+        return json.loads(zlib.decompress(self._encoded[key]))
+    def __setitem__(self,key,value):
+        if key in self._encoded:self.__delitem__(key)
+        self._encoded[key]=zlib.compress(json.dumps(value,sort_keys=True,separators=(",",":"),allow_nan=False).encode(),1)
+        self.proof_hashes[key]=value.get("proof_hash")
+        dataset=value.get("source_dataset_sha256")
+        self._datasets[key]=dataset
+        self._dataset_counts[dataset]+=1
+    def __delitem__(self,key):
+        del self._encoded[key]
+        del self.proof_hashes[key]
+        dataset=self._datasets.pop(key)
+        self._dataset_counts[dataset]-=1
+        if not self._dataset_counts[dataset]:del self._dataset_counts[dataset]
+    def __iter__(self):return iter(self._encoded)
+    def __len__(self):return len(self._encoded)
+    def __contains__(self,key):return key in self._encoded
+    @property
+    def dataset_hashes(self):return {k for k in self._dataset_counts if k}
+    @property
+    def encoded_bytes(self):return sum(len(v) for v in self._encoded.values())
+
+
+def ledger_dataset_hashes(ledger):
+    if isinstance(ledger,CompressedFeatureLedger):return ledger.dataset_hashes
+    if isinstance(ledger,ChainMap):return set().union(*(ledger_dataset_hashes(m) for m in ledger.maps))
+    return {r.get("source_dataset_sha256") for r in ledger.values() if r.get("source_dataset_sha256")}
 
 
 def canonical_hash(value: Any) -> str:
@@ -271,8 +313,16 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     flat["fvg_age_bars_m1"] = (cutoff-int(fvg["confirmed_at"]))//60_000 if fvg else None
     uni = detect_unicorn_evidence(bars, direction, cutoff, symbol=symbol,
                                  confirmed_swings=(sh, sl)) if len(bars) >= 10 else None
-    record("unicorn_breaker_fvg_bound", uni.is_valid if uni else None, bars if uni else ())
-    flat["unicorn_classification"] = "UNICORN_CONFIRMED" if uni and uni.is_valid else "FVG_ONLY" if fvg else "UNKNOWN"
+    bound_uni=bool(uni and uni.is_valid and fvg and _get(uni,"selected_fvg_id",_get(uni,"fvg_id"))==fvg["id"]
+                   and (not decision.get("selected_breaker_id") or decision["selected_breaker_id"]==_get(uni,"breaker_id")))
+    record("unicorn_breaker_fvg_bound", bound_uni if uni else None, bars if uni else ())
+    flat["unicorn_classification"] = "UNICORN_CONFIRMED" if bound_uni else "FVG_ONLY" if fvg else "UNKNOWN"
+    record("sweep_mss_ordered", bool(sweep_pair[2] and break_pair[1]["open_time"]>=sweep_pair[2]["close_time"]) if sweep_pair and break_pair else None,bars)
+    record("mss_fvg_retest_ordered", bool(int(fvg["confirmed_at"])>=break_pair[1]["close_time"] and touch["open_time"]>=int(fvg["confirmed_at"])) if fvg and break_pair and touch else None,bars)
+    flat["sweep_source_pivot_id"]=sweep_pair[0].get("id") if sweep_pair else None
+    flat["mss_source_pivot_id"]=break_pair[0].get("id") if break_pair else None
+    flat["fvg_source_id"]=fvg.get("id") if fvg else None
+    flat["unicorn_source_breaker_id"]=_get(uni,"breaker_id") if bound_uni else None
 
     entry, stop, target = decision.get("entry_reference"), decision.get("selected_sl"), decision.get("take_profit")
     anchor = None
@@ -298,6 +348,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     flat["target_sweep_bar_id"] = f"{symbol}:1m:{target_sweep_bar['open_time']}" if target_sweep_bar else None
     bid, ask = _get(context,"bid"), _get(context,"ask")
     flat["quote_source_kind"] = quote_kind
+    flat["decision_geometry"]={k:decision.get(k) for k in GEOMETRY_FIELDS}
     flat["spread_to_atr_m1_ratio"] = (float(ask)-float(bid))/atr.value if bid is not None and ask is not None and atr.status=="AVAILABLE" and atr.value>0 else None
     oid = str(decision.get("opportunity_id", ""))
     ep = str(decision.get("setup_episode_id", decision.get("setup_id", "")))
@@ -313,7 +364,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             "evidence_derivation_version":VERSION}
 
 
-def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, datasets, *, dataset_sha256):
+def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, datasets, *, dataset_sha256, compact=False):
     """Cover every baseline opportunity; no sample-record or optimistic fallback."""
     from types import SimpleNamespace
     # The canonical loader names hourly frames 1H/4H; contracts use 1h/4h.
@@ -323,7 +374,7 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
     times = {tf:[int(_get(b,"close_time",_get(b,"timestamp",0)+TF[tf])) for b in datasets.get(tf,())] for tf in fields}
     if any(ts != sorted(set(ts)) for ts in times.values()):
         raise ValueError("NON_MONOTONIC_OR_DUPLICATE_DATASET_BARS")
-    ledger = {}
+    ledger = CompressedFeatureLedger() if compact else {}
     for idx, records in sorted(candidate_index["decisions_by_checkpoint_index"].items()):
         if len(ledger)%128==0:
             import shutil
@@ -351,7 +402,7 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
     return ledger
 
 
-def required_proof_rejection_v1793127(feature, model_id):
+def required_proof_rejection_v1793127(feature, model_id, *, decision=None):
     requires_unicorn = model_id == "UNICORN_MODEL"
     model_id={"ICT_2022_MODEL":"SMC_M1_CONTINUATION","UNICORN_MODEL":"SMC_M1_FVG_CONTINUATION",
               "SILVER_BULLET":"SMC_M1_SWEEP_RECLAIM"}.get(model_id,model_id)
@@ -359,15 +410,20 @@ def required_proof_rejection_v1793127(feature, model_id):
         return "REJECTED_UNPROVEN:UNSUPPORTED_MODEL"
     if not verify_feature_snapshot_v1793127(feature):
         return "REJECTED_UNPROVEN:INVALID_OR_MISSING_PROOF_HASH"
+    if decision is not None and feature.get("decision_geometry")!={k:decision.get(k) for k in GEOMETRY_FIELDS}:
+        return "REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH"
+    if decision is not None and decision.get("decision_timestamp_ms")!=feature.get("decision_timestamp_ms"):
+        return "REJECTED_UNPROVEN:INTENT_TIMESTAMP_MISMATCH"
     if feature.get("htf_alignment_state") != "ALIGNED":
         return "REJECTED_UNPROVEN:HTF_NOT_ALIGNED"
     required=["protected_structure_independent_of_sl","target_unswept"]
     if requires_unicorn:
         required += ["unicorn_breaker_fvg_bound"]
     if model_id in ("SMC_M1_REVERSAL","SMC_M1_SWEEP_RECLAIM","CG01_SWEEP_MSS_FVG"):
-        required += ["sweep_confirmed","sweep_reclaimed","mss_confirmed"]
+        required += ["sweep_confirmed","sweep_reclaimed","mss_confirmed","sweep_mss_ordered"]
     if model_id in ("UNICORN_MODEL","SMC_M1_FVG_CONTINUATION","CG01_SWEEP_MSS_FVG"):
-        required += ["fvg_present","fvg_retest_valid","fvg_unmitigated"]
+        required += ["fvg_present","fvg_retest_valid","fvg_unmitigated","mss_confirmed","displacement_valid","mss_fvg_retest_ordered"]
+    if model_id=="CG01_SWEEP_MSS_FVG":required += ["unicorn_breaker_fvg_bound"]
     if model_id=="SMC_M1_CONTINUATION":
         required += ["mss_confirmed","displacement_valid"]
     refs={r["evidence_type"]:r for r in (feature.get("causal_snapshot") or {}).get("features",())}
@@ -375,6 +431,22 @@ def required_proof_rejection_v1793127(feature, model_id):
         if key not in refs or refs[key].get("proof_state")!=TRUE or feature.get(key) is not True:
             return "REJECTED_UNPROVEN:"+key
     return None
+
+
+def rebuild_materialized_intent_proof_v1793127(opportunity,plan,datasets,*,dataset_sha256):
+    """Recheck actual final geometry at its own closed-bar decision time."""
+    record={**opportunity,"decision_timestamp_ms":plan["new_decision_timestamp_ms"],
+            "checkpoint_index_1m":plan["new_checkpoint_index_1m"]}
+    for field,new_field in (("entry_reference","new_entry_reference"),("selected_sl","new_selected_sl"),
+                            ("take_profit","new_take_profit"),("hypothetical_quantity","new_quantity"),
+                            ("selected_anchor_id","new_selected_anchor_id"),("selected_target_id","new_selected_target_id")):
+        record[field]=plan.get(new_field,opportunity.get(field))
+    index=int(record["checkpoint_index_1m"])
+    if index<0 or index>=len(datasets["1m"]) or int(datasets["1m"][index]["close_time"])!=record["decision_timestamp_ms"]:
+        raise ValueError("FINAL_INTENT_NOT_AT_CLOSED_SOURCE_BAR")
+    proof=build_verified_baseline_pre_entry_feature_ledger_v1793127(
+        {"decisions_by_checkpoint_index":{index:[record]}},datasets,dataset_sha256=dataset_sha256)[str(record["opportunity_id"])]
+    return record,proof,required_proof_rejection_v1793127(proof,str(record["model_id"]),decision=record)
 
 
 def verify_feature_snapshot_v1793127(row):
@@ -391,8 +463,15 @@ def verify_feature_snapshot_v1793127(row):
         return False
     if any(row.get(k) != v for k,v in snap.get("derived_values", ())):
         return False
+    geometry=row.get("decision_geometry") or {}
+    if geometry.get("model_id")!=row.get("model_id") or str(geometry.get("direction","")).upper()!=str(row.get("direction","")).upper():
+        return False
+    dataset_sha=row.get("source_dataset_sha256","")
+    if not isinstance(dataset_sha,str) or len(dataset_sha)!=64:
+        return False
     cutoff = snap["decision_timestamp_ms"]
     for ref in snap.get("features", ()):
+        if ref.get("source_dataset_sha256")!=dataset_sha:return False
         if ref.get("proof_state") not in (TRUE,FALSE,UNKNOWN):
             return False
         if ref["proof_state"] != UNKNOWN:
@@ -438,14 +517,38 @@ def classify_observed_loss_v1793127(ep,feature):
 def build_forensic_causal_evidence_join_v1793127(episodes,ledger):
     output=[]
     seen=set()
+    canonical_seen=set()
+    dataset_hashes=ledger_dataset_hashes(ledger)
     for ep in episodes:
         oid=ep.get("opportunity_id")
         if not oid or oid in seen:
             raise ValueError("DUPLICATE_OR_MISSING_EPISODE_OPPORTUNITY")
         seen.add(oid)
-        feature=ledger.get(oid,{})
+        feature=ledger.get(oid)
+        canonical_id=oid
+        if feature is None and dataset_hashes:
+            if len(dataset_hashes)!=1:raise ValueError("AMBIGUOUS_FORENSIC_DATASET_AUTHORITY")
+            from services.v17_9_3_1_2_1_root_cause_evidence_service import build_canonical_opportunity_id_v1793121
+            try:
+                source_record={**ep,"model_id":ep.get("source_model_id",ep.get("model_id"))}
+                candidate_id=build_canonical_opportunity_id_v1793121(source_record,dataset_sha256=next(iter(dataset_hashes)))
+                feature=ledger.get(candidate_id)
+                if feature is not None:canonical_id=candidate_id
+            except (ValueError,TypeError):pass
+        feature=feature or {}
+        final_feature=ep.get("v1793127_final_feature_proof")
+        if final_feature is not None:
+            if not verify_feature_snapshot_v1793127(final_feature):raise ValueError("INVALID_FINAL_FORENSIC_PROOF")
+            feature=final_feature
+        feature_cutoff=feature.get("decision_timestamp_ms")
+        episode_cutoff=ep.get("decision_timestamp_ms") if final_feature else ep.get("canonical_decision_timestamp_ms",ep.get("base_decision_timestamp_ms",ep.get("decision_timestamp_ms")))
+        if verify_feature_snapshot_v1793127(feature) and feature_cutoff!=episode_cutoff:
+            raise ValueError("FORENSIC_SOURCE_TIMESTAMP_MISMATCH")
+        if canonical_id in canonical_seen:raise ValueError("DUPLICATE_CANONICAL_FORENSIC_OPPORTUNITY")
+        canonical_seen.add(canonical_id)
         primary,labels=classify_observed_loss_v1793127(ep,feature)
         output.append({"opportunity_id":oid,"observed_execution":dict(ep),
+                       "canonical_opportunity_id":canonical_id,
                        "pre_entry_snapshot":feature.get("causal_snapshot"),
                        "primary_label":primary,"observation_tags":labels,
                        "inferred_hypothesis":"UNKNOWN","counterfactual_assessment_status":"NOT_ESTABLISHED",

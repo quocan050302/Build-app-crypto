@@ -385,10 +385,17 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
 
         # Execute shard in a fresh pytest subprocess with JUnit XML
         cmd_argv = [py_exe, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"]
+        # DB ownership tests deliberately replace PYTHONPATH in subprocesses.
+        # Preserve the real venv interpreter for this group; limit nested jobs
+        # to one to budget both Windows redirector processes within the cap.
+        needs_venv=any(Path(rp).name=="test_v17_7_database_safety.py" for rp in rel_paths)
+        if needs_venv and os.environ.get("AURUM_VERIFY_VENV_PYTHON"):
+            cmd_argv[0]=os.environ["AURUM_VERIFY_VENV_PYTHON"]
         start_utc = datetime.now(timezone.utc).isoformat()
         log_path=xml_path.with_suffix(".log")
         child_env=dict(os.environ)
         child_budget=max(1,int(child_env.get("AURUM_GLOBAL_PROCESS_BUDGET","4"))-1)
+        if needs_venv:child_budget=1
         child_env["AURUM_GLOBAL_PROCESS_BUDGET"]=str(child_budget)
         with log_path.open("w",encoding="utf-8") as log:
             proc = subprocess.Popen(cmd_argv,cwd=str(APP_ROOT),env=child_env,stdout=log,stderr=subprocess.STDOUT,text=True)
@@ -440,7 +447,9 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             "shard_name": shard_name,
             "reused": False,
             "tested_executable_sha": tested_executable_sha,
-            "env_sha256": env_sha256,
+            "env_sha256": hashlib.sha256(json.dumps({"interpreter":cmd_argv[0],"version":sys.version,
+                "tested_sha":tested_executable_sha,"pythonpath":child_env.get("PYTHONPATH",""),
+                "nested_process_budget":child_budget},sort_keys=True).encode()).hexdigest(),
             "command_argv": cmd_argv,
             "start_time_utc": start_utc,
             "end_time_utc": end_utc,

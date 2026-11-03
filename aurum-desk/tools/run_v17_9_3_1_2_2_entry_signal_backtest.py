@@ -19,7 +19,7 @@ Executes:
 """
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import ChainMap, Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -227,7 +227,7 @@ def replay_single_si_policy_v1793122(
     base_by_idx: Mapping[int, List[Dict[str, Any]]] = candidate_index["decisions_by_checkpoint_index"]
     raw_decisions_total = int(candidate_index["raw_eligible_decisions_count"])
 
-    eff_feature_ledger: Dict[str, Mapping[str, Any]] = dict(feature_ledger_by_opp_id)
+    eff_feature_ledger = ChainMap({},feature_ledger_by_opp_id)
     if policy_id in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"):
         si8_by_idx = candidate_index.get("si8_discovered_decisions_by_checkpoint_index")
         si8_feat = candidate_index.get("si8_discovered_feature_ledger_by_opp_id")
@@ -238,7 +238,7 @@ def replay_single_si_policy_v1793122(
             si8_by_idx = disc_res.get("si8_discovered_decisions_by_checkpoint_index") or {}
             si8_feat = disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {}
         if si8_feat:
-            eff_feature_ledger.update(si8_feat)
+            eff_feature_ledger=ChainMap(si8_feat,feature_ledger_by_opp_id)
         merged_by_idx: Dict[int, List[Dict[str, Any]]] = {int(k): list(v) for k, v in base_by_idx.items()}
         for k_idx, disc_list in (si8_by_idx or {}).items():
             merged_by_idx.setdefault(int(k_idx), []).extend(disc_list)
@@ -264,7 +264,7 @@ def replay_single_si_policy_v1793122(
             proven_candidates = []
             for candidate in cands:
                 reason = required_proof_rejection_v1793127(
-                    eff_feature_ledger.get(str(candidate.get("opportunity_id")), {}), str(candidate.get("model_id")))
+                    eff_feature_ledger.get(str(candidate.get("opportunity_id")), {}), str(candidate.get("model_id")),decision=candidate)
                 if reason:
                     proof_rejected_before_arbitration[reason] += 1
                 else:
@@ -494,6 +494,14 @@ def replay_single_si_policy_v1793122(
             datasets=datasets,
         )
         mat["variant_id"] = policy_id
+        if mat.get("accepted") and candidate_index.get("v1793127_causal_truth_required") and policy_id!="SI0_OFF_BASELINE":
+            from services.v17_9_3_1_2_7_causal_signal_truth import rebuild_materialized_intent_proof_v1793127
+            final_record,final_proof,final_rejection=rebuild_materialized_intent_proof_v1793127(
+                opp,mat,datasets,dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
+            mat["v1793127_final_record"]=final_record
+            mat["v1793127_final_feature_proof"]=final_proof
+            if final_rejection:
+                mat.update(accepted=False,status="REJECTED_UNPROVEN",rejection_reason=final_rejection)
         materialized_list.append((opp, mat))
 
     for opp, mat in materialized_list:
@@ -685,6 +693,8 @@ def replay_single_si_policy_v1793122(
             ep["proof_hash"] = feat.get("proof_hash")
             ep["quote_source_kind"] = feat.get("quote_source_kind", "UNKNOWN")
             ep["canonical_decision_timestamp_ms"] = canonical_decisions[str(ep["opportunity_id"])]["decision_timestamp_ms"]
+            final_proof=(mat_index.get(str(ep["opportunity_id"])) or {}).get("v1793127_final_feature_proof")
+            if final_proof:ep["v1793127_final_feature_proof"]=final_proof
 
     return {
         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
@@ -763,7 +773,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
         )
         from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
         feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
-            cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
+            cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True)
         _WORKER_PROCESS_CONTEXT_CACHE[ctx_source_str] = (datasets, cand_index, feat_map)
 
     res = replay_single_si_policy_v1793122(
@@ -802,7 +812,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
     )
     from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127, canonical_hash
     from services.v17_9_3_1_2_7_matched_ab import compute_matched_policy_ab_v1793127
-    all_features={**feat_map,**cand_index.get("si8_discovered_feature_ledger_by_opp_id",{})}
+    all_features=ChainMap(cand_index.get("si8_discovered_feature_ledger_by_opp_id",{}),feat_map)
     forensic_hash=canonical_hash(build_forensic_causal_evidence_join_v1793127(res["primary_episodes"],all_features))
     baseline=res if policy_id=="SI0_OFF_BASELINE" else replay_single_si_policy_v1793122("SI0_OFF_BASELINE",cand_index,datasets,feat_map,fill_modes=FILL_MODES)
     ab_hashes={mode:canonical_hash(compute_matched_policy_ab_v1793127(
@@ -814,7 +824,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
         "forensic_sha256": forensic_hash,
         "matched_ab_sha256_by_fill": ab_hashes,
         "decision_rows_sha256": hashlib.sha256(json.dumps(res["policy_decision_ledger"],sort_keys=True).encode()).hexdigest(),
-        "feature_proof_sha256": hashlib.sha256(json.dumps({k:v.get("proof_hash") for k,v in sorted(feat_map.items())},sort_keys=True).encode()).hexdigest(),
+        "feature_proof_sha256": hashlib.sha256(json.dumps((feat_map.proof_hashes if hasattr(feat_map,"proof_hashes") else {k:feat_map[k].get("proof_hash") for k in sorted(feat_map)}),sort_keys=True).encode()).hexdigest(),
         "worker_pid": os.getpid(),
         "unique_eligible_timestamps_evaluated": res["unique_eligible_timestamps_evaluated"],
         "closed_trades_count": res["closed_trades_count"],
@@ -880,7 +890,7 @@ def execute_independent_worker_determinism_runs_v1793122(
 
     from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
     feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
-        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122)
+        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True)
     cand_index["v1793127_causal_truth_required"] = True
     fd, tmp_pkl_path = tempfile.mkstemp(prefix="v1793122_worker_ctx_", suffix=".pkl")
     os.close(fd)
@@ -1337,12 +1347,12 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         build_verified_baseline_pre_entry_feature_ledger_v1793127,
     )
     feat_by_opp_id = build_verified_baseline_pre_entry_feature_ledger_v1793127(
-        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True,
     )
     # Discovered records use exactly the same OHLC-derived schema as baseline.
     discovered_index = {"decisions_by_checkpoint_index": cand_index["si8_discovered_decisions_by_checkpoint_index"]}
     verified_discovery = build_verified_baseline_pre_entry_feature_ledger_v1793127(
-        discovered_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,
+        discovered_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True,
     )
     cand_index["si8_discovered_feature_ledger_by_opp_id"] = verified_discovery
     si8_discovery_report["si8_discovered_feature_ledger_by_opp_id"] = verified_discovery
@@ -1429,6 +1439,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         normalized_baseline_trades.append(
             {
                 **ep,
+                "source_model_id":str(ep.get("model_id")),
                 "model_id": m_norm,
                 "exit_reason": "SL" if out_lbl == "LOSS" else "TP",
                 "realized_net_usd": float(ep.get("realized_net_pnl_usd") or 0.0),

@@ -136,6 +136,42 @@ def test_outcomes_cannot_change_pre_entry_proof():
     assert before["proof_hash"]==after["proof_hash"]
 
 
+@pytest.mark.parametrize("field,value",[("entry_reference",2654.),("selected_sl",2644.),("take_profit",2671.),("hypothetical_quantity",.03)])
+def test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown(field,value):
+    before=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+    after=derive({**decision(),field:value},fixture_context(),dataset_sha256="a"*64)
+    assert before["proof_hash"]!=after["proof_hash"]
+
+
+def test_forensic_legacy_identity_resolves_to_exact_canonical_source_proof():
+    from services.v17_9_3_1_2_1_root_cause_evidence_service import build_canonical_opportunity_id_v1793121
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127
+    ctx=fixture_context()
+    ep={**decision(),"opportunity_id":"opp::legacy","checkpoint_index_1m":19,"decision_timestamp_ms":ctx.decision_timestamp_ms}
+    oid=build_canonical_opportunity_id_v1793121(ep,dataset_sha256="a"*64)
+    feature=derive({**ep,"opportunity_id":oid},ctx,dataset_sha256="a"*64)
+    rows=build_forensic_causal_evidence_join_v1793127([ep],{oid:feature})
+    assert rows[0]["source_proof_valid"] is True
+    assert rows[0]["canonical_opportunity_id"]==oid
+    assert rows[0]["observed_execution"]["opportunity_id"]=="opp::legacy"
+    with pytest.raises(ValueError,match="DUPLICATE_CANONICAL_FORENSIC_OPPORTUNITY"):
+        build_forensic_causal_evidence_join_v1793127([ep,{**ep,"opportunity_id":oid}],{oid:feature})
+
+
+def test_final_intent_rebuild_uses_final_geometry_and_rejects_nonclosed_cutoff():
+    from services.v17_9_3_1_2_7_causal_signal_truth import rebuild_materialized_intent_proof_v1793127
+    ctx=fixture_context()
+    opp={**decision(),"checkpoint_index_1m":19,"decision_timestamp_ms":ctx.decision_timestamp_ms}
+    plan={"new_decision_timestamp_ms":ctx.decision_timestamp_ms,"new_checkpoint_index_1m":19,
+          "new_entry_reference":2654.,"new_selected_sl":2644.,"new_take_profit":2672.,"new_quantity":.02}
+    record,proof,rejection=rebuild_materialized_intent_proof_v1793127(opp,plan,{"1m":ctx.closed_m1_candles},dataset_sha256="a"*64)
+    assert proof["decision_geometry"]["selected_sl"]==2644.
+    assert record["hypothetical_quantity"]==.02
+    assert rejection.startswith("REJECTED_UNPROVEN")
+    with pytest.raises(ValueError,match="FINAL_INTENT_NOT_AT_CLOSED_SOURCE_BAR"):
+        rebuild_materialized_intent_proof_v1793127(opp,{**plan,"new_decision_timestamp_ms":ctx.decision_timestamp_ms+1},{"1m":ctx.closed_m1_candles},dataset_sha256="a"*64)
+
+
 def test_gap_is_observed_without_invented_trading_cause():
     label,tags=classify_observed_loss_v1793127({"outcome_label":"DATA_GAP_UNRESOLVED"},{})
     assert label=="FILL_GAP/AMBIGUOUS_INTRABAR"
@@ -337,3 +373,22 @@ def test_actual_sampled_discovery_records_all_models_and_off_observe_actions():
     assert len({(r["checkpoint_index_1m"],r["model_id"],r["direction"]) for r in rows})==30
     assert all(r["off_action_hash"]==r["observe_action_hash"] for r in rows)
     assert all(r["max_closed_bar_ms"]<=r["decision_timestamp_ms"] for r in rows)
+
+
+def test_compact_source_cache_roundtrip_preserves_proofs_and_cannot_be_poisoned():
+    import pickle
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+    ctx=fixture_context()
+    rec={**decision(),"checkpoint_index_1m":19,"decision_timestamp_ms":ctx.decision_timestamp_ms}
+    index={"decisions_by_checkpoint_index":{19:[rec]}}
+    data={"1m":ctx.closed_m1_candles}
+    plain=build_verified_baseline_pre_entry_feature_ledger_v1793127(index,data,dataset_sha256="a"*64)
+    compact=build_verified_baseline_pre_entry_feature_ledger_v1793127(index,data,dataset_sha256="a"*64,compact=True)
+    assert canonical_hash(compact["o1"])==canonical_hash(plain["o1"])
+    read=compact["o1"]
+    read["sweep_confirmed"]=True
+    assert compact["o1"]["sweep_confirmed"]==plain["o1"]["sweep_confirmed"]
+    restored=pickle.loads(pickle.dumps(compact))
+    assert verify_feature_snapshot_v1793127(restored["o1"])
+    assert restored.dataset_hashes=={"a"*64}
+    assert restored.encoded_bytes>0

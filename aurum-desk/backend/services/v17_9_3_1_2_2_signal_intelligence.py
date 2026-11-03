@@ -2445,15 +2445,20 @@ def evaluate_signal_intelligence_gate_v1793122(
         from services.v17_9_3_1_2_7_causal_signal_truth import (
             derive_pre_entry_features_from_causal_context_v1793127, required_proof_rejection_v1793127,
         )
-        verified = derive_pre_entry_features_from_causal_context_v1793127({
+        verified_record={
             "opportunity_id": candidate_key, "setup_episode_id": setup_episode_id,
-            "model_id": model_id, "direction": direction, "entry_reference": baseline_entry,
-            "selected_sl": baseline_sl, "take_profit": baseline_tp,
-            "selected_anchor_id": baseline_anchor_id, "selected_target_id": baseline_target_id,
+            "decision_timestamp_ms":context.decision_timestamp_ms,
+            "model_id": model_id, "direction": direction, "entry_reference": prop_entry,
+            "selected_sl": prop_sl, "take_profit": prop_tp,"hypothetical_quantity":prop_qty,
+            "selected_anchor_id": prop_anchor_id, "selected_target_id": prop_target_id,
             "selected_fvg_id": (setup_descriptors or {}).get("selected_fvg_id"),
-        }, context, dataset_sha256=context_policy.get("source_dataset_sha256", "UNAVAILABLE"))
+            "selected_breaker_id":(setup_descriptors or {}).get("selected_breaker_id"),
+            "selected_sweep_id":(setup_descriptors or {}).get("selected_sweep_id"),
+            "selected_break_id":(setup_descriptors or {}).get("selected_break_id"),
+        }
+        verified = derive_pre_entry_features_from_causal_context_v1793127(verified_record, context, dataset_sha256=context_policy.get("source_dataset_sha256", "UNAVAILABLE"))
         evidence = replace(evidence, verified_causal_snapshot_v1793127=verified)
-        proof_rejection = required_proof_rejection_v1793127(verified, model_id)
+        proof_rejection = required_proof_rejection_v1793127(verified, model_id,decision=verified_record)
         if proof_rejection:
             reasons.append(proof_rejection)
             rejection_stage = "CAUSAL_PROOF_UNPROVEN"
@@ -3028,21 +3033,25 @@ CONTINUATION_FAILURE_TAXONOMY_V1793122: Tuple[str, ...] = (
 
 def _observed_case_rows_v1793127(trades, ledger, policy_decisions=None):
     """Legacy report schema backed by verified observations, never guessed causes."""
-    from services.v17_9_3_1_2_7_causal_signal_truth import classify_observed_loss_v1793127
-    rows=[]
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127
+    observed_rows=[]
     for trade in trades:
-        oid=str(trade.get("opportunity_id") or "")
-        feature=ledger.get(oid,{})
         observed=dict(trade)
         if "realized_gross_pnl_usd" not in observed:
             observed["realized_gross_pnl_usd"]=trade.get("realized_gross_usd")
         if "realized_net_pnl_usd" not in observed:
             observed["realized_net_pnl_usd"]=trade.get("realized_net_usd")
-        label,tags=classify_observed_loss_v1793127(observed,feature)
+        observed_rows.append(observed)
+    rows=[]
+    for joined in build_forensic_causal_evidence_join_v1793127(observed_rows,ledger):
+        oid=str(joined["opportunity_id"])
+        observed=joined["observed_execution"]
+        label,tags=joined["primary_label"],joined["observation_tags"]
         decisions=(policy_decisions or {}).get(oid) or {}
         rows.append({"opportunity_id":oid,"observed_execution":observed,
                      "primary_failure_category":label,"all_failure_categories":tags,
-                     "pre_entry_snapshot":feature.get("causal_snapshot"),
+                     "canonical_opportunity_id":joined["canonical_opportunity_id"],
+                     "pre_entry_snapshot":joined["pre_entry_snapshot"],
                      "inferred_cause":"UNKNOWN","counterfactual_assessment_status":"NOT_ESTABLISHED",
                      "policy_counterfactual_outcomes":dict(decisions) if decisions else {
                          pid:"UNKNOWN_NO_COUNTERFACTUAL_REPLAY" for pid in CANONICAL_V1793123_POLICY_IDS}})

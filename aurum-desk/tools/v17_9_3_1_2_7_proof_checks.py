@@ -140,7 +140,6 @@ def verify_raw_accounting_and_worker_proofs(run):
     coverage=verify_checkpoint_coverage_from_disk(run/"05_full_checkpoint_model_direction_execution_audit.jsonl.gz",datasets)
     if coverage["status"]!="PASS" or coverage["off_observe_action_mismatches"]:
         errors.append("RAW_CHECKPOINT_COVERAGE_OR_OFF_OBSERVE_MISMATCH")
-    del datasets
     hashes=[]
     for key,count in (("28",1),("29",2),("30",4)):
         report=workers[key]
@@ -161,6 +160,17 @@ def verify_raw_accounting_and_worker_proofs(run):
             raise RuntimeError("BLOCKED_LOW_RAM_DISK_ACCOUNTING")
         decisions=read_jsonl(run/(pid+"_decisions.jsonl.gz"))
         _index(decisions)
+        from services.v17_9_3_1_2_7_causal_signal_truth import rebuild_materialized_intent_proof_v1793127
+        dataset_sha=json.loads((run/"03_canonical_dataset_and_quote_source_manifest.json").read_text())["dataset_sha256"]
+        for decision in decisions:
+            final=decision.get("v1793127_final_feature_proof")
+            if pid!="SI0_OFF_BASELINE" and decision.get("accepted") and not final:
+                errors.append("ACCEPTED_INTENT_WITHOUT_FINAL_CAUSAL_PROOF:"+pid)
+            if final:
+                record,rebuilt,rejection=rebuild_materialized_intent_proof_v1793127(
+                    decision["v1793127_final_record"],decision,datasets,dataset_sha256=dataset_sha)
+                if canonical_hash(rebuilt)!=canonical_hash(final) or canonical_hash(record)!=canonical_hash(decision["v1793127_final_record"]) or record["opportunity_id"]!=decision["opportunity_id"] or (decision.get("accepted") and rejection):
+                    errors.append("FINAL_INTENT_RAW_SOURCE_RECONSTRUCTION_MISMATCH:"+pid)
         decision_hash=hashlib.sha256(json.dumps(decisions,sort_keys=True).encode()).hexdigest()
         all_trades={}
         for mode,claimed in modes.items():
@@ -201,6 +211,10 @@ def verify_raw_accounting_and_worker_proofs(run):
     from services.v17_9_3_1_2_7_causal_signal_truth import build_forensic_causal_evidence_join_v1793127
     episodes=read_jsonl(run/"13_baseline_raw_execution_episodes.jsonl.gz")
     wanted={r["opportunity_id"] for r in episodes}
+    from services.v17_9_3_1_2_1_root_cause_evidence_service import build_canonical_opportunity_id_v1793121
+    dataset_sha=json.loads((run/"03_canonical_dataset_and_quote_source_manifest.json").read_text())["dataset_sha256"]
+    for episode in episodes:
+        wanted.add(build_canonical_opportunity_id_v1793121(episode,dataset_sha256=dataset_sha))
     features={}
     import gzip
     with gzip.open(run/"07_verified_causal_features.jsonl.gz","rt",encoding="utf-8") as stream:
@@ -226,7 +240,7 @@ def reconstruct_feature_sources_from_disk(run):
     groups={}
     for row in read_jsonl(run/"10_canonical_decision_inputs.jsonl.gz"):
         groups.setdefault(int(row["checkpoint_index_1m"]),[]).append(row)
-    rebuilt=build_verified_baseline_pre_entry_feature_ledger_v1793127({"decisions_by_checkpoint_index":groups},datasets,dataset_sha256=sha)
+    rebuilt=build_verified_baseline_pre_entry_feature_ledger_v1793127({"decisions_by_checkpoint_index":groups},datasets,dataset_sha256=sha,compact=True)
     mismatch=[]
     total=0
     import gzip
