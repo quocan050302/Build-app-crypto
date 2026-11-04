@@ -20,10 +20,12 @@ Executes:
 from __future__ import annotations
 
 from collections import ChainMap, Counter, defaultdict
+from collections.abc import Mapping as MappingABC
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
+import gc
 import json
 import os
 from pathlib import Path
@@ -31,6 +33,7 @@ import pickle
 import sys
 import tempfile
 import time
+import zlib
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -239,11 +242,8 @@ def replay_single_si_policy_v1793122(
             si8_feat = disc_res.get("si8_discovered_feature_ledger_by_opp_id") or {}
         if si8_feat:
             eff_feature_ledger=ChainMap(si8_feat,feature_ledger_by_opp_id)
-        merged_by_idx: Dict[int, List[Dict[str, Any]]] = {int(k): list(v) for k, v in base_by_idx.items()}
-        for k_idx, disc_list in (si8_by_idx or {}).items():
-            merged_by_idx.setdefault(int(k_idx), []).extend(disc_list)
-            raw_decisions_total += len(disc_list)
-        by_idx: Mapping[int, List[Dict[str, Any]]] = merged_by_idx
+        by_idx = _MergedCheckpointDecisionsV1793127(base_by_idx, si8_by_idx or {})
+        raw_decisions_total += sum(len(records) for records in (si8_by_idx or {}).values())
     else:
         by_idx = base_by_idx
 
@@ -685,14 +685,15 @@ def replay_single_si_policy_v1793122(
                 "proof_hash": feature.get("proof_hash"), "policy_id": policy_id,
                 **(dict(mat) if mat else {"accepted": False, "status": "REJECTED_UNPROVEN" if reason else "SUPPRESSED_SAME_TIMESTAMP_TIE", "rejection_reason": reason}),
             })
+    canonical_decision_times = {str(r["opportunity_id"]): r["decision_timestamp_ms"]
+                                for group in by_idx.values() for r in group}
     for mode_result in mode_replays.values():
-        canonical_decisions = {str(r["opportunity_id"]): r for group in by_idx.values() for r in group}
         for ep in mode_result.get("episodes", []):
             feat = eff_feature_ledger.get(str(ep["opportunity_id"]), {})
             ep["source_snapshot_hash"] = feat.get("source_snapshot_hash")
             ep["proof_hash"] = feat.get("proof_hash")
             ep["quote_source_kind"] = feat.get("quote_source_kind", "UNKNOWN")
-            ep["canonical_decision_timestamp_ms"] = canonical_decisions[str(ep["opportunity_id"])]["decision_timestamp_ms"]
+            ep["canonical_decision_timestamp_ms"] = canonical_decision_times[str(ep["opportunity_id"])]
             final_proof=(mat_index.get(str(ep["opportunity_id"])) or {}).get("v1793127_final_feature_proof")
             if final_proof:ep["v1793127_final_feature_proof"]=final_proof
 
@@ -742,6 +743,51 @@ def replay_single_si_policy_v1793122(
 
 
 _WORKER_PROCESS_CONTEXT_CACHE: Dict[str, Tuple[Any, Any, Dict[str, Dict[str, Any]]]] = {}
+
+
+class _CompressedCheckpointDecisionsV1793127(MappingABC):
+    """Lossless worker input; decode one checkpoint, never the entire corpus."""
+    def __init__(self, records):
+        self._encoded = {key: zlib.compress(pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL), 1)
+                         for key, value in records.items()}
+
+    def __getitem__(self, key):
+        return pickle.loads(zlib.decompress(self._encoded[key]))
+
+    def __iter__(self):
+        return iter(self._encoded)
+
+    def __len__(self):
+        return len(self._encoded)
+
+
+class _MergedCheckpointDecisionsV1793127(MappingABC):
+    """Join baseline and discovery without expanding their compressed records."""
+    def __init__(self, baseline, discovered):
+        self.baseline, self.discovered = baseline, discovered
+        self._keys = dict.fromkeys((*baseline, *discovered))
+
+    def __getitem__(self, key):
+        if key not in self._keys:
+            raise KeyError(key)
+        return [*self.baseline.get(key, ()), *self.discovered.get(key, ())]
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __len__(self):
+        return len(self._keys)
+
+
+def _bounded_worker_candidate_index_v1793127(candidate_index):
+    # These three alternative views are unused by replay_single_si_policy; keeping
+    # them would retain every expanded record beside the compressed worker input.
+    redundant = {"canonical_opportunities", "selected_winners_by_idx", "discarded_ties_by_idx"}
+    result = {key: value for key, value in candidate_index.items() if key not in redundant}
+    for key in ("decisions_by_checkpoint_index", "si8_discovered_decisions_by_checkpoint_index"):
+        if key in result:
+            result[key] = _CompressedCheckpointDecisionsV1793127(result[key])
+    return result
 
 
 def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dict[str, Any]]:
@@ -851,6 +897,7 @@ def execute_independent_worker_determinism_runs_v1793122(
     *,
     policies_to_verify: Sequence[str] = CANONICAL_V1793123_POLICY_IDS,
     preloaded_context: Optional[Tuple[Any, Any]] = None,
+    preloaded_feature_ledger: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
     """
     Section 09 (Truth Closure #3):
@@ -889,16 +936,23 @@ def execute_independent_worker_determinism_runs_v1793122(
         }
 
     from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
-    feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
-        cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True)
+    # Immutable input may be shared; every worker still independently recomputes
+    # decisions, fills, A/B and forensic output. The official verifier separately
+    # reconstructs these feature inputs from raw OHLC in another process.
+    feat_map = preloaded_feature_ledger
+    if feat_map is None:
+        feat_map = build_verified_baseline_pre_entry_feature_ledger_v1793127(
+            cand_index, datasets, dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True)
     cand_index["v1793127_causal_truth_required"] = True
     fd, tmp_pkl_path = tempfile.mkstemp(prefix="v1793122_worker_ctx_", suffix=".pkl")
     os.close(fd)
     try:
+        worker_index = _bounded_worker_candidate_index_v1793127(cand_index)
         with open(tmp_pkl_path, "wb") as pf:
-            pickle.dump((datasets, cand_index, feat_map), pf, protocol=pickle.HIGHEST_PROTOCOL)
-        _WORKER_PROCESS_CONTEXT_CACHE[tmp_pkl_path] = (datasets, cand_index, feat_map)
+            pickle.dump((datasets, worker_index, feat_map), pf, protocol=pickle.HIGHEST_PROTOCOL)
+        _WORKER_PROCESS_CONTEXT_CACHE[tmp_pkl_path] = (datasets, worker_index, feat_map)
         tasks = [(pid, tmp_pkl_path) for pid in policies_to_verify]
+        print(f"[workers] input_bytes={os.path.getsize(tmp_pkl_path)} policies={len(tasks)}; start width=1", flush=True)
 
         # 1-worker sequential execution
         t_w1 = time.time()
@@ -907,6 +961,7 @@ def execute_independent_worker_determinism_runs_v1793122(
             pid, w_sum = _worker_replay_policy_task_v1793122(t_arg)
             w1_results[pid] = w_sum
         dur_w1 = round(time.time() - t_w1, 3)
+        print(f"[workers] width=1 finished in {dur_w1}s; start width=2", flush=True)
 
         # 2-worker ProcessPoolExecutor execution
         t_w2 = time.time()
@@ -914,6 +969,7 @@ def execute_independent_worker_determinism_runs_v1793122(
             w2_pairs = list(ex2.map(_worker_replay_policy_task_v1793122, tasks))
         w2_results = {k: v for k, v in sorted(w2_pairs)}
         dur_w2 = round(time.time() - t_w2, 3)
+        print(f"[workers] width=2 finished in {dur_w2}s; start width=4", flush=True)
 
         # 4-worker ProcessPoolExecutor execution
         t_w4 = time.time()
@@ -921,6 +977,7 @@ def execute_independent_worker_determinism_runs_v1793122(
             w4_pairs = list(ex4.map(_worker_replay_policy_task_v1793122, tasks))
         w4_results = {k: v for k, v in sorted(w4_pairs)}
         dur_w4 = round(time.time() - t_w4, 3)
+        print(f"[workers] width=4 finished in {dur_w4}s", flush=True)
     finally:
         _WORKER_PROCESS_CONTEXT_CACHE.pop(tmp_pkl_path, None)
         Path(tmp_pkl_path).unlink(missing_ok=True)
@@ -1305,6 +1362,10 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
 
     a1_primary = replays_by_mode["NEXT_BAR_OPEN_BID_ASK"]["A1_V1792_SL_TP_BASELINE"]
     a1_episodes = a1_primary["episodes"]
+    # Subsequent stages consume only eligible records and the replayed episodes.
+    # Release the much larger rejected raw stream before discovery/worker pools.
+    del all_decisions, a1_decisions
+    gc.collect()
 
     # Build full 18,744-timestamp candidate index and pre-entry feature ledger
     cand_index = build_full_intervention_candidate_index_v1793121(
@@ -1787,6 +1848,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     art_28, art_29, art_30, art_31 = execute_independent_worker_determinism_runs_v1793122(
         chunks_dir,
         preloaded_context=(datasets, cand_index),
+        preloaded_feature_ledger=feat_by_opp_id,
     )
 
     cleanup_info = cleanup_orphan_subprocesses_and_temp_v1793121([output_dir / "_tmp_staging"])

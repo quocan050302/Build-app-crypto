@@ -82,6 +82,16 @@ from database import get_db, run_schema_migrations
 from main import app
 from fastapi.testclient import TestClient
 
+
+def _sha256_file_bounded(path):
+    """Hash the complete runtime sentinel without loading a multi-GiB DB in RAM."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def guard_runtime_database():
     """Sentinel fixture: proves runtime database is never touched or truncated by test suites (V17.7.4 Section 09.3)."""
@@ -103,8 +113,7 @@ def guard_runtime_database():
     baseline_hash = None
     if runtime_exists and not is_actively_written:
         try:
-            with open(RUNTIME_DB_PATH, "rb") as f:
-                baseline_hash = hashlib.sha256(f.read()).hexdigest()
+            baseline_hash = _sha256_file_bounded(RUNTIME_DB_PATH)
         except Exception:
             pass
 
@@ -116,8 +125,7 @@ def guard_runtime_database():
         assert current_stat.st_ino == baseline_stat.st_ino, "CRITICAL: Runtime DB file replaced!"
         assert current_stat.st_size > 0, "CRITICAL: Runtime DB file was truncated!"
         if baseline_hash is not None and not is_actively_written:
-            with open(RUNTIME_DB_PATH, "rb") as f:
-                current_hash = hashlib.sha256(f.read()).hexdigest()
+            current_hash = _sha256_file_bounded(RUNTIME_DB_PATH)
             assert current_hash == baseline_hash, "CRITICAL: Runtime database content was modified by tests!"
     else:
         assert not RUNTIME_DB_PATH.exists(), "CRITICAL: Tests created runtime database at RUNTIME_DB_PATH!"

@@ -407,3 +407,62 @@ def test_memory_bounded_shards_preserve_every_file_and_isolate_db_interpreter_gr
     assert Counter(f for _,group in original for f in group)==Counter(f for _,group in bounded for f in group)
     assert all(len(group)<=4 for _,group in bounded)
     assert all(len(group)==1 for _,group in bounded if any(Path(f).name=="test_v17_7_database_safety.py" for f in group))
+
+
+@pytest.fixture(scope="module")
+def bounded_replay_inputs_v127():
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import discover_research_candidates_v1793123
+    from services.v17_9_3_1_2_1_root_cause_evidence_service import build_full_intervention_candidate_index_v1793121
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+    from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets
+    from tools.run_v17_9_3_1_2_2_entry_signal_backtest import CANONICAL_DATASET_SHA256_V1793122
+    datasets,_=load_canonical_xauusdt_datasets()
+    discovery=discover_research_candidates_v1793123(datasets,sample_indices_1m=(5000,5577,5600,6075,6324,6490),max_workers=1)
+    discovered=discovery["si8_discovered_decisions_by_checkpoint_index"]
+    baseline=[record for records in discovered.values() for record in records][:8]
+    assert baseline
+    index=build_full_intervention_candidate_index_v1793121(baseline,datasets,"bounded-replay-test")
+    index["si8_discovered_decisions_by_checkpoint_index"]=discovered
+    index["si8_discovered_feature_ledger_by_opp_id"]=discovery["si8_discovered_feature_ledger_by_opp_id"]
+    features=build_verified_baseline_pre_entry_feature_ledger_v1793127(index,datasets,dataset_sha256=CANONICAL_DATASET_SHA256_V1793122,compact=True)
+    return datasets,index,features
+
+
+@pytest.mark.parametrize("policy,strict",[("SI0_OFF_BASELINE",False),("SI8_RESEARCH_DISCOVERY_REPAIRED",False),
+                                         ("SI8_RESEARCH_DISCOVERY_REPAIRED",True),("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",True)])
+def test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning(bounded_replay_inputs_v127,policy,strict):
+    import pickle
+    from tools.run_v17_9_3_1_2_2_entry_signal_backtest import _bounded_worker_candidate_index_v1793127,replay_single_si_policy_v1793122
+    datasets,source,features=bounded_replay_inputs_v127
+    index={**source,"v1793127_causal_truth_required":strict}
+    bounded=pickle.loads(pickle.dumps(_bounded_worker_candidate_index_v1793127(index)))
+    key=next(iter(bounded["decisions_by_checkpoint_index"]))
+    loaded=bounded["decisions_by_checkpoint_index"][key]
+    loaded[0]["selected_sl"]=-999
+    assert bounded["decisions_by_checkpoint_index"][key][0]["selected_sl"]==index["decisions_by_checkpoint_index"][key][0]["selected_sl"]
+    before=replay_single_si_policy_v1793122(policy,index,datasets,features)
+    after=replay_single_si_policy_v1793122(policy,bounded,datasets,features)
+    assert before==after
+    assert before["policy_decision_ledger"]
+    if policy=="SI8_RESEARCH_DISCOVERY_REPAIRED" and not strict:
+        assert before["primary_episodes"]
+
+
+@pytest.mark.parametrize("size",[0,2*1024*1024+17])
+def test_runtime_database_sentinel_hash_reads_are_bounded_and_detect_changes(size):
+    import hashlib
+    import io
+    from tests.conftest import _sha256_file_bounded
+    data=b"x"*size
+    reads=[]
+    class BoundedReader(io.BytesIO):
+        def read(self,size=-1):
+            assert 0<size<=1024*1024, "Runtime DB guard attempted an unbounded/oversized allocation"
+            reads.append(size)
+            return super().read(size)
+    path=SimpleNamespace(open=lambda mode:BoundedReader(data))
+    actual=_sha256_file_bounded(path)
+    assert actual==hashlib.sha256(data).hexdigest()
+    changed=SimpleNamespace(open=lambda mode:BoundedReader(data+b"changed"))
+    assert _sha256_file_bounded(changed)!=actual
+    assert reads
