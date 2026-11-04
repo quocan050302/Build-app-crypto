@@ -18,6 +18,7 @@ Implements:
 from __future__ import annotations
 
 import bisect
+from services.research_resource_guard import raise_if_research_aborted
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
@@ -378,6 +379,7 @@ def iter_causal_decision_checkpoints_v1793125(
     )
 
     for idx_1m in target_indices:
+        raise_if_research_aborted()
         if idx_1m < warmup_bars or idx_1m >= len(bars_1m):
             continue
         w_1m = bars_1m[max(0, idx_1m - m1_lookback) : idx_1m + 1]
@@ -511,6 +513,7 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
     )
 
     for idx_1m in chunk_indices:
+        raise_if_research_aborted()
         if idx_1m >= len(bars_1m):
             continue
         w_1m = bars_1m[max(0, idx_1m - 180) : idx_1m + 1]
@@ -851,12 +854,14 @@ def discover_research_candidates_v1793123(
     chunk_results=[]
     if effective_workers <= 1:
         for part,payload in enumerate(payloads,1):
+            raise_if_research_aborted()
             result=_eval_checkpoints_chunk_v1793125(payload)
             persist_checkpoint(result,part)
             chunk_results.append(result)
     else:
         with ProcessPoolExecutor(max_workers=effective_workers) as pool:
             for part,result in enumerate(pool.map(_eval_checkpoints_chunk_v1793125,payloads),1):
+                raise_if_research_aborted()
                 persist_checkpoint(result,part)
                 chunk_results.append(result)
 

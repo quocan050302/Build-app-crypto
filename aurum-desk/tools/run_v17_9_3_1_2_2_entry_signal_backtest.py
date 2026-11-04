@@ -44,6 +44,7 @@ for p in (str(BACKEND_ROOT), str(APP_ROOT)):
         sys.path.insert(0, p)
 
 from services.scalp_m1_types import M1ScalpConfig, ModelIdentifier
+from services.research_resource_guard import raise_if_research_aborted
 from services.shared_strategy_evaluator import (
     SharedStrategyContext,
     SharedStrategyEvaluator,
@@ -258,6 +259,7 @@ def replay_single_si_policy_v1793122(
     proof_rejected_before_arbitration: Counter[str] = Counter()
 
     for idx_1m in sorted(by_idx.keys()):
+        raise_if_research_aborted()
         cands = by_idx[idx_1m]
         if candidate_index.get("v1793127_causal_truth_required") and policy_id != "SI0_OFF_BASELINE":
             from services.v17_9_3_1_2_7_causal_signal_truth import required_proof_rejection_v1793127
@@ -294,6 +296,7 @@ def replay_single_si_policy_v1793122(
     baseline_outcomes_by_opp_id = candidate_index.get("baseline_outcomes_by_opp_id") or {}
 
     for opp in selected_opportunities:
+        raise_if_research_aborted()
         opp_id = str(opp["opportunity_id"])
         feat = dict(eff_feature_ledger.get(opp_id) or {})
 
@@ -539,6 +542,7 @@ def replay_single_si_policy_v1793122(
         blocked_by_open_pos = 0
 
         for opp, mat in accepted_pairs:
+            raise_if_research_aborted()
             opp_id = str(opp["opportunity_id"])
             new_ts = int(mat["new_decision_timestamp_ms"])
 
@@ -672,6 +676,7 @@ def replay_single_si_policy_v1793122(
     mat_index = {str(o["opportunity_id"]): m for o, m in materialized_list}
     decision_ledger = []
     for checkpoint in sorted(by_idx):
+        raise_if_research_aborted()
         for row in sorted(by_idx[checkpoint], key=lambda r: str(r["opportunity_id"])):
             oid = str(row["opportunity_id"])
             feature = eff_feature_ledger.get(oid, {})
@@ -798,6 +803,7 @@ def _worker_replay_policy_task_v1793122(args: Tuple[str, str]) -> Tuple[str, Dic
     independently replays `policy_id` across all 3 fill modes and OOS partitions.
     """
     policy_id, ctx_source_str = args
+    raise_if_research_aborted()
     if ctx_source_str in _WORKER_PROCESS_CONTEXT_CACHE:
         datasets, cand_index, feat_map = _WORKER_PROCESS_CONTEXT_CACHE[ctx_source_str]
     elif ctx_source_str.endswith(".pkl") and Path(ctx_source_str).is_file():
@@ -955,6 +961,7 @@ def execute_independent_worker_determinism_runs_v1793122(
         print(f"[workers] input_bytes={os.path.getsize(tmp_pkl_path)} policies={len(tasks)}; start width=1", flush=True)
 
         # 1-worker sequential execution
+        raise_if_research_aborted()
         t_w1 = time.time()
         w1_results: Dict[str, Any] = {}
         for t_arg in tasks:
@@ -964,6 +971,7 @@ def execute_independent_worker_determinism_runs_v1793122(
         print(f"[workers] width=1 finished in {dur_w1}s; start width=2", flush=True)
 
         # 2-worker ProcessPoolExecutor execution
+        raise_if_research_aborted()
         t_w2 = time.time()
         with ProcessPoolExecutor(max_workers=2) as ex2:
             w2_pairs = list(ex2.map(_worker_replay_policy_task_v1793122, tasks))
@@ -972,6 +980,7 @@ def execute_independent_worker_determinism_runs_v1793122(
         print(f"[workers] width=2 finished in {dur_w2}s; start width=4", flush=True)
 
         # 4-worker ProcessPoolExecutor execution
+        raise_if_research_aborted()
         t_w4 = time.time()
         with ProcessPoolExecutor(max_workers=4) as ex4:
             w4_pairs = list(ex4.map(_worker_replay_policy_task_v1793122, tasks))
@@ -1241,6 +1250,13 @@ def evaluate_real_shared_evaluator_snapshots_and_adapter_parity_v1793122(
     return art_11, art_12
 
 
+def _guarded_research_call(function, *args, **kwargs):
+    raise_if_research_aborted()
+    result = function(*args, **kwargs)
+    raise_if_research_aborted()
+    return result
+
+
 def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     output_dir: Path,
     *,
@@ -1348,6 +1364,7 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
     replays_by_mode: Dict[str, Dict[str, Any]] = {}
 
     def _run_a1_fm(fm: str) -> Tuple[str, Dict[str, Any]]:
+        raise_if_research_aborted()
         outs = replay_global_chronological_portfolio_v179312(
             all_decisions,
             ["A1_V1792_SL_TP_BASELINE"],
@@ -1378,18 +1395,18 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
 
     with ThreadPoolExecutor(max_workers=min(4,max(1,int(os.getenv("AURUM_RESEARCH_STAGE_WORKERS", "1"))))) as ex_pre:
         f_feat = ex_pre.submit(
-            build_pre_entry_feature_ledger_v1793121,
+            _guarded_research_call, build_pre_entry_feature_ledger_v1793121,
             a1_episodes,
             datasets,
             candidate_index=cand_index,
         )
         f_uni = ex_pre.submit(
-            evaluate_true_unicorn_vs_fvg_only_v1793121,
+            _guarded_research_call, evaluate_true_unicorn_vs_fvg_only_v1793121,
             cand_index,
             datasets,
         )
         f_disc = ex_pre.submit(
-            discover_research_candidates_v1793123,
+            _guarded_research_call, discover_research_candidates_v1793123,
             datasets,
             full_universe=full_universe_si8,
             max_workers=int(os.getenv("AURUM_RESEARCH_PROCESS_WORKERS", "1")),

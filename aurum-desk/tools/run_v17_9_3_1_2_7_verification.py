@@ -9,6 +9,7 @@ import argparse
 from collections import ChainMap, Counter
 from datetime import datetime, timezone
 import gzip
+import gc
 import hashlib
 import json
 import os
@@ -28,6 +29,7 @@ from services.v17_9_3_1_2_7_causal_signal_truth import (
     build_forensic_causal_evidence_join_v1793127,
 )
 from services.v17_9_3_1_2_7_matched_ab import compute_matched_policy_ab_v1793127, verify_matched_ab_against_raw_ledgers_v1793127
+from services.research_resource_guard import raise_if_research_aborted
 
 VERSION="17.9.3.1.2.7"
 REQUIREMENTS=("same branch/ancestry", "frozen source", "dataset chronology", "full-universe coverage",
@@ -188,6 +190,36 @@ def verify_v1793127_artifact_truth(run_dir):
     return {"status":"FAIL" if errors else "PASS","errors":errors,"verified_files":len(manifest["files"])}
 
 
+def run_independent_source_reconstruction(run):
+    """Preserve the actual child failure instead of masking it as a missing file."""
+    raise_if_research_aborted()
+    target=run/"07_independent_source_reconstruction.json"
+    code=("import sys,json; from pathlib import Path; sys.path[:0]=['backend','.']\n"
+          "from tools.v17_9_3_1_2_7_proof_checks import reconstruct_feature_sources_from_disk\n"
+          "try:\n"
+          f" r=reconstruct_feature_sources_from_disk(Path({str(run)!r}))\n"
+          "except Exception as exc:\n"
+          " r={'status':'BLOCKED','reason':str(exc),'exception_type':type(exc).__name__}\n"
+          f"Path({str(target)!r}).write_text(json.dumps(r),encoding='utf-8')\n"
+          "raise SystemExit(0 if r['status']=='PASS' else 1)\n")
+    try:
+        with (run/"07_source_reconstruction.log").open("w",encoding="utf-8") as log:
+            child=subprocess.run([sys.executable,"-c",code],cwd=APP_ROOT,stdout=log,stderr=subprocess.STDOUT,timeout=3600)
+        exit_code=child.returncode
+    except subprocess.TimeoutExpired:
+        exit_code="TIMEOUT"
+    if not target.is_file():
+        reason="RECONSTRUCTION_CHILD_DID_NOT_WRITE_RESULT"
+        marker=os.getenv("AURUM_RESOURCE_GUARD_ABORT_FILE")
+        if marker and Path(marker).is_file():
+            reason="RESOURCE_GUARD:"+str(json.loads(Path(marker).read_text(encoding="utf-8")).get("reason","ABORTED"))
+        write(target,{"status":"BLOCKED","reason":reason,"exit_code":exit_code})
+    result=json.loads(target.read_text(encoding="utf-8"))
+    if exit_code!=0 or result.get("status")!="PASS":
+        raise RuntimeError("INDEPENDENT_SOURCE_RECONSTRUCTION_FAILED:"+str(result.get("reason",result.get("status")))+":"+str(exit_code))
+    return result
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--tested-code-sha",required=True)
@@ -283,6 +315,7 @@ def main():
         os.environ["AURUM_TESTED_EXECUTABLE_SHA"]=sha
         from tools.run_v17_9_3_1_2_2_entry_signal_backtest import run_v17_9_3_1_2_2_entry_signal_backtest_pipeline
         evidence=run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(run/"raw_backtest",tested_executable_sha=sha,full_universe_si8=True)
+        monitor.check()
         internal=evidence.pop("_internal_context")
         dataset_sha=evidence["01"]["dataset_sha256"]
         features=ChainMap(internal["cand_index"].get("si8_discovered_feature_ledger_by_opp_id",{}),internal["feat_by_opp_id"])
@@ -306,22 +339,12 @@ def main():
         bad_bars=sum(1 for tf,bars in internal["datasets"].items() if isinstance(bars,list) for b in bars if isinstance(b,dict) and (b.get("is_closed") is False or b.get("close_time",0)<=b.get("open_time",b.get("timestamp",0))))
         proofs["G03"]={"status":"PASS" if actual_dataset_sha==dataset_sha and bad_bars==0 else "FAIL","source":"03_canonical_dataset_and_quote_source_manifest.json","measured":{"actual_hash":actual_dataset_sha,"bad_bars":bad_bars}}
         valid_count=sum(verify_feature_snapshot_v1793127(r) for r in features.values())
-        proofs["G05"]={"status":"PASS" if features and valid_count==len(features) else "FAIL","source":"07_verified_causal_features.jsonl.gz","measured":{"rows":len(features),"valid":valid_count}}
+        proofs["G05"]={"status":"BLOCKED" if features and valid_count==len(features) else "FAIL","source":"07_independent_source_reconstruction.json","measured":{"rows":len(features),"valid":valid_count},"reason":"INDEPENDENT_SOURCE_RECONSTRUCTION_PENDING"}
         results=internal["si_results_by_policy"]
         merged={int(k):list(v) for k,v in internal["cand_index"]["decisions_by_checkpoint_index"].items()}
         for k,v in internal["cand_index"].get("si8_discovered_decisions_by_checkpoint_index",{}).items():
             merged.setdefault(int(k),[]).extend(v)
         write_rows(run/"10_canonical_decision_inputs.jsonl.gz",(r for _,rows in sorted(merged.items()) for r in rows))
-        print("[D] Independent process reconstructs features from on-disk decisions and raw OHLC",flush=True)
-        reconstruct_code=("import sys,json; from pathlib import Path; sys.path[:0]=['backend','.']; "
-            "from tools.v17_9_3_1_2_7_proof_checks import reconstruct_feature_sources_from_disk; "
-            f"r=reconstruct_feature_sources_from_disk(Path({str(run)!r})); "
-            f"Path({str(run/'07_independent_source_reconstruction.json')!r}).write_text(json.dumps(r),encoding='utf-8'); "
-            "raise SystemExit(0 if r['status']=='PASS' else 1)")
-        with (run/"07_source_reconstruction.log").open("w",encoding="utf-8") as log:
-            reconstruction=subprocess.run([sys.executable,"-c",reconstruct_code],cwd=APP_ROOT,stdout=log,stderr=subprocess.STDOUT,timeout=3600)
-        reconstruction_result=json.loads((run/"07_independent_source_reconstruction.json").read_text())
-        proofs["G05"]={"status":"PASS" if reconstruction.returncode==0 and reconstruction_result["status"]=="PASS" else "FAIL","source":"07_independent_source_reconstruction.json","measured":reconstruction_result}
         write(run/"15_all_policies_all_three_fill_modes_metrics.json",{p:r["replays_by_fill_mode"] for p,r in results.items()})
         for policy,result in results.items():
             write_rows(run/(policy+"_decisions.jsonl.gz"),result["policy_decision_ledger"])
@@ -386,6 +409,14 @@ def main():
         oos=evidence["21"]
         proofs["G21"]={"status":"PASS" if oos.get("fresh_oos_verification_status")=="REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS" and oos.get("embargo_bars_m1",0)>=180 else "BLOCKED","source":"16_walkforward_purge_embargo_oos_freshness_and_uncertainty.json","measured":{"fresh_oos":"NOT_AVAILABLE","embargo":oos.get("embargo_bars_m1")}}
         proofs["G22"]={"status":"PASS" if set(stats["policies"])==set(results) and stats["activation_ready"]=="NO" else "FAIL","source":"24_engineering_strategy_activation_dual_verdict.json","measured":stats["strategy_statistical_verdict"]}
+        # Raw outputs are durable before D; the parent releases the large corpus
+        # instead of retaining it alongside an independent reconstruction copy.
+        del internal, results, features, merged, discovery, evidence, forensic, result, r, pair_rows, diff_rows, report
+        gc.collect()
+        monitor.check()
+        print("[D] Independent process reconstructs features from on-disk decisions and raw OHLC",flush=True)
+        reconstruction_result=run_independent_source_reconstruction(run)
+        proofs["G05"]={"status":reconstruction_result["status"],"source":"07_independent_source_reconstruction.json","measured":reconstruction_result}
     except Exception as exc:
         failure={"type":type(exc).__name__,"message":str(exc)}
         import traceback

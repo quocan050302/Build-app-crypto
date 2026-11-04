@@ -466,3 +466,47 @@ def test_runtime_database_sentinel_hash_reads_are_bounded_and_detect_changes(siz
     changed=SimpleNamespace(open=lambda mode:BoundedReader(data+b"changed"))
     assert _sha256_file_bounded(changed)!=actual
     assert reads
+
+
+@pytest.mark.parametrize("stage",["features","discovery","replay","worker","queued_task"])
+def test_latched_resource_abort_stops_each_research_stage_before_more_work(tmp_path,monkeypatch,stage):
+    marker=tmp_path/"abort.json"
+    marker.write_text(json.dumps({"reason":"BLOCKED_LOW_RAM"}))
+    monkeypatch.setenv("AURUM_RESOURCE_GUARD_ABORT_FILE",str(marker))
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import _eval_checkpoints_chunk_v1793125
+    from tools.run_v17_9_3_1_2_2_entry_signal_backtest import replay_single_si_policy_v1793122,_worker_replay_policy_task_v1793122,_guarded_research_call
+    bars=fixture_context().closed_m1_candles
+    index={"decisions_by_checkpoint_index":{19:[decision()]},"raw_eligible_decisions_count":1}
+    def must_not_run():
+        pytest.fail("Queued research work ran after the resource guard aborted")
+    actions={
+        "features":lambda:build_verified_baseline_pre_entry_feature_ledger_v1793127(index,{"1m":bars},dataset_sha256="a"*64),
+        "discovery":lambda:_eval_checkpoints_chunk_v1793125(([19],bars,[],[],[],[],[],[],[],[])),
+        "replay":lambda:replay_single_si_policy_v1793122("SI0_OFF_BASELINE",index,{"1m":bars},{}),
+        "worker":lambda:_worker_replay_policy_task_v1793122(("SI0_OFF_BASELINE","must-not-load.pkl")),
+        "queued_task":lambda:_guarded_research_call(must_not_run),
+    }
+    with pytest.raises(RuntimeError,match="VERIFICATION_ABORTED:BLOCKED_LOW_RAM"):
+        actions[stage]()
+
+
+def test_hash_only_audit_cache_matches_full_independently_derived_snapshot():
+    from services.v17_9_3_1_2_7_causal_signal_truth import build_verified_baseline_pre_entry_feature_ledger_v1793127
+    ctx=fixture_context()
+    record={**decision(),"decision_timestamp_ms":ctx.decision_timestamp_ms}
+    index={"decisions_by_checkpoint_index":{19:[record]}}
+    full=build_verified_baseline_pre_entry_feature_ledger_v1793127(index,{"1m":ctx.closed_m1_candles},dataset_sha256="a"*64)
+    digests=build_verified_baseline_pre_entry_feature_ledger_v1793127(index,{"1m":ctx.closed_m1_candles},dataset_sha256="a"*64,proof_hashes_only=True)
+    assert verify_feature_snapshot_v1793127(full["o1"])
+    assert digests=={"o1":full["o1"]["proof_hash"]}
+
+
+def test_reconstruction_child_failure_is_recorded_without_masking_as_missing_file(tmp_path,monkeypatch):
+    from tools import run_v17_9_3_1_2_7_verification as runner
+    monkeypatch.delenv("AURUM_RESOURCE_GUARD_ABORT_FILE",raising=False)
+    monkeypatch.setattr(runner.subprocess,"run",lambda *args,**kwargs:SimpleNamespace(returncode=7))
+    with pytest.raises(RuntimeError,match="INDEPENDENT_SOURCE_RECONSTRUCTION_FAILED:RECONSTRUCTION_CHILD_DID_NOT_WRITE_RESULT:7"):
+        runner.run_independent_source_reconstruction(tmp_path)
+    result=json.loads((tmp_path/"07_independent_source_reconstruction.json").read_text())
+    assert result=={"status":"BLOCKED","reason":"RECONSTRUCTION_CHILD_DID_NOT_WRITE_RESULT","exit_code":7}

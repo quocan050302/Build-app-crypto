@@ -15,6 +15,7 @@ import math
 import zlib
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
+from services.research_resource_guard import raise_if_research_aborted
 
 VERSION = "17.9.3.1.2.7"
 TF = {"1m": 60_000, "5m": 300_000, "15m": 900_000,
@@ -364,7 +365,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             "evidence_derivation_version":VERSION}
 
 
-def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, datasets, *, dataset_sha256, compact=False):
+def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, datasets, *, dataset_sha256, compact=False, proof_hashes_only=False):
     """Cover every baseline opportunity; no sample-record or optimistic fallback."""
     from types import SimpleNamespace
     # The canonical loader names hourly frames 1H/4H; contracts use 1h/4h.
@@ -374,8 +375,10 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
     times = {tf:[int(_get(b,"close_time",_get(b,"timestamp",0)+TF[tf])) for b in datasets.get(tf,())] for tf in fields}
     if any(ts != sorted(set(ts)) for ts in times.values()):
         raise ValueError("NON_MONOTONIC_OR_DUPLICATE_DATASET_BARS")
-    ledger = CompressedFeatureLedger() if compact else {}
+    # Auditors need only the hashes of independently derived complete snapshots.
+    ledger = {} if proof_hashes_only else CompressedFeatureLedger() if compact else {}
     for idx, records in sorted(candidate_index["decisions_by_checkpoint_index"].items()):
+        raise_if_research_aborted()
         if len(ledger)%128==0:
             import shutil
             import psutil
@@ -398,7 +401,8 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
             oid=str(rec["opportunity_id"])
             if oid in ledger:
                 raise ValueError("DUPLICATE_OPPORTUNITY_ID")
-            ledger[oid]=derive_pre_entry_features_from_causal_context_v1793127(rec,context,dataset_sha256=dataset_sha256)
+            feature=derive_pre_entry_features_from_causal_context_v1793127(rec,context,dataset_sha256=dataset_sha256)
+            ledger[oid]=feature["proof_hash"] if proof_hashes_only else feature
     return ledger
 
 

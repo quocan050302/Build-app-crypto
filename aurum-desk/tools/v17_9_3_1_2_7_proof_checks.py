@@ -240,7 +240,7 @@ def reconstruct_feature_sources_from_disk(run):
     groups={}
     for row in read_jsonl(run/"10_canonical_decision_inputs.jsonl.gz"):
         groups.setdefault(int(row["checkpoint_index_1m"]),[]).append(row)
-    rebuilt=build_verified_baseline_pre_entry_feature_ledger_v1793127({"decisions_by_checkpoint_index":groups},datasets,dataset_sha256=sha,compact=True)
+    rebuilt=build_verified_baseline_pre_entry_feature_ledger_v1793127({"decisions_by_checkpoint_index":groups},datasets,dataset_sha256=sha,proof_hashes_only=True)
     mismatch=[]
     total=0
     import gzip
@@ -249,7 +249,7 @@ def reconstruct_feature_sources_from_disk(run):
             row=json.loads(line)
             total+=1
             actual=rebuilt.pop(row["opportunity_id"],None)
-            if not actual or row["proof_hash"]!=actual["proof_hash"] or not verify_feature_snapshot_v1793127(row):
+            if not actual or row["proof_hash"]!=actual or not verify_feature_snapshot_v1793127(row):
                 mismatch.append(row["opportunity_id"])
     return {"status":"PASS" if total and not mismatch and not rebuilt else "FAIL",
             "reconstructed_count":total,"mismatch_ids":mismatch[:100],"missing_count":len(rebuilt),
