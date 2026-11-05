@@ -12,6 +12,7 @@ from services.v17_9_3_1_2_7_matched_ab import read_jsonl
 
 
 def verify_fresh_full_junit(run,collection,junit):
+    from tools.fresh_junit_io import read_closed_junit_artifact
     from tools.run_v17_9_3_1_2_2_verification import canonicalize_junit_testcase_node_id_v1793122, verify_fresh_junit_shards_attestation_v1793124
     attestation=verify_fresh_junit_shards_attestation_v1793124(junit,expected_tested_executable_sha=junit.get("tested_executable_sha",""))
     if not attestation["passed"]:
@@ -26,11 +27,12 @@ def verify_fresh_full_junit(run,collection,junit):
             path=Path(__file__).resolve().parents[1]/path
         if not path.resolve().is_relative_to(run.resolve()) or shard.get("reused") is not False:
             raise ValueError("FOREIGN_OR_REUSED_JUNIT")
-        if hashlib.sha256(path.read_bytes()).hexdigest()!=shard.get("xml_sha256"):
+        xml_bytes,xml_stat=read_closed_junit_artifact(path)
+        if hashlib.sha256(xml_bytes).hexdigest()!=shard.get("xml_sha256"):
             raise ValueError("STALE_OR_TAMPERED_JUNIT")
-        if path.stat().st_mtime_ns != shard.get("xml_mtime_ns"):
+        if xml_stat.st_mtime_ns != shard.get("xml_mtime_ns"):
             raise ValueError("JUNIT_DISK_MTIME_MISMATCH")
-        for tc in ET.parse(path).getroot().iter("testcase"):
+        for tc in ET.fromstring(xml_bytes).iter("testcase"):
             oid=canonicalize_junit_testcase_node_id_v1793122(tc.get("classname"),tc.get("name"))
             if oid is None: raise ValueError("UNEXPECTED_JUNIT_NODE")
             ids.append(oid)

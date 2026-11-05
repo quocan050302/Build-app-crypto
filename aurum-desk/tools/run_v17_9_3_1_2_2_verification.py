@@ -431,10 +431,11 @@ def run_full_backend_pytest_collection_and_sharded_junit_v1793122(
         xml_mtime_ns = 0
         xml_sha256 = ""
         if xml_path.exists():
-            st_stat = xml_path.stat()
+            from tools.fresh_junit_io import read_closed_junit_artifact
+            xml_bytes, st_stat = read_closed_junit_artifact(xml_path)
             xml_mtime_ns = int(st_stat.st_mtime_ns)
-            xml_sha256 = hashlib.sha256(xml_path.read_bytes()).hexdigest()
-            root = ET.parse(xml_path).getroot()
+            xml_sha256 = hashlib.sha256(xml_bytes).hexdigest()
+            root = ET.fromstring(xml_bytes)
             suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
             for st in suites:
                 xml_tests += int(st.attrib.get("tests", 0))
