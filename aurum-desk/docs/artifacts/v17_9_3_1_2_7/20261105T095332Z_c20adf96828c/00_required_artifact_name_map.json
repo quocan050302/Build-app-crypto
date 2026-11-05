@@ -1,0 +1,39 @@
+{
+  "06_verified_causal_evidence_contract_and_source_refs.json": [
+    "06_causal_evidence_contract_and_proof_state_counts.json",
+    "07_verified_causal_features.jsonl.gz"
+  ],
+  "07_baseline_and_discovery_feature_proof_digest_summary.json": [
+    "07_independent_source_reconstruction.json"
+  ],
+  "09_si0_si7_si8_si9_policy_decision_diff_summary.json": [
+    "11_true_matched_ab_summary_and_independent_verification.json"
+  ],
+  "10_raw_decision_intents_and_proof_hash_index.json": [
+    "10_canonical_decision_inputs.jsonl.gz",
+    "artifact_sha256_manifest.json"
+  ],
+  "12_matched_ab_pair_ledger.jsonl.gz": [
+    "SI0_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+    "SI7_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+    "SI8_SI9_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz"
+  ],
+  "19_old_and_new_executable_red_green_mutation_evidence.json": [
+    "19_old_executable_red_green_mutation_evidence.json",
+    "19_new_executable_red_green_mutation_evidence.json"
+  ],
+  "20_gate_negative_controls_and_independent_reverification.json": [
+    "20_executed_negative_control_node_index.json",
+    "18_independent_junit_verification.json",
+    "24_disk_integrity_check.json"
+  ],
+  "25_git_phase_a_b_c_remote_push_receipt.json": [
+    "Separate publication receipt committed after the Phase B push; final Phase C SHA observed externally to avoid a self-referential digest."
+  ]
+}

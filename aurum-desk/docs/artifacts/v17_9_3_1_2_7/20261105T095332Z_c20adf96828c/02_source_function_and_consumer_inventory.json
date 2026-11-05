@@ -1,0 +1,1417 @@
+{
+  "aurum-desk/backend/services/scalp_watcher_orchestrator.py": [
+    {
+      "contract": "V17.6.4.3c CPA-03 (Section 04): Strict exchange vs receive timestamp authority policy.\nPrimary Bitget WebSocket GOOD requires a valid exchange timestamp and a trusted receive timestamp.",
+      "function": "validate_observation_timestamp_authority",
+      "line": 120
+    },
+    {
+      "contract": "V17.6.4.3c CPA-01 (Section 02): Trusted feed adapter authority hierarchy.\nRaw quote metadata cannot override trusted adapter state.",
+      "function": "resolve_authoritative_transport_state",
+      "line": 217
+    },
+    {
+      "contract": "V17.6.4.3c CPA-01..CPA-04: Authoritative resolution of market data feed provenance.\nGuarantees:\n- Never replaces missing exchange timestamp with evaluation time (CFP-01 / CPA-03).\n- Preserves exchange_ts_ms, received_at_ms, and evaluated_at_ms as distinct values.\n- Never allows raw quote metadata to self-authorize WS or override adapter transport (CPA-01, CPA-02).\n- Requires valid exchange and receive timestamps for primary WS GOOD (CPA-03).\n- Validates connection_epoch: quotes from prior or missing epochs fail authority (CPA-04).",
+      "function": "resolve_watcher_observation_provenance",
+      "line": 283
+    },
+    {
+      "contract": "V16.39 Section 026: Resolves market regime input candles, timeframe,\ncausal ATR corresponding to selected timeframe, and data status.\nPrevents using 15M ATR for 1M fallback or using ATR floor as strategy evidence.",
+      "function": "resolve_regime_inputs",
+      "line": 455
+    },
+    {
+      "contract": "V16.39 Section 017: Evaluates whether a model should be evaluated in current cycle.\nReturns (should_evaluate: bool, execution_action: str, reason_code: str).",
+      "function": "resolve_model_evaluation_plan",
+      "line": 478
+    },
+    {
+      "contract": "Pure serializer for CG-01 candidate decision evaluation (V16.9 NH\u00d3M 09, PH\u1ea6N 083 - 090, V16.30 Daily Bias).\nProduces a JSON-safe additive structure for orchestrator cycle responses.",
+      "function": "serialize_cg01_evaluation",
+      "line": 527
+    },
+    {
+      "contract": "AURUM V17.5.9 (D03, Section 05 Parts 034-035):\nPure validator checking ARM gate invariants before persistence.\nRejects unsupported direction, non-finite or invalid numeric geometry,\nstale/invalid quotes, and capacity violations.",
+      "function": "validate_arm_invariants",
+      "line": 598
+    },
+    {
+      "contract": "AURUM V17.5.9 (D04, Section 06 Part 048):\nDifferentiates missing vs invalid settings under deterministic key precedence.\nIf an authoritative higher-priority key is present but invalid, fails closed\nwith status='INVALID' rather than silently falling back to lower-priority keys.",
+      "function": "resolve_ordered_cost_setting",
+      "line": 680
+    },
+    {
+      "contract": "AURUM V17.5.9 (D04, Section 06 Part 048):\nCompatibility adapter around resolve_ordered_cost_setting.\nReturns finite non-negative float if valid, or None if not configured or invalid.\nDoes NOT silently fall back if an authoritative key has an invalid value.",
+      "function": "get_system_config_cost_value",
+      "line": 744
+    },
+    {
+      "contract": null,
+      "function": "to_snapshot_dict",
+      "line": 78
+    },
+    {
+      "contract": null,
+      "function": "__init__",
+      "line": 758
+    },
+    {
+      "contract": null,
+      "function": "register_seen_decision_id",
+      "line": 779
+    },
+    {
+      "contract": "Rules 021-030, 083-085, V16.39.12:\nCaches volatile candidate quality display for setups before ARM.\nBounded cardinality (max 500), exact structured key (CandidateQualityDisplayKey).\nNever splits strings by ':' or bleeds identity across setup instances.",
+      "function": "record_candidate_quality_display",
+      "line": 789
+    },
+    {
+      "contract": "Rules 023-024, 086, V16.39.12:\nReads volatile pre-ARM candidate quality display matching exact binding.\nExact-only: Never bleeds scores across distinct setup instances or setup IDs.",
+      "function": "get_candidate_quality_display",
+      "line": 853
+    },
+    {
+      "contract": null,
+      "function": "get_latest_cg01_evaluation",
+      "line": 919
+    },
+    {
+      "contract": null,
+      "function": "_record_and_broadcast_cg01_evaluation",
+      "line": 926
+    },
+    {
+      "contract": null,
+      "function": "get_latest_hypothesis_batch_result",
+      "line": 935
+    },
+    {
+      "contract": null,
+      "function": "get_latest_hypothesis_authority",
+      "line": 939
+    },
+    {
+      "contract": null,
+      "function": "get_latest_cycle_outcome",
+      "line": 943
+    },
+    {
+      "contract": null,
+      "function": "get_active_zones",
+      "line": 948
+    },
+    {
+      "contract": null,
+      "function": "set_active_zones",
+      "line": 952
+    },
+    {
+      "contract": null,
+      "function": "get_active_hypotheses",
+      "line": 956
+    },
+    {
+      "contract": null,
+      "function": "get_active_liquidity_levels",
+      "line": 960
+    },
+    {
+      "contract": "Returns real multi-dimensional assessment and Vietnamese explanation for zone (SECTIONS 083 - 086, 164).\nNever uses hardcoded scores or fake constants. Returns None (404) if zone not found.",
+      "function": "get_zone_assessment_explanation",
+      "line": 964
+    },
+    {
+      "contract": "Single-cycle autonomous evaluation (PH\u1ea6N 015 - 024, 054 - 056).\nCan be driven synchronously by tests / replay or asynchronously by background watcher.\nUses load_effective_scalp_config(db) if config is not injected.",
+      "function": "evaluate_cycle",
+      "line": 999
+    },
+    {
+      "contract": "DEF-179012-C01 (V17.9.0.1.2 Phase B): Reconciles evaluated canonical snapshots against\nactual downstream Production runtime consumption (candidates, router, execution guards,\nand order intents). Never marks a snapshot as consumed when no downstream candidate\nwith matching `decision_id` and `decision_fingerprint` consumed it (`N31`, `N32`, `N33`).",
+      "function": "reconcile_consumed_decisions_from_snapshots",
+      "line": 2894
+    },
+    {
+      "contract": "Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).\nRolls back the active transaction without making further queries on a poisoned session.\nClears authoritative cache and publishes runtime diagnostic outcome.",
+      "function": "_finalize_failed_cycle",
+      "line": 3149
+    },
+    {
+      "contract": "Guarded ARM path under entry_mutation_lock (PH\u1ea6N 025 - 033, 059).\nNever bypasses entry guards or daily quotas.",
+      "function": "_arm_paper_candidate",
+      "line": 3250
+    },
+    {
+      "contract": "Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165).",
+      "function": "run_watcher_loop",
+      "line": 4163
+    },
+    {
+      "contract": null,
+      "function": "stop",
+      "line": 4243
+    },
+    {
+      "contract": "V17.9.0.1 Phase D: Production adapter method constructing immutable\nMarketDecisionContext for SharedStrategyEvaluator.",
+      "function": "build_shared_decision_context",
+      "line": 4246
+    },
+    {
+      "contract": "V17.9.0 Section 7.2: Production adapter method delegating pure strategy\ndecision evaluation to SharedStrategyEvaluator.",
+      "function": "evaluate_shared_decision_snapshot",
+      "line": 4300
+    },
+    {
+      "contract": "V17.9.0 Section 7.2: Production adapter method evaluating all configured\nproduction models through SharedStrategyEvaluator.",
+      "function": "evaluate_shared_all_models",
+      "line": 4325
+    },
+    {
+      "contract": null,
+      "function": "_eval",
+      "line": 4174
+    }
+  ],
+  "aurum-desk/backend/services/shared_strategy_evaluator.py": [
+    {
+      "contract": null,
+      "function": "_canonical_hash",
+      "line": 141
+    },
+    {
+      "contract": null,
+      "function": "_normalize_candle_obj",
+      "line": 156
+    },
+    {
+      "contract": null,
+      "function": "_candle_open_ms",
+      "line": 190
+    },
+    {
+      "contract": null,
+      "function": "_candle_close_ms",
+      "line": 202
+    },
+    {
+      "contract": null,
+      "function": "_candle_is_closed",
+      "line": 217
+    },
+    {
+      "contract": null,
+      "function": "_canonical_candle_series",
+      "line": 223
+    },
+    {
+      "contract": null,
+      "function": "_candle_summary",
+      "line": 248
+    },
+    {
+      "contract": "Phase G: Validates higher-timeframe (H1/H4/D1) closed candle series across runtimes.\nRejects unclosed bars, lookahead bars (`close_time > decision_timestamp_ms`), duplicate\ntimestamps, non-monotonic timestamps, malformed OHLC values, and misaligned UTC boundaries\n(when `strict_validation=True`).",
+      "function": "validate_htf_candle_series",
+      "line": 273
+    },
+    {
+      "contract": "Phase G: Deterministic UTC-aligned closed-candle aggregation into 1H (3,600,000 ms)\nor 4H (14,400,000 ms) bars.",
+      "function": "aggregate_closed_htf_candles",
+      "line": 371
+    },
+    {
+      "contract": "Constructs an immutable MarketDecisionContext, enforcing causal candle filtering\nand computing deterministic ATR and fingerprints.",
+      "function": "build_market_decision_context",
+      "line": 568
+    },
+    {
+      "contract": null,
+      "function": "_compute_snapshot_fingerprints",
+      "line": 1302
+    },
+    {
+      "contract": "V17.9.0.1.2 Phase B (Section 3): Strict positive eligibility invariant.\nA decision is executable if and only if ALL positive conditions hold:\n  1. decision is a StrategyDecisionSnapshot\n  2. Complete non-empty canonical lineage (decision_id, decision_fingerprint,\n     input_snapshot_hash, configuration_hash, evaluator_version)\n  3. Point-in-time market data context is valid (when context is provided)\n  4. decision.decision_status == DecisionStatus.ELIGIBLE.value (exact positive equality)\n  5. decision.setup_validity == \"VALID\"\n  6. len(decision.rejection_reason_codes) == 0\n  7. decision.direction in (\"LONG\", \"SHORT\") and matches expected_direction when strict\n  8. entry_reference, selected_sl, take_profit are finite positive numbers with valid\n     directional geometry (SL < entry < TP for LONG; TP < entry < SL for SHORT)\n  9. hypothetical_quantity > 0 and net_rr > 0\nAny other status (including NO_TRADE, REJECTED, VALID_SETUP_REJECTED_BY_RISK,\nNO_VALID_SETUP, WAITING_CONFIRMATION, MODEL_DISABLED, MISSING_MARKET_DATA,\nunknown strings, None, or empty string) is strictly non-executable.",
+      "function": "validate_canonical_executability",
+      "line": 1363
+    },
+    {
+      "contract": null,
+      "function": "valid_decision_lineage",
+      "line": 1483
+    },
+    {
+      "contract": null,
+      "function": "valid_direction_entry_sl_tp",
+      "line": 1495
+    },
+    {
+      "contract": null,
+      "function": "valid_required_risk_intent",
+      "line": 1536
+    },
+    {
+      "contract": null,
+      "function": "valid_point_in_time_inputs",
+      "line": 1560
+    },
+    {
+      "contract": "Boolean wrapper around `validate_canonical_executability`.",
+      "function": "canonical_is_executable",
+      "line": 1573
+    },
+    {
+      "contract": "Phase C: Top-level canonical decision evaluator function.",
+      "function": "evaluate_decision",
+      "line": 5367
+    },
+    {
+      "contract": "Phase B / Section 8.1 Stage 1: Independent pre-refactor baseline characterization.\nExecutes `IndependentPreRefactorBaselineOracle` (recovered from pre-V17.9.0 commit\n`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`) without calling `SharedStrategyEvaluator`.",
+      "function": "characterize_production_baseline_decision",
+      "line": 5386
+    },
+    {
+      "contract": null,
+      "function": "_snap_get",
+      "line": 5456
+    },
+    {
+      "contract": null,
+      "function": "_resolve_parity_hash",
+      "line": 5462
+    },
+    {
+      "contract": "Section 8.2 / 8.3 & V17.9.0.1.2 Phase E: Compares two StrategyDecisionSnapshots (or parity dicts)\nacross all 20 required parity fields, input/config hashes, and anti-fake parity controls.\nNever treats two null/empty input or configuration hashes as equal.",
+      "function": "compare_decision_parity",
+      "line": 5476
+    },
+    {
+      "contract": "Section 8.2 Stage 2: Cross-adapter parity verification across\nBaseline Production, Shared Evaluator, Production Adapter, Shadow Adapter,\nand Backtest Adapter.",
+      "function": "verify_multi_adapter_parity",
+      "line": 5603
+    },
+    {
+      "contract": "Section 8.6 #3 & #4 / Section 9.1: Inspects AST of backtest and evaluator modules\nto verify zero synthetic modulo index-based setup triggers (e.g. `i % 15 == 0`\nor `(i // 15) % 2 == 0`).",
+      "function": "verify_no_synthetic_index_signals_in_source",
+      "line": 5635
+    },
+    {
+      "contract": null,
+      "function": "__getattr__",
+      "line": 149
+    },
+    {
+      "contract": null,
+      "function": "now_ms",
+      "line": 480
+    },
+    {
+      "contract": null,
+      "function": "candles_1m",
+      "line": 484
+    },
+    {
+      "contract": null,
+      "function": "candles_5m",
+      "line": 488
+    },
+    {
+      "contract": null,
+      "function": "candles_15m",
+      "line": 492
+    },
+    {
+      "contract": null,
+      "function": "candles_1h",
+      "line": 496
+    },
+    {
+      "contract": null,
+      "function": "candles_4h",
+      "line": 500
+    },
+    {
+      "contract": null,
+      "function": "validate_mtf_context_invariant",
+      "line": 503
+    },
+    {
+      "contract": null,
+      "function": "is_model_enabled",
+      "line": 508
+    },
+    {
+      "contract": null,
+      "function": "get_policy_dict",
+      "line": 512
+    },
+    {
+      "contract": null,
+      "function": "get_risk_dict",
+      "line": 515
+    },
+    {
+      "contract": null,
+      "function": "get_cost_dict",
+      "line": 518
+    },
+    {
+      "contract": null,
+      "function": "get_htf_provenance_dict",
+      "line": 521
+    },
+    {
+      "contract": null,
+      "function": "compute_market_input_hash",
+      "line": 524
+    },
+    {
+      "contract": null,
+      "function": "compute_input_snapshot_hash",
+      "line": 552
+    },
+    {
+      "contract": null,
+      "function": "compute_configuration_hash",
+      "line": 557
+    },
+    {
+      "contract": null,
+      "function": "trade_action_fingerprint",
+      "line": 1115
+    },
+    {
+      "contract": null,
+      "function": "rejection_reasons",
+      "line": 1119
+    },
+    {
+      "contract": null,
+      "function": "v1793122_signal_intelligence_mode",
+      "line": 1123
+    },
+    {
+      "contract": null,
+      "function": "v1793122_proposed_status",
+      "line": 1127
+    },
+    {
+      "contract": null,
+      "function": "v1793122_htf_alignment_state",
+      "line": 1133
+    },
+    {
+      "contract": null,
+      "function": "v1793122_unicorn_classification",
+      "line": 1139
+    },
+    {
+      "contract": null,
+      "function": "metadata_fingerprint",
+      "line": 1145
+    },
+    {
+      "contract": null,
+      "function": "decision_id",
+      "line": 1176
+    },
+    {
+      "contract": null,
+      "function": "strategy_decision_status",
+      "line": 1184
+    },
+    {
+      "contract": null,
+      "function": "evaluation_timestamp",
+      "line": 1188
+    },
+    {
+      "contract": null,
+      "function": "entry",
+      "line": 1192
+    },
+    {
+      "contract": null,
+      "function": "stop_loss",
+      "line": 1196
+    },
+    {
+      "contract": null,
+      "function": "effective_direction",
+      "line": 1200
+    },
+    {
+      "contract": null,
+      "function": "risk_or_sizing_intent",
+      "line": 1204
+    },
+    {
+      "contract": null,
+      "function": "reason_codes",
+      "line": 1214
+    },
+    {
+      "contract": null,
+      "function": "input_snapshot_hash",
+      "line": 1218
+    },
+    {
+      "contract": null,
+      "function": "market_input_hash",
+      "line": 1222
+    },
+    {
+      "contract": null,
+      "function": "configuration_hash",
+      "line": 1226
+    },
+    {
+      "contract": null,
+      "function": "to_parity_dict",
+      "line": 1229
+    },
+    {
+      "contract": null,
+      "function": "record_runtime_invocation",
+      "line": 1602
+    },
+    {
+      "contract": null,
+      "function": "is_registered_call_id",
+      "line": 1617
+    },
+    {
+      "contract": null,
+      "function": "get_runtime_invocation_counts",
+      "line": 1625
+    },
+    {
+      "contract": null,
+      "function": "reset_runtime_invocation_counts",
+      "line": 1629
+    },
+    {
+      "contract": null,
+      "function": "_build_default_watched_zone",
+      "line": 1634
+    },
+    {
+      "contract": "Invokes the true authoritative production model evaluators from\nScalpM1ModelService or cg01_engine.evaluate_cg01_candidate.",
+      "function": "_evaluate_raw_production_candidate",
+      "line": 1664
+    },
+    {
+      "contract": "Extracts causal FVG/Break/Sweep descriptors from confirmed M1 bars so that\ndetect_unicorn_evidence and resolve_stop_anchor receive exact causal bindings.\nWhen `strict_causal_repair=True` (V17.9.3.1.2.3 STAGE G3), rejects stale,\nalready-mitigated, or un-retested FVGs rather than blindly picking `dir_fvgs[-1]`.\nWhen `research_discovery_enabled=True` (V17.9.3.1.2.3 STAGE G1), scans recent\ncausal M1 structure to discover valid unmitigated setups missed by naive last-element\nselection while keeping `OFF` 100% unchanged.",
+      "function": "_extract_causal_setup_descriptors",
+      "line": 1837
+    },
+    {
+      "contract": null,
+      "function": "_evaluate_raw_domain_spec_helper",
+      "line": 2626
+    },
+    {
+      "contract": "Evaluates a specific (model_id, direction) pair against MarketDecisionContext\nand returns an immutable StrategyDecisionSnapshot.",
+      "function": "evaluate_model_direction",
+      "line": 2706
+    },
+    {
+      "contract": null,
+      "function": "resolve_canonical_preferred_direction",
+      "line": 4339
+    },
+    {
+      "contract": "Evaluates a model across directions (checking preferred_direction first, then opposite direction\nfor FVG/CG01 models if preferred_direction has no valid setup) and returns the deterministic\nStrategyDecisionSnapshot.",
+      "function": "evaluate_model_best_direction",
+      "line": 4390
+    },
+    {
+      "contract": null,
+      "function": "evaluate_all_models",
+      "line": 4488
+    },
+    {
+      "contract": null,
+      "function": "_build_fail_closed_exception_snapshot",
+      "line": 4509
+    },
+    {
+      "contract": null,
+      "function": "_downgrade_snapshot_from_domain_rejection",
+      "line": 4581
+    },
+    {
+      "contract": "DEF-179012-01 Strict Non-Promotion Invariant:\n1. If `base_snap` is NOT strictly executable (`validate_canonical_executability(base_snap, context)` is False),\n   this function MUST NEVER promote `base_snap` to `DecisionStatus.ELIGIBLE` or overwrite any canonical\n   decision field (`direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`,\n   `hypothetical_quantity`, `decision_status`). Any legacy candidate payload produced by `spec` is\n   forced to `is_eligible = False` with `base_snap`'s rejection reason.\n2. Even when `base_snap` IS strictly executable (`DecisionStatus.ELIGIBLE`), `spec` can NEVER overwrite\n   canonical `direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`, or\n   `hypothetical_quantity` on `base_snap`; `spec` may only downgrade `base_snap` to a non-eligible status\n   (e.g. `INVALID_COST_CONFIGURATION`, direction mismatch) or attach a candidate payload bound to\n   `base_snap`'s canonical values.",
+      "function": "_execute_production_domain_spec",
+      "line": 4622
+    },
+    {
+      "contract": "Section 3 (DEF-V179011-01 & DEF-179012-01): Enforces that `snap` (the canonical DecisionResult from\n`SharedStrategyEvaluator.evaluate_decision`) is the sole authoritative pre-execution\nstrategy decision. Legacy candidate fields can NEVER override canonical non-eligible statuses,\ndirection, SL, TP, or invalid geometry.",
+      "function": "enforce_canonical_decision_authority_on_candidate",
+      "line": 4801
+    },
+    {
+      "contract": "Enforces canonical DecisionResult authority on CG-01 production decisions.",
+      "function": "enforce_canonical_decision_authority_on_cg01",
+      "line": 4906
+    },
+    {
+      "contract": "Phase C / V17.9.0.1.2: Single authoritative decision contract entry point shared across\nProduction, MARKET_SHADOW, and Historical Backtest.",
+      "function": "evaluate_decision",
+      "line": 4962
+    },
+    {
+      "contract": "Phase D / Section 3: Authoritative production reversal evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle(). `cls.evaluate_decision(...)` is the sole\ndecision producer; `enforce_canonical_decision_authority_on_candidate` enforces\ncanonical DecisionResult invariants with fail-closed semantics.",
+      "function": "evaluate_production_reversal_candidate",
+      "line": 5021
+    },
+    {
+      "contract": "Phase D / Section 3: Authoritative production continuation evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+      "function": "evaluate_production_continuation_candidate",
+      "line": 5090
+    },
+    {
+      "contract": "Phase D / Section 3: Authoritative production FVG continuation evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+      "function": "evaluate_production_fvg_continuation_candidate",
+      "line": 5162
+    },
+    {
+      "contract": "Phase D / Section 3: Authoritative production sweep-reclaim evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+      "function": "evaluate_production_sweep_reclaim_candidate",
+      "line": 5236
+    },
+    {
+      "contract": "Phase D / Section 3: Authoritative production CG-01 evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+      "function": "evaluate_production_cg01_candidate",
+      "line": 5302
+    },
+    {
+      "contract": null,
+      "function": "_build_early_v1793_kwargs",
+      "line": 2766
+    }
+  ],
+  "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py": [
+    {
+      "contract": null,
+      "function": "_canonical_json_sha256",
+      "line": 138
+    },
+    {
+      "contract": null,
+      "function": "_bar_open_ms",
+      "line": 143
+    },
+    {
+      "contract": null,
+      "function": "_bar_close_ms",
+      "line": 156
+    },
+    {
+      "contract": null,
+      "function": "_bar_float",
+      "line": 176
+    },
+    {
+      "contract": "Filters `bars` to strictly closed bars where `_bar_close_ms(b, tf_ms) <= int(cutoff_ms)`.\nReturns `(closed_bars, unclosed_or_future_count)`.",
+      "function": "_closed_bars_as_of",
+      "line": 189
+    },
+    {
+      "contract": "Normalizes `v17_9_3_1_2_2_signal_intelligence_mode`.\nReturns `(normalized_mode, is_valid, error_code)`.\nFails closed on any unrecognized string or invalid type.",
+      "function": "normalize_signal_intelligence_mode_v1793122",
+      "line": 209
+    },
+    {
+      "contract": "Normalizes `v17_9_3_1_2_2_policy_id`.\nReturns `(normalized_policy_id, is_valid, error_code)`.\nFails closed on any unrecognized policy identifier.",
+      "function": "normalize_signal_intelligence_policy_id_v1793122",
+      "line": 227
+    },
+    {
+      "contract": "Section 03: `RESEARCH_APPLY` only operates in explicitly authorized historical backtest or\noffline shadow research, NOT in AUTO PAPER / LIVE / PRODUCTION_ORCHESTRATOR.",
+      "function": "is_research_apply_forbidden_in_adapter_v1793122",
+      "line": 252
+    },
+    {
+      "contract": null,
+      "function": "compute_signal_intelligence_registry_hash_v1793122",
+      "line": 524
+    },
+    {
+      "contract": null,
+      "function": "compute_signal_intelligence_registry_hash_v1793123",
+      "line": 533
+    },
+    {
+      "contract": "Computes causal structure bias (`BULLISH`, `BEARISH`, `NEUTRAL`, `INSUFFICIENT`, `ABSENT`,\n`STALE`, `LOOKAHEAD_INVALID`) from closed candles with `close_ms <= decision_timestamp_ms`.",
+      "function": "_infer_series_structure_bias",
+      "line": 836
+    },
+    {
+      "contract": "Section 02.A & Section 04 (SI2) & V17.9.3.1.2.3 STAGE G2:\nResolves preferred direction without forcing `LONG` when H4/H1/M15 history is missing,\nneutral, or conflicting, and verifies causal bar provenance/freshness before honoring\n`explicit_bias` or `context.htf_bias`.",
+      "function": "resolve_research_preferred_direction_v1793122",
+      "line": 886
+    },
+    {
+      "contract": null,
+      "function": "_extract_fast_m1_candles",
+      "line": 1003
+    },
+    {
+      "contract": "V17.9.3.1.2.4 Stage R2.2: Converts confirmed swings into causal liquidity pools,\nexplicitly inspecting closed M1 candles between `min(occurred_at_ms, known_at_ms)`\nand `now_ms` to determine whether price already traded through/swept the swing level\n(`swept_at_ms <= now_ms`). Never blindly marks fallback swings `swept=False`.",
+      "function": "_build_causal_swing_pools_from_swings_v1793124",
+      "line": 1025
+    },
+    {
+      "contract": "Inspects `pools` (causal pre-entry liquidity pools) to verify whether `selected_target_id`\nor another opposing pool is genuinely unswept as of `now_ms`.\nReturns `(valid_pool_id, valid_pool_price, pool_known_at_ms, has_unswept_pool, explicit_pool_was_swept)`.",
+      "function": "_resolve_unswept_liquidity_pool_target_v1793123",
+      "line": 1074
+    },
+    {
+      "contract": "Constructs a strictly causal `SignalQualityEvidenceV1793122` at `decision_timestamp_ms`.\nVerifies `known_at_ms <= decision_timestamp_ms` for every feature.",
+      "function": "build_signal_quality_evidence_v1793122",
+      "line": 1184
+    },
+    {
+      "contract": "Evaluates the V17.9.3.1.2.2 Signal Intelligence stage inside `SharedStrategyEvaluator`.\nEnforces:\n  - Fail-closed rejection on invalid mode or policy ID.\n  - Fail-closed rejection if `RESEARCH_APPLY` is invoked from Production/PAPER/LIVE adapter.\n  - Strict non-rescue invariant: a candidate that is NOT `ELIGIBLE` in baseline is NEVER\n    promoted to `ELIGIBLE` by `SI0..SI6`.\n  - Full recalculation of SL/TP/qty/net_rr via `plan_v17_9_2_structural_stop_and_target`\n    and `calculate_risk_reward` when `SI5` or `SI6` updates geometry.",
+      "function": "evaluate_signal_intelligence_gate_v1793122",
+      "line": 1877
+    },
+    {
+      "contract": "Section 03 & Section 04 (SI3):\nAdvances a `WAITING_CONFIRMATION` setup strictly forward in time across closed M1 bars\n(`idx > start_bar_index`, `close_time <= pending.expires_at_ms`).\nNever backdates entries:\n  - If a bar gap (> 180s) occurs -> `CANCELLED_GAP`\n  - If price breaches `invalidation_price` before confirmation -> `INVALIDATED`\n  - If `close_time > expires_at_ms` -> `EXPIRED`\n  - If a closed bar confirms displacement break / FVG retest -> rebuilds entry at that\n    confirmation bar's close quote (to be filled at the NEXT bar's open bid/ask), re-runs\n    `calculate_risk_reward()`, and returns `CONFIRMED` (or `INVALIDATED` if net RR < 2.0).\nReturns `(updated_pending, confirmed_bar_index_or_None)`.",
+      "function": "advance_pending_confirmation_state_v1793122",
+      "line": 2556
+    },
+    {
+      "contract": "Computes a strictly pre-entry candidate quality tuple for multi-model arbitration (`SI1`, `SI6`).\nNEVER reads post-entry WIN/LOSS outcome labels, MFE/MAE, or realized PnL.\nRaises `ValueError` if a caller attempts to inject post-entry label arbitration (`M13` guard).",
+      "function": "score_candidate_record_pre_entry_v1793122",
+      "line": 2772
+    },
+    {
+      "contract": "Section 04 (SI1/SI6):\nDeterministically arbitrates competing eligible model candidates at the same M1 timestamp:\n  - `STATIC_PRODUCTION_PRIORITY`: canonical production order (`REVERSAL` > `CONTINUATION` >\n    `FVG_CONTINUATION` > `SWEEP_RECLAIM` > `CG01`).\n  - `REVERSE_STATIC_PRIORITY`: reversed order (`CG01` > `SWEEP_RECLAIM` > `FVG_CONTINUATION` >\n    `CONTINUATION` > `REVERSAL`).\n  - `PRE_ENTRY_QUALITY_TUPLE`: ranks strictly by pre-entry `score_candidate_record_pre_entry_v1793122`\n    with frozen deterministic tie-breaker `(quality_tuple, direction, model_id, opportunity_id)`.\nReturns `(selected_winner_or_None, tie_lost_candidates)`.",
+      "function": "arbitrate_competing_model_intents_v1793122",
+      "line": 2809
+    },
+    {
+      "contract": "Section 10 (Truth Closure #4):\nComputes `STRATEGY_STATISTICAL_VERDICT` dynamically from actual portfolio metrics,\nbootstrapped confidence intervals, OOS split performance, and sample size power.\nNever hardcodes a static verdict string before metrics are evaluated.\nPossible verdicts:\n  - `DATA_UNAVAILABLE/BLOCKED`\n  - `INCONCLUSIVE_DATA_QUALITY`\n  - `NEGATIVE_EXPECTANCY`\n  - `INCONCLUSIVE_UNDERPOWERED`\n  - `INCONCLUSIVE_REUSED_HOLDOUT`\n  - `POSITIVE_IN_REUSED_HISTORY_NOT_VERIFIED`\n  - `VERIFIED_RESEARCH_SIGNAL_ONLY_IF_FRESH_HOLDOUT_PROOF`",
+      "function": "compute_strategy_statistical_verdict_v1793122",
+      "line": 2888
+    },
+    {
+      "contract": "Legacy report schema backed by verified observations, never guessed causes.",
+      "function": "_observed_case_rows_v1793127",
+      "line": 3034
+    },
+    {
+      "contract": "All observed closed continuation losses, retaining UNKNOWN without proof.",
+      "function": "build_smc_m1_continuation_24_losses_casebook_v1793122",
+      "line": 3061
+    },
+    {
+      "contract": "Observed model accounting and source-bound tags; no invented starvation counts.",
+      "function": "build_reversal_and_fvg_failure_casebook_v1793122",
+      "line": 3080
+    },
+    {
+      "contract": "Section 15:\nEvaluates all 52 non-tautological acceptance gates (`G01..G52`) directly from\nindependently loaded evidence payloads, source SHAs, subprocess test records,\nand disk artifact verification. Every gate fails closed if its source evidence\nis missing or violated.",
+      "function": "evaluate_all_52_acceptance_gates_v1793122",
+      "line": 3105
+    },
+    {
+      "contract": null,
+      "function": "arbitration_mode",
+      "line": 305
+    },
+    {
+      "contract": null,
+      "function": "pending_confirmation_ttl_bars",
+      "line": 313
+    },
+    {
+      "contract": null,
+      "function": "require_causal_htf_alignment",
+      "line": 317
+    },
+    {
+      "contract": null,
+      "function": "require_true_unicorn_overlap",
+      "line": 321
+    },
+    {
+      "contract": null,
+      "function": "require_protected_structure_sl",
+      "line": 325
+    },
+    {
+      "contract": null,
+      "function": "require_reachable_pre_entry_target",
+      "line": 329
+    },
+    {
+      "contract": null,
+      "function": "_legacy_hash_dict",
+      "line": 332
+    },
+    {
+      "contract": null,
+      "function": "policy_hash",
+      "line": 340
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 343
+    },
+    {
+      "contract": null,
+      "function": "compute_proof_hash",
+      "line": 580
+    },
+    {
+      "contract": null,
+      "function": "__post_init__",
+      "line": 588
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 592
+    },
+    {
+      "contract": null,
+      "function": "lookahead_violation_detected",
+      "line": 656
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 659
+    },
+    {
+      "contract": null,
+      "function": "__post_init__",
+      "line": 704
+    },
+    {
+      "contract": null,
+      "function": "rejection_reason",
+      "line": 731
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 734
+    },
+    {
+      "contract": null,
+      "function": "proposed_rejection_reasons",
+      "line": 782
+    },
+    {
+      "contract": null,
+      "function": "evidence",
+      "line": 786
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 789
+    },
+    {
+      "contract": null,
+      "function": "_add_gate",
+      "line": 3120
+    }
+  ],
+  "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py": [
+    {
+      "contract": "Section 2: Maps the complete executable decision path from orchestrator/backtest\nentry through `SharedStrategyEvaluator`, `v17_9_3_1_2_2_signal_intelligence`,\n`M1ScalpRiskCalculator`, order-intent emission, and 3-fill-mode portfolio replay.",
+      "function": "build_callgraph_function_responsibility_matrix_v1793123",
+      "line": 87
+    },
+    {
+      "contract": "STAGE G0 / V17.9.3.1.2.4 Stage R2.1: Deterministic multi-label + primary root-cause\nclassifier for a baseline trade episode using only explicit point-in-time pre-entry\nand execution-trace evidence. Unproven causes without point-in-time feature keys\nfall back to `OTHER/UNKNOWN`, never generic defect assertions.",
+      "function": "classify_single_episode_root_causes_v1793123",
+      "line": 173
+    },
+    {
+      "contract": "STAGE G0 (`03_loss_forensics_166_closed_74_open_by_model.json`):\nBuilds the complete ground-truth forensic ledger across all 166 closed baseline\ntrades (`9` wins, `157` losses), `74` `OPEN_AT_HORIZON` trades, and `1`\n`DATA_GAP_UNRESOLVED` trade across all 5 canonical models.",
+      "function": "build_ground_truth_loss_forensics_v1793123",
+      "line": 187
+    },
+    {
+      "contract": "V17.9.3.1.2.5 Stage 1: Streaming causal decision checkpoint generator.\nEmits EVERY post-warmup M1 decision-close timestamp across the canonical dataset\n(or test_only_checkpoint_override if explicitly passed).\nGuarantees strict causal ordering and no lookahead across M1/M5/M15/H1/H4 timeframes.",
+      "function": "iter_causal_decision_checkpoints_v1793125",
+      "line": 347
+    },
+    {
+      "contract": null,
+      "function": "_eval_checkpoints_chunk_v1793125",
+      "line": 417
+    },
+    {
+      "contract": "STAGE G1 / V17.9.3.1.2.5 Full-Universe Independent Causal Candidate Discovery.\nEvaluates the real SharedStrategyEvaluator across all 5 canonical models and\nboth directions under:\n  1. OFF / SI0_OFF_BASELINE (exact legacy baseline parity, 0 discovery rescues)\n  2. RESEARCH_APPLY / SI7_CORE_TRADING_LOGIC_REPAIRED (non-rescue for rejected baseline,\n     strict causal repair on eligible setups)\n  3. RESEARCH_APPLY / SI8_RESEARCH_DISCOVERY_REPAIRED (independent causal candidate\n     discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)\n  4. Also verifies that legacy mismatch mode RESEARCH_DISCOVERY fails closed with\n     SI_INVALID_MODE_FAIL_CLOSED.",
+      "function": "discover_research_candidates_v1793123",
+      "line": 772
+    },
+    {
+      "contract": "Section 9 (`24_acceptance_gates_v17_9_3_1_2_3.json`):\nEvaluates all 15 non-tautological acceptance gates (`CR01..CR15`).\nEvery gate inspects real measured values in `evidence_by_key` and fails when\nmutated by `run_separate_evidence_dictionary_gate_mutations_v1793123`.",
+      "function": "evaluate_v1793123_acceptance_gates_cr01_cr15",
+      "line": 1021
+    },
+    {
+      "contract": "Section 9 (`25_dual_verdict_engineering_vs_strategy_edge.json`):\nComputes the three independent final verdict dimensions:\n  1. `ENGINEERING_VERIFICATION_VERDICT`: `PASS` | `FAIL`\n  2. `STRATEGY_STATISTICAL_VERDICT`: `VERIFIED_POSITIVE_OOS_EDGE` | `POSITIVE_REUSED_HOLDOUT_ONLY` |\n     `NO_FRESH_OOS` | `INCONCLUSIVE_UNDERPOWERED` | `NEGATIVE_EXPECTANCY`\n  3. `ACTIVATION_READY`: `NO` (unless fresh untouched OOS edge is proven)",
+      "function": "compute_v1793123_dual_verdict",
+      "line": 1340
+    },
+    {
+      "contract": null,
+      "function": "persist_checkpoint",
+      "line": 832
+    },
+    {
+      "contract": null,
+      "function": "_add",
+      "line": 1035
+    }
+  ],
+  "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py": [
+    {
+      "contract": null,
+      "function": "ledger_dataset_hashes",
+      "line": 61
+    },
+    {
+      "contract": null,
+      "function": "canonical_hash",
+      "line": 67
+    },
+    {
+      "contract": null,
+      "function": "_get",
+      "line": 80
+    },
+    {
+      "contract": null,
+      "function": "_closed",
+      "line": 84
+    },
+    {
+      "contract": null,
+      "function": "evidence_cache_metrics",
+      "line": 166
+    },
+    {
+      "contract": "Reconstruct features from closed OHLC, never from descriptor booleans/outcomes.",
+      "function": "derive_pre_entry_features_from_causal_context_v1793127",
+      "line": 170
+    },
+    {
+      "contract": "Cover every baseline opportunity; no sample-record or optimistic fallback.",
+      "function": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+      "line": 368
+    },
+    {
+      "contract": null,
+      "function": "required_proof_rejection_v1793127",
+      "line": 409
+    },
+    {
+      "contract": "Recheck actual final geometry at its own closed-bar decision time.",
+      "function": "rebuild_materialized_intent_proof_v1793127",
+      "line": 440
+    },
+    {
+      "contract": null,
+      "function": "verify_feature_snapshot_v1793127",
+      "line": 456
+    },
+    {
+      "contract": null,
+      "function": "classify_target_failure_modes_v1793127",
+      "line": 490
+    },
+    {
+      "contract": null,
+      "function": "classify_observed_loss_v1793127",
+      "line": 500
+    },
+    {
+      "contract": null,
+      "function": "build_forensic_causal_evidence_join_v1793127",
+      "line": 521
+    },
+    {
+      "contract": null,
+      "function": "__init__",
+      "line": 32
+    },
+    {
+      "contract": null,
+      "function": "__getitem__",
+      "line": 37
+    },
+    {
+      "contract": null,
+      "function": "__setitem__",
+      "line": 39
+    },
+    {
+      "contract": null,
+      "function": "__delitem__",
+      "line": 46
+    },
+    {
+      "contract": null,
+      "function": "__iter__",
+      "line": 52
+    },
+    {
+      "contract": null,
+      "function": "__len__",
+      "line": 53
+    },
+    {
+      "contract": null,
+      "function": "__contains__",
+      "line": 54
+    },
+    {
+      "contract": null,
+      "function": "dataset_hashes",
+      "line": 56
+    },
+    {
+      "contract": null,
+      "function": "encoded_bytes",
+      "line": 58
+    },
+    {
+      "contract": null,
+      "function": "__getattr__",
+      "line": 73
+    },
+    {
+      "contract": null,
+      "function": "__post_init__",
+      "line": 136
+    },
+    {
+      "contract": null,
+      "function": "to_dict",
+      "line": 157
+    },
+    {
+      "contract": null,
+      "function": "record",
+      "line": 228
+    },
+    {
+      "contract": null,
+      "function": "known_swing",
+      "line": 265
+    }
+  ],
+  "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py": [
+    {
+      "contract": null,
+      "function": "_index",
+      "line": 17
+    },
+    {
+      "contract": null,
+      "function": "_money",
+      "line": 32
+    },
+    {
+      "contract": null,
+      "function": "compute_policy_decision_diff_v1793127",
+      "line": 51
+    },
+    {
+      "contract": null,
+      "function": "compute_matched_policy_ab_v1793127",
+      "line": 77
+    },
+    {
+      "contract": null,
+      "function": "read_jsonl",
+      "line": 110
+    },
+    {
+      "contract": "Inputs must be separate serialized raw ledgers, never the claimed pair table.",
+      "function": "verify_matched_ab_against_raw_ledgers_v1793127",
+      "line": 116
+    },
+    {
+      "contract": null,
+      "function": "intent",
+      "line": 61
+    }
+  ],
+  "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py": [
+    {
+      "contract": null,
+      "function": "fixture_context",
+      "line": 21
+    },
+    {
+      "contract": null,
+      "function": "decision",
+      "line": 31
+    },
+    {
+      "contract": null,
+      "function": "test_missing_baseline_proof_remains_unknown_and_synthetic",
+      "line": 36
+    },
+    {
+      "contract": null,
+      "function": "test_injected_optimistic_feature_without_proof_rejected",
+      "line": 48
+    },
+    {
+      "contract": null,
+      "function": "test_point_in_time_and_source_hash",
+      "line": 53
+    },
+    {
+      "contract": null,
+      "function": "test_edit_flat_flag_invalidates_proof",
+      "line": 72
+    },
+    {
+      "contract": null,
+      "function": "test_missing_known_at_cannot_be_proven",
+      "line": 78
+    },
+    {
+      "contract": null,
+      "function": "test_missing_decision_timestamp_fails_closed",
+      "line": 83
+    },
+    {
+      "contract": null,
+      "function": "test_provider_label_without_source_receipt_not_promoted_to_real",
+      "line": 90
+    },
+    {
+      "contract": null,
+      "function": "test_future_provider_quote_is_not_real_point_in_time_evidence",
+      "line": 97
+    },
+    {
+      "contract": null,
+      "function": "test_canonical_uppercase_hourly_frames_are_not_silently_lost",
+      "line": 105
+    },
+    {
+      "contract": null,
+      "function": "test_unbound_target_and_wrong_side_stop_stay_unproven",
+      "line": 125
+    },
+    {
+      "contract": null,
+      "function": "test_outcomes_cannot_change_pre_entry_proof",
+      "line": 132
+    },
+    {
+      "contract": null,
+      "function": "test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown",
+      "line": 140
+    },
+    {
+      "contract": null,
+      "function": "test_forensic_legacy_identity_resolves_to_exact_canonical_source_proof",
+      "line": 146
+    },
+    {
+      "contract": null,
+      "function": "test_final_intent_rebuild_uses_final_geometry_and_rejects_nonclosed_cutoff",
+      "line": 161
+    },
+    {
+      "contract": null,
+      "function": "test_gap_is_observed_without_invented_trading_cause",
+      "line": 175
+    },
+    {
+      "contract": null,
+      "function": "test_legacy_casebook_missing_features_never_invents_displacement_or_counterfactual",
+      "line": 180
+    },
+    {
+      "contract": null,
+      "function": "test_quote_timestamp_changes_market_input_identity",
+      "line": 191
+    },
+    {
+      "contract": null,
+      "function": "test_missing_gate_never_passes",
+      "line": 201
+    },
+    {
+      "contract": null,
+      "function": "test_rr_and_quick_loss_do_not_invent_target_or_premature_cause",
+      "line": 209
+    },
+    {
+      "contract": null,
+      "function": "raw_rows",
+      "line": 214
+    },
+    {
+      "contract": null,
+      "function": "test_si8_si9_identity_reported_honestly",
+      "line": 221
+    },
+    {
+      "contract": null,
+      "function": "test_equal_pnl_does_not_hide_different_actual_fill_paths",
+      "line": 228
+    },
+    {
+      "contract": null,
+      "function": "test_matched_identity_and_accounting_negative_controls",
+      "line": 238
+    },
+    {
+      "contract": null,
+      "function": "test_open_and_incremental_candidates_are_not_paired_closed",
+      "line": 248
+    },
+    {
+      "contract": null,
+      "function": "test_same_opportunity_wrong_timestamp_must_not_be_unmatched_discovery",
+      "line": 258
+    },
+    {
+      "contract": null,
+      "function": "test_raw_index_rejects_missing_source_before_matching",
+      "line": 266
+    },
+    {
+      "contract": null,
+      "function": "test_real_fvg_retest_requires_closed_post_formation_touch",
+      "line": 273
+    },
+    {
+      "contract": null,
+      "function": "test_unknown_source_rejects_all_five_models_both_directions",
+      "line": 288
+    },
+    {
+      "contract": null,
+      "function": "test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl",
+      "line": 293
+    },
+    {
+      "contract": null,
+      "function": "test_compressed_pair_publication_is_bound_to_separate_raw_ledgers",
+      "line": 310
+    },
+    {
+      "contract": null,
+      "function": "test_checkpoint_coverage_and_off_observe_negative_controls",
+      "line": 337
+    },
+    {
+      "contract": null,
+      "function": "test_actual_sampled_discovery_records_all_models_and_off_observe_actions",
+      "line": 366
+    },
+    {
+      "contract": null,
+      "function": "test_compact_source_cache_roundtrip_preserves_proofs_and_cannot_be_poisoned",
+      "line": 378
+    },
+    {
+      "contract": null,
+      "function": "test_memory_bounded_shards_preserve_every_file_and_isolate_db_interpreter_group",
+      "line": 397
+    },
+    {
+      "contract": null,
+      "function": "bounded_replay_inputs_v127",
+      "line": 413
+    },
+    {
+      "contract": null,
+      "function": "test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning",
+      "line": 433
+    },
+    {
+      "contract": null,
+      "function": "test_runtime_database_sentinel_hash_reads_are_bounded_and_detect_changes",
+      "line": 452
+    },
+    {
+      "contract": null,
+      "function": "test_latched_resource_abort_stops_each_research_stage_before_more_work",
+      "line": 472
+    },
+    {
+      "contract": null,
+      "function": "test_hash_only_audit_cache_matches_full_independently_derived_snapshot",
+      "line": 494
+    },
+    {
+      "contract": null,
+      "function": "test_reconstruction_child_failure_is_recorded_without_masking_as_missing_file",
+      "line": 505
+    },
+    {
+      "contract": null,
+      "function": "emit",
+      "line": 313
+    },
+    {
+      "contract": null,
+      "function": "emit",
+      "line": 346
+    },
+    {
+      "contract": null,
+      "function": "must_not_run",
+      "line": 481
+    },
+    {
+      "contract": null,
+      "function": "read",
+      "line": 459
+    }
+  ],
+  "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py": [
+    {
+      "contract": null,
+      "function": "git",
+      "line": 44
+    },
+    {
+      "contract": null,
+      "function": "write",
+      "line": 48
+    },
+    {
+      "contract": null,
+      "function": "write_rows",
+      "line": 58
+    },
+    {
+      "contract": null,
+      "function": "source_manifest",
+      "line": 66
+    },
+    {
+      "contract": null,
+      "function": "prior_artifact_manifest",
+      "line": 73
+    },
+    {
+      "contract": null,
+      "function": "evaluate_v1793127_acceptance_gates",
+      "line": 143
+    },
+    {
+      "contract": null,
+      "function": "verify_v1793127_artifact_truth",
+      "line": 160
+    },
+    {
+      "contract": "Preserve the actual child failure instead of masking it as a missing file.",
+      "function": "run_independent_source_reconstruction",
+      "line": 193
+    },
+    {
+      "contract": null,
+      "function": "main",
+      "line": 223
+    },
+    {
+      "contract": null,
+      "function": "__init__",
+      "line": 83
+    },
+    {
+      "contract": null,
+      "function": "check",
+      "line": 88
+    },
+    {
+      "contract": null,
+      "function": "loop",
+      "line": 107
+    },
+    {
+      "contract": null,
+      "function": "start",
+      "line": 120
+    },
+    {
+      "contract": null,
+      "function": "stop",
+      "line": 124
+    },
+    {
+      "contract": null,
+      "function": "abort_on_signal",
+      "line": 279
+    },
+    {
+      "contract": null,
+      "function": "child_rss",
+      "line": 94
+    },
+    {
+      "contract": null,
+      "function": "test_gate",
+      "line": 381
+    }
+  ],
+  "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py": [
+    {
+      "contract": null,
+      "function": "verify_fresh_full_junit",
+      "line": 14
+    },
+    {
+      "contract": null,
+      "function": "empirical_policy_statistics",
+      "line": 50
+    },
+    {
+      "contract": null,
+      "function": "verify_git_remote_phase_receipt_v1793127",
+      "line": 79
+    },
+    {
+      "contract": null,
+      "function": "verify_features_from_disk",
+      "line": 96
+    },
+    {
+      "contract": null,
+      "function": "verify_checkpoint_coverage_from_disk",
+      "line": 107
+    },
+    {
+      "contract": "Recompute published economics and worker digests from separate raw files.",
+      "function": "verify_raw_accounting_and_worker_proofs",
+      "line": 133
+    },
+    {
+      "contract": "Rebuild from immutable canonical OHLC + raw decisions, ignoring produced flags.",
+      "function": "reconstruct_feature_sources_from_disk",
+      "line": 232
+    },
+    {
+      "contract": null,
+      "function": "git",
+      "line": 80
+    }
+  ],
+  "aurum-desk/tools/v17_9_3_1_2_7_source_mutations.py": [
+    {
+      "contract": null,
+      "function": "run_new_source_mutations",
+      "line": 39
+    }
+  ]
+}

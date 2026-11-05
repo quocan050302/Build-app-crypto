@@ -1,0 +1,17 @@
+{
+  "default_policy_id": "SI0_OFF_BASELINE",
+  "default_signal_intelligence_mode": "OFF",
+  "enabled_in_production": false,
+  "prior_artifact_directories_verified": {
+    "aurum-desk/docs/artifacts/v17_9_2": "",
+    "aurum-desk/docs/artifacts/v17_9_2_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_1": "",
+    "aurum-desk/docs/artifacts/v17_9_3_1_2": ""
+  },
+  "schema_version": "17.9.3.1.2.2",
+  "tested_executable_sha": "c20adf96828ccc09eb007cc5bfab6dd3edc671ac",
+  "verified_immutable_files_count": 6,
+  "violated_files_count": 0
+}

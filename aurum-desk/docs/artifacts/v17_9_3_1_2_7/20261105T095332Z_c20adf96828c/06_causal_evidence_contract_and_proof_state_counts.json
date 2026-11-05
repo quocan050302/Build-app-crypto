@@ -1,0 +1,75 @@
+{
+  "proof_states": {
+    "continuation_retrace_valid": {
+      "UNKNOWN": 75525
+    },
+    "displacement_valid": {
+      "PROVEN_FALSE": 12012,
+      "PROVEN_TRUE": 63511,
+      "UNKNOWN": 2
+    },
+    "fvg_present": {
+      "PROVEN_TRUE": 75525
+    },
+    "fvg_retest_valid": {
+      "PROVEN_FALSE": 27005,
+      "PROVEN_TRUE": 48520
+    },
+    "fvg_unmitigated": {
+      "PROVEN_FALSE": 18949,
+      "PROVEN_TRUE": 56576
+    },
+    "h1_bias": {
+      "PROVEN_TRUE": 75525
+    },
+    "h4_bias": {
+      "PROVEN_TRUE": 75525
+    },
+    "m15_bias": {
+      "PROVEN_TRUE": 75525
+    },
+    "m5_bias": {
+      "PROVEN_TRUE": 75525
+    },
+    "mss_confirmed": {
+      "PROVEN_FALSE": 2,
+      "PROVEN_TRUE": 75523
+    },
+    "mss_fvg_retest_ordered": {
+      "PROVEN_FALSE": 17863,
+      "PROVEN_TRUE": 30655,
+      "UNKNOWN": 27007
+    },
+    "protected_structure_independent_of_sl": {
+      "PROVEN_TRUE": 416,
+      "UNKNOWN": 75109
+    },
+    "sweep_confirmed": {
+      "PROVEN_FALSE": 16,
+      "PROVEN_TRUE": 75509
+    },
+    "sweep_mss_ordered": {
+      "PROVEN_FALSE": 60377,
+      "PROVEN_TRUE": 15130,
+      "UNKNOWN": 18
+    },
+    "sweep_reclaimed": {
+      "PROVEN_FALSE": 41159,
+      "PROVEN_TRUE": 34366
+    },
+    "target_reachable": {
+      "UNKNOWN": 75525
+    },
+    "target_unswept": {
+      "PROVEN_TRUE": 1621,
+      "UNKNOWN": 73904
+    },
+    "unicorn_breaker_fvg_bound": {
+      "PROVEN_FALSE": 74247,
+      "PROVEN_TRUE": 1278
+    }
+  },
+  "rows": 75525,
+  "schema": "VerifiedPreEntryFeatureSnapshot",
+  "unknown_eligibility": "REJECTED_UNPROVEN"
+}

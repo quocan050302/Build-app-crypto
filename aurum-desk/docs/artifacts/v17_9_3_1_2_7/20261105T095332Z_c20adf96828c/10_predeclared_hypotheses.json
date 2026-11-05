@@ -1,0 +1,10 @@
+{
+  "baseline_corpus": "Immutable prior canonical decisions are input data; feature proofs and policy replays are rebuilt on this executable SHA.",
+  "dataset_status": "PREVIOUSLY_EXPOSED_HISTORY",
+  "frozen_sha": "c20adf96828ccc09eb007cc5bfab6dd3edc671ac",
+  "hypotheses": [
+    "Source truth may reduce eligibility; no minimum trade count is forced.",
+    "SI8 and SI9 may be identical; identity does not establish incremental edge.",
+    "Profitability is assessed after costs; activation remains NO."
+  ]
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.680" timestamp="2026-11-05T17:40:58.821410+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_missing_baseline_proof_remains_unknown_and_synthetic" time="0.466"><failure message="AssertionError: assert 'ALIGNED' == 'UNKNOWN'&#10;  &#10;  - UNKNOWN&#10;  + ALIGNED">def test_missing_baseline_proof_remains_unknown_and_synthetic():
+        row=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+&gt;       assert row["htf_alignment_state"]=="UNKNOWN"
+E       AssertionError: assert 'ALIGNED' == 'UNKNOWN'
+E         
+E         - UNKNOWN
+E         + ALIGNED
+
+test_causal_truth.py:38: AssertionError</failure></testcase></testsuite></testsuites>

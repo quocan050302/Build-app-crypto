@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="0.716" timestamp="2026-11-05T17:40:52.083364+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_edit_flat_flag_invalidates_proof[sweep_reclaimed]" time="0.470"><failure message="AssertionError: assert not True&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">field = 'sweep_reclaimed'
+
+    @pytest.mark.parametrize("field",["sweep_reclaimed","fvg_retest_valid","mss_confirmed","target_unswept"])
+    def test_edit_flat_flag_invalidates_proof(field):
+        row=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+        row[field]=not row.get(field)
+&gt;       assert not verify_feature_snapshot_v1793127(row)
+E       AssertionError: assert not True
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+test_causal_truth.py:75: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_edit_flat_flag_invalidates_proof[fvg_retest_valid]" time="0.005"><failure message="AssertionError: assert not True&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">field = 'fvg_retest_valid'
+
+    @pytest.mark.parametrize("field",["sweep_reclaimed","fvg_retest_valid","mss_confirmed","target_unswept"])
+    def test_edit_flat_flag_invalidates_proof(field):
+        row=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+        row[field]=not row.get(field)
+&gt;       assert not verify_feature_snapshot_v1793127(row)
+E       AssertionError: assert not True
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+test_causal_truth.py:75: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_edit_flat_flag_invalidates_proof[mss_confirmed]" time="0.003"><failure message="AssertionError: assert not True&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">field = 'mss_confirmed'
+
+    @pytest.mark.parametrize("field",["sweep_reclaimed","fvg_retest_valid","mss_confirmed","target_unswept"])
+    def test_edit_flat_flag_invalidates_proof(field):
+        row=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+        row[field]=not row.get(field)
+&gt;       assert not verify_feature_snapshot_v1793127(row)
+E       AssertionError: assert not True
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+test_causal_truth.py:75: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_edit_flat_flag_invalidates_proof[target_unswept]" time="0.003"><failure message="AssertionError: assert not True&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">field = 'target_unswept'
+
+    @pytest.mark.parametrize("field",["sweep_reclaimed","fvg_retest_valid","mss_confirmed","target_unswept"])
+    def test_edit_flat_flag_invalidates_proof(field):
+        row=derive(decision(),fixture_context(),dataset_sha256="a"*64)
+        row[field]=not row.get(field)
+&gt;       assert not verify_feature_snapshot_v1793127(row)
+E       AssertionError: assert not True
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+test_causal_truth.py:75: AssertionError</failure></testcase></testsuite></testsuites>

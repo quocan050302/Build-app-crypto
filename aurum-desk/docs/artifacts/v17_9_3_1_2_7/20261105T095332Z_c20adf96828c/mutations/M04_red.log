@@ -1,0 +1,14 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_missing_decision_timestamp_fails_closed _________________
+
+    def test_missing_decision_timestamp_fails_closed():
+        context=fixture_context()
+        context.decision_timestamp_ms=0
+>       with pytest.raises(ValueError,match="MISSING_DECISION_TIMESTAMP"):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:86: Failed
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_missing_decision_timestamp_fails_closed - F...
+1 failed, 85 deselected in 0.66s

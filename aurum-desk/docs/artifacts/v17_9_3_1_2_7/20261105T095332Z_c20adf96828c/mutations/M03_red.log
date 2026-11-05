@@ -1,0 +1,28 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_point_in_time_and_source_hash[partial] _________________
+
+change = 'partial'
+
+    @pytest.mark.parametrize("change",["future","partial","source_edit","quote_kind"])
+    def test_point_in_time_and_source_hash(change):
+        ctx=fixture_context()
+        first=derive(decision(),ctx,dataset_sha256="a"*64)
+        ctx=copy.deepcopy(ctx)
+        if change=="future":
+            ctx.closed_m1_candles[-1]["close_time"]+=60_000
+        elif change=="partial":
+            ctx.closed_m1_candles[-1]["is_closed"]=False
+        elif change=="source_edit":
+            ctx.closed_m1_candles[5]["high"]+=3
+        else:
+            ctx.quote_source_kind="REAL_PROVIDER_QUOTE"
+        changed=derive(decision(),ctx,dataset_sha256="a"*64)
+        if change!="quote_kind":
+>           assert first["source_snapshot_hash"]!=changed["source_snapshot_hash"]
+E           AssertionError: assert '087f29a8e7f6ba931900807ff1fa73a722655e3385bdc7fe76b311854368dea6' != '087f29a8e7f6ba931900807ff1fa73a722655e3385bdc7fe76b311854368dea6'
+
+test_causal_truth.py:67: AssertionError
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_point_in_time_and_source_hash[partial] - As...
+1 failed, 85 deselected in 0.69s

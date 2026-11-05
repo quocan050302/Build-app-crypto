@@ -1,0 +1,18 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_si8_si9_identity_reported_honestly ___________________
+
+    def test_si8_si9_identity_reported_honestly():
+        report=compare(*raw_rows(),comparison_id="SI8_SI9",fill_mode="NEXT_BAR_OPEN_BID_ASK")
+>       assert report["relation"]=="IDENTICAL_ON_TESTED_DATA"
+E       AssertionError: assert 'DIFFERENT_ON_TESTED_DATA' == 'IDENTICAL_ON_TESTED_DATA'
+E         
+E         - IDENTICAL_ON_TESTED_DATA
+E         ?  ^   ----
+E         + DIFFERENT_ON_TESTED_DATA
+E         ? + ^^^^
+
+test_causal_truth.py:223: AssertionError
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_si8_si9_identity_reported_honestly - Assert...
+1 failed, 85 deselected in 0.17s

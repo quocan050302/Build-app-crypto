@@ -1,0 +1,5 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "environment_manifest": "02_environment_package_manifest.json",
+  "function_impact_map": "02_source_to_consumer_function_impact_map.json"
+}

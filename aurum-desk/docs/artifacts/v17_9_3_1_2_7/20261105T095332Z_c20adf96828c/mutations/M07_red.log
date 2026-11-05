@@ -1,0 +1,34 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_____ test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep0] _____
+
+ep = {'planned_net_rr': 99, 'hold_bars': 1}
+
+    @pytest.mark.parametrize("ep",[{"planned_net_rr":99,"hold_bars":1}, {"net_rr":8,"bars_held_1m":1}])
+    def test_rr_and_quick_loss_do_not_invent_target_or_premature_cause(ep):
+        label,tags=classify_observed_loss_v1793127({**ep,"outcome_label":"LOSS"},{})
+>       assert label=="OTHER/UNKNOWN"
+E       AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'
+E         
+E         - OTHER/UNKNOWN
+E         + TARGET_ALREADY_SWEPT
+
+test_causal_truth.py:211: AssertionError
+_____ test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep1] _____
+
+ep = {'net_rr': 8, 'bars_held_1m': 1}
+
+    @pytest.mark.parametrize("ep",[{"planned_net_rr":99,"hold_bars":1}, {"net_rr":8,"bars_held_1m":1}])
+    def test_rr_and_quick_loss_do_not_invent_target_or_premature_cause(ep):
+        label,tags=classify_observed_loss_v1793127({**ep,"outcome_label":"LOSS"},{})
+>       assert label=="OTHER/UNKNOWN"
+E       AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'
+E         
+E         - OTHER/UNKNOWN
+E         + TARGET_ALREADY_SWEPT
+
+test_causal_truth.py:211: AssertionError
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep0]
+FAILED test_causal_truth.py::test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep1]
+2 failed, 84 deselected in 0.17s

@@ -1,0 +1,36 @@
+..............................                                           [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_real_integrity_error_flush_recovers_without_pending_rollback_error
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b80259c50> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b821b0e10>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_session_usable_after_rollback_recovery
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b822b7050> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b822b6fd0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_queries_between_poison_and_rollback
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b822b0c90> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b822b0890>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_order_armed_and_arm_candidate_not_called
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b8237a150> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b8237a0d0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_watchsetup_and_snapshot_not_mutated
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b82412f10> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b82420350>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_staged_data_before_failure_rolled_back_consistently
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x19b82487250> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b824871d0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_expire_path_real_integrity_error_recovery
+  D:\build app-crypto\aurum-desk\backend\tests\test_v15_8_database_failure_recovery.py:369: SAWarning: New instance <SystemConfig at 0x19b82502450> with identity key (<class 'models.SystemConfig'>, ('DUP_EXP_KEY',), None) conflicts with persistent instance <SystemConfig at 0x19b825024d0>
+    db.flush()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+30 passed, 8 warnings in 9.86s

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="6" time="0.211" timestamp="2026-11-05T17:40:51.002809+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[fvg_retest_valid]" time="0.001"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'fvg_retest_valid': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'fvg_retest_valid'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'fvg_retest_valid': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[sweep_confirmed]" time="0.001"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'sweep_confirmed': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'sweep_confirmed'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'sweep_confirmed': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[mss_confirmed]" time="0.001"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'mss_confirmed': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'mss_confirmed'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'mss_confirmed': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[target_unswept]" time="0.001"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'target_unswept': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'target_unswept'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'target_unswept': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[protected_structure_independent_of_sl]" time="0.001"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'protected_structure_independent_of_sl': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'protected_structure_independent_of_sl'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'protected_structure_independent_of_sl': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_injected_optimistic_feature_without_proof_rejected[unicorn_breaker_fvg_bound]" time="0.000"><failure message="AssertionError: assert None&#10; +  where None = required_proof_rejection_v1793127({'unicorn_breaker_fvg_bound': True}, 'SMC_M1_FVG_CONTINUATION')">field = 'unicorn_breaker_fvg_bound'
+
+    @pytest.mark.parametrize("field",["fvg_retest_valid","sweep_confirmed","mss_confirmed","target_unswept",
+                                      "protected_structure_independent_of_sl","unicorn_breaker_fvg_bound"])
+    def test_injected_optimistic_feature_without_proof_rejected(field):
+&gt;       assert required_proof_rejection_v1793127({field:True},decision()["model_id"])
+E       AssertionError: assert None
+E        +  where None = required_proof_rejection_v1793127({'unicorn_breaker_fvg_bound': True}, 'SMC_M1_FVG_CONTINUATION')
+
+test_causal_truth.py:49: AssertionError</failure></testcase></testsuite></testsuites>

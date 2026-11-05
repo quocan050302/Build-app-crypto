@@ -1,0 +1,1392 @@
+{
+  "functions": [
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+          "line": 4276,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 530,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 196,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 197,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1106,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1122,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_market_decision_context",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1138,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Constructs an immutable MarketDecisionContext, enforcing causal candle filtering\nand computing deterministic ATR and fingerprints.",
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function": "build_market_decision_context",
+      "line": 568
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "SharedStrategyEvaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+          "line": 4313,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4456,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4473,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4428,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4436,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4419,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "cls.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4987,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 551,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 568,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 569,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 570,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 571,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1155,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1156,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1161,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1167,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1168,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "evaluator.evaluate_model_direction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1176,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Evaluates a specific (model_id, direction) pair against MarketDecisionContext\nand returns an immutable StrategyDecisionSnapshot.",
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function": "evaluate_model_direction",
+      "line": 2706
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "build_signal_quality_evidence_v1793122",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 1954,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Constructs a strictly causal `SignalQualityEvidenceV1793122` at `decision_timestamp_ms`.\nVerifies `known_at_ms <= decision_timestamp_ms` for every feature.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "build_signal_quality_evidence_v1793122",
+      "line": 1184
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "evaluate_signal_intelligence_gate_v1793122",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4173,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Evaluates the V17.9.3.1.2.2 Signal Intelligence stage inside `SharedStrategyEvaluator`.\nEnforces:\n  - Fail-closed rejection on invalid mode or policy ID.\n  - Fail-closed rejection if `RESEARCH_APPLY` is invoked from Production/PAPER/LIVE adapter.\n  - Strict non-rescue invariant: a candidate that is NOT `ELIGIBLE` in baseline is NEVER\n    promoted to `ELIGIBLE` by `SI0..SI6`.\n  - Full recalculation of SL/TP/qty/net_rr via `plan_v17_9_2_structural_stop_and_target`\n    and `calculate_risk_reward` when `SI5` or `SI6` updates geometry.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "evaluate_signal_intelligence_gate_v1793122",
+      "line": 1877
+    },
+    {
+      "callsites_in_audited_source_inventory": [],
+      "contract": "Section 03 & Section 04 (SI3):\nAdvances a `WAITING_CONFIRMATION` setup strictly forward in time across closed M1 bars\n(`idx > start_bar_index`, `close_time <= pending.expires_at_ms`).\nNever backdates entries:\n  - If a bar gap (> 180s) occurs -> `CANCELLED_GAP`\n  - If price breaches `invalidation_price` before confirmation -> `INVALIDATED`\n  - If `close_time > expires_at_ms` -> `EXPIRED`\n  - If a closed bar confirms displacement break / FVG retest -> rebuilds entry at that\n    confirmation bar's close quote (to be filled at the NEXT bar's open bid/ask), re-runs\n    `calculate_risk_reward()`, and returns `CONFIRMED` (or `INVALIDATED` if net RR < 2.0).\nReturns `(updated_pending, confirmed_bar_index_or_None)`.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "advance_pending_confirmation_state_v1793122",
+      "line": 2556
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "score_candidate_record_pre_entry_v1793122",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2861,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Computes a strictly pre-entry candidate quality tuple for multi-model arbitration (`SI1`, `SI6`).\nNEVER reads post-entry WIN/LOSS outcome labels, MFE/MAE, or realized PnL.\nRaises `ValueError` if a caller attempts to inject post-entry label arbitration (`M13` guard).",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "score_candidate_record_pre_entry_v1793122",
+      "line": 2772
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "arbitrate_competing_model_intents_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 275,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 04 (SI1/SI6):\nDeterministically arbitrates competing eligible model candidates at the same M1 timestamp:\n  - `STATIC_PRODUCTION_PRIORITY`: canonical production order (`REVERSAL` > `CONTINUATION` >\n    `FVG_CONTINUATION` > `SWEEP_RECLAIM` > `CG01`).\n  - `REVERSE_STATIC_PRIORITY`: reversed order (`CG01` > `SWEEP_RECLAIM` > `FVG_CONTINUATION` >\n    `CONTINUATION` > `REVERSAL`).\n  - `PRE_ENTRY_QUALITY_TUPLE`: ranks strictly by pre-entry `score_candidate_record_pre_entry_v1793122`\n    with frozen deterministic tie-breaker `(quality_tuple, direction, model_id, opportunity_id)`.\nReturns `(selected_winner_or_None, tie_lost_candidates)`.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "arbitrate_competing_model_intents_v1793122",
+      "line": 2809
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "compute_strategy_statistical_verdict_v1793122",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 1357,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_strategy_statistical_verdict_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1840,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_strategy_statistical_verdict_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1844,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_strategy_statistical_verdict_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py",
+          "line": 1114,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 10 (Truth Closure #4):\nComputes `STRATEGY_STATISTICAL_VERDICT` dynamically from actual portfolio metrics,\nbootstrapped confidence intervals, OOS split performance, and sample size power.\nNever hardcodes a static verdict string before metrics are evaluated.\nPossible verdicts:\n  - `DATA_UNAVAILABLE/BLOCKED`\n  - `INCONCLUSIVE_DATA_QUALITY`\n  - `NEGATIVE_EXPECTANCY`\n  - `INCONCLUSIVE_UNDERPOWERED`\n  - `INCONCLUSIVE_REUSED_HOLDOUT`\n  - `POSITIVE_IN_REUSED_HISTORY_NOT_VERIFIED`\n  - `VERIFIED_RESEARCH_SIGNAL_ONLY_IF_FRESH_HOLDOUT_PROOF`",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "compute_strategy_statistical_verdict_v1793122",
+      "line": 2888
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_eval_checkpoints_chunk_v1793125",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 858,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "_eval_checkpoints_chunk_v1793125",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 485,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "function": "_eval_checkpoints_chunk_v1793125",
+      "line": 417
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "discover_research_candidates_v1793123",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 370,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "discover_research_candidates_v1793123",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 420,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "discover_research_candidates_v1793123",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 936,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "discover_research_candidates_v1793123",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 241,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "STAGE G1 / V17.9.3.1.2.5 Full-Universe Independent Causal Candidate Discovery.\nEvaluates the real SharedStrategyEvaluator across all 5 canonical models and\nboth directions under:\n  1. OFF / SI0_OFF_BASELINE (exact legacy baseline parity, 0 discovery rescues)\n  2. RESEARCH_APPLY / SI7_CORE_TRADING_LOGIC_REPAIRED (non-rescue for rejected baseline,\n     strict causal repair on eligible setups)\n  3. RESEARCH_APPLY / SI8_RESEARCH_DISCOVERY_REPAIRED (independent causal candidate\n     discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)\n  4. Also verifies that legacy mismatch mode RESEARCH_DISCOVERY fails closed with\n     SI_INVALID_MODE_FAIL_CLOSED.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "function": "discover_research_candidates_v1793123",
+      "line": 772
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "derive_pre_entry_features_from_causal_context_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2459,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "derive_pre_entry_features_from_causal_context_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 707,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "derive_pre_entry_features_from_causal_context_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 404,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Reconstruct features from closed OHLC, never from descriptor booleans/outcomes.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "derive_pre_entry_features_from_causal_context_v1793127",
+      "line": 170
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 451,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 116,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 385,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 386,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 427,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 499,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 500,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 484,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+          "line": 245,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1427,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1432,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 950,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 827,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Cover every baseline opportunity; no sample-record or optimistic fallback.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+      "line": 368
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2461,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 453,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 49,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 129,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 43,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 290,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 268,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "required_proof_rejection_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 686,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "required_proof_rejection_v1793127",
+      "line": 409
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "rebuild_materialized_intent_proof_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 167,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "rebuild_materialized_intent_proof_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 172,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "rebuild_materialized_intent_proof_v1793127",
+          "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+          "line": 172,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "rebuild_materialized_intent_proof_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 502,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Recheck actual final geometry at its own closed-bar decision time.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "rebuild_materialized_intent_proof_v1793127",
+      "line": 440
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "classify_target_failure_modes_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 515,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "classify_target_failure_modes_v1793127",
+      "line": 490
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "classify_observed_loss_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 184,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "classify_observed_loss_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 553,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "classify_observed_loss_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 176,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "classify_observed_loss_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 210,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "classify_observed_loss_v1793127",
+      "line": 500
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 3046,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 153,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 158,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 369,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+          "line": 226,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "build_forensic_causal_evidence_join_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 868,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "build_forensic_causal_evidence_join_v1793127",
+      "line": 521
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "compute_policy_decision_diff_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py",
+          "line": 78,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py",
+      "function": "compute_policy_decision_diff_v1793127",
+      "line": 51
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "compute_matched_policy_ab_v1793127",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py",
+          "line": 146,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_matched_policy_ab_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 357,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_matched_policy_ab_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 870,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py",
+      "function": "compute_matched_policy_ab_v1793127",
+      "line": 77
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "verify_matched_ab_against_raw_ledgers_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 176,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "verify_matched_ab_against_raw_ledgers_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 366,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Inputs must be separate serialized raw ledgers, never the claimed pair table.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py",
+      "function": "verify_matched_ab_against_raw_ledgers_v1793127",
+      "line": 116
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "runner.run_independent_source_reconstruction",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 510,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "run_independent_source_reconstruction",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 418,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Preserve the actual child failure instead of masking it as a missing file.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+      "function": "run_independent_source_reconstruction",
+      "line": 193
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "verify_fresh_full_junit",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 298,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": null,
+      "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+      "function": "verify_fresh_full_junit",
+      "line": 14
+    },
+    {
+      "callsites_in_audited_source_inventory": [],
+      "contract": null,
+      "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+      "function": "verify_git_remote_phase_receipt_v1793127",
+      "line": 79
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "verify_raw_accounting_and_worker_proofs",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 186,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Recompute published economics and worker digests from separate raw files.",
+      "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+      "function": "verify_raw_accounting_and_worker_proofs",
+      "line": 133
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_sha256_file_bounded",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 464,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "_sha256_file_bounded",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 467,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "_sha256_file_bounded",
+          "file": "aurum-desk/backend/tests/conftest.py",
+          "line": 116,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "_sha256_file_bounded",
+          "file": "aurum-desk/backend/tests/conftest.py",
+          "line": 128,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Hash the complete runtime sentinel without loading a multi-GiB DB in RAM.",
+      "file": "aurum-desk/backend/tests/conftest.py",
+      "function": "_sha256_file_bounded",
+      "line": 86,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [],
+      "contract": "Sentinel fixture: proves runtime database is never touched or truncated by test suites (V17.7.4 Section 09.3).",
+      "file": "aurum-desk/backend/tests/conftest.py",
+      "function": "guard_runtime_database",
+      "line": 96,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 382,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 516,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 857,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+          "line": 864,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 381,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 195,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 806,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1254,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1256,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 262,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 299,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 679,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 964,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 974,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 983,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1367,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "raise_if_research_aborted",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 545,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "",
+      "file": "aurum-desk/backend/services/research_resource_guard.py",
+      "function": "raise_if_research_aborted",
+      "line": 7,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "calculate_isolated_liquidation",
+          "file": "aurum-desk/backend/domain_calculator.py",
+          "line": 480,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Bitget USDT-Margined Perpetual Isolated Liquidation Price Model.\nBased on official Bitget Classic Contract maintenance margin and tier rules:\nNotional = Quantity * Multiplier * Entry\nInitial Margin = Notional / Leverage\nMaintenance Margin = Notional * MMR - Deduction\n\nLong:\n  Equity = Margin + (LP - Entry)*Q*M\n  At Liquidation: Equity = MaintenanceMargin(LP) + ClosingFee\n  LP_long = [Entry * Q * M - Margin - Deduction] / [Q * M * (1 - MMR - ClosingFeeRate)]\n\nShort:\n  Equity = Margin + (Entry - LP)*Q*M\n  At Liquidation: Equity = MaintenanceMargin(LP) + ClosingFee\n  LP_short = [Entry * Q * M + Margin + Deduction] / [Q * M * (1 + MMR + ClosingFeeRate)]\n\nReturns (LP, InitialMargin, MaintenanceMargin, Tier, MaxTierLeverage)",
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "function": "calculate_isolated_liquidation",
+      "line": 146,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 3864,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 4875,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2701,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2322,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1443,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 2530,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1228,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "calculate_risk_reward",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1292,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Authoritative domain calculation for Risk, Reward, Sizing, Fees, Leverage, Margin and Liquidation.\nUsed identically across Preview, Strategy, Broker, and Journal.",
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "function": "calculate_risk_reward",
+      "line": 197,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "compute_stop_atr",
+          "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+          "line": 1271,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_stop_atr",
+          "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+          "line": 1299,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_stop_atr",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 748,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_stop_atr",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 755,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "compute_stop_atr",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 212,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Computes strict True Range Mean (SMA_TR_V1) for stop loss buffer sizing (V17.7.4).\nRequires at least `period + 1` continuous, finite closed bars.\nExcludes unclosed bars or future bars after as_of_ms.\nStrictly synchronizes bar_duration_ms with timeframe.\nValidates symbol consistency, candle closure, and positive finite prices.\nEnforces active-window cadence verification (no gap bridging).",
+      "file": "aurum-desk/backend/services/stop_placement_service.py",
+      "function": "compute_stop_atr",
+      "line": 287,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "collect_causal_stop_anchor_candidates",
+          "file": "aurum-desk/backend/services/stop_placement_service.py",
+          "line": 1185,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "collect_causal_stop_anchor_candidates",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1570,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "collect_causal_stop_anchor_candidates",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 3139,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 4.2: Collect causal stop anchor candidates from closed M1/M5/M15 market structure.\nStrictly enforces `known_at_ms <= decision_timestamp_ms` and `source_bar_close_ms <= decision_timestamp_ms`.\nDistinguishes outer protected swings (`is_protected_swing=True`) from internal/local sweep extremes\n(`is_local_sweep_only=True`).",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "collect_causal_stop_anchor_candidates",
+      "line": 308,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "rank_structure_valid_anchors",
+          "file": "aurum-desk/backend/services/stop_placement_service.py",
+          "line": 1202,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "rank_structure_valid_anchors",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1589,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "rank_structure_valid_anchors",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 3150,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 4.3: Deterministic ranking of causal structural stop anchor candidates.\nPrioritizes:\n  1. Valid causal, closed-bar, un-invalidated candidates on the protective side of entry\n     within `max_stop_distance_usd`\n  2. Protected swings (`is_protected_swing=True`, `is_local_sweep_only=False`) over internal/local sweep wicks\n  3. Higher `structural_rank`\n  4. More recent `occurred_at_ms`\n  5. Deterministic tie-break by `anchor_id` ascending\nNever ranks by future outcome.",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "rank_structure_valid_anchors",
+      "line": 690,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "derive_structure_valid_stop",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1623,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 4.5: Derive outward tick-quantized structure-valid stop price:\n  - LONG: `floor_tick(invalidation_price - noise_buffer_price)`\n  - SHORT: `ceil_tick(invalidation_price + noise_buffer_price)`",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "derive_structure_valid_stop",
+      "line": 826,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "resolve_causal_target_candidates",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1677,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 4.7: Resolve causal unconsumed liquidity target candidates from:\n  - Provided `liquidity_pools` (M1/M5/M15/H1/H4/PDH/PDL)\n  - Confirmed closed M1, M5, M15, H1, H4 swings (`known_at_ms <= decision_timestamp_ms`)\n  - Completed prior-day D1 High/Low (`PDH`/`PDL` with `close_time <= decision_timestamp_ms`)\nStrictly filters out consumed/swept/expired levels across all closed LTF/HTF bars, future levels,\nand wrong-side levels.",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "resolve_causal_target_candidates",
+      "line": 940,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "select_viable_structural_target",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1695,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 4.7: Select an authoritative, causal liquidity target.\n  - In `BASELINE_FROZEN` mode (`A`, `B`, `C`, `D1`, `D2`): uses `baseline_target_price` / `baseline_target_id`\n    so stop-loss experiments are strictly isolated from target changes.\n  - In `V1792_CAUSAL_STRUCTURAL_VIABLE` mode (`D3`, `D4`, `D6`): iterates sorted causal liquidity\n    target candidates (nearest to farthest) and selects the nearest causal unconsumed pool that\n    achieves `net_rr >= min_net_rr` under full round-trip fees and slippage.\n  - NEVER invents `TP = entry +/- k * stop_distance`.",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "select_viable_structural_target",
+      "line": 1158,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+          "line": 1480,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 777,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 3356,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 781,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 3699,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+          "line": 2235,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 204,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 582,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 1107,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 3136,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 504,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+          "line": 545,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "identify_confirmed_swings",
+          "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+          "line": 113,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Causally identify swing highs and swing lows for any timeframe (SECTIONS 021 - 032).\nConfirmation strictly requires right_bars closed candles.\nknown_at_ms = confirm_open + duration_ms (when right_bars confirmation bar closes).",
+      "file": "aurum-desk/backend/services/liquidity_scenario_service.py",
+      "function": "identify_confirmed_swings",
+      "line": 134,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "evaluate_htf_structure",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 209,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Pure causal market structure evaluator (Rules 041 - 080).\nEvaluates market structure strictly on closed candles up to as_of_ms.\nNever relies on SMA fallback to claim confirmed structure.\nCorrectly recognizes invalidations when protected levels are broken by candle close.",
+      "file": "aurum-desk/backend/services/htf_structure_service.py",
+      "function": "evaluate_htf_structure",
+      "line": 1300,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "detect_unicorn_evidence",
+          "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+          "line": 3621,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "detect_unicorn_evidence",
+          "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+          "line": 315,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Synthesizes ICT Unicorn Evidence (V17.8.0.4).\nCanonical contract supports both `selected_fvg` (for active candidate evaluation,\nnever substituting an unrelated FVG) and `candidate_fvgs` (for batch/research scanning).",
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "function": "detect_unicorn_evidence",
+      "line": 509,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 443,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 444,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 486,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 831,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 869,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "replay_single_si_policy_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1443,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Replays a single Signal Intelligence policy (`SI0..SI6`) across all 18,744 unique\neligible M1 timestamps (`56,710` raw eligible decisions) in strict causal chronological\norder across all 3 fill modes (`NEXT_BAR_OPEN_BID_ASK`, `LEGACY_CLOSE_FILL`,\n`STRESS_WIDER_SPREAD_SLIPPAGE_2X`).",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "replay_single_si_policy_v1793122",
+      "line": 214,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_CompressedCheckpointDecisionsV1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 794,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Lossless worker input; decode one checkpoint, never the entire corpus.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "_CompressedCheckpointDecisionsV1793127",
+      "line": 753,
+      "symbol_kind": "class"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_MergedCheckpointDecisionsV1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 246,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Join baseline and discovery without expanding their compressed records.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "_MergedCheckpointDecisionsV1793127",
+      "line": 769,
+      "symbol_kind": "class"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_bounded_worker_candidate_index_v1793127",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 438,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "_bounded_worker_candidate_index_v1793127",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 956,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "_bounded_worker_candidate_index_v1793127",
+      "line": 787,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "execute_independent_worker_determinism_runs_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1865,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 09 (Truth Closure #3):\nRuns genuinely independent 1, 2, and 4 worker executions across all 3 fill modes\nand OOS partitions with NO shared digest reuse.\nReturns `(manifest_w1, manifest_w2, manifest_w4, comparison_31)`.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "execute_independent_worker_determinism_runs_v1793122",
+      "line": 901,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "_guarded_research_call",
+          "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py",
+          "line": 488,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "_guarded_research_call",
+      "line": 1253,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "run_v17_9_3_1_2_2_entry_signal_backtest_pipeline",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 317,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "run_v17_9_3_1_2_2_entry_signal_backtest_pipeline",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+          "line": 1936,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Executes the complete V17.9.3.1.2.2 Entry Signal Intelligence historical backtest\nand writes artifacts `01..23` and `28..32` into `output_dir`.\nReturns `evidence_by_key` dictionary for gate evaluation.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "function": "run_v17_9_3_1_2_2_entry_signal_backtest_pipeline",
+      "line": 1260,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "run_full_backend_pytest_collection_and_sharded_junit_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 294,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        },
+        {
+          "callee_expression": "run_full_backend_pytest_collection_and_sharded_junit_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py",
+          "line": 1083,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 07 (Truth Closure #1) & V17.9.3.1.2.4 Stage R3 (Fresh Regression Truth):\n1. Discovers all `backend/tests/test_*.py` files in the repository (or `test_files_override`\n   in isolated unit tests).\n2. Runs `pytest --collect-only -q` across the discovered test suite and records all\n   canonical node IDs (`24_full_pytest_collection_node_ids_manifest.json`).\n3. Shards the test files across `<= 4` parallel pytest subprocesses with `--junitxml`,\n   parses every `<testcase>` node ID, and verifies 1-to-1 node-ID bijection\n   (`25_full_regression_shard_junit_and_exact_bijection.json`).\nWhen `force_fresh_execution=True` (mandatory for V17.9.3.1.2.4), deletes any pre-existing\nXML files in `junit_dir` before running and forbids any XML resume shortcut.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py",
+      "function": "run_full_backend_pytest_collection_and_sharded_junit_v1793122",
+      "line": 259,
+      "symbol_kind": "function"
+    },
+    {
+      "callsites_in_audited_source_inventory": [
+        {
+          "callee_expression": "run_16_executable_red_green_source_mutations_v1793122",
+          "file": "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py",
+          "line": 306,
+          "match_kind": "STATIC_NAME_MATCH_NOT_TYPE_RESOLVED"
+        }
+      ],
+      "contract": "Section 08 (Truth Closure #2 \u2014 `EXECUTABLE_RED_GREEN_TESTS`):\nExecutes 16 genuine source-level code mutations (`M01..M16`) inside an isolated\ntemporary directory copy of `services/v17_9_3_1_2_2_signal_intelligence.py` and\n`services/scalp_m1_types.py`.\nEach mutation runs a real Python subprocess asserting the invariant:\n  - Under mutated source: subprocess exits with `red_exit_code != 0` (`caught_red = True`).\n  - Under restored/unmutated source: subprocess exits with `green_exit_code == 0` (`restored_green = True`).\nNever modifies the tracked working tree.",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py",
+      "function": "run_16_executable_red_green_source_mutations_v1793122",
+      "line": 617,
+      "symbol_kind": "function"
+    }
+  ],
+  "scope": "AST symbol-name callsite matches in explicitly listed frozen files. Attribute receiver types and indirect pytest fixture calls are not resolved; this is not an assertion of complete dynamic reachability.",
+  "tested_executable_sha": "c20adf96828ccc09eb007cc5bfab6dd3edc671ac"
+}

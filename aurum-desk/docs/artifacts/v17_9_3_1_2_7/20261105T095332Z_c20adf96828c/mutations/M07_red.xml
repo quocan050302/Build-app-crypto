@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.156" timestamp="2026-11-05T17:41:03.214469+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep0]" time="0.001"><failure message="AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'&#10;  &#10;  - OTHER/UNKNOWN&#10;  + TARGET_ALREADY_SWEPT">ep = {'planned_net_rr': 99, 'hold_bars': 1}
+
+    @pytest.mark.parametrize("ep",[{"planned_net_rr":99,"hold_bars":1}, {"net_rr":8,"bars_held_1m":1}])
+    def test_rr_and_quick_loss_do_not_invent_target_or_premature_cause(ep):
+        label,tags=classify_observed_loss_v1793127({**ep,"outcome_label":"LOSS"},{})
+&gt;       assert label=="OTHER/UNKNOWN"
+E       AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'
+E         
+E         - OTHER/UNKNOWN
+E         + TARGET_ALREADY_SWEPT
+
+test_causal_truth.py:211: AssertionError</failure></testcase><testcase classname="test_causal_truth" name="test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep1]" time="0.001"><failure message="AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'&#10;  &#10;  - OTHER/UNKNOWN&#10;  + TARGET_ALREADY_SWEPT">ep = {'net_rr': 8, 'bars_held_1m': 1}
+
+    @pytest.mark.parametrize("ep",[{"planned_net_rr":99,"hold_bars":1}, {"net_rr":8,"bars_held_1m":1}])
+    def test_rr_and_quick_loss_do_not_invent_target_or_premature_cause(ep):
+        label,tags=classify_observed_loss_v1793127({**ep,"outcome_label":"LOSS"},{})
+&gt;       assert label=="OTHER/UNKNOWN"
+E       AssertionError: assert 'TARGET_ALREADY_SWEPT' == 'OTHER/UNKNOWN'
+E         
+E         - OTHER/UNKNOWN
+E         + TARGET_ALREADY_SWEPT
+
+test_causal_truth.py:211: AssertionError</failure></testcase></testsuite></testsuites>

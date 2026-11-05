@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.074" timestamp="2026-11-05T17:41:08.838469+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_si8_si9_identity_reported_honestly" time="0.001" /></testsuite></testsuites>
