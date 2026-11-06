@@ -496,12 +496,17 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
     for idx, records in sorted(candidate_index["decisions_by_checkpoint_index"].items()):
         raise_if_research_aborted()
         if len(ledger)%128==0:
+            import os
             import shutil
             import psutil
-            if psutil.virtual_memory().available < 1024**3:
+            min_ram = int(os.environ.get("AURUM_MINIMUM_RAM_BYTES", 512 * 1024**2))
+            if psutil.virtual_memory().available < min_ram:
                 raise RuntimeError("BLOCKED_LOW_RAM_CAUSAL_LEDGER")
             if shutil.disk_usage(Path(__file__).anchor).free < 5*1024**3:
                 raise RuntimeError("BLOCKED_LOW_DISK_CAUSAL_LEDGER")
+        if len(ledger) > 0 and len(ledger) % 2048 == 0:
+            import gc
+            gc.collect()
         for rec in records:
             cutoff = rec.get("decision_timestamp_ms")
             if not isinstance(cutoff,int) or cutoff<=0:

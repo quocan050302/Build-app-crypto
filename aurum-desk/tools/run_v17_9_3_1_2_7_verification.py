@@ -279,6 +279,7 @@ def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2)
     monitor=ResourceMonitor(minimum_ram_bytes=minimum_ram_bytes)
     monitor.abort_path=run/"resource_abort.json"
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"]=str(monitor.abort_path)
+    os.environ["AURUM_MINIMUM_RAM_BYTES"]=str(minimum_ram_bytes)
     def abort_on_signal(signum,frame):
         monitor.error=f"BLOCKED_SIGNAL_{signum}"
         write(monitor.abort_path,{"status":"BLOCKED","reason":monitor.error})

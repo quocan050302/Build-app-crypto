@@ -1414,6 +1414,8 @@ def run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(
         art_20_feat, art_22_htf = f_feat.result()
         art_21_uni = f_uni.result()
         si8_discovery_report = f_disc.result()
+        del f_feat, f_uni, f_disc, art_20_feat
+        gc.collect()
 
     cand_index["si8_discovered_decisions_by_checkpoint_index"] = (
         si8_discovery_report.get("si8_discovered_decisions_by_checkpoint_index") or {}
