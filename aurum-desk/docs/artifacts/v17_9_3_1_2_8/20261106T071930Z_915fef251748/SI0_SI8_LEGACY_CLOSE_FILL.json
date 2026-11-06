@@ -1,0 +1,17 @@
+{
+  "comparison_id": "SI0_SI8_LEGACY_CLOSE_FILL",
+  "decision_diff": {
+    "changed_count": 75521,
+    "decision_relation": "ACTUAL_DECISION_DIFFERENCES",
+    "rows_sha256": "b5d8974ab17fd832ab991ce4a523737a82df8ab9c6eea7f6a7573e35e38eeb57"
+  },
+  "fill_mode": "LEGACY_CLOSE_FILL",
+  "incremental_edge_status": "REQUIRES_STATISTICAL_VALIDATION",
+  "marked_to_market_portfolio_delta": null,
+  "matched_closed_count": 0,
+  "pair_ledger_sha256": "0dc0de872322e253cdc4c922e16a7afcf872e1aad1f1676fb22e18ed84c50ed1",
+  "paired_mean_net_r_delta": null,
+  "portfolio_accounting_basis": "CLOSED_REALIZED_ONLY_OPEN_AND_GAP_NOT_IMPUTED",
+  "portfolio_net_usd_delta": 313.6541,
+  "relation": "DIFFERENT_ON_TESTED_DATA"
+}

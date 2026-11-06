@@ -1,0 +1,8 @@
+{
+  "baseline_encoded_payload_bytes": 228309464,
+  "discovery_encoded_payload_bytes": 74705900,
+  "hits": 58266,
+  "max_size": 64,
+  "misses": 36634,
+  "size": 64
+}

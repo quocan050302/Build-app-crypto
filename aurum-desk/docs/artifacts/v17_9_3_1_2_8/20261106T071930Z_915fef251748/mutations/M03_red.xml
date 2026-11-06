@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.578" timestamp="2026-11-06T15:05:35.826014+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_point_in_time_and_source_hash[partial]" time="0.436"><failure message="AssertionError: assert '5ad7e430f2109a3f62282ec1c0bff70fe3e930030b29577d6d4ab1671678e430' != '5ad7e430f2109a3f62282ec1c0bff70fe3e930030b29577d6d4ab1671678e430'">change = 'partial'
+
+    @pytest.mark.parametrize("change",["future","partial","source_edit","quote_kind"])
+    def test_point_in_time_and_source_hash(change):
+        ctx=fixture_context()
+        first=derive(decision(),ctx,dataset_sha256="a"*64)
+        ctx=copy.deepcopy(ctx)
+        if change=="future":
+            ctx.closed_m1_candles[-1]["close_time"]+=60_000
+        elif change=="partial":
+            ctx.closed_m1_candles[-1]["is_closed"]=False
+        elif change=="source_edit":
+            ctx.closed_m1_candles[5]["high"]+=3
+        else:
+            ctx.quote_source_kind="REAL_PROVIDER_QUOTE"
+        changed=derive(decision(),ctx,dataset_sha256="a"*64)
+        if change!="quote_kind":
+&gt;           assert first["source_snapshot_hash"]!=changed["source_snapshot_hash"]
+E           AssertionError: assert '5ad7e430f2109a3f62282ec1c0bff70fe3e930030b29577d6d4ab1671678e430' != '5ad7e430f2109a3f62282ec1c0bff70fe3e930030b29577d6d4ab1671678e430'
+
+test_causal_truth.py:67: AssertionError</failure></testcase></testsuite></testsuites>

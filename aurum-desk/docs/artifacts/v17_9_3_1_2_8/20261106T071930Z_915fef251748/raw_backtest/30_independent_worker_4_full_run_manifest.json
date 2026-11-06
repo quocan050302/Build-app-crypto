@@ -1,0 +1,322 @@
+{
+  "canonical_results_sha256": "3f19787b729acb2b7f3587efa77f6fd9d89c42fcc861502d51c202c8956f0264",
+  "execution_engine": "ProcessPoolExecutor",
+  "fill_modes_verified": [
+    "NEXT_BAR_OPEN_BID_ASK",
+    "LEGACY_CLOSE_FILL",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "independent_execution_no_shared_digest_reuse": true,
+  "policies_verified_count": 10,
+  "results_by_policy": {
+    "SI0_OFF_BASELINE": {
+      "closed_trades_count": 166,
+      "decision_rows_sha256": "8cd85c8d09e5fda9960e65465b47f422022a3cbec41cdd3e3b12f88f6941b841",
+      "expectancy_net_r": -0.8474,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+        "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+      },
+      "forensic_sha256": "71c1b8671cb0010a6c4ad430c2a2cc06b9f06d6af2431ae5597cf18109a5a0cc",
+      "losses_count": 157,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "43d8e35320f4cf3aabe032705ce2011bab6cb1e1395c34ec0f88ec5a6f9affff",
+        "NEXT_BAR_OPEN_BID_ASK": "975d895c082c4f4598902e859f8675de6222fafdb19f14a99468b0a7f71c5ca0",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "c8ebb3f775735998f6d30392abcdc6cd1dd1d3e4227869fda11baa9121d39ea3"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": -30.414,
+        "H_HOLDOUT": -203.4853,
+        "V_VAL": -111.9978
+      },
+      "policy_id": "SI0_OFF_BASELINE",
+      "primary_ledger_sha256": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+      "raw_all_mode_trades_sha256": "143bab7fe3a405b4e2e2af7765a82e11f10f77e12a6990abcb02dfd667e8614f",
+      "total_realized_net_usd": -345.8971,
+      "unique_eligible_timestamps_evaluated": 18744,
+      "wins_count": 9,
+      "worker_pid": 21848
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "closed_trades_count": 6,
+      "decision_rows_sha256": "1c35de80e67de80fa0d6224259804fa454349544810455db465b373b507a5db3",
+      "expectancy_net_r": -0.9845,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+        "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+      },
+      "forensic_sha256": "f28125c71a7e0f375703f3c2ac76c84904db96fb3e1ca6a8c4ef95486f309515",
+      "losses_count": 6,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "88c02cefbbe9e41782c4af7221509ef11cdf71e7d94338a7a99eae5cef8762d5",
+        "NEXT_BAR_OPEN_BID_ASK": "6c34f2e8c7dfd389b02af9d6881f4cbf6fd0e5b64bcfaf4a226c645ccd71af2f",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "ab73b911674f200b676dc875e262d8ac46b3463a5f0c73952a9043a74e57dfd7"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": -7.3315,
+        "V_VAL": -7.2682
+      },
+      "policy_id": "SI1_MODEL_QUALITY_AND_ARBITRATION",
+      "primary_ledger_sha256": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+      "raw_all_mode_trades_sha256": "660ed04ac9c9a420c55e86cc284d1900bd25c7488346ecfca02bcd228dfefeb7",
+      "total_realized_net_usd": -14.5997,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 15024
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "closed_trades_count": 9,
+      "decision_rows_sha256": "21c041095b1fdd45a31ed3dabed09345626adf28db8128269a74d561d99db6a6",
+      "expectancy_net_r": -1.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+        "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+      },
+      "forensic_sha256": "274d5ba8cb34f4bf30d653ca226d3c22330f03c8528fae5d07304c7c607efa90",
+      "losses_count": 9,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "7abc45989c686fbf3ad9ebe834a0372323527387f9ce401e4dc1711a6c18dcf4",
+        "NEXT_BAR_OPEN_BID_ASK": "1a404c9e88f71d2876496fda4874726a2a5603629b8619039060613de1245bc5",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "016a715bc699b602a4b4ddddd9bf28076db830fd8eb457b369a90b7074510fa4"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": -19.7354,
+        "V_VAL": -2.4647
+      },
+      "policy_id": "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+      "primary_ledger_sha256": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+      "raw_all_mode_trades_sha256": "5c6e0d0951bd8e70a227716a267995f141b7e589c8fca93dd17c3f057b2bef3a",
+      "total_realized_net_usd": -22.2001,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 20028
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "closed_trades_count": 6,
+      "decision_rows_sha256": "60aed4facbb30f4a37510e20c575900c8ed02b9ae767b9b129b9f97c5517511f",
+      "expectancy_net_r": -0.9845,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+        "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+      },
+      "forensic_sha256": "deed47e9b6dcd28d2c5aa981a970af1ddc1e4b281b874f35e8202627cc4aa8f9",
+      "losses_count": 6,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "b1577e5e80038d85e627ccd0ee98fa42e62e94441b3a1e0a5ce503f874b93e6c",
+        "NEXT_BAR_OPEN_BID_ASK": "7bbe9454803670c30f8490017f95d4934539b0eb8f5922c2284f3ba54ccb2215",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "b7d6de2530eb2d1d374b76dd395e4205cfa4a479a116571854e193837e1bc4b6"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": -7.3315,
+        "V_VAL": -7.2682
+      },
+      "policy_id": "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+      "primary_ledger_sha256": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+      "raw_all_mode_trades_sha256": "1a675f7766384d025147c4a7735db692ca1d9be825f0f135e254829598ef22f9",
+      "total_realized_net_usd": -14.5997,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 5636
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "d3fb792378c9b9032f17dd87c5e6bc38117faed63e58597c2c658ba103de3048",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "6193e6bd1d3b0136b1a01753e44f15290a170f9179ef916388afdb8a2ee52b6c",
+        "NEXT_BAR_OPEN_BID_ASK": "5a89e04176e64d7d47c17459e6ecc9519d845e47e5f8f735161c3edc0357b1d2",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "471e22789e7129ed3c46c92cf48c4ab03b38d4c8096632f8ca97a8cd908925a9"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 21848
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "17c6422effb95d9851c60ce2d71b6aee71b2e2a13699d2f73f09a6d1e27604cd",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "afb85f47b0948315300123174f8c28620e7e1749e3e2c3bf42e70904d5343b06",
+        "NEXT_BAR_OPEN_BID_ASK": "b9aaf3dd871b2ad8db1da1adaf3e9c9d137997063167b2be7fb396813b194560",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "8f14a5d6122fbd0febf14229707d9f8273e48ffe63ce4e4f610b1e69ba9ce53e"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 15024
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "a5a79debce16305d74f554484021706c4c71089bbf2b3bd8353f1e8365b3feb3",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "3c89d7981353e2585dfe0480794ec73396beac74f2abd43c72c3cc51f302690d",
+        "NEXT_BAR_OPEN_BID_ASK": "2e540c85ee1086aa7ef1ddaee7b2fd460d272a7b8fff2374609f30ffc2e79008",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "23049a6d66ca88cc6775ca6ae49bc93f6939871bc449bd0a2bf5a7f79ccb460f"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI6_COMBINED_PREDECLARED",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 5636
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "f1f856c087369d84089ec3192ad14be39f5e66eedd00297903a0b9395f80d88f",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "3b2a8719f3c9b4a9c26fdbbf2ea170edd6b47932aa14ceaf69f74f1143ef4e1d",
+        "NEXT_BAR_OPEN_BID_ASK": "818e4daa06372dea4757f95634b8a9980d8a91d5a95f1c743285acf9f8bdff36",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "6adc9113481c5fd8075234db3d739dacc2c914ca8846d8338b2f5c51690c96f9"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI7_CORE_TRADING_LOGIC_REPAIRED",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 20028
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "f18098a0060b9f3fce24362b77b2276daf69d66c1f8f1c245cbb88ae52579989",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "c2f345403d633f6cc5c9f52bbbff1af72cb6a2f3c13780fc627e846cfe09b31d",
+        "NEXT_BAR_OPEN_BID_ASK": "309bd3adaab41c01652a75c270a83d02feab2c5b0c47f2fac13c92022a5ab56c",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "889fb4bb6d229b0665a63d312f9864da105eac13d115d14b763cb6c16227f43b"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 21848
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "closed_trades_count": 0,
+      "decision_rows_sha256": "a85edcc9f251677b99ab27e74fba86163807cc54bc088b8cb8c3e56129159be5",
+      "expectancy_net_r": 0.0,
+      "feature_proof_sha256": "8acfc210943b049e081e68cd5754f61b2f02d4b376b6dd170fca54d4c899be7a",
+      "fill_mode_hashes": {
+        "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "forensic_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "losses_count": 0,
+      "matched_ab_sha256_by_fill": {
+        "LEGACY_CLOSE_FILL": "da78103658649531f454702120dd361df407526e63284a7c1223c437dca775c4",
+        "NEXT_BAR_OPEN_BID_ASK": "a134e334403db17a6467ec4c82f163a2ffe9ec9b4c6f245147a172415b199477",
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "7919596ad035345c11902a908586595a961e6828f7b13564d06027b10560e784"
+      },
+      "oos_partition_net_usd": {
+        "D_DEV": 0,
+        "H_HOLDOUT": 0,
+        "V_VAL": 0
+      },
+      "policy_id": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+      "primary_ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_all_mode_trades_sha256": "0f1ed6b605cdec4b0267bbff48c9d353dad44f7b9126ac4a7743a1f15a6fb019",
+      "total_realized_net_usd": 0,
+      "unique_eligible_timestamps_evaluated": 278,
+      "wins_count": 0,
+      "worker_pid": 5636
+    }
+  },
+  "schema_version": "17.9.3.1.2.2",
+  "wall_time_seconds": 208.585,
+  "worker_count": 4,
+  "worker_pids_observed": [
+    5636,
+    15024,
+    20028,
+    21848
+  ]
+}

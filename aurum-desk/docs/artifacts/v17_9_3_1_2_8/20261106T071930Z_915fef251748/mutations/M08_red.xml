@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.117" timestamp="2026-11-06T15:05:44.114167+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_matched_identity_and_accounting_negative_controls[duplicate]" time="0.001"><failure message="Failed: DID NOT RAISE ValueError">bad = 'duplicate'
+
+    @pytest.mark.parametrize("bad",["duplicate","missing_source","changed_fee","wrong_timestamp"])
+    def test_matched_identity_and_accounting_negative_controls(bad):
+        rows=list(raw_rows())
+        if bad=="duplicate": rows[0].append(copy.deepcopy(rows[0][0]))
+        if bad=="missing_source": rows[0][0].pop("source_snapshot_hash")
+        if bad=="changed_fee": rows[2][0]["entry_fee_usd"]=9.
+        if bad=="wrong_timestamp": rows[0][0]["decision_timestamp_ms"]=None
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:244: Failed</failure></testcase></testsuite></testsuites>

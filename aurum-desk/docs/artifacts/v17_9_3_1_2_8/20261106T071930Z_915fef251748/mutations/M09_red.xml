@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.125" timestamp="2026-11-06T15:05:44.886238+07:00" hostname="Lil-Poppa"><testcase classname="test_causal_truth" name="test_raw_index_rejects_missing_source_before_matching[None]" time="0.001"><failure message="Failed: DID NOT RAISE ValueError">source = None
+
+    @pytest.mark.parametrize("source",[None,""])
+    def test_raw_index_rejects_missing_source_before_matching(source):
+        from services.v17_9_3_1_2_7_matched_ab import _index
+&gt;       with pytest.raises(ValueError,match="MISSING_MATCH_IDENTITY"):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:268: Failed</failure></testcase><testcase classname="test_causal_truth" name="test_raw_index_rejects_missing_source_before_matching[]" time="0.001"><failure message="Failed: DID NOT RAISE ValueError">source = ''
+
+    @pytest.mark.parametrize("source",[None,""])
+    def test_raw_index_rejects_missing_source_before_matching(source):
+        from services.v17_9_3_1_2_7_matched_ab import _index
+&gt;       with pytest.raises(ValueError,match="MISSING_MATCH_IDENTITY"):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:268: Failed</failure></testcase></testsuite></testsuites>

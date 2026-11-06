@@ -1,0 +1,9 @@
+{
+  "disk_above_hard_floor_5gib": true,
+  "free_disk_gib_end": 62.782,
+  "free_disk_gib_start": 62.877,
+  "max_workers_configured": 4,
+  "orphan_subprocesses_remaining": 0,
+  "pipeline_wall_time_seconds": 8678.388,
+  "schema_version": "17.9.3.1.2.2"
+}
