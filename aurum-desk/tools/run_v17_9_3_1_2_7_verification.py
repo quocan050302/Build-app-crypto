@@ -266,8 +266,8 @@ def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2)
           "baseline_corpus":"Immutable prior canonical decisions are input data; feature proofs and policy replays are rebuilt on this executable SHA."})
     env=subprocess.run([sys.executable,"-m","pip","freeze"],capture_output=True,text=True,check=True)
     write(run/"02_environment_package_manifest.json",{"python":sys.executable,"version":sys.version,"packages":env.stdout.splitlines(),"source_manifest":before})
-    stage_workers=max(1,min(3,int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS","3"))))
-    test_workers=max(1,min(3,int(os.environ.get("AURUM_RESEARCH_TEST_WORKERS","3"))))
+    stage_workers=max(1,min(4,int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS","3"))))
+    test_workers=1
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"]=str(stage_workers)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"]=sha
     os.environ["AURUM_RESEARCH_TEST_WORKERS"]=str(test_workers)
@@ -292,9 +292,9 @@ def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2)
     failure=None
     try:
         monitor.start()
-        print(f"[A] Fresh full backend collection and concurrent shards (workers={test_workers})",flush=True)
+        print("[A] Fresh full backend collection and sequential shards",flush=True)
         from tools.run_v17_9_3_1_2_2_verification import run_full_backend_pytest_collection_and_sharded_junit_v1793122, run_16_executable_red_green_source_mutations_v1793122
-        collection,junit=run_full_backend_pytest_collection_and_sharded_junit_v1793122(run/"junit",tested_executable_sha=sha,max_workers=test_workers,force_fresh_execution=True)
+        collection,junit=run_full_backend_pytest_collection_and_sharded_junit_v1793122(run/"junit",tested_executable_sha=sha,max_workers=1,force_fresh_execution=True)
         write(run/"17_fresh_full_pytest_collection_node_ids_and_hash.json",collection)
         write(run/"18_full_fresh_junit_shard_bijection_and_exitcodes.json",junit)
         from tools.v17_9_3_1_2_7_proof_checks import verify_fresh_full_junit, empirical_policy_statistics
