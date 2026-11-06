@@ -1092,37 +1092,36 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
     or another opposing pool is genuinely unswept as of `now_ms`.
     Returns `(valid_pool_id, valid_pool_price, pool_known_at_ms, has_unswept_pool, explicit_pool_was_swept)`.
     """
-    if not pools or entry_price <= 0.0:
+    if not pools or entry_price <= 0.0 or direction not in ("LONG", "SHORT"):
+        return (None, take_profit, 0, False, False)
+    if selected_sl is not None and not (selected_sl < entry_price if direction == "LONG" else selected_sl > entry_price):
         return (None, take_profit, 0, False, False)
 
     fast_bars = _extract_fast_m1_candles(closed_1m, now_ms) if closed_1m else []
     explicit_pool_was_swept = False
     valid_candidates: List[Tuple[float, str, float, int]] = []
+    seen_pool_ids = set()
+    ambiguous_pool_ids = set()
 
     for p in pools:
         if type(p) is dict:
             p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
             p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
-            k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
+            k_ts_raw = p.get("known_at_ms")
             occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
             is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
             swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
         elif isinstance(p, Mapping):
             p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
             p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
-            k_ts_raw = p.get("known_at_ms") or p.get("created_at_ms") or p.get("formed_at_ms") or p.get("timestamp_ms")
+            k_ts_raw = p.get("known_at_ms")
             occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
             is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
             swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
         else:
             p_id = str(getattr(p, "id", None) or getattr(p, "pool_id", None) or getattr(p, "level_id", "") or "")
             p_px_raw = getattr(p, "price", None) if getattr(p, "price", None) is not None else getattr(p, "level_price", None)
-            k_ts_raw = (
-                getattr(p, "known_at_ms", None)
-                or getattr(p, "created_at_ms", None)
-                or getattr(p, "formed_at_ms", None)
-                or getattr(p, "timestamp_ms", None)
-            )
+            k_ts_raw = getattr(p, "known_at_ms", None)
             occ_ts_raw = getattr(p, "occurred_at_ms", None) or getattr(p, "formed_at_ms", None) or k_ts_raw
             is_swept_flag = bool(
                 getattr(p, "swept", False)
@@ -1131,13 +1130,20 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
             )
             swept_at_raw = getattr(p, "swept_at_ms", None) or getattr(p, "mitigated_at_ms", None)
 
-        if p_px_raw is None:
+        if p_id in seen_pool_ids:
+            ambiguous_pool_ids.add(p_id)
+        elif p_id:
+            seen_pool_ids.add(p_id)
+        if not p_id or p_px_raw is None or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:
             continue
-        p_px = round(float(p_px_raw), 2)
-        k_ts = int(k_ts_raw) if k_ts_raw is not None else now_ms
-        if k_ts > now_ms:
-            if selected_target_id and p_id == str(selected_target_id):
-                explicit_pool_was_swept = True
+        try:
+            p_px = round(float(p_px_raw), 2)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        k_ts = k_ts_raw
+        if type(occ_ts_raw) is not int or not 0 < occ_ts_raw <= k_ts:
+            continue
+        if swept_at_raw is not None and (type(swept_at_raw) is not int or swept_at_raw < occ_ts_raw):
             continue
 
         swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
@@ -1166,8 +1172,9 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
         room_m1 = dist_px / max(0.05, eff_atr_m1)
         room_m5 = dist_px / max(0.10, eff_atr_m5)
         if 1.2 <= room_m1 <= max_target_atr_m1_multiple and room_m5 <= max_target_atr_m5_multiple:
-            valid_candidates.append((dist_px, p_id or f"pool_{p_px}", p_px, k_ts))
+            valid_candidates.append((dist_px, p_id, p_px, k_ts))
 
+    valid_candidates = [candidate for candidate in valid_candidates if candidate[1] not in ambiguous_pool_ids]
     if not valid_candidates:
         return (None, None if explicit_pool_was_swept else take_profit, 0, False, explicit_pool_was_swept)
 

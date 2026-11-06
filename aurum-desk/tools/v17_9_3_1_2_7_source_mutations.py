@@ -13,7 +13,7 @@ APP=Path(__file__).resolve().parents[1]
 SPECS=(
  ("causal",'return "REJECTED_UNPROVEN:INVALID_OR_MISSING_PROOF_HASH"','return None'),
  ("causal",'if any(row.get(k) != v for k,v in snap.get("derived_values", ())):','if False:'),
- ("causal",'_get(b, "is_closed", True) is not True','False'),
+ ("causal",'_get(b, "is_closed") is not True','False'),
  ("causal",'if cutoff <= 0:','if False:'),
  ("causal",'"UNKNOWN" if any(x is None for x in htf_known[:2])','"ALIGNED" if any(x is None for x in htf_known[:2])'),
  ("causal",'quote_kind = str(_get(context, "quote_source_kind", "UNKNOWN"))','quote_kind = "SYNTHETIC_RESEARCH_QUOTE"'),

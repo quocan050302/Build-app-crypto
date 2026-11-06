@@ -18,11 +18,13 @@ from typing import Any, Mapping, Optional, Sequence
 from services.research_resource_guard import raise_if_research_aborted
 
 VERSION = "17.9.3.1.2.7"
+TYPED_EVIDENCE_VERSION = "17.9.3.1.2.8"
 TF = {"1m": 60_000, "5m": 300_000, "15m": 900_000,
       "1h": 3_600_000, "4h": 14_400_000}
 TRUE, FALSE, UNKNOWN = "PROVEN_TRUE", "PROVEN_FALSE", "UNKNOWN"
+MEASURED = "MEASURED_VALUE"
 GEOMETRY_FIELDS=("model_id","direction","entry_reference","selected_sl","take_profit",
-                 "hypothetical_quantity","selected_anchor_id","selected_target_id",
+                 "hypothetical_quantity","selected_anchor_id","selected_target_id","structural_invalidation_price",
                  "selected_fvg_id","selected_breaker_id","selected_sweep_id","selected_break_id","setup_episode_id")
 SOURCE_IMPLEMENTATION_HASH = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
@@ -87,13 +89,13 @@ def _closed(raw, duration, cutoff):
     for b in raw:
         op = _get(b, "open_time", _get(b, "timestamp"))
         cl = _get(b, "close_time", _get(b, "close_time_ms"))
-        if isinstance(op, bool) or not isinstance(op, (int, float)) or op <= 0:
+        if type(op) is not int or op <= 0:
             continue
         # Deriving a bar's mathematical close is not inventing a signal known_at.
         cl = int(op) + duration if cl is None else cl
-        if isinstance(cl, bool) or not isinstance(cl, (int, float)):
+        if type(cl) is not int:
             continue
-        if int(cl) != int(op) + duration or cl > cutoff or _get(b, "is_closed", True) is not True:
+        if cl != op + duration or cl > cutoff or _get(b, "is_closed") is not True:
             continue
         try:
             vals = {k: float(_get(b, k)) for k in ("open", "high", "low", "close")}
@@ -134,7 +136,7 @@ class CausalEvidenceRef:
     source_bar_count: int = 0
 
     def __post_init__(self):
-        if self.proof_state not in (TRUE, FALSE, UNKNOWN):
+        if not _valid_evidence_state(self.proof_state, self.measured_value, self.evidence_derivation_version):
             raise ValueError("INVALID_PROOF_STATE")
         if self.proof_state != UNKNOWN:
             times = (self.source_bar_close_ms, self.confirmed_at_ms, self.known_at_ms)
@@ -142,6 +144,38 @@ class CausalEvidenceRef:
                 raise ValueError("MISSING_CAUSAL_TIMESTAMP")
             if not times[0] <= times[1] <= times[2] or not self.source_bar_ids:
                 raise ValueError("IMPOSSIBLE_CAUSAL_REFERENCE")
+
+
+def _valid_evidence_state(state, value, version):
+    if version == VERSION:
+        return state in (TRUE, FALSE, UNKNOWN)
+    if version != TYPED_EVIDENCE_VERSION:
+        return False
+    if state == UNKNOWN:
+        return value is None
+    if state == MEASURED:
+        return isinstance(value, str) and bool(value)
+    return (state == TRUE and value is True) or (state == FALSE and value is False)
+
+
+def _closed_price_path(by_open, start, cutoff):
+    """Cover the interval exactly with closed source bars, coarse first.
+
+    A coarse OHLC bar can prove a level was touched, but not its intrabar
+    sequence. Never jump across an uncovered period or use a partial bar.
+    """
+    path = []
+    cursor = start
+    while cursor < cutoff:
+        for timeframe in reversed(TF):
+            bar = by_open[timeframe].get(cursor)
+            if bar is not None and bar["close_time"] <= cutoff:
+                path.append((timeframe, bar))
+                cursor = bar["close_time"]
+                break
+        else:
+            break
+    return path, cursor == cutoff
 
 
 @dataclass(frozen=True)
@@ -211,7 +245,14 @@ def derive_pre_entry_features_from_causal_context_v1793127(
         bars = series["1m"]
         atr = compute_stop_atr(bars, as_of_ms=cutoff, symbol=symbol)
         fvgs = smc_engine.detect_fvgs(bars, timeframe="1M") if len(bars) >= 3 else []
-        derived = {"swings": swings, "biases": biases, "atr": atr, "fvgs": fvgs}
+        # The structural selectors use 1/1 pivots for higher-frame source IDs.
+        selector_swings = {tf: identify_confirmed_swings(series[tf], timeframe=tf.upper(),
+                                                         left_bars=1, right_bars=1, as_of_ms=cutoff)
+                           for tf in ("5m", "15m", "1h", "4h")}
+        selector_swings["1m"] = swings["1m"]
+        derived = {"swings": swings, "biases": biases, "atr": atr, "fvgs": fvgs,
+                   "selector_swings": selector_swings,
+                   "bars_by_open": {tf: {bar["open_time"]: bar for bar in rows} for tf, rows in series.items()}}
         _CACHE[cache_key] = derived
         if len(_CACHE) > 64:
             _CACHE.popitem(last=False)
@@ -225,9 +266,10 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     refs = []
     flat = {}
 
-    def record(name, value, proof_bars=(), tf="1m", known=None, occurred=None, reason="MEASURED_FROM_CLOSED_OHLC"):
+    def record(name, value, proof_bars=(), tf="1m", known=None, occurred=None,
+               reason="MEASURED_FROM_CLOSED_OHLC", source_path=()):
         pb = list(proof_bars)
-        state = UNKNOWN if value is None else (TRUE if bool(value) else FALSE)
+        state = UNKNOWN if value is None else TRUE if value is True else FALSE if value is False else MEASURED
         end = max((b["close_time"] for b in pb), default=None)
         start = min((b["open_time"] for b in pb), default=None)
         known = end if known is None else known
@@ -239,14 +281,16 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             evidence_type=name, symbol=symbol, timeframe=tf.upper(),
             # Exact interval endpoints + count + hash resolve the entire range in the
             # immutable dataset, without duplicating 181 IDs in every feature row.
-            source_bar_ids=tuple(dict.fromkeys(f"{symbol}:{tf}:{b['open_time']}" for b in ([pb[0],pb[-1]] if pb else []))),
+            source_bar_ids=(tuple(f"{symbol}:{frame}:{bar['open_time']}" for frame, bar in source_path)
+                            if source_path else tuple(dict.fromkeys(f"{symbol}:{tf}:{b['open_time']}" for b in ([pb[0],pb[-1]] if pb else [])))),
             # Window start is source coverage, not a market event timestamp.
             # Measurement availability comes from the last closed source bar;
             # an event occurrence stays absent unless a detector actually found it.
             source_bar_open_ms=start, source_bar_close_ms=end, occurred_at_ms=occurred,
             confirmed_at_ms=known, known_at_ms=known, source_dataset_sha256=dataset_sha256,
-            source_row_hash=canonical_hash(pb), quote_source_kind=quote_kind,
-            measured_value=value, proof_state=state, reason_code=reason, source_bar_count=len(pb))
+            source_row_hash=canonical_hash(source_path or pb), quote_source_kind=quote_kind,
+            measured_value=value, proof_state=state, reason_code=reason, source_bar_count=len(pb),
+            evidence_derivation_version=TYPED_EVIDENCE_VERSION)
         refs.append(ref)
         flat[name] = value
         return ref
@@ -268,9 +312,18 @@ def derive_pre_entry_features_from_causal_context_v1793127(
     # Existing swing detector includes right-bar confirmation. Never use occurred_at as known_at.
     relevant = sl if direction == "LONG" else sh
     break_refs = sh if direction == "LONG" else sl
-    sweep_pair, break_pair = None, None
+    sweep_matches, break_matches = [], []
+    model = decision.get("model_id")
+    sweep_id = decision.get("selected_sweep_id")
+    break_id = decision.get("selected_break_id")
     for i, b in enumerate(bars):
-        for s in relevant:
+        opened = b["open_time"]
+        sweep_ids = {f"sweep_{model}_{opened}", f"sweep_si8_{model}_{opened}"}
+        if model == "CG01_SWEEP_MSS_FVG":
+            sweep_ids.add(f"sweep_cg01_{opened}")
+        break_ids = {f"brk_{direction}_{opened}", f"bos_{direction}_{opened}",
+                     f"bos_si8_{direction}_{opened}", f"mss_si8_{model}_{direction}_{opened}"}
+        for s in relevant if sweep_id in sweep_ids else ():
             k = known_swing(s)
             if k is None or k > b["open_time"]:
                 continue
@@ -278,17 +331,21 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             swept = b["low"] < p if direction == "LONG" else b["high"] > p
             if swept:
                 reclaim = next((x for x in bars[i:] if (x["close"] > p if direction == "LONG" else x["close"] < p)), None)
-                sweep_pair = (s, b, reclaim)
-        for s in break_refs:
+                sweep_matches.append((s, b, reclaim))
+        for s in break_refs if break_id in break_ids else ():
             k = known_swing(s)
             if k is not None and k <= b["open_time"] and (b["close"] > s["price"] if direction == "LONG" else b["close"] < s["price"]):
                 before = [x for x in bars[:i] if x["close_time"] >= k]
                 if not any((x["close"] > s["price"] if direction == "LONG" else x["close"] < s["price"]) for x in before):
-                    break_pair = (s, b)
+                    break_matches.append((s, b))
+    sweep_pair = sweep_matches[0] if len(sweep_matches) == 1 else None
+    break_pair = break_matches[0] if len(break_matches) == 1 else None
     sweep_bars = bars if sweep_pair is None else [x for x in bars if x["close_time"] >= known_swing(sweep_pair[0])]
-    record("sweep_confirmed", bool(sweep_pair) if relevant else None, sweep_bars, occurred=sweep_pair[1]["open_time"] if sweep_pair else None)
-    record("sweep_reclaimed", bool(sweep_pair and sweep_pair[2]) if relevant else None, sweep_bars, occurred=sweep_pair[2]["open_time"] if sweep_pair and sweep_pair[2] else None)
-    record("mss_confirmed", bool(break_pair) if break_refs else None, bars, occurred=break_pair[1]["open_time"] if break_pair else None)
+    record("sweep_confirmed", True if sweep_pair else None, sweep_bars, occurred=sweep_pair[1]["open_time"] if sweep_pair else None,
+           reason="AMBIGUOUS_SOURCE" if len(sweep_matches) > 1 else "SELECTED_SWEEP_SOURCE")
+    record("sweep_reclaimed", bool(sweep_pair[2]) if sweep_pair else None, sweep_bars, occurred=sweep_pair[2]["open_time"] if sweep_pair and sweep_pair[2] else None)
+    record("mss_confirmed", True if break_pair else None, bars, occurred=break_pair[1]["open_time"] if break_pair else None,
+           reason="AMBIGUOUS_SOURCE" if len(break_matches) > 1 else "SELECTED_BREAK_SOURCE")
     atr = derived["atr"]
     ratio = None
     if break_pair and atr.status == "AVAILABLE" and atr.value > 0:
@@ -327,26 +384,85 @@ def derive_pre_entry_features_from_causal_context_v1793127(
 
     entry, stop, target = decision.get("entry_reference"), decision.get("selected_sl"), decision.get("take_profit")
     anchor = None
+    anchor_bars = bars
+    anchor_tf = "1m"
     if entry is not None and stop is not None:
         good = [s for s in relevant if known_swing(s) is not None and known_swing(s) <= cutoff and
                 (float(stop) < s["price"] < float(entry) if direction == "LONG" else float(stop) > s["price"] > float(entry))]
         requested = decision.get("selected_anchor_id")
         anchor = next((s for s in reversed(good) if requested and s.get("id") == requested), None)
-    record("protected_structure_independent_of_sl", True if anchor else None, bars if anchor else (), reason="ANCHOR_ID_BOUND_TO_CONFIRMED_SWING" if anchor else "NO_VERIFIED_ANCHOR_ID")
+        if isinstance(requested, str) and requested.startswith("v1792_m5_"):
+            highs, lows = derived["selector_swings"]["5m"]
+            selected = [s for s in (lows if direction == "LONG" else highs)
+                        if requested == f'v1792_m5_{s["id"]}']
+            if len(selected) == 1:
+                swing = selected[0]
+                price = swing["price"]
+                protective = float(stop) < price < float(entry) if direction == "LONG" else float(stop) > price > float(entry)
+                occurred = swing["occurred_at_ms"]
+                known = known_swing(swing)
+                window = [b for b in series["5m"] if occurred - TF["5m"] <= b["open_time"] and b["close_time"] <= known]
+                expected = [occurred - TF["5m"], occurred, occurred + TF["5m"]]
+                if (protective and decision.get("structural_invalidation_price") == price
+                        and [b["open_time"] for b in window] == expected and window[-1]["close_time"] == known):
+                    anchor, anchor_bars, anchor_tf = swing, window, "5m"
+    record("protected_structure_independent_of_sl", True if anchor else None, anchor_bars if anchor else (),
+           tf=anchor_tf, known=known_swing(anchor) if anchor_tf == "5m" else None,
+           occurred=anchor.get("occurred_at_ms") if anchor else None,
+           reason="ANCHOR_ID_BOUND_TO_CONFIRMED_SWING" if anchor else "NO_VERIFIED_ANCHOR_ID")
     record("target_reachable", None, reason="NO_PRESPECIFIED_REACHABILITY_MODEL")
     flat["target_room_atr_m1"] = abs(float(target)-float(entry))/atr.value if target is not None and entry is not None and atr.status == "AVAILABLE" and atr.value>0 else None
     target_id = decision.get("selected_target_id")
-    pools = [s for s in break_refs if target_id and s.get("id") == target_id and known_swing(s) is not None and known_swing(s)<=cutoff]
-    pool = next((s for s in pools if target is not None and abs(float(target)-float(s["price"])) <= .011), None)
-    swept, target_sweep_bar = None, None
+    pools = []
+    if target_id:
+        for tf, (highs, lows) in derived["selector_swings"].items():
+            for swing in (highs if direction == "LONG" else lows):
+                if known_swing(swing) is not None and known_swing(swing) <= cutoff:
+                    if target_id == swing.get("id") or (isinstance(target_id, str) and target_id == f'pool_{tf.upper()}_{swing.get("id")}'):
+                        pools.append((tf, swing))
+    pool = None
+    target_source_bars = []
+    target_tf = "1m"
+    if len(pools) == 1 and entry is not None and target is not None:
+        target_tf, candidate = pools[0]
+        price = candidate["price"]
+        # Upstream pivot pools use the actual selected price. Exact equality is
+        # sufficient without a broker tick contract and cannot bind a nearby pool.
+        if float(target) == price and (price > float(entry) if direction == "LONG" else price < float(entry)):
+            pivot_open = candidate["occurred_at_ms"]
+            duration = TF[target_tf]
+            width = 2 if target_tf == "1m" else 1
+            target_source_bars = [b for b in series[target_tf]
+                                  if pivot_open - width * duration <= b["open_time"]
+                                  and b["close_time"] <= known_swing(candidate)]
+            if [b["open_time"] for b in target_source_bars] == [pivot_open + i * duration for i in range(-width, width + 1)]:
+                pool = candidate
+    swept, target_sweep = None, None
+    path = []
     if pool:
-        later = [b for b in bars if b["open_time"] >= known_swing(pool)]
-        target_sweep_bar = next((b for b in later if (b["high"] >= pool["price"] if direction == "LONG" else b["low"] <= pool["price"])),None)
-        swept = target_sweep_bar is not None
-    record("target_unswept", not swept if swept is not None else None, bars if pool else (), reason="TARGET_POOL_AND_POST_CONFIRMATION_PATH" if pool else "NO_VERIFIED_TARGET_POOL")
+        start = pool["occurred_at_ms"] + TF[target_tf]
+        path, complete = _closed_price_path(derived["bars_by_open"], start, cutoff)
+        def touched(bar):
+            return bar["high"] >= pool["price"] if direction == "LONG" else bar["low"] <= pool["price"]
+
+        # Finer observations may expose a touch missed by inconsistent aggregate
+        # bars. An observed touch disproves unswept even if another interval is missing.
+        touches = [(tf, b) for tf, source in series.items() for b in source
+                   if b["open_time"] >= start and touched(b)]
+        if touches:
+            target_sweep = min(touches, key=lambda item: (item[1]["close_time"], TF[item[0]]))
+            path = [target_sweep]
+        swept = True if target_sweep else False if path and complete else None
+    record("target_selected_pool_bound", True if pool else None, target_source_bars if pool else (),
+           tf=target_tf, known=known_swing(pool) if pool else None,
+           occurred=pool["occurred_at_ms"] if pool else None)
+    record("target_unswept", not swept if swept is not None else None,
+           [bar for _, bar in path], tf="MULTI", source_path=path,
+           reason="TARGET_POOL_AND_OBSERVED_PATH" if swept is not None else
+           "INCOMPLETE_POST_PIVOT_PATH" if pool else "NO_VERIFIED_TARGET_POOL")
     flat["target_pool_state"] = "ALREADY_SWEPT" if swept is True else "UNSWEPT" if swept is False else "UNKNOWN"
-    flat["target_pool_id"] = pool.get("id") if pool else None
-    flat["target_sweep_bar_id"] = f"{symbol}:1m:{target_sweep_bar['open_time']}" if target_sweep_bar else None
+    flat["target_pool_id"] = target_id if pool else None
+    flat["target_sweep_bar_id"] = f"{symbol}:{target_sweep[0]}:{target_sweep[1]['open_time']}" if target_sweep else None
     bid, ask = _get(context,"bid"), _get(context,"ask")
     flat["quote_source_kind"] = quote_kind
     flat["decision_geometry"]={k:decision.get(k) for k in GEOMETRY_FIELDS}
@@ -362,7 +478,7 @@ def derive_pre_entry_features_from_causal_context_v1793127(
             "model_id":decision.get("model_id"),"direction":direction,
             "causal_snapshot":snapshot.to_dict(),"proof_hash":snapshot.proof_hash,
             "source_snapshot_hash":source_hash,"source_dataset_sha256":dataset_sha256,
-            "evidence_derivation_version":VERSION}
+            "evidence_derivation_version":TYPED_EVIDENCE_VERSION}
 
 
 def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, datasets, *, dataset_sha256, compact=False, proof_hashes_only=False):
@@ -426,6 +542,8 @@ def required_proof_rejection_v1793127(feature, model_id, *, decision=None):
     if model_id in ("SMC_M1_REVERSAL","SMC_M1_SWEEP_RECLAIM","CG01_SWEEP_MSS_FVG"):
         required += ["sweep_confirmed","sweep_reclaimed","mss_confirmed","sweep_mss_ordered"]
     if model_id in ("UNICORN_MODEL","SMC_M1_FVG_CONTINUATION","CG01_SWEEP_MSS_FVG"):
+        if not feature.get("decision_geometry", {}).get("selected_fvg_id"):
+            return "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID"
         required += ["fvg_present","fvg_retest_valid","fvg_unmitigated","mss_confirmed","displacement_valid","mss_fvg_retest_ordered"]
     if model_id=="CG01_SWEEP_MSS_FVG":required += ["unicorn_breaker_fvg_bound"]
     if model_id=="SMC_M1_CONTINUATION":
@@ -443,14 +561,31 @@ def rebuild_materialized_intent_proof_v1793127(opportunity,plan,datasets,*,datas
             "checkpoint_index_1m":plan["new_checkpoint_index_1m"]}
     for field,new_field in (("entry_reference","new_entry_reference"),("selected_sl","new_selected_sl"),
                             ("take_profit","new_take_profit"),("hypothetical_quantity","new_quantity"),
-                            ("selected_anchor_id","new_selected_anchor_id"),("selected_target_id","new_selected_target_id")):
+                            ("selected_anchor_id","new_selected_anchor_id"),("selected_target_id","new_selected_target_id"),
+                            ("structural_invalidation_price","new_structural_invalidation_price")):
         record[field]=plan.get(new_field,opportunity.get(field))
     index=int(record["checkpoint_index_1m"])
     if index<0 or index>=len(datasets["1m"]) or int(datasets["1m"][index]["close_time"])!=record["decision_timestamp_ms"]:
         raise ValueError("FINAL_INTENT_NOT_AT_CLOSED_SOURCE_BAR")
     proof=build_verified_baseline_pre_entry_feature_ledger_v1793127(
         {"decisions_by_checkpoint_index":{index:[record]}},datasets,dataset_sha256=dataset_sha256)[str(record["opportunity_id"])]
-    return record,proof,required_proof_rejection_v1793127(proof,str(record["model_id"]),decision=record)
+    rejection = required_proof_rejection_v1793127(proof, str(record["model_id"]), decision=record)
+    if rejection is None:
+        from services.v17_9_3_1_2_executable_intervention_replay_service import recalculate_trade_risk_quantity_v179312
+
+        prices_and_size = [record.get(key) for key in ("entry_reference", "selected_sl", "take_profit", "hypothetical_quantity")]
+        if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0 for value in prices_and_size):
+            rejection = "REJECTED_UNPROVEN:INVALID_FINAL_PRICE_OR_SIZE"
+        elif record["decision_timestamp_ms"] < opportunity["decision_timestamp_ms"]:
+            rejection = "REJECTED_UNPROVEN:FINAL_INTENT_BACKDATED"
+        else:
+            entry, stop, target, quantity = prices_and_size
+            risk = recalculate_trade_risk_quantity_v179312(entry, stop, target, direction=record["direction"],
+                                                           decision_ts=record["decision_timestamp_ms"])
+            if (not risk["can_execute"] or risk["planned_net_risk_usd"] > 2.50 or risk["net_rr"] < 2.0
+                    or quantity != risk["quantity"]):
+                rejection = "REJECTED_UNPROVEN:FINAL_RISK_OR_QUANTITY_MISMATCH"
+    return record,proof,rejection
 
 
 def verify_feature_snapshot_v1793127(row):
@@ -476,7 +611,9 @@ def verify_feature_snapshot_v1793127(row):
     cutoff = snap["decision_timestamp_ms"]
     for ref in snap.get("features", ()):
         if ref.get("source_dataset_sha256")!=dataset_sha:return False
-        if ref.get("proof_state") not in (TRUE,FALSE,UNKNOWN):
+        if ref.get("evidence_derivation_version") != row.get("evidence_derivation_version"):
+            return False
+        if not _valid_evidence_state(ref.get("proof_state"), ref.get("measured_value"), ref.get("evidence_derivation_version")):
             return False
         if ref["proof_state"] != UNKNOWN:
             times=[ref.get(k) for k in ("source_bar_close_ms","confirmed_at_ms","known_at_ms")]

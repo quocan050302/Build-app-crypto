@@ -80,11 +80,12 @@ def prior_artifact_manifest():
 
 
 class ResourceMonitor:
-    def __init__(self):
+    def __init__(self, *, minimum_ram_bytes=512 * 1024**2):
         self.stop_event=threading.Event()
         self.samples=[]
         self.error=None
         self.abort_path=None
+        self.minimum_ram_bytes=minimum_ram_bytes
     def check(self):
         import psutil
         proc=psutil.Process()
@@ -101,7 +102,7 @@ class ResourceMonitor:
         self.samples.append(row)
         if len(self.samples)>10000: self.samples=self.samples[::2]
         if free<5*1024**3: self.error="BLOCKED_LOW_DISK"
-        if ram<512*1024**2: self.error="BLOCKED_LOW_RAM"
+        if ram<self.minimum_ram_bytes: self.error="BLOCKED_LOW_RAM"
         if len(children)>4: self.error="BLOCKED_GLOBAL_WORKER_CAP"
         if self.error: raise RuntimeError(self.error)
     def loop(self):
@@ -220,7 +221,7 @@ def run_independent_source_reconstruction(run):
     return result
 
 
-def main():
+def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2):
     ap=argparse.ArgumentParser()
     ap.add_argument("--tested-code-sha",required=True)
     ap.add_argument("--run-id",default="")
@@ -244,7 +245,7 @@ def main():
         raise SystemExit("WRONG_BRANCH")
     subprocess.run(["git","merge-base","--is-ancestor","3ed8f8af337a1a065da265861f95ddd2d7f625a4",sha],cwd=ROOT,check=True)
     runid=args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"_"+sha[:12]
-    run=APP_ROOT/"docs/artifacts/v17_9_3_1_2_7"/runid
+    run=APP_ROOT/"docs/artifacts"/artifact_namespace/runid
     run.mkdir(parents=True,exist_ok=False)
     os.environ["AURUM_VERIFICATION_ARTIFACT_ROOT"]=str(run/"auxiliary")
     before=source_manifest()
@@ -273,7 +274,7 @@ def main():
     proofs={"G01":{"status":"PASS","source":"01_git_preflight_and_frozen_executable_sha.json","measured":sha}}
     dataset_sha="UNAVAILABLE"
     specs=[]
-    monitor=ResourceMonitor()
+    monitor=ResourceMonitor(minimum_ram_bytes=minimum_ram_bytes)
     monitor.abort_path=run/"resource_abort.json"
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"]=str(monitor.abort_path)
     def abort_on_signal(signum,frame):
