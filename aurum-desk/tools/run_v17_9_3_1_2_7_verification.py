@@ -268,9 +268,9 @@ def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2)
     write(run/"02_environment_package_manifest.json",{"python":sys.executable,"version":sys.version,"packages":env.stdout.splitlines(),"source_manifest":before})
     stage_workers=max(1,min(4,int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS","3"))))
     test_workers=1
-    os.environ["AURUM_RESEARCH_STAGE_WORKERS"]=str(stage_workers)
+    os.environ["AURUM_RESEARCH_STAGE_WORKERS"]="1"
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"]=sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"]=str(test_workers)
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"]="1"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"]="4"
     os.environ["AURUM_RESEARCH_PROCESS_WORKERS"]="1"
     proofs={"G01":{"status":"PASS","source":"01_git_preflight_and_frozen_executable_sha.json","measured":sha}}
@@ -313,11 +313,13 @@ def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2)
         write(run/"19_new_executable_red_green_mutation_evidence.json",new_mutations)
         proofs["G18"]={"status":"PASS" if new_mutations["status"]=="PASS" and mutations.get("all_mutations_caught_red_and_restored_green") is True else "BLOCKED","source":"19_new_executable_red_green_mutation_evidence.json","measured":new_mutations["count"]}
         monitor.check()
-        print("[C] Full-universe causal discovery and all-policy three-fill replay",flush=True)
+        print(f"[C] Full-universe causal discovery and all-policy three-fill replay (workers={stage_workers})",flush=True)
         os.environ["AURUM_DISCOVERY_CHECKPOINT_DIR"]=str(run/"discovery_checkpoints")
         os.environ["AURUM_TESTED_EXECUTABLE_SHA"]=sha
+        os.environ["AURUM_RESEARCH_STAGE_WORKERS"]=str(stage_workers)
         from tools.run_v17_9_3_1_2_2_entry_signal_backtest import run_v17_9_3_1_2_2_entry_signal_backtest_pipeline
         evidence=run_v17_9_3_1_2_2_entry_signal_backtest_pipeline(run/"raw_backtest",tested_executable_sha=sha,full_universe_si8=True)
+        os.environ["AURUM_RESEARCH_STAGE_WORKERS"]="1"
         monitor.check()
         internal=evidence.pop("_internal_context")
         dataset_sha=evidence["01"]["dataset_sha256"]
