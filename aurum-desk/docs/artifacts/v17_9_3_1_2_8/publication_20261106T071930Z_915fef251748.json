@@ -1,0 +1,10 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "manifest_sha256": "0fb8fe533c27cea37f75575bc34407d9efcf05c9eabf56749e7c6d2feea88967",
+  "observed_remote_after_phase_b": "ae27556738f128d2bcfeb4dd35db6ca4212f649f",
+  "phase_a_tested_executable_sha": "915fef251748546e36a1288356420c009fa49574",
+  "phase_b_evidence_sha": "ae27556738f128d2bcfeb4dd35db6ca4212f649f",
+  "phase_b_push_verdict": "PASS",
+  "phase_c_note": "This receipt is committed in Phase C. The final Phase C local/remote equality is observed externally after that push to avoid a self-referential commit hash.",
+  "run": "20261106T071930Z_915fef251748"
+}

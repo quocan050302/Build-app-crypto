@@ -1,0 +1,10 @@
+{
+  "activation_ready": "NO",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "final_remote_check": "OBSERVED_EXTERNALLY_AFTER_PHASE_C_PUSH",
+  "prepublication_engineering": "PASS",
+  "publication_receipt": "publication_20261106T071930Z_915fef251748.json",
+  "run_id": "20261106T071930Z_915fef251748",
+  "strategy_statistical_verdict": "INCONCLUSIVE_UNDERPOWERED",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}
