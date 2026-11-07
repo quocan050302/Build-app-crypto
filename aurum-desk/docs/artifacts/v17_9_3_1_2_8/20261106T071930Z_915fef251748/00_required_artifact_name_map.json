@@ -1,0 +1,132 @@
+{
+  "00_run_manifest.json": [
+    "00_run_manifest.json"
+  ],
+  "01_git_branch_ancestry_source_sha_and_prior_immutability.json": [
+    "01_git_branch_ancestry_source_sha_and_prior_immutability.json",
+    "01_git_preflight_and_frozen_executable_sha.json",
+    "01_prior_artifact_immutability_verification.json"
+  ],
+  "02_source_to_consumer_callgraph_and_function_fix_matrix.json": [
+    "02_source_to_consumer_callgraph_and_function_fix_matrix.json",
+    "02_source_function_and_consumer_inventory.json"
+  ],
+  "03_market_data_closure_gap_and_quote_provenance.json": [
+    "03_market_data_closure_gap_and_quote_provenance.json",
+    "03_canonical_dataset_and_quote_source_manifest.json"
+  ],
+  "04_legacy_v127_zero_trade_first_failure_forensics.json": [
+    "04_legacy_v127_zero_trade_first_failure_forensics.json"
+  ],
+  "05_full_universe_checkpoint_model_side_census.json": [
+    "05_full_universe_checkpoint_model_side_census.json",
+    "05_full_universe_checkpoint_counts_and_model_funnel.json",
+    "05_independent_checkpoint_and_off_observe_verification.json"
+  ],
+  "06_detector_event_to_candidate_selection_lineage.jsonl.gz": [
+    "05_full_checkpoint_model_direction_execution_audit.jsonl.gz",
+    "10_canonical_decision_inputs.jsonl.gz"
+  ],
+  "07_verified_causal_feature_ledger.jsonl.gz": [
+    "07_verified_causal_features.jsonl.gz",
+    "07_independent_source_reconstruction.json"
+  ],
+  "08_selected_swing_and_target_pool_source_binding_audit.json": [
+    "08_selected_swing_and_target_pool_source_binding_audit.json"
+  ],
+  "09_target_structural_validity_and_pre_entry_feasibility_spec.json": [
+    "09_target_structural_validity_and_pre_entry_feasibility_spec.json"
+  ],
+  "10_rejection_funnel_by_model_side_stage_and_unique_setup.json": [
+    "10_rejection_funnel_by_model_side_stage_and_unique_setup.json"
+  ],
+  "11_real_positive_controls_and_negative_mutations.json": [
+    "11_real_positive_controls_and_negative_mutations.json"
+  ],
+  "12_si0_si9_si10_decision_and_trade_diff.jsonl.gz": [
+    "SI0_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+    "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+    "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+    "SI7_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+    "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+    "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+    "SI8_SI9_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+    "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+    "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+    "SI0_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+    "SI7_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+    "SI8_SI9_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+    "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+    "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz"
+  ],
+  "13_full_matched_ab_and_independent_disk_reconciliation.json": [
+    "13_full_matched_ab_and_independent_disk_reconciliation.json",
+    "11_true_matched_ab_summary_and_independent_verification.json"
+  ],
+  "14_loss_forensics_observed_hypothesis_unknown_and_sl_noise.json": [
+    "14_loss_forensics_observed_hypothesis_unknown_and_sl_noise.json",
+    "13_per_trade_forensics_observed_vs_hypothesized.jsonl.gz"
+  ],
+  "15_all_policies_three_fill_modes_portfolio_replays.json": [
+    "15_all_policies_three_fill_modes_portfolio_replays.json",
+    "15_all_policies_all_three_fill_modes_metrics.json"
+  ],
+  "16_DEV_VAL_REUSED_HOLDOUT_FRESH_OOS_purge_and_uncertainty.json": [
+    "16_DEV_VAL_REUSED_HOLDOUT_FRESH_OOS_purge_and_uncertainty.json",
+    "16_walkforward_purge_embargo_oos_freshness_and_uncertainty.json"
+  ],
+  "17_full_fresh_pytest_collection_node_id_manifest.json": [
+    "17_full_fresh_pytest_collection_node_id_manifest.json",
+    "17_fresh_full_pytest_collection_node_ids_and_hash.json"
+  ],
+  "18_fresh_sharded_junit_exact_bijection_and_exit_codes.json": [
+    "18_fresh_sharded_junit_exact_bijection_and_exit_codes.json",
+    "18_full_fresh_junit_shard_bijection_and_exitcodes.json",
+    "18_independent_junit_verification.json"
+  ],
+  "19_red_green_source_mutations_old_and_new.json": [
+    "19_red_green_source_mutations_old_and_new.json",
+    "19_old_executable_red_green_mutation_evidence.json",
+    "19_new_executable_red_green_mutation_evidence.json"
+  ],
+  "20_negative_controls_failure_attestations.json": [
+    "20_negative_controls_failure_attestations.json",
+    "20_executed_negative_control_node_index.json"
+  ],
+  "21_independent_worker_1_2_4_hashes_and_raw_replay_attestation.json": [
+    "21_independent_worker_1_2_4_hashes_and_raw_replay_attestation.json",
+    "21_1v2v4_independent_determinism_sha_manifest.json"
+  ],
+  "22_cpu_ram_disk_child_process_cleanup_and_runtime.json": [
+    "22_cpu_ram_disk_child_process_cleanup_and_runtime.json",
+    "22_resource_cpu_ram_disk_worker_cleanup_metrics.json"
+  ],
+  "23_gate_results_measured_source_bound.json": [
+    "23_gate_results_measured_source_bound.json",
+    "23_acceptance_gates_computed_from_proof.json"
+  ],
+  "24_strategy_statistical_edge_and_activation_verdict.json": [
+    "24_strategy_statistical_edge_and_activation_verdict.json",
+    "24_engineering_strategy_activation_dual_verdict.json"
+  ],
+  "25_source_data_and_artifact_sha256_manifest.json": [
+    "25_source_data_and_artifact_sha256_manifest.json",
+    "artifact_sha256_manifest.json"
+  ],
+  "26_git_phase_a_b_c_remote_receipts.json": [
+    "../publication_20261106T071930Z_915fef251748.json",
+    "../latest_run.json"
+  ],
+  "27_human_readable_executive_report.md": [
+    "27_human_readable_executive_report.md",
+    "EXECUTIVE_CODE_FIX_AND_TRADING_EDGE_REPORT.md"
+  ],
+  "28_reproduction_commands_and_environment_lock.json": [
+    "28_reproduction_commands_and_environment_lock.json",
+    "02_environment_package_manifest.json"
+  ]
+}

@@ -1,0 +1,28 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_________ test_raw_index_rejects_missing_source_before_matching[None] _________
+
+source = None
+
+    @pytest.mark.parametrize("source",[None,""])
+    def test_raw_index_rejects_missing_source_before_matching(source):
+        from services.v17_9_3_1_2_7_matched_ab import _index
+>       with pytest.raises(ValueError,match="MISSING_MATCH_IDENTITY"):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:268: Failed
+___________ test_raw_index_rejects_missing_source_before_matching[] ___________
+
+source = ''
+
+    @pytest.mark.parametrize("source",[None,""])
+    def test_raw_index_rejects_missing_source_before_matching(source):
+        from services.v17_9_3_1_2_7_matched_ab import _index
+>       with pytest.raises(ValueError,match="MISSING_MATCH_IDENTITY"):
+E       Failed: DID NOT RAISE ValueError
+
+test_causal_truth.py:268: Failed
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[None]
+FAILED test_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[]
+2 failed, 84 deselected in 0.14s

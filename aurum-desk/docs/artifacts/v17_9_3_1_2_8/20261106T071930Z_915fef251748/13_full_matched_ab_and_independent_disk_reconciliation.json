@@ -1,0 +1,134 @@
+{
+  "ab_specs": [
+    {
+      "claim": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI0_SI8_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI0_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI8_SI9_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI7_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    }
+  ],
+  "edge_estimate_for_zero_matched_pairs": "UNAVAILABLE",
+  "independent_verifications": [
+    {
+      "pair_count": 242,
+      "pair_sha256": "4002b61485da0a94ce56aa455b02c8dbd0340b08ced722cf1e00627797e5e804",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 238,
+      "pair_sha256": "0dc0de872322e253cdc4c922e16a7afcf872e1aad1f1676fb22e18ed84c50ed1",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 248,
+      "pair_sha256": "c3cd2a7739a87c043b64c92c7bd067ff49af89fc857cd2085f3f40ef93cc0b23",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    },
+    {
+      "pair_count": 0,
+      "pair_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS"
+    }
+  ],
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

@@ -1,0 +1,18 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_provider_label_without_source_receipt_not_promoted_to_real _______
+
+    def test_provider_label_without_source_receipt_not_promoted_to_real():
+        context=fixture_context()
+        context.quote_source_kind="REAL_PROVIDER_QUOTE"
+        row=derive(decision(),context,dataset_sha256="a"*64)
+>       assert row["quote_source_kind"]=="UNVERIFIED_PROVIDER_QUOTE"
+E       AssertionError: assert 'SYNTHETIC_RESEARCH_QUOTE' == 'UNVERIFIED_PROVIDER_QUOTE'
+E         
+E         - UNVERIFIED_PROVIDER_QUOTE
+E         + SYNTHETIC_RESEARCH_QUOTE
+
+test_causal_truth.py:94: AssertionError
+=========================== short test summary info ===========================
+FAILED test_causal_truth.py::test_provider_label_without_source_receipt_not_promoted_to_real
+1 failed, 85 deselected in 0.55s

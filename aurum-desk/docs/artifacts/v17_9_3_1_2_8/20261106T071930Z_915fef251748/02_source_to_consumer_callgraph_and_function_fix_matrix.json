@@ -1,0 +1,2878 @@
+{
+  "audited_inventory": {
+    "aurum-desk/backend/domain_calculator.py": [
+      {
+        "contract": "Retrieve Bitget tier parameters based on position notional value.",
+        "function": "get_tier_info",
+        "line": 9,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "CostAssumptions",
+        "line": 20,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "CalculationResult",
+        "line": 44,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Strictly validates price ordering without using abs() to mask invalid directions.",
+        "function": "validate_price_geometry",
+        "line": 113,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Bitget USDT-Margined Perpetual Isolated Liquidation Price Model.\nBased on official Bitget Classic Contract maintenance margin and tier rules:\nNotional = Quantity * Multiplier * Entry\nInitial Margin = Notional / Leverage\nMaintenance Margin = Notional * MMR - Deduction\n\nLong:\n  Equity = Margin + (LP - Entry)*Q*M\n  At Liquidation: Equity = MaintenanceMargin(LP) + ClosingFee\n  LP_long = [Entry * Q * M - Margin - Deduction] / [Q * M * (1 - MMR - ClosingFeeRate)]\n\nShort:\n  Equity = Margin + (Entry - LP)*Q*M\n  At Liquidation: Equity = MaintenanceMargin(LP) + ClosingFee\n  LP_short = [Entry * Q * M + Margin + Deduction] / [Q * M * (1 + MMR + ClosingFeeRate)]\n\nReturns (LP, InitialMargin, MaintenanceMargin, Tier, MaxTierLeverage)",
+        "function": "calculate_isolated_liquidation",
+        "line": 146,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Authoritative domain calculation for Risk, Reward, Sizing, Fees, Leverage, Margin and Liquidation.\nUsed identically across Preview, Strategy, Broker, and Journal.",
+        "function": "calculate_risk_reward",
+        "line": 197,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "handle_legacy_fee_rate",
+        "line": 31,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_snapshot",
+        "line": 109,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/htf_structure_service.py": [
+      {
+        "contract": "Rule 037: Resolve timeframe in ms. Rejects unknown timeframes.",
+        "function": "resolve_timeframe_ms",
+        "line": 37,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Canonical representation of a single price candle (Rule 031).",
+        "function": "CanonicalBar",
+        "line": 46,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rules 031, 032: Validates price numbers and internal OHLC consistency.",
+        "function": "validate_and_canonicalize_bar",
+        "line": 79,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 031 - 034: Canonical normalization, sort ascending, deduplication.",
+        "function": "normalize_validate_sort_dedupe",
+        "line": 137,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Extract (open_ms, close_ms) from candle object or dict.",
+        "function": "get_candle_time_fields",
+        "line": 157,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 022, 035: Candle is ONLY eligible if open_time + timeframe_duration <= as_of_ms.\nIf candle has is_closed=False, it is never treated as confirmed closed.\nDoes not mutate input list or objects.",
+        "function": "filter_closed_candles",
+        "line": 168,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 038 - 042: Validated HTF Engine Settings.",
+        "function": "HTFSettings",
+        "line": 191,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rules 041 - 043: Resolves settings with priority:\nexplicit override (if not None) > config attribute > default.\nStrictly validates values (rejects booleans as integers, NaN, negative values).",
+        "function": "resolve_htf_settings",
+        "line": 211,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 041 - 050: Typed evaluation result of a candle close against a structural reference.\nStrictly checks direction, buffer, and reference identity.",
+        "function": "ReferenceCloseBreakResult",
+        "line": 267,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rules 033, 053 - 055: Causal post-invalidation swing sequence.\nRepresents structure candidate that occurred strictly after invalidation.",
+        "function": "PostInvalidationSequence",
+        "line": 282,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rules 041 - 046: Pure, deterministic predicate evaluating whether a closed candle\nhas truly broken a structural reference level with resolved break buffer.\nBullish break: close > reference_price + buffer\nBearish break: close < reference_price - buffer\nEqual to threshold is NOT a break (Rule 042, 043, 143).",
+        "function": "evaluate_reference_close_break",
+        "line": 293,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 033, 053 - 055: Classify causal sequence that occurred AFTER invalidation cutoff.\nSwings must have occurred_at_ms > invalidation_cutoff_ms.",
+        "function": "classify_post_invalidation_sequence",
+        "line": 348,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 034, 036, 037: Select the frozen structural reference to be broken.\nBullish structure requires breaking above sequence swing high h2.\nBearish structure requires breaking below sequence swing low l2.\nReference must be known at or before bar_close_ms (Rule 036).",
+        "function": "select_transition_break_reference",
+        "line": 388,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 094 - 096: Canonical deterministic fingerprint of effective HTF settings.\nDeterministic, sorted keys, free of credentials.",
+        "function": "build_htf_settings_fingerprint",
+        "line": 410,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "StructuralReference",
+        "line": 439,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "StructureEvent",
+        "line": 461,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "HTFStructureSnapshot",
+        "line": 495,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rule 052: Internal pure state tracking dataclass.",
+        "function": "HTFState",
+        "line": 548,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "HTFStepResult",
+        "line": 568,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Rules 031 - 038: Causal swing high and swing low detector.\nA swing at candle i is confirmed strictly when candle i + right_bars closes.\nknown_at_ms = confirm_bar_open + duration_ms.\nOnly returns swings with known_at_ms <= as_of_ms.",
+        "function": "identify_causal_swings",
+        "line": 573,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 051, 061 - 065:\nInitial bootstrap strictly for UNDETERMINED initial state.\nNever used for recovery after invalidation.",
+        "function": "bootstrap_structure_state",
+        "line": 699,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 081 - 090: Pure range state evaluator with breakout, buffer tolerance, and sweep detection.",
+        "function": "evaluate_range_state",
+        "line": 760,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 074 - 079, 088 - 090:\nEvaluates whether a TRANSITION state can be resolved into:\n1. RANGE_REENTRY (failed breakout)\n2. STRUCTURE_RECONFIRMED / BOS (new causal bullish structure post-invalidation)\n3. CHOCH / ESTABLISHED (new causal bearish structure post-invalidation)\nReturns (new_state, event) if resolved, else None (maintains TRANSITION).",
+        "function": "confirm_transition_structure",
+        "line": 862,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 053 - 059: Pure, causal, single-step state transition on a closed candle.\nNo wall clock, no DB, no singleton mutation.",
+        "function": "step_htf_state",
+        "line": 1031,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Pure causal market structure evaluator (Rules 041 - 080).\nEvaluates market structure strictly on closed candles up to as_of_ms.\nNever relies on SMA fallback to claim confirmed structure.\nCorrectly recognizes invalidations when protected levels are broken by candle close.",
+        "function": "evaluate_htf_structure",
+        "line": 1300,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Rules 029, 091 - 096: Multi-Timeframe Direction Context Resolver.\nSeparates HTF structure facts, timeframe relation, and CG-01 entry hypothesis.",
+        "function": "resolve_cg01_direction_context",
+        "line": 1469,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "timestamp",
+        "line": 60,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 63,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 200,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_pick_int",
+        "line": 225,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_pick_float",
+        "line": 237,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 448,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 476,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 521,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/liquidity_scenario_service.py": [
+      {
+        "contract": "Normalize direction to BULLISH or BEARISH. Fails closed if unknown.",
+        "function": "normalize_direction",
+        "line": 46,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Normalizes price using symbol precision (2 decimals for XAUUSDT).",
+        "function": "round_price",
+        "line": 58,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Resolves timeframe string to millisecond duration (SECTIONS 023, 025).\nFails closed on unsupported timeframes (no silent M1 fallback).",
+        "function": "resolve_timeframe_duration_ms",
+        "line": 75,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Canonical confirmed swing high or swing low (SECTIONS 021 - 024).\nContains strict causal timestamps:\n- occurred_at_ms: Open timestamp of the pivot candle.\n- known_at_ms: Close timestamp of the right-bars confirmation candle.\nProvides backward-compatibility properties for legacy consumers (timestamp, confirmed_at).",
+        "function": "ConfirmedSwing",
+        "line": 99,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Causally identify swing highs and swing lows for any timeframe (SECTIONS 021 - 032).\nConfirmation strictly requires right_bars closed candles.\nknown_at_ms = confirm_open + duration_ms (when right_bars confirmation bar closes).",
+        "function": "identify_confirmed_swings",
+        "line": 134,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Operational definition of an Order Block (not institutional proof).",
+        "function": "OrderBlockCandidate",
+        "line": 244,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Detects causal Order Blocks from closed candles and confirmed swings (PH\u1ea6N 055 - 064).\nRules:\n- Bullish OB: Last bearish candle before a bullish displacement leg that causally breaks\n  a confirmed swing high known before the break bar.\n- Bearish OB: Last bullish candle before a bearish displacement leg that causally breaks\n  a confirmed swing low known before the break bar.\n- known_at_ms: Closed time of the break candle (NO hindsight).\n- Invalidation: Extreme of base candle (low for bullish, high for bearish).",
+        "function": "detect_order_blocks",
+        "line": 262,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "ZoneConfluence",
+        "line": 440,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Evaluates geometric overlap between two zones (e.g. OB and FVG).\nAdjacent boundaries (touching without interval) is NOT overlapping.\nDoes not inflate score or invent fake win probabilities.",
+        "function": "evaluate_zone_confluence",
+        "line": 448,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "SweepConfirmation",
+        "line": 482,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Confirms genuine sweep with breach + reclaim (PH\u1ea6N 078, 079, 080).\n- Sell-side (low): Wick breaches below level, candle close reclaims >= level.\n- Buy-side (high): Wick breaches above level, candle close reclaims <= level.\nTouch without breach is NOT a sweep.\nBreach without reclaim is BREAKOUT, not reversal sweep.",
+        "function": "confirm_liquidity_sweep",
+        "line": 493,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "DealingRange",
+        "line": 564,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Computes active dealing range [low, high] and 50% equilibrium from confirmed swings.",
+        "function": "compute_dealing_range",
+        "line": 573,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Returns DISCOUNT (0-50%), EQUILIBRIUM (45-55%), or PREMIUM (50-100%).",
+        "function": "assess_range_position",
+        "line": 619,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Checks for opposing active zones or liquidity pools situated between entry and target.",
+        "function": "find_intervening_obstacles",
+        "line": 640,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Classifies regime into TREND, RANGE, EXPANSION, or UNCERTAIN.",
+        "function": "classify_market_regime",
+        "line": 682,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Causal scenario hypothesis: conditional route with target and invalidation.\nNever guarantees market direction (PH\u1ea6N 009, 091 - 096).",
+        "function": "LiquidityHypothesis",
+        "line": 720,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "HypothesisLoadStatus",
+        "line": 767,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Result of staging durable hypothesis lifecycle or status transition (SECTIONS 034, 127).",
+        "function": "LifecycleStageResult",
+        "line": 774,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Pure helper to check whether a LifecycleStageResult grants stage authority (SECTIONS 036, 049).\nReturns True ONLY for CREATED, UPDATED, NO_CHANGE, STAGED.\nReturns False for BLOCKED, FAILED, None, or any unrecognized value.",
+        "function": "is_lifecycle_stage_success",
+        "line": 784,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Outcome of staging/persisting a single hypothesis lifecycle record in a cycle (SECTIONS 043 - 047).",
+        "function": "HypothesisWriteOutcome",
+        "line": 800,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Cycle-level authority summary for hypothesis persistence and entry gating (SECTIONS 043, 044, 126).",
+        "function": "LifecycleCycleAuthority",
+        "line": 813,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Deterministic resolution of overall cycle status (SECTIONS 126 - 130).\nPriority:\n1. If commit failed or read failed or any write failed -> DEGRADED\n2. If write blocked or read partial -> PARTIAL\n3. If read COMPLETE, write OK, commit OK -> OK",
+        "function": "derive_cycle_status",
+        "line": 825,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093, V16 Rules 085-088).\nReturns: (is_allowed, reason_code_if_blocked)",
+        "function": "check_candidate_lifecycle_authority",
+        "line": 846,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Durable persisted anchor for a liquidity hypothesis lifecycle (SECTIONS 021 - 040).\nImmutable anchor fields preserve original creation and expiry authority across restarts.",
+        "function": "DurableHypothesisRecord",
+        "line": 939,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Diagnostic detail for a corrupt, unsupported, or failed durable hypothesis record (SECTIONS 064 - 066).",
+        "function": "HypothesisLoadIssue",
+        "line": 963,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Structured result of batch loading durable hypotheses for a symbol (SECTIONS 061 - 087).\nDistinguishes COMPLETE, PARTIAL, and READ_FAILED statuses.\nTracks blocked keys and identities to prevent recreation or blind overwriting of corrupt state.\nImplements dict-like helper methods for seamless backward compatibility.",
+        "function": "HypothesisBatchLoadResult",
+        "line": 974,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Deterministic SHA-256 fingerprint from immutable identity and context anchors (SECTIONS 035, 073).\nDoes NOT include current quotes, transient volatility, or evaluation time.",
+        "function": "compute_hypothesis_source_fingerprint",
+        "line": 1016,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Computes a bounded <=50 char storage key for SystemConfig (SECTIONS 026, 027).\nScheme: 'hlc:' + symbol[:7] + ':' + 24-char SHA-256 hex. Length <= 36 chars.",
+        "function": "get_hypothesis_storage_key",
+        "line": 1031,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Pure validation parser for a persisted SystemConfig row (SECTIONS 070 - 084).\nDOES NOT MUTATE DB OR SESSION.\nReturns: (status, record_or_none, hypothesis_id_if_known, reason_str)",
+        "function": "parse_hypothesis_lifecycle_row",
+        "line": 1041,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Loads and validates a single durable hypothesis lifecycle from SystemConfig (SECTIONS 031 - 035).\nPure reader: DOES NOT COMMIT OR CREATE RECORDS.\nDistinguishes FOUND, NOT_FOUND, CORRUPT, UNSUPPORTED_VERSION.",
+        "function": "load_hypothesis_lifecycle",
+        "line": 1150,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Batch loads valid durable hypothesis lifecycles for a given symbol (SECTIONS 042, 061 - 087).\nBounds query using key prefix 'hlc:{symbol}:%'.\nFails closed on corrupt entries without throwing unexpected exceptions.\nReturns structured HypothesisBatchLoadResult with records, issues, and blocked keys/identities.",
+        "function": "load_durable_hypotheses_for_symbol",
+        "line": 1181,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Directly stages a status transition for a durable hypothesis record without synthetic zones (SECTIONS 031 - 047).\nPure stage-only: caller owns transaction commit/rollback.\nPreconditions:\n- Only ACTIVE records can transition to EXPIRED when now_ms >= expiry_ms.\n- Terminal states (EXPIRED, INVALIDATED, FULFILLED) cannot transition back to ACTIVE.\n- Preserves all immutable anchors (created_at_ms, expiry_ms, source_fingerprint, revision).",
+        "function": "stage_hypothesis_status_transition",
+        "line": 1245,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Stages durable hypothesis lifecycle to SystemConfig with write-side defense (SECTIONS 121 - 140).\nStage-only: DOES NOT COMMIT OR ROLLBACK. Caller transaction owns commit/rollback.\nDoes NOT blind merge over corrupt records. Preserves existing anchors.",
+        "function": "stage_hypothesis_lifecycle",
+        "line": 1316,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Reconciles existing and newly generated hypotheses preserving causal creation and expiry anchors (PH\u1ea6N 101 - 120).\n- Preserves created_at_ms and expiry_ms of existing hypotheses across evaluation cycles and restarts.\n- If now_ms >= expiry_ms, marks hypothesis status as 'EXPIRED'.\n- Terminal statuses ('EXPIRED', 'INVALIDATED', 'FULFILLED') are immutable and never revert to 'ACTIVE' (SECTIONS 048, 049).\n- If material context changed (target level, direction, invalidation), increments revision.",
+        "function": "reconcile_hypothesis_lifecycle",
+        "line": 1420,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Builds primary and alternative causal liquidity hypotheses (PH\u1ea6N 091, 092).\nPhased conditionally: 'N\u1ebfu A x\u00e1c nh\u1eadn, theo d\u00f5i B. H\u1ee7y n\u1ebfu ph\u00e1 C.'\nTarget must be a real unconsumed liquidity level. Never fabricates +-10 fake levels (SECTIONS 101, 103).\nPreserves created_at_ms and expiry_ms of existing hypotheses to prevent expiry drift (PH\u1ea6N 101 - 120).",
+        "function": "build_liquidity_hypotheses",
+        "line": 1523,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V16 Multi-Zone Execution Hypotheses Builder (Rules 070 - 080).\nBuilds causal execution hypotheses for ALL bounded active eligible zones.\nPreserves existing durable hypothesis IDs and anchors per zone to prevent expiry drift.\nDetermines primary and alternative display selection without restricting execution coverage.",
+        "function": "build_execution_hypotheses_for_zones",
+        "line": 1660,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "ZoneRankScore",
+        "line": 1786,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Ranks zones across 4 distinct dimensions (PH\u1ea6N 097, 098):\n1. Zone Quality: Freshness, displacement strength, confluence.\n2. Context Alignment: Dealing range (discount/premium), HTF bias.\n3. Trigger Readiness: Distance ATR, proximity hysteresis state.\n4. Execution Feasibility: Clear runway to target, minimal intervening obstacles.\nDeterministic tie-breaking. Never produces win probability.",
+        "function": "rank_zones_multi_dimensional",
+        "line": 1798,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Builds comprehensive explanation drawer DTO in clear Vietnamese (PH\u1ea6N 099, 164).\nExplains why zone is watched, missing conditions, target, invalidation, and guards.\nNever produces fake win probability (strictly null when uncalibrated).",
+        "function": "build_zone_assessment_explanation",
+        "line": 1911,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 117,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_bar_high",
+        "line": 158,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_bar_low",
+        "line": 161,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_bar_open_ms",
+        "line": 164,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 744,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "get",
+        "line": 988,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "items",
+        "line": 991,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "values",
+        "line": 994,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "keys",
+        "line": 997,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__iter__",
+        "line": 1000,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__getitem__",
+        "line": 1003,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__contains__",
+        "line": 1006,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__len__",
+        "line": 1009,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__bool__",
+        "line": 1012,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/research_resource_guard.py": [
+      {
+        "contract": "",
+        "function": "raise_if_research_aborted",
+        "line": 7,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/scalp_watcher_orchestrator.py": [
+      {
+        "contract": "V17.6.4.3c CPA-03 (Section 04): Strict exchange vs receive timestamp authority policy.\nPrimary Bitget WebSocket GOOD requires a valid exchange timestamp and a trusted receive timestamp.",
+        "function": "validate_observation_timestamp_authority",
+        "line": 120
+      },
+      {
+        "contract": "V17.6.4.3c CPA-01 (Section 02): Trusted feed adapter authority hierarchy.\nRaw quote metadata cannot override trusted adapter state.",
+        "function": "resolve_authoritative_transport_state",
+        "line": 217
+      },
+      {
+        "contract": "V17.6.4.3c CPA-01..CPA-04: Authoritative resolution of market data feed provenance.\nGuarantees:\n- Never replaces missing exchange timestamp with evaluation time (CFP-01 / CPA-03).\n- Preserves exchange_ts_ms, received_at_ms, and evaluated_at_ms as distinct values.\n- Never allows raw quote metadata to self-authorize WS or override adapter transport (CPA-01, CPA-02).\n- Requires valid exchange and receive timestamps for primary WS GOOD (CPA-03).\n- Validates connection_epoch: quotes from prior or missing epochs fail authority (CPA-04).",
+        "function": "resolve_watcher_observation_provenance",
+        "line": 283
+      },
+      {
+        "contract": "V16.39 Section 026: Resolves market regime input candles, timeframe,\ncausal ATR corresponding to selected timeframe, and data status.\nPrevents using 15M ATR for 1M fallback or using ATR floor as strategy evidence.",
+        "function": "resolve_regime_inputs",
+        "line": 455
+      },
+      {
+        "contract": "V16.39 Section 017: Evaluates whether a model should be evaluated in current cycle.\nReturns (should_evaluate: bool, execution_action: str, reason_code: str).",
+        "function": "resolve_model_evaluation_plan",
+        "line": 478
+      },
+      {
+        "contract": "Pure serializer for CG-01 candidate decision evaluation (V16.9 NH\u00d3M 09, PH\u1ea6N 083 - 090, V16.30 Daily Bias).\nProduces a JSON-safe additive structure for orchestrator cycle responses.",
+        "function": "serialize_cg01_evaluation",
+        "line": 527
+      },
+      {
+        "contract": "AURUM V17.5.9 (D03, Section 05 Parts 034-035):\nPure validator checking ARM gate invariants before persistence.\nRejects unsupported direction, non-finite or invalid numeric geometry,\nstale/invalid quotes, and capacity violations.",
+        "function": "validate_arm_invariants",
+        "line": 598
+      },
+      {
+        "contract": "AURUM V17.5.9 (D04, Section 06 Part 048):\nDifferentiates missing vs invalid settings under deterministic key precedence.\nIf an authoritative higher-priority key is present but invalid, fails closed\nwith status='INVALID' rather than silently falling back to lower-priority keys.",
+        "function": "resolve_ordered_cost_setting",
+        "line": 680
+      },
+      {
+        "contract": "AURUM V17.5.9 (D04, Section 06 Part 048):\nCompatibility adapter around resolve_ordered_cost_setting.\nReturns finite non-negative float if valid, or None if not configured or invalid.\nDoes NOT silently fall back if an authoritative key has an invalid value.",
+        "function": "get_system_config_cost_value",
+        "line": 744
+      },
+      {
+        "contract": null,
+        "function": "to_snapshot_dict",
+        "line": 78
+      },
+      {
+        "contract": null,
+        "function": "__init__",
+        "line": 758
+      },
+      {
+        "contract": null,
+        "function": "register_seen_decision_id",
+        "line": 779
+      },
+      {
+        "contract": "Rules 021-030, 083-085, V16.39.12:\nCaches volatile candidate quality display for setups before ARM.\nBounded cardinality (max 500), exact structured key (CandidateQualityDisplayKey).\nNever splits strings by ':' or bleeds identity across setup instances.",
+        "function": "record_candidate_quality_display",
+        "line": 789
+      },
+      {
+        "contract": "Rules 023-024, 086, V16.39.12:\nReads volatile pre-ARM candidate quality display matching exact binding.\nExact-only: Never bleeds scores across distinct setup instances or setup IDs.",
+        "function": "get_candidate_quality_display",
+        "line": 853
+      },
+      {
+        "contract": null,
+        "function": "get_latest_cg01_evaluation",
+        "line": 919
+      },
+      {
+        "contract": null,
+        "function": "_record_and_broadcast_cg01_evaluation",
+        "line": 926
+      },
+      {
+        "contract": null,
+        "function": "get_latest_hypothesis_batch_result",
+        "line": 935
+      },
+      {
+        "contract": null,
+        "function": "get_latest_hypothesis_authority",
+        "line": 939
+      },
+      {
+        "contract": null,
+        "function": "get_latest_cycle_outcome",
+        "line": 943
+      },
+      {
+        "contract": null,
+        "function": "get_active_zones",
+        "line": 948
+      },
+      {
+        "contract": null,
+        "function": "set_active_zones",
+        "line": 952
+      },
+      {
+        "contract": null,
+        "function": "get_active_hypotheses",
+        "line": 956
+      },
+      {
+        "contract": null,
+        "function": "get_active_liquidity_levels",
+        "line": 960
+      },
+      {
+        "contract": "Returns real multi-dimensional assessment and Vietnamese explanation for zone (SECTIONS 083 - 086, 164).\nNever uses hardcoded scores or fake constants. Returns None (404) if zone not found.",
+        "function": "get_zone_assessment_explanation",
+        "line": 964
+      },
+      {
+        "contract": "Single-cycle autonomous evaluation (PH\u1ea6N 015 - 024, 054 - 056).\nCan be driven synchronously by tests / replay or asynchronously by background watcher.\nUses load_effective_scalp_config(db) if config is not injected.",
+        "function": "evaluate_cycle",
+        "line": 999
+      },
+      {
+        "contract": "DEF-179012-C01 (V17.9.0.1.2 Phase B): Reconciles evaluated canonical snapshots against\nactual downstream Production runtime consumption (candidates, router, execution guards,\nand order intents). Never marks a snapshot as consumed when no downstream candidate\nwith matching `decision_id` and `decision_fingerprint` consumed it (`N31`, `N32`, `N33`).",
+        "function": "reconcile_consumed_decisions_from_snapshots",
+        "line": 2894
+      },
+      {
+        "contract": "Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).\nRolls back the active transaction without making further queries on a poisoned session.\nClears authoritative cache and publishes runtime diagnostic outcome.",
+        "function": "_finalize_failed_cycle",
+        "line": 3149
+      },
+      {
+        "contract": "Guarded ARM path under entry_mutation_lock (PH\u1ea6N 025 - 033, 059).\nNever bypasses entry guards or daily quotas.",
+        "function": "_arm_paper_candidate",
+        "line": 3250
+      },
+      {
+        "contract": "Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165).",
+        "function": "run_watcher_loop",
+        "line": 4163
+      },
+      {
+        "contract": null,
+        "function": "stop",
+        "line": 4243
+      },
+      {
+        "contract": "V17.9.0.1 Phase D: Production adapter method constructing immutable\nMarketDecisionContext for SharedStrategyEvaluator.",
+        "function": "build_shared_decision_context",
+        "line": 4246
+      },
+      {
+        "contract": "V17.9.0 Section 7.2: Production adapter method delegating pure strategy\ndecision evaluation to SharedStrategyEvaluator.",
+        "function": "evaluate_shared_decision_snapshot",
+        "line": 4300
+      },
+      {
+        "contract": "V17.9.0 Section 7.2: Production adapter method evaluating all configured\nproduction models through SharedStrategyEvaluator.",
+        "function": "evaluate_shared_all_models",
+        "line": 4325
+      },
+      {
+        "contract": null,
+        "function": "_eval",
+        "line": 4174
+      }
+    ],
+    "aurum-desk/backend/services/shared_strategy_evaluator.py": [
+      {
+        "contract": null,
+        "function": "_canonical_hash",
+        "line": 141
+      },
+      {
+        "contract": null,
+        "function": "_normalize_candle_obj",
+        "line": 156
+      },
+      {
+        "contract": null,
+        "function": "_candle_open_ms",
+        "line": 190
+      },
+      {
+        "contract": null,
+        "function": "_candle_close_ms",
+        "line": 202
+      },
+      {
+        "contract": null,
+        "function": "_candle_is_closed",
+        "line": 217
+      },
+      {
+        "contract": null,
+        "function": "_canonical_candle_series",
+        "line": 223
+      },
+      {
+        "contract": null,
+        "function": "_candle_summary",
+        "line": 248
+      },
+      {
+        "contract": "Phase G: Validates higher-timeframe (H1/H4/D1) closed candle series across runtimes.\nRejects unclosed bars, lookahead bars (`close_time > decision_timestamp_ms`), duplicate\ntimestamps, non-monotonic timestamps, malformed OHLC values, and misaligned UTC boundaries\n(when `strict_validation=True`).",
+        "function": "validate_htf_candle_series",
+        "line": 273
+      },
+      {
+        "contract": "Phase G: Deterministic UTC-aligned closed-candle aggregation into 1H (3,600,000 ms)\nor 4H (14,400,000 ms) bars.",
+        "function": "aggregate_closed_htf_candles",
+        "line": 371
+      },
+      {
+        "contract": "Constructs an immutable MarketDecisionContext, enforcing causal candle filtering\nand computing deterministic ATR and fingerprints.",
+        "function": "build_market_decision_context",
+        "line": 568
+      },
+      {
+        "contract": null,
+        "function": "_compute_snapshot_fingerprints",
+        "line": 1302
+      },
+      {
+        "contract": "V17.9.0.1.2 Phase B (Section 3): Strict positive eligibility invariant.\nA decision is executable if and only if ALL positive conditions hold:\n  1. decision is a StrategyDecisionSnapshot\n  2. Complete non-empty canonical lineage (decision_id, decision_fingerprint,\n     input_snapshot_hash, configuration_hash, evaluator_version)\n  3. Point-in-time market data context is valid (when context is provided)\n  4. decision.decision_status == DecisionStatus.ELIGIBLE.value (exact positive equality)\n  5. decision.setup_validity == \"VALID\"\n  6. len(decision.rejection_reason_codes) == 0\n  7. decision.direction in (\"LONG\", \"SHORT\") and matches expected_direction when strict\n  8. entry_reference, selected_sl, take_profit are finite positive numbers with valid\n     directional geometry (SL < entry < TP for LONG; TP < entry < SL for SHORT)\n  9. hypothetical_quantity > 0 and net_rr > 0\nAny other status (including NO_TRADE, REJECTED, VALID_SETUP_REJECTED_BY_RISK,\nNO_VALID_SETUP, WAITING_CONFIRMATION, MODEL_DISABLED, MISSING_MARKET_DATA,\nunknown strings, None, or empty string) is strictly non-executable.",
+        "function": "validate_canonical_executability",
+        "line": 1363
+      },
+      {
+        "contract": null,
+        "function": "valid_decision_lineage",
+        "line": 1483
+      },
+      {
+        "contract": null,
+        "function": "valid_direction_entry_sl_tp",
+        "line": 1495
+      },
+      {
+        "contract": null,
+        "function": "valid_required_risk_intent",
+        "line": 1536
+      },
+      {
+        "contract": null,
+        "function": "valid_point_in_time_inputs",
+        "line": 1560
+      },
+      {
+        "contract": "Boolean wrapper around `validate_canonical_executability`.",
+        "function": "canonical_is_executable",
+        "line": 1573
+      },
+      {
+        "contract": "Phase C: Top-level canonical decision evaluator function.",
+        "function": "evaluate_decision",
+        "line": 5367
+      },
+      {
+        "contract": "Phase B / Section 8.1 Stage 1: Independent pre-refactor baseline characterization.\nExecutes `IndependentPreRefactorBaselineOracle` (recovered from pre-V17.9.0 commit\n`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`) without calling `SharedStrategyEvaluator`.",
+        "function": "characterize_production_baseline_decision",
+        "line": 5386
+      },
+      {
+        "contract": null,
+        "function": "_snap_get",
+        "line": 5456
+      },
+      {
+        "contract": null,
+        "function": "_resolve_parity_hash",
+        "line": 5462
+      },
+      {
+        "contract": "Section 8.2 / 8.3 & V17.9.0.1.2 Phase E: Compares two StrategyDecisionSnapshots (or parity dicts)\nacross all 20 required parity fields, input/config hashes, and anti-fake parity controls.\nNever treats two null/empty input or configuration hashes as equal.",
+        "function": "compare_decision_parity",
+        "line": 5476
+      },
+      {
+        "contract": "Section 8.2 Stage 2: Cross-adapter parity verification across\nBaseline Production, Shared Evaluator, Production Adapter, Shadow Adapter,\nand Backtest Adapter.",
+        "function": "verify_multi_adapter_parity",
+        "line": 5603
+      },
+      {
+        "contract": "Section 8.6 #3 & #4 / Section 9.1: Inspects AST of backtest and evaluator modules\nto verify zero synthetic modulo index-based setup triggers (e.g. `i % 15 == 0`\nor `(i // 15) % 2 == 0`).",
+        "function": "verify_no_synthetic_index_signals_in_source",
+        "line": 5635
+      },
+      {
+        "contract": null,
+        "function": "__getattr__",
+        "line": 149
+      },
+      {
+        "contract": null,
+        "function": "now_ms",
+        "line": 480
+      },
+      {
+        "contract": null,
+        "function": "candles_1m",
+        "line": 484
+      },
+      {
+        "contract": null,
+        "function": "candles_5m",
+        "line": 488
+      },
+      {
+        "contract": null,
+        "function": "candles_15m",
+        "line": 492
+      },
+      {
+        "contract": null,
+        "function": "candles_1h",
+        "line": 496
+      },
+      {
+        "contract": null,
+        "function": "candles_4h",
+        "line": 500
+      },
+      {
+        "contract": null,
+        "function": "validate_mtf_context_invariant",
+        "line": 503
+      },
+      {
+        "contract": null,
+        "function": "is_model_enabled",
+        "line": 508
+      },
+      {
+        "contract": null,
+        "function": "get_policy_dict",
+        "line": 512
+      },
+      {
+        "contract": null,
+        "function": "get_risk_dict",
+        "line": 515
+      },
+      {
+        "contract": null,
+        "function": "get_cost_dict",
+        "line": 518
+      },
+      {
+        "contract": null,
+        "function": "get_htf_provenance_dict",
+        "line": 521
+      },
+      {
+        "contract": null,
+        "function": "compute_market_input_hash",
+        "line": 524
+      },
+      {
+        "contract": null,
+        "function": "compute_input_snapshot_hash",
+        "line": 552
+      },
+      {
+        "contract": null,
+        "function": "compute_configuration_hash",
+        "line": 557
+      },
+      {
+        "contract": null,
+        "function": "trade_action_fingerprint",
+        "line": 1115
+      },
+      {
+        "contract": null,
+        "function": "rejection_reasons",
+        "line": 1119
+      },
+      {
+        "contract": null,
+        "function": "v1793122_signal_intelligence_mode",
+        "line": 1123
+      },
+      {
+        "contract": null,
+        "function": "v1793122_proposed_status",
+        "line": 1127
+      },
+      {
+        "contract": null,
+        "function": "v1793122_htf_alignment_state",
+        "line": 1133
+      },
+      {
+        "contract": null,
+        "function": "v1793122_unicorn_classification",
+        "line": 1139
+      },
+      {
+        "contract": null,
+        "function": "metadata_fingerprint",
+        "line": 1145
+      },
+      {
+        "contract": null,
+        "function": "decision_id",
+        "line": 1176
+      },
+      {
+        "contract": null,
+        "function": "strategy_decision_status",
+        "line": 1184
+      },
+      {
+        "contract": null,
+        "function": "evaluation_timestamp",
+        "line": 1188
+      },
+      {
+        "contract": null,
+        "function": "entry",
+        "line": 1192
+      },
+      {
+        "contract": null,
+        "function": "stop_loss",
+        "line": 1196
+      },
+      {
+        "contract": null,
+        "function": "effective_direction",
+        "line": 1200
+      },
+      {
+        "contract": null,
+        "function": "risk_or_sizing_intent",
+        "line": 1204
+      },
+      {
+        "contract": null,
+        "function": "reason_codes",
+        "line": 1214
+      },
+      {
+        "contract": null,
+        "function": "input_snapshot_hash",
+        "line": 1218
+      },
+      {
+        "contract": null,
+        "function": "market_input_hash",
+        "line": 1222
+      },
+      {
+        "contract": null,
+        "function": "configuration_hash",
+        "line": 1226
+      },
+      {
+        "contract": null,
+        "function": "to_parity_dict",
+        "line": 1229
+      },
+      {
+        "contract": null,
+        "function": "record_runtime_invocation",
+        "line": 1602
+      },
+      {
+        "contract": null,
+        "function": "is_registered_call_id",
+        "line": 1617
+      },
+      {
+        "contract": null,
+        "function": "get_runtime_invocation_counts",
+        "line": 1625
+      },
+      {
+        "contract": null,
+        "function": "reset_runtime_invocation_counts",
+        "line": 1629
+      },
+      {
+        "contract": null,
+        "function": "_build_default_watched_zone",
+        "line": 1634
+      },
+      {
+        "contract": "Invokes the true authoritative production model evaluators from\nScalpM1ModelService or cg01_engine.evaluate_cg01_candidate.",
+        "function": "_evaluate_raw_production_candidate",
+        "line": 1664
+      },
+      {
+        "contract": "Extracts causal FVG/Break/Sweep descriptors from confirmed M1 bars so that\ndetect_unicorn_evidence and resolve_stop_anchor receive exact causal bindings.\nWhen `strict_causal_repair=True` (V17.9.3.1.2.3 STAGE G3), rejects stale,\nalready-mitigated, or un-retested FVGs rather than blindly picking `dir_fvgs[-1]`.\nWhen `research_discovery_enabled=True` (V17.9.3.1.2.3 STAGE G1), scans recent\ncausal M1 structure to discover valid unmitigated setups missed by naive last-element\nselection while keeping `OFF` 100% unchanged.",
+        "function": "_extract_causal_setup_descriptors",
+        "line": 1837
+      },
+      {
+        "contract": null,
+        "function": "_evaluate_raw_domain_spec_helper",
+        "line": 2626
+      },
+      {
+        "contract": "Evaluates a specific (model_id, direction) pair against MarketDecisionContext\nand returns an immutable StrategyDecisionSnapshot.",
+        "function": "evaluate_model_direction",
+        "line": 2706
+      },
+      {
+        "contract": null,
+        "function": "resolve_canonical_preferred_direction",
+        "line": 4339
+      },
+      {
+        "contract": "Evaluates a model across directions (checking preferred_direction first, then opposite direction\nfor FVG/CG01 models if preferred_direction has no valid setup) and returns the deterministic\nStrategyDecisionSnapshot.",
+        "function": "evaluate_model_best_direction",
+        "line": 4390
+      },
+      {
+        "contract": null,
+        "function": "evaluate_all_models",
+        "line": 4488
+      },
+      {
+        "contract": null,
+        "function": "_build_fail_closed_exception_snapshot",
+        "line": 4509
+      },
+      {
+        "contract": null,
+        "function": "_downgrade_snapshot_from_domain_rejection",
+        "line": 4581
+      },
+      {
+        "contract": "DEF-179012-01 Strict Non-Promotion Invariant:\n1. If `base_snap` is NOT strictly executable (`validate_canonical_executability(base_snap, context)` is False),\n   this function MUST NEVER promote `base_snap` to `DecisionStatus.ELIGIBLE` or overwrite any canonical\n   decision field (`direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`,\n   `hypothetical_quantity`, `decision_status`). Any legacy candidate payload produced by `spec` is\n   forced to `is_eligible = False` with `base_snap`'s rejection reason.\n2. Even when `base_snap` IS strictly executable (`DecisionStatus.ELIGIBLE`), `spec` can NEVER overwrite\n   canonical `direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`, or\n   `hypothetical_quantity` on `base_snap`; `spec` may only downgrade `base_snap` to a non-eligible status\n   (e.g. `INVALID_COST_CONFIGURATION`, direction mismatch) or attach a candidate payload bound to\n   `base_snap`'s canonical values.",
+        "function": "_execute_production_domain_spec",
+        "line": 4622
+      },
+      {
+        "contract": "Section 3 (DEF-V179011-01 & DEF-179012-01): Enforces that `snap` (the canonical DecisionResult from\n`SharedStrategyEvaluator.evaluate_decision`) is the sole authoritative pre-execution\nstrategy decision. Legacy candidate fields can NEVER override canonical non-eligible statuses,\ndirection, SL, TP, or invalid geometry.",
+        "function": "enforce_canonical_decision_authority_on_candidate",
+        "line": 4801
+      },
+      {
+        "contract": "Enforces canonical DecisionResult authority on CG-01 production decisions.",
+        "function": "enforce_canonical_decision_authority_on_cg01",
+        "line": 4906
+      },
+      {
+        "contract": "Phase C / V17.9.0.1.2: Single authoritative decision contract entry point shared across\nProduction, MARKET_SHADOW, and Historical Backtest.",
+        "function": "evaluate_decision",
+        "line": 4962
+      },
+      {
+        "contract": "Phase D / Section 3: Authoritative production reversal evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle(). `cls.evaluate_decision(...)` is the sole\ndecision producer; `enforce_canonical_decision_authority_on_candidate` enforces\ncanonical DecisionResult invariants with fail-closed semantics.",
+        "function": "evaluate_production_reversal_candidate",
+        "line": 5021
+      },
+      {
+        "contract": "Phase D / Section 3: Authoritative production continuation evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+        "function": "evaluate_production_continuation_candidate",
+        "line": 5090
+      },
+      {
+        "contract": "Phase D / Section 3: Authoritative production FVG continuation evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+        "function": "evaluate_production_fvg_continuation_candidate",
+        "line": 5162
+      },
+      {
+        "contract": "Phase D / Section 3: Authoritative production sweep-reclaim evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+        "function": "evaluate_production_sweep_reclaim_candidate",
+        "line": 5236
+      },
+      {
+        "contract": "Phase D / Section 3: Authoritative production CG-01 evaluation invoked inside\nScalpWatcherOrchestrator.evaluate_cycle().",
+        "function": "evaluate_production_cg01_candidate",
+        "line": 5302
+      },
+      {
+        "contract": null,
+        "function": "_build_early_v1793_kwargs",
+        "line": 2766
+      }
+    ],
+    "aurum-desk/backend/services/stop_placement_service.py": [
+      {
+        "contract": "",
+        "function": "_candle_open_ms",
+        "line": 29,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_candle_ohlc",
+        "line": 36,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.9 (Part 019, D06):\nSafe timestamp parser rejecting booleans, NaN, Inf, non-numeric strings,\nand negative/zero timestamps without throwing unhandled exceptions.",
+        "function": "parse_valid_market_timestamp",
+        "line": 42,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM DESK V17.7.4 (Section 04):\nAuthoritative ATR validator shared across planner, evaluators, and ARM boundary.\nValidates provenance, schema, finite positive value, symbol, timeframe, period,\nsource bar count, causal closure, and duplicate metadata consistency.\nFails closed with stable, standardized reason codes.",
+        "function": "validate_stop_atr_authority",
+        "line": 90,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Computes strict True Range Mean (SMA_TR_V1) for stop loss buffer sizing (V17.7.4).\nRequires at least `period + 1` continuous, finite closed bars.\nExcludes unclosed bars or future bars after as_of_ms.\nStrictly synchronizes bar_duration_ms with timeframe.\nValidates symbol consistency, candle closure, and positive finite prices.\nEnforces active-window cadence verification (no gap bridging).",
+        "function": "compute_stop_atr",
+        "line": 287,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Quantizes the stop loss outward (away from the market/anchor) to the instrument tick grid.\nSHORT: ceil((anchor + buffer) / tick) * tick\nLONG:  floor((anchor - buffer) / tick) * tick\nUses Decimal for exact monetary arithmetic without float drift.",
+        "function": "quantize_stop_outward",
+        "line": 503,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Computes candidate dynamic buffer components according to StopPlacementPolicy (V17.7.4):\nbuffer = max(tick_floor, k_m1*raw_ATR_M1, k_m5*raw_ATR_M5 (if available), k_spread*(ask-bid))\nRecords individual component values, preserves raw ATRs, and identifies the dominant source.\nValidates ATR inputs via validate_stop_atr_authority.",
+        "function": "compute_stop_buffer",
+        "line": 542,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Computes candidate minimum entry-relative protective distance required\nunder StopPlacementPolicy V17.7.4:\nmin_dist = max(\n    min_protective_ticks * tick_size,\n    k1 * ATR_M1,\n    k5 * ATR_M5,\n    k_spread * spread,\n)\nGuarantees the selected stop is placed outside immediate market microstructure noise.\nIn PAPER_STRUCTURAL mode, requires validated ATR authority objects.",
+        "function": "compute_min_protective_distance",
+        "line": 733,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Verifies that the structural anchor has not been breached/invalidated by closed candles\noccurring strictly between anchor.occurred_at_ms and as_of_ms.\nSHORT: High must not exceed anchor.price.\nLONG:  Low must not fall below anchor.price.",
+        "function": "validate_anchor_not_invalidated",
+        "line": 829,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Baseline V17.8 structural protective anchor resolution.",
+        "function": "_resolve_stop_anchor_baseline",
+        "line": 856,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Identifies the model-specific structural protective anchor, supporting V17.9.2\ncausal anchor hierarchy and observe-only diagnostics when configured on `policy`.\nWhen V17.9.2 flags are False (default), preserves 100% identical V17.8 behavior.",
+        "function": "resolve_stop_anchor",
+        "line": 1136,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Synthesizes the V17.8 Adaptive Structural Stop Loss decision.\n- Preserves structural invalidation anchor (protected swing/origin/sweep/Unicorn breaker).\n- Single authoritative ATR resolution: PAPER_STRUCTURAL strictly requires validated raw ATR.\n- Computes dynamic buffer beyond the anchor from validated metrics.\n- Computes minimum entry-relative protective distance against microstructure noise.\n- Applies defensive outward expansion if anchor buffer is closer than protective threshold.\n- Assesses stop distance relative to volatility (non-blocking diagnostic: DISTANCE_NORMAL, DISTANCE_ELEVATED, DISTANCE_EXTREME, DISTANCE_ATR_UNAVAILABLE).\n- Never rejects solely because stop distance exceeds an arbitrary ATR multiple.\n- Rejects abnormal spread / market shock conditions (spread > max_spread_usd).\n- Enforces strict outward tick quantization (floor for LONG, ceil for SHORT).\n- Fails closed in PAPER_STRUCTURAL mode when evidence is missing or invalid.",
+        "function": "plan_structural_stop",
+        "line": 1250,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Translates raw sweep detector output into a causal StopAnchor input descriptor.\nExtracts sweep_time_ms and derives known_at_ms from the closing time of reclaim_bar_idx.",
+        "function": "build_sweep_stop_descriptor",
+        "line": 1910,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.8 (Part 020):\nValidates structural episode interval consistency.",
+        "function": "validate_episode_interval",
+        "line": 1947,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.9 (D01, D06, Section 02):\nResolves and verifies the causal reference node with stable identity,\nnon-ambiguous price matching, verified source candle provenance,\nexpected swing extreme, and causal timestamps.",
+        "function": "resolve_verified_reference_node",
+        "line": 1969,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.9 (D02, D06, Section 03):\nResolves and verifies the break candle from closed_bars.\nEnforces canonical source existence, eliminates unverified caller fallback,\nsafely parses timestamps, and verifies strict close-through.",
+        "function": "resolve_verified_break_candle",
+        "line": 2303,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.6/V17.5.7/V17.5.8 (Parts 031-036):\nPure validation helper verifying pivot source candle, extreme price,\ntime boundaries, and episode membership.",
+        "function": "validate_protected_origin_binding",
+        "line": 2545,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.7/V17.5.8 (Parts 012-020):\nPure structural helper resolving episode boundaries from reference and break nodes\nwithout requiring caller to self-inject episode_start_ms.",
+        "function": "resolve_episode_membership_from_structure",
+        "line": 2611,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.8 (Parts 011-040):\nDerives the displacement break episode that created the opportunity.\nEnforces independent reference/break boundaries, verified break candle,\nsource candle verification, and returns eligible origin IDs within the leg.",
+        "function": "derive_protected_leg_episode",
+        "line": 2727,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "AURUM V17.5.6 (Appendix C1-C3):\nDeterministic origin bridge selecting the protected swing origin of the displacement\nbreak episode that created the opportunity.\nEnsures that:\n1. closed_bars is mandatory; empty closed_bars returns UNAVAILABLE.\n2. Origin occurred strictly before break bar open.\n3. Origin was known at or before decision cutoff.\n4. Source candle exists in closed_bars and matches extreme price within tick_size tolerance.\n5. Origin belongs to the displacement episode bounded by reference and break.\n6. Prioritizes detector-specified origin and rejects without fallback if invalid.",
+        "function": "select_protected_origin_for_break",
+        "line": 2958,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Builds a complete, normalized SelectedBreak descriptor from actual detector break bar\nand broken structure reference.\nGuarantees break_open_ms, broken_at_ms, known_at_ms, broken_reference_id, and reference_price.\nPreserves protected origin binding (origin_pivot_id, episode_start_ms) for structural SL proofs.",
+        "function": "build_selected_break_descriptor",
+        "line": 3046,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Verifies and constructs a SelectedStopLeg descriptor binding the protective pivot\nto the exact leg and break bar that created the opportunity.\nEnforces that:\n1. Origin pivot occurred strictly before break bar open/cutoff.\n2. Origin pivot was known before or at decision cutoff.\n3. Break bar occurred and was known at or before decision cutoff.\n4. Origin pivot price matches the candle extreme within instrument tick tolerance.\n   Source candle MUST exist in closed_bars if closed_bars are provided.\n5. Break bar actually closed strictly through the reference price (no equality, no wick-only).",
+        "function": "resolve_bound_stop_leg",
+        "line": 3114,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Fail-closed barrier invoked at evaluator completion and ARM critical section.\nRejects any trade whose stop loss does not satisfy current policy requirements.\nIn PAPER_STRUCTURAL mode (V17.7.4), validates execution-grade ATR evidence provenance.",
+        "function": "validate_applied_stop_decision",
+        "line": 3340,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_make_decision",
+        "line": 1306,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_verify_pivot_source_and_extreme",
+        "line": 3199,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/unicorn_evidence_service.py": [
+      {
+        "contract": "",
+        "function": "_candle_open_ms",
+        "line": 23,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_candle_is_closed",
+        "line": 30,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_candle_ohlc",
+        "line": 36,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Lightweight dict wrapper exposing OHLCV/timestamp attributes for smc_engine.",
+        "function": "_AttrCandleDict",
+        "line": 42,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "_tf_duration_ms",
+        "line": 56,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_swing_occurred_ms",
+        "line": 72,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_swing_confirmed_ms",
+        "line": 76,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Detects causal ICT Breaker Blocks with strict anti-lookahead, displacement strength,\nand deduplication of broken swings and source order blocks.",
+        "function": "detect_breaker_blocks",
+        "line": 80,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Verifies that the Breaker Block and FVG belong to the exact same structural\ndisplacement episode (MSS/BOS + displacement impulse), not merely a 15-bar window.",
+        "function": "_is_same_causal_episode",
+        "line": 337,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Constructs a fail-closed UnicornEvidence object.\nCrucial safety invariant: invalid UnicornEvidence NEVER exposes a non-None\ninvalidation_price for executable stop placement.",
+        "function": "_build_rejected_evidence",
+        "line": 441,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Synthesizes ICT Unicorn Evidence (V17.8.0.4).\nCanonical contract supports both `selected_fvg` (for active candidate evaluation,\nnever substituting an unrelated FVG) and `candidate_fvgs` (for batch/research scanning).",
+        "function": "detect_unicorn_evidence",
+        "line": 509,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__getattr__",
+        "line": 45,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_norm_swing_id",
+        "line": 351,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py": [
+      {
+        "contract": "",
+        "function": "_is_valid_finite_price",
+        "line": 47,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_candle_close_ms",
+        "line": 57,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_candle_is_closed",
+        "line": 77,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_canonical_json_hash",
+        "line": 89,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "StructuralStopCandidate",
+        "line": 95,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "StructuralTargetPlanV1792",
+        "line": 141,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "StructuralStopPlanV1792",
+        "line": 182,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "StopOutcomeDiagnostic",
+        "line": 245,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Section 4.2: Collect causal stop anchor candidates from closed M1/M5/M15 market structure.\nStrictly enforces `known_at_ms <= decision_timestamp_ms` and `source_bar_close_ms <= decision_timestamp_ms`.\nDistinguishes outer protected swings (`is_protected_swing=True`) from internal/local sweep extremes\n(`is_local_sweep_only=True`).",
+        "function": "collect_causal_stop_anchor_candidates",
+        "line": 308,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.3: Deterministic ranking of causal structural stop anchor candidates.\nPrioritizes:\n  1. Valid causal, closed-bar, un-invalidated candidates on the protective side of entry\n     within `max_stop_distance_usd`\n  2. Protected swings (`is_protected_swing=True`, `is_local_sweep_only=False`) over internal/local sweep wicks\n  3. Higher `structural_rank`\n  4. More recent `occurred_at_ms`\n  5. Deterministic tie-break by `anchor_id` ascending\nNever ranks by future outcome.",
+        "function": "rank_structure_valid_anchors",
+        "line": 690,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.4: Compute causal noise buffer beyond structural invalidation price.\n- Never fabricates `atr_m5 = atr_m1 * 2.1` when `atr_m5` is missing.\n- Monotonic in `atr_m1`, `atr_m5`, and `spread`.\n- In `STRUCTURE_ONLY` mode, returns minimal 1-tick structural clearance (`tick_size`).",
+        "function": "compute_causal_noise_buffer",
+        "line": 774,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.5: Derive outward tick-quantized structure-valid stop price:\n  - LONG: `floor_tick(invalidation_price - noise_buffer_price)`\n  - SHORT: `ceil_tick(invalidation_price + noise_buffer_price)`",
+        "function": "derive_structure_valid_stop",
+        "line": 826,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.6: Fail-closed validator verifying all structural stop and anchor invariants.",
+        "function": "validate_structure_invalidation_contract",
+        "line": 868,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.7: Resolve causal unconsumed liquidity target candidates from:\n  - Provided `liquidity_pools` (M1/M5/M15/H1/H4/PDH/PDL)\n  - Confirmed closed M1, M5, M15, H1, H4 swings (`known_at_ms <= decision_timestamp_ms`)\n  - Completed prior-day D1 High/Low (`PDH`/`PDL` with `close_time <= decision_timestamp_ms`)\nStrictly filters out consumed/swept/expired levels across all closed LTF/HTF bars, future levels,\nand wrong-side levels.",
+        "function": "resolve_causal_target_candidates",
+        "line": 940,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.7: Select an authoritative, causal liquidity target.\n  - In `BASELINE_FROZEN` mode (`A`, `B`, `C`, `D1`, `D2`): uses `baseline_target_price` / `baseline_target_id`\n    so stop-loss experiments are strictly isolated from target changes.\n  - In `V1792_CAUSAL_STRUCTURAL_VIABLE` mode (`D3`, `D4`, `D6`): iterates sorted causal liquidity\n    target candidates (nearest to farthest) and selects the nearest causal unconsumed pool that\n    achieves `net_rr >= min_net_rr` under full round-trip fees and slippage.\n  - NEVER invents `TP = entry +/- k * stop_distance`.",
+        "function": "select_viable_structural_target",
+        "line": 1158,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.8: Evaluate authoritative cost-aware Net R:R and dynamic position sizing.\nUses `domain_calculator.calculate_risk_reward` under fixed risk budget (`capital_usdt * risk_pct / 100`).\nIf wider SL shrinks position size below `min_qty` (`0.01` XAU), rejects with `POSITION_SIZE_BELOW_MIN_LOT`.\nNever inflates risk budget or lowers `min_net_rr`.",
+        "function": "evaluate_stop_tp_risk_and_size",
+        "line": 1379,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.1\u20134.8 Orchestrator: End-to-end causal V17.9.2 structural stop & target planner.",
+        "function": "plan_v17_9_2_structural_stop_and_target",
+        "line": 1490,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_wilson_interval_95",
+        "line": 1787,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.9 & V17.9.2.1 Section 4.4: Outcome-only post-entry forensic classifier.\nClassifies a trade path into mutually exclusive labels:\n  - `CLEAN_WIN`: TP hit before SL hit\n  - `SAME_BAR_CONSERVATIVE_LOSS`: Both SL and TP touched on the same bar (conservative loss)\n  - `PREMATURE_NOISE_SWEEP_STOP`: SL hit before outer protected structure close-through,\n    distinguishing `PURE_NOISE_SWEEP_STRUCTURE_HELD`, `NOISE_SWEEP_THEN_TP_HIT_EX_POST`,\n    and `PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK` (when structure broke > `delayed_break_window_bars` later)\n  - `DELAYED_INEVITABLE_LOSS`: SL hit before structure close-through, then outer protected structure\n    broke within `delayed_break_window_bars` without ever reaching TP\n  - `TRUE_INVALIDATION_LOSS`: Candle closed decisively beyond `protected_structure_price` on or before\n    the stop bar and continued against trade direction\n  - `OPEN_AT_HORIZON`: Neither SL nor TP hit within `forward_bars`\n  - `DATA_GAP_UNRESOLVED`: Intra-trade M1 gap > `gap_threshold_ms` occurred before exit when\n    `classify_gap_unresolved=True`",
+        "function": "classify_structure_stop_outcome",
+        "line": 1801,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 4.9 & V17.9.2.1 Section 3.A: Aggregate premature stop vs true invalidation rates\nacross a sequence of `StopOutcomeDiagnostic` records.\nReturns None (`null`) when denominator == 0 and supplies Wilson 95% confidence intervals.",
+        "function": "measure_premature_stop_rate",
+        "line": 1990,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.9.2.1 Section 5.3 & 12(D): Realistic forward trade fill & outcome simulator comparing:\n  - `LEGACY_CLOSE_FILL`: enters at `planned_entry` (bar close), checks raw M1 high/low against SL/TP.\n  - `NEXT_BAR_OPEN_BID_ASK`: enters at `forward_bars[0].open` with bid/ask half-spread + adverse slippage;\n    checks LONG exit at bid (`price - half_spread`) and SHORT exit at ask (`price + half_spread`);\n    handles gap-spanning entry (`NO_FILL_ENTRY_GAP`), gap-open adverse stops (`ADVERSE_GAP_OPEN_STOP_LOSS`),\n    intratrade provider gaps (`DATA_GAP_UNRESOLVED`), and intrabar SL+TP ties (`LOSS_TIE_CONSERVATIVE`).\n  - `STRESS_WIDER_SPREAD_SLIPPAGE_2X`: same as `NEXT_BAR_OPEN_BID_ASK` with 2x spread and 2x slippage.\nNever uses future bars to alter pre-entry decisions.",
+        "function": "simulate_order_fill_and_outcome_sensitivity",
+        "line": 2076,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.9.3.1 Section 03.A: Immutable per-trade executable ledger entry reconciling\nexact floored position sizing (`quantity_step = 0.01`), entry/exit fill prices,\ntaker/maker fees, slippage (never double-counted), gross vs net realized PnL,\nplanned net risk (`planned_net_risk_usd <= 2.50`), and `realized_r_net`.",
+        "function": "ExecutableTradeLedgerEntryV17931",
+        "line": 2293,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "V17.9.3.1 Section 03.A & 03.B: Canonical deterministic net trade execution simulator.\nReplaces `realized_r * 2.50` everywhere with exact floored `quantity` (`0.01` step),\nquote-side aware fills (`NEXT_BAR_OPEN_BID_ASK`, `LEGACY_CLOSE_FILL`,\n`STRESS_WIDER_SPREAD_SLIPPAGE_2X`), taker/maker fees, non-double-counted adverse\nfill-price slippage, gap-open adverse stop handling, and separate MTM horizon censoring.",
+        "function": "simulate_v17931_trade_execution_net",
+        "line": 2434,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_snap_get",
+        "line": 3071,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.9.3.1 Section 06.A & 06.B: Canonical authority resolver for\n`protected_structure_price` vs `local_invalidation_price`.\nEnsures `A0_FROZEN_BASELINE_OFF` (where `v1792_mode == \"OFF\"` and `v1792_stop_plan_dict`\nis None on the snapshot) resolves the exact same causal outer V17.9.2 structural\nanchor as `B0_V1793_OBSERVE_ONLY` / `V17.9.2.1` when classifying whether a baseline\ntight stop was a `PREMATURE_NOISE_SWEEP_STOP` vs `TRUE_INVALIDATION_LOSS`.",
+        "function": "resolve_v17931_protected_structure_authority",
+        "line": 3077,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.9.3.1 Section 06.A & 06.B: Reconciles the 6 frozen `A0_FROZEN_BASELINE_OFF`\nepisodes (`indices 6652, 6676, 6886, 14469, 14608, 15383`) under both:\n  1. Canonical `OUTER_PROTECTED_STRUCTURE_AUTHORITY` (V17.9.2.1 & V17.9.3.1):\n     `4 PREMATURE_NOISE_SWEEP_STOP, 1 DELAYED_INEVITABLE_LOSS, 1 TRUE_INVALIDATION_LOSS`\n  2. Legacy V17.9.3 `LOCAL_SWING_INVALIDATION_AUTHORITY` (when `protected_structure_price`\n     was set to `A0`'s tight local M1 swing `structural_invalidation_price`):\n     `0 PREMATURE_NOISE_SWEEP_STOP, 1 DELAYED_INEVITABLE_LOSS, 5 TRUE_INVALIDATION_LOSS`\nAlso supports single-episode reconciliation calls with keyword arguments.",
+        "function": "verify_v17931_frozen_forensic_episode_parity",
+        "line": 3178,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 116,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "authoritative_level_id",
+        "line": 158,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 161,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 211,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 275,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_add_candidate",
+        "line": 343,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_sort_key",
+        "line": 749,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_is_pool_swept_cross_tf",
+        "line": 985,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_try_add_pool",
+        "line": 1012,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "outcome_label",
+        "line": 2355,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "entry_fill_mode",
+        "line": 2359,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "entry_fee_usd",
+        "line": 2363,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "exit_fee_usd",
+        "line": 2367,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "entry_filled",
+        "line": 2371,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "total_friction_usd",
+        "line": 2375,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "verify_accounting_invariants",
+        "line": 2378,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "to_dict",
+        "line": 2423,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py": [
+      {
+        "contract": null,
+        "function": "_canonical_json_sha256",
+        "line": 138
+      },
+      {
+        "contract": null,
+        "function": "_bar_open_ms",
+        "line": 143
+      },
+      {
+        "contract": null,
+        "function": "_bar_close_ms",
+        "line": 156
+      },
+      {
+        "contract": null,
+        "function": "_bar_float",
+        "line": 176
+      },
+      {
+        "contract": "Filters `bars` to strictly closed bars where `_bar_close_ms(b, tf_ms) <= int(cutoff_ms)`.\nReturns `(closed_bars, unclosed_or_future_count)`.",
+        "function": "_closed_bars_as_of",
+        "line": 189
+      },
+      {
+        "contract": "Normalizes `v17_9_3_1_2_2_signal_intelligence_mode`.\nReturns `(normalized_mode, is_valid, error_code)`.\nFails closed on any unrecognized string or invalid type.",
+        "function": "normalize_signal_intelligence_mode_v1793122",
+        "line": 209
+      },
+      {
+        "contract": "Normalizes `v17_9_3_1_2_2_policy_id`.\nReturns `(normalized_policy_id, is_valid, error_code)`.\nFails closed on any unrecognized policy identifier.",
+        "function": "normalize_signal_intelligence_policy_id_v1793122",
+        "line": 227
+      },
+      {
+        "contract": "Section 03: `RESEARCH_APPLY` only operates in explicitly authorized historical backtest or\noffline shadow research, NOT in AUTO PAPER / LIVE / PRODUCTION_ORCHESTRATOR.",
+        "function": "is_research_apply_forbidden_in_adapter_v1793122",
+        "line": 252
+      },
+      {
+        "contract": null,
+        "function": "compute_signal_intelligence_registry_hash_v1793122",
+        "line": 524
+      },
+      {
+        "contract": null,
+        "function": "compute_signal_intelligence_registry_hash_v1793123",
+        "line": 533
+      },
+      {
+        "contract": "Computes causal structure bias (`BULLISH`, `BEARISH`, `NEUTRAL`, `INSUFFICIENT`, `ABSENT`,\n`STALE`, `LOOKAHEAD_INVALID`) from closed candles with `close_ms <= decision_timestamp_ms`.",
+        "function": "_infer_series_structure_bias",
+        "line": 836
+      },
+      {
+        "contract": "Section 02.A & Section 04 (SI2) & V17.9.3.1.2.3 STAGE G2:\nResolves preferred direction without forcing `LONG` when H4/H1/M15 history is missing,\nneutral, or conflicting, and verifies causal bar provenance/freshness before honoring\n`explicit_bias` or `context.htf_bias`.",
+        "function": "resolve_research_preferred_direction_v1793122",
+        "line": 886
+      },
+      {
+        "contract": null,
+        "function": "_extract_fast_m1_candles",
+        "line": 1003
+      },
+      {
+        "contract": "V17.9.3.1.2.4 Stage R2.2: Converts confirmed swings into causal liquidity pools,\nexplicitly inspecting closed M1 candles between `min(occurred_at_ms, known_at_ms)`\nand `now_ms` to determine whether price already traded through/swept the swing level\n(`swept_at_ms <= now_ms`). Never blindly marks fallback swings `swept=False`.",
+        "function": "_build_causal_swing_pools_from_swings_v1793124",
+        "line": 1025
+      },
+      {
+        "contract": "Inspects `pools` (causal pre-entry liquidity pools) to verify whether `selected_target_id`\nor another opposing pool is genuinely unswept as of `now_ms`.\nReturns `(valid_pool_id, valid_pool_price, pool_known_at_ms, has_unswept_pool, explicit_pool_was_swept)`.",
+        "function": "_resolve_unswept_liquidity_pool_target_v1793123",
+        "line": 1074
+      },
+      {
+        "contract": "Constructs a strictly causal `SignalQualityEvidenceV1793122` at `decision_timestamp_ms`.\nVerifies `known_at_ms <= decision_timestamp_ms` for every feature.",
+        "function": "build_signal_quality_evidence_v1793122",
+        "line": 1191
+      },
+      {
+        "contract": "Evaluates the V17.9.3.1.2.2 Signal Intelligence stage inside `SharedStrategyEvaluator`.\nEnforces:\n  - Fail-closed rejection on invalid mode or policy ID.\n  - Fail-closed rejection if `RESEARCH_APPLY` is invoked from Production/PAPER/LIVE adapter.\n  - Strict non-rescue invariant: a candidate that is NOT `ELIGIBLE` in baseline is NEVER\n    promoted to `ELIGIBLE` by `SI0..SI6`.\n  - Full recalculation of SL/TP/qty/net_rr via `plan_v17_9_2_structural_stop_and_target`\n    and `calculate_risk_reward` when `SI5` or `SI6` updates geometry.",
+        "function": "evaluate_signal_intelligence_gate_v1793122",
+        "line": 1884
+      },
+      {
+        "contract": "Section 03 & Section 04 (SI3):\nAdvances a `WAITING_CONFIRMATION` setup strictly forward in time across closed M1 bars\n(`idx > start_bar_index`, `close_time <= pending.expires_at_ms`).\nNever backdates entries:\n  - If a bar gap (> 180s) occurs -> `CANCELLED_GAP`\n  - If price breaches `invalidation_price` before confirmation -> `INVALIDATED`\n  - If `close_time > expires_at_ms` -> `EXPIRED`\n  - If a closed bar confirms displacement break / FVG retest -> rebuilds entry at that\n    confirmation bar's close quote (to be filled at the NEXT bar's open bid/ask), re-runs\n    `calculate_risk_reward()`, and returns `CONFIRMED` (or `INVALIDATED` if net RR < 2.0).\nReturns `(updated_pending, confirmed_bar_index_or_None)`.",
+        "function": "advance_pending_confirmation_state_v1793122",
+        "line": 2563
+      },
+      {
+        "contract": "Computes a strictly pre-entry candidate quality tuple for multi-model arbitration (`SI1`, `SI6`).\nNEVER reads post-entry WIN/LOSS outcome labels, MFE/MAE, or realized PnL.\nRaises `ValueError` if a caller attempts to inject post-entry label arbitration (`M13` guard).",
+        "function": "score_candidate_record_pre_entry_v1793122",
+        "line": 2779
+      },
+      {
+        "contract": "Section 04 (SI1/SI6):\nDeterministically arbitrates competing eligible model candidates at the same M1 timestamp:\n  - `STATIC_PRODUCTION_PRIORITY`: canonical production order (`REVERSAL` > `CONTINUATION` >\n    `FVG_CONTINUATION` > `SWEEP_RECLAIM` > `CG01`).\n  - `REVERSE_STATIC_PRIORITY`: reversed order (`CG01` > `SWEEP_RECLAIM` > `FVG_CONTINUATION` >\n    `CONTINUATION` > `REVERSAL`).\n  - `PRE_ENTRY_QUALITY_TUPLE`: ranks strictly by pre-entry `score_candidate_record_pre_entry_v1793122`\n    with frozen deterministic tie-breaker `(quality_tuple, direction, model_id, opportunity_id)`.\nReturns `(selected_winner_or_None, tie_lost_candidates)`.",
+        "function": "arbitrate_competing_model_intents_v1793122",
+        "line": 2816
+      },
+      {
+        "contract": "Section 10 (Truth Closure #4):\nComputes `STRATEGY_STATISTICAL_VERDICT` dynamically from actual portfolio metrics,\nbootstrapped confidence intervals, OOS split performance, and sample size power.\nNever hardcodes a static verdict string before metrics are evaluated.\nPossible verdicts:\n  - `DATA_UNAVAILABLE/BLOCKED`\n  - `INCONCLUSIVE_DATA_QUALITY`\n  - `NEGATIVE_EXPECTANCY`\n  - `INCONCLUSIVE_UNDERPOWERED`\n  - `INCONCLUSIVE_REUSED_HOLDOUT`\n  - `POSITIVE_IN_REUSED_HISTORY_NOT_VERIFIED`\n  - `VERIFIED_RESEARCH_SIGNAL_ONLY_IF_FRESH_HOLDOUT_PROOF`",
+        "function": "compute_strategy_statistical_verdict_v1793122",
+        "line": 2895
+      },
+      {
+        "contract": "Legacy report schema backed by verified observations, never guessed causes.",
+        "function": "_observed_case_rows_v1793127",
+        "line": 3041
+      },
+      {
+        "contract": "All observed closed continuation losses, retaining UNKNOWN without proof.",
+        "function": "build_smc_m1_continuation_24_losses_casebook_v1793122",
+        "line": 3068
+      },
+      {
+        "contract": "Observed model accounting and source-bound tags; no invented starvation counts.",
+        "function": "build_reversal_and_fvg_failure_casebook_v1793122",
+        "line": 3087
+      },
+      {
+        "contract": "Section 15:\nEvaluates all 52 non-tautological acceptance gates (`G01..G52`) directly from\nindependently loaded evidence payloads, source SHAs, subprocess test records,\nand disk artifact verification. Every gate fails closed if its source evidence\nis missing or violated.",
+        "function": "evaluate_all_52_acceptance_gates_v1793122",
+        "line": 3112
+      },
+      {
+        "contract": null,
+        "function": "arbitration_mode",
+        "line": 305
+      },
+      {
+        "contract": null,
+        "function": "pending_confirmation_ttl_bars",
+        "line": 313
+      },
+      {
+        "contract": null,
+        "function": "require_causal_htf_alignment",
+        "line": 317
+      },
+      {
+        "contract": null,
+        "function": "require_true_unicorn_overlap",
+        "line": 321
+      },
+      {
+        "contract": null,
+        "function": "require_protected_structure_sl",
+        "line": 325
+      },
+      {
+        "contract": null,
+        "function": "require_reachable_pre_entry_target",
+        "line": 329
+      },
+      {
+        "contract": null,
+        "function": "_legacy_hash_dict",
+        "line": 332
+      },
+      {
+        "contract": null,
+        "function": "policy_hash",
+        "line": 340
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 343
+      },
+      {
+        "contract": null,
+        "function": "compute_proof_hash",
+        "line": 580
+      },
+      {
+        "contract": null,
+        "function": "__post_init__",
+        "line": 588
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 592
+      },
+      {
+        "contract": null,
+        "function": "lookahead_violation_detected",
+        "line": 656
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 659
+      },
+      {
+        "contract": null,
+        "function": "__post_init__",
+        "line": 704
+      },
+      {
+        "contract": null,
+        "function": "rejection_reason",
+        "line": 731
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 734
+      },
+      {
+        "contract": null,
+        "function": "proposed_rejection_reasons",
+        "line": 782
+      },
+      {
+        "contract": null,
+        "function": "evidence",
+        "line": 786
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 789
+      },
+      {
+        "contract": null,
+        "function": "_add_gate",
+        "line": 3127
+      }
+    ],
+    "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py": [
+      {
+        "contract": "Section 2: Maps the complete executable decision path from orchestrator/backtest\nentry through `SharedStrategyEvaluator`, `v17_9_3_1_2_2_signal_intelligence`,\n`M1ScalpRiskCalculator`, order-intent emission, and 3-fill-mode portfolio replay.",
+        "function": "build_callgraph_function_responsibility_matrix_v1793123",
+        "line": 87
+      },
+      {
+        "contract": "STAGE G0 / V17.9.3.1.2.4 Stage R2.1: Deterministic multi-label + primary root-cause\nclassifier for a baseline trade episode using only explicit point-in-time pre-entry\nand execution-trace evidence. Unproven causes without point-in-time feature keys\nfall back to `OTHER/UNKNOWN`, never generic defect assertions.",
+        "function": "classify_single_episode_root_causes_v1793123",
+        "line": 173
+      },
+      {
+        "contract": "STAGE G0 (`03_loss_forensics_166_closed_74_open_by_model.json`):\nBuilds the complete ground-truth forensic ledger across all 166 closed baseline\ntrades (`9` wins, `157` losses), `74` `OPEN_AT_HORIZON` trades, and `1`\n`DATA_GAP_UNRESOLVED` trade across all 5 canonical models.",
+        "function": "build_ground_truth_loss_forensics_v1793123",
+        "line": 187
+      },
+      {
+        "contract": "V17.9.3.1.2.5 Stage 1: Streaming causal decision checkpoint generator.\nEmits EVERY post-warmup M1 decision-close timestamp across the canonical dataset\n(or test_only_checkpoint_override if explicitly passed).\nGuarantees strict causal ordering and no lookahead across M1/M5/M15/H1/H4 timeframes.",
+        "function": "iter_causal_decision_checkpoints_v1793125",
+        "line": 347
+      },
+      {
+        "contract": null,
+        "function": "_eval_checkpoints_chunk_v1793125",
+        "line": 417
+      },
+      {
+        "contract": "STAGE G1 / V17.9.3.1.2.5 Full-Universe Independent Causal Candidate Discovery.\nEvaluates the real SharedStrategyEvaluator across all 5 canonical models and\nboth directions under:\n  1. OFF / SI0_OFF_BASELINE (exact legacy baseline parity, 0 discovery rescues)\n  2. RESEARCH_APPLY / SI7_CORE_TRADING_LOGIC_REPAIRED (non-rescue for rejected baseline,\n     strict causal repair on eligible setups)\n  3. RESEARCH_APPLY / SI8_RESEARCH_DISCOVERY_REPAIRED (independent causal candidate\n     discovery across all 5 models from closed M1/M5/M15/H1/H4 market evidence)\n  4. Also verifies that legacy mismatch mode RESEARCH_DISCOVERY fails closed with\n     SI_INVALID_MODE_FAIL_CLOSED.",
+        "function": "discover_research_candidates_v1793123",
+        "line": 772
+      },
+      {
+        "contract": "Section 9 (`24_acceptance_gates_v17_9_3_1_2_3.json`):\nEvaluates all 15 non-tautological acceptance gates (`CR01..CR15`).\nEvery gate inspects real measured values in `evidence_by_key` and fails when\nmutated by `run_separate_evidence_dictionary_gate_mutations_v1793123`.",
+        "function": "evaluate_v1793123_acceptance_gates_cr01_cr15",
+        "line": 1021
+      },
+      {
+        "contract": "Section 9 (`25_dual_verdict_engineering_vs_strategy_edge.json`):\nComputes the three independent final verdict dimensions:\n  1. `ENGINEERING_VERIFICATION_VERDICT`: `PASS` | `FAIL`\n  2. `STRATEGY_STATISTICAL_VERDICT`: `VERIFIED_POSITIVE_OOS_EDGE` | `POSITIVE_REUSED_HOLDOUT_ONLY` |\n     `NO_FRESH_OOS` | `INCONCLUSIVE_UNDERPOWERED` | `NEGATIVE_EXPECTANCY`\n  3. `ACTIVATION_READY`: `NO` (unless fresh untouched OOS edge is proven)",
+        "function": "compute_v1793123_dual_verdict",
+        "line": 1340
+      },
+      {
+        "contract": null,
+        "function": "persist_checkpoint",
+        "line": 832
+      },
+      {
+        "contract": null,
+        "function": "_add",
+        "line": 1035
+      }
+    ],
+    "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py": [
+      {
+        "contract": null,
+        "function": "ledger_dataset_hashes",
+        "line": 63
+      },
+      {
+        "contract": null,
+        "function": "canonical_hash",
+        "line": 69
+      },
+      {
+        "contract": null,
+        "function": "_get",
+        "line": 82
+      },
+      {
+        "contract": null,
+        "function": "_closed",
+        "line": 86
+      },
+      {
+        "contract": null,
+        "function": "_valid_evidence_state",
+        "line": 149
+      },
+      {
+        "contract": "Cover the interval exactly with closed source bars, coarse first.\n\nA coarse OHLC bar can prove a level was touched, but not its intrabar\nsequence. Never jump across an uncovered period or use a partial bar.",
+        "function": "_closed_price_path",
+        "line": 161
+      },
+      {
+        "contract": null,
+        "function": "evidence_cache_metrics",
+        "line": 200
+      },
+      {
+        "contract": "Reconstruct features from closed OHLC, never from descriptor booleans/outcomes.",
+        "function": "derive_pre_entry_features_from_causal_context_v1793127",
+        "line": 204
+      },
+      {
+        "contract": "Cover every baseline opportunity; no sample-record or optimistic fallback.",
+        "function": "build_verified_baseline_pre_entry_feature_ledger_v1793127",
+        "line": 484
+      },
+      {
+        "contract": null,
+        "function": "required_proof_rejection_v1793127",
+        "line": 530
+      },
+      {
+        "contract": "Recheck actual final geometry at its own closed-bar decision time.",
+        "function": "rebuild_materialized_intent_proof_v1793127",
+        "line": 563
+      },
+      {
+        "contract": null,
+        "function": "verify_feature_snapshot_v1793127",
+        "line": 596
+      },
+      {
+        "contract": null,
+        "function": "classify_target_failure_modes_v1793127",
+        "line": 632
+      },
+      {
+        "contract": null,
+        "function": "classify_observed_loss_v1793127",
+        "line": 642
+      },
+      {
+        "contract": null,
+        "function": "build_forensic_causal_evidence_join_v1793127",
+        "line": 663
+      },
+      {
+        "contract": null,
+        "function": "__init__",
+        "line": 34
+      },
+      {
+        "contract": null,
+        "function": "__getitem__",
+        "line": 39
+      },
+      {
+        "contract": null,
+        "function": "__setitem__",
+        "line": 41
+      },
+      {
+        "contract": null,
+        "function": "__delitem__",
+        "line": 48
+      },
+      {
+        "contract": null,
+        "function": "__iter__",
+        "line": 54
+      },
+      {
+        "contract": null,
+        "function": "__len__",
+        "line": 55
+      },
+      {
+        "contract": null,
+        "function": "__contains__",
+        "line": 56
+      },
+      {
+        "contract": null,
+        "function": "dataset_hashes",
+        "line": 58
+      },
+      {
+        "contract": null,
+        "function": "encoded_bytes",
+        "line": 60
+      },
+      {
+        "contract": null,
+        "function": "__getattr__",
+        "line": 75
+      },
+      {
+        "contract": null,
+        "function": "__post_init__",
+        "line": 138
+      },
+      {
+        "contract": null,
+        "function": "to_dict",
+        "line": 191
+      },
+      {
+        "contract": null,
+        "function": "record",
+        "line": 269
+      },
+      {
+        "contract": null,
+        "function": "known_swing",
+        "line": 309
+      },
+      {
+        "contract": null,
+        "function": "touched",
+        "line": 445
+      }
+    ],
+    "aurum-desk/backend/services/v17_9_3_1_2_7_matched_ab.py": [
+      {
+        "contract": null,
+        "function": "_index",
+        "line": 17
+      },
+      {
+        "contract": null,
+        "function": "_money",
+        "line": 32
+      },
+      {
+        "contract": null,
+        "function": "compute_policy_decision_diff_v1793127",
+        "line": 51
+      },
+      {
+        "contract": null,
+        "function": "compute_matched_policy_ab_v1793127",
+        "line": 77
+      },
+      {
+        "contract": null,
+        "function": "read_jsonl",
+        "line": 110
+      },
+      {
+        "contract": "Inputs must be separate serialized raw ledgers, never the claimed pair table.",
+        "function": "verify_matched_ab_against_raw_ledgers_v1793127",
+        "line": 116
+      },
+      {
+        "contract": null,
+        "function": "intent",
+        "line": 61
+      }
+    ],
+    "aurum-desk/backend/tests/conftest.py": [
+      {
+        "contract": "Hash the complete runtime sentinel without loading a multi-GiB DB in RAM.",
+        "function": "_sha256_file_bounded",
+        "line": 86,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Sentinel fixture: proves runtime database is never touched or truncated by test suites (V17.7.4 Section 09.3).",
+        "function": "guard_runtime_database",
+        "line": 96,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V14.4.1: certified STANDARD_SMC entry is ON by default and blocks READY without a verified chain.\n\nSuites written before V14.4.1 (news/RR/lesson/fill/telegram behaviour) seed chain-less READY setups.\nThey run in the explicit LEGACY_UNCERTIFIED mode (flag OFF) so that they keep testing what they were\nwritten for. Suites named test_v14_4* always run certified (flag ON) and must prove a real chain;\na test may force either mode with @pytest.mark.certified_entry / @pytest.mark.legacy_entry.",
+        "function": "entry_certification_mode",
+        "line": 134,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_register_basetemp_root",
+        "line": 159,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "pytest_configure",
+        "line": 177,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.7.4 Section 09.2: Ensure pytest's session basetemp is registered as a trusted test root with marker.",
+        "function": "register_test_tmp_path_root",
+        "line": 190,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "anyio_backend",
+        "line": 200,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Provides a fresh isolated in-memory or temp SQLite session for each test function.",
+        "function": "isolated_db",
+        "line": 205,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "TestClient wired to the isolated test database via dependency_overrides.",
+        "function": "client",
+        "line": 223,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V14.2: entry guards require a valid, fresh quote (stale/missing quotes block entry).\nProvides a fresh XAUUSDT ticker on the collector singleton and restores the previous value.\nTests that arm/fill orders must use this (or inject a validated quote explicitly).",
+        "function": "fresh_ticker",
+        "line": 237,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.6.4.3: Ensure execution_consumer, bitget_ws_service, and collector_service do not leak state across test boundaries.",
+        "function": "reset_execution_consumer",
+        "line": 263,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Ensure DayAudit blocked state does not leak across test boundaries in the shared test database.",
+        "function": "reset_daily_audit_isolation",
+        "line": 287,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "override_get_db",
+        "line": 225,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_set",
+        "line": 248,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_clean",
+        "line": 290,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/backend/tests/test_v17_9_3_1_2_7_causal_truth.py": [
+      {
+        "contract": null,
+        "function": "fixture_context",
+        "line": 21
+      },
+      {
+        "contract": null,
+        "function": "decision",
+        "line": 31
+      },
+      {
+        "contract": null,
+        "function": "test_missing_baseline_proof_remains_unknown_and_synthetic",
+        "line": 36
+      },
+      {
+        "contract": null,
+        "function": "test_injected_optimistic_feature_without_proof_rejected",
+        "line": 48
+      },
+      {
+        "contract": null,
+        "function": "test_point_in_time_and_source_hash",
+        "line": 53
+      },
+      {
+        "contract": null,
+        "function": "test_edit_flat_flag_invalidates_proof",
+        "line": 72
+      },
+      {
+        "contract": null,
+        "function": "test_missing_known_at_cannot_be_proven",
+        "line": 78
+      },
+      {
+        "contract": null,
+        "function": "test_missing_decision_timestamp_fails_closed",
+        "line": 83
+      },
+      {
+        "contract": null,
+        "function": "test_provider_label_without_source_receipt_not_promoted_to_real",
+        "line": 90
+      },
+      {
+        "contract": null,
+        "function": "test_future_provider_quote_is_not_real_point_in_time_evidence",
+        "line": 97
+      },
+      {
+        "contract": null,
+        "function": "test_canonical_uppercase_hourly_frames_are_not_silently_lost",
+        "line": 105
+      },
+      {
+        "contract": null,
+        "function": "test_unbound_target_and_wrong_side_stop_stay_unproven",
+        "line": 125
+      },
+      {
+        "contract": null,
+        "function": "test_outcomes_cannot_change_pre_entry_proof",
+        "line": 132
+      },
+      {
+        "contract": null,
+        "function": "test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown",
+        "line": 140
+      },
+      {
+        "contract": null,
+        "function": "test_forensic_legacy_identity_resolves_to_exact_canonical_source_proof",
+        "line": 146
+      },
+      {
+        "contract": null,
+        "function": "test_final_intent_rebuild_uses_final_geometry_and_rejects_nonclosed_cutoff",
+        "line": 161
+      },
+      {
+        "contract": null,
+        "function": "test_gap_is_observed_without_invented_trading_cause",
+        "line": 175
+      },
+      {
+        "contract": null,
+        "function": "test_legacy_casebook_missing_features_never_invents_displacement_or_counterfactual",
+        "line": 180
+      },
+      {
+        "contract": null,
+        "function": "test_quote_timestamp_changes_market_input_identity",
+        "line": 191
+      },
+      {
+        "contract": null,
+        "function": "test_missing_gate_never_passes",
+        "line": 201
+      },
+      {
+        "contract": null,
+        "function": "test_rr_and_quick_loss_do_not_invent_target_or_premature_cause",
+        "line": 209
+      },
+      {
+        "contract": null,
+        "function": "raw_rows",
+        "line": 214
+      },
+      {
+        "contract": null,
+        "function": "test_si8_si9_identity_reported_honestly",
+        "line": 221
+      },
+      {
+        "contract": null,
+        "function": "test_equal_pnl_does_not_hide_different_actual_fill_paths",
+        "line": 228
+      },
+      {
+        "contract": null,
+        "function": "test_matched_identity_and_accounting_negative_controls",
+        "line": 238
+      },
+      {
+        "contract": null,
+        "function": "test_open_and_incremental_candidates_are_not_paired_closed",
+        "line": 248
+      },
+      {
+        "contract": null,
+        "function": "test_same_opportunity_wrong_timestamp_must_not_be_unmatched_discovery",
+        "line": 258
+      },
+      {
+        "contract": null,
+        "function": "test_raw_index_rejects_missing_source_before_matching",
+        "line": 266
+      },
+      {
+        "contract": null,
+        "function": "test_real_fvg_retest_requires_closed_post_formation_touch",
+        "line": 273
+      },
+      {
+        "contract": null,
+        "function": "test_unknown_source_rejects_all_five_models_both_directions",
+        "line": 288
+      },
+      {
+        "contract": null,
+        "function": "test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl",
+        "line": 293
+      },
+      {
+        "contract": null,
+        "function": "test_compressed_pair_publication_is_bound_to_separate_raw_ledgers",
+        "line": 310
+      },
+      {
+        "contract": null,
+        "function": "test_checkpoint_coverage_and_off_observe_negative_controls",
+        "line": 337
+      },
+      {
+        "contract": null,
+        "function": "test_actual_sampled_discovery_records_all_models_and_off_observe_actions",
+        "line": 366
+      },
+      {
+        "contract": null,
+        "function": "test_compact_source_cache_roundtrip_preserves_proofs_and_cannot_be_poisoned",
+        "line": 378
+      },
+      {
+        "contract": null,
+        "function": "test_memory_bounded_shards_preserve_every_file_and_isolate_db_interpreter_group",
+        "line": 397
+      },
+      {
+        "contract": null,
+        "function": "bounded_replay_inputs_v127",
+        "line": 413
+      },
+      {
+        "contract": null,
+        "function": "test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning",
+        "line": 433
+      },
+      {
+        "contract": null,
+        "function": "test_runtime_database_sentinel_hash_reads_are_bounded_and_detect_changes",
+        "line": 452
+      },
+      {
+        "contract": null,
+        "function": "test_latched_resource_abort_stops_each_research_stage_before_more_work",
+        "line": 472
+      },
+      {
+        "contract": null,
+        "function": "test_hash_only_audit_cache_matches_full_independently_derived_snapshot",
+        "line": 494
+      },
+      {
+        "contract": null,
+        "function": "test_reconstruction_child_failure_is_recorded_without_masking_as_missing_file",
+        "line": 505
+      },
+      {
+        "contract": null,
+        "function": "emit",
+        "line": 313
+      },
+      {
+        "contract": null,
+        "function": "emit",
+        "line": 346
+      },
+      {
+        "contract": null,
+        "function": "must_not_run",
+        "line": 481
+      },
+      {
+        "contract": null,
+        "function": "read",
+        "line": 459
+      }
+    ],
+    "aurum-desk/tools/fresh_junit_io.py": [
+      {
+        "contract": "Return one coherent read without changing bytes, timestamps or permissions.\n\nWindows write timestamps can finalize when a writer closes its handle.\nDeny write/delete sharing while capturing; do not bless a later mutation.",
+        "function": "read_closed_junit_artifact",
+        "line": 9,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py": [
+      {
+        "contract": "Maps a pre-registered `SignalIntelligencePolicyV1793122` (`SI0..SI6`) to the\ncorresponding `ExecutableResearchPolicyV179312` execution parameters for\nfull 18,744-timestamp causal materialization and 3-fill-mode portfolio replay.",
+        "function": "_map_si_policy_to_executable_research_policy_v1793122",
+        "line": 116,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Replays a single Signal Intelligence policy (`SI0..SI6`) across all 18,744 unique\neligible M1 timestamps (`56,710` raw eligible decisions) in strict causal chronological\norder across all 3 fill modes (`NEXT_BAR_OPEN_BID_ASK`, `LEGACY_CLOSE_FILL`,\n`STRESS_WIDER_SPREAD_SLIPPAGE_2X`).",
+        "function": "replay_single_si_policy_v1793122",
+        "line": 214,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Lossless worker input; decode one checkpoint, never the entire corpus.",
+        "function": "_CompressedCheckpointDecisionsV1793127",
+        "line": 753,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "Join baseline and discovery without expanding their compressed records.",
+        "function": "_MergedCheckpointDecisionsV1793127",
+        "line": 769,
+        "symbol_kind": "class"
+      },
+      {
+        "contract": "",
+        "function": "_bounded_worker_candidate_index_v1793127",
+        "line": 787,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Top-level picklable worker function for `ProcessPoolExecutor` independent\n1/2/4-worker full-run determinism verification (Section 09 / Truth Closure #3).\nEach worker process loads the canonical dataset and decision stream and\nindependently replays `policy_id` across all 3 fill modes and OOS partitions.",
+        "function": "_worker_replay_policy_task_v1793122",
+        "line": 798,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 09 (Truth Closure #3):\nRuns genuinely independent 1, 2, and 4 worker executions across all 3 fill modes\nand OOS partitions with NO shared digest reuse.\nReturns `(manifest_w1, manifest_w2, manifest_w4, comparison_31)`.",
+        "function": "execute_independent_worker_determinism_runs_v1793122",
+        "line": 901,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Sections 02.J & 03 (`11_signal_intelligence_real_snapshot_before_after.json`,\n`12_feature_flag_off_observe_research_adapter_parity.json`):\nExecutes the real `SharedStrategyEvaluator` across all 5 canonical models on\nhistorical XAUUSDT slices under `OFF`, `OBSERVE_ONLY`, and `RESEARCH_APPLY`\n(`SI1..SI6`) and across `BACKTEST`, `MARKET_SHADOW`, and `PRODUCTION_ORCHESTRATOR`\nadapters.",
+        "function": "evaluate_real_shared_evaluator_snapshots_and_adapter_parity_v1793122",
+        "line": 1057,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_guarded_research_call",
+        "line": 1253,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Executes the complete V17.9.3.1.2.2 Entry Signal Intelligence historical backtest\nand writes artifacts `01..23` and `28..32` into `output_dir`.\nReturns `evidence_by_key` dictionary for gate evaluation.",
+        "function": "run_v17_9_3_1_2_2_entry_signal_backtest_pipeline",
+        "line": 1260,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__init__",
+        "line": 755,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__getitem__",
+        "line": 759,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__iter__",
+        "line": 762,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__len__",
+        "line": 765,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__init__",
+        "line": 771,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__getitem__",
+        "line": 775,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__iter__",
+        "line": 780,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "__len__",
+        "line": 783,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_build_worker_manifest",
+        "line": 994,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_run_a1_fm",
+        "line": 1366,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_run_si_pol",
+        "line": 1444,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_part_stat",
+        "line": 1797,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py": [
+      {
+        "contract": "",
+        "function": "_git_cmd",
+        "line": 61,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Normalizes a `pytest --collect-only -q` node ID line into canonical\n`backend/tests/<module>.py::[ClassName::]<test_name>` format.",
+        "function": "canonicalize_collect_node_id_v1793122",
+        "line": 72,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Normalizes a JUnit XML `<testcase classname=\"...\" name=\"...\"/>` element into\nthe exact same canonical `backend/tests/<module>.py::[ClassName::]<test_name>` format.",
+        "function": "canonicalize_junit_testcase_node_id_v1793122",
+        "line": 95,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Verifies exact 1-to-1 node-ID set bijection between `pytest --collect-only`\nand JUnit XML `<testcase>` records (Truth Closure #1, Gate G41).",
+        "function": "verify_collect_vs_junit_node_id_bijection_v1793122",
+        "line": 119,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_build_resource_bounded_shards_v1793122",
+        "line": 151,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 07 (Truth Closure #1) & V17.9.3.1.2.4 Stage R3 (Fresh Regression Truth):\n1. Discovers all `backend/tests/test_*.py` files in the repository (or `test_files_override`\n   in isolated unit tests).\n2. Runs `pytest --collect-only -q` across the discovered test suite and records all\n   canonical node IDs (`24_full_pytest_collection_node_ids_manifest.json`).\n3. Shards the test files across `<= 4` parallel pytest subprocesses with `--junitxml`,\n   parses every `<testcase>` node ID, and verifies 1-to-1 node-ID bijection\n   (`25_full_regression_shard_junit_and_exact_bijection.json`).\nWhen `force_fresh_execution=True` (mandatory for V17.9.3.1.2.4), deletes any pre-existing\nXML files in `junit_dir` before running and forbids any XML resume shortcut.",
+        "function": "run_full_backend_pytest_collection_and_sharded_junit_v1793122",
+        "line": 259,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "V17.9.3.1.2.4 Stage R3: Verifies that every shard in `junit_report` was freshly\nexecuted on `expected_tested_executable_sha` after `min_mtime_ns`, with `reused=False`,\nvalid subprocess PID, non-empty `xml_sha256`, `pytest_exit_code == 0`, and 1-to-1\nnode-ID bijection. Rejects stale/reused/wrong-SHA JUnit XML RED.",
+        "function": "verify_fresh_junit_shards_attestation_v1793124",
+        "line": 564,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 08 (Truth Closure #2 \u2014 `EXECUTABLE_RED_GREEN_TESTS`):\nExecutes 16 genuine source-level code mutations (`M01..M16`) inside an isolated\ntemporary directory copy of `services/v17_9_3_1_2_2_signal_intelligence.py` and\n`services/scalp_m1_types.py`.\nEach mutation runs a real Python subprocess asserting the invariant:\n  - Under mutated source: subprocess exits with `red_exit_code != 0` (`caught_red = True`).\n  - Under restored/unmutated source: subprocess exits with `green_exit_code == 0` (`restored_green = True`).\nNever modifies the tracked working tree.",
+        "function": "run_16_executable_red_green_source_mutations_v1793122",
+        "line": 617,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Section 08 (Truth Closure #2 \u2014 `EVIDENCE_GATE_MUTATION_TESTS`):\nTests the gate evaluator (`evaluate_all_52_acceptance_gates_v1793122`) against\nin-memory dictionary mutations (`EGM01..EGM12`), strictly separated from\n`26_executable_red_green_source_mutations_exit_codes.json`.",
+        "function": "run_separate_evidence_dictionary_gate_mutations_v1793122",
+        "line": 959,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "Writes `EXECUTIVE_IMPLEMENTATION_AND_EDGE_REPORT.md` summarizing the implementation,\ntruth closures, 24 continuation-loss casebook, SI0..SI6 metrics table, and verdicts.",
+        "function": "write_executive_report_md_v1793122",
+        "line": 1016,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "main",
+        "line": 1068,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_run_shard",
+        "line": 325,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "_run_single_mutation",
+        "line": 862,
+        "symbol_kind": "function"
+      }
+    ],
+    "aurum-desk/tools/run_v17_9_3_1_2_7_verification.py": [
+      {
+        "contract": null,
+        "function": "git",
+        "line": 44
+      },
+      {
+        "contract": null,
+        "function": "write",
+        "line": 48
+      },
+      {
+        "contract": null,
+        "function": "write_rows",
+        "line": 58
+      },
+      {
+        "contract": null,
+        "function": "source_manifest",
+        "line": 66
+      },
+      {
+        "contract": null,
+        "function": "prior_artifact_manifest",
+        "line": 73
+      },
+      {
+        "contract": null,
+        "function": "evaluate_v1793127_acceptance_gates",
+        "line": 144
+      },
+      {
+        "contract": null,
+        "function": "verify_v1793127_artifact_truth",
+        "line": 161
+      },
+      {
+        "contract": "Preserve the actual child failure instead of masking it as a missing file.",
+        "function": "run_independent_source_reconstruction",
+        "line": 194
+      },
+      {
+        "contract": null,
+        "function": "main",
+        "line": 224
+      },
+      {
+        "contract": null,
+        "function": "__init__",
+        "line": 83
+      },
+      {
+        "contract": null,
+        "function": "check",
+        "line": 89
+      },
+      {
+        "contract": null,
+        "function": "loop",
+        "line": 108
+      },
+      {
+        "contract": null,
+        "function": "start",
+        "line": 121
+      },
+      {
+        "contract": null,
+        "function": "stop",
+        "line": 125
+      },
+      {
+        "contract": null,
+        "function": "abort_on_signal",
+        "line": 283
+      },
+      {
+        "contract": null,
+        "function": "child_rss",
+        "line": 95
+      },
+      {
+        "contract": null,
+        "function": "test_gate",
+        "line": 387
+      }
+    ],
+    "aurum-desk/tools/run_v17_9_3_1_2_8_core_evidence.py": [],
+    "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py": [
+      {
+        "contract": null,
+        "function": "verify_fresh_full_junit",
+        "line": 14
+      },
+      {
+        "contract": null,
+        "function": "empirical_policy_statistics",
+        "line": 50
+      },
+      {
+        "contract": null,
+        "function": "verify_git_remote_phase_receipt_v1793127",
+        "line": 79
+      },
+      {
+        "contract": null,
+        "function": "verify_features_from_disk",
+        "line": 96
+      },
+      {
+        "contract": null,
+        "function": "verify_checkpoint_coverage_from_disk",
+        "line": 107
+      },
+      {
+        "contract": "Recompute published economics and worker digests from separate raw files.",
+        "function": "verify_raw_accounting_and_worker_proofs",
+        "line": 133
+      },
+      {
+        "contract": "Rebuild from immutable canonical OHLC + raw decisions, ignoring produced flags.",
+        "function": "reconstruct_feature_sources_from_disk",
+        "line": 232
+      },
+      {
+        "contract": null,
+        "function": "git",
+        "line": 80
+      }
+    ],
+    "aurum-desk/tools/v17_9_3_1_2_7_source_mutations.py": [
+      {
+        "contract": null,
+        "function": "run_new_source_mutations",
+        "line": 39
+      }
+    ],
+    "aurum-desk/tools/v17_9_3_1_2_8_legacy_diagnosis.py": [
+      {
+        "contract": "",
+        "function": "rows",
+        "line": 11,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "diagnose",
+        "line": 16,
+        "symbol_kind": "function"
+      },
+      {
+        "contract": "",
+        "function": "verified",
+        "line": 25,
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  "function_fix_matrix": [
+    {
+      "corrected_contract": "Recovers closed M5 3-bar pivot anchors and multi-TF swing target pools with exact price/tick/direction/known_at binding; separates MEASURED_VALUE from boolean predicates; enforces selected event ID matching.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "derive_pre_entry_features_from_causal_context_v1793127",
+      "original_defect": "M5 structural anchors prefixed v1792_m5_ and multi-TF target pool IDs (5m_sl_, 15m_sl_, 1h_sl_) failed lookup; string biases were coerced via bool() to PROVEN_TRUE; sweep/break pairs were not bound to selected IDs."
+    },
+    {
+      "corrected_contract": "Enforces explicit bar closure and timeframe duration finality <= cutoff_ms.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "_closed",
+      "original_defect": "Defaulted missing is_closed to True on external bars."
+    },
+    {
+      "corrected_contract": "Recomputes full cost-adjusted risk and net RR at materialized entry/SL/TP/qty and rejects violations.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "rebuild_materialized_intent_proof_v1793127",
+      "original_defect": "Did not re-verify planned_net_risk_usd <= 2.50 and net_rr >= 2.0 after repricing."
+    },
+    {
+      "corrected_contract": "Rejects missing known_at fail-closed; deduplicates identical source IDs and rejects ambiguous distinct pools.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "_resolve_unswept_liquidity_pool_target_v1793123",
+      "original_defect": "Used k_ts = now_ms fallback when pool known_at was missing; did not reject ambiguous pools at identical price."
+    }
+  ],
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

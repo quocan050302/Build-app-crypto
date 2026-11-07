@@ -1,0 +1,30 @@
+{
+  "functions": [
+    {
+      "corrected_contract": "Recovers closed M5 3-bar pivot anchors and multi-TF swing target pools with exact price/tick/direction/known_at binding; separates MEASURED_VALUE from boolean predicates; enforces selected event ID matching.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "derive_pre_entry_features_from_causal_context_v1793127",
+      "original_defect": "M5 structural anchors prefixed v1792_m5_ and multi-TF target pool IDs (5m_sl_, 15m_sl_, 1h_sl_) failed lookup; string biases were coerced via bool() to PROVEN_TRUE; sweep/break pairs were not bound to selected IDs."
+    },
+    {
+      "corrected_contract": "Enforces explicit bar closure and timeframe duration finality <= cutoff_ms.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "_closed",
+      "original_defect": "Defaulted missing is_closed to True on external bars."
+    },
+    {
+      "corrected_contract": "Recomputes full cost-adjusted risk and net RR at materialized entry/SL/TP/qty and rejects violations.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "function": "rebuild_materialized_intent_proof_v1793127",
+      "original_defect": "Did not re-verify planned_net_risk_usd <= 2.50 and net_rr >= 2.0 after repricing."
+    },
+    {
+      "corrected_contract": "Rejects missing known_at fail-closed; deduplicates identical source IDs and rejects ambiguous distinct pools.",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "_resolve_unswept_liquidity_pool_target_v1793123",
+      "original_defect": "Used k_ts = now_ms fallback when pool known_at was missing; did not reject ambiguous pools at identical price."
+    }
+  ],
+  "scope": "AST symbol-name inventory and function fix matrix in frozen files.",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

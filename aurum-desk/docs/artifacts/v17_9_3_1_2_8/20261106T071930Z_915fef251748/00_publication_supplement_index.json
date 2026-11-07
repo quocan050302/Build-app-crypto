@@ -1,0 +1,6 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "function_impact_map": "02_source_to_consumer_function_impact_map.json",
+  "required_artifact_name_map": "00_required_artifact_name_map.json",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

@@ -1,0 +1,86 @@
+{
+  "comparisons": [
+    {
+      "claim": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI0_SI8_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI0_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI0_OFF_BASELINE_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI0_OFF_BASELINE_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI8_SI9_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz",
+      "pair_rows": "SI8_SI9_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK.json",
+      "decision_diff_rows": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_LEGACY_CLOSE_FILL.json",
+      "decision_diff_rows": "SI7_SI8_LEGACY_CLOSE_FILL_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_LEGACY_CLOSE_FILL_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_LEGACY_CLOSE_FILL_trades.jsonl.gz"
+    },
+    {
+      "claim": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X.json",
+      "decision_diff_rows": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_decision_diff.jsonl.gz",
+      "decisions_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz",
+      "decisions_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz",
+      "pair_rows": "SI7_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X_pairs.jsonl.gz",
+      "trades_a": "SI7_CORE_TRADING_LOGIC_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz",
+      "trades_b": "SI8_RESEARCH_DISCOVERY_REPAIRED_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"
+    }
+  ],
+  "independent_disk_verification": "24_disk_integrity_check.json"
+}

@@ -1,0 +1,15 @@
+{
+  "baseline_v126_sha": "3ed8f8af337a1a065da265861f95ddd2d7f625a4",
+  "baseline_v127_executable_sha": "c20adf96828ccc09eb007cc5bfab6dd3edc671ac",
+  "baseline_v127_head_sha": "2c10eabf1bd30cc9c1e110b63d2a178619fbb893",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "prior_artifact_immutability": {
+    "after_sha256": "de0d4685c074b2ea5ac5bbc3ec3ec3ea731cf449020a8a8f1fe4fed4679409d0",
+    "before_sha256": "de0d4685c074b2ea5ac5bbc3ec3ec3ea731cf449020a8a8f1fe4fed4679409d0",
+    "changed_files": [],
+    "files": 9244,
+    "status": "PASS"
+  },
+  "source_manifest_sha256": "a56dc73df5ad4c8adac56e049295ec91baf5d5ad7e250ef13cbe3f5d3568a1da",
+  "tested_phase_a_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

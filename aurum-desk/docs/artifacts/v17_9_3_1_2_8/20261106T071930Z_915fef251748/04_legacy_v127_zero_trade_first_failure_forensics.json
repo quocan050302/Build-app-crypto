@@ -1,0 +1,1265 @@
+{
+  "archived_executable_sha": "c20adf96828ccc09eb007cc5bfab6dd3edc671ac",
+  "canonical_decisions": 75525,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "input_sha256": {
+    "10_canonical_decision_inputs.jsonl.gz": "dbd72a1420a93ebcd6f0335e275f081135128c47e4b255097884b64adf04e8de",
+    "SI1_MODEL_QUALITY_AND_ARBITRATION_decisions.jsonl.gz": "c3d94a962fc9a1916f7095ea7db769ddb8055058209c7a7ef87bb2e93ace49d0",
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION_decisions.jsonl.gz": "c699b025b404628b486fbe51076bd05a6ab1cb77d76ae435b4b2a5a182f06f26",
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY_decisions.jsonl.gz": "e586e5397281b221512ba6ff4db82f37c0cb134403232bd98c9c4235dc5ee018",
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN_decisions.jsonl.gz": "f923da967abc8921698ba4ef333a8b351ba049778d4e6ab8083bc088297c280b",
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET_decisions.jsonl.gz": "1e23db2ef2db0e343373583bc6749a64e1934a97d595a603382c3bd4ce22cd08",
+    "SI6_COMBINED_PREDECLARED_decisions.jsonl.gz": "be0c24da5ad66836ed30147ae825e0216320901238e533905d478784295f2151",
+    "SI7_CORE_TRADING_LOGIC_REPAIRED_decisions.jsonl.gz": "c7f2b34280bbd7cb4b525aa07276d857f1392f46a7aaf9dbfa6bd90bd3058333",
+    "SI8_RESEARCH_DISCOVERY_REPAIRED_decisions.jsonl.gz": "c9a7feb4c3f068e8b40a64d899b4930f2cbb466847bd7fd86e23d3e36e1ae0a9",
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS_decisions.jsonl.gz": "41bfa3129b5aba276b2b75d2ea77e2af001f9efcb4bcea93b1810e6c9d58b9ec"
+  },
+  "policy_first_rejection_by_model_side": {
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        },
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        },
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 426,
+          "distinct_setup_episodes": 426
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_OUTSIDE_ICT_MACRO_TIME_WINDOW": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1471,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2146,
+          "distinct_setup_episodes": 2146
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 425,
+          "distinct_setup_episodes": 425
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7229,
+          "distinct_setup_episodes": 1471
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8521,
+          "distinct_setup_episodes": 1721
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2130,
+          "distinct_setup_episodes": 481
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3359,
+          "distinct_setup_episodes": 1464
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 4363,
+          "distinct_setup_episodes": 1689
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1157,
+          "distinct_setup_episodes": 488
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3157,
+          "distinct_setup_episodes": 1447
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 3849,
+          "distinct_setup_episodes": 1575
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 985,
+          "distinct_setup_episodes": 432
+        }
+      }
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7261,
+          "distinct_setup_episodes": 1480
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8567,
+          "distinct_setup_episodes": 1728
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2133,
+          "distinct_setup_episodes": 483
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1870,
+          "distinct_setup_episodes": 1656
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2414,
+          "distinct_setup_episodes": 2276
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 767,
+          "distinct_setup_episodes": 565
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7341,
+          "distinct_setup_episodes": 1521
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8592,
+          "distinct_setup_episodes": 1756
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2221,
+          "distinct_setup_episodes": 527
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8238,
+          "distinct_setup_episodes": 3206
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7113,
+          "distinct_setup_episodes": 2671
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1908,
+          "distinct_setup_episodes": 765
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 23,
+          "distinct_setup_episodes": 10
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8431,
+          "distinct_setup_episodes": 3251
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 6785,
+          "distinct_setup_episodes": 2583
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1796,
+          "distinct_setup_episodes": 724
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 27,
+          "distinct_setup_episodes": 10
+        }
+      }
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "CG01_SWEEP_MSS_FVG/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7261,
+          "distinct_setup_episodes": 1480
+        }
+      },
+      "CG01_SWEEP_MSS_FVG/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8567,
+          "distinct_setup_episodes": 1728
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2133,
+          "distinct_setup_episodes": 483
+        },
+        "REJECTED_UNPROVEN:sweep_mss_ordered": {
+          "decisions": 2,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:sweep_reclaimed": {
+          "decisions": 9,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 1870,
+          "distinct_setup_episodes": 1656
+        }
+      },
+      "SMC_M1_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 2414,
+          "distinct_setup_episodes": 2276
+        },
+        "REJECTED_UNPROVEN:displacement_valid": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 767,
+          "distinct_setup_episodes": 565
+        },
+        "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": {
+          "decisions": 1,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7341,
+          "distinct_setup_episodes": 1521
+        }
+      },
+      "SMC_M1_FVG_CONTINUATION/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8592,
+          "distinct_setup_episodes": 1756
+        },
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+          "decisions": 11,
+          "distinct_setup_episodes": 1
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 2221,
+          "distinct_setup_episodes": 527
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 7,
+          "distinct_setup_episodes": 1
+        }
+      },
+      "SMC_M1_REVERSAL/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8238,
+          "distinct_setup_episodes": 3206
+        }
+      },
+      "SMC_M1_REVERSAL/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 7113,
+          "distinct_setup_episodes": 2671
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1908,
+          "distinct_setup_episodes": 765
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 23,
+          "distinct_setup_episodes": 10
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/LONG": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 8431,
+          "distinct_setup_episodes": 3251
+        }
+      },
+      "SMC_M1_SWEEP_RECLAIM/SHORT": {
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+          "decisions": 6785,
+          "distinct_setup_episodes": 2583
+        },
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+          "decisions": 1796,
+          "distinct_setup_episodes": 724
+        },
+        "REJECTED_UNPROVEN:target_unswept": {
+          "decisions": 27,
+          "distinct_setup_episodes": 10
+        }
+      }
+    }
+  },
+  "scope": "Archived first recorded decision rejection; not a new backtest or full stage funnel",
+  "selected_metadata_by_model_side": {
+    "CG01_SWEEP_MSS_FVG/LONG": {
+      "selected_anchor_id:present": 7261,
+      "selected_break_id:missing": 32,
+      "selected_break_id:present": 7229,
+      "selected_fvg_id:missing": 32,
+      "selected_fvg_id:present": 7229,
+      "selected_sweep_id:missing": 32,
+      "selected_sweep_id:present": 7229,
+      "selected_target_id:present": 7261
+    },
+    "CG01_SWEEP_MSS_FVG/SHORT": {
+      "selected_anchor_id:present": 10718,
+      "selected_break_id:missing": 49,
+      "selected_break_id:present": 10669,
+      "selected_fvg_id:missing": 49,
+      "selected_fvg_id:present": 10669,
+      "selected_sweep_id:missing": 49,
+      "selected_sweep_id:present": 10669,
+      "selected_target_id:present": 10718
+    },
+    "SMC_M1_CONTINUATION/LONG": {
+      "selected_anchor_id:present": 1870,
+      "selected_break_id:missing": 604,
+      "selected_break_id:present": 1266,
+      "selected_fvg_id:missing": 1870,
+      "selected_sweep_id:missing": 604,
+      "selected_sweep_id:present": 1266,
+      "selected_target_id:present": 1870
+    },
+    "SMC_M1_CONTINUATION/SHORT": {
+      "selected_anchor_id:present": 3183,
+      "selected_break_id:missing": 972,
+      "selected_break_id:present": 2211,
+      "selected_fvg_id:missing": 3183,
+      "selected_sweep_id:missing": 972,
+      "selected_sweep_id:present": 2211,
+      "selected_target_id:present": 3183
+    },
+    "SMC_M1_FVG_CONTINUATION/LONG": {
+      "selected_anchor_id:present": 7341,
+      "selected_break_id:missing": 112,
+      "selected_break_id:present": 7229,
+      "selected_fvg_id:missing": 112,
+      "selected_fvg_id:present": 7229,
+      "selected_sweep_id:missing": 7341,
+      "selected_target_id:present": 7341
+    },
+    "SMC_M1_FVG_CONTINUATION/SHORT": {
+      "selected_anchor_id:present": 10831,
+      "selected_break_id:missing": 162,
+      "selected_break_id:present": 10669,
+      "selected_fvg_id:missing": 162,
+      "selected_fvg_id:present": 10669,
+      "selected_sweep_id:missing": 10831,
+      "selected_target_id:present": 10831
+    },
+    "SMC_M1_REVERSAL/LONG": {
+      "selected_anchor_id:present": 8238,
+      "selected_break_id:missing": 8238,
+      "selected_fvg_id:missing": 8062,
+      "selected_fvg_id:present": 176,
+      "selected_sweep_id:missing": 5023,
+      "selected_sweep_id:present": 3215,
+      "selected_target_id:present": 8238
+    },
+    "SMC_M1_REVERSAL/SHORT": {
+      "selected_anchor_id:present": 9044,
+      "selected_break_id:missing": 9044,
+      "selected_fvg_id:missing": 8553,
+      "selected_fvg_id:present": 491,
+      "selected_sweep_id:missing": 3721,
+      "selected_sweep_id:present": 5323,
+      "selected_target_id:present": 9044
+    },
+    "SMC_M1_SWEEP_RECLAIM/LONG": {
+      "selected_anchor_id:present": 8431,
+      "selected_break_id:missing": 8431,
+      "selected_fvg_id:missing": 8431,
+      "selected_sweep_id:missing": 5392,
+      "selected_sweep_id:present": 3039,
+      "selected_target_id:present": 8431
+    },
+    "SMC_M1_SWEEP_RECLAIM/SHORT": {
+      "selected_anchor_id:present": 8608,
+      "selected_break_id:missing": 8608,
+      "selected_fvg_id:missing": 8608,
+      "selected_sweep_id:missing": 3776,
+      "selected_sweep_id:present": 4832,
+      "selected_target_id:present": 8608
+    }
+  },
+  "v127_vs_v128_proof_state_recovery": {
+    "protected_structure_independent_of_sl_delta_proven_true": 71990,
+    "target_selected_pool_bound_delta_proven_true": 67222,
+    "target_unswept_delta_proven_true": 64923,
+    "v127_proof_states": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 75525
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 12012,
+        "PROVEN_TRUE": 63511,
+        "UNKNOWN": 2
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 75525
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 27005,
+        "PROVEN_TRUE": 48520
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 18949,
+        "PROVEN_TRUE": 56576
+      },
+      "h1_bias": {
+        "PROVEN_TRUE": 75525
+      },
+      "h4_bias": {
+        "PROVEN_TRUE": 75525
+      },
+      "m15_bias": {
+        "PROVEN_TRUE": 75525
+      },
+      "m5_bias": {
+        "PROVEN_TRUE": 75525
+      },
+      "mss_confirmed": {
+        "PROVEN_FALSE": 2,
+        "PROVEN_TRUE": 75523
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 17863,
+        "PROVEN_TRUE": 30655,
+        "UNKNOWN": 27007
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 416,
+        "UNKNOWN": 75109
+      },
+      "sweep_confirmed": {
+        "PROVEN_FALSE": 16,
+        "PROVEN_TRUE": 75509
+      },
+      "sweep_mss_ordered": {
+        "PROVEN_FALSE": 60377,
+        "PROVEN_TRUE": 15130,
+        "UNKNOWN": 18
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 41159,
+        "PROVEN_TRUE": 34366
+      },
+      "target_reachable": {
+        "UNKNOWN": 75525
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 1621,
+        "UNKNOWN": 73904
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 74247,
+        "PROVEN_TRUE": 1278
+      }
+    },
+    "v128_proof_states": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 75525
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 946,
+        "PROVEN_TRUE": 9042,
+        "UNKNOWN": 65537
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 75525
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 27005,
+        "PROVEN_TRUE": 48520
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 18949,
+        "PROVEN_TRUE": 56576
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 75525
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 75525
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 75525
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 75525
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 9988,
+        "UNKNOWN": 65537
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 1336,
+        "PROVEN_TRUE": 5260,
+        "UNKNOWN": 68929
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 72406,
+        "UNKNOWN": 3119
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 3604,
+        "UNKNOWN": 71921
+      },
+      "sweep_mss_ordered": {
+        "PROVEN_FALSE": 167,
+        "PROVEN_TRUE": 386,
+        "UNKNOWN": 74972
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 659,
+        "PROVEN_TRUE": 2945,
+        "UNKNOWN": 71921
+      },
+      "target_reachable": {
+        "UNKNOWN": 75525
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 67222,
+        "UNKNOWN": 8303
+      },
+      "target_unswept": {
+        "PROVEN_FALSE": 570,
+        "PROVEN_TRUE": 66544,
+        "UNKNOWN": 8411
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 74247,
+        "PROVEN_TRUE": 1278
+      }
+    }
+  }
+}

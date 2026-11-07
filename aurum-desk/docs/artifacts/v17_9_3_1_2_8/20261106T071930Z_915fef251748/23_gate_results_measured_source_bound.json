@@ -1,0 +1,825 @@
+{
+  "activation_ready": "NO",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "engineering_verdict": "BLOCKED_PENDING_EXTERNAL_PHASE_C_RECEIPT",
+  "gates_g01_to_g34": [
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G01",
+      "measured": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "prior_immutability": "PASS"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Same existing branch; ancestry correct, no force push",
+      "source": "01_git_branch_ancestry_source_sha_and_prior_immutability.json",
+      "source_sha256": "ff5b6f83c6fe15349473883b386913b15d87545cd5c4735923780b6b5d7e59c9",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G02",
+      "measured": "915fef251748546e36a1288356420c009fa49574",
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Frozen Phase A executable commit SHA identical in regression/backtest/mutations/replay",
+      "source": "01_git_preflight_and_frozen_executable_sha.json",
+      "source_sha256": "3b9c9c2f445169d1ee1acdb5d937252fede0ad023f3e84f735ae23c4e8290efe",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G03",
+      "measured": {
+        "bad_bars": 0,
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Canonical OHLC integrity, closure/known_at and dataset SHA",
+      "source": "03_market_data_closure_gap_and_quote_provenance.json",
+      "source_sha256": "af2fb94835afd00b5b7fe94e0ac43ddbf34cbf39770ce06399c030a6f84b2e77",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G04",
+      "measured": {
+        "actual_unique_rows": 223460,
+        "canonical_keys_sha256": "455e7f7c81a2b5b192c5e0bfbb384b2536616915e92908c158bea49974c01f32",
+        "expected_rows": 223460,
+        "off_observe_action_mismatches": 0,
+        "status": "PASS",
+        "violations": {}
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Full-universe exact checkpoint x model x direction bijection; no sample shortcuts",
+      "source": "05_independent_checkpoint_and_off_observe_verification.json",
+      "source_sha256": "3bec0999579675c1543d876de2312d4ffc549e5b88fb8e7264842b8f67e9b90a",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G05",
+      "measured": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "mismatch_ids": [],
+        "missing_count": 0,
+        "reconstructed_count": 75525,
+        "status": "PASS"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Every feature has typed proof and source ID; hash / known_at causal",
+      "source": "07_independent_source_reconstruction.json",
+      "source_sha256": "1f56b8223644d3b1f617329b0a16dc7b93303b32ec6d9386c7fa8fd0f15b109e",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G06",
+      "measured": {
+        "rows": 75525
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Pre-entry HTF/structure/sweep/MSS/FVG/Unicorn source events bound to actual selected setup",
+      "source": "06_causal_evidence_contract_and_proof_state_counts.json",
+      "source_sha256": "38225cfee4d8f434b419c38325f561406905b44aa527c6083255f37093186557",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G07",
+      "measured": [
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI0_OFF_BASELINE-False]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI8_RESEARCH_DISCOVERY_REPAIRED-False]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI8_RESEARCH_DISCOVERY_REPAIRED-True]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS-True]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_checkpoint_coverage_and_off_observe_negative_controls[duplicate]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_checkpoint_coverage_and_off_observe_negative_controls[future]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_checkpoint_coverage_and_off_observe_negative_controls[missing]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_checkpoint_coverage_and_off_observe_negative_controls[unknown_model]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_compressed_pair_publication_is_bound_to_separate_raw_ledgers[duplicate_episode]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_final_intent_rebuild_uses_final_geometry_and_rejects_nonclosed_cutoff",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_future_provider_quote_is_not_real_point_in_time_evidence",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[entry_reference-2654.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[hypothetical_quantity-0.03]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[selected_sl-2644.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[take_profit-2671.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[fvg_retest_valid]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[mss_confirmed]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[protected_structure_independent_of_sl]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[sweep_confirmed]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[target_unswept]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[unicorn_breaker_fvg_bound]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_legacy_casebook_missing_features_never_invents_displacement_or_counterfactual",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_matched_identity_and_accounting_negative_controls[duplicate]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_matched_identity_and_accounting_negative_controls[missing_source]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_missing_baseline_proof_remains_unknown_and_synthetic",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_missing_decision_timestamp_fails_closed",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_missing_gate_never_passes",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_missing_known_at_cannot_be_proven",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_point_in_time_and_source_hash[future]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_point_in_time_and_source_hash[partial]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[None]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_reconstruction_child_failure_is_recorded_without_masking_as_missing_file",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-CG01_SWEEP_MSS_FVG]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_FVG_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_REVERSAL]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_SWEEP_RECLAIM]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-CG01_SWEEP_MSS_FVG]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_FVG_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_REVERSAL]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_SWEEP_RECLAIM]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_ambiguous_pool_or_unprotective_stop_cannot_certify_target[False-101]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_ambiguous_pool_or_unprotective_stop_cannot_certify_target[True-98]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_final_intent_rechecks_size_after_repricing[0.11-REJECTED_UNPROVEN:FINAL_RISK_OR_QUANTITY_MISMATCH]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_selected_m5_anchor_matches_exact_closed_detector_source[future_confirmation-LONG]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_selected_m5_anchor_matches_exact_closed_detector_source[future_confirmation-SHORT]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_selected_m5_target_requires_exact_pool_and_complete_unswept_path[missing_path]"
+      ],
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "No optimistic feature/pool/anchor/quote or timestamp fallback",
+      "source": "08_missing_evidence_fail_closed_counterexamples.json",
+      "source_sha256": "57562216b41ab5463e88abd5ed39b1cb00a94037aa1aa5b9ac3e445d0738b189",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G08",
+      "measured": [],
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Both LONG and SHORT and all five models have positive unit controls with real closed-bar event proof",
+      "source": "11_real_positive_controls_and_negative_mutations.json",
+      "source_sha256": "7934832543f0528c38dc26d09dba4faaa47b6dedaa8c30f95791e0f6519ca410",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G09",
+      "measured": [
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI0_OFF_BASELINE-False]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI8_RESEARCH_DISCOVERY_REPAIRED-False]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI8_RESEARCH_DISCOVERY_REPAIRED-True]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_bounded_worker_inputs_preserve_actual_replay_and_reject_poisoning[SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS-True]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_checkpoint_coverage_and_off_observe_negative_controls[unknown_model]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_final_intent_rebuild_uses_final_geometry_and_rejects_nonclosed_cutoff",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[entry_reference-2654.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[hypothetical_quantity-0.03]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[selected_sl-2644.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_geometry_changes_invalidate_proof_even_when_signal_flags_are_unknown[take_profit-2671.0]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[fvg_retest_valid]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[mss_confirmed]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[protected_structure_independent_of_sl]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[sweep_confirmed]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[target_unswept]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_injected_optimistic_feature_without_proof_rejected[unicorn_breaker_fvg_bound]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_missing_baseline_proof_remains_unknown_and_synthetic",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[None]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_raw_index_rejects_missing_source_before_matching[]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-CG01_SWEEP_MSS_FVG]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_FVG_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_REVERSAL]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[LONG-SMC_M1_SWEEP_RECLAIM]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-CG01_SWEEP_MSS_FVG]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_FVG_CONTINUATION]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_REVERSAL]",
+        "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_unknown_source_rejects_all_five_models_both_directions[SHORT-SMC_M1_SWEEP_RECLAIM]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_ambiguous_pool_or_unprotective_stop_cannot_certify_target[False-101]",
+        "backend/tests/test_v17_9_3_1_2_8_source_binding_and_trade_recovery.py::test_ambiguous_pool_or_unprotective_stop_cannot_certify_target[True-98]"
+      ],
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Negative controls reject unrelated/ambiguous/unknown source, future event and swapped price/ID",
+      "source": "18_independent_junit_verification.json",
+      "source_sha256": "2215bc50e7488292c6a45ce3d2684df7401bf9f1c83d22d07e2382391b3513e3",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G10",
+      "measured": {
+        "PROVEN_FALSE": 27005,
+        "PROVEN_TRUE": 48520
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Causal FVG postformation retest and mitigation valid",
+      "source": "06_causal_evidence_contract_and_proof_state_counts.json",
+      "source_sha256": "38225cfee4d8f434b419c38325f561406905b44aa527c6083255f37093186557",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G11",
+      "measured": {
+        "PROVEN_TRUE": 72406,
+        "UNKNOWN": 3119
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "SL anchor is genuinely protected, selected, with actual known price/time, and risk adjusted",
+      "source": "08_selected_swing_and_target_pool_source_binding_audit.json",
+      "source_sha256": "47b5feefa18afbb529597aae6339a8365413b78a6ff4a44575bd15f198e9f996",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G12",
+      "measured": {
+        "PROVEN_FALSE": 570,
+        "PROVEN_TRUE": 66544,
+        "UNKNOWN": 8411
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Liquidity target is opposing, known, unswept and matches selected pool and TP within symbol tick",
+      "source": "08_selected_swing_and_target_pool_source_binding_audit.json",
+      "source_sha256": "47b5feefa18afbb529597aae6339a8365413b78a6ff4a44575bd15f198e9f996",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G13",
+      "measured": {
+        "UNKNOWN": 75525
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Target ex-ante feasibility is a defined geometric/cost predicate, not future TP realization",
+      "source": "09_target_structural_validity_and_pre_entry_feasibility_spec.json",
+      "source_sha256": "e429ab16a57e5d31720ac101fa0dea70513657ec831ddff98ee651a11d00e3b0",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G14",
+      "measured": {
+        "policies_count": 10
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Every policy has full, exact stage-by-stage rejection funnel with source-grounded failure IDs",
+      "source": "10_rejection_funnel_by_model_side_stage_and_unique_setup.json",
+      "source_sha256": "a2282fa50cce0d999c353167dcb2d9594b8b5185a1c4e554d69690ae816a658c",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G15",
+      "measured": {
+        "off_observe_action_mismatches": 0
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "SI0 OFF and OBSERVE_ONLY action parity exact against frozen baseline",
+      "source": "05_independent_checkpoint_and_off_observe_verification.json",
+      "source_sha256": "3bec0999579675c1543d876de2312d4ffc549e5b88fb8e7264842b8f67e9b90a",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G16",
+      "measured": {
+        "unknown_eligibility": "REJECTED_UNPROVEN"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "New repaired official research policy cannot accept missing proofs; no gate bypass for higher trades",
+      "source": "10_rejection_funnel_by_model_side_stage_and_unique_setup.json",
+      "source_sha256": "a2282fa50cce0d999c353167dcb2d9594b8b5185a1c4e554d69690ae816a658c",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G17",
+      "measured": {
+        "violations": 0
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Full materialized intent proof recomputed from FINAL entry/SL/TP/qty with same data cutoff",
+      "source": "15_risk_cost_violations.json",
+      "source_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G18",
+      "measured": {
+        "comparisons_verified": 9
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "True matched A/B raw ledger integrity and exact trade accounting; zero pairs => unavailable edge",
+      "source": "13_full_matched_ab_and_independent_disk_reconciliation.json",
+      "source_sha256": "7840b8a952d9b7c26b3abdcb351ad08b03c88ec7f44754794c04ed1f59bf108f",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G19",
+      "measured": {
+        "fill_modes": 3,
+        "policies": 10
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Chronological fill/risk/cost validity for all 3 distinct modes",
+      "source": "15_all_policies_all_three_fill_modes_metrics.json",
+      "source_sha256": "065f19d6af14922d1170423d3ad158906cf374e9bc601bcbfb56ad5c14a28ef8",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G20",
+      "measured": {
+        "FILL_GAP/AMBIGUOUS_INTRABAR": 1,
+        "OTHER/UNKNOWN": 208,
+        "SWEEP_NOT_RECLAIMED": 1,
+        "WRONG_SIDE_HTF": 32
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Forensic outcome join and UNKNOWN taxonomy; no spurious target or stop claims",
+      "source": "14_loss_forensics_observed_hypothesis_unknown_and_sl_noise.json",
+      "source_sha256": "197aff83c548056910bd9d003c1ce77edc97e95b780d83b2a57fbbdb6d8a82b3",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G21",
+      "measured": {
+        "errors": 0,
+        "executed": 5085,
+        "failures": 0,
+        "passed": 5077
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Fresh full collection vs fresh executed JUnit exact node-ID multiset, 0 unaccounted tests",
+      "source": "18_independent_junit_verification.json",
+      "source_sha256": "2215bc50e7488292c6a45ce3d2684df7401bf9f1c83d22d07e2382391b3513e3",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G22",
+      "measured": {
+        "skipped": [
+          {
+            "node_id": "backend/tests/test_v12_3_acceptance.py::test_p11_artifact_containment_rejects_symlink_escape",
+            "reason": "Symlink creation not permitted on this Windows user account"
+          },
+          {
+            "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05_symbolic_link_to_unsafe_database_rejected",
+            "reason": "Symlink creation requires elevated privilege on Windows (WinError 1314)"
+          },
+          {
+            "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05b_hardlink_to_runtime_database_rejected",
+            "reason": "Hardlink creation not supported across filesystems/volumes: [WinError 17] The system cannot move the file to a different disk drive: 'D:\\\\build app-crypto\\\\aurum-desk\\\\backend\\\\aurum_desk.db' -> 'C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Temp\\\\aurum_test_root_a7lezxql\\\\hardlink_to_runtime.db'"
+          },
+          {
+            "node_id": "backend/tests/test_v17_7_database_safety.py::test_db_final_04_symlink_outside_test_root_rejected",
+            "reason": "Symlink creation requires elevated privilege on Windows"
+          },
+          {
+            "node_id": "backend/tests/test_v12_1_acceptance.py::test_t06_downsampling_disclosure",
+            "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+          },
+          {
+            "node_id": "backend/tests/test_v12_1_acceptance.py::test_t23_factor_audit_real_observed_values",
+            "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+          },
+          {
+            "node_id": "backend/tests/test_v12_1_acceptance.py::test_t26_sheet_11_ny_quota",
+            "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+          },
+          {
+            "node_id": "backend/tests/test_v12_1_acceptance.py::test_t28_comparison_workbook_5_sheets",
+            "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+          }
+        ],
+        "skipped_count": 8
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Valid skip reasons and full failure/error accounting; no silent skips",
+      "source": "18_independent_junit_verification.json",
+      "source_sha256": "2215bc50e7488292c6a45ce3d2684df7401bf9f1c83d22d07e2382391b3513e3",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G23",
+      "measured": {
+        "new_mutations": 12,
+        "old_mutations": 16
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "All executable RED/GREEN mutations genuinely red then restored green",
+      "source": "19_red_green_source_mutations_old_and_new.json",
+      "source_sha256": "636f6006d8efc5e4105241491fb3295b72bcc81df65057180057fd6360db66d8",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G24",
+      "measured": {
+        "control_nodes_count": 198
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Independent proof negative controls fail when artifact/hash/source altered",
+      "source": "20_negative_controls_failure_attestations.json",
+      "source_sha256": "75ccb1751ff9d13ba37fdf5b8113d231c1ac856c63384f1c1b57e96350a6bcab",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G25",
+      "measured": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "defect_closed": "TRUTH_CLOSURE_3_GENUINE_1_2_4_WORKER_INDEPENDENT_DETERMINISM",
+        "independent_execution_no_shared_digest_reuse": true,
+        "per_policy_hash_parity": {
+          "SI0_OFF_BASELINE": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            }
+          },
+          "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            }
+          },
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            }
+          },
+          "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            }
+          },
+          "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI6_COMBINED_PREDECLARED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          }
+        },
+        "schema_version": "17.9.3.1.2.2",
+        "worker_1_sha256": "3f19787b729acb2b7f3587efa77f6fd9d89c42fcc861502d51c202c8956f0264",
+        "worker_1_wall_time_seconds": 630.539,
+        "worker_2_sha256": "3f19787b729acb2b7f3587efa77f6fd9d89c42fcc861502d51c202c8956f0264",
+        "worker_2_wall_time_seconds": 321.116,
+        "worker_4_sha256": "3f19787b729acb2b7f3587efa77f6fd9d89c42fcc861502d51c202c8956f0264",
+        "worker_4_wall_time_seconds": 208.585
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "All 1/2/4 worker replay results are independently computed and digest identical over RAW rows",
+      "source": "21_1v2v4_independent_determinism_sha_manifest.json",
+      "source_sha256": "0a2496c01dc3262a81f8da4d249552f696fed8e337428031c252fe84ab1860f8",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G26",
+      "measured": {
+        "max_children": 4,
+        "orphans": []
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Global max 4 heavy workers, disk >=5 GiB and RAM reserve obeyed; children cleaned",
+      "source": "22_cpu_ram_disk_child_process_cleanup_and_runtime.json",
+      "source_sha256": "a5830bca8f12a335c405f3ffe88c21bd112212deae4f05ece0b5e1c3e25f710d",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G27",
+      "measured": {
+        "policies": [
+          "SI0_OFF_BASELINE",
+          "SI1_MODEL_QUALITY_AND_ARBITRATION",
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+          "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+          "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+          "SI6_COMBINED_PREDECLARED",
+          "SI7_CORE_TRADING_LOGIC_REPAIRED",
+          "SI8_RESEARCH_DISCOVERY_REPAIRED",
+          "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"
+        ]
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "All policies/fill results and official full universe complete, not truncated",
+      "source": "15_all_policies_three_fill_modes_portfolio_replays.json",
+      "source_sha256": "142a57a98ba05d4850557dda851a6b3907ed8ba1c78748c0e998ff0a255e6445",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G28",
+      "measured": {
+        "target_reachable_unknown": 75525
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "No lookahead, post-outcome label in pre-entry proof, or holdout leakage",
+      "source": "09_target_structural_validity_and_pre_entry_feasibility_spec.json",
+      "source_sha256": "e429ab16a57e5d31720ac101fa0dea70513657ec831ddff98ee651a11d00e3b0",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G29",
+      "measured": {
+        "embargo_bars_m1": 180,
+        "fresh_oos": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "DEV/VAL/holdout proper purge and fresh OOS status not fabricated",
+      "source": "16_DEV_VAL_REUSED_HOLDOUT_FRESH_OOS_purge_and_uncertainty.json",
+      "source_sha256": "37fa9a07af82466f2b18b53d5d7af261eabf632784ff0d0a3974279dc3169285",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G30",
+      "measured": {
+        "strategy_statistical_verdict": "INCONCLUSIVE_UNDERPOWERED"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Stats/CI/fees/PnL/OOS and edge verdict derived, not hardcoded or vacuously positive",
+      "source": "24_strategy_statistical_edge_and_activation_verdict.json",
+      "source_sha256": "a43b8d9a78611b92cdfaa35108111e111bbcae8beda16b571e3839eb4b64b72d",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G31",
+      "measured": {
+        "activation_ready": "NO"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Activation remains NO and all production adapters remain OFF",
+      "source": "24_strategy_statistical_edge_and_activation_verdict.json",
+      "source_sha256": "a43b8d9a78611b92cdfaa35108111e111bbcae8beda16b571e3839eb4b64b72d",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G32",
+      "measured": {
+        "errors": [],
+        "status": "PASS",
+        "verified_files": 535
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Artifact manifest covers every required raw artifact and independent verifier passes on disk",
+      "source": "24_disk_integrity_check.json",
+      "source_sha256": "04c10382f10b7264771a6ca33edaeed4a9478310f62367d1b182f871c48c6108",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G33",
+      "measured": {
+        "external_phase_b_receipt": "../publication_20261106T071930Z_915fef251748.json",
+        "phase_a_sha": "915fef251748546e36a1288356420c009fa49574"
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Git Phase A code and Phase B evidence commits exist and are pushed on SAME branch, remote SHA read-back proven",
+      "source": "01_git_branch_ancestry_source_sha_and_prior_immutability.json",
+      "source_sha256": "ff5b6f83c6fe15349473883b386913b15d87545cd5c4735923780b6b5d7e59c9",
+      "status": "PASS",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G34",
+      "measured": {
+        "note": "Prepublication inside immutable run folder; finalized externally in Phase C latest_run.json and publication receipt to avoid self-referential commit hash."
+      },
+      "negative_control_id": "20_negative_controls_failure_attestations.json",
+      "recompute_algorithm": "verify_v1793127_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Phase C publication receipt committed/pushed, final remote HEAD equal to intended Phase C SHA; external read-back verified",
+      "source": "00_run_manifest.json",
+      "source_sha256": "ad168a608d246c2c1f348c9a686329dd4b2cb84f7e5aadfa47e5b91eb344dd2e",
+      "status": "BLOCKED",
+      "tested_sha": "915fef251748546e36a1288356420c009fa49574"
+    }
+  ],
+  "prepublication_engineering": "PASS",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

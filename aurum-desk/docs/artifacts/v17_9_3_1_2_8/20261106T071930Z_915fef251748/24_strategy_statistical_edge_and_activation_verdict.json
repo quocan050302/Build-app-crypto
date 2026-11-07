@@ -1,0 +1,123 @@
+{
+  "ACTIVATION_READY": "NO",
+  "DATA_PROVENANCE_VERDICT": "SYNTHETIC_RESEARCH_QUOTE_CLOSE_PLUS_MINUS_0.10_USD",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_STATUS": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "PREPUBLICATION_ENGINEERING_VERDICT": "PASS",
+  "STRATEGY_EDGE_VERDICT": "INCONCLUSIVE_UNDERPOWERED",
+  "TRADE_DISCOVERY_VERDICT": "SETUP_RECOVERED_BOUNDED_6_TO_9_CLOSED_TRADES_IN_SI1_SI2_SI3_ZERO_IN_SI4_TO_SI9",
+  "activation_ready": "NO",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "fresh_holdout": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "method": "SEEDED_EMPIRICAL_BOOTSTRAP_HOLM_STEP_DOWN",
+  "policies": {
+    "SI0_OFF_BASELINE": {
+      "bootstrap_ci_95_high_r": -0.7206144578313256,
+      "bootstrap_ci_95_low_r": -0.9637885542168676,
+      "bootstrap_draws": 2000,
+      "bootstrap_positive_tail_p": 1.0,
+      "closed_trades_count": 166,
+      "expectancy_net_r": -0.847359638554217,
+      "sample_powered_ge_30": true,
+      "total_realized_net_usd": -345.8971
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "bootstrap_ci_95_high_r": -0.9801666666666667,
+      "bootstrap_ci_95_low_r": -0.9886333333333334,
+      "bootstrap_draws": 2000,
+      "bootstrap_positive_tail_p": 1.0,
+      "closed_trades_count": 6,
+      "expectancy_net_r": -0.9844833333333334,
+      "holm_positive_null_rejected": false,
+      "holm_threshold": 0.016666666666666666,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": -14.5997
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "bootstrap_ci_95_high_r": -0.9992111111111109,
+      "bootstrap_ci_95_low_r": -1.0008333333333332,
+      "bootstrap_draws": 2000,
+      "bootstrap_positive_tail_p": 1.0,
+      "closed_trades_count": 9,
+      "expectancy_net_r": -1.0,
+      "holm_positive_null_rejected": false,
+      "holm_threshold": 0.025,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": -22.2001
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "bootstrap_ci_95_high_r": -0.9801666666666667,
+      "bootstrap_ci_95_low_r": -0.9886333333333334,
+      "bootstrap_draws": 2000,
+      "bootstrap_positive_tail_p": 1.0,
+      "closed_trades_count": 6,
+      "expectancy_net_r": -0.9844833333333334,
+      "holm_positive_null_rejected": false,
+      "holm_threshold": 0.05,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": -14.5997
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "bootstrap_ci_95_high_r": null,
+      "bootstrap_ci_95_low_r": null,
+      "bootstrap_draws": 0,
+      "bootstrap_positive_tail_p": null,
+      "closed_trades_count": 0,
+      "expectancy_net_r": null,
+      "sample_powered_ge_30": false,
+      "total_realized_net_usd": 0
+    }
+  },
+  "strategy_statistical_verdict": "INCONCLUSIVE_UNDERPOWERED",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

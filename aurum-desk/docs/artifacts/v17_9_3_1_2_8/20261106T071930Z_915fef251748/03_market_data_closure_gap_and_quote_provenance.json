@@ -1,0 +1,11 @@
+{
+  "assumption": "CLOSE_PLUS_MINUS_0.10_USD",
+  "bad_or_unclosed_bars_count": 0,
+  "canonical_m1_bars": 22376,
+  "data_provenance_verdict": "SYNTHETIC_RESEARCH_QUOTE",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "post_warmup_m1_checkpoints": 22346,
+  "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
+  "real_bitget_bid_ask_history_available": false,
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

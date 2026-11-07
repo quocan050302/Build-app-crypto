@@ -1,0 +1,51 @@
+{
+  "disk": {
+    "errors": [],
+    "status": "PASS",
+    "verified_files": 569
+  },
+  "junit": {
+    "errors": 0,
+    "executed": 5085,
+    "failures": 0,
+    "node_sha256": "589cc058d23dc87149708df6d7191ce14bed745e053b8914f313b4d61f45eb90",
+    "passed": 5077,
+    "skipped": [
+      {
+        "node_id": "backend/tests/test_v12_3_acceptance.py::test_p11_artifact_containment_rejects_symlink_escape",
+        "reason": "Symlink creation not permitted on this Windows user account"
+      },
+      {
+        "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05_symbolic_link_to_unsafe_database_rejected",
+        "reason": "Symlink creation requires elevated privilege on Windows (WinError 1314)"
+      },
+      {
+        "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05b_hardlink_to_runtime_database_rejected",
+        "reason": "Hardlink creation not supported across filesystems/volumes: [WinError 17] The system cannot move the file to a different disk drive: 'D:\\\\build app-crypto\\\\aurum-desk\\\\backend\\\\aurum_desk.db' -> 'C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Temp\\\\aurum_test_root_a7lezxql\\\\hardlink_to_runtime.db'"
+      },
+      {
+        "node_id": "backend/tests/test_v17_7_database_safety.py::test_db_final_04_symlink_outside_test_root_rejected",
+        "reason": "Symlink creation requires elevated privilege on Windows"
+      },
+      {
+        "node_id": "backend/tests/test_v12_1_acceptance.py::test_t06_downsampling_disclosure",
+        "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+      },
+      {
+        "node_id": "backend/tests/test_v12_1_acceptance.py::test_t23_factor_audit_real_observed_values",
+        "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+      },
+      {
+        "node_id": "backend/tests/test_v12_1_acceptance.py::test_t26_sheet_11_ny_quota",
+        "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+      },
+      {
+        "node_id": "backend/tests/test_v12_1_acceptance.py::test_t28_comparison_workbook_5_sheets",
+        "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository"
+      }
+    ],
+    "status": "PASS"
+  },
+  "note": "Independent disk and JUnit verification after V128 supplement generation.",
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}

@@ -1,0 +1,23 @@
+{
+  "contract": {
+    "target_empirical_realization": "Post-entry outcome only; never consulted pre-entry. Pre-entry target_reachable remains UNKNOWN (75,525/75,525) to prevent clairvoyant leakage.",
+    "target_pre_entry_feasibility": "Measured via deterministic ex-ante geometry: protective SL barrier outside structure, planned_net_risk_usd <= 2.50, cost-aware net_rr >= 2.0.",
+    "target_structural_validity": "Measured via target_selected_pool_bound and target_unswept: opposing liquidity pool exists, known_at_ms <= decision_timestamp_ms, unswept pre-entry, matches TP within tick tolerance."
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "measured_counts": {
+    "target_reachable": {
+      "UNKNOWN": 75525
+    },
+    "target_selected_pool_bound": {
+      "PROVEN_TRUE": 67222,
+      "UNKNOWN": 8303
+    },
+    "target_unswept": {
+      "PROVEN_FALSE": 570,
+      "PROVEN_TRUE": 66544,
+      "UNKNOWN": 8411
+    }
+  },
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+}
