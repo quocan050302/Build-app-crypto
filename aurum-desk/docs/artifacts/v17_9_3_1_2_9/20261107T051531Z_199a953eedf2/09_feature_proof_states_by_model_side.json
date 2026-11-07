@@ -1,0 +1,784 @@
+{
+  "by_model_direction": {
+    "CG01_SWEEP_MSS_FVG/LONG": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 7259
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 151,
+        "PROVEN_TRUE": 1783,
+        "UNKNOWN": 5325
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 7259
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 2334,
+        "PROVEN_TRUE": 4925
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 1,
+        "PROVEN_TRUE": 7258
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 7259
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 7259
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 7259
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 7259
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 1934,
+        "UNKNOWN": 5325
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 222,
+        "PROVEN_TRUE": 1165,
+        "UNKNOWN": 5872
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 7034,
+        "UNKNOWN": 225
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 988,
+        "UNKNOWN": 6271
+      },
+      "sweep_mss_ordered": {
+        "PROVEN_FALSE": 108,
+        "PROVEN_TRUE": 205,
+        "UNKNOWN": 6946
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 75,
+        "PROVEN_TRUE": 913,
+        "UNKNOWN": 6271
+      },
+      "target_reachable": {
+        "UNKNOWN": 7259
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 6524,
+        "UNKNOWN": 735
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 6524,
+        "UNKNOWN": 735
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 7102,
+        "PROVEN_TRUE": 157
+      }
+    },
+    "CG01_SWEEP_MSS_FVG/SHORT": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 10679
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 239,
+        "PROVEN_TRUE": 2383,
+        "UNKNOWN": 8057
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 10679
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 4240,
+        "PROVEN_TRUE": 6439
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 1,
+        "PROVEN_TRUE": 10678
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 10679
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 10679
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 10679
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 10679
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 2622,
+        "UNKNOWN": 8057
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 230,
+        "PROVEN_TRUE": 1465,
+        "UNKNOWN": 8984
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 10148,
+        "UNKNOWN": 531
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 882,
+        "UNKNOWN": 9797
+      },
+      "sweep_mss_ordered": {
+        "PROVEN_FALSE": 59,
+        "PROVEN_TRUE": 181,
+        "UNKNOWN": 10439
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 88,
+        "PROVEN_TRUE": 794,
+        "UNKNOWN": 9797
+      },
+      "target_reachable": {
+        "UNKNOWN": 10679
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 9198,
+        "UNKNOWN": 1481
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 9172,
+        "UNKNOWN": 1507
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 10417,
+        "PROVEN_TRUE": 262
+      }
+    },
+    "SMC_M1_CONTINUATION/LONG": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 1555
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 54,
+        "PROVEN_TRUE": 271,
+        "UNKNOWN": 1230
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 1555
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 823,
+        "PROVEN_TRUE": 732
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 329,
+        "PROVEN_TRUE": 1226
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 1555
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 1555
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 1555
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 1555
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 325,
+        "UNKNOWN": 1230
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 173,
+        "UNKNOWN": 1382
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 1529,
+        "UNKNOWN": 26
+      },
+      "sweep_confirmed": {
+        "UNKNOWN": 1555
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 1555
+      },
+      "sweep_reclaimed": {
+        "UNKNOWN": 1555
+      },
+      "target_reachable": {
+        "UNKNOWN": 1555
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 1368,
+        "UNKNOWN": 187
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 1368,
+        "UNKNOWN": 187
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 1529,
+        "PROVEN_TRUE": 26
+      }
+    },
+    "SMC_M1_CONTINUATION/SHORT": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 2816
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 112,
+        "PROVEN_TRUE": 439,
+        "UNKNOWN": 2265
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 2816
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 1468,
+        "PROVEN_TRUE": 1348
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 717,
+        "PROVEN_TRUE": 2099
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 2816
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 2816
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 2816
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 2816
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 551,
+        "UNKNOWN": 2265
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 259,
+        "UNKNOWN": 2557
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 2733,
+        "UNKNOWN": 83
+      },
+      "sweep_confirmed": {
+        "UNKNOWN": 2816
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 2816
+      },
+      "sweep_reclaimed": {
+        "UNKNOWN": 2816
+      },
+      "target_reachable": {
+        "UNKNOWN": 2816
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 2418,
+        "UNKNOWN": 398
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 2414,
+        "UNKNOWN": 402
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 2765,
+        "PROVEN_TRUE": 51
+      }
+    },
+    "SMC_M1_FVG_CONTINUATION/LONG": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 7242
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 151,
+        "PROVEN_TRUE": 1783,
+        "UNKNOWN": 5308
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 7242
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 2329,
+        "PROVEN_TRUE": 4913
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 1,
+        "PROVEN_TRUE": 7241
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 7242
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 7242
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 7242
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 7242
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 1934,
+        "UNKNOWN": 5308
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 222,
+        "PROVEN_TRUE": 1165,
+        "UNKNOWN": 5855
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 7019,
+        "UNKNOWN": 223
+      },
+      "sweep_confirmed": {
+        "UNKNOWN": 7242
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 7242
+      },
+      "sweep_reclaimed": {
+        "UNKNOWN": 7242
+      },
+      "target_reachable": {
+        "UNKNOWN": 7242
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 6506,
+        "UNKNOWN": 736
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 6506,
+        "UNKNOWN": 736
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 7085,
+        "PROVEN_TRUE": 157
+      }
+    },
+    "SMC_M1_FVG_CONTINUATION/SHORT": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 10729
+      },
+      "displacement_valid": {
+        "PROVEN_FALSE": 239,
+        "PROVEN_TRUE": 2383,
+        "UNKNOWN": 8107
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 10729
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 4273,
+        "PROVEN_TRUE": 6456
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 20,
+        "PROVEN_TRUE": 10709
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 10729
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 10729
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 10729
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 10729
+      },
+      "mss_confirmed": {
+        "PROVEN_TRUE": 2622,
+        "UNKNOWN": 8107
+      },
+      "mss_fvg_retest_ordered": {
+        "PROVEN_FALSE": 230,
+        "PROVEN_TRUE": 1465,
+        "UNKNOWN": 9034
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 10200,
+        "UNKNOWN": 529
+      },
+      "sweep_confirmed": {
+        "UNKNOWN": 10729
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 10729
+      },
+      "sweep_reclaimed": {
+        "UNKNOWN": 10729
+      },
+      "target_reachable": {
+        "UNKNOWN": 10729
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 9250,
+        "UNKNOWN": 1479
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 9224,
+        "UNKNOWN": 1505
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 10467,
+        "PROVEN_TRUE": 262
+      }
+    },
+    "SMC_M1_REVERSAL/LONG": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 4819
+      },
+      "displacement_valid": {
+        "UNKNOWN": 4819
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 4819
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 1349,
+        "PROVEN_TRUE": 3470
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 2558,
+        "PROVEN_TRUE": 2261
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 4819
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 4819
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 4819
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 4819
+      },
+      "mss_confirmed": {
+        "UNKNOWN": 4819
+      },
+      "mss_fvg_retest_ordered": {
+        "UNKNOWN": 4819
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 4574,
+        "UNKNOWN": 245
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 382,
+        "UNKNOWN": 4437
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 4819
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 127,
+        "PROVEN_TRUE": 255,
+        "UNKNOWN": 4437
+      },
+      "target_reachable": {
+        "UNKNOWN": 4819
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 4453,
+        "UNKNOWN": 366
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 4453,
+        "UNKNOWN": 366
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 4768,
+        "PROVEN_TRUE": 51
+      }
+    },
+    "SMC_M1_REVERSAL/SHORT": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 6966
+      },
+      "displacement_valid": {
+        "UNKNOWN": 6966
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 6966
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 2179,
+        "PROVEN_TRUE": 4787
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 3573,
+        "PROVEN_TRUE": 3393
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 6966
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 6966
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 6966
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 6966
+      },
+      "mss_confirmed": {
+        "UNKNOWN": 6966
+      },
+      "mss_fvg_retest_ordered": {
+        "UNKNOWN": 6966
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 6611,
+        "UNKNOWN": 355
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 485,
+        "UNKNOWN": 6481
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 6966
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 121,
+        "PROVEN_TRUE": 364,
+        "UNKNOWN": 6481
+      },
+      "target_reachable": {
+        "UNKNOWN": 6966
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 6160,
+        "UNKNOWN": 806
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 6141,
+        "UNKNOWN": 825
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 6881,
+        "PROVEN_TRUE": 85
+      }
+    },
+    "SMC_M1_SWEEP_RECLAIM/LONG": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 4691
+      },
+      "displacement_valid": {
+        "UNKNOWN": 4691
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 4691
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 1333,
+        "PROVEN_TRUE": 3358
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 2532,
+        "PROVEN_TRUE": 2159
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 4691
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 4691
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 4691
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 4691
+      },
+      "mss_confirmed": {
+        "UNKNOWN": 4691
+      },
+      "mss_fvg_retest_ordered": {
+        "UNKNOWN": 4691
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 4433,
+        "UNKNOWN": 258
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 382,
+        "UNKNOWN": 4309
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 4691
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 127,
+        "PROVEN_TRUE": 255,
+        "UNKNOWN": 4309
+      },
+      "target_reachable": {
+        "UNKNOWN": 4691
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 4357,
+        "UNKNOWN": 334
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 4357,
+        "UNKNOWN": 334
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 4640,
+        "PROVEN_TRUE": 51
+      }
+    },
+    "SMC_M1_SWEEP_RECLAIM/SHORT": {
+      "continuation_retrace_valid": {
+        "UNKNOWN": 6361
+      },
+      "displacement_valid": {
+        "UNKNOWN": 6361
+      },
+      "fvg_present": {
+        "PROVEN_TRUE": 6361
+      },
+      "fvg_retest_valid": {
+        "PROVEN_FALSE": 1964,
+        "PROVEN_TRUE": 4397
+      },
+      "fvg_unmitigated": {
+        "PROVEN_FALSE": 3494,
+        "PROVEN_TRUE": 2867
+      },
+      "h1_bias": {
+        "MEASURED_VALUE": 6361
+      },
+      "h4_bias": {
+        "MEASURED_VALUE": 6361
+      },
+      "m15_bias": {
+        "MEASURED_VALUE": 6361
+      },
+      "m5_bias": {
+        "MEASURED_VALUE": 6361
+      },
+      "mss_confirmed": {
+        "UNKNOWN": 6361
+      },
+      "mss_fvg_retest_ordered": {
+        "UNKNOWN": 6361
+      },
+      "protected_structure_independent_of_sl": {
+        "PROVEN_TRUE": 6024,
+        "UNKNOWN": 337
+      },
+      "sweep_confirmed": {
+        "PROVEN_TRUE": 485,
+        "UNKNOWN": 5876
+      },
+      "sweep_mss_ordered": {
+        "UNKNOWN": 6361
+      },
+      "sweep_reclaimed": {
+        "PROVEN_FALSE": 121,
+        "PROVEN_TRUE": 364,
+        "UNKNOWN": 5876
+      },
+      "target_reachable": {
+        "UNKNOWN": 6361
+      },
+      "target_selected_pool_bound": {
+        "PROVEN_TRUE": 5660,
+        "UNKNOWN": 701
+      },
+      "target_unswept": {
+        "PROVEN_TRUE": 5641,
+        "UNKNOWN": 720
+      },
+      "unicorn_breaker_fvg_bound": {
+        "PROVEN_FALSE": 6297,
+        "PROVEN_TRUE": 64
+      }
+    }
+  },
+  "conservation_verified": true,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "overall_proof_states": {
+    "continuation_retrace_valid": {
+      "UNKNOWN": 63117
+    },
+    "displacement_valid": {
+      "PROVEN_FALSE": 946,
+      "PROVEN_TRUE": 9042,
+      "UNKNOWN": 53129
+    },
+    "fvg_present": {
+      "PROVEN_TRUE": 63117
+    },
+    "fvg_retest_valid": {
+      "PROVEN_FALSE": 22292,
+      "PROVEN_TRUE": 40825
+    },
+    "fvg_unmitigated": {
+      "PROVEN_FALSE": 13226,
+      "PROVEN_TRUE": 49891
+    },
+    "h1_bias": {
+      "MEASURED_VALUE": 63117
+    },
+    "h4_bias": {
+      "MEASURED_VALUE": 63117
+    },
+    "m15_bias": {
+      "MEASURED_VALUE": 63117
+    },
+    "m5_bias": {
+      "MEASURED_VALUE": 63117
+    },
+    "mss_confirmed": {
+      "PROVEN_TRUE": 9988,
+      "UNKNOWN": 53129
+    },
+    "mss_fvg_retest_ordered": {
+      "PROVEN_FALSE": 1336,
+      "PROVEN_TRUE": 5260,
+      "UNKNOWN": 56521
+    },
+    "protected_structure_independent_of_sl": {
+      "PROVEN_TRUE": 60305,
+      "UNKNOWN": 2812
+    },
+    "sweep_confirmed": {
+      "PROVEN_TRUE": 3604,
+      "UNKNOWN": 59513
+    },
+    "sweep_mss_ordered": {
+      "PROVEN_FALSE": 167,
+      "PROVEN_TRUE": 386,
+      "UNKNOWN": 62564
+    },
+    "sweep_reclaimed": {
+      "PROVEN_FALSE": 659,
+      "PROVEN_TRUE": 2945,
+      "UNKNOWN": 59513
+    },
+    "target_reachable": {
+      "UNKNOWN": 63117
+    },
+    "target_selected_pool_bound": {
+      "PROVEN_TRUE": 55894,
+      "UNKNOWN": 7223
+    },
+    "target_unswept": {
+      "PROVEN_TRUE": 55800,
+      "UNKNOWN": 7317
+    },
+    "unicorn_breaker_fvg_bound": {
+      "PROVEN_FALSE": 61951,
+      "PROVEN_TRUE": 1166
+    }
+  },
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "total_rows": 63117,
+  "version": "17.9.3.1.2.9"
+}

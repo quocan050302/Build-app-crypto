@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.710" timestamp="2026-11-07T13:01:02.193751+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m15_mutation_of_final_quantity_without_risk_recalculation_rejected" time="0.056"><failure message="AssertionError: assert None == 'REJECTED_UNPROVEN:FINAL_RISK_OR_QUANTITY_MISMATCH'">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000001DD89C12B90&gt;
+
+    def test_m15_mutation_of_final_quantity_without_risk_recalculation_rejected(monkeypatch):
+        """M15: Mutation of final quantity without risk recalculation -&gt; reject."""
+        from services import v17_9_3_1_2_7_causal_signal_truth as truth
+        from services.v17_9_3_1_2_executable_intervention_replay_service import recalculate_trade_risk_quantity_v179312
+    
+        monkeypatch.setattr(truth, "required_proof_rejection_v1793127", lambda *args, **kwargs: None)
+        cutoff = 1_790_000_160_000
+        sized = recalculate_trade_risk_quantity_v179312(2650, 2645, 2680, direction="LONG", decision_ts=cutoff)
+        bar = dict(open_time=cutoff - 60_000, close_time=cutoff, open=2650, high=2651, low=2649, close=2650, is_closed=True)
+        opp = dict(
+            opportunity_id="fixture",
+            setup_episode_id="setup",
+            model_id="SMC_M1_REVERSAL",
+            direction="LONG",
+            decision_timestamp_ms=cutoff,
+            entry_reference=2649,
+            selected_sl=2645,
+            take_profit=2680,
+        )
+        plan = dict(
+            new_decision_timestamp_ms=cutoff,
+            new_checkpoint_index_1m=0,
+            new_entry_reference=2650,
+            new_selected_sl=2645,
+            new_take_profit=2680,
+            new_quantity=sized["quantity"] + 0.02,
+        )
+        _, _, rejection = rebuild_materialized_intent_proof_v1793127(opp, plan, {"1m": [bar]}, dataset_sha256="a" * 64)
+&gt;       assert rejection == "REJECTED_UNPROVEN:FINAL_RISK_OR_QUANTITY_MISMATCH"
+E       AssertionError: assert None == 'REJECTED_UNPROVEN:FINAL_RISK_OR_QUANTITY_MISMATCH'
+
+test_v129_liquidity_provenance.py:478: AssertionError</failure></testcase></testsuite></testsuites>

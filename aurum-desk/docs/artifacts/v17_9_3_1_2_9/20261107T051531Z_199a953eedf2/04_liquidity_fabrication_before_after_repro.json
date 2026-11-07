@@ -1,0 +1,118 @@
+{
+  "defects_closed": {
+    "P0_A_FABRICATED_TARGET_POOL": "Removed prop_target_id + prop_tp synthetic MTF swing injection in evaluate_signal_intelligence_gate_v1793122.",
+    "P0_B_TARGET_REACHABLE_FAIL_OPEN": "Separated target_geometrically_feasible from target_pool_proven in build_signal_quality_evidence_v1793122; requires both for target_reachable.",
+    "P0_C_FALSE_UNSWEPT_ON_MISSING_BARS": "Added _verify_post_pivot_m1_coverage_v1793129 requiring contiguous closed M1 bars from pivot close to cutoff; empty or gapped path returns UNKNOWN (False).",
+    "P0_D_KNOWN_AT_DEFAULTED_TO_OCCURRED_AT": "Removed known_at_ms fallback to occurred_at_ms in _build_causal_swing_pools_from_swings_v1793124."
+  },
+  "executable_red_green_repros": [
+    {
+      "green_end_ns": 1794031234745737400,
+      "green_exit_code": 0,
+      "green_log_sha256": "7610a5c91f6b182bee54feb7e2484dc5962f8ef934e7529c90c1ae94de2af418",
+      "green_pid": 28268,
+      "green_start_ns": 1794031233780218400,
+      "green_xml_sha256": "30b3d61b46a21bddf8dceecc0d82402fd23a7b1bf16f6a503aca96fb6f46bde0",
+      "id": "V129_M01",
+      "original_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "red_end_ns": 1794031233779218300,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_m01_fabricated_pool_from_prop_target_id_and_tp_rejected"
+      ],
+      "red_log_sha256": "8157adb26f453d7ff08d8e200ddaa094bf405351d5aee10c0a93f7cdbf2ec8ca",
+      "red_pid": 34444,
+      "red_source_sha256": "6dc72484876bf391645b5726794145d1341d449d45cd07d41c962cbc058d4f6a",
+      "red_start_ns": 1794031232712593100,
+      "red_xml_sha256": "eaacf714066e2f1cffd4e44c3b3280b0eef871d96c12a9e4d51a9bfd052b8a2a",
+      "replacement": "pool_proven_in_si5 = (prop_tp is not None and bool(prop_target_id)) or bool(",
+      "restored_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "same_selected_tests_executed": true,
+      "selector": "test_m01_fabricated_pool_from_prop_target_id_and_tp_rejected",
+      "source": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "target": "pool_proven_in_si5 = bool("
+    },
+    {
+      "green_end_ns": 1794031236842316100,
+      "green_exit_code": 0,
+      "green_log_sha256": "3c2ffb4b98476dd1842f9b9b20f47e0f57ff4508ea2076e404ab6649237fe020",
+      "green_pid": 25808,
+      "green_start_ns": 1794031235843243500,
+      "green_xml_sha256": "f12657a32e216e67cf63143347a3cc8d469be88123515b40c8aa6bc401479aca",
+      "id": "V129_M02",
+      "original_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "red_end_ns": 1794031235841247900,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_m02_falsify_known_at_now_ms_without_confirming_bars_rejected"
+      ],
+      "red_log_sha256": "1b805551d5b17f49e61401dbc52809b25a79db4f534b4552a1a1da2701bd0de4",
+      "red_pid": 15252,
+      "red_source_sha256": "96eda8a49d9f4de0a78b690fcbd2eaa4aca4cd0b0264a75877d807ae24103418",
+      "red_start_ns": 1794031234758742400,
+      "red_xml_sha256": "396085576e5000a11a471cf5319a52015943d05cf0564e092d9a9dd356f95b88",
+      "replacement": "k_ts_raw = now_ms if k_ts_raw is None else k_ts_raw\n        if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:",
+      "restored_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "same_selected_tests_executed": true,
+      "selector": "test_m02_falsify_known_at_now_ms_without_confirming_bars_rejected",
+      "source": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "target": "if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:"
+    },
+    {
+      "green_end_ns": 1794031238994338200,
+      "green_exit_code": 0,
+      "green_log_sha256": "3c2ffb4b98476dd1842f9b9b20f47e0f57ff4508ea2076e404ab6649237fe020",
+      "green_pid": 2944,
+      "green_start_ns": 1794031237991414800,
+      "green_xml_sha256": "faaf159721f9a0ada0d10e9f201d4a0ff919e06a82e96eb0c0f60694e8833e9e",
+      "id": "V129_M03",
+      "original_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "red_end_ns": 1794031237990411300,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_m03_missing_known_at_fallback_to_occurred_at_rejected"
+      ],
+      "red_log_sha256": "2af91f7539b186bdded85addc11c3001114952c005e0af923f1844a867c4501c",
+      "red_pid": 32432,
+      "red_source_sha256": "c2fc0208be98e4abafc4b6a819a65a7287c81ed0f0b50170e3fab3f5b2a00b53",
+      "red_start_ns": 1794031236856004100,
+      "red_xml_sha256": "dae78a521fd679e37cbd29a6430a24d75f3f491c1f81100b7ccd67341be8f3ff",
+      "replacement": "k_raw = occ_raw if k_raw is None else k_raw\n        if type(occ_raw) is not int or type(k_raw) is not int:",
+      "restored_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "same_selected_tests_executed": true,
+      "selector": "test_m03_missing_known_at_fallback_to_occurred_at_rejected",
+      "source": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "target": "if type(occ_raw) is not int or type(k_raw) is not int:"
+    },
+    {
+      "green_end_ns": 1794031241061991300,
+      "green_exit_code": 0,
+      "green_log_sha256": "3c2ffb4b98476dd1842f9b9b20f47e0f57ff4508ea2076e404ab6649237fe020",
+      "green_pid": 32212,
+      "green_start_ns": 1794031240068764100,
+      "green_xml_sha256": "ab261b8ae95675c444120dfe0cb1d3f608fffbfdc051ff290c4be84395c44092",
+      "id": "V129_M04",
+      "original_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "red_end_ns": 1794031240067762700,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_m04_empty_m1_price_path_treated_as_unswept_rejected"
+      ],
+      "red_log_sha256": "ac3b421845bdfc8a6ed691074b2c663d10cbf5656a2de1d8b68c9f8f910350f3",
+      "red_pid": 10136,
+      "red_source_sha256": "90bc0ee1773552bcbf503c8a29e5f1d2e971f77fe4e2478442751654cdaff996",
+      "red_start_ns": 1794031239007162500,
+      "red_xml_sha256": "b32f24f718db38291d9c66a2e0fe826dae1688343ab4f48e8c036edd05ecdafe",
+      "replacement": "if not fast_bars:\n        return (True, [], \"COMPLETE\")",
+      "restored_source_sha256": "bbf66686fe5d64557b06af7667965cc61c0d4932007537d13df5b23019dbe5c4",
+      "same_selected_tests_executed": true,
+      "selector": "test_m04_empty_m1_price_path_treated_as_unswept_rejected",
+      "source": "backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "target": "if not fast_bars:\n        return (False, [(s_ms, n_ms)], \"EMPTY_PRICE_PATH\")"
+    }
+  ],
+  "prior_v128_executable_sha": "915fef251748546e36a1288356420c009fa49574",
+  "status": "PASS",
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "version": "17.9.3.1.2.9"
+}

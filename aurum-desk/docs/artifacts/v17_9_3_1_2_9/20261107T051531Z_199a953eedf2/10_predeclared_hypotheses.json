@@ -1,0 +1,11 @@
+{
+  "baseline_corpus": "Immutable prior canonical decisions are input data; feature proofs and policy replays are rebuilt on this executable SHA.",
+  "dataset_status": "PREVIOUSLY_EXPOSED_HISTORY",
+  "frozen_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "hypotheses": [
+    "Liquidity pool provenance closure (P0-A..P0-D) removes synthetic TP-as-pool fabrication and requires contiguous post-pivot closed M1 coverage.",
+    "SI9_H5 target gate evaluates ex-ante geometric feasibility + verified unswept pool rather than unknowable future reachability.",
+    "Zero closed trades in SI4..SI9 remain honest when genuine causal H4/H1 structure and confirmation filters reject candidates; activation remains NO."
+  ],
+  "version": "17.9.3.1.2.9"
+}

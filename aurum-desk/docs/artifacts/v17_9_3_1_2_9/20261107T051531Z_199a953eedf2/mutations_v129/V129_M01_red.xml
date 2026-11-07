@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.629" timestamp="2026-11-07T13:00:32.969773+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m01_fabricated_pool_from_prop_target_id_and_tp_rejected" time="0.002"><failure message="AssertionError: assert 'SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT' in ('SI1_REV_UNCONFIRMED_SWEEP_RECLAIM', 'SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM', 'SI2_HTF_CONTEXT_INSUFFICIENT_DAT...NT_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0')&#10; +  where ('SI1_REV_UNCONFIRMED_SWEEP_RECLAIM', 'SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM', 'SI2_HTF_CONTEXT_INSUFFICIENT_DAT...NT_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0') = SignalIntelligencePlanV1793122(schema_version='17.9.3.1.2.2', mode='RESEARCH_APPLY', mode_valid=True, policy_id='SI7_C...T_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0')).rejection_reason_codes">def test_m01_fabricated_pool_from_prop_target_id_and_tp_rejected():
+        """M01: Fabricated pool from prop_target_id + prop_tp -&gt; real source verifier rejects."""
+        base_ms = 1_790_000_000_000
+        m1_bars = _make_m1_bars(base_ms, 20, low=2648.0, high=2651.0, close=2650.0)
+        m5_bars = [
+            {
+                "open_time": base_ms + i * 300_000,
+                "timestamp": base_ms + i * 300_000,
+                "close_time": base_ms + (i + 1) * 300_000,
+                "open": 2650.0,
+                "high": 2651.0,
+                "low": 2648.0,
+                "close": 2650.0,
+                "is_closed": True,
+            }
+            for i in range(4)
+        ]
+        now_ms = m1_bars[-1]["close_time"]
+        ctx = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=now_ms,
+            closed_m1_candles=m1_bars,
+            closed_m5_candles=m5_bars,
+            liquidity_pools=(),
+            spread=0.10,
+            quote_timestamp_ms=now_ms,
+        )
+        decision = evaluate_signal_intelligence_gate_v1793122(
+            context=ctx,
+            mode="RESEARCH_APPLY",
+            policy_id="SI7_CORE_TRADING_LOGIC_REPAIRED",
+            model_id="SMC_M1_REVERSAL",
+            direction="LONG",
+            setup_descriptors={
+                "protected_structure_anchor_id": "sl_anchor_1",
+                "protected_structure_price": 2648.80,
+                "protected_structure_known_at_ms": now_ms - 60_000,
+            },
+            sh_1m=[],
+            sl_1m=[
+                {
+                    "id": "sl_anchor_1",
+                    "price": 2648.80,
+                    "occurred_at_ms": now_ms - 180_000,
+                    "known_at_ms": now_ms - 60_000,
+                }
+            ],
+            baseline_status="VALID",
+            baseline_entry=2650.0,
+            baseline_sl=2648.50,
+            baseline_tp=2655.0,
+            baseline_qty=0.1,
+            baseline_net_rr=2.5,
+            baseline_target_id="fake_tp_pool_999",
+            atr_m1=1.0,
+            atr_m5=2.2,
+        )
+&gt;       assert "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT" in decision.rejection_reason_codes
+E       AssertionError: assert 'SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT' in ('SI1_REV_UNCONFIRMED_SWEEP_RECLAIM', 'SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM', 'SI2_HTF_CONTEXT_INSUFFICIENT_DAT...NT_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0')
+E        +  where ('SI1_REV_UNCONFIRMED_SWEEP_RECLAIM', 'SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM', 'SI2_HTF_CONTEXT_INSUFFICIENT_DAT...NT_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0') = SignalIntelligencePlanV1793122(schema_version='17.9.3.1.2.2', mode='RESEARCH_APPLY', mode_valid=True, policy_id='SI7_C...T_FAIL_CLOSED', 'SI4_SWEEP_RECLAIM_NOT_CONFIRMED', 'NET_RR_TOO_LOW: Net R:R 1:0.7273 chưa đạt ngưỡng tối thiểu 1:2.0')).rejection_reason_codes
+
+test_v129_liquidity_provenance.py:113: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,269 @@
+{
+  "count": 12,
+  "mutations": [
+    {
+      "green_end_ns": 1794031217930213200,
+      "green_exit_code": 0,
+      "green_log_sha256": "836acd53d67cdb667c5f7e08cfb32ed922ee65d2239f6060cd5561d2b5bf13de",
+      "green_pid": 25544,
+      "green_start_ns": 1794031217545682300,
+      "id": "NEW_M01",
+      "red_end_ns": 1794031217544679800,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_injected_optimistic_feature_without_proof_rejected[fvg_retest_valid]",
+        "test_injected_optimistic_feature_without_proof_rejected[sweep_confirmed]",
+        "test_injected_optimistic_feature_without_proof_rejected[mss_confirmed]",
+        "test_injected_optimistic_feature_without_proof_rejected[target_unswept]",
+        "test_injected_optimistic_feature_without_proof_rejected[protected_structure_independent_of_sl]",
+        "test_injected_optimistic_feature_without_proof_rejected[unicorn_breaker_fvg_bound]"
+      ],
+      "red_log_sha256": "a8f500a22da318611ff37ee8dce15ebef5e908f0173fad1b67a9c996e2e8c817",
+      "red_pid": 32284,
+      "red_source_sha256": "39c214680243edf41aeb719af86d35d73e211a2223486343a8402295c81339c4",
+      "red_start_ns": 1794031217048290600,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "return \"REJECTED_UNPROVEN:INVALID_OR_MISSING_PROOF_HASH\""
+    },
+    {
+      "green_end_ns": 1794031219904765400,
+      "green_exit_code": 0,
+      "green_log_sha256": "3c609120af7aaab5dae3835bd3b101c6b74c84fbd8256a31e147d41c3f52e414",
+      "green_pid": 4196,
+      "green_start_ns": 1794031218972972000,
+      "id": "NEW_M02",
+      "red_end_ns": 1794031218970969200,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_edit_flat_flag_invalidates_proof[sweep_reclaimed]",
+        "test_edit_flat_flag_invalidates_proof[fvg_retest_valid]",
+        "test_edit_flat_flag_invalidates_proof[mss_confirmed]",
+        "test_edit_flat_flag_invalidates_proof[target_unswept]"
+      ],
+      "red_log_sha256": "e5ef8476fe2ac57c9e5366134565e80ca219a394b89987ac7cb98dec4a99f4d9",
+      "red_pid": 17284,
+      "red_source_sha256": "d56e4b97473086c71a72915ff5c6baecb267ec5e719881fd884396889efad3a2",
+      "red_start_ns": 1794031217933213000,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "if any(row.get(k) != v for k,v in snap.get(\"derived_values\", ())):"
+    },
+    {
+      "green_end_ns": 1794031221872291400,
+      "green_exit_code": 0,
+      "green_log_sha256": "bf19305c4a6f774cbc94ffb248240195ecba08302453f1588d750893bf2e7461",
+      "green_pid": 35464,
+      "green_start_ns": 1794031220921736400,
+      "id": "NEW_M03",
+      "red_end_ns": 1794031220920737100,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_point_in_time_and_source_hash[partial]"
+      ],
+      "red_log_sha256": "0e4bc4329e7f3bb1451cc49e5c81c60433917535691f61a3c7aa9b681743c3aa",
+      "red_pid": 420,
+      "red_source_sha256": "481ab6791651fee6c1b6ff8591a1e600ab2d0e9c83aac764a2531ce063fff284",
+      "red_start_ns": 1794031219908818100,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "_get(b, \"is_closed\") is not True"
+    },
+    {
+      "green_end_ns": 1794031223804708900,
+      "green_exit_code": 0,
+      "green_log_sha256": "f5d5d728de5223c5bcd403b04bcdb3189693aa7cf3fc7b9a1277d6647c48a8c9",
+      "green_pid": 25596,
+      "green_start_ns": 1794031222845934400,
+      "id": "NEW_M04",
+      "red_end_ns": 1794031222844932900,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_missing_decision_timestamp_fails_closed"
+      ],
+      "red_log_sha256": "bea933e7346b887f80677d55fdf3c7f6f26ccae9432a1fe99675ee76b93aae22",
+      "red_pid": 33864,
+      "red_source_sha256": "77de00ad0db28bd6373059862b49942239955fb71191945ef61d47522161778a",
+      "red_start_ns": 1794031221876180300,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "if cutoff <= 0:"
+    },
+    {
+      "green_end_ns": 1794031225786879700,
+      "green_exit_code": 0,
+      "green_log_sha256": "ba1bf3348140d11de1a23f304eb6467d0bab85dfbf8510fbeb1183f89f73b49e",
+      "green_pid": 19860,
+      "green_start_ns": 1794031224870585000,
+      "id": "NEW_M05",
+      "red_end_ns": 1794031224868545000,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_missing_baseline_proof_remains_unknown_and_synthetic"
+      ],
+      "red_log_sha256": "9b47055aa4f2498d063d8d81dca9453fa33c3c8bf755019a401c1fbdc4523d11",
+      "red_pid": 34012,
+      "red_source_sha256": "850663bddce02259ecdd01df174beb08a2eec0180fd1a0f71ed52d572ba363d9",
+      "red_start_ns": 1794031223808711100,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "\"UNKNOWN\" if any(x is None for x in htf_known[:2])"
+    },
+    {
+      "green_end_ns": 1794031227720598200,
+      "green_exit_code": 0,
+      "green_log_sha256": "bf19305c4a6f774cbc94ffb248240195ecba08302453f1588d750893bf2e7461",
+      "green_pid": 34380,
+      "green_start_ns": 1794031226776796200,
+      "id": "NEW_M06",
+      "red_end_ns": 1794031226775793900,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_provider_label_without_source_receipt_not_promoted_to_real"
+      ],
+      "red_log_sha256": "2490bc049f5e7ae6f6ad4fb4d19b1b811ec0da62953affbf6c7cdab064b74cb1",
+      "red_pid": 35220,
+      "red_source_sha256": "12bfb2da84acfce09cf0b9aef7901143fc215906df8ab5345f24ba20ac556034",
+      "red_start_ns": 1794031225790885500,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "quote_kind = str(_get(context, \"quote_source_kind\", \"UNKNOWN\"))"
+    },
+    {
+      "green_end_ns": 1794031228536215200,
+      "green_exit_code": 0,
+      "green_log_sha256": "65953bc2ada8a40d9ed25031ad86cbb3927cd4befbda93fa07d38a1a3666589c",
+      "green_pid": 20320,
+      "green_start_ns": 1794031228155251100,
+      "id": "NEW_M07",
+      "red_end_ns": 1794031228154250000,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep0]",
+        "test_rr_and_quick_loss_do_not_invent_target_or_premature_cause[ep1]"
+      ],
+      "red_log_sha256": "5495c0a869398cd4c286f212f74b306f54a676d9c84945ae8beb8b95d484a3c4",
+      "red_pid": 8880,
+      "red_source_sha256": "41ead3aaf714c8d233e820ff0aed24e881b344f2e53d124a7172cf1e8992e57f",
+      "red_start_ns": 1794031227723103400,
+      "restored_source_sha256": "4fd724a0a65174a9ea1f252fdf6a5ba6f3fae62ea4b7221e0b6f86463e86ccc3",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_causal_signal_truth.py",
+      "target": "return (labels[0],labels) if labels else (\"OTHER/UNKNOWN\",[\"OTHER/UNKNOWN\"])"
+    },
+    {
+      "green_end_ns": 1794031229346080800,
+      "green_exit_code": 0,
+      "green_log_sha256": "4b3da072d055537b77f1881dc9a4f57d284d5f00548e06da90595710c38bec0e",
+      "green_pid": 35184,
+      "green_start_ns": 1794031228954071800,
+      "id": "NEW_M08",
+      "red_end_ns": 1794031228953071400,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_matched_identity_and_accounting_negative_controls[duplicate]"
+      ],
+      "red_log_sha256": "9453eb7f6558484d9bb111857b43850e549f9ac1d8691e4626c1bd546dd46e6c",
+      "red_pid": 13276,
+      "red_source_sha256": "15f2b2559f6bf85ad5c283622683d0d1296ef39b4c65580d8fae6fc84376576a",
+      "red_start_ns": 1794031228540216400,
+      "restored_source_sha256": "d0988476ed430d523536b7f6ca29f77b446bf2d7ed1edc484bb1d837bc36d136",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_matched_ab.py",
+      "target": "if key in result or str(oid) in seen:"
+    },
+    {
+      "green_end_ns": 1794031230179776200,
+      "green_exit_code": 0,
+      "green_log_sha256": "2692ce50cded669feac47d1b0479a36ee5415d654952c283d064c90032e48934",
+      "green_pid": 29984,
+      "green_start_ns": 1794031229799590900,
+      "id": "NEW_M09",
+      "red_end_ns": 1794031229797587700,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_raw_index_rejects_missing_source_before_matching[None]",
+        "test_raw_index_rejects_missing_source_before_matching[]"
+      ],
+      "red_log_sha256": "4794b0f5aa1d82555e121f18bf137e1b7917f2a9f32ecb4ff4df2837bf74a43f",
+      "red_pid": 15884,
+      "red_source_sha256": "ee4bd523b839a2215c460d675365315488df887359c4bd12e373474c140f2869",
+      "red_start_ns": 1794031229350081100,
+      "restored_source_sha256": "d0988476ed430d523536b7f6ca29f77b446bf2d7ed1edc484bb1d837bc36d136",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_matched_ab.py",
+      "target": "or not source:"
+    },
+    {
+      "green_end_ns": 1794031231000126700,
+      "green_exit_code": 0,
+      "green_log_sha256": "2a106f924a0c913e399ec9ba4c97c3aeaed2d8de15c2c93caa92644be4bbc12c",
+      "green_pid": 26480,
+      "green_start_ns": 1794031230628884500,
+      "id": "NEW_M10",
+      "red_end_ns": 1794031230627883200,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_matched_identity_and_accounting_negative_controls[changed_fee]"
+      ],
+      "red_log_sha256": "0d9504888f30f3ad44fc45ca0b9d1a3d52cb3d171e58191e53667537bd13bbcf",
+      "red_pid": 15152,
+      "red_source_sha256": "443851b44d0e1ee1c1b94afb3d9f36f98ef06890875e84a27ecfd31f459e25b3",
+      "red_start_ns": 1794031230182779100,
+      "restored_source_sha256": "d0988476ed430d523536b7f6ca29f77b446bf2d7ed1edc484bb1d837bc36d136",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_matched_ab.py",
+      "target": "if min(ent, ext)<0 or abs(gross-ent-ext-net)>.001:"
+    },
+    {
+      "green_end_ns": 1794031231877747400,
+      "green_exit_code": 0,
+      "green_log_sha256": "409019aadc097063d385ec328d192fe2eab911137f8245837aafc80e0f51b276",
+      "green_pid": 24776,
+      "green_start_ns": 1794031231465023700,
+      "id": "NEW_M11",
+      "red_end_ns": 1794031231464017600,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl"
+      ],
+      "red_log_sha256": "dd12731d1ba225c2e8ce664ceaa67dfa6d84ac1919fde9686094611c34819299",
+      "red_pid": 15764,
+      "red_source_sha256": "230c02694f9d59887bc80e396eb17aca9ce2a205943d032209c97ed88438241b",
+      "red_start_ns": 1794031231003127000,
+      "restored_source_sha256": "d0988476ed430d523536b7f6ca29f77b446bf2d7ed1edc484bb1d837bc36d136",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_matched_ab.py",
+      "target": "if actual!=claim:"
+    },
+    {
+      "green_end_ns": 1794031232693664400,
+      "green_exit_code": 0,
+      "green_log_sha256": "2a106f924a0c913e399ec9ba4c97c3aeaed2d8de15c2c93caa92644be4bbc12c",
+      "green_pid": 32836,
+      "green_start_ns": 1794031232306402900,
+      "id": "NEW_M12",
+      "red_end_ns": 1794031232305399100,
+      "red_exit_code": 1,
+      "red_failed_test_names": [
+        "test_si8_si9_identity_reported_honestly"
+      ],
+      "red_log_sha256": "fa33bfa30348489f1516db45b134a30e21e3ed1acdf8b990431584e2202edf87",
+      "red_pid": 20968,
+      "red_source_sha256": "d5c71b59f83dc377ebe551c08363c1d6f85420a78bc638cc51c9d4c659ea1b38",
+      "red_start_ns": 1794031231881750700,
+      "restored_source_sha256": "d0988476ed430d523536b7f6ca29f77b446bf2d7ed1edc484bb1d837bc36d136",
+      "same_selected_tests_executed": true,
+      "source": "backend\\services\\v17_9_3_1_2_7_matched_ab.py",
+      "target": "\"IDENTICAL_ON_TESTED_DATA\" if diff[\"changed_count\"]==0 and all(r[\"net_usd_delta\"]==0 for r in pairs)"
+    }
+  ],
+  "source_restored": true,
+  "status": "PASS"
+}

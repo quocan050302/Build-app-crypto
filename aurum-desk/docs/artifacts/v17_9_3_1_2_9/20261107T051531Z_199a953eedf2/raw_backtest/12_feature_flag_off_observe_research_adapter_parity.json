@@ -1,0 +1,15 @@
+{
+  "cross_adapter_parity_checked_count": 30,
+  "cross_adapter_parity_mismatch_count": 0,
+  "observe_only_action_mismatch_count": 0,
+  "observe_only_parity_checked_count": 30,
+  "off_parity_checked_count": 30,
+  "off_parity_mismatch_count": 0,
+  "production_research_apply_blocked_verified": true,
+  "schema_version": "17.9.3.1.2.2",
+  "supported_modes": [
+    "OFF",
+    "OBSERVE_ONLY",
+    "RESEARCH_APPLY"
+  ]
+}

@@ -1,0 +1,303 @@
+{
+  "quote_spread_and_gap_audit": {
+    "canonical_spread_slippage_table": {
+      "ASIA_OFF_HOURS": {
+        "slippage_usd": 0.12,
+        "spread_usd": 0.45
+      },
+      "LONDON": {
+        "slippage_usd": 0.1,
+        "spread_usd": 0.35
+      },
+      "LONDON_OPEN": {
+        "slippage_usd": 0.1,
+        "spread_usd": 0.35
+      },
+      "NY_AM": {
+        "slippage_usd": 0.1,
+        "spread_usd": 0.35
+      },
+      "NY_LUNCH": {
+        "slippage_usd": 0.12,
+        "spread_usd": 0.45
+      },
+      "NY_PM": {
+        "slippage_usd": 0.1,
+        "spread_usd": 0.4
+      },
+      "OFF_HOURS": {
+        "slippage_usd": 0.12,
+        "spread_usd": 0.45
+      },
+      "WEEKEND_CLOSED": {
+        "slippage_usd": 0.16,
+        "spread_usd": 0.55
+      }
+    },
+    "m1_gaps_over_1m_count": 8,
+    "major_gaps_over_5m_count": 6,
+    "quote_provenance": "SYNTHETIC_FROM_OHLC_SPREAD_TABLE",
+    "schema_version": "17.9.3.1.2.1",
+    "zero_range_m1_bars_count": 2652,
+    "zero_volume_m1_bars_count": 1873
+  },
+  "schema_version": "17.9.3.1.2.2",
+  "session_stratification": {
+    "defect_closed": "P1-I_VENUE_SESSION_MARKET_STATE_PROVENANCE",
+    "exchange_service_state_verification": "NOT_VERIFIED_FROM_HISTORICAL_CANDLES",
+    "macro_eligible_m1_bars_count": 1763,
+    "quote_source_type": "SYNTHETIC_FROM_OHLC_SPREAD_TABLE",
+    "schema_version": "17.9.3.1.2.1",
+    "session_bar_counts": {
+      "ASIA_OFF_HOURS": 6827,
+      "LONDON": 1979,
+      "LONDON_OPEN": 2207,
+      "NY_AM": 2436,
+      "NY_LUNCH": 828,
+      "NY_PM": 2554,
+      "WEEKEND_CLOSED": 5545
+    },
+    "session_trade_performance": {
+      "ASIA_OFF_HOURS": {
+        "closed_trades": 57,
+        "expectancy_r_mean": -0.8419,
+        "fast_stopout_le3_bars_count": 10,
+        "loss_rate": 0.9474,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.8563,
+          "upper_95": 0.9819
+        },
+        "losses": 54,
+        "m1_bars_in_dataset": 6827,
+        "mean_mfe_r": 1.0831,
+        "mean_stop_distance_usd": 4.874,
+        "modeled_net_pnl_usd": -118.04,
+        "modeled_slippage_usd": 0.12,
+        "modeled_spread_usd": 0.45,
+        "modeled_total_costs_usd": 74.42,
+        "open_at_horizon_censored_count": 25,
+        "session": "ASIA_OFF_HOURS",
+        "wins": 3
+      },
+      "LONDON": {
+        "closed_trades": 14,
+        "expectancy_r_mean": -0.5076,
+        "fast_stopout_le3_bars_count": 1,
+        "loss_rate": 0.8571,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.6006,
+          "upper_95": 0.9599
+        },
+        "losses": 12,
+        "m1_bars_in_dataset": 1979,
+        "mean_mfe_r": 1.6311,
+        "mean_stop_distance_usd": 5.5529,
+        "modeled_net_pnl_usd": -17.29,
+        "modeled_slippage_usd": 0.1,
+        "modeled_spread_usd": 0.35,
+        "modeled_total_costs_usd": 14.39,
+        "open_at_horizon_censored_count": 4,
+        "session": "LONDON",
+        "wins": 2
+      },
+      "LONDON_OPEN": {
+        "closed_trades": 14,
+        "expectancy_r_mean": -1.1759,
+        "fast_stopout_le3_bars_count": 0,
+        "loss_rate": 1.0,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.7847,
+          "upper_95": 1.0
+        },
+        "losses": 14,
+        "m1_bars_in_dataset": 2207,
+        "mean_mfe_r": 0.5443,
+        "mean_stop_distance_usd": 5.9186,
+        "modeled_net_pnl_usd": -40.05,
+        "modeled_slippage_usd": 0.1,
+        "modeled_spread_usd": 0.35,
+        "modeled_total_costs_usd": 19.88,
+        "open_at_horizon_censored_count": 9,
+        "session": "LONDON_OPEN",
+        "wins": 0
+      },
+      "NY_AM": {
+        "closed_trades": 12,
+        "expectancy_r_mean": -0.2053,
+        "fast_stopout_le3_bars_count": 0,
+        "loss_rate": 0.75,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.4677,
+          "upper_95": 0.9111
+        },
+        "losses": 9,
+        "m1_bars_in_dataset": 2436,
+        "mean_mfe_r": 1.7154,
+        "mean_stop_distance_usd": 8.275,
+        "modeled_net_pnl_usd": -5.98,
+        "modeled_slippage_usd": 0.1,
+        "modeled_spread_usd": 0.35,
+        "modeled_total_costs_usd": 10.42,
+        "open_at_horizon_censored_count": 10,
+        "session": "NY_AM",
+        "wins": 3
+      },
+      "NY_LUNCH": {
+        "closed_trades": 4,
+        "expectancy_r_mean": -0.9996,
+        "fast_stopout_le3_bars_count": 1,
+        "loss_rate": 1.0,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.5101,
+          "upper_95": 1.0
+        },
+        "losses": 4,
+        "m1_bars_in_dataset": 828,
+        "mean_mfe_r": 0.4687,
+        "mean_stop_distance_usd": 6.6875,
+        "modeled_net_pnl_usd": -9.89,
+        "modeled_slippage_usd": 0.12,
+        "modeled_spread_usd": 0.45,
+        "modeled_total_costs_usd": 4.04,
+        "open_at_horizon_censored_count": 1,
+        "session": "NY_LUNCH",
+        "wins": 0
+      },
+      "NY_PM": {
+        "closed_trades": 30,
+        "expectancy_r_mean": -0.9998,
+        "fast_stopout_le3_bars_count": 9,
+        "loss_rate": 1.0,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.8865,
+          "upper_95": 1.0
+        },
+        "losses": 30,
+        "m1_bars_in_dataset": 2554,
+        "mean_mfe_r": 0.8701,
+        "mean_stop_distance_usd": 3.433,
+        "modeled_net_pnl_usd": -73.96,
+        "modeled_slippage_usd": 0.1,
+        "modeled_spread_usd": 0.4,
+        "modeled_total_costs_usd": 42.72,
+        "open_at_horizon_censored_count": 8,
+        "session": "NY_PM",
+        "wins": 0
+      },
+      "OFF_HOURS": {
+        "closed_trades": 0,
+        "expectancy_r_mean": null,
+        "fast_stopout_le3_bars_count": 0,
+        "loss_rate": null,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": null,
+          "upper_95": null
+        },
+        "losses": 0,
+        "m1_bars_in_dataset": 0,
+        "mean_mfe_r": null,
+        "mean_stop_distance_usd": null,
+        "modeled_net_pnl_usd": 0,
+        "modeled_slippage_usd": 0.12,
+        "modeled_spread_usd": 0.45,
+        "modeled_total_costs_usd": 0,
+        "open_at_horizon_censored_count": 0,
+        "session": "OFF_HOURS",
+        "wins": 0
+      },
+      "WEEKEND_CLOSED": {
+        "closed_trades": 35,
+        "expectancy_r_mean": -0.9328,
+        "fast_stopout_le3_bars_count": 1,
+        "loss_rate": 0.9714,
+        "loss_rate_wilson_95_ci": {
+          "lower_95": 0.8547,
+          "upper_95": 0.9949
+        },
+        "losses": 34,
+        "m1_bars_in_dataset": 5545,
+        "mean_mfe_r": 1.7566,
+        "mean_stop_distance_usd": 2.1103,
+        "modeled_net_pnl_usd": -80.7,
+        "modeled_slippage_usd": 0.16,
+        "modeled_spread_usd": 0.55,
+        "modeled_total_costs_usd": 62.33,
+        "open_at_horizon_censored_count": 17,
+        "session": "WEEKEND_CLOSED",
+        "wins": 1
+      }
+    },
+    "total_m1_bars": 22376,
+    "weekend_calendar_m1_bars_count": 5545
+  },
+  "venue_quote_provenance": "MODELED_SESSION_SPREAD_NOT_EXCHANGE_L1_BBO",
+  "weekend_and_ny_pm_forensics": {
+    "london_open_forensics": {
+      "closed_trades": 14,
+      "diagnostic_explanation": "LONDON_OPEN (07:00-10:00 UTC) volatility expansion sweeps tight local M1 stops (0 wins, 14 losses).",
+      "expectancy_r_mean": -1.1759,
+      "fast_stopout_le3_bars_count": 0,
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.7847,
+        "upper_95": 1.0
+      },
+      "losses": 14,
+      "m1_bars_in_dataset": 2207,
+      "mean_mfe_r": 0.5443,
+      "mean_stop_distance_usd": 5.9186,
+      "modeled_net_pnl_usd": -40.05,
+      "modeled_slippage_usd": 0.1,
+      "modeled_spread_usd": 0.35,
+      "modeled_total_costs_usd": 19.88,
+      "open_at_horizon_censored_count": 9,
+      "session": "LONDON_OPEN",
+      "wins": 0
+    },
+    "ny_pm_forensics": {
+      "closed_trades": 30,
+      "diagnostic_explanation": "NY_PM (16:00-21:00 UTC) post-London-close mean-reversion and late-session chop produces 0 wins and 30 losses (100.0% loss rate) on immediate M1 entries.",
+      "expectancy_r_mean": -0.9998,
+      "fast_stopout_le3_bars_count": 9,
+      "loss_rate": 1.0,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8865,
+        "upper_95": 1.0
+      },
+      "losses": 30,
+      "m1_bars_in_dataset": 2554,
+      "mean_mfe_r": 0.8701,
+      "mean_stop_distance_usd": 3.433,
+      "modeled_net_pnl_usd": -73.96,
+      "modeled_slippage_usd": 0.1,
+      "modeled_spread_usd": 0.4,
+      "modeled_total_costs_usd": 42.72,
+      "open_at_horizon_censored_count": 8,
+      "session": "NY_PM",
+      "wins": 0
+    },
+    "schema_version": "17.9.3.1.2.1",
+    "weekend_closed_forensics": {
+      "closed_trades": 35,
+      "diagnostic_explanation": "Bitget XAUUSDT perpetual continues printing M1 candles over the weekend while spot gold is closed. Modeled weekend spread ($0.55) + slippage ($0.16) plus low weekend directional follow-through causes 34 losses out of 35 closed trades (97.14% loss rate).",
+      "expectancy_r_mean": -0.9328,
+      "fast_stopout_le3_bars_count": 1,
+      "loss_rate": 0.9714,
+      "loss_rate_wilson_95_ci": {
+        "lower_95": 0.8547,
+        "upper_95": 0.9949
+      },
+      "losses": 34,
+      "m1_bars_in_dataset": 5545,
+      "mean_mfe_r": 1.7566,
+      "mean_stop_distance_usd": 2.1103,
+      "modeled_net_pnl_usd": -80.7,
+      "modeled_slippage_usd": 0.16,
+      "modeled_spread_usd": 0.55,
+      "modeled_total_costs_usd": 62.33,
+      "open_at_horizon_censored_count": 17,
+      "session": "WEEKEND_CLOSED",
+      "wins": 1
+    }
+  }
+}

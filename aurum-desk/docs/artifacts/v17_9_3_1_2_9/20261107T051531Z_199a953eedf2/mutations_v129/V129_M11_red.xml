@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.659" timestamp="2026-11-07T13:00:53.781901+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m11_incorrect_tick_tp_price_or_altered_selected_id_rejected" time="0.008"><failure message="assert True is None">def test_m11_incorrect_tick_tp_price_or_altered_selected_id_rejected():
+        """M11: Incorrect tick/TP price or altered selected ID -&gt; reject."""
+        base = 1_790_000_100_000
+        bars = [
+            dict(
+                open_time=base + i * 60_000,
+                close_time=base + (i + 1) * 60_000,
+                open=100,
+                close=100,
+                high=105 if 5 &lt;= i &lt; 10 else 102,
+                low=98,
+                is_closed=True,
+            )
+            for i in range(20)
+        ]
+        m5 = [
+            dict(
+                open_time=base + i * 300_000,
+                close_time=base + (i + 1) * 300_000,
+                open=100,
+                close=100,
+                high=max(b["high"] for b in bars[i * 5 : (i + 1) * 5]),
+                low=98,
+                is_closed=True,
+            )
+            for i in range(4)
+        ]
+        target_id = f"pool_5M_5m_sh_{base + 300_000}"
+        decision = dict(
+            opportunity_id="fixture",
+            setup_episode_id="setup",
+            direction="LONG",
+            model_id="SMC_M1_REVERSAL",
+            entry_reference=100,
+            selected_sl=97,
+            take_profit=105.05,
+            selected_target_id=target_id,
+        )
+        context = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=bars[-1]["close_time"],
+            closed_m1_candles=bars,
+            closed_m5_candles=m5,
+        )
+        result = derive_pre_entry_features_from_causal_context_v1793127(decision, context, dataset_sha256="a" * 64)
+&gt;       assert result["target_selected_pool_bound"] is None
+E       assert True is None
+
+test_v129_liquidity_provenance.py:353: AssertionError</failure></testcase></testsuite></testsuites>

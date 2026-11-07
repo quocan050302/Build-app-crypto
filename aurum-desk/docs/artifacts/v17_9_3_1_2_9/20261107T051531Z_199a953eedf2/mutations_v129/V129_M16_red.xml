@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.624" timestamp="2026-11-07T13:01:04.413648+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m16_target_reachable_requires_verified_source_pool" time="0.001"><failure message="AssertionError: assert True is False&#10; +  where True = SignalQualityEvidenceV1793122(model_id='SMC_M1_REVERSAL', direction='LONG', decision_timestamp_ms=1790000600000, htf_a...get_geometrically_feasible=True, target_pool_proven=False, target_pool_state='UNKNOWN', target_coverage_complete=False).target_reachable">def test_m16_target_reachable_requires_verified_source_pool():
+        """M16: target_reachable=True with no source pool =&gt; cannot satisfy pool-proven gate."""
+        base_ms = 1_790_000_000_000
+        bars = _make_m1_bars(base_ms, 10, low=2649.0, high=2651.0, close=2650.0)
+        now_ms = bars[-1]["close_time"]
+        ctx = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=now_ms,
+            closed_m1_candles=bars,
+            liquidity_pools=(),
+            spread=0.10,
+            quote_timestamp_ms=now_ms,
+        )
+        ev = build_signal_quality_evidence_v1793122(
+            context=ctx,
+            model_id="SMC_M1_REVERSAL",
+            direction="LONG",
+            entry_price=2650.0,
+            selected_sl=2648.5,
+            take_profit=2654.0,
+            selected_target_id="missing_pool_id",
+            atr_m1=1.0,
+            atr_m5=2.2,
+        )
+        assert ev.target_geometrically_feasible is True
+        assert ev.target_pool_proven is False
+&gt;       assert ev.target_reachable is False
+E       AssertionError: assert True is False
+E        +  where True = SignalQualityEvidenceV1793122(model_id='SMC_M1_REVERSAL', direction='LONG', decision_timestamp_ms=1790000600000, htf_a...get_geometrically_feasible=True, target_pool_proven=False, target_pool_state='UNKNOWN', target_coverage_complete=False).target_reachable
+
+test_v129_liquidity_provenance.py:507: AssertionError</failure></testcase></testsuite></testsuites>

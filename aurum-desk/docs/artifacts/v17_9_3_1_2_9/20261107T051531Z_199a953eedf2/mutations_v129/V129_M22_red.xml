@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.641" timestamp="2026-11-07T13:01:17.729657+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m22_deleted_matched_pair_or_altered_fee_rejected" time="0.001"><failure message="AssertionError: Regex pattern did not match.&#10;  Expected regex: 'FEE_NET_RECONCILIATION_MISMATCH'&#10;  Actual message: 'REALIZED_R_RISK_RECONCILIATION_MISMATCH'">def test_m22_deleted_matched_pair_or_altered_fee_rejected():
+        """M22: Delete a matched pair ledger or alter one fee -&gt; verifier FAIL."""
+        dec_a = [
+            {
+                "opportunity_id": "opp_1",
+                "decision_timestamp_ms": 1_000_000,
+                "source_snapshot_hash": "s" * 64,
+                "model_id": "SMC_M1_REVERSAL",
+                "direction": "LONG",
+                "accepted": True,
+                "status": "ELIGIBLE",
+            }
+        ]
+        dec_b = [dict(dec_a[0])]
+        bad_trade = [
+            {
+                "opportunity_id": "opp_1",
+                "decision_timestamp_ms": 1_000_000,
+                "source_snapshot_hash": "s" * 64,
+                "model_id": "SMC_M1_REVERSAL",
+                "direction": "LONG",
+                "filled": True,
+                "outcome_label": "LOSS",
+                "realized_gross_pnl_usd": -2.0,
+                "entry_fee_usd": 0.10,
+                "exit_fee_usd": 0.10,
+                "realized_net_pnl_usd": -2.05,  # Fee mismatch: -2.0 - 0.20 != -2.05
+                "realized_r": -1.0,
+                "planned_net_risk_usd": 2.0,
+            }
+        ]
+&gt;       with pytest.raises(ValueError, match="FEE_NET_RECONCILIATION_MISMATCH"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'FEE_NET_RECONCILIATION_MISMATCH'
+E         Actual message: 'REALIZED_R_RISK_RECONCILIATION_MISMATCH'
+
+test_v129_liquidity_provenance.py:723: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.623" timestamp="2026-11-07T13:00:39.263294+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m04_empty_m1_price_path_treated_as_unswept_rejected" time="0.001"><failure message="AssertionError: assert ('p1', 103.0,..., True, False) == (None, 103.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p1' != None&#10;  Use -v to get more diff">def test_m04_empty_m1_price_path_treated_as_unswept_rejected():
+        """M04: Empty M1 price path treated as UNSWEPT -&gt; reject."""
+        pool = {"pool_id": "p1", "price": 103.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        res = _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[pool],
+            closed_1m=[],
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=98.0,
+            selected_target_id="p1",
+            take_profit=103.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        )
+&gt;       assert res == (None, 103.0, 0, False, False)
+E       AssertionError: assert ('p1', 103.0,..., True, False) == (None, 103.0, 0, False, False)
+E         
+E         At index 0 diff: 'p1' != None
+E         Use -v to get more diff
+
+test_v129_liquidity_provenance.py:160: AssertionError</failure></testcase></testsuite></testsuites>

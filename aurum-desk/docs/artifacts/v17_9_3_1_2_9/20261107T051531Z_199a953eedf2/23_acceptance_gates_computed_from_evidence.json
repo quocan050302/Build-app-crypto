@@ -1,0 +1,802 @@
+{
+  "activation_ready": "NO",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "engineering_verdict": "BLOCKED_PENDING_EXTERNAL_PHASE_C_RECEIPT",
+  "gates_count": 40,
+  "gates_g01_to_g40": [
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G01",
+      "measured": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "immutability": "PASS"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Correct same branch/ancestry; no force push/unrelated edits",
+      "source": "01_git_preflight_source_branch_and_prior_immutability.json",
+      "source_sha256": "f6ead2dc395e24ee8ddb45cf0bf7bce2810a3b4244aed25854666d6ca29a3328",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G02",
+      "measured": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Immutable frozen tested source SHA; no post-freeze code changes",
+      "source": "01_git_preflight_and_frozen_executable_sha.json",
+      "source_sha256": "f24421638e8aa2141caa5c8ddc39768bc9145014a8f173623306d41f13ec9b73",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G03",
+      "measured": {
+        "bad_bars": 0,
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Canonical OHLC dataset digest, closure/time and no hidden gaps",
+      "source": "03_canonical_dataset_quote_provenance_and_gaps.json",
+      "source_sha256": "367299fb1091206f609e7469e4ae4fe193989be68506cd96f02e6d7c8d9fbfa5",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G04",
+      "measured": {
+        "actual_unique_rows": 223460,
+        "canonical_keys_sha256": "455e7f7c81a2b5b192c5e0bfbb384b2536616915e92908c158bea49974c01f32",
+        "expected_rows": 223460,
+        "off_observe_action_mismatches": 0,
+        "status": "PASS",
+        "violations": {}
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Exact full universe checkpoint x model x side census",
+      "source": "05_independent_checkpoint_and_off_observe_verification.json",
+      "source_sha256": "3bec0999579675c1543d876de2312d4ffc549e5b88fb8e7264842b8f67e9b90a",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G05",
+      "measured": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "mismatch_ids": [],
+        "missing_count": 0,
+        "reconstructed_count": 63117,
+        "status": "PASS"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Every selected source event comes from actual detector closed bars",
+      "source": "07_independent_source_reconstruction.json",
+      "source_sha256": "a6055b4ed88023ed2a0699facab3241b6abdbbf578734e66a02f2fa5e256780c",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G06",
+      "measured": {
+        "mutations": [
+          "V129_M02",
+          "V129_M03"
+        ]
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Missing known_at never defaults to occurred/now, strict chronology",
+      "source": "04_liquidity_fabrication_before_after_repro.json",
+      "source_sha256": "ff7a3fd00fd9180ebf093c994422cc261d7f6311feb1281066fe4adc246a0e01",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G07",
+      "measured": {
+        "mutation": "V129_M01"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Fake prop_target_id/prop_tp pool branch removed and RED/GREEN proven",
+      "source": "04_liquidity_fabrication_before_after_repro.json",
+      "source_sha256": "ff7a3fd00fd9180ebf093c994422cc261d7f6311feb1281066fe4adc246a0e01",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G08",
+      "measured": {
+        "mutations": [
+          "V129_M04",
+          "V129_M05"
+        ]
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Absent/empty/partial unswept price path => UNKNOWN, never positive",
+      "source": "06_unswept_coverage_and_data_gap_census.json",
+      "source_sha256": "57678bc382609fa9bce09df9be5f4270422d637473252a9197de02961faa4a6f",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G09",
+      "measured": {
+        "PROVEN_TRUE": 55800,
+        "UNKNOWN": 7317
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Real observed swept pool => PROVEN_FALSE even with another source gap",
+      "source": "06_unswept_coverage_and_data_gap_census.json",
+      "source_sha256": "57678bc382609fa9bce09df9be5f4270422d637473252a9197de02961faa4a6f",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G10",
+      "measured": {
+        "PROVEN_TRUE": 55894,
+        "UNKNOWN": 7223
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Unique selected pool ID/tick/side/price must match true source",
+      "source": "05_source_bound_liquidity_event_ledger.jsonl.gz",
+      "source_sha256": "0669d454d90defad73797d3f5b87fb76f877d2063511ea8d83846bba2624a26d",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G11",
+      "measured": {
+        "no_fail_open_without_pool": true,
+        "pool_unswept_never_proven_without_pool_bound": true,
+        "pre_entry_target_reachable_always_unknown_in_causal_ledger": true
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "No optimistic target_reachable when no selected source-backed target",
+      "source": "07_target_geometric_vs_pool_provenance_truth_table.json",
+      "source_sha256": "9725e131b6f453563fcf3d295687bb143a8ec1fc7f62c5fd5283b4602fb9c0b0",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G12",
+      "measured": {
+        "UNKNOWN": 63117
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Structural target feasibility distinct from future outcome probability",
+      "source": "07_target_geometric_vs_pool_provenance_truth_table.json",
+      "source_sha256": "9725e131b6f453563fcf3d295687bb143a8ec1fc7f62c5fd5283b4602fb9c0b0",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G13",
+      "measured": {
+        "PROVEN_TRUE": 60305,
+        "UNKNOWN": 2812
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Exact structural anchor from confirmed pivot and SL protective buffer",
+      "source": "06_unswept_coverage_and_data_gap_census.json",
+      "source_sha256": "57678bc382609fa9bce09df9be5f4270422d637473252a9197de02961faa4a6f",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G14",
+      "measured": {
+        "quote_provenance": "SYNTHETIC_RESEARCH_QUOTE_CLOSE_PLUS_MINUS_0.10_USD"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Bid/ask synthetic quote never mislabeled provider real",
+      "source": "03_canonical_dataset_quote_provenance_and_gaps.json",
+      "source_sha256": "367299fb1091206f609e7469e4ae4fe193989be68506cd96f02e6d7c8d9fbfa5",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G15",
+      "measured": {
+        "PROVEN_FALSE": 22292,
+        "PROVEN_TRUE": 40825
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "FVG actual formation+postformation closed retest and mitigation",
+      "source": "09_feature_proof_states_by_model_side.json",
+      "source_sha256": "fd5138ddf32151aa33206e524630d8f98d91193849b856d1a792338effdbf8fa",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G16",
+      "measured": {
+        "PROVEN_FALSE": 61951,
+        "PROVEN_TRUE": 1166
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Unicorn actual breaker overlap/source binding for both sides",
+      "source": "09_feature_proof_states_by_model_side.json",
+      "source_sha256": "fd5138ddf32151aa33206e524630d8f98d91193849b856d1a792338effdbf8fa",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G17",
+      "measured": {
+        "ALIGNED": 7825,
+        "COUNTERTREND": 9168,
+        "MIXED": 46124
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "HTF bias independent H4/H1 proof and no future/partial bars",
+      "source": "08_htf_alignment_independent_census.json",
+      "source_sha256": "d30e083b8974f353410252e913b7322d4325d297f0e2cc490a2930c28e3a0efe",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G18",
+      "measured": {
+        "policies_audited": 10
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Full first-failure and secondary rejection funnel conservation",
+      "source": "10_full_candidate_stage_funnel_by_policy_model_side_setup.json",
+      "source_sha256": "ed92c335e90731a0acb9099ae6ee00fb4bab3f0ecc140bb8b59e212081abe913",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G19",
+      "measured": {
+        "control_nodes": 141
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Full model x direction positive/negative executable controls",
+      "source": "11_positive_and_adversarial_source_controls.json",
+      "source_sha256": "349658879704da5f0d084f4a6227c7864e0cc0d8c67458fc86e33fb8dc3a965f",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G20",
+      "measured": {
+        "mismatches": 0
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "SI0 OFF and OBSERVE_ONLY action parity against frozen baseline",
+      "source": "05_independent_checkpoint_and_off_observe_verification.json",
+      "source_sha256": "3bec0999579675c1543d876de2312d4ffc549e5b88fb8e7264842b8f67e9b90a",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G21",
+      "measured": {
+        "unknown_eligibility": "REJECTED_UNPROVEN"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Every research policy uses source truth; no gate bypass",
+      "source": "10_full_candidate_stage_funnel_by_policy_model_side_setup.json",
+      "source_sha256": "ed92c335e90731a0acb9099ae6ee00fb4bab3f0ecc140bb8b59e212081abe913",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G22",
+      "measured": {
+        "risk_violations": 0
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Final repriced entry/SL/TP/qty reproof and exact risk fees",
+      "source": "12_final_intent_geometry_risk_source_binding.jsonl.gz",
+      "source_sha256": "db7838e7a8b86fd0fe937031e7baea93ebd49b2f5a13a763d71557431e3dff44",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G23",
+      "measured": {
+        "target_reachable_unknown": 63117
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "No future outcomes in pre-entry source snapshots",
+      "source": "07_target_geometric_vs_pool_provenance_truth_table.json",
+      "source_sha256": "9725e131b6f453563fcf3d295687bb143a8ec1fc7f62c5fd5283b4602fb9c0b0",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G24",
+      "measured": {
+        "fill_modes": 3,
+        "policies": 10
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Three full correct distinct fill modes and position chronology",
+      "source": "15_all_policies_three_fill_modes_metrics.json",
+      "source_sha256": "4931d72eb6fdfc6e1026ed3e3346a5fcaf78a551ee26a4eca810f0c44c942008",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G25",
+      "measured": {
+        "comparisons": 9
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Matched A/B raw ledger conservation and fee/PnL reconciliation",
+      "source": "16_matched_ab_pair_ledgers_index_and_reconciliation.json",
+      "source_sha256": "79cae4d77d31d1afae285f9ed93aec033abcaf4716c451460781077e88658361",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G26",
+      "measured": {
+        "FILL_GAP/AMBIGUOUS_INTRABAR": 1,
+        "OTHER/UNKNOWN": 208,
+        "SWEEP_NOT_RECLAIMED": 1,
+        "WRONG_SIDE_HTF": 32
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Forensic UNKNOWN taxonomy and loss labels source grounded",
+      "source": "14_recovered_SI1_SI2_SI3_trade_identity_overlap_and_loss_forensics.json",
+      "source_sha256": "7d02f4dc28e6c9ffdfcf71a7a64cde9209e1d65b322e967cc80fd3118d8bd6d4",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G27",
+      "measured": {
+        "executed": 5113,
+        "passed": 5105
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Fresh full pytest node-ID collected/executed exact multiset",
+      "source": "18_fresh_pytest_collection_and_disjoint_junit_shards.json",
+      "source_sha256": "08e65b598023a831b13f43334ffe0db4d86eb567d4fafaed16076217146892f7",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G28",
+      "measured": {
+        "skipped_count": 8
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Every skip accounted, zero unreported fail/error/timeouts",
+      "source": "18_fresh_pytest_collection_and_disjoint_junit_shards.json",
+      "source_sha256": "08e65b598023a831b13f43334ffe0db4d86eb567d4fafaed16076217146892f7",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G29",
+      "measured": {
+        "total_mutations": 56
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Executable RED/GREEN mutations actually red then green",
+      "source": "19_executable_red_green_mutations.json",
+      "source_sha256": "260da73bd74bef8d2bc63983a5a5544f9805c091c0b1ed37dfdbb59bbb589c02",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G30",
+      "measured": {
+        "controls_count": 4
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Independent disk negative mutation fails with actual exit",
+      "source": "20_independent_negative_disk_artifact_controls.json",
+      "source_sha256": "25de96c45a26b3cd73c3067e713756caac7eae993e31706cc7345ceb108fa0d5",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G31",
+      "measured": {
+        "all_1_2_4_worker_hashes_identical": true,
+        "defect_closed": "TRUTH_CLOSURE_3_GENUINE_1_2_4_WORKER_INDEPENDENT_DETERMINISM",
+        "independent_execution_no_shared_digest_reuse": true,
+        "per_policy_hash_parity": {
+          "SI0_OFF_BASELINE": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+              "NEXT_BAR_OPEN_BID_ASK": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5"
+            }
+          },
+          "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "a1bee1f30132cff37e05a57cc424d8e2022d97a59436b21686a6425f91fbeb92",
+              "NEXT_BAR_OPEN_BID_ASK": "aad04d6ed85d31bf89f26427d2d16d23ed8dfe511635e9ecfe4c980e00fb7e8c",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "a0ccbb77a98cedda15dc8b88750fc43fe2d5a982bbcdb0f5f62136789ed4a5d1"
+            }
+          },
+          "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "682fdd74f38deba6214f48115412890e57cc9d8ad4c6cd220fdcb7ddeb04d2c2",
+              "NEXT_BAR_OPEN_BID_ASK": "e2b448f7af06eb7e1a594f5d19be2636fb0b19ad33945f33298f46a33773f548",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "3c94060230b71ccbf13a7e2b73e4e06df7c0d1ea07cfe68bd7bfd84f5f74d46a"
+            }
+          },
+          "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "728e670d52210aecf0e51d5b1ebfdb658aa2256e8e5c8b21891c5d47ffdd15d0",
+              "NEXT_BAR_OPEN_BID_ASK": "722a59966935b0d7bd45e021b21203f232619891992ff6f61e522df312b4b40b",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "19b1a3d901a9e8aeb0df26dd3f9aeb02b8ba24c77e32e38401a22a1956f80ac9"
+            }
+          },
+          "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI6_COMBINED_PREDECLARED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          },
+          "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+            "identical": true,
+            "w1_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w2_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "w4_fill_hashes": {
+              "LEGACY_CLOSE_FILL": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "NEXT_BAR_OPEN_BID_ASK": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "STRESS_WIDER_SPREAD_SLIPPAGE_2X": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          }
+        },
+        "schema_version": "17.9.3.1.2.2",
+        "worker_1_sha256": "72f4c8e55e0eb0dd875c0fa2b63281c848645e7b8fb51a7a5e4a8c93abfb5656",
+        "worker_1_wall_time_seconds": 542.29,
+        "worker_2_sha256": "72f4c8e55e0eb0dd875c0fa2b63281c848645e7b8fb51a7a5e4a8c93abfb5656",
+        "worker_2_wall_time_seconds": 291.206,
+        "worker_4_sha256": "72f4c8e55e0eb0dd875c0fa2b63281c848645e7b8fb51a7a5e4a8c93abfb5656",
+        "worker_4_wall_time_seconds": 183.932
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Independent fresh worker 1/2/4 digest parity on raw rows",
+      "source": "21_1v2v4_independent_worker_full_raw_hashes.json",
+      "source_sha256": "b993b2ece69fe312faac97cf11266aee2299789a3e836466147e35745231194c",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G32",
+      "measured": {
+        "max_children": 4,
+        "orphans": []
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Global heavy-worker <=4 including grandchildren, no orphans",
+      "source": "22_cpu_ram_disk_worker_cleanup_and_runtime.json",
+      "source_sha256": "5977fe019a17ba3e0484372d1da8791d7731a67acf43316a5212559b4e0749c1",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G33",
+      "measured": {
+        "min_disk": 66503012352,
+        "min_ram": 5974286336
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Free disk >=5GiB, RAM floor >=512MiB and published files atomic",
+      "source": "22_cpu_ram_disk_worker_cleanup_and_runtime.json",
+      "source_sha256": "5977fe019a17ba3e0484372d1da8791d7731a67acf43316a5212559b4e0749c1",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G34",
+      "measured": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "mismatch_ids": [],
+        "missing_count": 0,
+        "reconstructed_count": 63117,
+        "status": "PASS"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Fresh source reconstruction independently matches producer exactly",
+      "source": "07_independent_source_reconstruction.json",
+      "source_sha256": "a6055b4ed88023ed2a0699facab3241b6abdbbf578734e66a02f2fa5e256780c",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G35",
+      "measured": {
+        "embargo_bars_m1": 180,
+        "fresh_oos": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "OOS exposed/reused status, purge, no false fresh data",
+      "source": "17_dev_val_reused_holdout_and_fresh_oos_status.json",
+      "source_sha256": "b21ea0b86ae515d22bdb46062f9138e3ac83e0d7b5a24d3e4181a134132cb898",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G36",
+      "measured": {
+        "trading_edge_verdict": "INCONCLUSIVE_UNDERPOWERED"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Economic verdict computed from actual trades, no vacuous edge",
+      "source": "24_engineering_discovery_edge_provider_activation_verdicts.json",
+      "source_sha256": "bc46a6707176ac1228afac3653ebf5683f3eae3079d0291839a5e2997483f2a8",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G37",
+      "measured": {
+        "activation_ready": "NO"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Production OFF/OBSERVE, no Bitget orders or live activation",
+      "source": "24_engineering_discovery_edge_provider_activation_verdicts.json",
+      "source_sha256": "bc46a6707176ac1228afac3653ebf5683f3eae3079d0291839a5e2997483f2a8",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G38",
+      "measured": {
+        "after_sha256": "f0af64babcc487d0aa4a26ab67808a460390fc713adead7bee5f9de2be3b06b2",
+        "before_sha256": "f0af64babcc487d0aa4a26ab67808a460390fc713adead7bee5f9de2be3b06b2",
+        "changed_files": [],
+        "files": 9817,
+        "status": "PASS"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Prior V126/V127/V128 artifacts byte-immutable and no secret/DB leakage",
+      "source": "01_prior_artifact_immutability_verification.json",
+      "source_sha256": "41fe27f0015f9bad8aa39ae1ddcdac8678b4dfd9e80556615d9f5c8ef13d51c9",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G39",
+      "measured": {
+        "phase_a_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Phase A/Phase B same-branch commits and verified remote SHA",
+      "source": "01_git_preflight_source_branch_and_prior_immutability.json",
+      "source_sha256": "f6ead2dc395e24ee8ddb45cf0bf7bce2810a3b4244aed25854666d6ca29a3328",
+      "status": "PASS",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "gate_id": "G40",
+      "measured": {
+        "note": "Prepublication inside immutable run folder; finalized externally in Phase C publication receipt and latest_run.json."
+      },
+      "negative_control_id": "20_independent_negative_disk_artifact_controls.json",
+      "recompute_algorithm": "verify_v1793129_artifact_truth + verify_raw_accounting_and_worker_proofs",
+      "requirement": "Phase C publication receipt pushed and final remote HEAD external readback",
+      "source": "29_phase_a_b_c_remote_publication_receipt.json",
+      "source_sha256": "309f943a37d01609478945657fa99aa4f396a79f46a3029ba8cbe14330915f40",
+      "status": "BLOCKED",
+      "tested_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb"
+    }
+  ],
+  "prepublication_engineering": "PASS",
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "version": "17.9.3.1.2.9"
+}

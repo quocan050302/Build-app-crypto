@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.642" timestamp="2026-11-07T13:01:10.622203+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m19_unrelated_fvg_or_unicorn_breaker_source_rejected" time="0.006"><failure message="assert True is False">def test_m19_unrelated_fvg_or_unicorn_breaker_source_rejected():
+        """M19: Attach unrelated FVG/retest or Unicorn breaker source =&gt; reject."""
+        base = 1_790_000_000_000
+        # Create a bullish FVG between bar 0 (high=101) and bar 2 (low=103), retested at bar 3
+        prices = [
+            (100, 101, 99, 100.5),
+            (100.5, 105, 100.5, 104.5),
+            (104.5, 106, 103, 105),
+            (105, 105.5, 102, 104),
+            (104, 105, 103, 104.5),
+        ]
+        bars = [
+            dict(
+                open_time=base + i * 60_000,
+                timestamp=base + i * 60_000,
+                close_time=base + (i + 1) * 60_000,
+                open=o,
+                high=h,
+                low=l,
+                close=c,
+                is_closed=True,
+            )
+            for i, (o, h, l, c) in enumerate(prices)
+        ]
+        cutoff = bars[-1]["close_time"]
+        decision = dict(
+            opportunity_id="opp_fvg",
+            setup_episode_id="ep_fvg",
+            direction="LONG",
+            model_id="SMC_M1_FVG_CONTINUATION",
+            selected_fvg_id="unrelated_fvg_id_999",
+        )
+        ctx = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars)
+        res = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx, dataset_sha256="a" * 64)
+&gt;       assert res["fvg_present"] is False
+E       assert True is False
+
+test_v129_liquidity_provenance.py:610: AssertionError</failure></testcase></testsuite></testsuites>

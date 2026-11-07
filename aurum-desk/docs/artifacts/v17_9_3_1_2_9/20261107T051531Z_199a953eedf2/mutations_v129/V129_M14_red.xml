@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.659" timestamp="2026-11-07T13:01:00.100193+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m14_wrong_protective_sl_side_or_inside_pivot_rejected" time="0.007"><failure message="assert True is None">def test_m14_wrong_protective_sl_side_or_inside_pivot_rejected():
+        """M14: Wrong protective SL side or SL inside verified pivot -&gt; reject."""
+        base = 1_790_000_100_000
+        prices = [
+            (101, 99, 100),
+            (101, 99, 100),
+            (101, 95, 100),  # swing low at index 2 (price 95)
+            (101, 99, 100),
+            (101, 99, 100),
+            (101, 99, 100),
+        ]
+        bars = [
+            dict(
+                open_time=base + i * 60_000,
+                timestamp=base + i * 60_000,
+                close_time=base + (i + 1) * 60_000,
+                open=100,
+                high=h,
+                low=l,
+                close=c,
+                is_closed=True,
+            )
+            for i, (h, l, c) in enumerate(prices)
+        ]
+        cutoff = bars[-1]["close_time"]
+        swing_id = f"1m_sl_{bars[2]['open_time']}"
+        # SL at 96.0 is INSIDE the swing low at 95.0 for a LONG trade
+        decision = dict(
+            opportunity_id="fixture",
+            setup_episode_id="setup",
+            model_id="SMC_M1_REVERSAL",
+            direction="LONG",
+            entry_reference=100.0,
+            selected_sl=96.0,
+            take_profit=108.0,
+            selected_anchor_id=swing_id,
+        )
+        feature = derive_pre_entry_features_from_causal_context_v1793127(
+            decision,
+            SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars),
+            dataset_sha256="a" * 64,
+        )
+&gt;       assert feature["protected_structure_independent_of_sl"] is None
+E       assert True is None
+
+test_v129_liquidity_provenance.py:447: AssertionError</failure></testcase></testsuite></testsuites>

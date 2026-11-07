@@ -1,0 +1,633 @@
+{
+  "before_after_samples": [
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.58,
+        "net_rr": -0.713,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_REV_UNCONFIRMED_SWEEP_RECLAIM",
+          "SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM",
+          "SI2_REV_COUNTER_INTACT_HTF_IMPULSE",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.7130 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.77 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4196.53,
+        "take_profit": 4195.4,
+        "trade_action_fingerprint": "01c815c4bdc58f9936eff257bdee63dbfcf408cdcf69c0a319fa99c401269fda",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "hypothetical_quantity": 0.58,
+        "net_rr": -0.1529,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4196.53,
+        "take_profit": 4193.0,
+        "trade_action_fingerprint": "f829f55399f9e020f5a514d521c0118d661d3d1120f7a94142b0399d4d4b15a8"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_REVERSAL"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.15,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6466,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5639 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.39 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6466 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.59 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4194.87,
+        "take_profit": 4196.48,
+        "trade_action_fingerprint": "2dade68fbd484089e82f402fad0718eafad072c3bf0aa72b5983a6f8a9d1ded1",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.15,
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.5639,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5639 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.39 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4194.87,
+        "take_profit": 4196.88,
+        "trade_action_fingerprint": "33026c3dc3e2e2eb6e76aed7b6b29e8a8f19925f45642cbbf1199fd360c11c9c"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.52,
+        "net_rr": -0.6412,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1375 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.34 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI2_CONT_HTF_NOT_ALIGNED:COUNTERTREND",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6412 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.59 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4197.01,
+        "take_profit": 4195.4,
+        "trade_action_fingerprint": "66c310e4b0d299373f5390d62095cbfbcff1a17fede322d7444df9180808ffa6",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "hypothetical_quantity": 0.52,
+        "net_rr": -0.1375,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1375 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.34 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4197.01,
+        "take_profit": 4193.0,
+        "trade_action_fingerprint": "69cf003abe8562031f9bf57f1babfd261dfdbec076d286a02a24cd1bad9110ca"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.58,
+        "net_rr": -0.713,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "SI2_REV_COUNTER_INTACT_HTF_IMPULSE",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.7130 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.77 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4196.53,
+        "take_profit": 4195.4,
+        "trade_action_fingerprint": "11ed30168bb1e74aa76a4fdcd000fb13990dc49300e2f1ef1ac7ec7d1510b5ef",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "hypothetical_quantity": 0.58,
+        "net_rr": -0.1529,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1529 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.38 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4196.53,
+        "take_profit": 4193.0,
+        "trade_action_fingerprint": "077f2ab825946ac39dd9bd968a28436d6a35981eb049a32702e16a6b1e46218a"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_SWEEP_RECLAIM"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.15,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6466,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5639 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.39 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6466 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.59 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4194.87,
+        "take_profit": 4196.48,
+        "trade_action_fingerprint": "737cd9d7f1e856a96289f538fec9d5cc293ca94e5c97784d1ea4409421073e2f",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.15,
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.5639,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5639 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.39 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4194.87,
+        "take_profit": 4196.88,
+        "trade_action_fingerprint": "879141c7fab54a632e9e5cabe30df72789c856718fc0580ac4cb8c38a0840954"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "LONG",
+      "model_id": "CG01_SWEEP_MSS_FVG"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.52,
+        "net_rr": -0.6412,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1375 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.34 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI2_REV_COUNTER_INTACT_HTF_IMPULSE",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6412 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.59 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4197.01,
+        "take_profit": 4195.4,
+        "trade_action_fingerprint": "40622e819e7ae144fe8d72c8fa96db46cba3f90bc19bbea8a73b31f6fde6d4d8",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4195.8,
+        "hypothetical_quantity": 0.52,
+        "net_rr": -0.1375,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.1375 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-0.34 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4197.01,
+        "take_profit": 4193.0,
+        "trade_action_fingerprint": "a676d40c2e319e3381b2cb6a4bdab0e0014f7753f7514d1bf02dcddcfc87b6b9"
+      },
+      "checkpoint_index_1m": 450,
+      "decision_timestamp_ms": 1791585900000,
+      "direction": "SHORT",
+      "model_id": "CG01_SWEEP_MSS_FVG"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.57,
+        "net_rr": -0.7648,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6711 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.67 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_REV_UNCONFIRMED_SWEEP_RECLAIM",
+          "SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.7648 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.91 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4195.82,
+        "take_profit": 4196.75,
+        "trade_action_fingerprint": "87e28565773d3cf781cb73353fcdfe2d07897c57ba8282ee53ad9961c3d5a2ba",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "hypothetical_quantity": 0.57,
+        "net_rr": -0.6711,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6711 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.67 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4195.82,
+        "take_profit": 4197.16,
+        "trade_action_fingerprint": "c857277cc2944051509c0a5d37fb179a682a860ba91f1ae460cdc2a3b1ae4d3d"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_REVERSAL"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.685,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6011 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.50 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6850 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.71 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4195.31,
+        "take_profit": 4196.75,
+        "trade_action_fingerprint": "863f7a5c2b273ef0db2dc55419e7161d0b16db3cd6c295ccbf321dc19a23d965",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6011,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6011 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.50 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4195.31,
+        "take_profit": 4197.16,
+        "trade_action_fingerprint": "95e7b69c76ccb51a1f216fa7d50bcf385499b4a4474b0907e7a086a9748c855e"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.29,
+        "htf_alignment_state": "NEUTRAL",
+        "hypothetical_quantity": 0.54,
+        "net_rr": -0.582,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5820 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.43 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_FVG_MISSING_OR_MITIGATED",
+          "SI_FVG_STALE_OR_MITIGATED",
+          "SI2_CONT_HTF_NOT_ALIGNED:NEUTRAL",
+          "SI4_FVG_STALE_OR_ALREADY_MITIGATED",
+          "SI4_UNICORN_BREAKER_FVG_NOT_BOUND",
+          "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT",
+          "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4197.28,
+        "take_profit": 4195.48,
+        "trade_action_fingerprint": "77e32e837190bf7ceff72ed9bc6f9c8030c83849debf1f4cebbc1362d5e5c396",
+        "unicorn_classification": "INVALID_UNICORN"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.29,
+        "hypothetical_quantity": 0.54,
+        "net_rr": -0.582,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5820 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.43 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4197.28,
+        "take_profit": 4195.48,
+        "trade_action_fingerprint": "739a5aab5b3f9c7aa5f36b8a3efe083676f2bb5fd4fa99326ad5d0c55eff82eb"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_FVG_CONTINUATION"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.57,
+        "net_rr": -0.7648,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6711 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.67 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.7648 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.91 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4195.82,
+        "take_profit": 4196.75,
+        "trade_action_fingerprint": "56e2dd1a6fd0937e2a7a57a2521ba459abd1b6ded0810f3234abbd2ebfb2cb9c",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "hypothetical_quantity": 0.57,
+        "net_rr": -0.6711,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6711 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.67 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4195.82,
+        "take_profit": 4197.16,
+        "trade_action_fingerprint": "0b3187141abe9242e0eaaba5e943f4adf23ab1a297d155fbd77f78fb5cf9493f"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_SWEEP_RECLAIM"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.685,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6011 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.50 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6850 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.71 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4195.31,
+        "take_profit": 4196.75,
+        "trade_action_fingerprint": "fd780423f36157dc47791f0312af6e12b38bc6bfa04e4f5d3f95f218e8eda631",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.64,
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6011,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6011 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.50 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4195.31,
+        "take_profit": 4197.16,
+        "trade_action_fingerprint": "6156e1bf6aeaa9bee07d2ad4b48b71aa6bdfe3faa6a4f34366b7aaa999cfafb0"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "LONG",
+      "model_id": "CG01_SWEEP_MSS_FVG"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.29,
+        "htf_alignment_state": "NEUTRAL",
+        "hypothetical_quantity": 0.54,
+        "net_rr": -0.582,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5820 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.43 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_FVG_MISSING_OR_MITIGATED",
+          "SI_FVG_STALE_OR_MITIGATED",
+          "SI4_FVG_STALE_OR_ALREADY_MITIGATED",
+          "SI4_UNICORN_BREAKER_FVG_NOT_BOUND",
+          "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT",
+          "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4197.28,
+        "take_profit": 4195.48,
+        "trade_action_fingerprint": "1950671e4433c2c2e2347eb6bbe626616b640293925bc73198bb564f8e8d9ec7",
+        "unicorn_classification": "INVALID_UNICORN"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4196.29,
+        "hypothetical_quantity": 0.54,
+        "net_rr": -0.582,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.5820 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.43 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4197.28,
+        "take_profit": 4195.48,
+        "trade_action_fingerprint": "98768fbef58242d0f54fc144dfbde2ae1a4b0ab24f366b7bdf6f9b44125ea5ad"
+      },
+      "checkpoint_index_1m": 1250,
+      "decision_timestamp_ms": 1791633900000,
+      "direction": "SHORT",
+      "model_id": "CG01_SWEEP_MSS_FVG"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4199.93,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.55,
+        "net_rr": -0.6531,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6531 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.61 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_REV_UNCONFIRMED_SWEEP_RECLAIM",
+          "SI_REVERSAL_MISSING_CONFIRMED_SWEEP_RECLAIM",
+          "SI2_REV_COUNTER_INTACT_HTF_IMPULSE",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT",
+          "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4200.84,
+        "take_profit": 4199.39,
+        "trade_action_fingerprint": "21fc08704b74f79aefd1d021fe607827c0f6d0a0ebaaeb14c14d6809228da41b",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4199.93,
+        "hypothetical_quantity": 0.55,
+        "net_rr": -0.6531,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6531 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.61 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4200.84,
+        "take_profit": 4199.39,
+        "trade_action_fingerprint": "11efdefb92ab52208433aafabba747b6b5c9367bc5dd478ff7f9b681364d474b"
+      },
+      "checkpoint_index_1m": 2410,
+      "decision_timestamp_ms": 1791703500000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_REVERSAL"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4200.28,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6161,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "SHADOW_REJECTED_NO_VALID_TARGET",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6161 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.53 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4198.97,
+        "take_profit": 4200.74,
+        "trade_action_fingerprint": "b467aa07170e91a0969716d8210be234e2c626e6afc67601cee2092510b5608b",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4200.28,
+        "hypothetical_quantity": 0.0,
+        "net_rr": 0.0,
+        "rejection_reasons": [
+          "SHADOW_REJECTED_NO_VALID_TARGET"
+        ],
+        "selected_sl": 4198.97,
+        "take_profit": null,
+        "trade_action_fingerprint": "0be3f38ac76266c0816634d5e431f469a13fbc18c7c9b9d94170000ce4a70553"
+      },
+      "checkpoint_index_1m": 2410,
+      "decision_timestamp_ms": 1791703500000,
+      "direction": "LONG",
+      "model_id": "SMC_M1_FVG_CONTINUATION"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4199.93,
+        "htf_alignment_state": "COUNTERTREND",
+        "hypothetical_quantity": 0.55,
+        "net_rr": -0.6531,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6531 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.61 <= 0 sau chi phí)",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI1_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "SI2_REV_COUNTER_INTACT_HTF_IMPULSE",
+          "SI4_SWEEP_RECLAIM_NOT_CONFIRMED",
+          "SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT",
+          "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4200.84,
+        "take_profit": 4199.39,
+        "trade_action_fingerprint": "fd1b36ffd33d7a4a05833406e12be4eb31ea638db5467b58548cfa7399de03cf",
+        "unicorn_classification": "NONE"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4199.93,
+        "hypothetical_quantity": 0.55,
+        "net_rr": -0.6531,
+        "rejection_reasons": [
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6531 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.61 <= 0 sau chi phí)"
+        ],
+        "selected_sl": 4200.84,
+        "take_profit": 4199.39,
+        "trade_action_fingerprint": "6826325be17e6174e1487489ee4bc926c71e46c1d00d45fdcb20e7c65b182680"
+      },
+      "checkpoint_index_1m": 2410,
+      "decision_timestamp_ms": 1791703500000,
+      "direction": "SHORT",
+      "model_id": "SMC_M1_SWEEP_RECLAIM"
+    },
+    {
+      "after_research_apply_si6": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4200.28,
+        "htf_alignment_state": "ALIGNED",
+        "hypothetical_quantity": 0.51,
+        "net_rr": -0.6161,
+        "proposed_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "rejection_reasons": [
+          "SHADOW_REJECTED_NO_VALID_TARGET",
+          "SI_QUOTE_STALE_OR_WIDE_SPREAD",
+          "SI4_FVG_ONLY_NOT_CONFIRMED_UNICORN",
+          "SI_FVG_ONLY_NOT_TRUE_UNICORN",
+          "NET_RR_TOO_LOW: Net R:R 1:-0.6161 chưa đạt ngưỡng tối thiểu 1:2.0 (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến $-1.53 <= 0 sau chi phí)"
+        ],
+        "rejection_stage": "QUOTE_QUALITY_GATE",
+        "selected_sl": 4198.97,
+        "take_profit": 4200.74,
+        "trade_action_fingerprint": "d5e50d10c0a459c792ab027b067457717a806f4862379466922b5127daa2223a",
+        "unicorn_classification": "FVG_ONLY"
+      },
+      "before_off": {
+        "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+        "entry_reference": 4200.28,
+        "hypothetical_quantity": 0.0,
+        "net_rr": 0.0,
+        "rejection_reasons": [
+          "SHADOW_REJECTED_NO_VALID_TARGET"
+        ],
+        "selected_sl": 4198.97,
+        "take_profit": null,
+        "trade_action_fingerprint": "438f6bce574aa00b119f0b21a7f15a3febb01a5762a8d8d15c3007e14e8ddd5b"
+      },
+      "checkpoint_index_1m": 2410,
+      "decision_timestamp_ms": 1791703500000,
+      "direction": "LONG",
+      "model_id": "CG01_SWEEP_MSS_FVG"
+    }
+  ],
+  "changed_decision_snapshots_count": 16,
+  "inspected_snapshots_count": 30,
+  "schema_version": "17.9.3.1.2.2"
+}

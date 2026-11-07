@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.591" timestamp="2026-11-07T13:00:48.612711+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m08_duplicate_pool_id_with_conflicting_prices_rejected" time="0.000" /></testsuite></testsuites>

@@ -1,0 +1,263 @@
+{
+  "cross_partition_leakage_count": 0,
+  "embargo_bars_m1": 180,
+  "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "policies": {
+    "SI0_OFF_BASELINE": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 8,
+        "expectancy_net_r": -1.3075,
+        "losses": 8,
+        "net_usd": -25.4719,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 97,
+        "expectancy_net_r": -0.8262,
+        "losses": 92,
+        "net_usd": -197.1732,
+        "wins": 5
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 58,
+        "expectancy_net_r": -0.785,
+        "losses": 54,
+        "net_usd": -111.9978,
+        "wins": 4
+      },
+      "holdout_expectancy_net_r": -0.8262,
+      "purged_boundary_crossing_episodes_count": 3
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 3,
+        "expectancy_net_r": -0.9801,
+        "losses": 3,
+        "net_usd": -7.3315,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 3,
+        "expectancy_net_r": -0.9888,
+        "losses": 3,
+        "net_usd": -7.2682,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": -0.9801,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 8,
+        "expectancy_net_r": -0.9998,
+        "losses": 8,
+        "net_usd": -19.7354,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 1,
+        "expectancy_net_r": -1.0019,
+        "losses": 1,
+        "net_usd": -2.4647,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": -0.9998,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 3,
+        "expectancy_net_r": -0.9801,
+        "losses": 3,
+        "net_usd": -7.3315,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 3,
+        "expectancy_net_r": -0.9888,
+        "losses": 3,
+        "net_usd": -7.2682,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": -0.9801,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "D_DEV_2026_10_01_TO_10_10": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "H_HOLDOUT_2026_10_17_TO_10_23": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "V_VAL_2026_10_11_TO_10_16": {
+        "closed_trades": 0,
+        "expectancy_net_r": 0.0,
+        "losses": 0,
+        "net_usd": 0.0,
+        "wins": 0
+      },
+      "holdout_expectancy_net_r": 0.0,
+      "purged_boundary_crossing_episodes_count": 0
+    }
+  },
+  "schema_version": "17.9.3.1.2.2",
+  "split_boundaries_ms": [
+    1791676800000,
+    1792195200000
+  ],
+  "total_splits_evaluated": 3
+}

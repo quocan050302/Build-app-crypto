@@ -1,0 +1,13 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "disk_integrity_check": {
+    "errors": [],
+    "status": "PASS",
+    "verified_files": 682
+  },
+  "missing_v129_files": [],
+  "negative_tampering_controls_status": "PASS",
+  "status": "PASS",
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "version": "17.9.3.1.2.9"
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.626" timestamp="2026-11-07T13:00:41.350832+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m05_interior_price_path_gap_treated_as_complete_rejected" time="0.001"><failure message="AssertionError: assert ('p1', 103.0,..., True, False) == (None, 103.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p1' != None&#10;  Use -v to get more diff">def test_m05_interior_price_path_gap_treated_as_complete_rejected():
+        """M05: Interior price path gap treated as complete -&gt; reject."""
+        bars = _make_m1_bars(120_000, 4)
+        bars.pop(2)  # Create an interior 1m gap between 240_000 and 300_000
+        pool = {"pool_id": "p1", "price": 103.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        res = _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[pool],
+            closed_1m=bars,
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=98.0,
+            selected_target_id="p1",
+            take_profit=103.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        )
+&gt;       assert res == (None, 103.0, 0, False, False)
+E       AssertionError: assert ('p1', 103.0,..., True, False) == (None, 103.0, 0, False, False)
+E         
+E         At index 0 diff: 'p1' != None
+E         Use -v to get more diff
+
+test_v129_liquidity_provenance.py:189: AssertionError</failure></testcase></testsuite></testsuites>

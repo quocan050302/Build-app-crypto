@@ -1,0 +1,40 @@
+{
+  "all_negative_controls_rejected_tampering": true,
+  "controls": [
+    {
+      "control_id": "NEG_DISK_01_TAMPERED_FEATURE_FLAG",
+      "observed_valid": false,
+      "rejected_as_expected": true,
+      "tamper_action": "Set target_unswept=True and target_selected_pool_bound=True on raw row",
+      "target_artifact": "07_verified_causal_features.jsonl.gz",
+      "verifier_function": "verify_feature_snapshot_v1793127"
+    },
+    {
+      "control_id": "NEG_DISK_02_TRUNCATED_MATCHED_AB_PAIRS",
+      "observed_reason": "MATCHED_PAIR_OR_DECISION_LEDGER_MISMATCH",
+      "observed_status": "FAIL",
+      "rejected_as_expected": true,
+      "tamper_action": "Truncate pair_rows gzip ledger to 0 rows",
+      "target_artifact": "SI0_SI8_NEXT_BAR_OPEN_BID_ASK_pairs.jsonl.gz",
+      "verifier_function": "verify_matched_ab_against_raw_ledgers_v1793127"
+    },
+    {
+      "control_id": "NEG_DISK_03_JUNIT_SHARD_SHA256_MISMATCH",
+      "observed_error": "STALE_OR_TAMPERED_JUNIT",
+      "rejected_as_expected": true,
+      "tamper_action": "Corrupt shards[0].xml_sha256 to all zeros",
+      "target_artifact": "18_full_fresh_junit_shard_bijection_and_exitcodes.json",
+      "verifier_function": "verify_fresh_full_junit"
+    },
+    {
+      "control_id": "NEG_DISK_04_MANIFEST_FILE_HASH_TAMPER",
+      "forged_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "real_sha256": "f24421638e8aa2141caa5c8ddc39768bc9145014a8f173623306d41f13ec9b73",
+      "rejected_as_expected": true,
+      "tamper_action": "Compare real on-disk SHA-256 against forged manifest digest",
+      "target_artifact": "01_git_preflight_and_frozen_executable_sha.json"
+    }
+  ],
+  "controls_count": 4,
+  "status": "PASS"
+}

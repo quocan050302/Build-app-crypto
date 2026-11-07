@@ -1,0 +1,68 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "diagnosis": "Independent H4/H1 structure audit confirms 66,612 of 75,525 (88.20%) opportunities occur during COUNTERTREND, MIXED, or UNKNOWN (warmup) H4/H1 structure regimes in October 2026 XAUUSDT. Only 8,913 opportunities have H4 and H1 simultaneously aligned with trade direction. This is a genuine market-regime filter outcome, not a code defect.",
+  "h4_h1_direction_state_breakdown": {
+    "H4=BEARISH|H1=BEARISH|dir=LONG|state=COUNTERTREND": 9168,
+    "H4=BEARISH|H1=BEARISH|dir=SHORT|state=ALIGNED": 7825,
+    "H4=BEARISH|H1=BULLISH|dir=LONG|state=MIXED": 1503,
+    "H4=BEARISH|H1=BULLISH|dir=SHORT|state=MIXED": 1539,
+    "H4=BEARISH|H1=UNKNOWN|dir=LONG|state=MIXED": 6146,
+    "H4=BEARISH|H1=UNKNOWN|dir=SHORT|state=MIXED": 7064,
+    "H4=UNKNOWN|H1=BEARISH|dir=LONG|state=MIXED": 2232,
+    "H4=UNKNOWN|H1=BEARISH|dir=SHORT|state=MIXED": 3067,
+    "H4=UNKNOWN|H1=BULLISH|dir=LONG|state=MIXED": 2920,
+    "H4=UNKNOWN|H1=BULLISH|dir=SHORT|state=MIXED": 6021,
+    "H4=UNKNOWN|H1=UNKNOWN|dir=LONG|state=MIXED": 3597,
+    "H4=UNKNOWN|H1=UNKNOWN|dir=SHORT|state=MIXED": 12035
+  },
+  "htf_alignment_by_model_direction": {
+    "CG01_SWEEP_MSS_FVG/LONG": {
+      "COUNTERTREND": 2535,
+      "MIXED": 4724
+    },
+    "CG01_SWEEP_MSS_FVG/SHORT": {
+      "ALIGNED": 2150,
+      "MIXED": 8529
+    },
+    "SMC_M1_CONTINUATION/LONG": {
+      "COUNTERTREND": 580,
+      "MIXED": 975
+    },
+    "SMC_M1_CONTINUATION/SHORT": {
+      "ALIGNED": 587,
+      "MIXED": 2229
+    },
+    "SMC_M1_FVG_CONTINUATION/LONG": {
+      "COUNTERTREND": 2538,
+      "MIXED": 4704
+    },
+    "SMC_M1_FVG_CONTINUATION/SHORT": {
+      "ALIGNED": 2190,
+      "MIXED": 8539
+    },
+    "SMC_M1_REVERSAL/LONG": {
+      "COUNTERTREND": 1804,
+      "MIXED": 3015
+    },
+    "SMC_M1_REVERSAL/SHORT": {
+      "ALIGNED": 1524,
+      "MIXED": 5442
+    },
+    "SMC_M1_SWEEP_RECLAIM/LONG": {
+      "COUNTERTREND": 1711,
+      "MIXED": 2980
+    },
+    "SMC_M1_SWEEP_RECLAIM/SHORT": {
+      "ALIGNED": 1374,
+      "MIXED": 4987
+    }
+  },
+  "htf_alignment_state_totals": {
+    "ALIGNED": 7825,
+    "COUNTERTREND": 9168,
+    "MIXED": 46124
+  },
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "total_snapshots": 63117,
+  "version": "17.9.3.1.2.9"
+}

@@ -1,0 +1,19 @@
+{
+  "contract_invariants": {
+    "no_fail_open_without_pool": true,
+    "pool_unswept_never_proven_without_pool_bound": true,
+    "pre_entry_target_reachable_always_unknown_in_causal_ledger": true
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "total_snapshots": 63117,
+  "truth_table_distribution": {
+    "geom_feasible=False|pool_bound=PROVEN_TRUE|unswept=PROVEN_TRUE|reachable=UNKNOWN": 53162,
+    "geom_feasible=False|pool_bound=PROVEN_TRUE|unswept=UNKNOWN|reachable=UNKNOWN": 78,
+    "geom_feasible=False|pool_bound=UNKNOWN|unswept=UNKNOWN|reachable=UNKNOWN": 6921,
+    "geom_feasible=True|pool_bound=PROVEN_TRUE|unswept=PROVEN_TRUE|reachable=UNKNOWN": 2638,
+    "geom_feasible=True|pool_bound=PROVEN_TRUE|unswept=UNKNOWN|reachable=UNKNOWN": 16,
+    "geom_feasible=True|pool_bound=UNKNOWN|unswept=UNKNOWN|reachable=UNKNOWN": 302
+  },
+  "version": "17.9.3.1.2.9"
+}

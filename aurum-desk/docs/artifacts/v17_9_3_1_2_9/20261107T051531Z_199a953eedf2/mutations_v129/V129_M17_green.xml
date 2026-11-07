@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.562" timestamp="2026-11-07T13:01:07.565835+07:00" hostname="Lil-Poppa"><testcase classname="test_v129_liquidity_provenance" name="test_m17_real_provider_quote_without_receipt_rejected" time="0.007" /></testsuite></testsuites>

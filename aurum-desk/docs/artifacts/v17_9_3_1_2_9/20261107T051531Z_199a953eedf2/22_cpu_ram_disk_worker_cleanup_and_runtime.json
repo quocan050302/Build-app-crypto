@@ -1,0 +1,12 @@
+{
+  "error": null,
+  "global_worker_cap": 4,
+  "max_children_observed": 4,
+  "minimum_available_ram_bytes": 5974286336,
+  "minimum_free_disk_bytes": 66503012352,
+  "orphan_pids_observed_at_cleanup": [],
+  "peak_total_rss_bytes": 4939448320,
+  "sample_count": 5883,
+  "tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "version": "17.9.3.1.2.9"
+}

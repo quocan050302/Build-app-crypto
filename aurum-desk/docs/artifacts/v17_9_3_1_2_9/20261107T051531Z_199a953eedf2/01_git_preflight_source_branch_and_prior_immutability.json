@@ -1,0 +1,17 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "grounded_v128_phase_b_sha": "cbd3279f160e7e5441130cd9fef85cabdee00088",
+  "grounded_v128_phase_c_head": "e35f2739eb66eee4e4f2ae924c806d98d3f3ab95",
+  "grounded_v128_tested_executable_sha": "915fef251748546e36a1288356420c009fa49574",
+  "prior_artifact_immutability": {
+    "after_sha256": "f0af64babcc487d0aa4a26ab67808a460390fc713adead7bee5f9de2be3b06b2",
+    "before_sha256": "f0af64babcc487d0aa4a26ab67808a460390fc713adead7bee5f9de2be3b06b2",
+    "changed_files": [],
+    "files": 9817,
+    "status": "PASS"
+  },
+  "source_manifest_sha256": "dda9cbe25a6fb4719a9d4f906678af4bc418de516065c3499001a6da59813e46",
+  "status": "PASS",
+  "tested_phase_a_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "version": "17.9.3.1.2.9"
+}

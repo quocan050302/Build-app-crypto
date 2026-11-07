@@ -1,0 +1,17 @@
+{
+  "comparison_id": "SI0_SI8_STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+  "decision_diff": {
+    "changed_count": 63113,
+    "decision_relation": "ACTUAL_DECISION_DIFFERENCES",
+    "rows_sha256": "c3a6a9c6488514bc6c58b712e4f597fadd21c8bdd195e70584f4c41bc1dbe748"
+  },
+  "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+  "incremental_edge_status": "REQUIRES_STATISTICAL_VALIDATION",
+  "marked_to_market_portfolio_delta": null,
+  "matched_closed_count": 0,
+  "pair_ledger_sha256": "7605fa57884cbab1840d4871f8a682677a6fe76d300e5cc4f7a1298672271915",
+  "paired_mean_net_r_delta": null,
+  "portfolio_accounting_basis": "CLOSED_REALIZED_ONLY_OPEN_AND_GAP_NOT_IMPUTED",
+  "portfolio_net_usd_delta": 381.7661,
+  "relation": "DIFFERENT_ON_TESTED_DATA"
+}

@@ -1,0 +1,8 @@
+{
+  "actual_unique_rows": 223460,
+  "canonical_keys_sha256": "455e7f7c81a2b5b192c5e0bfbb384b2536616915e92908c158bea49974c01f32",
+  "expected_rows": 223460,
+  "off_observe_action_mismatches": 0,
+  "status": "PASS",
+  "violations": {}
+}

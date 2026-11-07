@@ -1,0 +1,8 @@
+{
+  "external_receipt_path": "aurum-desk/docs/artifacts/v17_9_3_1_2_9/publication_20261107T051531Z_199a953eedf2.json",
+  "phase_a_tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "phase_b_status": "PREPUBLICATION_READY_FOR_COMMIT",
+  "phase_c_status": "PENDING_EXTERNAL_PUBLICATION_RECEIPT",
+  "run_id": "20261107T051531Z_199a953eedf2",
+  "version": "17.9.3.1.2.9"
+}

@@ -1,0 +1,6 @@
+{
+  "assumption": "CLOSE_PLUS_MINUS_0.10_USD",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
+  "version": "17.9.3.1.2.9"
+}
