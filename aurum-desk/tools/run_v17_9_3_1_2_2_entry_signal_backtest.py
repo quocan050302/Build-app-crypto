@@ -486,11 +486,25 @@ def replay_single_si_policy_v1793122(
                         and bool(feat.get("target_pool_id"))
                     )
                     room_atr = feat.get("target_room_atr_m1")
+                    raw_plan_risk = opp.get("planned_net_risk_usd")
+                    if raw_plan_risk is None or float(raw_plan_risk or 0.0) <= 0.0:
+                        rk_check = recalculate_trade_risk_quantity_v179312(
+                            float(opp.get("entry_reference") or 0.0),
+                            float(opp.get("selected_sl") or 0.0),
+                            float(opp.get("take_profit") or 0.0),
+                            direction=str(opp.get("direction") or "LONG"),
+                            decision_ts=int(opp.get("decision_timestamp_ms") or 0),
+                        )
+                        eff_plan_risk = float(rk_check.get("planned_net_risk_usd") or 0.0)
+                        eff_net_rr = float(opp.get("net_rr") or rk_check.get("net_rr") or 0.0)
+                    else:
+                        eff_plan_risk = float(raw_plan_risk)
+                        eff_net_rr = float(opp.get("net_rr") or 0.0)
                     geom_ok = (
                         room_atr is not None
                         and 0.30 <= float(room_atr) <= 12.0
-                        and float(opp.get("net_rr") or 0.0) >= 2.0
-                        and 0.0 < float(opp.get("planned_net_risk_usd") or 0.0) <= 2.50
+                        and eff_net_rr >= 2.0
+                        and 0.0 < eff_plan_risk <= 2.50
                     )
                     si9_target_ok = bool(pool_bound_ok and unswept_ok and geom_ok)
                 else:
@@ -687,6 +701,12 @@ def replay_single_si_policy_v1793122(
             "total_fees_usd": fees_usd,
             "total_realized_net_usd": net_usd,
             "expectancy_net_r": exp_r,
+            "expectancy_status": (
+                "UNDEFINED_ZERO_CLOSED_TRADES"
+                if closed_n == 0
+                else ("POSITIVE" if exp_r > 0 else "NEGATIVE_OR_ZERO")
+            ),
+            "expectancy_is_positive_evidence": bool(closed_n > 0 and exp_r > 0),
             "profit_factor": pf,
             "max_drawdown_usd": round(max_dd, 4),
             "max_losing_streak": max_streak,
@@ -709,11 +729,30 @@ def replay_single_si_policy_v1793122(
             reason = None
             if candidate_index.get("v1793127_causal_truth_required") and policy_id != "SI0_OFF_BASELINE":
                 reason = required_proof_rejection_v1793127(feature, str(row.get("model_id")))
+            eff_mat = (
+                dict(mat)
+                if mat
+                else {
+                    "accepted": False,
+                    "status": "REJECTED_UNPROVEN" if reason else "SUPPRESSED_SAME_TIMESTAMP_TIE",
+                    "rejection_reason": reason if reason else "SUPPRESSED_BY_ARBITRATION",
+                }
+            )
+            first_rej = eff_mat.get("rejection_reason")
+            all_rejs = list(eff_mat.get("all_rejection_reasons") or ([first_rej] if first_rej else []))
             decision_ledger.append({
-                "opportunity_id": oid, "decision_timestamp_ms": int(row["decision_timestamp_ms"]),
+                "opportunity_id": oid,
+                "checkpoint_index_1m": int(checkpoint),
+                "decision_timestamp_ms": int(row["decision_timestamp_ms"]),
+                "model_id": str(row.get("model_id") or ""),
+                "direction": str(row.get("direction") or ""),
+                "discovered_by_si8": bool(row.get("discovered_by_si8", False)),
                 "source_snapshot_hash": feature.get("source_snapshot_hash"),
-                "proof_hash": feature.get("proof_hash"), "policy_id": policy_id,
-                **(dict(mat) if mat else {"accepted": False, "status": "REJECTED_UNPROVEN" if reason else "SUPPRESSED_SAME_TIMESTAMP_TIE", "rejection_reason": reason}),
+                "proof_hash": feature.get("proof_hash"),
+                "policy_id": policy_id,
+                **eff_mat,
+                "first_rejection_reason": first_rej,
+                "all_rejection_reasons": all_rejs,
             })
     canonical_decision_times = {str(r["opportunity_id"]): r["decision_timestamp_ms"]
                                 for group in by_idx.values() for r in group}
@@ -757,6 +796,8 @@ def replay_single_si_policy_v1793122(
         "total_fees_usd": prim["total_fees_usd"],
         "total_realized_net_usd": prim["total_realized_net_usd"],
         "expectancy_net_r": prim["expectancy_net_r"],
+        "expectancy_status": prim["expectancy_status"],
+        "expectancy_is_positive_evidence": prim["expectancy_is_positive_evidence"],
         "profit_factor": prim["profit_factor"],
         "max_drawdown_usd": prim["max_drawdown_usd"],
         "max_losing_streak": prim["max_losing_streak"],

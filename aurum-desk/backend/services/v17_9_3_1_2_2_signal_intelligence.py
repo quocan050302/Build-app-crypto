@@ -1072,35 +1072,46 @@ _TF_DURATION_MAP_V1793129: Dict[str, int] = {
 
 
 def _resolve_swing_pivot_close_ms_v1793129(item: Any, occ_ms: int) -> int:
+    """
+    V17.9.3.1.2.10 (B12): Resolves pivot close timestamp exclusively from explicit
+    verified detector metadata (`pivot_close_ms` or verified `timeframe` + `detector_version`
+    + `source_ids`). String prefixes in `pool_id` NEVER confer timeframe or pivot closure proof.
+    """
     if isinstance(item, Mapping):
         pc_raw = item.get("pivot_close_ms")
         det_ver = item.get("detector_version")
         src_kind = item.get("source_kind")
         tf_raw = item.get("timeframe")
+        src_ids = item.get("source_ids") or item.get("source_bar_ids")
         p_id = str(item.get("id") or item.get("pool_id") or item.get("level_id") or "").strip().lower()
     else:
         pc_raw = getattr(item, "pivot_close_ms", None)
         det_ver = getattr(item, "detector_version", None)
         src_kind = getattr(item, "source_kind", None)
         tf_raw = getattr(item, "timeframe", None)
+        src_ids = getattr(item, "source_ids", None) or getattr(item, "source_bar_ids", None)
         p_id = str(getattr(item, "id", None) or getattr(item, "pool_id", None) or getattr(item, "level_id", "") or "").strip().lower()
-    if type(pc_raw) is int and pc_raw >= occ_ms:
+
+    has_htf_id_claim = any(
+        p_id.startswith((f"{tf}_", f"pool_{tf}_")) or f"_{tf}_" in p_id
+        for tf in ("4h", "1h", "15m", "5m")
+    )
+    if type(pc_raw) is int and pc_raw > occ_ms:
+        if has_htf_id_claim and not (tf_raw and det_ver and src_ids):
+            return 0
         return pc_raw
-    id_tf: Optional[str] = None
-    if p_id.startswith(("4h_", "pool_4h_")) or "_4h_" in p_id:
-        id_tf = "4H"
-    elif p_id.startswith(("1h_", "pool_1h_")) or "_1h_" in p_id:
-        id_tf = "1H"
-    elif p_id.startswith(("15m_", "pool_15m_")) or "_15m_" in p_id:
-        id_tf = "15M"
-    elif p_id.startswith(("5m_", "pool_5m_")) or "_5m_" in p_id:
-        id_tf = "5M"
-    elif p_id.startswith(("1m_", "pool_1m_")) or "_1m_" in p_id:
-        id_tf = "1M"
-    if det_ver is not None or str(src_kind or "").upper() == "SWING" or id_tf is not None:
-        tf_key = str(id_tf or tf_raw or "1M").strip().upper()
-        tf_ms = _TF_DURATION_MAP_V1793129.get(tf_key, 60_000)
+    if has_htf_id_claim and not (tf_raw and det_ver and src_ids):
+        return 0
+    if tf_raw is not None:
+        tf_key = str(tf_raw).strip().upper()
+        tf_ms = _TF_DURATION_MAP_V1793129.get(tf_key)
+        if tf_ms is None:
+            return 0
+        if tf_ms > 60_000 and not (det_ver and src_ids):
+            return 0
         return int(occ_ms) + tf_ms
+    if det_ver is not None or str(src_kind or "").upper() == "SWING":
+        return int(occ_ms) + 60_000
     return int(occ_ms)
 
 
@@ -1187,7 +1198,7 @@ def _build_causal_swing_pools_from_swings_v1793124(
         )
         if type(occ_raw) is not int or type(k_raw) is not int:
             continue
-        if not (0 < occ_raw <= k_raw <= int(now_ms)):
+        if not (0 < occ_raw < k_raw <= int(now_ms)):
             continue
 
         occ_ms = int(occ_raw)
@@ -1332,12 +1343,32 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
         except (TypeError, ValueError, OverflowError):
             continue
         k_ts = k_ts_raw
-        if type(occ_ts_raw) is not int or not 0 < occ_ts_raw <= k_ts:
+        if type(occ_ts_raw) is not int or not 0 < occ_ts_raw < k_ts:
             continue
         if swept_at_raw is not None and (type(swept_at_raw) is not int or swept_at_raw < occ_ts_raw):
             continue
 
         pivot_close_ts = _resolve_swing_pivot_close_ms_v1793129(p, int(occ_ts_raw))
+        if pivot_close_ts <= 0:
+            continue
+        has_det_prov = bool(
+            (p.get("detector_version") and (p.get("source_ids") or p.get("source_bar_ids")))
+            if isinstance(p, Mapping)
+            else (getattr(p, "detector_version", None) and (getattr(p, "source_ids", None) or getattr(p, "source_bar_ids", None)))
+        )
+        if (k_ts == now_ms or now_ms - int(occ_ts_raw) < 120_000) and not has_det_prov:
+            pivot_bar_ok = any(
+                (c_ts - 60_000 == int(occ_ts_raw) or c_ts == int(occ_ts_raw))
+                and (round(h, 2) == p_px if direction == "LONG" else round(l, 2) == p_px)
+                for c_ts, h, l in fast_bars
+            )
+            right_confirm_ok = any(
+                c_ts > int(occ_ts_raw) + 60_000 and c_ts <= k_ts
+                and (h < p_px if direction == "LONG" else l > p_px)
+                for c_ts, h, l in fast_bars
+            )
+            if not (pivot_bar_ok and right_confirm_ok):
+                continue
         covered_until_ts = int(covered_until_raw or 0) if type(covered_until_raw) is int else 0
 
         swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
@@ -1876,10 +1907,20 @@ def build_signal_quality_evidence_v1793122(
         and abs(float(prot_px) - float(selected_sl)) >= 0.005
     )
 
-    # Target reachability & unswept liquidity pool check (STAGE G5 / T19, T20)
+    # Target reachability & unswept liquidity pool check (STAGE G5 / T19, T20 / V130 B16)
     eff_atr_m5 = float(atr_m5) if (atr_m5 is not None and float(atr_m5) > 0.0) else eff_atr_m1 * 2.2
-    pools = list(getattr(context, "liquidity_pools", ()) or ())
-    if not pools:
+    raw_caller_pools = list(getattr(context, "liquidity_pools", ()) or ())
+    if raw_caller_pools:
+        from services.v17_9_3_1_2_10_canonical_reconciliation_and_provenance import (
+            verify_context_liquidity_pool_provenance_v17931210,
+        )
+
+        prov_check = verify_context_liquidity_pool_provenance_v17931210(
+            context=context, direction=direction, now_ms=now_ms
+        )
+        pools = list(prov_check["verified_pools"])
+    else:
+        pools = []
         target_swings = sh_1m if direction == "LONG" else sl_1m
         if selected_target_id is not None and any(str(s.get("id", "")) == str(selected_target_id) for s in target_swings):
             pools = _build_causal_swing_pools_from_swings_v1793124(
@@ -2419,8 +2460,23 @@ def evaluate_signal_intelligence_gate_v1793122(
                         prop_anchor_id = evidence.protected_structure_anchor_id
                         prop_anchor_kind = "INDEPENDENT_PROTECTED_SWING"
 
-            # V17.9.3.1.2.3 STAGE G5 / V17.9.3.1.2.4: Resolve unswept pre-entry liquidity pool target
-            ctx_pools = list(getattr(context, "liquidity_pools", ()) or ())
+            # V17.9.3.1.2.3 STAGE G5 / V17.9.3.1.2.4 / V17.9.3.1.2.10 B16: Resolve unswept pre-entry liquidity pool target
+            raw_ctx_pools = list(getattr(context, "liquidity_pools", ()) or ())
+            if raw_ctx_pools:
+                from services.v17_9_3_1_2_10_canonical_reconciliation_and_provenance import (
+                    verify_context_liquidity_pool_provenance_v17931210,
+                )
+
+                prov_check_si5 = verify_context_liquidity_pool_provenance_v17931210(
+                    context=context, direction=direction, now_ms=now_ms
+                )
+                ctx_pools = list(prov_check_si5["verified_pools"])
+                unproven_caller_pool_ids = {
+                    str(rp.get("pool_id") or "") for rp in prov_check_si5["rejected_pools"]
+                }
+            else:
+                ctx_pools = []
+                unproven_caller_pool_ids = set()
             raw_1m_for_pools = list(getattr(context, "closed_m1_candles", None) or getattr(context, "candles_1m", ()) or ())
             closed_1m_for_pools, _ = _closed_bars_as_of(raw_1m_for_pools, now_ms, 60_000)
             raw_5m_for_pools = list(getattr(context, "closed_m5_candles", None) or getattr(context, "candles_5m", ()) or ())
@@ -2429,7 +2485,7 @@ def evaluate_signal_intelligence_gate_v1793122(
             raw_h4_for_pools = list(getattr(context, "closed_h4_candles", None) or getattr(context, "candles_4h", ()) or ())
             has_mtf_pools_ctx = bool(raw_5m_for_pools or raw_15m_for_pools or raw_h1_for_pools or raw_h4_for_pools)
 
-            if not ctx_pools and not evidence.target_reachable:
+            if not ctx_pools and not unproven_caller_pool_ids and not evidence.target_reachable:
                 target_swings_for_pools = list(sh_1m if direction == "LONG" else sl_1m)
                 ctx_pools = _build_causal_swing_pools_from_swings_v1793124(
                     target_swings_for_pools, closed_1m_for_pools, direction, now_ms

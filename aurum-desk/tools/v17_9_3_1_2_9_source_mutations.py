@@ -26,14 +26,14 @@ SPECS = (
         "M02",
         "si",
         "if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:",
-        "k_ts_raw = now_ms if k_ts_raw is None else k_ts_raw\n        if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:",
+        "k_ts_raw = now_ms - 60_000 if k_ts_raw is None else k_ts_raw\n        if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:",
         "test_m02_falsify_known_at_now_ms_without_confirming_bars_rejected",
     ),
     (
         "M03",
         "si",
-        "if type(occ_raw) is not int or type(k_raw) is not int:",
-        "k_raw = occ_raw if k_raw is None else k_raw\n        if type(occ_raw) is not int or type(k_raw) is not int:",
+        "if type(occ_raw) is not int or type(k_raw) is not int:\n            continue\n        if not (0 < occ_raw < k_raw <= int(now_ms)):",
+        "k_raw = occ_raw if k_raw is None else k_raw\n        if type(occ_raw) is not int or type(k_raw) is not int:\n            continue\n        if not (0 < occ_raw <= k_raw <= int(now_ms)):",
         "test_m03_missing_known_at_fallback_to_occurred_at_rejected",
     ),
     (
