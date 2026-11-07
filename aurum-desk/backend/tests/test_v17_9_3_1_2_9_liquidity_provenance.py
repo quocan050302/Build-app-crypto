@@ -809,15 +809,26 @@ def test_m24_worker_1v2v4_parity_requires_independent_pids_and_matching_digests(
     assert "WORKER_EXECUTION_OR_DIGEST_MISMATCH:30" in res["errors"]
 
 
-def test_m25_remote_phase_receipt_blocked_before_phase_c():
+def test_m25_remote_phase_receipt_blocked_before_phase_c(monkeypatch, tmp_path):
     """M25: Claim G34/G40 PASS before actual Phase C remote readback -> verifier BLOCKED."""
     import subprocess
-    import services
 
-    app_dir = next(Path(p).resolve().parents[1] for p in services.__path__ if (Path(p).resolve().parents[2] / ".git").exists())
-    repo_root = app_dir.parent
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
-    receipt = verify_git_remote_phase_receipt_v1793127(repo_root, phase_a=head, phase_b=None, phase_c=None)
+    fake_sha = "a" * 40
+
+    def _fake_check_output(cmd, **kwargs):
+        if "branch" in cmd:
+            return "feature/v17-9-2-structural-sl-tp-from-qa\n"
+        if "ls-remote" in cmd:
+            return f"{fake_sha}\trefs/heads/feature/v17-9-2-structural-sl-tp-from-qa\n"
+        if "rev-parse" in cmd:
+            return f"{fake_sha}\n"
+        if "diff" in cmd:
+            return ""
+        return ""
+
+    monkeypatch.setattr(subprocess, "check_output", _fake_check_output)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: None)
+    receipt = verify_git_remote_phase_receipt_v1793127(tmp_path, phase_a=fake_sha, phase_b=None, phase_c=None)
     assert receipt["status"] == "BLOCKED"
 
 

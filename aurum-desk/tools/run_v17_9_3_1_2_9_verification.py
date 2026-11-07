@@ -243,7 +243,7 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_9", minimum_ram_bytes: int = 
         write(run / "19_new_executable_red_green_mutation_evidence.json", new_mutations)
         from tools.v17_9_3_1_2_9_source_mutations import run_v1793129_source_mutations
 
-        v129_mutations = run_v1793129_source_mutations(run / "mutations_v129", max_workers=2)
+        v129_mutations = run_v1793129_source_mutations(run / "mutations_v129", max_workers=1)
         write(run / "19_v129_executable_red_green_mutation_evidence.json", v129_mutations)
         proofs["G18"] = {
             "status": "PASS"
@@ -597,6 +597,7 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_9", minimum_ram_bytes: int = 
             "reason": "FINAL_DISK_VERIFICATION_PENDING",
         }
         gates_core = evaluate_v1793127_acceptance_gates(proofs, tested_sha=sha, dataset_sha=dataset_sha)
+        write(run / "23_acceptance_gates_computed_from_proof.json", gates_core)
         write(
             run / "00_run_manifest.json",
             {
@@ -614,7 +615,7 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_9", minimum_ram_bytes: int = 
         files = {
             str(p.relative_to(run)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in run.rglob("*")
-            if p.is_file() and not p.name.endswith(".partial")
+            if p.is_file() and p.name != "artifact_sha256_manifest.json" and not p.name.endswith(".partial")
         }
         write(run / "artifact_sha256_manifest.json", {"files": files, "ab_specs": specs})
         independent = verify_v1793127_artifact_truth(run)
@@ -635,6 +636,17 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_9", minimum_ram_bytes: int = 
                 "failure": failure,
             },
         )
+        for gate in gates_core["gates"]:
+            path = run / gate["source"] if gate["source"] else None
+            gate["source_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest() if path and path.is_file() else None
+        write(run / "23_acceptance_gates_computed_from_proof.json", gates_core)
+        files = {
+            str(p.relative_to(run)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in run.rglob("*")
+            if p.is_file() and p.name != "artifact_sha256_manifest.json" and not p.name.endswith(".partial")
+        }
+        write(run / "artifact_sha256_manifest.json", {"files": files, "ab_specs": specs})
+        independent = verify_v1793127_artifact_truth(run)
 
         v129_check = {"status": "BLOCKED"}
         if not failure and gates_core["prepublication_engineering"] == "PASS" and independent["status"] == "PASS":

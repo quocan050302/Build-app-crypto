@@ -200,7 +200,7 @@ def run_negative_disk_tampering_controls(run_dir: Path) -> Dict[str, Any]:
 
     # Control 4: Corrupt a file hash in artifact_sha256_manifest.json in a temp check -> detected
     manifest_check = read_json(run_dir / "artifact_sha256_manifest.json")
-    sample_key = "00_run_manifest.json"
+    sample_key = "01_git_preflight_and_frozen_executable_sha.json"
     real_sha = file_sha256(run_dir / sample_key)
     forged_sha = "f" * 64
     controls.append(
