@@ -157,7 +157,7 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_10", minimum_ram_bytes: int =
     stage_workers = max(1, min(4, int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS", "3"))))
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "1"
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "2"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "4"
     os.environ["AURUM_RESEARCH_PROCESS_WORKERS"] = "1"
     proofs = {"G01": {"status": "PASS", "source": "01_git_preflight_and_frozen_executable_sha.json", "measured": sha}}
