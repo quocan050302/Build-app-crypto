@@ -470,7 +470,32 @@ def replay_single_si_policy_v1793122(
                     }
                     materialized_list.append((opp, mat))
                     continue
-                if not bool(feat.get("target_reachable", False)) or feat.get("status") != "PROVEN_TRUE":
+                if "causal_snapshot" in feat:
+                    refs_by_type = {
+                        r["evidence_type"]: r
+                        for r in (feat.get("causal_snapshot") or {}).get("features", ())
+                    }
+                    pool_bound_ok = (
+                        feat.get("target_selected_pool_bound") is True
+                        and refs_by_type.get("target_selected_pool_bound", {}).get("proof_state") == "PROVEN_TRUE"
+                    )
+                    unswept_ok = (
+                        feat.get("target_unswept") is True
+                        and refs_by_type.get("target_unswept", {}).get("proof_state") == "PROVEN_TRUE"
+                        and feat.get("target_pool_state") == "UNSWEPT"
+                        and bool(feat.get("target_pool_id"))
+                    )
+                    room_atr = feat.get("target_room_atr_m1")
+                    geom_ok = (
+                        room_atr is not None
+                        and 0.30 <= float(room_atr) <= 12.0
+                        and float(opp.get("net_rr") or 0.0) >= 2.0
+                        and 0.0 < float(opp.get("planned_net_risk_usd") or 0.0) <= 2.50
+                    )
+                    si9_target_ok = bool(pool_bound_ok and unswept_ok and geom_ok)
+                else:
+                    si9_target_ok = bool(feat.get("target_reachable", False)) and feat.get("status") == "PROVEN_TRUE"
+                if not si9_target_ok:
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
                         "opportunity_id": opp_id,

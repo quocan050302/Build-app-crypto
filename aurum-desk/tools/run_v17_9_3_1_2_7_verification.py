@@ -80,7 +80,7 @@ def prior_artifact_manifest():
 
 
 class ResourceMonitor:
-    def __init__(self, *, minimum_ram_bytes=256 * 1024**2):
+    def __init__(self, *, minimum_ram_bytes=512 * 1024**2):
         self.stop_event=threading.Event()
         self.samples=[]
         self.error=None
@@ -221,7 +221,7 @@ def run_independent_source_reconstruction(run):
     return result
 
 
-def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=256 * 1024**2):
+def main(*, artifact_namespace="v17_9_3_1_2_7", minimum_ram_bytes=512 * 1024**2):
     ap=argparse.ArgumentParser()
     ap.add_argument("--tested-code-sha",required=True)
     ap.add_argument("--run-id",default="")

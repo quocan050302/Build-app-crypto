@@ -499,7 +499,7 @@ def build_verified_baseline_pre_entry_feature_ledger_v1793127(candidate_index, d
             import os
             import shutil
             import psutil
-            min_ram = int(os.environ.get("AURUM_MINIMUM_RAM_BYTES", 256 * 1024**2))
+            min_ram = int(os.environ.get("AURUM_MINIMUM_RAM_BYTES", 512 * 1024**2))
             if psutil.virtual_memory().available < min_ram:
                 raise RuntimeError("BLOCKED_LOW_RAM_CAUSAL_LEDGER")
             if shutil.disk_usage(Path(__file__).anchor).free < 5*1024**3:

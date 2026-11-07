@@ -198,7 +198,22 @@ def _closed_bars_as_of(
     closed: List[Any] = []
     unclosed_count = 0
     for b in bars:
+        is_closed_flag = (
+            b.get("is_closed", True)
+            if isinstance(b, Mapping)
+            else getattr(b, "is_closed", True)
+        )
+        if is_closed_flag is False:
+            unclosed_count += 1
+            continue
         c_ms = _bar_close_ms(b, tf_ms)
+        if c_ms <= 0:
+            unclosed_count += 1
+            continue
+        o_ms = _bar_open_ms(b)
+        if o_ms > 0 and o_ms >= c_ms:
+            unclosed_count += 1
+            continue
         if c_ms > int(cutoff_ms):
             unclosed_count += 1
             continue
@@ -651,6 +666,10 @@ class SignalQualityEvidenceV1793122:
     fvg_retest_at_ms: Optional[int] = None
     provenance_evidence_map: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     verified_causal_snapshot_v1793127: Optional[Dict[str, Any]] = None
+    target_geometrically_feasible: bool = False
+    target_pool_proven: bool = False
+    target_pool_state: str = "UNKNOWN"
+    target_coverage_complete: bool = False
 
     @property
     def lookahead_violation_detected(self) -> bool:
@@ -1006,20 +1025,126 @@ def _extract_fast_m1_candles(
 ) -> List[Tuple[int, float, float]]:
     fast_bars: List[Tuple[int, float, float]] = []
     for b in closed_1m:
-        if type(b) is dict:
-            c = b.get("close_time") or b.get("close_time_ms")
-            if c is not None:
+        if type(b) is dict or isinstance(b, Mapping):
+            if b.get("is_closed", True) is False:
+                continue
+            c = b.get("close_time") if b.get("close_time") is not None else b.get("close_time_ms")
+            o = b.get("open_time") if b.get("open_time") is not None else (b.get("open_time_ms") if b.get("open_time_ms") is not None else b.get("timestamp"))
+            o_ms = int(o) if (o is not None and not isinstance(o, bool)) else 0
+            if c is not None and not isinstance(c, bool):
                 c_ms = int(c)
             else:
-                o = b.get("open_time") or b.get("open_time_ms") or b.get("timestamp") or 0
-                c_ms = int(o) + 60_000 if o else 0
-            if c_ms <= now_ms:
-                fast_bars.append((c_ms, float(b.get("high", 0.0)), float(b.get("low", 0.0))))
+                c_ms = o_ms + 60_000 if o_ms > 0 else 0
+            if c_ms <= 0 or c_ms > int(now_ms) or (o_ms > 0 and o_ms >= c_ms):
+                continue
+            h_val = float(b.get("high", 0.0) or 0.0)
+            l_val = float(b.get("low", 0.0) or 0.0)
+            if h_val <= 0.0 or l_val <= 0.0 or h_val < l_val:
+                continue
+            fast_bars.append((c_ms, h_val, l_val))
         else:
+            if getattr(b, "is_closed", True) is False:
+                continue
             c_ms = _bar_close_ms(b, 60_000)
-            if c_ms <= now_ms:
-                fast_bars.append((c_ms, _bar_float(b, "high"), _bar_float(b, "low")))
+            o_ms = _bar_open_ms(b)
+            if c_ms <= 0 or c_ms > int(now_ms) or (o_ms > 0 and o_ms >= c_ms):
+                continue
+            h_val = _bar_float(b, "high")
+            l_val = _bar_float(b, "low")
+            if h_val <= 0.0 or l_val <= 0.0 or h_val < l_val:
+                continue
+            fast_bars.append((c_ms, h_val, l_val))
     return fast_bars
+
+
+_TF_DURATION_MAP_V1793129: Dict[str, int] = {
+    "1M": 60_000,
+    "M1": 60_000,
+    "5M": 300_000,
+    "M5": 300_000,
+    "15M": 900_000,
+    "M15": 900_000,
+    "1H": 3_600_000,
+    "H1": 3_600_000,
+    "4H": 14_400_000,
+    "H4": 14_400_000,
+}
+
+
+def _resolve_swing_pivot_close_ms_v1793129(item: Any, occ_ms: int) -> int:
+    if isinstance(item, Mapping):
+        pc_raw = item.get("pivot_close_ms")
+        det_ver = item.get("detector_version")
+        src_kind = item.get("source_kind")
+        tf_raw = item.get("timeframe")
+        p_id = str(item.get("id") or item.get("pool_id") or item.get("level_id") or "").strip().lower()
+    else:
+        pc_raw = getattr(item, "pivot_close_ms", None)
+        det_ver = getattr(item, "detector_version", None)
+        src_kind = getattr(item, "source_kind", None)
+        tf_raw = getattr(item, "timeframe", None)
+        p_id = str(getattr(item, "id", None) or getattr(item, "pool_id", None) or getattr(item, "level_id", "") or "").strip().lower()
+    if type(pc_raw) is int and pc_raw >= occ_ms:
+        return pc_raw
+    id_tf: Optional[str] = None
+    if p_id.startswith(("4h_", "pool_4h_")) or "_4h_" in p_id:
+        id_tf = "4H"
+    elif p_id.startswith(("1h_", "pool_1h_")) or "_1h_" in p_id:
+        id_tf = "1H"
+    elif p_id.startswith(("15m_", "pool_15m_")) or "_15m_" in p_id:
+        id_tf = "15M"
+    elif p_id.startswith(("5m_", "pool_5m_")) or "_5m_" in p_id:
+        id_tf = "5M"
+    elif p_id.startswith(("1m_", "pool_1m_")) or "_1m_" in p_id:
+        id_tf = "1M"
+    if det_ver is not None or str(src_kind or "").upper() == "SWING" or id_tf is not None:
+        tf_key = str(id_tf or tf_raw or "1M").strip().upper()
+        tf_ms = _TF_DURATION_MAP_V1793129.get(tf_key, 60_000)
+        return int(occ_ms) + tf_ms
+    return int(occ_ms)
+
+
+def _verify_post_pivot_m1_coverage_v1793129(
+    fast_bars: Sequence[Tuple[int, float, float]],
+    start_ms: int,
+    now_ms: int,
+    *,
+    covered_until_ms: int = 0,
+) -> Tuple[bool, List[Tuple[int, int]], str]:
+    """
+    V17.9.3.1.2.9 (P0-C): Verifies contiguous closed M1 bar coverage from `start_ms`
+    (or `covered_until_ms` when prior HTF bars are contiguously proven) through `now_ms`.
+    An empty `fast_bars` sequence is NEVER treated as complete coverage.
+    """
+    s_ms = int(start_ms)
+    n_ms = int(now_ms)
+    if not fast_bars:
+        return (False, [(s_ms, n_ms)], "EMPTY_PRICE_PATH")
+    if s_ms <= 0 or n_ms <= 0 or s_ms >= n_ms:
+        return (False, [(s_ms, n_ms)], "NO_POST_PIVOT_INTERVAL")
+
+    post_closes = sorted({int(c_ms) for c_ms, _, _ in fast_bars if s_ms < int(c_ms) <= n_ms})
+    if not post_closes:
+        return (False, [(s_ms, n_ms)], "NO_POST_PIVOT_M1_BARS")
+
+    m1_first_open = post_closes[0] - 60_000
+    eff_covered_start = max(s_ms, min(int(covered_until_ms), m1_first_open))
+    gaps: List[Tuple[int, int]] = []
+    if m1_first_open > eff_covered_start:
+        gaps.append((eff_covered_start, m1_first_open))
+
+    for idx_c in range(1, len(post_closes)):
+        prev_c = post_closes[idx_c - 1]
+        curr_c = post_closes[idx_c]
+        if curr_c - prev_c != 60_000:
+            gaps.append((prev_c, curr_c - 60_000))
+
+    if post_closes[-1] != n_ms:
+        gaps.append((post_closes[-1], n_ms))
+
+    if gaps:
+        return (False, gaps, "DATA_GAP")
+    return (True, [], "COMPLETE")
 
 
 def _build_causal_swing_pools_from_swings_v1793124(
@@ -1029,25 +1154,56 @@ def _build_causal_swing_pools_from_swings_v1793124(
     now_ms: int,
 ) -> List[Dict[str, Any]]:
     """
-    V17.9.3.1.2.4 Stage R2.2: Converts confirmed swings into causal liquidity pools,
-    explicitly inspecting closed M1 candles between `min(occurred_at_ms, known_at_ms)`
-    and `now_ms` to determine whether price already traded through/swept the swing level
-    (`swept_at_ms <= now_ms`). Never blindly marks fallback swings `swept=False`.
+    V17.9.3.1.2.4 Stage R2.2 / V17.9.3.1.2.9 P0-D: Converts confirmed swings into causal
+    liquidity pools, requiring explicit integer `occurred_at_ms` and `known_at_ms`
+    (`0 < occurred_at_ms <= known_at_ms <= now_ms`, never defaulting `known_at_ms` to
+    `occurred_at_ms`) and verifying post-pivot closed M1 sweep and contiguity.
     """
     fast_bars = _extract_fast_m1_candles(closed_1m, now_ms) if closed_1m else []
     out: List[Dict[str, Any]] = []
     for s in target_swings:
-        px = float(s.get("price", 0.0) or 0.0)
+        if not isinstance(s, Mapping):
+            continue
+        if bool(s.get("synthetic") or s.get("from_tp") or s.get("fabricated")):
+            continue
+        pool_id = str(s.get("id") or s.get("pool_id") or "").strip()
+        if not pool_id:
+            continue
+        px_raw = s.get("price")
+        if px_raw is None or isinstance(px_raw, bool):
+            continue
+        try:
+            px = float(px_raw)
+        except (TypeError, ValueError, OverflowError):
+            continue
         if px <= 0.0:
             continue
-        occ_ms = int(s.get("occurred_at_ms", 0) or 0)
-        k_ms = int(s.get("known_at_ms", occ_ms) or occ_ms or 0)
-        start_check_ms = min(occ_ms, k_ms) if (occ_ms > 0 and k_ms > 0) else max(occ_ms, k_ms)
-        swept_flag = bool(s.get("swept", False) or s.get("mitigated", False))
-        swept_at_ms: Optional[int] = s.get("swept_at_ms") or s.get("mitigated_at_ms")
-        if not swept_flag and start_check_ms > 0 and fast_bars:
+
+        occ_raw = s.get("occurred_at_ms") if s.get("occurred_at_ms") is not None else s.get("formed_at_ms")
+        k_raw = (
+            s.get("known_at_ms")
+            if s.get("known_at_ms") is not None
+            else (s.get("confirmed_at_ms") if s.get("confirmed_at_ms") is not None else s.get("confirmed_at"))
+        )
+        if type(occ_raw) is not int or type(k_raw) is not int:
+            continue
+        if not (0 < occ_raw <= k_raw <= int(now_ms)):
+            continue
+
+        occ_ms = int(occ_raw)
+        k_ms = int(k_raw)
+        pivot_close_ms = _resolve_swing_pivot_close_ms_v1793129(s, occ_ms)
+        covered_until_ms = int(s.get("covered_until_ms", 0) or 0)
+
+        swept_flag = bool(s.get("swept", False) or s.get("mitigated", False) or s.get("is_swept", False))
+        swept_at_raw = s.get("swept_at_ms") if s.get("swept_at_ms") is not None else s.get("mitigated_at_ms")
+        swept_at_ms: Optional[int] = int(swept_at_raw) if type(swept_at_raw) is int else None
+        if swept_at_ms is not None and swept_at_ms < occ_ms:
+            continue
+
+        if not swept_flag and pivot_close_ms > 0 and fast_bars:
             for b_close_ms, b_high, b_low in fast_bars:
-                if b_close_ms <= start_check_ms:
+                if b_close_ms <= pivot_close_ms:
                     continue
                 if direction == "LONG" and b_high >= px:
                     swept_flag = True
@@ -1057,15 +1213,35 @@ def _build_causal_swing_pools_from_swings_v1793124(
                     swept_flag = True
                     swept_at_ms = b_close_ms
                     break
+
+        cov_ok, cov_gaps, cov_reason = _verify_post_pivot_m1_coverage_v1793129(
+            fast_bars, pivot_close_ms, now_ms, covered_until_ms=covered_until_ms
+        )
+        if s.get("coverage_complete") is False:
+            cov_ok = False
+            cov_reason = str(s.get("coverage_reason") or "UPSTREAM_COVERAGE_INCOMPLETE")
+
+        swept_status = "PROVEN_SWEPT" if swept_flag else ("PROVEN_UNSWEPT" if cov_ok else "UNKNOWN")
         out.append(
             {
-                "pool_id": str(s.get("id", "")),
+                "id": pool_id,
+                "pool_id": pool_id,
                 "price": px,
                 "pool_side": "BSL" if direction == "LONG" else "SSL",
-                "occurred_at_ms": occ_ms if occ_ms > 0 else k_ms,
+                "timeframe": str(s.get("timeframe") or "1M"),
+                "occurred_at_ms": occ_ms,
+                "confirmed_at_ms": k_ms,
                 "known_at_ms": k_ms,
+                "pivot_close_ms": pivot_close_ms,
+                "covered_until_ms": covered_until_ms,
                 "swept": swept_flag,
                 "swept_at_ms": swept_at_ms,
+                "coverage_complete": cov_ok,
+                "coverage_gaps": cov_gaps,
+                "coverage_reason": cov_reason,
+                "swept_status": swept_status,
+                "source_ids": list(s.get("source_ids") or ()),
+                "detector_version": str(s.get("detector_version") or "v17.9.3.1.2.9"),
             }
         )
     return out
@@ -1104,37 +1280,52 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
     ambiguous_pool_ids = set()
 
     for p in pools:
-        if type(p) is dict:
-            p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
+        if type(p) is dict or isinstance(p, Mapping):
+            if bool(p.get("synthetic") or p.get("from_tp") or p.get("fabricated")):
+                continue
+            p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "").strip()
             p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
-            k_ts_raw = p.get("known_at_ms")
-            occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
+            k_ts_raw = (
+                p.get("known_at_ms")
+                if p.get("known_at_ms") is not None
+                else (p.get("confirmed_at_ms") if p.get("confirmed_at_ms") is not None else p.get("confirmed_at"))
+            )
+            occ_ts_raw = p.get("occurred_at_ms") if p.get("occurred_at_ms") is not None else p.get("formed_at_ms")
             is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
-            swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
-        elif isinstance(p, Mapping):
-            p_id = str(p.get("id") or p.get("pool_id") or p.get("level_id") or "")
-            p_px_raw = p.get("price") if p.get("price") is not None else p.get("level_price")
-            k_ts_raw = p.get("known_at_ms")
-            occ_ts_raw = p.get("occurred_at_ms") or p.get("formed_at_ms") or k_ts_raw
-            is_swept_flag = bool(p.get("swept", False) or p.get("mitigated", False) or p.get("is_swept", False))
-            swept_at_raw = p.get("swept_at_ms") or p.get("mitigated_at_ms")
+            swept_at_raw = p.get("swept_at_ms") if p.get("swept_at_ms") is not None else p.get("mitigated_at_ms")
+            p_cov_flag = p.get("coverage_complete")
+            covered_until_raw = p.get("covered_until_ms", 0)
+            p_side_raw = str(p.get("side") or p.get("pool_side") or "").strip().upper()
         else:
-            p_id = str(getattr(p, "id", None) or getattr(p, "pool_id", None) or getattr(p, "level_id", "") or "")
+            if bool(getattr(p, "synthetic", False) or getattr(p, "from_tp", False) or getattr(p, "fabricated", False)):
+                continue
+            p_id = str(getattr(p, "id", None) or getattr(p, "pool_id", None) or getattr(p, "level_id", "") or "").strip()
             p_px_raw = getattr(p, "price", None) if getattr(p, "price", None) is not None else getattr(p, "level_price", None)
-            k_ts_raw = getattr(p, "known_at_ms", None)
-            occ_ts_raw = getattr(p, "occurred_at_ms", None) or getattr(p, "formed_at_ms", None) or k_ts_raw
+            k_ts_raw = (
+                getattr(p, "known_at_ms", None)
+                if getattr(p, "known_at_ms", None) is not None
+                else (getattr(p, "confirmed_at_ms", None) if getattr(p, "confirmed_at_ms", None) is not None else getattr(p, "confirmed_at", None))
+            )
+            occ_ts_raw = getattr(p, "occurred_at_ms", None) if getattr(p, "occurred_at_ms", None) is not None else getattr(p, "formed_at_ms", None)
             is_swept_flag = bool(
                 getattr(p, "swept", False)
                 or getattr(p, "mitigated", False)
                 or getattr(p, "is_swept", False)
             )
-            swept_at_raw = getattr(p, "swept_at_ms", None) or getattr(p, "mitigated_at_ms", None)
+            swept_at_raw = getattr(p, "swept_at_ms", None) if getattr(p, "swept_at_ms", None) is not None else getattr(p, "mitigated_at_ms", None)
+            p_cov_flag = getattr(p, "coverage_complete", None)
+            covered_until_raw = getattr(p, "covered_until_ms", 0)
+            p_side_raw = str(getattr(p, "side", None) or getattr(p, "pool_side", None) or "").strip().upper()
 
         if p_id in seen_pool_ids:
             ambiguous_pool_ids.add(p_id)
         elif p_id:
             seen_pool_ids.add(p_id)
-        if not p_id or p_px_raw is None or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:
+        if not p_id or p_px_raw is None or isinstance(p_px_raw, bool) or type(k_ts_raw) is not int or not 0 < k_ts_raw <= now_ms:
+            continue
+        if direction == "LONG" and p_side_raw in ("SELL_SIDE", "SSL", "SHORT"):
+            continue
+        if direction == "SHORT" and p_side_raw in ("BUY_SIDE", "BSL", "LONG"):
             continue
         try:
             p_px = round(float(p_px_raw), 2)
@@ -1146,18 +1337,26 @@ def _resolve_unswept_liquidity_pool_target_v1793123(
         if swept_at_raw is not None and (type(swept_at_raw) is not int or swept_at_raw < occ_ts_raw):
             continue
 
+        pivot_close_ts = _resolve_swing_pivot_close_ms_v1793129(p, int(occ_ts_raw))
+        covered_until_ts = int(covered_until_raw or 0) if type(covered_until_raw) is int else 0
+
         swept_by_ts = swept_at_raw is not None and int(swept_at_raw) <= now_ms
         swept_by_bars = False
-        check_start_ts = min(int(occ_ts_raw), k_ts) if occ_ts_raw is not None else k_ts
-        if k_ts_raw is not None and fast_bars:
+        if fast_bars:
             if direction == "LONG" and p_px > entry_price:
-                swept_by_bars = any(h >= p_px for c_ts, h, _ in fast_bars if check_start_ts < c_ts <= now_ms)
+                swept_by_bars = any(h >= p_px for c_ts, h, _ in fast_bars if pivot_close_ts < c_ts <= now_ms)
             elif direction == "SHORT" and p_px < entry_price:
-                swept_by_bars = any(l <= p_px for c_ts, _, l in fast_bars if check_start_ts < c_ts <= now_ms)
+                swept_by_bars = any(l <= p_px for c_ts, _, l in fast_bars if pivot_close_ts < c_ts <= now_ms)
 
         if is_swept_flag or swept_by_ts or swept_by_bars:
             if selected_target_id and p_id == str(selected_target_id):
                 explicit_pool_was_swept = True
+            continue
+
+        cov_ok, _, _ = _verify_post_pivot_m1_coverage_v1793129(
+            fast_bars, pivot_close_ts, now_ms, covered_until_ms=covered_until_ts
+        )
+        if p_cov_flag is False or not cov_ok:
             continue
 
         if direction == "LONG" and p_px <= entry_price:
@@ -1701,14 +1900,9 @@ def build_signal_quality_evidence_v1793122(
         )
     )
 
-    target_known_at_ms = int(pool_known_ms)
-    eff_tp_for_room = take_profit
-    eff_target_pool_id: Optional[str] = selected_target_id
-    if pools:
-        if explicit_pool_swept and not has_unswept_pool:
-            eff_target_pool_id = None
-        elif has_unswept_pool and unswept_pool_id is not None:
-            eff_target_pool_id = unswept_pool_id
+    target_known_at_ms = int(pool_known_ms) if has_unswept_pool else 0
+    eff_tp_for_room = unswept_pool_px if (has_unswept_pool and unswept_pool_px is not None) else take_profit
+    eff_target_pool_id: Optional[str] = unswept_pool_id if (has_unswept_pool and unswept_pool_id is not None) else None
 
     target_room_atr_m1 = (
         round(abs(float(eff_tp_for_room) - entry_price) / eff_atr_m1, 4)
@@ -1726,11 +1920,9 @@ def build_signal_quality_evidence_v1793122(
         else 0.0
     )
 
-    target_reachable = bool(
+    target_geometrically_feasible = bool(
         eff_tp_for_room is not None
         and selected_sl is not None
-        and not (pools and explicit_pool_swept and not has_unswept_pool)
-        and target_known_at_ms <= now_ms
         and 1.2 <= target_room_atr_m1 <= 8.0
         and target_room_atr_m5 <= 3.2
         and stop_dist_atr_m1 >= 0.75
@@ -1739,6 +1931,18 @@ def build_signal_quality_evidence_v1793122(
             or (direction == "SHORT" and float(eff_tp_for_room) < entry_price < float(selected_sl))
         )
     )
+    target_pool_proven = bool(
+        has_unswept_pool
+        and eff_target_pool_id is not None
+        and 0 < target_known_at_ms <= now_ms
+        and not explicit_pool_swept
+    )
+    target_pool_state = (
+        "PROVEN_UNSWEPT"
+        if target_pool_proven
+        else ("PROVEN_SWEPT" if explicit_pool_swept else "UNKNOWN")
+    )
+    target_reachable = bool(target_geometrically_feasible and target_pool_proven)
 
     quote_ts = int(getattr(context, "quote_timestamp_ms", now_ms) or now_ms)
     quote_age_ms = max(0, now_ms - quote_ts)
@@ -1871,13 +2075,17 @@ def build_signal_quality_evidence_v1793122(
             ).to_dict(),
             "target": ProvenanceEvidence(
                 evidence_type="TARGET",
-                evidence_status="PROVEN_TRUE" if target_reachable else "UNKNOWN",
+                evidence_status="PROVEN_TRUE" if target_reachable else ("PROVEN_FALSE" if explicit_pool_swept else "UNKNOWN"),
                 timeframe="M1",
-                known_at_ms=target_known_at_ms,
+                known_at_ms=target_known_at_ms if target_pool_proven else None,
                 decision_at_ms=now_ms,
                 rejection_reason="UNREACHABLE_OR_SWEPT" if not target_reachable else None,
             ).to_dict(),
         },
+        target_geometrically_feasible=target_geometrically_feasible,
+        target_pool_proven=target_pool_proven,
+        target_pool_state=target_pool_state,
+        target_coverage_complete=target_pool_proven,
     )
 
 
@@ -2218,7 +2426,8 @@ def evaluate_signal_intelligence_gate_v1793122(
             raw_5m_for_pools = list(getattr(context, "closed_m5_candles", None) or getattr(context, "candles_5m", ()) or ())
             raw_15m_for_pools = list(getattr(context, "closed_m15_candles", None) or getattr(context, "candles_15m", ()) or ())
             raw_h1_for_pools = list(getattr(context, "closed_h1_candles", None) or getattr(context, "candles_1h", ()) or ())
-            has_mtf_pools_ctx = bool(raw_5m_for_pools or raw_15m_for_pools or raw_h1_for_pools)
+            raw_h4_for_pools = list(getattr(context, "closed_h4_candles", None) or getattr(context, "candles_4h", ()) or ())
+            has_mtf_pools_ctx = bool(raw_5m_for_pools or raw_15m_for_pools or raw_h1_for_pools or raw_h4_for_pools)
 
             if not ctx_pools and not evidence.target_reachable:
                 target_swings_for_pools = list(sh_1m if direction == "LONG" else sl_1m)
@@ -2231,55 +2440,89 @@ def evaluate_signal_intelligence_gate_v1793122(
                 existing_ids = {
                     str(p.get("id") or p.get("pool_id") or "") if isinstance(p, Mapping) else str(getattr(p, "id", None) or getattr(p, "pool_id", "") or "")
                     for p in ctx_pools
+                    if (isinstance(p, Mapping) and p.get("covered_until_ms")) or getattr(p, "covered_until_ms", None)
                 }
+                replaced_raw_ids: set[str] = set()
+                fast_1m_for_cov = _extract_fast_m1_candles(closed_1m_for_pools, now_ms) if closed_1m_for_pools else []
                 for tf_raw_b, tf_lbl_b, tf_ms_b in (
                     (raw_5m_for_pools, "5M", 300_000),
                     (raw_15m_for_pools, "15M", 900_000),
                     (raw_h1_for_pools, "1H", 3_600_000),
+                    (raw_h4_for_pools, "4H", 14_400_000),
                 ):
                     closed_tf_b, _ = _closed_bars_as_of(tf_raw_b, now_ms, tf_ms_b)
-                    if len(closed_tf_b) >= 5:
+                    if len(closed_tf_b) >= 3:
                         sh_tf_b, sl_tf_b = identify_confirmed_swings(
                             closed_tf_b, timeframe=tf_lbl_b, left_bars=1, right_bars=1, as_of_ms=now_ms
                         )
                         for sw_b in (sh_tf_b if direction == "LONG" else sl_tf_b):
-                            sw_id_b = str(sw_b.get("id") or f"pool_{tf_lbl_b}_{sw_b.get('occurred_at_ms')}")
-                            if sw_id_b in existing_ids:
+                            raw_sw_id_b = str(sw_b.get("id") or "").strip()
+                            if not raw_sw_id_b:
+                                continue
+                            prefixed_id_b = raw_sw_id_b if raw_sw_id_b.startswith("pool_") else f"pool_{tf_lbl_b}_{raw_sw_id_b}"
+                            sw_id_b = raw_sw_id_b if (prop_target_id and str(prop_target_id) == raw_sw_id_b) else prefixed_id_b
+                            if sw_id_b in existing_ids or raw_sw_id_b in existing_ids:
                                 continue
                             sw_px_b = float(sw_b.get("price", 0.0) or 0.0)
-                            sw_occ_b = int(sw_b.get("occurred_at_ms", 0) or 0)
-                            sw_k_b = int(sw_b.get("known_at_ms") or (sw_occ_b + tf_ms_b))
-                            # Check TF bars after swing formation as well as closed_1m_for_pools
-                            post_tf_b = [b for b in closed_tf_b if _bar_close_ms(b, tf_ms_b) > min(sw_occ_b, sw_k_b) and _bar_close_ms(b, tf_ms_b) <= now_ms]
+                            sw_occ_raw = sw_b.get("occurred_at_ms")
+                            sw_k_raw = (
+                                sw_b.get("known_at_ms")
+                                if sw_b.get("known_at_ms") is not None
+                                else (sw_b.get("confirmed_at_ms") if sw_b.get("confirmed_at_ms") is not None else sw_b.get("confirmed_at"))
+                            )
+                            if type(sw_occ_raw) is not int or type(sw_k_raw) is not int:
+                                continue
+                            if not (0 < sw_occ_raw <= sw_k_raw <= now_ms):
+                                continue
+                            sw_occ_b = int(sw_occ_raw)
+                            sw_k_b = int(sw_k_raw)
+                            pivot_close_b = sw_occ_b + tf_ms_b
+                            # Check strictly post-pivot TF bars (after pivot_close_b)
+                            post_tf_b = [
+                                b for b in closed_tf_b
+                                if _bar_close_ms(b, tf_ms_b) > pivot_close_b and _bar_close_ms(b, tf_ms_b) <= now_ms
+                            ]
                             swept_on_tf = (
                                 any(_bar_float(b, "high") >= sw_px_b for b in post_tf_b)
                                 if direction == "LONG"
                                 else any(_bar_float(b, "low") <= sw_px_b for b in post_tf_b)
                             )
+                            cov_cursor_b = pivot_close_b
+                            for b_tf in sorted(post_tf_b, key=lambda x: _bar_close_ms(x, tf_ms_b)):
+                                b_o = _bar_open_ms(b_tf)
+                                b_c = _bar_close_ms(b_tf, tf_ms_b)
+                                if b_o == cov_cursor_b and b_c == cov_cursor_b + tf_ms_b:
+                                    cov_cursor_b = b_c
+                                elif b_c > cov_cursor_b:
+                                    break
+                            post_m1_closes = [c_ms for c_ms, _, _ in fast_1m_for_cov if pivot_close_b < c_ms <= now_ms]
+                            m1_first_open_b = (min(post_m1_closes) - 60_000) if post_m1_closes else 0
+                            covered_until_b = min(cov_cursor_b, m1_first_open_b) if m1_first_open_b > 0 else 0
                             mtf_swings_for_pools.append(
                                 {
                                     "id": sw_id_b,
+                                    "pool_id": sw_id_b,
                                     "price": sw_px_b,
+                                    "timeframe": tf_lbl_b,
                                     "occurred_at_ms": sw_occ_b,
+                                    "confirmed_at_ms": sw_k_b,
                                     "known_at_ms": sw_k_b,
+                                    "pivot_close_ms": pivot_close_b,
+                                    "covered_until_ms": covered_until_b,
                                     "swept": swept_on_tf,
+                                    "source_ids": list(sw_b.get("source_ids") or ()),
+                                    "detector_version": str(sw_b.get("detector_version") or "v15.3"),
                                 }
                             )
                             existing_ids.add(sw_id_b)
-                if (
-                    prop_tp is not None
-                    and prop_target_id
-                    and str(prop_target_id) not in existing_ids
-                ):
-                    mtf_swings_for_pools.append(
-                        {
-                            "id": str(prop_target_id),
-                            "price": float(prop_tp),
-                            "occurred_at_ms": now_ms - 300_000,
-                            "known_at_ms": now_ms,
-                        }
-                    )
+                            replaced_raw_ids.add(raw_sw_id_b)
+                            replaced_raw_ids.add(sw_id_b)
                 if mtf_swings_for_pools:
+                    if replaced_raw_ids:
+                        ctx_pools = [
+                            p for p in ctx_pools
+                            if (str(p.get("id") or p.get("pool_id") or "") if isinstance(p, Mapping) else str(getattr(p, "id", None) or getattr(p, "pool_id", "") or "")) not in replaced_raw_ids
+                        ]
                     ctx_pools.extend(
                         _build_causal_swing_pools_from_swings_v1793124(
                             mtf_swings_for_pools, closed_1m_for_pools, direction, now_ms
@@ -2298,7 +2541,7 @@ def evaluate_signal_intelligence_gate_v1793122(
                 eff_max_m1_mult = max(eff_max_m1_mult, 28.0, round(max_reach_dist / eff_atr_m1_for_pools, 4))
                 eff_max_m5_mult = max(10.5, round(max_reach_dist / eff_atr_m5_for_pools, 4))
 
-            u_pool_id, u_pool_px, _, has_u_pool, exp_pool_swept = _resolve_unswept_liquidity_pool_target_v1793123(
+            u_pool_id, u_pool_px, u_pool_k_ms, has_u_pool, exp_pool_swept = _resolve_unswept_liquidity_pool_target_v1793123(
                 pools=ctx_pools,
                 closed_1m=closed_1m_for_pools,
                 direction=direction,
@@ -2313,12 +2556,16 @@ def evaluate_signal_intelligence_gate_v1793122(
                 max_target_atr_m5_multiple=eff_max_m5_mult,
                 min_required_target_distance=min_req_dist,
             )
-            if has_u_pool and u_pool_id is not None and u_pool_px is not None:
+            pool_proven_in_si5 = bool(
+                has_u_pool
+                and u_pool_id is not None
+                and u_pool_px is not None
+                and 0 < int(u_pool_k_ms) <= now_ms
+            )
+            if pool_proven_in_si5:
                 prop_target_id = u_pool_id
                 prop_tp = u_pool_px
-            elif (ctx_pools and (exp_pool_swept or not has_u_pool)) or (
-                policy_obj.require_unswept_liquidity_pool_target and not prop_target_id
-            ):
+            else:
                 gate_reasons.append("SI5_TARGET_POOL_ABSENT_OR_ALREADY_SWEPT")
                 gate_reasons.append("SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE")
                 rejection_stage = rejection_stage or "SI5_STRUCTURAL_SL_TP"
@@ -2383,7 +2630,7 @@ def evaluate_signal_intelligence_gate_v1793122(
                 if (prop_tp is not None and prop_entry is not None)
                 else 0.0
             )
-            updated_target_reachable = bool(
+            updated_target_geometrically_feasible = bool(
                 prop_tp is not None
                 and prop_sl is not None
                 and prop_entry is not None
@@ -2395,6 +2642,7 @@ def evaluate_signal_intelligence_gate_v1793122(
                     or (direction == "SHORT" and float(prop_tp) < float(prop_entry) < float(prop_sl))
                 )
             )
+            updated_target_reachable = bool(updated_target_geometrically_feasible and pool_proven_in_si5)
             if not (evidence.target_reachable or updated_target_reachable):
                 if "SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE" not in gate_reasons:
                     gate_reasons.append("SI5_TARGET_UNREACHABLE_OR_STOP_INSIDE_NOISE")

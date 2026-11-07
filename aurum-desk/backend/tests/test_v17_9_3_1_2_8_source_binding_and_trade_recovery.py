@@ -72,12 +72,30 @@ def test_pool_without_causal_identity_cannot_be_selected(pool):
 
 
 def test_pool_id_and_explicit_known_at_are_retained():
-    pool = {"pool_id": "p1", "price": 103, "known_at_ms": 180_000}
+    pool = {"pool_id": "p1", "price": 103, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+    bars = [
+        {
+            "open_time": 120_000 + i * 60_000,
+            "close_time": 180_000 + i * 60_000,
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0,
+            "is_closed": True,
+        }
+        for i in range(4)
+    ]
     result = _resolve_unswept_liquidity_pool_target_v1793123(
-        pools=[pool], closed_1m=[], direction="LONG", entry_price=100, selected_sl=98,
+        pools=[pool], closed_1m=bars, direction="LONG", entry_price=100, selected_sl=98,
         selected_target_id="p1", take_profit=103, now_ms=360_000, eff_atr_m1=1, eff_atr_m5=2,
     )
     assert result == ("p1", 103, 180_000, True, False)
+
+    empty_path_result = _resolve_unswept_liquidity_pool_target_v1793123(
+        pools=[pool], closed_1m=[], direction="LONG", entry_price=100, selected_sl=98,
+        selected_target_id="p1", take_profit=103, now_ms=360_000, eff_atr_m1=1, eff_atr_m5=2,
+    )
+    assert empty_path_result == (None, 103, 0, False, False)
 
 
 @pytest.mark.parametrize("duplicate, stop", [(True, 98), (False, 101)])
