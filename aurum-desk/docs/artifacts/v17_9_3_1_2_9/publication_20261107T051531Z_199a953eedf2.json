@@ -1,0 +1,16 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates_g01_to_g39_status": "PASS",
+  "gate_g40_status": "PASS_ON_PHASE_C_REMOTE_READBACK",
+  "grounded_v128_phase_c_head": "e35f2739eb66eee4e4f2ae924c806d98d3f3ab95",
+  "manifest_sha256": "c1f0c0fe0430f05d375f59a93609a2ec1e3465241b98487fb2de6eeb07d6426a",
+  "observed_remote_after_phase_b": "5fa565bdff856ca7127edc4f63128b3b138489fb",
+  "phase_a_tested_executable_sha": "199a953eedf27bf5983458fdf2f0a4375f3a49cb",
+  "phase_b_evidence_sha": "5fa565bdff856ca7127edc4f63128b3b138489fb",
+  "phase_b_push_verdict": "PASS",
+  "phase_c_note": "This receipt is committed in Phase C. The final Phase C local/remote equality is observed externally after that push to avoid a self-referential commit hash.",
+  "run": "20261107T051531Z_199a953eedf2",
+  "verified_files_count": 682,
+  "version": "17.9.3.1.2.9"
+}
