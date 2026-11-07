@@ -157,7 +157,7 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_10", minimum_ram_bytes: int =
     stage_workers = max(1, min(4, int(os.environ.get("AURUM_RESEARCH_STAGE_WORKERS", "3"))))
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "1"
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "2"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "4"
     os.environ["AURUM_RESEARCH_PROCESS_WORKERS"] = "1"
     proofs = {"G01": {"status": "PASS", "source": "01_git_preflight_and_frozen_executable_sha.json", "measured": sha}}
@@ -242,11 +242,11 @@ def main(*, artifact_namespace: str = "v17_9_3_1_2_10", minimum_ram_bytes: int =
         write(run / "19_new_executable_red_green_mutation_evidence.json", new_mutations)
         from tools.v17_9_3_1_2_9_source_mutations import run_v1793129_source_mutations
 
-        v129_mutations = run_v1793129_source_mutations(run / "mutations_v129", max_workers=1)
+        v129_mutations = run_v1793129_source_mutations(run / "mutations_v129", max_workers=2)
         write(run / "19_v129_executable_red_green_mutation_evidence.json", v129_mutations)
         from tools.v17_9_3_1_2_10_source_mutations import run_source_mutation_red_green_v17931210
 
-        v130_mutations = run_source_mutation_red_green_v17931210(run / "mutations_v130", workers=1)
+        v130_mutations = run_source_mutation_red_green_v17931210(run / "mutations_v130", workers=2)
         write(run / "19_v130_executable_red_green_mutation_evidence.json", v130_mutations)
         proofs["G18"] = {
             "status": "PASS"

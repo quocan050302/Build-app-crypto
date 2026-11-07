@@ -79,6 +79,25 @@ def prior_artifact_manifest():
     return {"files":files,"sha256":canonical_hash(files)}
 
 
+def _active_heavy_worker_children(proc):
+    import psutil
+    out=[]
+    for ch in proc.children(recursive=True):
+        try:
+            if ch.status()==psutil.STATUS_ZOMBIE:
+                continue
+            name=(ch.name() or "").lower()
+            if name.startswith("git"):
+                continue
+            cmd=" ".join(ch.cmdline() or ())
+            if "multiprocessing.resource_tracker" in cmd or " git " in f" {cmd} " or cmd.startswith("git "):
+                continue
+            out.append(ch)
+        except (psutil.NoSuchProcess,psutil.AccessDenied,psutil.ZombieProcess):
+            continue
+    return out
+
+
 class ResourceMonitor:
     def __init__(self, *, minimum_ram_bytes=512 * 1024**2):
         self.stop_event=threading.Event()
@@ -89,12 +108,12 @@ class ResourceMonitor:
     def check(self):
         import psutil
         proc=psutil.Process()
-        children=proc.children(recursive=True)
+        children=_active_heavy_worker_children(proc)
         ram=psutil.virtual_memory().available
         free=shutil.disk_usage(ROOT).free
         def child_rss(child):
             try: return child.memory_info().rss
-            except psutil.NoSuchProcess: return 0
+            except (psutil.NoSuchProcess,psutil.AccessDenied,psutil.ZombieProcess): return 0
         row={"epoch_ns":time.time_ns(),"free_disk_bytes":free,"available_ram_bytes":ram,
              "system_cpu_percent":psutil.cpu_percent(),
              "worker_pids":[p.pid for p in children],"rss_bytes":proc.memory_info().rss,
@@ -114,7 +133,7 @@ class ResourceMonitor:
                     write(self.abort_path,{"status":"BLOCKED","reason":self.error,"last_sample":self.samples[-1] if self.samples else None})
                 # Guarded checkpoints propagate; do not kill unrelated applications.
                 import psutil
-                for child in reversed(psutil.Process().children(recursive=True)):
+                for child in reversed(_active_heavy_worker_children(psutil.Process())):
                     try: child.terminate()
                     except psutil.Error: pass
                 break
@@ -126,7 +145,7 @@ class ResourceMonitor:
         self.stop_event.set()
         self.thread.join(timeout=5)
         import psutil
-        remaining=psutil.Process().children(recursive=True)
+        remaining=_active_heavy_worker_children(psutil.Process())
         remaining_pids=[p.pid for p in remaining]
         if remaining:
             self.error=self.error or "BLOCKED_ORPHAN_WORKERS_REMAINING"
