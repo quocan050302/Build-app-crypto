@@ -1,10 +1,13 @@
 {
   "activation_ready": "NO",
   "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "engineering_verdict": "PASS",
   "final_remote_check": "OBSERVED_EXTERNALLY_AFTER_PHASE_C_PUSH",
+  "fresh_oos_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
   "prepublication_engineering": "PASS",
   "publication_receipt": "publication_20261106T071930Z_915fef251748.json",
   "run_id": "20261106T071930Z_915fef251748",
   "strategy_statistical_verdict": "INCONCLUSIVE_UNDERPOWERED",
-  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574"
+  "tested_executable_sha": "915fef251748546e36a1288356420c009fa49574",
+  "trade_discovery_verdict": "SETUP_RECOVERED_BOUNDED"
 }
