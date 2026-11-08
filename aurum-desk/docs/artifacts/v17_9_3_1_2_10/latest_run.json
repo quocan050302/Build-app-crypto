@@ -1,0 +1,14 @@
+{
+  "activation_ready": "NO",
+  "artifact_manifest_sha256": "fc329fc900d750349a375ffef314b68046d49b08bd96b690a9872f38f0cb3250",
+  "engineering_verdict": "PASS",
+  "phase_a_tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "phase_b_evidence_commit_sha": "7270a4974a5b28fbc462b99823d24fa08ec5e748",
+  "publication_receipt": "aurum-desk/docs/artifacts/v17_9_3_1_2_10/publication_20261107T150245Z_b772a03bb7cc.json",
+  "run_dir": "aurum-desk/docs/artifacts/v17_9_3_1_2_10/20261107T150245Z_b772a03bb7cc",
+  "run_id": "20261107T150245Z_b772a03bb7cc",
+  "statistical_edge_verdict": "INCONCLUSIVE_UNDERPOWERED",
+  "trading_edge_verdict": "NEGATIVE_EXPECTANCY",
+  "verified_files_count": 776,
+  "version": "v17_9_3_1_2_10"
+}
