@@ -1,0 +1,38 @@
+{
+  "causal_sweep_and_target_room_verified": true,
+  "fvg_only_count": 12,
+  "fvg_only_separated_from_unicorn_confirmed": true,
+  "inspected_candidates_count": 18744,
+  "schema_version": "17.9.3.1.2.2",
+  "unicorn_confirmed_count": 1,
+  "unicorn_vs_fvg_audit": {
+    "defect_closed": "P1-H_TRUE_UNICORN_VS_ISOLATED_FVG_RETEST",
+    "r3_fvg_retest_including_isolated_fvg": {
+      "accepted_count": 0,
+      "closed_trades": null,
+      "confirmation_subtype_counts": {},
+      "expectancy_r_mean": null,
+      "loss_rate": null,
+      "losses": null,
+      "modeled_net_pnl_usd": null,
+      "opportunities_evaluated": null,
+      "wins": null
+    },
+    "r3_strict_true_unicorn_breaker_fvg_overlap": {
+      "accepted_count": 0,
+      "closed_trades": 0,
+      "confirmation_subtype_counts": {
+        "FVG_RETEST_ONLY_REJECTED_BY_STRICT_UNICORN": 8142,
+        "NONE": 10602
+      },
+      "expectancy_r_mean": null,
+      "loss_rate": null,
+      "losses": 0,
+      "modeled_net_pnl_usd": 0.0,
+      "opportunities_evaluated": 18744,
+      "rejected_missing_causal_breaker_binding_count": 8142,
+      "wins": 0
+    },
+    "schema_version": "17.9.3.1.2.1"
+  }
+}

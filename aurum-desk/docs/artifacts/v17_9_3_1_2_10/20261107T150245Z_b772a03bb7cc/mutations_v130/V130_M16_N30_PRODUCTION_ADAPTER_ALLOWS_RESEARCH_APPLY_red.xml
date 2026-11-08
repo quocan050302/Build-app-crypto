@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.455" timestamp="2026-11-07T22:28:26.681001+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n30_production_and_live_paper_auto_execution_modes_fail_closed" time="0.000"><failure message="assert False is True">def test_n30_production_and_live_paper_auto_execution_modes_fail_closed():
+        """N30: Enable LIVE/PAPER/AUTO_PAPER/AUTO_LIVE or RESEARCH_APPLY in PRODUCTION_ORCHESTRATOR -&gt; fail closed."""
+        forb, code = is_research_apply_forbidden_in_adapter_v1793122("PRODUCTION_ORCHESTRATOR")
+&gt;       assert forb is True
+E       assert False is True
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M16_N30_PRODUCTION_ADAPTER_ALLOWS_RESEARCH_APPLY__3t55gud/test_v130_canonical_universe_and_provenance.py:1026: AssertionError</failure></testcase></testsuite></testsuites>

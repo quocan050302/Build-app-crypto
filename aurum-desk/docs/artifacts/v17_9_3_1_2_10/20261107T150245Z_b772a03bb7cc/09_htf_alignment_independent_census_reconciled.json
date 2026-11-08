@@ -1,0 +1,96 @@
+{
+  "authoritative_universe_count": 63085,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "diagnosis": "Independent H4/H1 structure audit on the authoritative 63085 V130 canonical universe confirms 55271 of 63085 (87.61%) opportunities occur during COUNTERTREND (9202) or MIXED (46069) H4/H1 regimes; 7814 are ALIGNED. The V128 75,525 figures (66,612 not aligned / 8,913 aligned) differ by exactly the 12,408 net SI8 incremental delta (1,088 aligned + 11,320 not aligned).",
+  "h4_h1_direction_state_breakdown": {
+    "H4=BEARISH|H1=BEARISH|dir=LONG|state=COUNTERTREND": 9202,
+    "H4=BEARISH|H1=BEARISH|dir=SHORT|state=ALIGNED": 7814,
+    "H4=BEARISH|H1=BULLISH|dir=LONG|state=MIXED": 1495,
+    "H4=BEARISH|H1=BULLISH|dir=SHORT|state=MIXED": 1537,
+    "H4=BEARISH|H1=UNKNOWN|dir=LONG|state=MIXED": 6138,
+    "H4=BEARISH|H1=UNKNOWN|dir=SHORT|state=MIXED": 7066,
+    "H4=UNKNOWN|H1=BEARISH|dir=LONG|state=MIXED": 2223,
+    "H4=UNKNOWN|H1=BEARISH|dir=SHORT|state=MIXED": 3065,
+    "H4=UNKNOWN|H1=BULLISH|dir=LONG|state=MIXED": 2932,
+    "H4=UNKNOWN|H1=BULLISH|dir=SHORT|state=MIXED": 6024,
+    "H4=UNKNOWN|H1=UNKNOWN|dir=LONG|state=MIXED": 3561,
+    "H4=UNKNOWN|H1=UNKNOWN|dir=SHORT|state=MIXED": 12028
+  },
+  "htf_alignment_by_model_direction": {
+    "CG01_SWEEP_MSS_FVG/LONG": {
+      "COUNTERTREND": 2535,
+      "MIXED": 4723
+    },
+    "CG01_SWEEP_MSS_FVG/SHORT": {
+      "ALIGNED": 2150,
+      "MIXED": 8530
+    },
+    "SMC_M1_CONTINUATION/LONG": {
+      "COUNTERTREND": 582,
+      "MIXED": 970
+    },
+    "SMC_M1_CONTINUATION/SHORT": {
+      "ALIGNED": 586,
+      "MIXED": 2228
+    },
+    "SMC_M1_FVG_CONTINUATION/LONG": {
+      "COUNTERTREND": 2539,
+      "MIXED": 4704
+    },
+    "SMC_M1_FVG_CONTINUATION/SHORT": {
+      "ALIGNED": 2190,
+      "MIXED": 8541
+    },
+    "SMC_M1_REVERSAL/LONG": {
+      "COUNTERTREND": 1820,
+      "MIXED": 2993
+    },
+    "SMC_M1_REVERSAL/SHORT": {
+      "ALIGNED": 1518,
+      "MIXED": 5437
+    },
+    "SMC_M1_SWEEP_RECLAIM/LONG": {
+      "COUNTERTREND": 1726,
+      "MIXED": 2959
+    },
+    "SMC_M1_SWEEP_RECLAIM/SHORT": {
+      "ALIGNED": 1370,
+      "MIXED": 4984
+    }
+  },
+  "htf_alignment_state_totals": {
+    "ALIGNED": 7814,
+    "COUNTERTREND": 9202,
+    "MIXED": 46069
+  },
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "v128_v129_v130_htf_reconciliation": {
+    "delta_v128_minus_v130_12408": {
+      "aligned_delta": 1099,
+      "not_aligned_delta": 11341,
+      "total_delta": 12440
+    },
+    "v128_total_75525": {
+      "ALIGNED": 8913,
+      "COUNTERTREND": 10986,
+      "MIXED": 55626,
+      "NOT_ALIGNED": 66612,
+      "total": 75525
+    },
+    "v129_total_63117": {
+      "ALIGNED": 7825,
+      "COUNTERTREND": 9168,
+      "MIXED": 46124,
+      "NOT_ALIGNED": 55292,
+      "total": 63117
+    },
+    "v130_total_63117": {
+      "ALIGNED": 7814,
+      "COUNTERTREND": 9202,
+      "MIXED": 46069,
+      "NOT_ALIGNED": 55271,
+      "total": 63085
+    }
+  },
+  "version": "v17_9_3_1_2_10"
+}

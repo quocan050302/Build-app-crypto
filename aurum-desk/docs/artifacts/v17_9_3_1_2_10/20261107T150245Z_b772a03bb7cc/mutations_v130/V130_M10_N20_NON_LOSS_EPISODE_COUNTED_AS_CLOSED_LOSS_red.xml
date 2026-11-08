@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.481" timestamp="2026-11-07T22:28:20.324641+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n20_treat_open_at_horizon_data_gap_or_unfilled_as_closed_loss_fails" time="0.001"><failure message="assert False&#10; +  where False = any(&lt;generator object test_n20_treat_open_at_horizon_data_gap_or_unfilled_as_closed_loss_fails.&lt;locals&gt;.&lt;genexpr&gt; at 0x104960a00&gt;)">def test_n20_treat_open_at_horizon_data_gap_or_unfilled_as_closed_loss_fails():
+        """N20: Treat OPEN_AT_HORIZON, DATA_GAP, PARTIAL or UNFILLED as a CLOSED LOSS -&gt; FAIL."""
+        episodes = [
+            {"opportunity_id": "ep_loss", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "LOSS"},
+            {"opportunity_id": "ep_gap", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "DATA_GAP_UNRESOLVED"},
+            {"opportunity_id": "ep_unfilled", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": False, "outcome_label": "UNFILLED"},
+        ]
+        for bad_ep in episodes[1:]:
+            res = verify_forensic_cohort_conservation_v17931210(episodes, {}, closed_losses_override=[episodes[0], bad_ep])
+            assert res["status"] == "FAIL"
+&gt;           assert any("NON_LOSS_IN_CLOSED_LOSS_COHORT" in err for err in res["errors"])
+E           assert False
+E            +  where False = any(&lt;generator object test_n20_treat_open_at_horizon_data_gap_or_unfilled_as_closed_loss_fails.&lt;locals&gt;.&lt;genexpr&gt; at 0x104960a00&gt;)
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M10_N20_NON_LOSS_EPISODE_COUNTED_AS_CLOSED_LOSS_ient4axg/test_v130_canonical_universe_and_provenance.py:791: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.503" timestamp="2026-11-07T22:28:16.841052+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n12_reprice_entry_sl_tp_qty_without_final_intent_rederivation_fails" time="0.039"><failure message="AssertionError: assert 'REJECTED_UNP...F_NOT_ALIGNED' == 'REJECTED_UNP...ETRY_MISMATCH'&#10;  &#10;  - REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH&#10;  + REJECTED_UNPROVEN:HTF_NOT_ALIGNED">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1127a0050&gt;
+
+    def test_n12_reprice_entry_sl_tp_qty_without_final_intent_rederivation_fails(monkeypatch):
+        """N12: Reprice entry/SL/TP/qty without final-intent re-derivation -&gt; fail."""
+        from services import v17_9_3_1_2_7_causal_signal_truth as truth
+        from services.v17_9_3_1_2_executable_intervention_replay_service import recalculate_trade_risk_quantity_v179312
+    
+        base_ms = 1_790_000_000_000
+        bars = _make_tf_bars_with_pivot(base_ms, 60_000, 8, pivot_index=3, direction="LONG")
+        cutoff = bars[-1]["close_time"]
+        dec = {
+            "opportunity_id": "opp_n12",
+            "setup_episode_id": "ep_n12",
+            "model_id": "SMC_M1_REVERSAL",
+            "direction": "LONG",
+            "decision_timestamp_ms": cutoff,
+            "entry_reference": 2650.0,
+            "selected_sl": 2646.0,
+            "take_profit": 2660.0,
+        }
+        ctx = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars)
+        feat = derive_pre_entry_features_from_causal_context_v1793127(dec, ctx, dataset_sha256="a" * 64)
+        repriced = {**dec, "entry_reference": 2650.5}
+&gt;       assert required_proof_rejection_v1793127(feat, "SMC_M1_REVERSAL", decision=repriced) == "REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH"
+E       AssertionError: assert 'REJECTED_UNP...F_NOT_ALIGNED' == 'REJECTED_UNP...ETRY_MISMATCH'
+E         
+E         - REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH
+E         + REJECTED_UNPROVEN:HTF_NOT_ALIGNED
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M06_N12_REPRICED_INTENT_WITHOUT_REDERIVATION_gfv0u7pa/test_v130_canonical_universe_and_provenance.py:549: AssertionError</failure></testcase></testsuite></testsuites>

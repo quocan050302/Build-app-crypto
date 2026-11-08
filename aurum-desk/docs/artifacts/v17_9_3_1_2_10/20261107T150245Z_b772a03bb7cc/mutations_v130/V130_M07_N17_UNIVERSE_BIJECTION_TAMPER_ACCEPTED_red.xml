@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.484" timestamp="2026-11-07T22:28:18.582613+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n17_drop_duplicate_or_alter_stage_count_in_universe_reconciliation_fails" time="0.001"><failure message="AssertionError: assert 'PASS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + PASS">def test_n17_drop_duplicate_or_alter_stage_count_in_universe_reconciliation_fails():
+        """N17: Drop, duplicate, reorder, or substitute one candidate in raw 75,525/63,117 stages -&gt; fail."""
+        base_recs = [{"opportunity_id": f"b_{i}", "checkpoint_index_1m": 30 + i, "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "discovered_by_si8": False} for i in range(10)]
+        v128_inc = [{"opportunity_id": f"inc128_{i}", "checkpoint_index_1m": 50 + i, "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "discovered_by_si8": True} for i in range(5)]
+        v130_inc = [{"opportunity_id": f"inc130_{i}", "checkpoint_index_1m": 50 + i, "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "discovered_by_si8": True} for i in range(3)]
+        lineage = build_canonical_universe_lineage_v17931210(
+            raw_m1_bars_count=40,
+            warmup_m1_bars_count=30,
+            post_warmup_checkpoints_count=10,
+            model_direction_evaluations_count=100,
+            v128_canonical_records=base_recs + v128_inc,
+            v129_canonical_records=base_recs + v130_inc,
+            v130_canonical_records=base_recs + v130_inc,
+            v128_htf_totals={"ALIGNED": 4, "COUNTERTREND": 5, "MIXED": 6},
+            v129_htf_totals={"ALIGNED": 3, "COUNTERTREND": 4, "MIXED": 6},
+            v130_htf_totals={"ALIGNED": 3, "COUNTERTREND": 4, "MIXED": 6},
+            policy_stage_counts={},
+        )
+        chk_ok = verify_universe_bijection_and_exclusion_reasons_v17931210(lineage)
+        assert chk_ok["status"] == "PASS"
+    
+        # Tamper one stage count
+        bad_lineage = json.loads(json.dumps(lineage))
+        bad_lineage["v128_vs_v129_v130_universe_reconciliation"]["tuple_level_bijection"]["removed_v128_fabricated_pool_or_non_incremental_tuples"] += 1
+        chk_bad = verify_universe_bijection_and_exclusion_reasons_v17931210(bad_lineage)
+&gt;       assert chk_bad["status"] == "FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E         
+E         - FAIL
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M07_N17_UNIVERSE_BIJECTION_TAMPER_ACCEPTED_47ytyj7b/test_v130_canonical_universe_and_provenance.py:711: AssertionError</failure></testcase></testsuite></testsuites>

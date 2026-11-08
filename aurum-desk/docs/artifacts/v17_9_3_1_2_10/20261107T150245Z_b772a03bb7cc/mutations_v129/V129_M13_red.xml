@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.468" timestamp="2026-11-07T22:27:57.346327+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m13_source_proof_stale_after_repricing_rejected" time="0.006"><failure message="AssertionError: assert 'REJECTED_UNP...F_NOT_ALIGNED' == 'REJECTED_UNP...ETRY_MISMATCH'&#10;  &#10;  - REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH&#10;  + REJECTED_UNPROVEN:HTF_NOT_ALIGNED">def test_m13_source_proof_stale_after_repricing_rejected():
+        """M13: Source proof valid initially but stale after repricing -&gt; reject."""
+        base = 1_790_000_100_000
+        bars = _make_m1_bars(base, 12)
+        decision = dict(
+            opportunity_id="opp_1",
+            setup_episode_id="ep_1",
+            direction="LONG",
+            model_id="SMC_M1_REVERSAL",
+            decision_timestamp_ms=bars[-1]["close_time"],
+            entry_reference=100.0,
+            selected_sl=97.0,
+            take_profit=105.0,
+        )
+        context = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=bars[-1]["close_time"],
+            closed_m1_candles=bars,
+        )
+        feature = derive_pre_entry_features_from_causal_context_v1793127(decision, context, dataset_sha256="a" * 64)
+        repriced_decision = dict(decision, take_profit=106.0)
+        rej = required_proof_rejection_v1793127(feature, "SMC_M1_REVERSAL", decision=repriced_decision)
+&gt;       assert rej == "REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH"
+E       AssertionError: assert 'REJECTED_UNP...F_NOT_ALIGNED' == 'REJECTED_UNP...ETRY_MISMATCH'
+E         
+E         - REJECTED_UNPROVEN:INTENT_GEOMETRY_MISMATCH
+E         + REJECTED_UNPROVEN:HTF_NOT_ALIGNED
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M13_cb34263h/test_v129_liquidity_provenance.py:402: AssertionError</failure></testcase></testsuite></testsuites>

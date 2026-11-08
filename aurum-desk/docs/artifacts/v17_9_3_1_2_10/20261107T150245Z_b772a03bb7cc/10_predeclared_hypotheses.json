@@ -1,0 +1,11 @@
+{
+  "baseline_corpus": "Immutable prior canonical decisions are input data; feature proofs and policy replays are rebuilt on this executable SHA.",
+  "dataset_status": "PREVIOUSLY_EXPOSED_HISTORY",
+  "frozen_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "hypotheses": [
+    "Canonical universe reconciliation explains 22,376 -> 22,346 -> 223,460 -> 56,710 + 6,407 = 63,117 and the 12,408 delta from V128's 75,525.",
+    "Detector-bound liquidity pool provenance requires closed right-hand confirmation bars (0 < occurred_at_ms < confirmed_at_ms <= known_at_ms <= cutoff_ms) and rejects caller-injected or ID-prefix-inferred pools.",
+    "Forensic cohort conservation strictly separates n=157 closed losses from n=242 scheduled episodes, and reconciles the 23 SI1/SI2/SI3 closed trade occurrences into 15 unique closed trades."
+  ],
+  "version": "v17_9_3_1_2_10"
+}

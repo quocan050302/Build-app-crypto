@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.449" timestamp="2026-11-07T22:28:10.116176+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m27_mutate_data_source_after_cache_warmup_invalidates_cache" time="0.006"><failure message="AssertionError: assert '0aeac3df7cb8b59d877c09bd2fd5b6e5b45d645c4234b92692dbbdaca0d4d2f5' != '0aeac3df7cb8b59d877c09bd2fd5b6e5b45d645c4234b92692dbbdaca0d4d2f5'">def test_m27_mutate_data_source_after_cache_warmup_invalidates_cache():
+        """M27: Mutate data source after cache warmup -&gt; cache invalidates; no same proof reused."""
+        base_ms = 1_790_000_000_000
+        bars_a = _make_m1_bars(base_ms, 8, close=100.0, high=101.0, low=99.0)
+        bars_b = _make_m1_bars(base_ms, 8, close=105.0, high=108.0, low=102.0)
+        cutoff = bars_a[-1]["close_time"]
+        decision = dict(opportunity_id="opp_cache", setup_episode_id="ep_cache", direction="LONG", model_id="SMC_M1_REVERSAL")
+        res_a = derive_pre_entry_features_from_causal_context_v1793127(
+            decision,
+            SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars_a),
+            dataset_sha256="a" * 64,
+        )
+        res_b = derive_pre_entry_features_from_causal_context_v1793127(
+            decision,
+            SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars_b),
+            dataset_sha256="a" * 64,
+        )
+&gt;       assert res_a["source_snapshot_hash"] != res_b["source_snapshot_hash"]
+E       AssertionError: assert '0aeac3df7cb8b59d877c09bd2fd5b6e5b45d645c4234b92692dbbdaca0d4d2f5' != '0aeac3df7cb8b59d877c09bd2fd5b6e5b45d645c4234b92692dbbdaca0d4d2f5'
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M27_wk8v99fj/test_v129_liquidity_provenance.py:870: AssertionError</failure></testcase></testsuite></testsuites>

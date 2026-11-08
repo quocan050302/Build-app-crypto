@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.474" timestamp="2026-11-07T22:28:16.840960+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n08_post_pivot_sweep_marks_proven_swept_and_gap_cannot_be_proven_unswept[LONG]" time="0.001"><failure message="assert True is False">direction = 'LONG'
+
+    @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
+    def test_n08_post_pivot_sweep_marks_proven_swept_and_gap_cannot_be_proven_unswept(direction):
+        """N08: Post-pivot true high/low sweeps target -&gt; PROVEN_SWEPT; any uncovered gap cannot be PROVEN_UNSWEPT."""
+        base_ms = 1_790_000_000_000
+        m5_bars = _make_tf_bars_with_pivot(base_ms, 300_000, 5, pivot_index=1, direction=direction, base_px=2650.0, pivot_delta=5.0)
+        cutoff = m5_bars[-1]["close_time"]
+        pivot_close = m5_bars[1]["close_time"]
+        m1_bars = [
+            {
+                "open_time": pivot_close + i * 60_000,
+                "timestamp": pivot_close + i * 60_000,
+                "close_time": pivot_close + (i + 1) * 60_000,
+                "open": 2650.0,
+                "high": 2651.0,
+                "low": 2649.0,
+                "close": 2650.0,
+                "is_closed": True,
+            }
+            for i in range((cutoff - pivot_close) // 60_000)
+        ]
+        # Sweep target on a post-pivot M1 bar
+        if direction == "LONG":
+            m1_bars[6]["high"] = 2655.5
+        else:
+            m1_bars[6]["low"] = 2644.5
+    
+        target_id = f"pool_5M_5m_{'sh' if direction == 'LONG' else 'sl'}_{m5_bars[1]['open_time']}"
+        dec = {
+            "opportunity_id": "opp_n08",
+            "setup_episode_id": "ep_n08",
+            "model_id": "SMC_M1_REVERSAL",
+            "direction": direction,
+            "entry_reference": 2650.0,
+            "selected_sl": 2645.0 if direction == "LONG" else 2655.0,
+            "take_profit": 2655.0 if direction == "LONG" else 2645.0,
+            "selected_target_id": target_id,
+        }
+        ctx = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=m1_bars, closed_m5_candles=m5_bars)
+        res = rederive_detector_liquidity_source_v17931210(dec, ctx, dataset_sha256="a" * 64)
+        assert res["target_selected_pool_bound"] is True
+&gt;       assert res["target_unswept"] is False
+E       assert True is False
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M05_N08_POST_PIVOT_SWEEP_IGNORED_r0q8ja0g/test_v130_canonical_universe_and_provenance.py:445: AssertionError</failure></testcase><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n08_post_pivot_sweep_marks_proven_swept_and_gap_cannot_be_proven_unswept[SHORT]" time="0.001"><failure message="assert True is False">direction = 'SHORT'
+
+    @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
+    def test_n08_post_pivot_sweep_marks_proven_swept_and_gap_cannot_be_proven_unswept(direction):
+        """N08: Post-pivot true high/low sweeps target -&gt; PROVEN_SWEPT; any uncovered gap cannot be PROVEN_UNSWEPT."""
+        base_ms = 1_790_000_000_000
+        m5_bars = _make_tf_bars_with_pivot(base_ms, 300_000, 5, pivot_index=1, direction=direction, base_px=2650.0, pivot_delta=5.0)
+        cutoff = m5_bars[-1]["close_time"]
+        pivot_close = m5_bars[1]["close_time"]
+        m1_bars = [
+            {
+                "open_time": pivot_close + i * 60_000,
+                "timestamp": pivot_close + i * 60_000,
+                "close_time": pivot_close + (i + 1) * 60_000,
+                "open": 2650.0,
+                "high": 2651.0,
+                "low": 2649.0,
+                "close": 2650.0,
+                "is_closed": True,
+            }
+            for i in range((cutoff - pivot_close) // 60_000)
+        ]
+        # Sweep target on a post-pivot M1 bar
+        if direction == "LONG":
+            m1_bars[6]["high"] = 2655.5
+        else:
+            m1_bars[6]["low"] = 2644.5
+    
+        target_id = f"pool_5M_5m_{'sh' if direction == 'LONG' else 'sl'}_{m5_bars[1]['open_time']}"
+        dec = {
+            "opportunity_id": "opp_n08",
+            "setup_episode_id": "ep_n08",
+            "model_id": "SMC_M1_REVERSAL",
+            "direction": direction,
+            "entry_reference": 2650.0,
+            "selected_sl": 2645.0 if direction == "LONG" else 2655.0,
+            "take_profit": 2655.0 if direction == "LONG" else 2645.0,
+            "selected_target_id": target_id,
+        }
+        ctx = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=m1_bars, closed_m5_candles=m5_bars)
+        res = rederive_detector_liquidity_source_v17931210(dec, ctx, dataset_sha256="a" * 64)
+        assert res["target_selected_pool_bound"] is True
+&gt;       assert res["target_unswept"] is False
+E       assert True is False
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M05_N08_POST_PIVOT_SWEEP_IGNORED_r0q8ja0g/test_v130_canonical_universe_and_provenance.py:445: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.449" timestamp="2026-11-07T22:28:10.074571+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m26_synthetic_quote_to_provider_label_without_receipt_fails" time="0.005"><failure message="AssertionError: assert 'UNVERIFIED_PROVIDER_QUOTE' == 'SYNTHETIC_RESEARCH_QUOTE'&#10;  &#10;  - SYNTHETIC_RESEARCH_QUOTE&#10;  + UNVERIFIED_PROVIDER_QUOTE">def test_m26_synthetic_quote_to_provider_label_without_receipt_fails():
+        """M26: Change synthetic quote to provider label without receipt -&gt; FAIL."""
+        base_ms = 1_790_000_000_000
+        bars = _make_m1_bars(base_ms, 5)
+        now_ms = bars[-1]["close_time"]
+        ctx = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=now_ms,
+            closed_m1_candles=bars,
+            quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
+            bid=99.90,
+            ask=100.10,
+        )
+        decision = dict(opportunity_id="opp_syn", setup_episode_id="ep_syn", direction="LONG", model_id="SMC_M1_REVERSAL")
+        res = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx, dataset_sha256="a" * 64)
+&gt;       assert res["quote_source_kind"] == "SYNTHETIC_RESEARCH_QUOTE"
+E       AssertionError: assert 'UNVERIFIED_PROVIDER_QUOTE' == 'SYNTHETIC_RESEARCH_QUOTE'
+E         
+E         - SYNTHETIC_RESEARCH_QUOTE
+E         + UNVERIFIED_PROVIDER_QUOTE
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M26_khxh11ao/test_v129_liquidity_provenance.py:850: AssertionError</failure></testcase></testsuite></testsuites>

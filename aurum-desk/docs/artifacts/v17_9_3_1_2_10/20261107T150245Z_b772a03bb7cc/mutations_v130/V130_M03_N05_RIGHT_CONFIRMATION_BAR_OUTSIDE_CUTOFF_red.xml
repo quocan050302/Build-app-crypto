@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.456" timestamp="2026-11-07T22:28:15.183153+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n05_right_side_confirmation_candle_outside_cutoff_unknown_vs_confirmed_passes" time="0.001"><failure message="assert True is None">def test_n05_right_side_confirmation_candle_outside_cutoff_unknown_vs_confirmed_passes():
+        """N05: Right-side confirmation candle outside cutoff -&gt; unknown; matching real confirmed candle passes."""
+        base_ms = 1_790_000_000_000
+        m5_bars = _make_tf_bars_with_pivot(base_ms, 300_000, 4, pivot_index=2, direction="LONG", base_px=2650.0, pivot_delta=6.0)
+        # Pivot is at index 2 (open = base + 600_000, close = base + 900_000); right confirming bar is index 3 (closes at base + 1_200_000)
+        early_cutoff = m5_bars[2]["close_time"]  # Right confirming bar not closed yet!
+        late_cutoff = m5_bars[3]["close_time"]
+        m1_bars = [
+            {
+                "open_time": base_ms + i * 60_000,
+                "timestamp": base_ms + i * 60_000,
+                "close_time": base_ms + (i + 1) * 60_000,
+                "open": 2650.0,
+                "high": 2651.0,
+                "low": 2649.0,
+                "close": 2650.0,
+                "is_closed": True,
+            }
+            for i in range(20)
+        ]
+        target_id = f"pool_5M_5m_sh_{m5_bars[2]['open_time']}"
+        dec = {
+            "opportunity_id": "opp_n05",
+            "setup_episode_id": "ep_n05",
+            "model_id": "SMC_M1_REVERSAL",
+            "direction": "LONG",
+            "entry_reference": 2650.0,
+            "selected_sl": 2646.0,
+            "take_profit": 2656.0,
+            "selected_target_id": target_id,
+        }
+        ctx_early = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=early_cutoff, closed_m1_candles=m1_bars[:15], closed_m5_candles=m5_bars)
+        res_early = rederive_detector_liquidity_source_v17931210(dec, ctx_early, dataset_sha256="a" * 64)
+&gt;       assert res_early["target_selected_pool_bound"] is None
+E       assert True is None
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M03_N05_RIGHT_CONFIRMATION_BAR_OUTSIDE_CUTOFF_mxd05o52/test_v130_canonical_universe_and_provenance.py:319: AssertionError</failure></testcase></testsuite></testsuites>

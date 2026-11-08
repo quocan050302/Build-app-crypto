@@ -1,0 +1,160 @@
+{
+  "authoritative_canonical_opportunity_count": 63085,
+  "bijection_verification": {
+    "authoritative_canonical_opportunity_count": 63085,
+    "errors": [],
+    "net_delta_v128_minus_v130": 12440,
+    "status": "PASS"
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "htf_alignment_census_reconciliation": {
+    "delta_v128_minus_v130": {
+      "aligned_delta": 1099,
+      "not_aligned_delta": 11341,
+      "total_delta": 12440
+    },
+    "v128_universe_75525": {
+      "ALIGNED": 8913,
+      "COUNTERTREND": 10986,
+      "MIXED": 55626,
+      "NOT_ALIGNED_TOTAL": 66612,
+      "UNKNOWN": 0,
+      "total": 75525
+    },
+    "v129_table_universe_63117": {
+      "ALIGNED": 7825,
+      "COUNTERTREND": 9168,
+      "MIXED": 46124,
+      "NOT_ALIGNED_TOTAL": 55292,
+      "UNKNOWN": 0,
+      "total": 63117
+    },
+    "v130_authoritative_universe_63117": {
+      "ALIGNED": 7814,
+      "COUNTERTREND": 9202,
+      "MIXED": 46069,
+      "NOT_ALIGNED_TOTAL": 55271,
+      "UNKNOWN": 0,
+      "total": 63085
+    }
+  },
+  "policy_stage_counts": {
+    "SI0_OFF_BASELINE": {
+      "accepted": 18744,
+      "evaluated": 56710,
+      "rejected": 37966
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "accepted": 27,
+      "evaluated": 56710,
+      "rejected": 56683
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "accepted": 165,
+      "evaluated": 56710,
+      "rejected": 56545
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "accepted": 32,
+      "evaluated": 56710,
+      "rejected": 56678
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "accepted": 0,
+      "evaluated": 56710,
+      "rejected": 56710
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "accepted": 0,
+      "evaluated": 56710,
+      "rejected": 56710
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "accepted": 0,
+      "evaluated": 56710,
+      "rejected": 56710
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "accepted": 0,
+      "evaluated": 56710,
+      "rejected": 56710
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "accepted": 0,
+      "evaluated": 63085,
+      "rejected": 63085
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "accepted": 0,
+      "evaluated": 63085,
+      "rejected": 63085
+    }
+  },
+  "stages": {
+    "01_RAW_M1_BARS_TOTAL": 22376,
+    "02_WARMUP_M1_BARS_EXCLUDED": 30,
+    "03_RAW_M1_CHECKPOINT": 22346,
+    "04_MODEL_DIRECTION_EVALUATION": 223460,
+    "05_BASELINE_ELIGIBLE_OPPORTUNITIES": 56710,
+    "06_SI8_INCREMENTAL_DISCOVERED_OPPORTUNITIES": 6375,
+    "07_CANONICAL_OPPORTUNITY_TOTAL": 63085,
+    "08_VERIFIED_FEATURE_SNAPSHOT_TOTAL": 63085
+  },
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "v128_vs_v129_v130_universe_reconciliation": {
+    "added_tuples_by_model_direction": {
+      "CG01_SWEEP_MSS_FVG:LONG": 24,
+      "CG01_SWEEP_MSS_FVG:SHORT": 3,
+      "SMC_M1_CONTINUATION:LONG": 36,
+      "SMC_M1_CONTINUATION:SHORT": 160,
+      "SMC_M1_FVG_CONTINUATION:LONG": 4,
+      "SMC_M1_FVG_CONTINUATION:SHORT": 27,
+      "SMC_M1_REVERSAL:LONG": 425,
+      "SMC_M1_REVERSAL:SHORT": 588,
+      "SMC_M1_SWEEP_RECLAIM:LONG": 450,
+      "SMC_M1_SWEEP_RECLAIM:SHORT": 609
+    },
+    "baseline_set_identical_v128_v129_v130": true,
+    "net_opportunity_count_delta_v128_minus_v130": 12440,
+    "opportunity_id_level_bijection": {
+      "oid_conservation_holds": true,
+      "shared_opportunity_ids_v128_and_v130": 58833,
+      "v128_only_opportunity_ids": 16692,
+      "v130_only_opportunity_ids": 4252
+    },
+    "removed_tuples_by_model_direction": {
+      "CG01_SWEEP_MSS_FVG:LONG": 27,
+      "CG01_SWEEP_MSS_FVG:SHORT": 41,
+      "SMC_M1_CONTINUATION:LONG": 354,
+      "SMC_M1_CONTINUATION:SHORT": 529,
+      "SMC_M1_FVG_CONTINUATION:LONG": 102,
+      "SMC_M1_FVG_CONTINUATION:SHORT": 127,
+      "SMC_M1_REVERSAL:LONG": 3850,
+      "SMC_M1_REVERSAL:SHORT": 2677,
+      "SMC_M1_SWEEP_RECLAIM:LONG": 4196,
+      "SMC_M1_SWEEP_RECLAIM:SHORT": 2863
+    },
+    "root_cause_explanation": "V128 (75,525 = 56,710 baseline + 18,815 SI8 incremental) allowed SI5/SI8 to synthesize a fallback target pool from prop_target_id + prop_tp when no confirmed M1 swing pool matched. V129/V130 removed that fabricated pool fallback and bound SI5/SI8 to real confirmed MTF swings (5M/15M/1H/4H via identify_confirmed_swings), removing 14,782 V128 incremental tuples while adding 2,374 newly eligible real-MTF-pool incremental tuples (18,815 - 14,782 + 2,374 = 6,407; 56,710 + 6,407 = 63,117; net delta = -12,408).",
+    "tuple_level_bijection": {
+      "added_v129_v130_real_mtf_pool_incremental_tuples": 2326,
+      "removed_v128_fabricated_pool_or_non_incremental_tuples": 14766,
+      "retained_common_incremental_tuples": 4049,
+      "retained_identical_opportunity_id_count": 2123,
+      "retained_repriced_real_mtf_pool_opportunity_id_count": 1926,
+      "tuple_conservation_holds": true,
+      "v128_incremental_tuples": 18815,
+      "v130_incremental_tuples": 6375
+    },
+    "v128_baseline_eligible_count": 56710,
+    "v128_si8_incremental_count": 18815,
+    "v128_total_canonical_opportunities": 75525,
+    "v129_baseline_eligible_count": 56710,
+    "v129_si8_incremental_count": 6407,
+    "v129_total_canonical_opportunities": 63117,
+    "v129_v130_canonical_set_identical": false,
+    "v130_baseline_eligible_count": 56710,
+    "v130_si8_incremental_count": 6375,
+    "v130_total_canonical_opportunities": 63085
+  },
+  "version": "v17_9_3_1_2_10"
+}

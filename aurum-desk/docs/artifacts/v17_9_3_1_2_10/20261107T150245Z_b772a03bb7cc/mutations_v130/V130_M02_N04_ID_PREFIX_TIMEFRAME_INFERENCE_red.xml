@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.483" timestamp="2026-11-07T22:28:13.380973+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n04_spoof_detector_version_source_kind_or_pool_5m_prefix_without_detector_match_fails" time="0.000"><failure message="AssertionError: assert 420000 == 0&#10; +  where 420000 = _resolve_swing_pivot_close_ms_v1793129({'id': 'pool_5M_fake_pivot_1', 'pool_id': 'pool_5M_fake_pivot_1', 'price': 103.0, 'occurred_at_ms': 120000, ...}, 120000)">def test_n04_spoof_detector_version_source_kind_or_pool_5m_prefix_without_detector_match_fails():
+        """N04: Spoof detector_version, source_kind='SWING' or pool_5M_ text without raw detector match -&gt; fail."""
+        spoof_item = {
+            "id": "pool_5M_fake_pivot_1",
+            "pool_id": "pool_5M_fake_pivot_1",
+            "price": 103.0,
+            "occurred_at_ms": 120_000,
+            "known_at_ms": 420_000,
+            "detector_version": "v15.3",
+            "source_kind": "SWING",
+        }
+&gt;       assert _resolve_swing_pivot_close_ms_v1793129(spoof_item, 120_000) == 0
+E       AssertionError: assert 420000 == 0
+E        +  where 420000 = _resolve_swing_pivot_close_ms_v1793129({'id': 'pool_5M_fake_pivot_1', 'pool_id': 'pool_5M_fake_pivot_1', 'price': 103.0, 'occurred_at_ms': 120000, ...}, 120000)
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M02_N04_ID_PREFIX_TIMEFRAME_INFERENCE_evj602go/test_v130_canonical_universe_and_provenance.py:258: AssertionError</failure></testcase></testsuite></testsuites>

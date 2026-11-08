@@ -1,0 +1,87 @@
+{
+  "baseline_closed_losses_n157": {
+    "by_model_direction": {
+      "SMC_M1_CONTINUATION:LONG": {
+        "OTHER/UNKNOWN": 7,
+        "WRONG_SIDE_HTF": 4
+      },
+      "SMC_M1_CONTINUATION:SHORT": {
+        "OTHER/UNKNOWN": 13
+      },
+      "SMC_M1_FVG_CONTINUATION:LONG": {
+        "OTHER/UNKNOWN": 14,
+        "WRONG_SIDE_HTF": 5
+      },
+      "SMC_M1_FVG_CONTINUATION:SHORT": {
+        "OTHER/UNKNOWN": 30
+      },
+      "SMC_M1_REVERSAL:LONG": {
+        "OTHER/UNKNOWN": 14,
+        "WRONG_SIDE_HTF": 13
+      },
+      "SMC_M1_REVERSAL:SHORT": {
+        "OTHER/UNKNOWN": 56,
+        "SWEEP_NOT_RECLAIMED": 1
+      }
+    },
+    "cohort_filter": "outcome_label == 'LOSS' and filled == True",
+    "cohort_name": "baseline_primary_closed_losses_n157",
+    "conservation_holds": true,
+    "expected_count": 157,
+    "observed_sum": 157,
+    "primary_label_distribution": {
+      "OTHER/UNKNOWN": 134,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 22
+    }
+  },
+  "baseline_scheduled_episodes_n242": {
+    "cohort_filter": "all scheduled baseline episodes in primary fill mode",
+    "cohort_name": "baseline_primary_scheduled_episodes_n242",
+    "conservation_holds": true,
+    "expected_count": 242,
+    "observed_sum": 242,
+    "outcome_breakdown": {
+      "DATA_GAP_UNRESOLVED": 1,
+      "LOSS": 157,
+      "OPEN_AT_HORIZON": 74,
+      "UNFILLED_OR_BLOCKED": 1,
+      "WIN": 9
+    },
+    "primary_label_distribution": {
+      "FILL_GAP/AMBIGUOUS_INTRABAR": 1,
+      "OTHER/UNKNOWN": 208,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 32
+    }
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "epistemic_separation_contract": {
+    "observed_labels_require_verified_pre_entry_or_fill_evidence": true,
+    "quick_stop_or_high_rr_never_fabricates_causal_label": true,
+    "unexplained_losses_remain_OTHER_UNKNOWN": true
+  },
+  "recovered_si1_si2_si3_unique_15_losses": {
+    "by_model_direction": {
+      "SMC_M1_CONTINUATION:SHORT": 8,
+      "SMC_M1_FVG_CONTINUATION:SHORT": 7
+    },
+    "observed_primary_failure_distribution": {
+      "OTHER/UNKNOWN": 15
+    },
+    "total_policy_trade_occurrences": 21,
+    "unique_closed_trades_count": 15,
+    "venn_overlap_partition": {
+      "SI1_H1_H2+SI2_H3+SI3_H4": 0,
+      "SI1_H1_H2+SI2_H3_only": 0,
+      "SI1_H1_H2+SI3_H4_only": 6,
+      "SI1_H1_H2_only": 0,
+      "SI2_H3+SI3_H4_only": 0,
+      "SI2_H3_only": 9,
+      "SI3_H4_only": 0
+    }
+  },
+  "status": "PASS",
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "version": "v17_9_3_1_2_10"
+}

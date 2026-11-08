@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.457" timestamp="2026-11-07T22:28:15.183875+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n07_missing_stale_future_partial_zero_m1_path_and_interior_gap_rejected" time="0.000"><failure message="AssertionError: assert ('p_gap', 103..., True, False) == (None, 103.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p_gap' != None&#10;  Use -v to get more diff">def test_n07_missing_stale_future_partial_zero_m1_path_and_interior_gap_rejected():
+        """N07: Missing, stale, future, partial, duplicate conflicting OHLC; zero M1 path and an interior gap -&gt; unknown/invalid."""
+        pool = {"pool_id": "p_gap", "price": 103.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        # 1. Empty M1 path
+&gt;       assert _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[pool],
+            closed_1m=[],
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=98.0,
+            selected_target_id="p_gap",
+            take_profit=103.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        ) == (None, 103.0, 0, False, False)
+E       AssertionError: assert ('p_gap', 103..., True, False) == (None, 103.0, 0, False, False)
+E         
+E         At index 0 diff: 'p_gap' != None
+E         Use -v to get more diff
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M04_N07_EMPTY_OR_GAPPED_POST_PIVOT_M1_PATH_27g7og41/test_v130_canonical_universe_and_provenance.py:364: AssertionError</failure></testcase></testsuite></testsuites>

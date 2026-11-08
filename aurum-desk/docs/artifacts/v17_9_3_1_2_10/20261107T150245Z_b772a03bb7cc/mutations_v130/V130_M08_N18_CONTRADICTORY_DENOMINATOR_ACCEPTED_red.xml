@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.491" timestamp="2026-11-07T22:28:18.636476+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n18_contradictory_denominator_or_stale_version_fails_report_consistency" time="0.001"><failure message="AssertionError: assert 'PASS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + PASS">def test_n18_contradictory_denominator_or_stale_version_fails_report_consistency():
+        """N18: Change narrative denominator or version while leaving JSON unchanged -&gt; report consistency check fails."""
+        htf_doc = {"version": VERSION_V17931210, "authoritative_universe_count": 63117, "htf_alignment_state_totals": {"ALIGNED": 7825, "COUNTERTREND": 9168, "MIXED": 46124}}
+        funnel_doc = {"version": VERSION_V17931210, "authoritative_universe_count": 63117, "pre_arbitration_required_proof_rejections": {"HTF": 62839}, "pre_arbitration_proof_eligible_count": 278}
+        cohort_doc = {
+            "version": VERSION_V17931210,
+            "baseline_primary_closed_losses_n157": {"conservation_holds": True, "primary_label_distribution": {"WRONG_SIDE_HTF": 134, "OTHER/UNKNOWN": 22, "FEES_DOMINATE": 1}},
+            "baseline_primary_scheduled_episodes_n242": {"conservation_holds": True, "primary_label_distribution": {"WRONG_SIDE_HTF": 208, "OTHER/UNKNOWN": 32, "FEES_DOMINATE": 1, "FILL_GAP/AMBIGUOUS_INTRABAR": 1}},
+        }
+        cb15_doc = {"version": VERSION_V17931210, "unique_closed_trades_count": 15, "total_policy_trade_occurrences": 23, "cases": [{}] * 15}
+        pol_doc = {"version": VERSION_V17931210, "policies": {"SI8": {"NEXT_BAR_OPEN_BID_ASK": {"closed_trades_count": 0, "expectancy_status": "UNDEFINED_ZERO_CLOSED_TRADES", "expectancy_is_positive_evidence": False}}}}
+        md_ok = {"exec": f"# {VERSION_V17931210} Report\n- **Version Authority**: `{VERSION_V17931210}`\n"}
+    
+        res_ok = verify_source_denom_and_trade_report_consistency_v17931210(
+            authority_denom=63117,
+            htf_census_doc=htf_doc,
+            funnel_doc=funnel_doc,
+            cohort_doc=cohort_doc,
+            casebook_15_doc=cb15_doc,
+            policy_metrics_doc=pol_doc,
+            markdown_texts=md_ok,
+        )
+        assert res_ok["status"] == "PASS"
+    
+        # Inject contradictory 75,525 denominator into funnel_doc
+        res_bad_denom = verify_source_denom_and_trade_report_consistency_v17931210(
+            authority_denom=63117,
+            htf_census_doc=htf_doc,
+            funnel_doc={**funnel_doc, "authoritative_universe_count": 75525},
+            cohort_doc=cohort_doc,
+            casebook_15_doc=cb15_doc,
+            policy_metrics_doc=pol_doc,
+            markdown_texts=md_ok,
+        )
+&gt;       assert res_bad_denom["status"] == "FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E         
+E         - FAIL
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M08_N18_CONTRADICTORY_DENOMINATOR_ACCEPTED_a01s22e3/test_v130_canonical_universe_and_provenance.py:748: AssertionError</failure></testcase></testsuite></testsuites>

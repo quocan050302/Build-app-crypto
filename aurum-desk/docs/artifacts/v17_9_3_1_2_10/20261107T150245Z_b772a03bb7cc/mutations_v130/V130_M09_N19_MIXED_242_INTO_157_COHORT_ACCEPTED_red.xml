@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.476" timestamp="2026-11-07T22:28:20.307190+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n19_baseline_closed_loss_distribution_summing_242_under_n157_fails" time="0.001"><failure message="AssertionError: assert 'PASS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + PASS">def test_n19_baseline_closed_loss_distribution_summing_242_under_n157_fails():
+        """N19: Change a baseline closed-loss distribution to sum 242 but label n157 -&gt; FAIL."""
+        episodes = [
+            {"opportunity_id": "ep_loss_1", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "LOSS", "realized_gross_pnl_usd": -2.0, "entry_fee_usd": 0.05, "exit_fee_usd": 0.05, "realized_net_pnl_usd": -2.10},
+            {"opportunity_id": "ep_win_1", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "WIN", "realized_gross_pnl_usd": 4.5, "entry_fee_usd": 0.05, "exit_fee_usd": 0.05, "realized_net_pnl_usd": 4.40},
+            {"opportunity_id": "ep_open_1", "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "OPEN_AT_HORIZON", "realized_gross_pnl_usd": 0.0, "entry_fee_usd": 0.05, "exit_fee_usd": 0.0, "realized_net_pnl_usd": -0.05},
+        ]
+        res_ok = verify_forensic_cohort_conservation_v17931210(episodes, {})
+        assert res_ok["status"] == "PASS"
+        assert res_ok["baseline_primary_closed_losses_n157"]["observed_sum"] == 1
+        assert res_ok["baseline_primary_scheduled_episodes_n242"]["observed_sum"] == 3
+    
+        # Mix all 3 scheduled episodes into closed_losses_override -&gt; must FAIL
+        res_mixed = verify_forensic_cohort_conservation_v17931210(episodes, {}, closed_losses_override=episodes)
+&gt;       assert res_mixed["status"] == "FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E         
+E         - FAIL
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M09_N19_MIXED_242_INTO_157_COHORT_ACCEPTED_syff59g8/test_v130_canonical_universe_and_provenance.py:778: AssertionError</failure></testcase></testsuite></testsuites>

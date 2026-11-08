@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.471" timestamp="2026-11-07T22:28:01.081087+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m17_real_provider_quote_without_receipt_rejected" time="0.006"><failure message="AssertionError: assert 'REAL_PROVIDER_QUOTE' == 'UNVERIFIED_PROVIDER_QUOTE'&#10;  &#10;  - UNVERIFIED_PROVIDER_QUOTE&#10;  + REAL_PROVIDER_QUOTE">def test_m17_real_provider_quote_without_receipt_rejected():
+        """M17: No candle coverage / provider receipt but quote source label REAL_PROVIDER_QUOTE =&gt; reject provider proof."""
+        base_ms = 1_790_000_000_000
+        bars = _make_m1_bars(base_ms, 5)
+        now_ms = bars[-1]["close_time"]
+        ctx = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=now_ms,
+            closed_m1_candles=bars,
+            quote_source_kind="REAL_PROVIDER_QUOTE",
+            quote_timestamp_ms=now_ms,
+            quote_provider_source_id=None,
+        )
+        decision = dict(opportunity_id="opp_q", setup_episode_id="ep_q", direction="LONG", model_id="SMC_M1_REVERSAL")
+        res = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx, dataset_sha256="a" * 64)
+&gt;       assert res["quote_source_kind"] == "UNVERIFIED_PROVIDER_QUOTE"
+E       AssertionError: assert 'REAL_PROVIDER_QUOTE' == 'UNVERIFIED_PROVIDER_QUOTE'
+E         
+E         - UNVERIFIED_PROVIDER_QUOTE
+E         + REAL_PROVIDER_QUOTE
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M17_bmemup7z/test_v129_liquidity_provenance.py:525: AssertionError</failure></testcase></testsuite></testsuites>

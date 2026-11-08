@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.080" timestamp="2026-11-07T22:27:44.426308+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_causal_truth" name="test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl" time="0.007"><failure message="AssertionError: assert 'PASS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + PASS">tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-324/test_disk_verifier_rejects_del0')
+
+    def test_disk_verifier_rejects_deleted_pair_and_tampered_raw_pnl(tmp_path):
+        rows=raw_rows()
+        spec={}
+        for key,records in zip(("decisions_a","decisions_b","trades_a","trades_b"),rows):
+            spec[key]=key+".jsonl.gz"
+            with gzip.open(tmp_path/spec[key],"wt",encoding="utf-8") as f:
+                for r in records: f.write(json.dumps(r)+"\n")
+        spec["claim"]="claim.json"
+        claim=compare(*rows,comparison_id="x",fill_mode="x")
+        (tmp_path/spec["claim"]).write_text(json.dumps(claim),encoding="utf-8")
+        assert verify_ab(tmp_path,spec)["status"]=="PASS"
+        claim["pair_ledger"].clear()
+        (tmp_path/spec["claim"]).write_text(json.dumps(claim),encoding="utf-8")
+&gt;       assert verify_ab(tmp_path,spec)["status"]=="FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E         
+E         - FAIL
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v127_mutants_at538f27/test_causal_truth.py:306: AssertionError</failure></testcase></testsuite></testsuites>

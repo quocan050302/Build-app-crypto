@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.482" timestamp="2026-11-07T22:28:01.124891+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m18_future_h4_bar_excluded_from_htf_bias" time="0.008"><failure message="AssertionError: assert '4fb43b07c1f4...f5e59cdfe9bba' == '8847ef203bba...5c7f7ce0c5a4d'&#10;  &#10;  - 8847ef203bba5e2bf16ab190fa4a373b35ac50a6602708fa6d45c7f7ce0c5a4d&#10;  + 4fb43b07c1f4d3799a62b6817014dcdfecd74e4e77efd4098c3f5e59cdfe9bba">def test_m18_future_h4_bar_excluded_from_htf_bias():
+        """M18: Swap H4/H1 bias with future H4 bar =&gt; reject."""
+        base_ms = 1_790_000_000_000
+        h4_dur = 14_400_000
+        # 6 bearish closed H4 bars, plus 1 huge future bullish H4 bar closing after cutoff
+        h4_bars = [
+            {
+                "open_time": base_ms + i * h4_dur,
+                "timestamp": base_ms + i * h4_dur,
+                "close_time": base_ms + (i + 1) * h4_dur,
+                "open": 2700.0 - i * 10.0,
+                "high": 2702.0 - i * 10.0,
+                "low": 2688.0 - i * 10.0,
+                "close": 2690.0 - i * 10.0,
+                "is_closed": True,
+            }
+            for i in range(6)
+        ]
+        cutoff = h4_bars[-1]["close_time"]
+        future_h4 = {
+            "open_time": cutoff,
+            "timestamp": cutoff,
+            "close_time": cutoff + h4_dur,
+            "open": 2640.0,
+            "high": 2850.0,
+            "low": 2640.0,
+            "close": 2845.0,
+            "is_closed": True,
+        }
+        m1_bars = _make_m1_bars(cutoff - 10 * 60_000, 10)
+        ctx_without_future = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=cutoff,
+            closed_m1_candles=m1_bars,
+            closed_h4_candles=h4_bars,
+        )
+        ctx_with_future = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=cutoff,
+            closed_m1_candles=m1_bars,
+            closed_h4_candles=h4_bars + [future_h4],
+        )
+        decision = dict(opportunity_id="opp_h4", setup_episode_id="ep_h4", direction="SHORT", model_id="SMC_M1_CONTINUATION")
+        r1 = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx_without_future, dataset_sha256="a" * 64)
+        r2 = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx_with_future, dataset_sha256="a" * 64)
+&gt;       assert r1["source_snapshot_hash"] == r2["source_snapshot_hash"]
+E       AssertionError: assert '4fb43b07c1f4...f5e59cdfe9bba' == '8847ef203bba...5c7f7ce0c5a4d'
+E         
+E         - 8847ef203bba5e2bf16ab190fa4a373b35ac50a6602708fa6d45c7f7ce0c5a4d
+E         + 4fb43b07c1f4d3799a62b6817014dcdfecd74e4e77efd4098c3f5e59cdfe9bba
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M18_s62ght2t/test_v129_liquidity_provenance.py:573: AssertionError</failure></testcase></testsuite></testsuites>

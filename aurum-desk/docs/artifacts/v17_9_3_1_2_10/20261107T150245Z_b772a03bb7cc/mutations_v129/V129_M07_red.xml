@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.480" timestamp="2026-11-07T22:27:52.046025+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m07_future_or_partial_source_bar_rejected" time="0.000"><failure message="AssertionError: assert 3 == 2&#10; +  where 3 = len([{'open_time': 120000, 'timestamp': 120000, 'close_time': 180000, 'open': 100.0, ...}, {'open_time': 180000, 'timestam...me': 240000, 'open': 100.0, ...}, {'open_time': 240000, 'timestamp': 240000, 'close_time': 300000, 'open': 100.0, ...}])">def test_m07_future_or_partial_source_bar_rejected():
+        """M07: Future/partial source bar mistakenly accepted -&gt; reject."""
+        bars = _make_m1_bars(120_000, 3)
+        bars[-1]["is_closed"] = False
+        closed, unclosed_count = _closed_bars_as_of(bars, 300_000, 60_000)
+&gt;       assert len(closed) == 2
+E       AssertionError: assert 3 == 2
+E        +  where 3 = len([{'open_time': 120000, 'timestamp': 120000, 'close_time': 180000, 'open': 100.0, ...}, {'open_time': 180000, 'timestam...me': 240000, 'open': 100.0, ...}, {'open_time': 240000, 'timestamp': 240000, 'close_time': 300000, 'open': 100.0, ...}])
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M07_sx1lqvi3/test_v129_liquidity_provenance.py:217: AssertionError</failure></testcase></testsuite></testsuites>

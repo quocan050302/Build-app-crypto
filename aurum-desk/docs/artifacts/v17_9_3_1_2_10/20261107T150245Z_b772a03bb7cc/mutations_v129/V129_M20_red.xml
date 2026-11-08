@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.459" timestamp="2026-11-07T22:28:02.825084+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m20_decisive_source_timestamp_one_second_beyond_cutoff_rejected" time="0.012"><failure message="AssertionError: assert True is False&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">def test_m20_decisive_source_timestamp_one_second_beyond_cutoff_rejected():
+        """M20: Change decisive source timestamp one second beyond cutoff =&gt; reject."""
+        base = 1_790_000_000_000
+        prices = [
+            (100, 101, 99, 100.5),
+            (100.5, 105, 100.5, 104.5),
+            (104.5, 106, 103, 105),
+            (105, 105.5, 102, 104),
+            (104, 105, 103, 104.5),
+        ]
+        bars = [
+            dict(
+                open_time=base + i * 60_000,
+                timestamp=base + i * 60_000,
+                close_time=base + (i + 1) * 60_000,
+                open=o,
+                high=h,
+                low=l,
+                close=c,
+                is_closed=True,
+            )
+            for i, (o, h, l, c) in enumerate(prices)
+        ]
+        cutoff = bars[-1]["close_time"]
+        decision = dict(opportunity_id="opp_ts", setup_episode_id="ep_ts", direction="LONG", model_id="SMC_M1_FVG_CONTINUATION")
+        ctx = SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars)
+        res = derive_pre_entry_features_from_causal_context_v1793127(decision, ctx, dataset_sha256="a" * 64)
+        assert verify_feature_snapshot_v1793127(res) is True
+        snap = dict(res["causal_snapshot"])
+        features = [dict(f) for f in snap["features"]]
+        fvg_ref = next(f for f in features if f["evidence_type"] == "fvg_present")
+        assert fvg_ref["proof_state"] == "PROVEN_TRUE"
+        fvg_ref["known_at_ms"] = cutoff + 1_000
+        snap["features"] = features
+        payload = dict(snap)
+        payload.pop("proof_hash", None)
+        new_hash = canonical_hash(payload)
+        snap["proof_hash"] = new_hash
+        tampered = dict(res, causal_snapshot=snap, proof_hash=new_hash)
+&gt;       assert verify_feature_snapshot_v1793127(tampered) is False
+E       AssertionError: assert True is False
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M20_tlbqrrxz/test_v129_liquidity_provenance.py:652: AssertionError</failure></testcase></testsuite></testsuites>

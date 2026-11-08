@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.465" timestamp="2026-11-07T22:27:53.744670+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m09_selected_target_id_rebound_to_unrelated_nearby_pool_rejected" time="0.006"><failure message="assert True is None">def test_m09_selected_target_id_rebound_to_unrelated_nearby_pool_rejected():
+        """M09: Selected target ID re-bound silently to unrelated nearby pool -&gt; reject."""
+        base = 1_790_000_100_000
+        bars = [
+            dict(
+                open_time=base + i * 60_000,
+                close_time=base + (i + 1) * 60_000,
+                open=100,
+                close=100,
+                high=105 if 5 &lt;= i &lt; 10 else 102,
+                low=98,
+                is_closed=True,
+            )
+            for i in range(20)
+        ]
+        m5 = [
+            dict(
+                open_time=base + i * 300_000,
+                close_time=base + (i + 1) * 300_000,
+                open=100,
+                close=100,
+                high=max(b["high"] for b in bars[i * 5 : (i + 1) * 5]),
+                low=98,
+                is_closed=True,
+            )
+            for i in range(4)
+        ]
+        decision = dict(
+            opportunity_id="fixture",
+            setup_episode_id="setup",
+            direction="LONG",
+            model_id="SMC_M1_REVERSAL",
+            entry_reference=100,
+            selected_sl=97,
+            take_profit=105,
+            selected_target_id="unrelated_target_id_999",
+        )
+        context = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=bars[-1]["close_time"],
+            closed_m1_candles=bars,
+            closed_m5_candles=m5,
+        )
+        result = derive_pre_entry_features_from_causal_context_v1793127(decision, context, dataset_sha256="a" * 64)
+&gt;       assert result["target_selected_pool_bound"] is None
+E       assert True is None
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M09_u98mwt2o/test_v129_liquidity_provenance.py:285: AssertionError</failure></testcase></testsuite></testsuites>

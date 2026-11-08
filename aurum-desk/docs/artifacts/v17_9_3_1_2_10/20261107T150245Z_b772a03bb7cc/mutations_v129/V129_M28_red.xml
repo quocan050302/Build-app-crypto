@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.423" timestamp="2026-11-07T22:28:11.739895+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m28_quick_stop_or_rr_does_not_fabricate_loss_cause" time="0.005"><failure message="AssertionError: assert 'NOISE_STOP_QUICK_LOSS' == 'OTHER/UNKNOWN'&#10;  &#10;  - OTHER/UNKNOWN&#10;  + NOISE_STOP_QUICK_LOSS">def test_m28_quick_stop_or_rr_does_not_fabricate_loss_cause():
+        """M28: Alter loss cause based solely on quick stop or RR -&gt; UNKNOWN classification preserved."""
+        base_ms = 1_790_000_000_000
+        bars = _make_m1_bars(base_ms, 6)
+        cutoff = bars[-1]["close_time"]
+        decision = dict(opportunity_id="opp_loss", setup_episode_id="ep_loss", direction="LONG", model_id="SMC_M1_REVERSAL")
+        feature = derive_pre_entry_features_from_causal_context_v1793127(
+            decision,
+            SimpleNamespace(symbol="XAUUSDT", decision_timestamp_ms=cutoff, closed_m1_candles=bars),
+            dataset_sha256="a" * 64,
+        )
+        ep = {
+            "opportunity_id": "opp_loss",
+            "outcome_label": "LOSS",
+            "bars_held": 1,
+            "realized_gross_pnl_usd": -2.0,
+            "entry_fee_usd": 0.05,
+            "exit_fee_usd": 0.05,
+            "realized_net_pnl_usd": -2.10,
+            "realized_r": -1.0,
+            "net_rr": 2.1,
+        }
+        primary, labels = classify_observed_loss_v1793127(ep, feature)
+&gt;       assert primary == "OTHER/UNKNOWN"
+E       AssertionError: assert 'NOISE_STOP_QUICK_LOSS' == 'OTHER/UNKNOWN'
+E         
+E         - OTHER/UNKNOWN
+E         + NOISE_STOP_QUICK_LOSS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M28_xx_60hsf/test_v129_liquidity_provenance.py:897: AssertionError</failure></testcase></testsuite></testsuites>

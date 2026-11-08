@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.083" timestamp="2026-11-07T22:28:07.075684+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m24_worker_1v2v4_parity_requires_independent_pids_and_matching_digests" time="0.592"><failure message="AssertionError: assert 'WORKER_EXECUTION_OR_DIGEST_MISMATCH:30' in ['RAW_CHECKPOINT_COVERAGE_OR_OFF_OBSERVE_MISMATCH']">tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-329/test_m24_worker_1v2v4_parity_r0')
+
+    def test_m24_worker_1v2v4_parity_requires_independent_pids_and_matching_digests(tmp_path):
+        """M24: Fake copied 1v2v4 worker digest with no independent outputs -&gt; parity FAIL."""
+        from tools.v17_9_3_1_2_7_proof_checks import verify_raw_accounting_and_worker_proofs
+    
+        run = tmp_path / "run_w"
+        run.mkdir()
+        (run / "15_all_policies_all_three_fill_modes_metrics.json").write_text("{}", encoding="utf-8")
+        (run / "24_engineering_strategy_activation_dual_verdict.json").write_text(
+            json.dumps(
+                {
+                    "policies": {},
+                    "strategy_statistical_verdict": "INCONCLUSIVE_UNDERPOWERED",
+                    "activation_ready": "NO",
+                    "fresh_holdout": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+                    "method": "SEEDED_EMPIRICAL_BOOTSTRAP_HOLM_STEP_DOWN",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run / "16_walkforward_purge_embargo_oos_freshness_and_uncertainty.json").write_text(
+            json.dumps(
+                {
+                    "split_boundaries_ms": [1791676800000, 1792195200000],
+                    "embargo_bars_m1": 180,
+                    "fresh_oos_verification_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+                    "policies": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        # Write worker manifest where worker_count=4 only has 1 PID observed
+        empty_sha = hashlib.sha256(b"{}").hexdigest()
+        (run / "21_1v2v4_independent_determinism_sha_manifest.json").write_text(
+            json.dumps(
+                {
+                    "28": {"worker_count": 1, "worker_pids_observed": [101], "results_by_policy": {}, "canonical_results_sha256": empty_sha},
+                    "29": {"worker_count": 2, "worker_pids_observed": [102, 103], "results_by_policy": {}, "canonical_results_sha256": empty_sha},
+                    "30": {"worker_count": 4, "worker_pids_observed": [104], "results_by_policy": {}, "canonical_results_sha256": empty_sha},
+                }
+            ),
+            encoding="utf-8",
+        )
+        import gzip
+    
+        with gzip.open(run / "05_full_checkpoint_model_direction_execution_audit.jsonl.gz", "wt", encoding="utf-8") as f:
+            pass
+        with gzip.open(run / "13_baseline_raw_execution_episodes.jsonl.gz", "wt", encoding="utf-8") as f:
+            pass
+        with gzip.open(run / "13_per_trade_forensics_observed_vs_hypothesized.jsonl.gz", "wt", encoding="utf-8") as f:
+            pass
+        with gzip.open(run / "07_verified_causal_features.jsonl.gz", "wt", encoding="utf-8") as f:
+            pass
+        (run / "03_canonical_dataset_and_quote_source_manifest.json").write_text(
+            json.dumps({"dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"}),
+            encoding="utf-8",
+        )
+        res = verify_raw_accounting_and_worker_proofs(run)
+        assert res["status"] == "FAIL"
+&gt;       assert "WORKER_EXECUTION_OR_DIGEST_MISMATCH:30" in res["errors"]
+E       AssertionError: assert 'WORKER_EXECUTION_OR_DIGEST_MISMATCH:30' in ['RAW_CHECKPOINT_COVERAGE_OR_OFF_OBSERVE_MISMATCH']
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M24_42haf2ir/test_v129_liquidity_provenance.py:809: AssertionError</failure></testcase></testsuite></testsuites>

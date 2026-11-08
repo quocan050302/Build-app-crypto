@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.819" timestamp="2026-11-07T22:28:04.711121+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m21_altered_raw_junit_xml_rejected_by_verifier" time="0.249"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-326/test_m21_altered_raw_junit_xml0')
+
+    def test_m21_altered_raw_junit_xml_rejected_by_verifier(tmp_path):
+        """M21: Alter raw JUnit XML after success but keep exit=0 =&gt; verifier FAIL."""
+        run_dir = tmp_path / "run"
+        junit_dir = run_dir / "junit"
+        junit_dir.mkdir(parents=True)
+        xml_path = junit_dir / "SHARD_000.xml"
+        xml_bytes = b'&lt;testsuite tests="1"&gt;&lt;testcase classname="backend.tests.test_x" name="test_a"/&gt;&lt;/testsuite&gt;'
+        xml_path.write_bytes(xml_bytes)
+        orig_sha = hashlib.sha256(xml_bytes).hexdigest()
+        # Tamper XML bytes on disk after recording orig_sha
+        xml_path.write_bytes(xml_bytes + b"&lt;!-- tampered --&gt;")
+        mtime_ns = xml_path.stat().st_mtime_ns
+        collection = {"collected_node_ids": ["backend/tests/test_x.py::test_a"]}
+        junit_manifest = {
+            "tested_executable_sha": "a" * 40,
+            "run_start_epoch_ns": mtime_ns - 10_000_000,
+            "exact_node_id_bijection_verified": True,
+            "reused_shards_count": 0,
+            "shards": [
+                {
+                    "shard_name": "SHARD_000",
+                    "junit_xml_path": str(xml_path),
+                    "xml_sha256": orig_sha,
+                    "xml_mtime_ns": mtime_ns,
+                    "reused": False,
+                    "tested_executable_sha": "a" * 40,
+                    "pid": 1234,
+                    "collect_exit_code": 0,
+                    "pytest_exit_code": 0,
+                    "exact_bijection": True,
+                }
+            ],
+        }
+&gt;       with pytest.raises(ValueError, match="STALE_OR_TAMPERED_JUNIT"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M21_c_0r63y5/test_v129_liquidity_provenance.py:688: Failed</failure></testcase></testsuite></testsuites>

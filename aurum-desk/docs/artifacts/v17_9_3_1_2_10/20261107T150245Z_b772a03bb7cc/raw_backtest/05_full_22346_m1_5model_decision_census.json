@@ -1,0 +1,84 @@
+{
+  "baseline_eligible_decisions_count": 56710,
+  "baseline_unique_eligible_m1_timestamps": 18744,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "decision_stream_sha256": "cd86760e6e8e65c5658b78773301aea550a5c62650ef6a30ffad6accf28e7317",
+  "models_evaluated_per_bar": 5,
+  "policy_census_summary": {
+    "SI0_OFF_BASELINE": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 18744,
+      "closed_trades_count": 166,
+      "rejected_by_signal_intelligence_count": 0,
+      "unique_eligible_timestamps_evaluated": 18744
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "accepted_modified_count": 27,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 6,
+      "rejected_by_signal_intelligence_count": 251,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 165,
+      "closed_trades_count": 9,
+      "rejected_by_signal_intelligence_count": 113,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "accepted_modified_count": 32,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 6,
+      "rejected_by_signal_intelligence_count": 246,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "accepted_modified_count": 0,
+      "accepted_unchanged_count": 0,
+      "closed_trades_count": 0,
+      "rejected_by_signal_intelligence_count": 278,
+      "unique_eligible_timestamps_evaluated": 278
+    }
+  },
+  "post_warmup_m1_bars_count": 22346,
+  "schema_version": "17.9.3.1.2.2",
+  "total_decision_evaluations_per_policy": 111730,
+  "total_m1_bars": 22600,
+  "warmup_m1_bars": 254
+}

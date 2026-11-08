@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.521" timestamp="2026-11-07T22:27:45.824634+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m02_falsify_known_at_now_ms_without_confirming_bars_rejected" time="0.001"><failure message="AssertionError: assert ('p_unconfirm..., True, False) == (None, 103.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p_unconfirmed' != None&#10;  Use -v to get more diff">def test_m02_falsify_known_at_now_ms_without_confirming_bars_rejected():
+        """M02: Falsify known_at=now_ms without confirming bars -&gt; reject."""
+        base_ms = 120_000
+        bars = _make_m1_bars(base_ms, 4)
+        unconfirmed_pool = {"pool_id": "p_unconfirmed", "price": 103.0, "occurred_at_ms": 120_000, "known_at_ms": None}
+        res = _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[unconfirmed_pool],
+            closed_1m=bars,
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=98.0,
+            selected_target_id="p_unconfirmed",
+            take_profit=103.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        )
+&gt;       assert res == (None, 103.0, 0, False, False)
+E       AssertionError: assert ('p_unconfirm..., True, False) == (None, 103.0, 0, False, False)
+E         
+E         At index 0 diff: 'p_unconfirmed' != None
+E         Use -v to get more diff
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M02_bd1jb0o0/test_v129_liquidity_provenance.py:134: AssertionError</failure></testcase></testsuite></testsuites>

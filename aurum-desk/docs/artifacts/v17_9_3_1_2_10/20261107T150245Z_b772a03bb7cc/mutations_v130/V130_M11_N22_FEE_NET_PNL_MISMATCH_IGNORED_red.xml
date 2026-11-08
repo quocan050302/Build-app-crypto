@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.464" timestamp="2026-11-07T22:28:21.982146+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n22_alter_fee_slippage_risk_or_pnl_in_paired_row_fails_ab_verifier" time="0.000"><failure message="AssertionError: Regex pattern did not match.&#10;  Expected regex: 'FEE_NET_RECONCILIATION_MISMATCH'&#10;  Actual message: 'REALIZED_R_RISK_RECONCILIATION_MISMATCH'">def test_n22_alter_fee_slippage_risk_or_pnl_in_paired_row_fails_ab_verifier():
+        """N22: Alter a fee, slippage, risk, win flag or PnL in a paired row -&gt; independent A/B verifier FAIL."""
+        dec = [{"opportunity_id": "opp_1", "decision_timestamp_ms": 1_000_000, "source_snapshot_hash": "s" * 64, "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "accepted": True, "status": "ELIGIBLE"}]
+        bad_trade = [{"opportunity_id": "opp_1", "decision_timestamp_ms": 1_000_000, "source_snapshot_hash": "s" * 64, "model_id": "SMC_M1_REVERSAL", "direction": "LONG", "filled": True, "outcome_label": "LOSS", "realized_gross_pnl_usd": -2.0, "entry_fee_usd": 0.10, "exit_fee_usd": 0.10, "realized_net_pnl_usd": -2.01, "realized_r": -1.0, "planned_net_risk_usd": 2.0}]
+&gt;       with pytest.raises(ValueError, match="FEE_NET_RECONCILIATION_MISMATCH"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'FEE_NET_RECONCILIATION_MISMATCH'
+E         Actual message: 'REALIZED_R_RISK_RECONCILIATION_MISMATCH'
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M11_N22_FEE_NET_PNL_MISMATCH_IGNORED_prrteyg8/test_v130_canonical_universe_and_provenance.py:829: AssertionError</failure></testcase></testsuite></testsuites>

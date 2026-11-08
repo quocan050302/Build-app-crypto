@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.457" timestamp="2026-11-07T22:27:55.671303+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m12_target_source_event_from_different_episode_rejected" time="0.006"><failure message="AssertionError: assert True is False&#10; +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})">def test_m12_target_source_event_from_different_episode_rejected():
+        """M12: Target source event from different model/episode validates this setup -&gt; reject."""
+        base = 1_790_000_100_000
+        bars = _make_m1_bars(base, 12)
+        decision = dict(
+            opportunity_id="opp_episode_1",
+            setup_episode_id="ep_1",
+            direction="LONG",
+            model_id="SMC_M1_REVERSAL",
+            entry_reference=100,
+            selected_sl=97,
+            take_profit=105,
+        )
+        context = SimpleNamespace(
+            symbol="XAUUSDT",
+            decision_timestamp_ms=bars[-1]["close_time"],
+            closed_m1_candles=bars,
+        )
+        result = derive_pre_entry_features_from_causal_context_v1793127(decision, context, dataset_sha256="a" * 64)
+        assert verify_feature_snapshot_v1793127(result) is True
+        tampered = dict(result, opportunity_id="opp_episode_2")
+&gt;       assert verify_feature_snapshot_v1793127(tampered) is False
+E       AssertionError: assert True is False
+E        +  where True = verify_feature_snapshot_v1793127({'h4_bias': None, 'h1_bias': None, 'm15_bias': None, 'm5_bias': None, ...})
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M12_2xby_vbi/test_v129_liquidity_provenance.py:377: AssertionError</failure></testcase></testsuite></testsuites>

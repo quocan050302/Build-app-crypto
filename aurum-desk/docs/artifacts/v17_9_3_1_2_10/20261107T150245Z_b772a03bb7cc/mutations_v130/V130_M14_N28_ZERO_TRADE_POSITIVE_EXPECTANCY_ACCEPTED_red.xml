@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.501" timestamp="2026-11-07T22:28:24.320367+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n28_claim_positive_expectancy_on_zero_trades_fails" time="0.001"><failure message="AssertionError: assert 'PASS' == 'FAIL'&#10;  &#10;  - FAIL&#10;  + PASS">def test_n28_claim_positive_expectancy_on_zero_trades_fails():
+        """N28: Claim positive expectancy on zero trades, or omit UNDEFINED_ZERO_CLOSED_TRADES status -&gt; FAIL."""
+        htf_doc = {"version": VERSION_V17931210, "authoritative_universe_count": 63117, "htf_alignment_state_totals": {"ALIGNED": 7825, "COUNTERTREND": 9168, "MIXED": 46124}}
+        funnel_doc = {"version": VERSION_V17931210, "authoritative_universe_count": 63117, "pre_arbitration_required_proof_rejections": {"HTF": 62839}, "pre_arbitration_proof_eligible_count": 278}
+        cohort_doc = {
+            "version": VERSION_V17931210,
+            "baseline_primary_closed_losses_n157": {"conservation_holds": True, "primary_label_distribution": {"WRONG_SIDE_HTF": 157}},
+            "baseline_primary_scheduled_episodes_n242": {"conservation_holds": True, "primary_label_distribution": {"WRONG_SIDE_HTF": 242}},
+        }
+        cb15_doc = {"version": VERSION_V17931210, "unique_closed_trades_count": 15, "total_policy_trade_occurrences": 23, "cases": [{}] * 15}
+        bad_pol_doc = {
+            "version": VERSION_V17931210,
+            "policies": {
+                "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+                    "NEXT_BAR_OPEN_BID_ASK": {
+                        "closed_trades_count": 0,
+                        "expectancy_net_r": 0.0,
+                        "expectancy_status": "POSITIVE",
+                        "expectancy_is_positive_evidence": True,
+                    }
+                }
+            },
+        }
+        res = verify_source_denom_and_trade_report_consistency_v17931210(
+            authority_denom=63117,
+            htf_census_doc=htf_doc,
+            funnel_doc=funnel_doc,
+            cohort_doc=cohort_doc,
+            casebook_15_doc=cb15_doc,
+            policy_metrics_doc=bad_pol_doc,
+            markdown_texts={"exec": f"# {VERSION_V17931210}\n- **Version Authority**: `{VERSION_V17931210}`\n"},
+        )
+&gt;       assert res["status"] == "FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E         
+E         - FAIL
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M14_N28_ZERO_TRADE_POSITIVE_EXPECTANCY_ACCEPTED_77vd_g_7/test_v130_canonical_universe_and_provenance.py:1008: AssertionError</failure></testcase></testsuite></testsuites>

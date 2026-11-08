@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.422" timestamp="2026-11-07T22:27:39.877191+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_causal_truth" name="test_provider_label_without_source_receipt_not_promoted_to_real" time="0.341"><failure message="AssertionError: assert 'SYNTHETIC_RESEARCH_QUOTE' == 'UNVERIFIED_PROVIDER_QUOTE'&#10;  &#10;  - UNVERIFIED_PROVIDER_QUOTE&#10;  + SYNTHETIC_RESEARCH_QUOTE">def test_provider_label_without_source_receipt_not_promoted_to_real():
+        context=fixture_context()
+        context.quote_source_kind="REAL_PROVIDER_QUOTE"
+        row=derive(decision(),context,dataset_sha256="a"*64)
+&gt;       assert row["quote_source_kind"]=="UNVERIFIED_PROVIDER_QUOTE"
+E       AssertionError: assert 'SYNTHETIC_RESEARCH_QUOTE' == 'UNVERIFIED_PROVIDER_QUOTE'
+E         
+E         - UNVERIFIED_PROVIDER_QUOTE
+E         + SYNTHETIC_RESEARCH_QUOTE
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v127_mutants_at538f27/test_causal_truth.py:94: AssertionError</failure></testcase></testsuite></testsuites>

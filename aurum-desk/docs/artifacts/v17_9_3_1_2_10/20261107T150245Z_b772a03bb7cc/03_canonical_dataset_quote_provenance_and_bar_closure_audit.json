@@ -1,0 +1,16 @@
+{
+  "assumption": "CLOSE_PLUS_MINUS_0.10_USD",
+  "bad_or_unclosed_bars_count": 0,
+  "canonical_m1_bars": 22376,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "dataset_sha256_matches": true,
+  "model_direction_evaluations": 223460,
+  "post_warmup_m1_checkpoints": 22346,
+  "quote_provenance_verdict": "SYNTHETIC_RESEARCH_QUOTE_CLOSE_PLUS_MINUS_0.10_USD",
+  "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
+  "real_bitget_bid_ask_history_available": false,
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "verified_on_disk_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "version": "v17_9_3_1_2_10",
+  "warmup_m1_bars_excluded": 30
+}

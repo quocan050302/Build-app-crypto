@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.465" timestamp="2026-11-07T22:27:52.078335+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m08_duplicate_pool_id_with_conflicting_prices_rejected" time="0.001"><failure message="AssertionError: assert ('p_dup', 103..., True, False) == (None, 103.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p_dup' != None&#10;  Use -v to get more diff">def test_m08_duplicate_pool_id_with_conflicting_prices_rejected():
+        """M08: Duplicate pool ID with conflicting prices -&gt; reject."""
+        bars = _make_m1_bars(120_000, 4)
+        p1 = {"pool_id": "p_dup", "price": 103.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        p2 = {"pool_id": "p_dup", "price": 104.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        res = _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[p1, p2],
+            closed_1m=bars,
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=98.0,
+            selected_target_id="p_dup",
+            take_profit=103.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        )
+&gt;       assert res == (None, 103.0, 0, False, False)
+E       AssertionError: assert ('p_dup', 103..., True, False) == (None, 103.0, 0, False, False)
+E         
+E         At index 0 diff: 'p_dup' != None
+E         Use -v to get more diff
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M08__ihy90ew/test_v129_liquidity_provenance.py:238: AssertionError</failure></testcase></testsuite></testsuites>

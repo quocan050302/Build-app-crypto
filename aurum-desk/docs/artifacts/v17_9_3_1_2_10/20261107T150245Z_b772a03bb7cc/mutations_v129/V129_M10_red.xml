@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.457" timestamp="2026-11-07T22:27:53.745053+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m10_wrong_side_target_rejected" time="0.000"><failure message="AssertionError: assert ('p_wrong', 9..., True, False) == (None, 97.0, 0, False, False)&#10;  &#10;  At index 0 diff: 'p_wrong' != None&#10;  Use -v to get more diff">def test_m10_wrong_side_target_rejected():
+        """M10: Wrong-side target (LONG below entry, SHORT above entry) -&gt; reject."""
+        bars = _make_m1_bars(120_000, 4)
+        wrong_side_pool = {"pool_id": "p_wrong", "price": 97.0, "occurred_at_ms": 120_000, "known_at_ms": 180_000}
+        res = _resolve_unswept_liquidity_pool_target_v1793123(
+            pools=[wrong_side_pool],
+            closed_1m=bars,
+            direction="LONG",
+            entry_price=100.0,
+            selected_sl=95.0,
+            selected_target_id="p_wrong",
+            take_profit=97.0,
+            now_ms=360_000,
+            eff_atr_m1=1.0,
+            eff_atr_m5=2.0,
+        )
+&gt;       assert res == (None, 97.0, 0, False, False)
+E       AssertionError: assert ('p_wrong', 9..., True, False) == (None, 97.0, 0, False, False)
+E         
+E         At index 0 diff: 'p_wrong' != None
+E         Use -v to get more diff
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M10_l5aru67b/test_v129_liquidity_provenance.py:305: AssertionError</failure></testcase></testsuite></testsuites>

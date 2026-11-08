@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.479" timestamp="2026-11-07T22:27:47.623928+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m03_missing_known_at_fallback_to_occurred_at_rejected" time="0.000"><failure message="AssertionError: assert [{'id': 'sw_m...: 'BSL', ...}] == []&#10;  &#10;  Left contains one more item: {'id': 'sw_missing_known_at', 'pool_id': 'sw_missing_known_at', 'price': 103.0, 'pool_side': 'BSL', ...}&#10;  Use -v to get more diff">def test_m03_missing_known_at_fallback_to_occurred_at_rejected():
+        """M03: Missing known_at_ms falls back to occurred_at_ms -&gt; reject."""
+        bars = _make_m1_bars(120_000, 4)
+        swings = [{"id": "sw_missing_known_at", "price": 103.0, "occurred_at_ms": 120_000}]
+        built = _build_causal_swing_pools_from_swings_v1793124(swings, bars, "LONG", 360_000)
+&gt;       assert built == []
+E       AssertionError: assert [{'id': 'sw_m...: 'BSL', ...}] == []
+E         
+E         Left contains one more item: {'id': 'sw_missing_known_at', 'pool_id': 'sw_missing_known_at', 'price': 103.0, 'pool_side': 'BSL', ...}
+E         Use -v to get more diff
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M03_ax020su6/test_v129_liquidity_provenance.py:142: AssertionError</failure></testcase></testsuite></testsuites>

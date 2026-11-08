@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.527" timestamp="2026-11-07T22:28:06.524415+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v129_liquidity_provenance" name="test_m23_injected_repeated_or_missing_checkpoint_fails_census" time="0.044"><failure message="AssertionError: assert 'DUPLICATE_CHECKPOINT_MODEL_DIRECTION' in {'MISSING_CHECKPOINT_MODEL_DIRECTION': 1}">tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-328/test_m23_injected_repeated_or_0')
+
+    def test_m23_injected_repeated_or_missing_checkpoint_fails_census(tmp_path):
+        """M23: Inject repeated/missing full-universe checkpoint -&gt; census FAIL."""
+        import gzip
+    
+        bars_1m = _make_m1_bars(1_790_000_000_000, 32)
+        audit_path = tmp_path / "audit.jsonl.gz"
+        row = {
+            "checkpoint_index_1m": 30,
+            "model_id": "SMC_M1_CONTINUATION",
+            "direction": "LONG",
+            "decision_timestamp_ms": bars_1m[30]["close_time"],
+            "max_closed_bar_ms": bars_1m[30]["close_time"],
+            "source_snapshot_hash": "a" * 64,
+            "off_action_hash": "b" * 64,
+            "observe_action_hash": "b" * 64,
+        }
+        with gzip.open(audit_path, "wt", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+            f.write(json.dumps(row) + "\n")  # Duplicate checkpoint row
+        res = verify_checkpoint_coverage_from_disk(audit_path, {"1m": bars_1m})
+        assert res["status"] == "FAIL"
+&gt;       assert "DUPLICATE_CHECKPOINT_MODEL_DIRECTION" in res["violations"]
+E       AssertionError: assert 'DUPLICATE_CHECKPOINT_MODEL_DIRECTION' in {'MISSING_CHECKPOINT_MODEL_DIRECTION': 1}
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v129_M23_0663znhp/test_v129_liquidity_provenance.py:748: AssertionError</failure></testcase></testsuite></testsuites>

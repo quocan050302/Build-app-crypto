@@ -1,0 +1,7 @@
+{
+  "authority_denom": 63085,
+  "errors": [],
+  "status": "PASS",
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "version": "v17_9_3_1_2_10"
+}

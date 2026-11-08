@@ -1,0 +1,2460 @@
+{
+  "authoritative_universe_count": 63085,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "policies": {
+    "SI0_OFF_BASELINE": {
+      "accepted_decisions": 18744,
+      "accepted_unique_setup_episodes": 7840,
+      "all_rejection_reasons_incidence": {
+        "SUPPRESSED_BY_ARBITRATION": 37966
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 10669,
+            "unique_setup_episodes": 2202
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 849,
+            "unique_setup_episodes": 849
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 622,
+            "unique_setup_episodes": 622
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 1378,
+            "unique_setup_episodes": 1378
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 1195,
+            "unique_setup_episodes": 1195
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 3216,
+            "unique_setup_episodes": 847
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 4013,
+            "unique_setup_episodes": 1307
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 4420,
+            "unique_setup_episodes": 1124
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6249,
+            "unique_setup_episodes": 2009
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 5520,
+            "unique_setup_episodes": 2176
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 2
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 4832,
+            "unique_setup_episodes": 2005
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "ACCEPTED": 18744,
+        "SUPPRESSED_BY_ARBITRATION": 37966
+      },
+      "total_decisions": 56710
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "accepted_decisions": 27,
+      "accepted_unique_setup_episodes": 20,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 25,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 49,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 174
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 15
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 2
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 27,
+            "unique_setup_episodes": 27
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 20
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 5
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 23,
+            "unique_setup_episodes": 13
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 22,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 154,
+            "unique_setup_episodes": 45
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "ACCEPTED": 27,
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 25,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 49,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 174
+      },
+      "total_decisions": 56710
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "accepted_decisions": 165,
+      "accepted_unique_setup_episodes": 59,
+      "all_rejection_reasons_incidence": {
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 30,
+            "unique_setup_episodes": 30
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 42,
+            "unique_setup_episodes": 42
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 135,
+            "unique_setup_episodes": 29
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 71,
+            "unique_setup_episodes": 25
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "ACCEPTED": 165,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "total_decisions": 56710
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "accepted_decisions": 32,
+      "accepted_unique_setup_episodes": 21,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 65,
+        "NET_RR_TOO_LOW: Net R:R 1:1.4696 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.4719 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 2,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7133 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 65,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 25,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:fvg_unmitigated": 4,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 104
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 16,
+            "unique_setup_episodes": 16
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 4,
+            "unique_setup_episodes": 4
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 32,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 19,
+            "unique_setup_episodes": 19
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 17
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "ACCEPTED": {
+            "checkpoint_decisions": 16,
+            "unique_setup_episodes": 5
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 61,
+            "unique_setup_episodes": 20
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.4696 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.4719 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "NET_RR_TOO_LOW: Net R:R 1:1.7133 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 33,
+            "unique_setup_episodes": 14
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:fvg_unmitigated": {
+            "checkpoint_decisions": 4,
+            "unique_setup_episodes": 2
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "ACCEPTED": 32,
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 65,
+        "NET_RR_TOO_LOW: Net R:R 1:1.4696 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.4719 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 2,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7112 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.7133 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9650 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "NET_RR_TOO_LOW: Net R:R 1:1.9798 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0": 1,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 65,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 25,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:fvg_unmitigated": 4,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 104
+      },
+      "total_decisions": 56710
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 198,
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 8,
+        "MISSING_CAUSAL_BREAKER_BINDING": 12,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 52,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 8
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": {
+            "checkpoint_decisions": 31,
+            "unique_setup_episodes": 31
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "MISSING_CAUSAL_BREAKER_BINDING": {
+            "checkpoint_decisions": 4,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 32,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 4,
+            "unique_setup_episodes": 4
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": {
+            "checkpoint_decisions": 167,
+            "unique_setup_episodes": 45
+          },
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          },
+          "MISSING_CAUSAL_BREAKER_BINDING": {
+            "checkpoint_decisions": 8,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 9
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 4,
+            "unique_setup_episodes": 2
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 198,
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 8,
+        "MISSING_CAUSAL_BREAKER_BINDING": 12,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 52,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 8
+      },
+      "total_decisions": 56710
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 227,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 475,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 59,
+            "unique_setup_episodes": 59
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 25,
+            "unique_setup_episodes": 25
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 168,
+            "unique_setup_episodes": 44
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 163,
+            "unique_setup_episodes": 46
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 227,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 475,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "total_decisions": 56710
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 7,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 4,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 2,
+        "REJECTED_OUTSIDE_ICT_MACRO_TIME_WINDOW": 265,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_OUTSIDE_ICT_MACRO_TIME_WINDOW": {
+            "checkpoint_decisions": 63,
+            "unique_setup_episodes": 63
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_OUTSIDE_ICT_MACRO_TIME_WINDOW": {
+            "checkpoint_decisions": 202,
+            "unique_setup_episodes": 52
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 7,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 4,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 2,
+        "REJECTED_OUTSIDE_ICT_MACRO_TIME_WINDOW": 265,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6
+      },
+      "total_decisions": 56710
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1471,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 39,
+            "unique_setup_episodes": 39
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 16,
+            "unique_setup_episodes": 16
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2146,
+            "unique_setup_episodes": 2146
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 282,
+            "unique_setup_episodes": 282
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7229,
+            "unique_setup_episodes": 1471
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 42,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 74,
+            "unique_setup_episodes": 25
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 26,
+            "unique_setup_episodes": 9
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 5
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8521,
+            "unique_setup_episodes": 1721
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 55,
+            "unique_setup_episodes": 14
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3359,
+            "unique_setup_episodes": 1464
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4363,
+            "unique_setup_episodes": 1689
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 87,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 882,
+            "unique_setup_episodes": 376
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 133,
+            "unique_setup_episodes": 77
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3157,
+            "unique_setup_episodes": 1447
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 3849,
+            "unique_setup_episodes": 1575
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 75,
+            "unique_setup_episodes": 28
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 742,
+            "unique_setup_episodes": 322
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 113,
+            "unique_setup_episodes": 63
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 49845,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1269,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 424,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3263,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 841,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+      },
+      "total_decisions": 56710
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 55271,
+        "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": 44,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1428,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 504,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3925,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 845,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7258,
+            "unique_setup_episodes": 1477
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8530,
+            "unique_setup_episodes": 1724
+          },
+          "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1552,
+            "unique_setup_episodes": 1515
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 39,
+            "unique_setup_episodes": 39
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 16,
+            "unique_setup_episodes": 16
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2228,
+            "unique_setup_episodes": 2189
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 441,
+            "unique_setup_episodes": 353
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7243,
+            "unique_setup_episodes": 1483
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 42,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 74,
+            "unique_setup_episodes": 25
+          },
+          "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": {
+            "checkpoint_decisions": 26,
+            "unique_setup_episodes": 9
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 5
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8541,
+            "unique_setup_episodes": 1734
+          },
+          "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": {
+            "checkpoint_decisions": 42,
+            "unique_setup_episodes": 19
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 55,
+            "unique_setup_episodes": 14
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4813,
+            "unique_setup_episodes": 2105
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 5437,
+            "unique_setup_episodes": 2149
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 126,
+            "unique_setup_episodes": 42
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1203,
+            "unique_setup_episodes": 525
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 134,
+            "unique_setup_episodes": 78
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4685,
+            "unique_setup_episodes": 2107
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4984,
+            "unique_setup_episodes": 2041
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 116,
+            "unique_setup_episodes": 42
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1083,
+            "unique_setup_episodes": 478
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 116,
+            "unique_setup_episodes": 66
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+        "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 55271,
+        "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": 44,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1428,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 504,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3925,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 845,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+      },
+      "total_decisions": 63085
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "accepted_decisions": 0,
+      "accepted_unique_setup_episodes": 0,
+      "all_rejection_reasons_incidence": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 2,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 5,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 2,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 55271,
+        "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": 44,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1428,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 504,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3925,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 845,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": 267,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 2
+      },
+      "by_model_direction": {
+        "CG01_SWEEP_MSS_FVG/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7258,
+            "unique_setup_episodes": 1477
+          }
+        },
+        "CG01_SWEEP_MSS_FVG/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8530,
+            "unique_setup_episodes": 1724
+          },
+          "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 80,
+            "unique_setup_episodes": 23
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1639,
+            "unique_setup_episodes": 372
+          },
+          "REJECTED_UNPROVEN:sweep_mss_ordered": {
+            "checkpoint_decisions": 1,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 17,
+            "unique_setup_episodes": 6
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": {
+            "checkpoint_decisions": 7,
+            "unique_setup_episodes": 3
+          }
+        },
+        "SMC_M1_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 1552,
+            "unique_setup_episodes": 1515
+          }
+        },
+        "SMC_M1_CONTINUATION/SHORT": {
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 3,
+            "unique_setup_episodes": 3
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 2228,
+            "unique_setup_episodes": 2189
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 18,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 441,
+            "unique_setup_episodes": 353
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 12,
+            "unique_setup_episodes": 12
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 43,
+            "unique_setup_episodes": 43
+          },
+          "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": {
+            "checkpoint_decisions": 63,
+            "unique_setup_episodes": 63
+          },
+          "SUPPRESSED_BY_ARBITRATION": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 6
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 7243,
+            "unique_setup_episodes": 1483
+          }
+        },
+        "SMC_M1_FVG_CONTINUATION/SHORT": {
+          "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_CAUSAL_H1_H4_CONFLICT": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 2
+          },
+          "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 1
+          },
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 8541,
+            "unique_setup_episodes": 1734
+          },
+          "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": {
+            "checkpoint_decisions": 42,
+            "unique_setup_episodes": 19
+          },
+          "REJECTED_UNPROVEN:displacement_valid": {
+            "checkpoint_decisions": 6,
+            "unique_setup_episodes": 4
+          },
+          "REJECTED_UNPROVEN:fvg_retest_valid": {
+            "checkpoint_decisions": 682,
+            "unique_setup_episodes": 320
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 827,
+            "unique_setup_episodes": 183
+          },
+          "REJECTED_UNPROVEN:mss_fvg_retest_ordered": {
+            "checkpoint_decisions": 20,
+            "unique_setup_episodes": 7
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 125,
+            "unique_setup_episodes": 32
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 276,
+            "unique_setup_episodes": 82
+          },
+          "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": {
+            "checkpoint_decisions": 204,
+            "unique_setup_episodes": 52
+          },
+          "WAIT_WINDOW_EXPIRED_UNCONFIRMED": {
+            "checkpoint_decisions": 2,
+            "unique_setup_episodes": 2
+          }
+        },
+        "SMC_M1_REVERSAL/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4813,
+            "unique_setup_episodes": 2105
+          }
+        },
+        "SMC_M1_REVERSAL/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 5437,
+            "unique_setup_episodes": 2149
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 126,
+            "unique_setup_episodes": 42
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1203,
+            "unique_setup_episodes": 525
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 134,
+            "unique_setup_episodes": 78
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/LONG": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4685,
+            "unique_setup_episodes": 2107
+          }
+        },
+        "SMC_M1_SWEEP_RECLAIM/SHORT": {
+          "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": {
+            "checkpoint_decisions": 4984,
+            "unique_setup_episodes": 2041
+          },
+          "REJECTED_UNPROVEN:mss_confirmed": {
+            "checkpoint_decisions": 40,
+            "unique_setup_episodes": 18
+          },
+          "REJECTED_UNPROVEN:protected_structure_independent_of_sl": {
+            "checkpoint_decisions": 116,
+            "unique_setup_episodes": 42
+          },
+          "REJECTED_UNPROVEN:sweep_confirmed": {
+            "checkpoint_decisions": 1083,
+            "unique_setup_episodes": 478
+          },
+          "REJECTED_UNPROVEN:sweep_reclaimed": {
+            "checkpoint_decisions": 15,
+            "unique_setup_episodes": 11
+          },
+          "REJECTED_UNPROVEN:target_unswept": {
+            "checkpoint_decisions": 116,
+            "unique_setup_episodes": 66
+          }
+        }
+      },
+      "first_failure_terminal_reason_totals": {
+        "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 2,
+        "REJECTED_CAUSAL_H1_H4_CONFLICT": 5,
+        "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 2,
+        "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 55271,
+        "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": 44,
+        "REJECTED_UNPROVEN:displacement_valid": 24,
+        "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+        "REJECTED_UNPROVEN:mss_confirmed": 1428,
+        "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+        "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 504,
+        "REJECTED_UNPROVEN:sweep_confirmed": 3925,
+        "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+        "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+        "REJECTED_UNPROVEN:target_unswept": 845,
+        "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7,
+        "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": 267,
+        "SUPPRESSED_BY_ARBITRATION": 6,
+        "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 2
+      },
+      "total_decisions": 63085
+    }
+  },
+  "pre_arbitration_proof_eligible_count": 284,
+  "pre_arbitration_required_proof_rejections": {
+    "REJECTED_UNPROVEN:HTF_NOT_ALIGNED": 55271,
+    "REJECTED_UNPROVEN:MISSING_SELECTED_FVG_ID": 44,
+    "REJECTED_UNPROVEN:displacement_valid": 24,
+    "REJECTED_UNPROVEN:fvg_retest_valid": 685,
+    "REJECTED_UNPROVEN:mss_confirmed": 1428,
+    "REJECTED_UNPROVEN:mss_fvg_retest_ordered": 20,
+    "REJECTED_UNPROVEN:protected_structure_independent_of_sl": 504,
+    "REJECTED_UNPROVEN:sweep_confirmed": 3925,
+    "REJECTED_UNPROVEN:sweep_mss_ordered": 1,
+    "REJECTED_UNPROVEN:sweep_reclaimed": 47,
+    "REJECTED_UNPROVEN:target_unswept": 845,
+    "REJECTED_UNPROVEN:unicorn_breaker_fvg_bound": 7
+  },
+  "si8_si9_278_materialization_diagnosis": {
+    "arbitration_suppressed_count": 6,
+    "arbitration_winners_entering_materialization_count": 278,
+    "by_model_direction": {
+      "SMC_M1_CONTINUATION:SHORT": 72,
+      "SMC_M1_FVG_CONTINUATION:SHORT": 212
+    },
+    "conservation_holds": true,
+    "materialized_intents_count": 0,
+    "post_arbitration_materialization_rejection_breakdown_272": {
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+      "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+      "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+      "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+    },
+    "proof_eligible_candidates_count": 284,
+    "proof_eligible_count": 284,
+    "si8_post_proof_rejection_breakdown": {
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 43,
+      "REJECTED_CAUSAL_H1_H4_CONFLICT": 113,
+      "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 42,
+      "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 22,
+      "SUPPRESSED_BY_ARBITRATION": 6,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 58
+    },
+    "si9_post_proof_rejection_breakdown": {
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 2,
+      "REJECTED_CAUSAL_H1_H4_CONFLICT": 5,
+      "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 2,
+      "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": 267,
+      "SUPPRESSED_BY_ARBITRATION": 6,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 2
+    },
+    "status": "PASS",
+    "version": "v17_9_3_1_2_10"
+  },
+  "tested_executable_sha": "b772a03bb7ccea19ea87067647d64b9e9d9a31a3",
+  "version": "v17_9_3_1_2_10"
+}

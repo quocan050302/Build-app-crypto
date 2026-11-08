@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.713" timestamp="2026-11-07T22:28:21.982981+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n25_junit_stale_tampered_or_missing_node_fails_verifier" time="0.245"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-334/test_n25_junit_stale_tampered_0')
+
+    def test_n25_junit_stale_tampered_or_missing_node_fails_verifier(tmp_path):
+        """N25: JUnit copied/stale, missing test node, tampered XML SHA, fake exit code or skipped node counted PASS -&gt; FAIL."""
+        run_dir = tmp_path / "run_j"
+        j_dir = run_dir / "junit"
+        j_dir.mkdir(parents=True)
+        xml_path = j_dir / "SHARD_000.xml"
+        xml_bytes = b'&lt;testsuite tests="1"&gt;&lt;testcase classname="backend.tests.test_x" name="test_a"/&gt;&lt;/testsuite&gt;'
+        xml_path.write_bytes(xml_bytes)
+        orig_sha = hashlib.sha256(xml_bytes).hexdigest()
+        xml_path.write_bytes(xml_bytes + b"&lt;!-- tamper --&gt;")
+        mtime_ns = xml_path.stat().st_mtime_ns
+        manifest = {
+            "tested_executable_sha": "a" * 40,
+            "run_start_epoch_ns": mtime_ns - 1_000,
+            "exact_node_id_bijection_verified": True,
+            "reused_shards_count": 0,
+            "shards": [
+                {
+                    "shard_name": "SHARD_000",
+                    "junit_xml_path": str(xml_path),
+                    "xml_sha256": orig_sha,
+                    "xml_mtime_ns": mtime_ns,
+                    "reused": False,
+                    "tested_executable_sha": "a" * 40,
+                    "pid": 1001,
+                    "collect_exit_code": 0,
+                    "pytest_exit_code": 0,
+                    "exact_bijection": True,
+                }
+            ],
+        }
+&gt;       with pytest.raises(ValueError, match="STALE_OR_TAMPERED_JUNIT"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M12_N25_TAMPERED_JUNIT_XML_SHA_ACCEPTED_kahhom4z/test_v130_canonical_universe_and_provenance.py:911: Failed</failure></testcase></testsuite></testsuites>

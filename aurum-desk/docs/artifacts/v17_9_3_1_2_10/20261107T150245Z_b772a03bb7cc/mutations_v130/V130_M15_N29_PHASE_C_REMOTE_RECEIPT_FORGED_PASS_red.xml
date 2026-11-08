@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.492" timestamp="2026-11-07T22:28:25.971826+07:00" hostname="Macbook-Poppa.local"><testcase classname="test_v130_canonical_universe_and_provenance" name="test_n29_push_phase_b_without_phase_c_cannot_pass_remote_receipt" time="0.003"><failure message="AssertionError: assert 'PASS' == 'BLOCKED'&#10;  &#10;  - BLOCKED&#10;  + PASS">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110aa0050&gt;
+tmp_path = PosixPath('/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/pytest-of-macbook/pytest-338/test_n29_push_phase_b_without_0')
+
+    def test_n29_push_phase_b_without_phase_c_cannot_pass_remote_receipt(monkeypatch, tmp_path):
+        """N29: Push Phase B but not Phase C and set final remote gate PASS -&gt; FAIL/BLOCKED; external read-back required."""
+        import subprocess
+    
+        fake_sha = "a" * 40
+        monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kw: f"{fake_sha}\n" if "ls-remote" not in cmd else f"{fake_sha}\trefs/heads/feature/v17-9-2-structural-sl-tp-from-qa\n")
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: None)
+        receipt = verify_git_remote_phase_receipt_v1793127(tmp_path, phase_a=fake_sha, phase_b=fake_sha, phase_c=None)
+&gt;       assert receipt["status"] == "BLOCKED"
+E       AssertionError: assert 'PASS' == 'BLOCKED'
+E         
+E         - BLOCKED
+E         + PASS
+
+/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/aurum_v130_V130_M15_N29_PHASE_C_REMOTE_RECEIPT_FORGED_PASS_t67gl07t/test_v130_canonical_universe_and_provenance.py:1020: AssertionError</failure></testcase></testsuite></testsuites>
