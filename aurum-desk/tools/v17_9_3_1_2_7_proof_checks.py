@@ -11,7 +11,7 @@ from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash, verify_fe
 from services.v17_9_3_1_2_7_matched_ab import read_jsonl
 
 
-def verify_fresh_full_junit(run,collection,junit):
+def verify_fresh_full_junit(run,collection,junit,*,mandatory_node_prefixes=("backend/tests/test_v17_9_3_1_2",)):
     from tools.fresh_junit_io import read_closed_junit_artifact
     from tools.run_v17_9_3_1_2_2_verification import canonicalize_junit_testcase_node_id_v1793122, verify_fresh_junit_shards_attestation_v1793124
     attestation=verify_fresh_junit_shards_attestation_v1793124(junit,expected_tested_executable_sha=junit.get("tested_executable_sha",""))
@@ -21,7 +21,11 @@ def verify_fresh_full_junit(run,collection,junit):
     ids=[]
     failures=errors=skips=0
     skip_rows=[]
+    mandatory_skipped=[]
     for shard in junit.get("shards",[]):
+        shard_ec = shard.get("exit_code", shard.get("pytest_exit_code", 0))
+        if int(shard_ec) != 0 or bool(shard.get("timed_out", False)):
+            raise ValueError("NONZERO_OR_TIMED_OUT_SHARD_EXIT")
         path=Path(shard["junit_xml_path"])
         if not path.is_absolute():
             path=Path(__file__).resolve().parents[1]/path
@@ -41,10 +45,14 @@ def verify_fresh_full_junit(run,collection,junit):
             skips+=tc.find("skipped") is not None
             if tc.find("skipped") is not None:
                 skip_rows.append({"node_id":oid,"reason":tc.find("skipped").get("message")})
-    valid=bool(expected) and Counter(expected)==Counter(ids) and len(set(ids))==len(ids) and failures==errors==0
+                if mandatory_node_prefixes and any(oid.startswith(pfx) for pfx in mandatory_node_prefixes):
+                    mandatory_skipped.append(oid)
+    valid=(bool(expected) and Counter(expected)==Counter(ids) and len(set(ids))==len(ids)
+           and failures==errors==0 and len(mandatory_skipped)==0)
     return {"status":"PASS" if valid else "FAIL","executed":len(ids),"passed":len(ids)-failures-errors-skips,
-            "failures":failures,"errors":errors,"skipped":skip_rows,"node_sha256":canonical_hash(sorted(ids)),
-            "passed_node_ids":sorted(set(ids)-{r["node_id"] for r in skip_rows}) if not failures and not errors else []}
+            "failures":failures,"errors":errors,"skipped":skip_rows,"mandatory_skipped":mandatory_skipped,
+            "node_sha256":canonical_hash(sorted(ids)),
+            "passed_node_ids":sorted(set(ids)-{r["node_id"] for r in skip_rows}) if not failures and not errors and not mandatory_skipped else []}
 
 
 def empirical_policy_statistics(results):

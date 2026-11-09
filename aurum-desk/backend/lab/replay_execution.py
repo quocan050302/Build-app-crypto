@@ -32,7 +32,6 @@ def submit_replay_order(
     Accepts both candidate_plan and candidate parameter aliases.
     """
     plan = candidate if candidate is not None else (candidate_plan or {})
-    order_id = f"ord-{uuid.uuid4().hex[:8]}"
     decision_ts = decision_ms if decision_ms > 0 else int(kwargs.get("sim_time", kwargs.get("decision_time", plan.get("decision_ms", 0))))
     earliest_ms = max(earliest_execution_ms, decision_ts)
     setup_id = plan.get("setup_id", f"setup-{decision_ts}")
@@ -45,6 +44,28 @@ def submit_replay_order(
     planned_entry = float(plan.get("planned_entry") if plan.get("planned_entry") is not None else plan.get("entry_price", 0.0))
     planned_sl = float(plan.get("planned_sl") if plan.get("planned_sl") is not None else plan.get("stop_loss", 0.0))
     planned_tp = float(plan.get("planned_tp") if plan.get("planned_tp") is not None else plan.get("take_profit", 0.0))
+
+    order_id = str(
+        kwargs.get("order_id")
+        or plan.get("order_id")
+        or stable_id(
+            "ord",
+            [
+                session_id,
+                setup_id,
+                plan.get("direction"),
+                decision_ts,
+                earliest_ms,
+                expiry_ms,
+                entry_type,
+                round(planned_entry, 4),
+                round(planned_sl, 4),
+                round(planned_tp, 4),
+                round(qty, 4),
+                plan.get("opportunity_id") or plan.get("candidate_id") or "",
+            ],
+        )
+    )
 
     lev = kwargs.get("leverage", leverage or plan.get("leverage", 30))
     mm = kwargs.get("margin_mode", margin_mode or plan.get("margin_mode", "ISOLATED"))
@@ -170,7 +191,19 @@ def try_fill_pending_order(
     order.executed_at_ms = event.timestamp
     order.fill_price = fill_price
 
-    position_id = f"pos-{uuid.uuid4().hex[:8]}"
+    position_id = stable_id(
+        "pos",
+        [
+            order.session_id,
+            order.order_id,
+            order.setup_id,
+            order.direction,
+            event.timestamp,
+            getattr(event, "sequence", 0),
+            round(fill_price, 4),
+            round(qty, 4),
+        ],
+    )
     position = ReplayPosition(
         position_id=position_id,
         order_id=order.order_id,
@@ -207,7 +240,18 @@ def try_fill_pending_order(
     )
 
     entry_posting = {
-        "posting_id": f"post-{uuid.uuid4().hex[:8]}",
+        "posting_id": stable_id(
+            "post",
+            [
+                order.session_id,
+                position_id,
+                order.order_id,
+                "ENTRY_FEE",
+                event.timestamp,
+                getattr(event, "sequence", 0),
+                round(entry_fee, 4),
+            ],
+        ),
         "trade_id": position_id,
         "event_id": f"evt-{event.sequence}",
         "posting_type": "ENTRY_FEE",
@@ -282,6 +326,10 @@ def evaluate_position_exit(
             else:
                 exit_fill = round(exit_fill + tp_slip, 2)
 
+    source_ev_id = (
+        str(getattr(event, "event_id", None) or "")
+        or f"bar-{getattr(event, 'timeframe', 'M')}-{event.timestamp}-seq{getattr(event, 'sequence', 0)}"
+    )
     accounting = compute_closed_trade_accounting(
         position=position,
         exit_price=exit_fill,
@@ -289,7 +337,8 @@ def evaluate_position_exit(
         exit_cause=exit_cause,
         costs=costs,
         multiplier=multiplier,
-        is_ambiguous=is_ambiguous
+        is_ambiguous=is_ambiguous,
+        source_event_id=source_ev_id,
     )
 
     return accounting, exit_cause
@@ -302,7 +351,8 @@ def compute_closed_trade_accounting(
     exit_cause: str,
     costs: CostAssumptions,
     multiplier: float = 1.0,
-    is_ambiguous: bool = False
+    is_ambiguous: bool = False,
+    source_event_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     PHẦN 44: Production trade accounting calculation.
@@ -333,11 +383,48 @@ def compute_closed_trade_accounting(
     position.realized_r = realized_r
     position.is_ambiguous = is_ambiguous
 
+    exit_event_id = stable_id(
+        "exit",
+        [
+            position.session_id,
+            position.position_id,
+            position.order_id,
+            position.setup_id,
+            position.direction,
+            exit_time,
+            exit_cause,
+            round(exit_price, 4),
+            source_event_id or "",
+        ],
+    )
+    gross_posting_id = stable_id(
+        "post",
+        [
+            position.session_id,
+            position.position_id,
+            "REALIZED_GROSS_PNL",
+            exit_event_id,
+            round(gross_pnl, 4),
+        ],
+    )
+    fee_posting_id = stable_id(
+        "post",
+        [
+            position.session_id,
+            position.position_id,
+            "EXIT_FEE",
+            exit_event_id,
+            round(exit_fee, 4),
+        ],
+    )
+
     postings = [
         {
-            "posting_id": f"post-{uuid.uuid4().hex[:8]}",
+            "posting_id": gross_posting_id,
             "trade_id": position.position_id,
-            "event_id": f"exit-{exit_time}",
+            "event_id": exit_event_id,
+            "legacy_event_ref": f"exit-{exit_time}",
+            "source_event_id": source_event_id or f"exit-{exit_time}",
             "posting_type": "REALIZED_GROSS_PNL",
             "amount": gross_pnl,
             "amount_usdt": gross_pnl,
@@ -345,9 +432,11 @@ def compute_closed_trade_accounting(
             "description": f"Realized gross PnL for {position.direction} closed at {exit_price}"
         },
         {
-            "posting_id": f"post-{uuid.uuid4().hex[:8]}",
+            "posting_id": fee_posting_id,
             "trade_id": position.position_id,
-            "event_id": f"exit-{exit_time}",
+            "event_id": exit_event_id,
+            "legacy_event_ref": f"exit-{exit_time}",
+            "source_event_id": source_event_id or f"exit-{exit_time}",
             "posting_type": "EXIT_FEE",
             "amount": -exit_fee,
             "amount_usdt": -exit_fee,
@@ -358,6 +447,8 @@ def compute_closed_trade_accounting(
 
     return {
         "position": position,
+        "exit_event_id": exit_event_id,
+        "source_event_id": source_event_id or f"exit-{exit_time}",
         "exit_price": exit_price,
         "exit_time": exit_time,
         "exit_cause": exit_cause,

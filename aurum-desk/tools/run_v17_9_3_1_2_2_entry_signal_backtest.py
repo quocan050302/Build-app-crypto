@@ -636,6 +636,12 @@ def replay_single_si_policy_v1793122(
         losses = [e for e in closed_eps if str(e.get("outcome_label")) == "LOSS"]
         open_hor = [e for e in mode_episodes if str(e.get("outcome_label")) == "OPEN_AT_HORIZON"]
         data_gap = [e for e in mode_episodes if str(e.get("outcome_label")) == "DATA_GAP_UNRESOLVED"]
+        unfilled_eps = [
+            e
+            for e in mode_episodes
+            if not e.get("filled", False)
+            or str(e.get("outcome_label")) not in ("WIN", "LOSS", "OPEN_AT_HORIZON", "DATA_GAP_UNRESOLVED")
+        ]
 
         closed_n = len(closed_eps)
         wins_n = len(wins)
@@ -696,6 +702,7 @@ def replay_single_si_policy_v1793122(
             "loss_rate": loss_rate,
             "open_at_horizon_count": len(open_hor),
             "data_gap_unresolved_count": len(data_gap),
+            "unfilled_or_no_fill_count": len(unfilled_eps),
             "blocked_by_open_position_count": blocked_by_open_pos,
             "total_realized_gross_usd": gross_usd,
             "total_fees_usd": fees_usd,

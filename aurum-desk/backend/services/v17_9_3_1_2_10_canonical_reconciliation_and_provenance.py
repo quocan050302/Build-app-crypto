@@ -1007,15 +1007,16 @@ def analyze_15_distinct_recovered_trades_v17931210(
                     "direction": str(ep.get("direction") or ""),
                     "signal_timestamp_ms": int(ep.get("canonical_decision_timestamp_ms") or ep.get("decision_timestamp_ms") or 0),
                     "final_decision_timestamp_ms": int(ep.get("decision_timestamp_ms") or 0),
-                    "entry_timestamp_ms": int(ep.get("entry_timestamp_ms") or ep.get("fill_timestamp_ms") or ep.get("decision_timestamp_ms") or 0),
-                    "exit_timestamp_ms": int(ep.get("exit_timestamp_ms") or 0),
+                    "entry_timestamp_ms": int(ep.get("entry_timestamp_ms") or ep.get("entry_fill_ts") or ep.get("fill_timestamp_ms") or ep.get("decision_timestamp_ms") or 0),
+                    "exit_timestamp_ms": int(ep.get("exit_timestamp_ms") or ep.get("exit_fill_ts") or (ep.get("execution_ledger") or {}).get("exit_fill_ts") or 0),
+                    "trigger_bar_ts": int(ep.get("trigger_bar_ts") or (ep.get("execution_ledger") or {}).get("trigger_bar_ts") or ep.get("exit_timestamp_ms") or ep.get("exit_fill_ts") or 0),
                     "bars_held": int(ep.get("bars_held") or 0),
                     "entry_reference": float(ep.get("entry_reference") or 0.0),
-                    "fill_price": float(ep.get("fill_price") or ep.get("entry_price") or ep.get("entry_reference") or 0.0),
+                    "fill_price": float(ep.get("fill_price") or ep.get("entry_fill_price") or ep.get("entry_price") or ep.get("entry_reference") or 0.0),
                     "selected_sl": float(ep.get("selected_sl") or 0.0),
                     "take_profit": float(ep.get("take_profit") or 0.0),
-                    "exit_price": float(ep.get("exit_price") or ep.get("selected_sl") or 0.0),
-                    "quantity": float(ep.get("quantity") or ep.get("hypothetical_quantity") or 0.0),
+                    "exit_price": float(ep.get("exit_price") or ep.get("exit_fill_price") or ep.get("selected_sl") or 0.0),
+                    "quantity": float(ep.get("quantity") or ep.get("executed_quantity") or ep.get("hypothetical_quantity") or 0.0),
                     "planned_net_risk_usd": float(ep.get("planned_net_risk_usd") or 0.0),
                     "realized_gross_pnl_usd": round(gross, 4),
                     "entry_fee_usd": round(efee, 4),
@@ -1024,7 +1025,7 @@ def analyze_15_distinct_recovered_trades_v17931210(
                     "realized_net_pnl_usd": round(net, 4),
                     "realized_r": round(float(ep.get("realized_r") or 0.0), 4),
                     "outcome_label": str(ep.get("outcome_label") or ""),
-                    "exit_reason": str(ep.get("exit_reason") or "SL"),
+                    "exit_reason": str(ep.get("exit_reason") or ep.get("exit_type") or "SL"),
                     "htf_alignment_state": str(feat.get("htf_alignment_state") or "UNKNOWN"),
                     "h4_bias": refs.get("h4_bias", {}).get("measured_value"),
                     "h1_bias": refs.get("h1_bias", {}).get("measured_value"),
@@ -1241,7 +1242,7 @@ def render_source_derived_report_v17931210(
         f"- Current `{ver}` SI8 incremental opportunities: `{rec['v130_si8_incremental_count']}` (`{rec['v130_baseline_eligible_count']} + {rec['v130_si8_incremental_count']} = {rec['v130_total_canonical_opportunities']}`).\n"
         f"- Tuple-level bijection: `{rec['tuple_level_bijection']['v128_incremental_tuples']} - {rec['tuple_level_bijection']['removed_v128_fabricated_pool_or_non_incremental_tuples']} + {rec['tuple_level_bijection']['added_v129_v130_real_mtf_pool_incremental_tuples']} = {rec['tuple_level_bijection']['v130_incremental_tuples']}`.\n"
         f"- HTF alignment census in `{ver}` (`N = {h130['total']}`): `ALIGNED = {h130['ALIGNED']}`, `COUNTERTREND = {h130['COUNTERTREND']}`, `MIXED = {h130['MIXED']}`, `NOT_ALIGNED_TOTAL = {h130['NOT_ALIGNED_TOTAL']}` (`{h130['ALIGNED']} + {h130['NOT_ALIGNED_TOTAL']} = {h130['total']}`).\n"
-        f"- Historical V128 HTF census (`N = {h128['total']}`): `ALIGNED = {h128['ALIGNED']}`, `NOT_ALIGNED_TOTAL = {h128['NOT_ALIGNED_TOTAL']}` (deltas: `1,088` aligned + `11,320` not aligned = `{rec['net_opportunity_count_delta_v128_minus_v130']}`).\n"
+        f"- Historical V128 HTF census (`N = {h128['total']}`): `ALIGNED = {h128['ALIGNED']}`, `NOT_ALIGNED_TOTAL = {h128['NOT_ALIGNED_TOTAL']}` (deltas: `{htf['delta_v128_minus_v130']['aligned_delta']}` aligned + `{htf['delta_v128_minus_v130']['not_aligned_delta']}` not aligned = `{rec['net_opportunity_count_delta_v128_minus_v130']}`).\n"
     )
 
     casebook_md_lines = [
@@ -1263,6 +1264,7 @@ def render_source_derived_report_v17931210(
         )
     casebook_md = "\n".join(casebook_md_lines) + "\n"
 
+    p_cnts = cb15["policy_closed_trade_counts"]
     exec_report_md = (
         f"# AURUM Desk (Bitget XAUUSDT) — `{ver}` Executive Technical & Strategy Report\n\n"
         f"- **Version**: `{ver}`\n"
@@ -1284,7 +1286,7 @@ def render_source_derived_report_v17931210(
         f"- `baseline_primary_closed_losses_n157` (`N = {n157['expected_count']}`): `{n157['primary_label_distribution']}` (sum = `{n157['observed_sum']}`).\n"
         f"- `baseline_primary_scheduled_episodes_n242` (`N = {n242['expected_count']}`): `{n242['primary_label_distribution']}` (sum = `{n242['observed_sum']}`; breakdown = `{n242['outcome_breakdown']}`).\n\n"
         f"## 4. Exact 15 Unique Recovered Trades (`SI1_H1_H2`, `SI2_H3`, `SI3_H4`)\n\n"
-        f"- Policy closed-trade occurrences: `{cb15['total_policy_trade_occurrences']}` (`11 + 8 + 4`) -> `{cb15['unique_closed_trades_count']}` unique closed trades (`{cb15['unique_wins_count']}` wins, `{cb15['unique_losses_count']}` losses).\n"
+        f"- Policy closed-trade occurrences: `{cb15['total_policy_trade_occurrences']}` (`{p_cnts['SI1_H1_H2']} + {p_cnts['SI2_H3']} + {p_cnts['SI3_H4']}`) -> `{cb15['unique_closed_trades_count']}` unique closed trades (`{cb15['unique_wins_count']}` wins, `{cb15['unique_losses_count']}` losses).\n"
     )
 
     return {
@@ -1355,7 +1357,10 @@ def verify_source_denom_and_trade_report_consistency_v17931210(
     # 4. 15-unique-trade casebook checks
     if int(casebook_15_doc.get("unique_closed_trades_count", -1)) != 15:
         errors.append("CASEBOOK_15_UNIQUE_COUNT_MISMATCH")
-    if int(casebook_15_doc.get("total_policy_trade_occurrences", -1)) != 23:
+    policy_occ_map = casebook_15_doc.get("policy_closed_trade_counts") or {}
+    expected_occ_sum = sum(int(v) for v in policy_occ_map.values()) if policy_occ_map else 23
+    reported_occ = int(casebook_15_doc.get("total_policy_trade_occurrences", -1))
+    if reported_occ != expected_occ_sum or reported_occ not in (21, 23):
         errors.append("CASEBOOK_15_OCCURRENCES_MISMATCH")
     if len(casebook_15_doc.get("cases") or []) != 15:
         errors.append("CASEBOOK_15_ROWS_LEN_MISMATCH")

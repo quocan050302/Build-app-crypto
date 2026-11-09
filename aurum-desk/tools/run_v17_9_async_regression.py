@@ -86,32 +86,39 @@ def parse_junit_xml_nodes(xml_path: Path) -> Dict[str, Any]:
 
     completed_nodes: List[str] = []
     skipped_nodes: List[str] = []
-    failed_nodes: List[str] = []
+    failure_nodes: List[str] = []
+    error_nodes: List[str] = []
 
     for tc in root.findall(".//testcase"):
         classname = tc.attrib.get("classname", "")
         name = tc.attrib.get("name", "")
         node_id = f"{classname}::{name}" if classname else name
-        has_failure = tc.find("failure") is not None or tc.find("error") is not None
+        has_error = tc.find("error") is not None
+        has_failure = tc.find("failure") is not None
         has_skip = tc.find("skipped") is not None
-        if has_failure:
-            failed_nodes.append(node_id)
+        if has_error:
+            error_nodes.append(node_id)
+        elif has_failure:
+            failure_nodes.append(node_id)
         elif has_skip:
             skipped_nodes.append(node_id)
         else:
             completed_nodes.append(node_id)
 
+    failed_nodes = failure_nodes + error_nodes
     total = len(completed_nodes) + len(skipped_nodes) + len(failed_nodes)
     return {
         "valid": True,
+        "is_command_only_non_junit": False,
         "tests": total,
         "passed": len(completed_nodes),
-        "failures": len(failed_nodes),
-        "errors": 0,
+        "failures": len(failure_nodes),
+        "errors": len(error_nodes),
         "skipped": len(skipped_nodes),
         "completed_node_ids": completed_nodes,
         "skipped_node_ids": skipped_nodes,
         "failed_node_ids": failed_nodes,
+        "error_node_ids": error_nodes,
     }
 
 
@@ -257,15 +264,17 @@ class BoundedAsyncTestOrchestrator:
                     parse_junit_xml_nodes(spec.junit_xml_path)
                     if spec.junit_xml_path is not None
                     else {
-                        "valid": exit_code == 0,
-                        "tests": 1 if exit_code == 0 else 0,
-                        "passed": 1 if exit_code == 0 else 0,
-                        "failures": 0 if exit_code == 0 else 1,
+                        "valid": exit_code == 0 and not timed_out,
+                        "is_command_only_non_junit": True,
+                        "tests": 0,
+                        "passed": 0,
+                        "failures": 0 if (exit_code == 0 and not timed_out) else 1,
                         "errors": 0,
                         "skipped": 0,
-                        "completed_node_ids": [f"{spec.group_id}::cmd"] if exit_code == 0 else [],
+                        "completed_node_ids": [],
                         "skipped_node_ids": [],
-                        "failed_node_ids": [] if exit_code == 0 else [f"{spec.group_id}::cmd"],
+                        "failed_node_ids": [] if (exit_code == 0 and not timed_out) else [f"{spec.group_id}::cmd"],
+                        "error_node_ids": [],
                     }
                 )
 
@@ -341,7 +350,7 @@ class BoundedAsyncTestOrchestrator:
                     "duration_sec": duration_sec,
                     "exit_code": int(exit_code),
                     "timed_out": timed_out,
-                    "status": "PASS" if (exit_code == 0 and junit_info.get("valid") and junit_info.get("failures", 0) == 0) else "FAIL",
+                    "status": "PASS" if (exit_code == 0 and not timed_out and junit_info.get("valid") and junit_info.get("failures", 0) == 0 and junit_info.get("errors", 0) == 0) else "FAIL",
                     "log_path": str(spec.log_path),
                     "junit_xml_path": str(spec.junit_xml_path) if spec.junit_xml_path else None,
                     "tests": junit_info.get("tests", 0),
