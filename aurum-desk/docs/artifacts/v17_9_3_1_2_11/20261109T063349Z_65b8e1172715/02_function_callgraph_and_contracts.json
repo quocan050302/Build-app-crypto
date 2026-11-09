@@ -1,0 +1,1284 @@
+{
+  "contracts": [
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_10_verification.py",
+      "file_line": "aurum-desk/tools/run_v17_9_3_1_2_10_verification.py:74",
+      "inputs_or_methods": [
+        "artifact_namespace",
+        "minimum_ram_bytes"
+      ],
+      "line_end": 678,
+      "line_start": 74,
+      "output_contract": "int",
+      "role": "Existing .10 verification pipeline & source freeze",
+      "symbol": "main"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_10_verification.py"
+      ],
+      "file": "aurum-desk/tools/v17_9_3_1_2_10_independent_verifier.py",
+      "file_line": "aurum-desk/tools/v17_9_3_1_2_10_independent_verifier.py:262",
+      "inputs_or_methods": [
+        "run"
+      ],
+      "line_end": 1173,
+      "line_start": 262,
+      "output_contract": "Dict[str, Any]",
+      "role": "Independent .10 artifact/universe verifier",
+      "symbol": "build_and_verify_v130_evidence"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_10_verification.py"
+      ],
+      "file": "aurum-desk/tools/v17_9_3_1_2_10_independent_verifier.py",
+      "file_line": "aurum-desk/tools/v17_9_3_1_2_10_independent_verifier.py:119",
+      "inputs_or_methods": [
+        "run_dir",
+        "lineage_doc",
+        "htf_doc",
+        "funnel_doc",
+        "cohort_doc",
+        "casebook_15_doc",
+        "pol_metrics_doc",
+        "md_texts"
+      ],
+      "line_end": 259,
+      "line_start": 119,
+      "output_contract": "Dict[str, Any]",
+      "role": "Independent .10 artifact/universe verifier",
+      "symbol": "run_v130_negative_disk_tampering_controls"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_async_regression.py",
+      "file_line": "aurum-desk/tools/run_v17_9_async_regression.py:50",
+      "inputs_or_methods": [],
+      "line_end": 61,
+      "line_start": 50,
+      "output_contract": "Class[AsyncWorkerGroupSpec]",
+      "role": "Bounded asyncio subprocess orchestrator & JUnit parser",
+      "symbol": "AsyncWorkerGroupSpec"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_async_regression.py",
+      "file_line": "aurum-desk/tools/run_v17_9_async_regression.py:64",
+      "inputs_or_methods": [
+        "xml_path"
+      ],
+      "line_end": 122,
+      "line_start": 64,
+      "output_contract": "Dict[str, Any]",
+      "role": "Bounded asyncio subprocess orchestrator & JUnit parser",
+      "symbol": "parse_junit_xml_nodes"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_async_regression.py",
+      "file_line": "aurum-desk/tools/run_v17_9_async_regression.py:125",
+      "inputs_or_methods": [
+        "__init__",
+        "_get_semaphore",
+        "_run_single_group",
+        "_periodic_resource_monitor",
+        "run_groups",
+        "build_performance_report"
+      ],
+      "line_end": 693,
+      "line_start": 125,
+      "output_contract": "Class[BoundedAsyncTestOrchestrator]",
+      "role": "Bounded asyncio subprocess orchestrator & JUnit parser",
+      "symbol": "BoundedAsyncTestOrchestrator"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_async_regression.py",
+      "file_line": "aurum-desk/tools/run_v17_9_async_regression.py:597",
+      "inputs_or_methods": [
+        "self",
+        "summary_override",
+        "serial_benchmark_sec",
+        "parallel_benchmark_sec"
+      ],
+      "line_end": 693,
+      "line_start": 597,
+      "output_contract": "Dict[str, Any]",
+      "role": "Bounded asyncio subprocess orchestrator & JUnit parser",
+      "symbol": "build_performance_report"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_10_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py",
+      "file_line": "aurum-desk/tools/v17_9_3_1_2_7_proof_checks.py:14",
+      "inputs_or_methods": [
+        "run",
+        "collection",
+        "junit",
+        "mandatory_node_prefixes"
+      ],
+      "line_end": 55,
+      "line_start": 14,
+      "output_contract": "Any",
+      "role": "Disk-side fresh JUnit shard & mandatory-skip verifier",
+      "symbol": "verify_fresh_full_junit"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_10_verification.py",
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py",
+      "file_line": "aurum-desk/tools/run_v17_9_3_1_2_2_verification.py:259",
+      "inputs_or_methods": [
+        "junit_dir",
+        "tested_executable_sha",
+        "max_workers",
+        "test_files_override",
+        "force_fresh_execution"
+      ],
+      "line_end": 561,
+      "line_start": 259,
+      "output_contract": "Tuple[Dict[str, Any], Dict[str, Any]]",
+      "role": "Full backend pytest collection, sharded execution & resource guards",
+      "symbol": "run_full_backend_pytest_collection_and_sharded_junit_v1793122"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:209",
+      "inputs_or_methods": [
+        "root_dir",
+        "commit_sha",
+        "require_clean_worktree"
+      ],
+      "line_end": 309,
+      "line_start": 209,
+      "output_contract": "Dict[str, Any]",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "build_source_manifest"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:312",
+      "inputs_or_methods": [
+        "source_manifest",
+        "root_dir",
+        "expected_commit_sha",
+        "check_worktree_clean",
+        "require_clean_worktree"
+      ],
+      "line_end": 429,
+      "line_start": 312,
+      "output_contract": "Tuple[bool, List[str]]",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "verify_source_manifest_against_git"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:432",
+      "inputs_or_methods": [
+        "run_id",
+        "results_payload",
+        "source_manifest",
+        "gate_manifest",
+        "artifacts_base_dir",
+        "version_dir"
+      ],
+      "line_end": 522,
+      "line_start": 432,
+      "output_contract": "Path",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "write_acceptance_artifacts"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:525",
+      "inputs_or_methods": [
+        "run_dir",
+        "expected_version",
+        "expected_run_id",
+        "expected_source_sha",
+        "expected_gate_manifest",
+        "strict_git_source",
+        "root_dir"
+      ],
+      "line_end": 695,
+      "line_start": 525,
+      "output_contract": "Tuple[bool, List[str]]",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "verify_acceptance_bundle"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:698",
+      "inputs_or_methods": [
+        "run_dir",
+        "remote_ref",
+        "root_dir",
+        "expected_version"
+      ],
+      "line_end": 773,
+      "line_start": 698,
+      "output_contract": "Tuple[bool, List[str]]",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "verify_remote_acceptance_bundle"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py"
+      ],
+      "file": "aurum-desk/tools/artifact_verifier.py",
+      "file_line": "aurum-desk/tools/artifact_verifier.py:776",
+      "inputs_or_methods": [
+        "root_dir",
+        "remote_ref",
+        "run_id",
+        "version_dir",
+        "expected_version"
+      ],
+      "line_end": 804,
+      "line_start": 776,
+      "output_contract": "Dict[str, Any]",
+      "role": "Source manifest & remote git artifact verification",
+      "symbol": "verify_remote_branch_artifacts"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:298",
+      "inputs_or_methods": [
+        "actual_gate_results",
+        "mandatory_gate_manifest"
+      ],
+      "line_end": 434,
+      "line_start": 298,
+      "output_contract": "str",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "determine_release_verdict"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:2964",
+      "inputs_or_methods": [
+        "initial_manifest",
+        "finalization_manifest",
+        "expected_run_id",
+        "expected_source_sha",
+        "first_task_started_at_ms",
+        "backtest_started_at_ms",
+        "initial_manifest_bytes"
+      ],
+      "line_end": 3074,
+      "line_start": 2964,
+      "output_contract": "Dict[str, Any]",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "verify_pre_execution_run_manifest"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:3149",
+      "inputs_or_methods": [
+        "gate_xml_dir",
+        "suite_xml_dir",
+        "expected_run_id",
+        "expected_source_sha",
+        "scope_inventory_doc",
+        "per_xml_doc",
+        "overlap_doc"
+      ],
+      "line_end": 3367,
+      "line_start": 3149,
+      "output_contract": "Dict[str, Any]",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "independently_reconcile_junit_scopes"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:3370",
+      "inputs_or_methods": [
+        "worker_rows",
+        "task_accounting",
+        "expected_run_id",
+        "expected_source_sha",
+        "manifest_created_at_ms"
+      ],
+      "line_end": 3464,
+      "line_start": 3370,
+      "output_contract": "Dict[str, Any]",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "verify_worker_execution_accounting"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:3467",
+      "inputs_or_methods": [
+        "memory_report",
+        "disk_report",
+        "expected_run_id",
+        "expected_source_sha"
+      ],
+      "line_end": 3552,
+      "line_start": 3467,
+      "output_contract": "Dict[str, Any]",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "verify_resource_telemetry_semantics"
+    },
+    {
+      "consumer_paths": [
+        "tools/artifact_verifier.py"
+      ],
+      "file": "aurum-desk/tools/acceptance_verdict.py",
+      "file_line": "aurum-desk/tools/acceptance_verdict.py:3555",
+      "inputs_or_methods": [
+        "run_dir",
+        "sha_manifest",
+        "mandatory_artifacts",
+        "self_excluded_files"
+      ],
+      "line_end": 3626,
+      "line_start": 3555,
+      "output_contract": "Dict[str, Any]",
+      "role": "Reusable release/run verdict primitives",
+      "symbol": "verify_mandatory_artifact_hash_coverage"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/exit_monitor.py",
+        "backend/services/market_reconciliation_service.py",
+        "backend/services/trade_lifecycle_service.py"
+      ],
+      "file": "aurum-desk/backend/services/shared_exit_evaluator.py",
+      "file_line": "aurum-desk/backend/services/shared_exit_evaluator.py:34",
+      "inputs_or_methods": [],
+      "line_end": 41,
+      "line_start": 34,
+      "output_contract": "Class[ExitDecision]",
+      "role": "Pure realtime/reconciliation exit-decision authority",
+      "symbol": "ExitDecision"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/exit_monitor.py",
+        "backend/services/market_reconciliation_service.py",
+        "backend/services/trade_lifecycle_service.py"
+      ],
+      "file": "aurum-desk/backend/services/shared_exit_evaluator.py",
+      "file_line": "aurum-desk/backend/services/shared_exit_evaluator.py:44",
+      "inputs_or_methods": [
+        "order",
+        "executable_quote",
+        "policy_snapshot"
+      ],
+      "line_end": 352,
+      "line_start": 44,
+      "output_contract": "ExitDecision",
+      "role": "Pure realtime/reconciliation exit-decision authority",
+      "symbol": "evaluate_order_exit"
+    },
+    {
+      "consumer_paths": [
+        "backend/main.py"
+      ],
+      "file": "aurum-desk/backend/services/exit_monitor.py",
+      "file_line": "aurum-desk/backend/services/exit_monitor.py:10",
+      "inputs_or_methods": [
+        "__init__",
+        "check_active_position",
+        "run_exit_monitor_loop"
+      ],
+      "line_end": 65,
+      "line_start": 10,
+      "output_contract": "Class[ExitMonitor]",
+      "role": "Realtime active position exit monitor",
+      "symbol": "ExitMonitor"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_execution.py",
+      "file_line": "aurum-desk/backend/lab/replay_execution.py:17",
+      "inputs_or_methods": [
+        "candidate_plan",
+        "session_id",
+        "decision_ms",
+        "earliest_execution_ms",
+        "expiry_ms",
+        "entry_type",
+        "candidate",
+        "leverage",
+        "margin_mode"
+      ],
+      "line_end": 98,
+      "line_start": 17,
+      "output_contract": "ReplayPendingOrder",
+      "role": "Lab replay order/fill/exit simulator & deterministic accounting",
+      "symbol": "submit_replay_order"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_execution.py",
+      "file_line": "aurum-desk/backend/lab/replay_execution.py:117",
+      "inputs_or_methods": [
+        "order",
+        "event",
+        "costs",
+        "capital",
+        "risk_pct",
+        "spread_usd",
+        "min_net_rr"
+      ],
+      "line_end": 264,
+      "line_start": 117,
+      "output_contract": "Tuple[Optional[ReplayPosition], Optional[Dict[str, Any]], str]",
+      "role": "Lab replay order/fill/exit simulator & deterministic accounting",
+      "symbol": "try_fill_pending_order"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_execution.py",
+      "file_line": "aurum-desk/backend/lab/replay_execution.py:267",
+      "inputs_or_methods": [
+        "position",
+        "event",
+        "costs",
+        "multiplier"
+      ],
+      "line_end": 344,
+      "line_start": 267,
+      "output_contract": "Tuple[Optional[Dict[str, Any]], str]",
+      "role": "Lab replay order/fill/exit simulator & deterministic accounting",
+      "symbol": "evaluate_position_exit"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_execution.py",
+      "file_line": "aurum-desk/backend/lab/replay_execution.py:347",
+      "inputs_or_methods": [
+        "position",
+        "exit_price",
+        "exit_time",
+        "exit_cause",
+        "costs",
+        "multiplier",
+        "is_ambiguous",
+        "source_event_id"
+      ],
+      "line_end": 464,
+      "line_start": 347,
+      "output_contract": "Dict[str, Any]",
+      "role": "Lab replay order/fill/exit simulator & deterministic accounting",
+      "symbol": "compute_closed_trade_accounting"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_execution.py",
+      "file_line": "aurum-desk/backend/lab/replay_execution.py:110",
+      "inputs_or_methods": [
+        "exit_cause",
+        "costs",
+        "is_ambiguous"
+      ],
+      "line_end": 114,
+      "line_start": 110,
+      "output_contract": "float",
+      "role": "Lab replay order/fill/exit simulator & deterministic accounting",
+      "symbol": "resolve_exit_fee_rate"
+    },
+    {
+      "consumer_paths": [
+        "backend/routers/replay.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_engine.py",
+      "file_line": "aurum-desk/backend/lab/replay_engine.py:71",
+      "inputs_or_methods": [
+        "__init__",
+        "record_event",
+        "record_posting",
+        "record_decision",
+        "record_execution"
+      ],
+      "line_end": 265,
+      "line_start": 71,
+      "output_contract": "Class[ReplayContext]",
+      "role": "Historical lab replay lifecycle & artifact exporter",
+      "symbol": "ReplayContext"
+    },
+    {
+      "consumer_paths": [
+        "backend/routers/replay.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_engine.py",
+      "file_line": "aurum-desk/backend/lab/replay_engine.py:327",
+      "inputs_or_methods": [
+        "parse_and_validate_candles",
+        "generate_synthetic_dataset",
+        "_create_isolated_lab_db",
+        "run_replay",
+        "_export_all_artifacts"
+      ],
+      "line_end": 3025,
+      "line_start": 327,
+      "output_contract": "Class[ReplayEngine]",
+      "role": "Historical lab replay lifecycle & artifact exporter",
+      "symbol": "ReplayEngine"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_integrity.py",
+      "file_line": "aurum-desk/backend/lab/replay_integrity.py:17",
+      "inputs_or_methods": [
+        "result_dict",
+        "closed_trades",
+        "ledger_postings",
+        "daily_stats",
+        "initial_equity",
+        "reported_cash",
+        "dataset_hash",
+        "run_config_hash"
+      ],
+      "line_end": 170,
+      "line_start": 17,
+      "output_contract": "Dict[str, Any]",
+      "role": "Lab replay integrity & exported bundle verifier",
+      "symbol": "run_replay_integrity_checks"
+    },
+    {
+      "consumer_paths": [
+        "backend/lab/replay_engine.py"
+      ],
+      "file": "aurum-desk/backend/lab/replay_integrity.py",
+      "file_line": "aurum-desk/backend/lab/replay_integrity.py:173",
+      "inputs_or_methods": [
+        "result",
+        "artifacts_dir"
+      ],
+      "line_end": 417,
+      "line_start": 173,
+      "output_contract": "Tuple[bool, List[str]]",
+      "role": "Lab replay integrity & exported bundle verifier",
+      "symbol": "verify_exported_artifacts"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/exit_monitor.py"
+      ],
+      "file": "aurum-desk/backend/services/market_reconciliation_service.py",
+      "file_line": "aurum-desk/backend/services/market_reconciliation_service.py:3258",
+      "inputs_or_methods": [
+        "__init__",
+        "_process_due_reviews_bounded",
+        "apply_reconciliation_decision",
+        "process_late_batch",
+        "run_late_reconciliation_loop",
+        "shutdown",
+        "stop"
+      ],
+      "line_end": 3427,
+      "line_start": 3258,
+      "output_contract": "Class[MarketReconciliationService]",
+      "role": "Delayed/out-of-order historical & provider reconciliation service",
+      "symbol": "MarketReconciliationService"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:2293",
+      "inputs_or_methods": [
+        "outcome_label",
+        "entry_fill_mode",
+        "entry_fee_usd",
+        "exit_fee_usd",
+        "entry_filled",
+        "total_friction_usd",
+        "verify_accounting_invariants",
+        "to_dict"
+      ],
+      "line_end": 2431,
+      "line_start": 2293,
+      "output_contract": "Class[ExecutableTradeLedgerEntryV17931]",
+      "role": "M1 historical trade execution simulator & stop forensic classifier",
+      "symbol": "ExecutableTradeLedgerEntryV17931"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:2434",
+      "inputs_or_methods": [
+        "variant",
+        "episode_key",
+        "episode_id",
+        "setup_id",
+        "model_id",
+        "direction",
+        "decision_ts",
+        "decision_timestamp_ms",
+        "checkpoint_index_1m",
+        "planned_entry",
+        "planned_sl",
+        "selected_sl",
+        "planned_tp",
+        "take_profit",
+        "forward_bars",
+        "forward_m1_bars",
+        "fill_mode",
+        "entry_fill_mode",
+        "spread_usd",
+        "slippage_usd",
+        "taker_fee_rate",
+        "maker_fee_rate",
+        "tp_is_maker",
+        "capital_usdt",
+        "risk_pct",
+        "leverage",
+        "margin_mode",
+        "min_net_rr",
+        "gap_threshold_ms",
+        "dataset_sha",
+        "provenance"
+      ],
+      "line_end": 3068,
+      "line_start": 2434,
+      "output_contract": "ExecutableTradeLedgerEntryV17931",
+      "role": "M1 historical trade execution simulator & stop forensic classifier",
+      "symbol": "simulate_v17931_trade_execution_net"
+    },
+    {
+      "consumer_paths": [
+        "backend/services/v17_9_3_1_2_executable_intervention_replay_service.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:1801",
+      "inputs_or_methods": [
+        "episode_id",
+        "model_id",
+        "direction",
+        "entry_price",
+        "sl_price",
+        "tp_price",
+        "invalidation_price",
+        "protected_structure_price",
+        "decision_timestamp_ms",
+        "forward_bars",
+        "provenance",
+        "delayed_break_window_bars",
+        "classify_gap_unresolved",
+        "gap_threshold_ms"
+      ],
+      "line_end": 1987,
+      "line_start": 1801,
+      "output_contract": "StopOutcomeDiagnostic",
+      "role": "M1 historical trade execution simulator & stop forensic classifier",
+      "symbol": "classify_structure_stop_outcome"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:1456",
+      "inputs_or_methods": [
+        "order_intent",
+        "forward_bars",
+        "fill_mode",
+        "closed_bars_at_decision",
+        "closed_m5",
+        "closed_m15"
+      ],
+      "line_end": 1671,
+      "line_start": 1456,
+      "output_contract": "Dict[str, Any]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "simulate_executable_candidate_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:1411",
+      "inputs_or_methods": [
+        "state",
+        "historical_bars",
+        "cutoff_ms"
+      ],
+      "line_end": 1453,
+      "line_start": 1411,
+      "output_contract": "Dict[str, Any]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "advance_portfolio_to_next_event_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:1748",
+      "inputs_or_methods": [
+        "episodes"
+      ],
+      "line_end": 1867,
+      "line_start": 1748,
+      "output_contract": "Dict[str, Any]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "reconcile_trades_to_ledger_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:1921",
+      "inputs_or_methods": [
+        "all_decisions",
+        "variants",
+        "market_data",
+        "fill_mode",
+        "tie_policy",
+        "denominator_group"
+      ],
+      "line_end": 2117,
+      "line_start": 1921,
+      "output_contract": "Dict[str, VariantReplayOutcomeV179312]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "replay_global_chronological_portfolio_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:1674",
+      "inputs_or_methods": [
+        "episodes",
+        "position_contract"
+      ],
+      "line_end": 1745,
+      "line_start": 1674,
+      "output_contract": "Dict[str, Any]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "verify_no_trade_time_overlap_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_2_entry_signal_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:4572",
+      "inputs_or_methods": [
+        "episodes_by_variant",
+        "m1_bars",
+        "policy_registry_hash",
+        "expected_frozen_policy_registry_hash",
+        "embargo_bars",
+        "oos_previously_inspected"
+      ],
+      "line_end": 4654,
+      "line_start": 4572,
+      "output_contract": "Dict[str, Any]",
+      "role": "Intervention replay episode lifecycle & chronological portfolio state",
+      "symbol": "assert_replay_oos_temporal_and_feature_integrity_v179312"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:598",
+      "inputs_or_methods": [
+        "raw_m1_bars_count",
+        "warmup_m1_bars_count",
+        "post_warmup_checkpoints_count",
+        "model_direction_evaluations_count",
+        "v128_canonical_records",
+        "v129_canonical_records",
+        "v130_canonical_records",
+        "v128_htf_totals",
+        "v129_htf_totals",
+        "v130_htf_totals",
+        "policy_stage_counts"
+      ],
+      "line_end": 757,
+      "line_start": 598,
+      "output_contract": "Dict[str, Any]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "build_canonical_universe_lineage_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:760",
+      "inputs_or_methods": [
+        "lineage"
+      ],
+      "line_end": 854,
+      "line_start": 760,
+      "output_contract": "Dict[str, Any]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "verify_universe_bijection_and_exclusion_reasons_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:857",
+      "inputs_or_methods": [
+        "baseline_episodes",
+        "feature_ledger",
+        "closed_losses_override"
+      ],
+      "line_end": 957,
+      "line_start": 857,
+      "output_contract": "Dict[str, Any]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "verify_forensic_cohort_conservation_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:960",
+      "inputs_or_methods": [
+        "policy_results",
+        "feature_ledger"
+      ],
+      "line_end": 1107,
+      "line_start": 960,
+      "output_contract": "Dict[str, Any]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "analyze_15_distinct_recovered_trades_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:1211",
+      "inputs_or_methods": [
+        "authority"
+      ],
+      "line_end": 1306,
+      "line_start": 1211,
+      "output_contract": "Dict[str, str]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "render_source_derived_report_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/v17_9_3_1_2_10_independent_verifier.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:1309",
+      "inputs_or_methods": [
+        "authority_denom",
+        "htf_census_doc",
+        "funnel_doc",
+        "cohort_doc",
+        "casebook_15_doc",
+        "policy_metrics_doc",
+        "markdown_texts"
+      ],
+      "line_end": 1407,
+      "line_start": 1309,
+      "output_contract": "Dict[str, Any]",
+      "role": "Canonical universe, 242 vs 157 cohort conservation & 15 recovered trade forensics",
+      "symbol": "verify_source_denom_and_trade_report_consistency_v17931210"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_full_universe_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/market_shadow_service.py",
+      "file_line": "aurum-desk/backend/services/market_shadow_service.py:1040",
+      "inputs_or_methods": [
+        "self",
+        "as_of_ms",
+        "closed_1m",
+        "closed_5m",
+        "closed_15m",
+        "closed_1h",
+        "closed_4h",
+        "htf_bias",
+        "h1_alignment",
+        "quote",
+        "policy",
+        "stop_policy",
+        "scalp_config"
+      ],
+      "line_end": 1362,
+      "line_start": 1040,
+      "output_contract": "Dict[str, Any]",
+      "role": "Market Shadow OFF/OBSERVE parity authority",
+      "symbol": "evaluate_shadow_cycle"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_full_universe_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/market_shadow_service.py",
+      "file_line": "aurum-desk/backend/services/market_shadow_service.py:2772",
+      "inputs_or_methods": [
+        "self",
+        "context",
+        "model_id",
+        "direction"
+      ],
+      "line_end": 2793,
+      "line_start": 2772,
+      "output_contract": "Any",
+      "role": "Market Shadow OFF/OBSERVE parity authority",
+      "symbol": "evaluate_shared_decision_snapshot"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_full_universe_backtest.py"
+      ],
+      "file": "aurum-desk/backend/services/market_shadow_service.py",
+      "file_line": "aurum-desk/backend/services/market_shadow_service.py:2708",
+      "inputs_or_methods": [
+        "self",
+        "production_snapshot",
+        "shadow_snapshot"
+      ],
+      "line_end": 2770,
+      "line_start": 2708,
+      "output_contract": "Dict[str, Any]",
+      "role": "Market Shadow OFF/OBSERVE parity authority",
+      "symbol": "compare_production_shadow_divergence"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:146",
+      "inputs_or_methods": [
+        "raw_node_id_or_classname",
+        "testcase_name"
+      ],
+      "line_end": 179,
+      "line_start": 146,
+      "output_contract": "Optional[str]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "normalize_collected_test_identity_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:182",
+      "inputs_or_methods": [
+        "run_dir",
+        "collection_manifest",
+        "shard_manifest",
+        "expected_run_id",
+        "expected_tested_sha",
+        "mandatory_node_prefixes"
+      ],
+      "line_end": 466,
+      "line_start": 182,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_fresh_junit_bijection_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:469",
+      "inputs_or_methods": [
+        "worker_records",
+        "expected_run_id",
+        "expected_tested_sha",
+        "max_allowed_workers",
+        "active_orphan_pids"
+      ],
+      "line_end": 548,
+      "line_start": 469,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_process_exit_and_timeout_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:551",
+      "inputs_or_methods": [
+        "collection_manifest",
+        "shard_manifest",
+        "parity_manifest",
+        "resource_telemetry"
+      ],
+      "line_end": 651,
+      "line_start": 551,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_execution_not_synthetic_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:654",
+      "inputs_or_methods": [
+        "repo_root",
+        "expected_tested_sha",
+        "source_manifest",
+        "observed_head_sha",
+        "observed_branch",
+        "working_tree_dirty_files",
+        "source_manifest_before",
+        "source_manifest_after",
+        "prior_artifact_hashes_before",
+        "prior_artifact_hashes_after"
+      ],
+      "line_end": 772,
+      "line_start": 654,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_source_freeze_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:775",
+      "inputs_or_methods": [
+        "run_dir",
+        "mandatory_files"
+      ],
+      "line_end": 839,
+      "line_start": 775,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_artifact_manifest_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:1210",
+      "inputs_or_methods": [
+        "episodes",
+        "bars_1m_by_open_ts",
+        "run_id",
+        "tested_executable_sha",
+        "dataset_sha256",
+        "policy_id",
+        "fill_mode"
+      ],
+      "line_end": 1853,
+      "line_start": 1210,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "build_exit_event_lineage_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:1856",
+      "inputs_or_methods": [
+        "lineage_bundle"
+      ],
+      "line_end": 1930,
+      "line_start": 1856,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_event_parentage_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:1933",
+      "inputs_or_methods": [
+        "lineage_bundle"
+      ],
+      "line_end": 2018,
+      "line_start": 1933,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_state_machine_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:2021",
+      "inputs_or_methods": [
+        "lineage_bundle",
+        "bars_1m_by_open_ts",
+        "spread_usd",
+        "base_slippage_usd",
+        "taker_fee_rate",
+        "maker_fee_rate",
+        "tp_is_maker"
+      ],
+      "line_end": 2152,
+      "line_start": 2021,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_fill_basis_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:2155",
+      "inputs_or_methods": [
+        "lineage_bundle"
+      ],
+      "line_end": 2241,
+      "line_start": 2155,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_event_deduplication_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:2244",
+      "inputs_or_methods": [
+        "lineage_bundle"
+      ],
+      "line_end": 2359,
+      "line_start": 2244,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "recompute_realized_pnl_from_exit_events_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:2362",
+      "inputs_or_methods": [
+        "lineage_bundle",
+        "expected_summary",
+        "expected_counts"
+      ],
+      "line_end": 2470,
+      "line_start": 2362,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_portfolio_conservation_v17931211"
+    },
+    {
+      "consumer_paths": [
+        "tools/run_v17_9_3_1_2_11_verification.py",
+        "tools/v17_9_3_1_2_11_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:2473",
+      "inputs_or_methods": [],
+      "line_end": 2692,
+      "line_start": 2473,
+      "output_contract": "Dict[str, Any]",
+      "role": "V17.9.3.1.2.11 verification truth & exit-event lineage authority",
+      "symbol": "verify_exit_lineage_cross_adapter_parity_v17931211"
+    }
+  ],
+  "schema_version": "17.9.3.1.2.11",
+  "total_anchored_symbols": 66,
+  "version": "v17_9_3_1_2_11"
+}

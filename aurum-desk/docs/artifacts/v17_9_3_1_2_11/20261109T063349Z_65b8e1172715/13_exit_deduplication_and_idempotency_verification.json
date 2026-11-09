@@ -1,0 +1,282 @@
+{
+  "by_policy_and_fill_mode": {
+    "SI0_OFF_BASELINE": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 237,
+        "unique_postings_count": 565,
+        "unique_trades_count": 238,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 241,
+        "unique_postings_count": 573,
+        "unique_trades_count": 242,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 247,
+        "unique_postings_count": 593,
+        "unique_trades_count": 248,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI1_MODEL_QUALITY_AND_ARBITRATION": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 16,
+        "unique_postings_count": 34,
+        "unique_trades_count": 16,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 16,
+        "unique_postings_count": 34,
+        "unique_trades_count": 16,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 16,
+        "unique_postings_count": 34,
+        "unique_trades_count": 16,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 10,
+        "unique_postings_count": 22,
+        "unique_trades_count": 10,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI6_COMBINED_PREDECLARED": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI7_CORE_TRADING_LOGIC_REPAIRED": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "LEGACY_CLOSE_FILL": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "status": "PASS",
+        "unique_positions_count": 0,
+        "unique_postings_count": 0,
+        "unique_trades_count": 0,
+        "version": "v17_9_3_1_2_11",
+        "violations": []
+      }
+    }
+  },
+  "late_reconciliation_idempotency": {
+    "post_close_earlier_conflicting_quote_action": "REVIEW_REQUIRED",
+    "post_close_earlier_conflicting_quote_reason": "EARLIER_CONFLICTING_TERMINAL_ARRIVED_POST_CLOSE",
+    "post_close_later_quote_action": "NONE",
+    "post_close_later_quote_reason": "ALREADY_CLOSED_NO_CONFLICT",
+    "status": "PASS"
+  },
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "status": "PASS",
+  "summary": {
+    "double_closed_positions": 0,
+    "duplicate_posting_ids": 0,
+    "late_reconciliation_idempotency_ok": true,
+    "total_postings_verified": 1965
+  },
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11"
+}

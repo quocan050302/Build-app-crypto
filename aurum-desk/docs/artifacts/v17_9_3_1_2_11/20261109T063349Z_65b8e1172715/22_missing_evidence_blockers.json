@@ -1,0 +1,25 @@
+{
+  "engineering_blockers": [],
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "status": "PASS",
+  "strategy_activation_blockers": [
+    {
+      "activation_ready": "NO",
+      "blocker_id": "STRAT_BLK_01_NEGATIVE_PORTFOLIO_EXPECTANCY",
+      "description": "All evaluated policies with non-zero closed trades (SI0..SI3) have negative net expectancy after spread, slippage, and fees; SI4..SI9 have 0 closed trades (UNDEFINED_ZERO_CLOSED_TRADES)."
+    },
+    {
+      "activation_ready": "NO",
+      "blocker_id": "STRAT_BLK_02_REUSED_HISTORICAL_HOLDOUT",
+      "description": "Historical dataset 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 was previously exposed across V17.9.2..V17.9.3.1.2.10 and is classified as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS."
+    },
+    {
+      "activation_ready": "NO",
+      "blocker_id": "STRAT_BLK_03_SYNTHETIC_BID_ASK_QUOTE_HISTORY",
+      "description": "Historical bid/ask quotes are modeled as close +/- 0.10 USD (SYNTHETIC_RESEARCH_QUOTE) rather than tick-level Bitget L1 orderbook history."
+    }
+  ],
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11"
+}

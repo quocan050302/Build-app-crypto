@@ -1,0 +1,258 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "exit_event_lineage_verdict": "PASS",
+  "gates": {
+    "E01": {
+      "gate_id": "E01",
+      "status": "PASS",
+      "title": "Exit event IDs globally scoped and causally unique",
+      "violations": []
+    },
+    "E02": {
+      "closed_verified": 166,
+      "gate_id": "E02",
+      "status": "PASS",
+      "title": "Every closed trade's exit observation -> trigger -> fill exists",
+      "violations": []
+    },
+    "E03": {
+      "gate_id": "E03",
+      "status": "PASS",
+      "title": "Event timestamp, source and decision cutoff causal",
+      "violations": []
+    },
+    "E04": {
+      "gate_id": "E04",
+      "status": "PASS",
+      "title": "Exit price basis and conservative ambiguity/adverse gaps correct",
+      "violations": []
+    },
+    "E05": {
+      "gate_id": "E05",
+      "status": "PASS",
+      "title": "Exit state transitions valid and idempotent",
+      "violations": []
+    },
+    "E06": {
+      "gate_id": "E06",
+      "status": "PASS",
+      "title": "Ledger posts exactly once and link to actual exit",
+      "violations": []
+    },
+    "E07": {
+      "gate_id": "E07",
+      "status": "PASS",
+      "title": "Recomputed PnL/fees/R and accounting conservation pass",
+      "violations": []
+    },
+    "E08": {
+      "gate_id": "E08",
+      "status": "PASS",
+      "title": "Open/unfilled/gap episodes excluded from closed PnL",
+      "violations": []
+    },
+    "E09": {
+      "gate_id": "E09",
+      "status": "PASS",
+      "title": "Late/out-of-order/reconciled exits source-verified",
+      "violations": []
+    },
+    "E10": {
+      "gate_id": "E10",
+      "status": "PASS",
+      "title": "Production/Shadow/Backtest common semantic invariants verified",
+      "violations": []
+    },
+    "P01": {
+      "details": {
+        "phase_a_tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+        "status": "PASS"
+      },
+      "gate_id": "P01",
+      "status": "PASS",
+      "title": "Compact Phase B evidence committed/pushed on same branch"
+    },
+    "P02": {
+      "details": {
+        "note": "Pre-publication inside immutable run dir; finalized externally in Phase C publication_<run_id>.json and latest_run.json",
+        "status": "BLOCKED"
+      },
+      "gate_id": "P02",
+      "status": "BLOCKED",
+      "title": "Phase C external remote ref/file SHA readback verified"
+    },
+    "R01": {
+      "gate_id": "R01",
+      "status": "PASS",
+      "title": "Full backend and relevant frontend regression executed",
+      "violations": []
+    },
+    "R02": {
+      "gate_id": "R02",
+      "status": "PASS",
+      "title": "Real baseline backtest replay executed, no strategy changed",
+      "violations": []
+    },
+    "R03": {
+      "gate_id": "R03",
+      "status": "PASS",
+      "title": "Original/cohort counts and before/after diff independently audited",
+      "violations": []
+    },
+    "R04": {
+      "gate_id": "R04",
+      "status": "PASS",
+      "title": "Deterministic worker 1/2/4 semantic hashes matched (or BLOCKED)",
+      "violations": []
+    },
+    "R05": {
+      "fresh_oos_verdict": "REUSED",
+      "gate_id": "R05",
+      "status": "PASS",
+      "title": "Prior OOS correctly labeled reused; no false fresh-OOS claim",
+      "violations": []
+    },
+    "T01": {
+      "gate_id": "T01",
+      "status": "PASS",
+      "title": "Correct original branch, ancestry and non-destructive worktree",
+      "violations": []
+    },
+    "T02": {
+      "gate_id": "T02",
+      "status": "PASS",
+      "title": "Frozen tested executable SHA matches actual source files",
+      "violations": []
+    },
+    "T03": {
+      "gate_id": "T03",
+      "status": "PASS",
+      "title": "Dataset and cost/policy manifests source-bound and complete",
+      "violations": []
+    },
+    "T04": {
+      "collected_count": 5182,
+      "collected_node_ids_sha256": "6eb99ae54f0df8fdfcbc09a8ca1b1de63dfc477da005dfd6aca2864f5becbbe4",
+      "gate_id": "T04",
+      "status": "PASS",
+      "title": "Fresh test collection with full exact node inventory"
+    },
+    "T05": {
+      "counters": {
+        "collected": 5182,
+        "deselected": 0,
+        "errors": 0,
+        "executed": 5182,
+        "failed": 0,
+        "mandatory_skipped": 0,
+        "passed": 5174,
+        "scheduled": 5182,
+        "skipped": 8,
+        "unknown": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "gate_id": "T05",
+      "status": "PASS",
+      "title": "Fresh full JUnit execution/exit codes, no missing/duplicate nodes",
+      "violations": []
+    },
+    "T06": {
+      "gate_id": "T06",
+      "mandatory_skipped": [],
+      "skipped_cases": [
+        {
+          "node_id": "backend/tests/test_v12_3_acceptance.py::test_p11_artifact_containment_rejects_symlink_escape",
+          "reason": "Symlink creation not permitted on this Windows user account",
+          "shard_id": "shard_16",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05_symbolic_link_to_unsafe_database_rejected",
+          "reason": "Symlink creation requires elevated privilege on Windows (WinError 1314)",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05b_hardlink_to_runtime_database_rejected",
+          "reason": "Hardlink creation not supported across filesystems/volumes: [WinError 17] The system cannot move the file to a different disk drive: 'D:\\\\build app-crypto\\\\aurum-desk\\\\backend\\\\aurum_desk.db' -> 'C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Temp\\\\aurum_test_root_rso8yqyk\\\\hardlink_to_runtime.db'",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_db_final_04_symlink_outside_test_root_rejected",
+          "reason": "Symlink creation requires elevated privilege on Windows",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t06_downsampling_disclosure",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t23_factor_audit_real_observed_values",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t26_sheet_11_ny_quota",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t28_comparison_workbook_5_sheets",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        }
+      ],
+      "status": "PASS",
+      "title": "Mandatory tests not skipped; retries and failures fully disclosed"
+    },
+    "T07": {
+      "gate_id": "T07",
+      "status": "PASS",
+      "title": "Bounded async workers, no orphan PIDs, real resource telemetry",
+      "violations": []
+    },
+    "T08": {
+      "gate_id": "T08",
+      "status": "PASS",
+      "title": "Independent artifact hash/manifest verification",
+      "violations": []
+    },
+    "T09": {
+      "controls_verified": 10,
+      "gate_id": "T09",
+      "status": "PASS",
+      "title": "Real negative-control tampering rejected (RED/GREEN proof)",
+      "violations": []
+    },
+    "T10": {
+      "gate_id": "T10",
+      "status": "PASS",
+      "title": "No reused 1/2/4 worker digests or fabricated worker status",
+      "violations": []
+    }
+  },
+  "pre_publication_gates_all_pass": true,
+  "prepublication_engineering_verdict": "PASS",
+  "publication_gates_all_pass": false,
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "top_level_statuses": {
+    "ACTIVATION_READY": "NO",
+    "BACKTEST_INTEGRITY_VERDICT": "PASS",
+    "ENGINEERING_VERIFICATION_TRUTH": "PASS",
+    "EXIT_EVENT_LINEAGE_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "REUSED",
+    "STRATEGY_EDGE_VERDICT": "NEGATIVE_EXPECTANCY"
+  },
+  "verification_truth_verdict": "PASS",
+  "version": "v17_9_3_1_2_11"
+}

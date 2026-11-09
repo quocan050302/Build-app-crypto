@@ -1,0 +1,69 @@
+{
+  "all_rejected": true,
+  "controls": [
+    {
+      "control_id": "EXIT_NEG_01_MISSING_PARENT_EVENT_ID",
+      "rejected": true,
+      "violations_caught": [
+        "MISSING_PARENT_EVENT:evt_0e214050ddd1eb900b96->parent=evt_forged_nonexistent_parent"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_02_CLOSED_TRADE_MISSING_EXIT_TRIGGER",
+      "rejected": true,
+      "violations_caught": [
+        "INVALID_CLOSED_TRADE_STATE_PATH:R0_BASELINE_CONTROL_SMC_M1_FVG_CONTINUATION_30_1791439740000:['DECISION', 'INTENT', 'ENTRY_FILL', 'POSITION_OPEN', 'LEDGER_POST', 'EXIT_MARKET_OBSERVATION', 'EXIT_FILL', 'POSITION_CLOSED', 'LEDGER_POST', 'LEDGER_POST']"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_03_OPEN_AT_HORIZON_NONZERO_REALIZED_PNL",
+      "rejected": true,
+      "violations_caught": [
+        "NONZERO_REALIZED_PNL_ON_CENSORED_EPISODE:R0_BASELINE_CONTROL_SMC_M1_CONTINUATION_214_1791516600000"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_04_EXIT_FILL_PRICE_BASIS_DRIFT",
+      "rejected": true,
+      "violations_caught": [
+        "EXIT_FILL_PRICE_BASIS_MISMATCH:opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca:actual=4194.46,expected=4179.46"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_05_DUPLICATE_LEDGER_POSTING_ID",
+      "rejected": true,
+      "violations_caught": [
+        "DUPLICATE_POSTING_ID:post_1ba92e7f73cf001b2b13",
+        "DUPLICATE_POSITION_POSTING_TYPE:pos_8103da91944fb030e3dc:ENTRY_FEE"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_06_DOUBLE_POSITION_CLOSE",
+      "rejected": true,
+      "violations_caught": [
+        "DOUBLE_CLOSE_FOR_POSITION:pos_8103da91944fb030e3dc",
+        "POST_CLOSE_NON_LEDGER_EVENT:pos_8103da91944fb030e3dc:POSITION_CLOSED"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_07_REALIZED_NET_PNL_ARITHMETIC_TAMPER",
+      "rejected": true,
+      "violations_caught": [
+        "NET_PNL_MISMATCH:R0_BASELINE_CONTROL_SMC_M1_FVG_CONTINUATION_30_1791439740000:-8.1314!=-3.1314"
+      ]
+    },
+    {
+      "control_id": "EXIT_NEG_08_COHORT_CONSERVATION_EPISODE_DROP",
+      "rejected": true,
+      "violations_caught": [
+        "SUMMARY_SCHEDULED_MISMATCH:242!=241"
+      ]
+    }
+  ],
+  "controls_count": 8,
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "status": "PASS",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11"
+}

@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "all_policies_3_fill_modes_conservation": "PASS",
+    "cross_adapter_exit_parity": "PASS",
+    "dataset_and_bar_closure_ok": true,
+    "exit_deduplication": "PASS",
+    "exit_event_stream_rows_verified": 7837,
+    "exit_fill_basis": "PASS",
+    "exit_lineage_negative_controls": "PASS",
+    "exit_parentage": "PASS",
+    "exit_pnl_recomputation": "PASS",
+    "exit_state_machine": "PASS",
+    "fresh_junit_bijection": "PASS",
+    "non_synthetic_execution": "PASS",
+    "readme_narrative_consistency": "PASS",
+    "recovered_15_unique_trades_valid": true,
+    "si0_cohort_conservation_242": "PASS",
+    "source_freeze_and_immutability": "PASS",
+    "subprocess_exit_and_timeout": "PASS",
+    "verification_truth_negative_controls": "PASS"
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "elapsed_seconds": 0.764,
+  "orchestrator_pid": 9588,
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "separate_process_verified": true,
+  "status": "PASS",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "verifier_pid": 17284,
+  "version": "v17_9_3_1_2_11",
+  "violations": []
+}

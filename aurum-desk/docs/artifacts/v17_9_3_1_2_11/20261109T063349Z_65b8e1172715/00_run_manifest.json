@@ -1,0 +1,20 @@
+{
+  "activation_ready": "NO",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "completed_at_utc": "2026-11-09T10:07:47Z",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "exit_event_lineage_verdict": "PASS",
+  "fresh_oos_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "independent_verifier_pid": 17284,
+  "independent_verifier_status": "PASS",
+  "orchestrator_pid": 9588,
+  "prepublication_engineering_verdict": "PASS",
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "started_at_utc": "2026-11-09T06:33:49Z",
+  "status": "PASS",
+  "strategy_economic_verdict": "NEGATIVE_EXPECTANCY_DO_NOT_ACTIVATE",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "verification_truth_verdict": "PASS",
+  "version": "v17_9_3_1_2_11"
+}

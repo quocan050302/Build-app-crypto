@@ -1,0 +1,79 @@
+{
+  "independent_runs": [
+    {
+      "attempt_id": "20261109T063349Z_65b8e1172715_det_run_1_w1",
+      "canonical_semantic_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+      "closed_trades_verified_count": 166,
+      "completed_at_ms": 1794208404333,
+      "elapsed_ms": 1396,
+      "events_verified_count": 2279,
+      "raw_execution_log_sha256": "9c3697f6ea3aecd4215520b85b1ea7f73a427f5ef1bc0627fa5a9f33f803e467",
+      "started_at_ms": 1794208402937,
+      "total_realized_net_pnl_usd": -345.8971,
+      "worker_count": 1,
+      "worker_pids": [
+        27828
+      ]
+    },
+    {
+      "attempt_id": "20261109T063349Z_65b8e1172715_det_run_2_w2",
+      "canonical_semantic_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+      "closed_trades_verified_count": 166,
+      "completed_at_ms": 1794208405730,
+      "elapsed_ms": 1397,
+      "events_verified_count": 2279,
+      "raw_execution_log_sha256": "7a3e65e0098be4ecfbcff28bd0e74f7ee2444a0590289a16f64171a9b889f01f",
+      "started_at_ms": 1794208404333,
+      "total_realized_net_pnl_usd": -345.8971,
+      "worker_count": 2,
+      "worker_pids": [
+        12328,
+        19304
+      ]
+    },
+    {
+      "attempt_id": "20261109T063349Z_65b8e1172715_det_run_3_w4",
+      "canonical_semantic_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+      "closed_trades_verified_count": 166,
+      "completed_at_ms": 1794208407262,
+      "elapsed_ms": 1530,
+      "events_verified_count": 2279,
+      "raw_execution_log_sha256": "62de9dac90ecc3c35089ebb656f9da86a15a1550bafb095f06cd6ad0d46a6bdd",
+      "started_at_ms": 1794208405732,
+      "total_realized_net_pnl_usd": -345.8971,
+      "worker_count": 4,
+      "worker_pids": [
+        21732,
+        23936,
+        30052
+      ]
+    },
+    {
+      "attempt_id": "20261109T063349Z_65b8e1172715_det_run_4_w1_repeat",
+      "canonical_semantic_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+      "closed_trades_verified_count": 166,
+      "completed_at_ms": 1794208408520,
+      "elapsed_ms": 1257,
+      "events_verified_count": 2279,
+      "raw_execution_log_sha256": "adf948b91bd9e95dd9f39c146c1920dc4d8f2c6863e33a09c22d75f0d64ffef5",
+      "started_at_ms": 1794208407263,
+      "total_realized_net_pnl_usd": -345.8971,
+      "worker_count": 1,
+      "worker_pids": [
+        25036
+      ]
+    }
+  ],
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "schema_version": "17.9.3.1.2.11",
+  "status": "PASS",
+  "summary": {
+    "all_four_identical": true,
+    "worker_1_repeat_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+    "worker_1_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+    "worker_2_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de",
+    "worker_4_sha256": "16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de"
+  },
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11"
+}

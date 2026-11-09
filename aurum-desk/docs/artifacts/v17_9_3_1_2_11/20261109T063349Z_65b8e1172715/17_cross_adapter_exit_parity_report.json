@@ -1,0 +1,167 @@
+{
+  "documented_intentional_adapter_differences": [
+    {
+      "adapter_pair": "shared_exit_evaluator (BAR_EXTREMES) vs simulate_v17931_trade_execution_net / lab.replay_execution",
+      "difference": "On candle-only evaluation (`BAR_EXTREMES`), `shared_exit_evaluator` conservatively takes `min(stop_loss, low)` for LONG SL (`max(stop_loss, high)` for SHORT SL) when only bar extremes are known in late reconciliation, whereas `replay_execution` and `simulate_v17931_trade_execution_net` fill stop orders at `min(stop_loss, open_bid) - slippage` (gap-at-open adverse pricing, intrabar stop fill at SL +/- slippage).",
+      "status": "INTENTIONAL_DOCUMENTED_RECONCILIATION_CONSERVATISM"
+    },
+    {
+      "adapter_pair": "ExitMonitor (Realtime Tick BID/ASK) vs Historical Backtest (NEXT_BAR_OPEN_BID_ASK)",
+      "difference": "Realtime `ExitMonitor` evaluates live Bitget executable `bid` (LONG) and `ask` (SHORT) ticks via `shared_exit_evaluator`, whereas historical M1 replay synthesizes bid/ask from M1 OHLC +/- half_spread (`0.10` USD) because historical tick top-of-book was not stored for the 15-day October window. Explicitly labeled `MODELED_M1_OHLC_BID_ASK_SPREAD_0.20`.",
+      "status": "INTENTIONAL_DOCUMENTED_HISTORICAL_PROXY"
+    }
+  ],
+  "normalization_map": {
+    "ADVERSE_GAP_OPEN_STOP_LOSS": "ADVERSE_GAP_STOP_LOSS",
+    "AMBIGUOUS_BAR_SL_FIRST": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+    "DATA_GAP_UNRESOLVED": "DATA_GAP_UNRESOLVED",
+    "LIQUIDATED": "LIQUIDATION",
+    "LOSS": "STOP_LOSS",
+    "LOSS_TIE_CONSERVATIVE": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+    "NO_FILL_BELOW_MIN_LOT": "UNFILLED_NO_ENTRY",
+    "NO_FILL_ENTRY_GAP": "UNFILLED_NO_ENTRY",
+    "NO_FILL_UNEXECUTABLE_AT_OPEN": "UNFILLED_NO_ENTRY",
+    "NO_FORWARD_BARS": "UNFILLED_NO_ENTRY",
+    "OPEN_AT_HORIZON": "OPEN_AT_HORIZON_CENSORED",
+    "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+    "SL_HIT": "STOP_LOSS",
+    "STOP_LOSS": "STOP_LOSS",
+    "TAKE_PROFIT": "TAKE_PROFIT",
+    "TP_HIT": "TAKE_PROFIT",
+    "UNFILLED": "UNFILLED_NO_ENTRY",
+    "WIN": "TAKE_PROFIT"
+  },
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "scenarios": [
+    {
+      "direction": "LONG",
+      "historical_intervention_simulator": {
+        "canonical_cause": "STOP_LOSS",
+        "exit_fill_price": 4090.0,
+        "raw_exit_type": "LOSS",
+        "trigger_bar_ts": 2000
+      },
+      "lab_replay_execution": {
+        "canonical_cause": "STOP_LOSS",
+        "exit_event_id": "exit-daac5853b622d7b4ea924768",
+        "exit_price": 4090.0,
+        "raw_cause": "STOP_LOSS"
+      },
+      "scenario_id": "LONG_SL_HIT",
+      "semantic_cause_parity_holds": true,
+      "shared_evaluator": {
+        "applied_exit_price": 4088.0,
+        "canonical_cause": "STOP_LOSS",
+        "evidence_reference": "bar_long_sl",
+        "price_basis": "BAR_EXTREMES",
+        "raw_cause": "SL_HIT"
+      },
+      "stop_trigger_price_parity_holds": true
+    },
+    {
+      "direction": "LONG",
+      "historical_intervention_simulator": {
+        "canonical_cause": "TAKE_PROFIT",
+        "exit_fill_price": 4120.0,
+        "raw_exit_type": "WIN",
+        "trigger_bar_ts": 2000
+      },
+      "lab_replay_execution": {
+        "canonical_cause": "TAKE_PROFIT",
+        "exit_event_id": "exit-c1a42672ec4333285a7ee25c",
+        "exit_price": 4120.0,
+        "raw_cause": "TAKE_PROFIT"
+      },
+      "scenario_id": "LONG_TP_HIT",
+      "semantic_cause_parity_holds": true,
+      "shared_evaluator": {
+        "applied_exit_price": 4120.0,
+        "canonical_cause": "TAKE_PROFIT",
+        "evidence_reference": "bar_long_tp",
+        "price_basis": "BAR_EXTREMES",
+        "raw_cause": "TP_HIT"
+      },
+      "stop_trigger_price_parity_holds": true
+    },
+    {
+      "direction": "SHORT",
+      "historical_intervention_simulator": {
+        "canonical_cause": "STOP_LOSS",
+        "exit_fill_price": 4110.0,
+        "raw_exit_type": "LOSS",
+        "trigger_bar_ts": 2000
+      },
+      "lab_replay_execution": {
+        "canonical_cause": "STOP_LOSS",
+        "exit_event_id": "exit-89269640774836cc22d55a4d",
+        "exit_price": 4110.0,
+        "raw_cause": "STOP_LOSS"
+      },
+      "scenario_id": "SHORT_SL_HIT",
+      "semantic_cause_parity_holds": true,
+      "shared_evaluator": {
+        "applied_exit_price": 4112.0,
+        "canonical_cause": "STOP_LOSS",
+        "evidence_reference": "bar_short_sl",
+        "price_basis": "BAR_EXTREMES",
+        "raw_cause": "SL_HIT"
+      },
+      "stop_trigger_price_parity_holds": true
+    },
+    {
+      "direction": "SHORT",
+      "historical_intervention_simulator": {
+        "canonical_cause": "TAKE_PROFIT",
+        "exit_fill_price": 4080.0,
+        "raw_exit_type": "WIN",
+        "trigger_bar_ts": 2000
+      },
+      "lab_replay_execution": {
+        "canonical_cause": "TAKE_PROFIT",
+        "exit_event_id": "exit-d9534cc95b31b19787567c79",
+        "exit_price": 4080.0,
+        "raw_cause": "TAKE_PROFIT"
+      },
+      "scenario_id": "SHORT_TP_HIT",
+      "semantic_cause_parity_holds": true,
+      "shared_evaluator": {
+        "applied_exit_price": 4080.0,
+        "canonical_cause": "TAKE_PROFIT",
+        "evidence_reference": "bar_short_tp",
+        "price_basis": "BAR_EXTREMES",
+        "raw_cause": "TP_HIT"
+      },
+      "stop_trigger_price_parity_holds": true
+    },
+    {
+      "direction": "LONG",
+      "historical_intervention_simulator": {
+        "canonical_cause": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+        "exit_fill_price": 4090.0,
+        "raw_exit_type": "LOSS_TIE_CONSERVATIVE",
+        "trigger_bar_ts": 2000
+      },
+      "lab_replay_execution": {
+        "canonical_cause": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+        "exit_event_id": "exit-3debc78ae9cd078726f3f480",
+        "exit_price": 4090.0,
+        "raw_cause": "STOP_LOSS"
+      },
+      "scenario_id": "SAME_BAR_AMBIGUOUS_SL_AND_TP",
+      "semantic_cause_parity_holds": true,
+      "shared_evaluator": {
+        "applied_exit_price": 4090.0,
+        "canonical_cause": "SAME_BAR_AMBIGUOUS_CONSERVATIVE_SL",
+        "evidence_reference": "bar_ambig",
+        "price_basis": "BAR_EXTREMES",
+        "raw_cause": "AMBIGUOUS_BAR_SL_FIRST"
+      },
+      "stop_trigger_price_parity_holds": true
+    }
+  ],
+  "scenarios_tested": 5,
+  "status": "PASS",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11",
+  "violations": []
+}

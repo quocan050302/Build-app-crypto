@@ -1,0 +1,92 @@
+{
+  "all_rejected": true,
+  "controls": [
+    {
+      "control_id": "A_FORGED_EXIT_ZERO_WITH_FAILING_JUNIT",
+      "rejected": true,
+      "violations_caught": [
+        "SHARD_HAS_FAILURES_OR_ERRORS:shard_0:f=1,e=0",
+        "EXECUTED_TESTS_FAILED:1"
+      ]
+    },
+    {
+      "control_id": "B_LOST_OR_DUPLICATED_JUNIT_TESTCASE",
+      "rejected": true,
+      "violations_caught": [
+        "SHARD_SCHEDULED_VS_EXECUTED_MISMATCH:shard_0",
+        "SHARD_DUPLICATE_EXECUTED_NODES:shard_0",
+        "CROSS_SHARD_DUPLICATE_EXECUTED_TESTCASE",
+        "COLLECTION_TO_EXECUTED_BIJECTION_BROKEN:missing=1,extra=0"
+      ]
+    },
+    {
+      "control_id": "C_TAMPERED_RAW_XML_WITH_OLD_SHA",
+      "rejected": true,
+      "violations_caught": [
+        "JUNIT_SHA256_MISMATCH:shard_0"
+      ]
+    },
+    {
+      "control_id": "D_MISSING_SHARD_OR_ORPHANED_PID",
+      "rejected": true,
+      "violations_caught": [
+        "UNREAPED_ORPHAN_PIDS:[99999]"
+      ]
+    },
+    {
+      "control_id": "E_STALE_RUN_ID_OR_SOURCE_SHA",
+      "rejected": true,
+      "violations_caught": [
+        "COLLECTION_RUN_ID_MISMATCH:neg_ctrl_run_v17931211!=fresh_run_2",
+        "COLLECTION_SHA_MISMATCH:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "SHARD_MANIFEST_RUN_ID_MISMATCH:neg_ctrl_run_v17931211!=fresh_run_2",
+        "SHARD_MANIFEST_SHA_MISMATCH:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "SHARD_RUN_ID_MISMATCH:shard_0",
+        "SHARD_SHA_MISMATCH:shard_0"
+      ]
+    },
+    {
+      "control_id": "F_COPIED_REUSED_WORKER_1_2_4_RESULTS",
+      "rejected": true,
+      "violations_caught": [
+        "DUPLICATE_PARITY_ATTEMPT_IDS",
+        "COPIED_OR_REUSED_WORKER_PARITY_EXECUTION_RECORDS"
+      ]
+    },
+    {
+      "control_id": "G_TEST_TIMEOUT_MASKED_AS_SUCCESS",
+      "rejected": true,
+      "violations_caught": [
+        "SHARD_TIMED_OUT:shard_0"
+      ]
+    },
+    {
+      "control_id": "H_SKIPPED_MANDATORY_TEST_BLOCKED",
+      "rejected": true,
+      "violations_caught": [
+        "MANDATORY_TESTS_SKIPPED:['backend/tests/test_v17_9_3_1_2_11_sample.py::test_alpha']"
+      ]
+    },
+    {
+      "control_id": "I_MANIFEST_MISSING_MANDATORY_FILE_OR_FORGED_HASH",
+      "rejected": true,
+      "violations_caught": [
+        "MANDATORY_ARTIFACT_MISSING_FROM_MANIFEST:01_git_branch_and_source_freeze.json",
+        "ARTIFACT_SHA256_MISMATCH:00_run_manifest.json"
+      ]
+    },
+    {
+      "control_id": "J_PHASE_B_RECEIPT_WITHOUT_PHASE_C_REMOTE_READBACK",
+      "rejected": true,
+      "violations_caught": [
+        "MISSING_PHASE_C_REMOTE_READBACK_PROOF"
+      ]
+    }
+  ],
+  "controls_count": 10,
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "status": "PASS",
+  "tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "version": "v17_9_3_1_2_11",
+  "violations": []
+}
