@@ -36,6 +36,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
@@ -519,6 +520,8 @@ def main() -> int:
     run_id = args.run_id or (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + sha[:12])
     run_dir = APP_ROOT / "docs/artifacts/v17_9_3_1_2_11" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
+    aux_temp_dir = Path(tempfile.gettempdir()) / f"aurum_aux_{run_id}"
+    os.environ["AURUM_VERIFICATION_ARTIFACT_ROOT"] = str(aux_temp_dir)
     orchestrator_pid = os.getpid()
 
     # Write pre-execution 00_run_manifest.json immediately (before any worker starts)
@@ -557,7 +560,7 @@ def main() -> int:
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"] = str(monitor.abort_path)
     os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "2"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "16"
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "3"
 
@@ -574,7 +577,7 @@ def main() -> int:
         collection, junit = run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             run_dir / "junit",
             tested_executable_sha=sha,
-            max_workers=1,
+            max_workers=2,
             force_fresh_execution=True,
         )
         # Remove raw .log files in junit/ after stderr_tail is captured so only clean XMLs remain
@@ -1042,6 +1045,14 @@ def main() -> int:
         v129_htf_totals = {"ALIGNED": 7825, "COUNTERTREND": 9112, "MIXED": 46180}
         v130_htf_counter = Counter(str(r.get("htf_alignment_state") or "UNKNOWN") for r in all_features_map.values())
         v130_htf_totals = dict(sorted(v130_htf_counter.items()))
+        policy_stage_counts = {
+            pid: {
+                "evaluated": len(pol_res["policy_decision_ledger"]),
+                "accepted": sum(1 for d in pol_res["policy_decision_ledger"] if d.get("accepted")),
+                "rejected": len(pol_res["policy_decision_ledger"]) - sum(1 for d in pol_res["policy_decision_ledger"] if d.get("accepted")),
+            }
+            for pid, pol_res in si_results_by_policy.items()
+        }
         lineage_04 = build_canonical_universe_lineage_v17931210(
             raw_m1_bars_count=22376,
             warmup_m1_bars_count=30,
@@ -1053,6 +1064,7 @@ def main() -> int:
             v128_htf_totals=v128_htf_totals,
             v129_htf_totals=v129_htf_totals,
             v130_htf_totals=v130_htf_totals,
+            policy_stage_counts=policy_stage_counts,
         )
         lineage_04.pop("_delta_reconciliation_rows", None)
         bijection_04 = verify_universe_bijection_and_exclusion_reasons_v17931210(lineage_04)
@@ -1166,6 +1178,7 @@ def main() -> int:
         }
         append_stage_status(run_dir, "VERIFICATION_EXCEPTION", "FAILED", error=str(exc))
     finally:
+        shutil.rmtree(aux_temp_dir, ignore_errors=True)
         res_metrics = monitor.stop() if hasattr(monitor, "thread") else {"error": monitor.error, "samples": monitor.samples}
         src_after = source_manifest()
         prior_after = prior_artifact_manifest()

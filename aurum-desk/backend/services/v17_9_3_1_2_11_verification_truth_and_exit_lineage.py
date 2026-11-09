@@ -163,13 +163,13 @@ def normalize_collected_test_identity_v17931211(
 
     if not raw_node_id_or_classname or not isinstance(raw_node_id_or_classname, str):
         return None
-    cleaned = raw_node_id_or_classname.strip().replace("\\", "/")
+    cleaned = raw_node_id_or_classname.strip()
     if not cleaned or "::" not in cleaned:
         return None
     parts = [p.strip() for p in cleaned.split("::") if p.strip()]
     if len(parts) < 2:
         return None
-    file_part = parts[0]
+    file_part = parts[0].replace("\\", "/")
     if file_part.startswith("aurum-desk/"):
         file_part = file_part[len("aurum-desk/"):]
     if file_part.startswith("tests/"):
@@ -2038,8 +2038,8 @@ def verify_exit_fill_basis_v17931211(
     is_stress_2x = fill_mode in ("STRESS_2X_FRICTION", "STRESS_WIDER_SPREAD_SLIPPAGE_2X")
     eff_spread = spread_usd * (2.0 if is_stress_2x else 1.0)
     eff_slip = base_slippage_usd * (2.0 if is_stress_2x else 1.0)
-    eff_taker = taker_fee_rate * (2.0 if is_stress_2x else 1.0)
-    eff_maker = maker_fee_rate * (2.0 if is_stress_2x else 1.0)
+    eff_taker = taker_fee_rate * (2.0 if fill_mode == "STRESS_2X_FRICTION" else 1.0)
+    eff_maker = maker_fee_rate * (2.0 if fill_mode == "STRESS_2X_FRICTION" else 1.0)
     half_spread = 0.5 * eff_spread
 
     closed_rows = list(lineage_bundle.get("closed_trade_identities") or [])
