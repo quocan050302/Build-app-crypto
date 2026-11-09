@@ -967,14 +967,24 @@ def analyze_15_distinct_recovered_trades_v17931210(
     closed trades, verifying fee/slippage/net PnL conservation and observed vs
     hypothesized loss classification.
     """
+    policy_aliases = (
+        ("SI1_H1_H2", "SI1_MODEL_QUALITY_AND_ARBITRATION"),
+        ("SI2_H3", "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION"),
+        ("SI3_H4", "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY"),
+    )
     target_policies = ("SI1_H1_H2", "SI2_H3", "SI3_H4")
     by_unique_opp_id: Dict[str, Dict[str, Any]] = {}
     policy_trade_ids: Dict[str, List[str]] = {}
     total_occurrences = 0
     errors: List[str] = []
 
-    for pid in target_policies:
-        episodes = (policy_results.get(pid) or {}).get("primary_episodes") or []
+    for pid, full_pid in policy_aliases:
+        p_dict = policy_results.get(pid) or policy_results.get(full_pid) or {}
+        episodes = (
+            p_dict.get("primary_episodes")
+            or (p_dict.get("all_mode_episodes") or {}).get("NEXT_BAR_OPEN_BID_ASK")
+            or []
+        )
         closed_eps = [
             ep for ep in episodes
             if ep.get("filled") and ep.get("outcome_label") in ("WIN", "LOSS")
