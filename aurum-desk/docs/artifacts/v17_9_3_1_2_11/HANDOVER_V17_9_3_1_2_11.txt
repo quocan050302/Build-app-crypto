@@ -1,0 +1,43 @@
+================================================================================
+AURUM DESK — V17.9.3.1.2.11 HANDOVER & VERIFIED BASELINE ANCHORS
+================================================================================
+Repository:                  quocan050302/Build-app-crypto
+App Root:                    aurum-desk/
+Branch (strict):             feature/v17-9-2-structural-sl-tp-from-qa
+Starting Remote HEAD:        656d48d6d4d30a14f4b7b9a175181f61938940c8
+Phase A Tested Executable:   65b8e117271562d6c78b77e767eaebdda04928a3
+Phase B Evidence Commit:     9450616d57ca291c307d2cb78480e70d7bb4906c
+Run ID:                      20261109T063349Z_65b8e1172715
+Run Directory:               aurum-desk/docs/artifacts/v17_9_3_1_2_11/20261109T063349Z_65b8e1172715
+Publication Receipt:         aurum-desk/docs/artifacts/v17_9_3_1_2_11/publication_20261109T063349Z_65b8e1172715.json
+Latest Run Pointer:          aurum-desk/docs/artifacts/v17_9_3_1_2_11/latest_run.json
+Artifact Manifest SHA256:    8e6a56c14dd738d5288aaeb5d1f5b452a76bddc8e416edc4fa3987f37d53a739
+Canonical Dataset SHA256:    9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+
+1. VERIFICATION TRUTH (P0-A)
+- Fresh Pytest Collection: 5,182 collected node IDs (SHA256: 6eb99ae54f0df8fdfcbc09a8ca1b1de63dfc477da005dfd6aca2864f5becbbe4)
+- Fresh Sharded JUnit Execution: 54 shards, 0 reused shards, 5,182 executed, 5,174 passed, 0 failed, 0 errors, 8 platform skips, 0 mandatory skips
+- Worker 1/2/4 & Repeat Determinism: Exact canonical semantic SHA256 parity across 1-worker, 2-worker, 4-worker, and 1-worker repeat child processes (16f800338b5b524fdf38187aa985126ecb5a240fb506c0f9023941edf60970de)
+- Negative Controls: 10 verification-truth negative controls (A..J) and 10 exit-lineage negative controls (E_NEG_01..E_NEG_10) all failed closed as expected.
+
+2. EXIT-EVENT LINEAGE & COHORT CONSERVATION (P0-B)
+- Total Materialized Exit-Lineage Events Across SI0..SI9 x 3 Fill Modes: 7,837 events (566 closed trade identities)
+- Primary Baseline Cohort (SI0_OFF_BASELINE, NEXT_BAR_OPEN_BID_ASK):
+  * Scheduled episodes: 242 = 166 closed trades (9 WIN + 157 LOSS) + 74 OPEN_AT_HORIZON + 1 DATA_GAP_UNRESOLVED + 1 UNFILLED (NO_FILL_ENTRY_GAP)
+  * Realized Gross PnL: -142.7836 USD | Total Fees: 203.1135 USD (Entry: 101.6095, Exit: 101.5040) | Realized Net PnL: -345.8971 USD
+  * Non-closed episodes (74 + 1 + 1 = 76) verified with 0.0 realized PnL and excluded from win/loss denominators.
+- Recovered 15 Unique Closed Trades (SI1/SI2/SI3, NEXT_BAR_OPEN_BID_ASK):
+  * 21 policy occurrences (SI1=6, SI2=9, SI3=6) -> 15 unique closed trades (0 WIN, 15 LOSS; Venn partition 3+2+1+4+2+3=15)
+  * All 15 unique closed trades verified with exit_timestamp_ms > 0, trigger_bar_ts > 0, fill_price > 0, and exit_price > 0.
+- Canonical Universe Denominator Reconciliation:
+  * 22,376 raw M1 bars -> 30 warmup excluded -> 22,346 checkpoints -> 223,460 model-direction evaluations
+  * 56,710 baseline eligible + 6,375 detector-verified SI8 incremental = 63,085 authoritative canonical opportunities (vs 63,117 pre-detector-filter in .9 and 75,525 in .8).
+
+3. ORTHOGONAL VERDICTS
+- VERIFICATION_TRUTH_VERDICT:          PASS
+- EXIT_EVENT_LINEAGE_VERDICT:          PASS
+- BACKTEST_INTEGRITY_VERDICT:          PASS
+- STRATEGY_ECONOMIC_VERDICT:           NEGATIVE_EXPECTANCY_DO_NOT_ACTIVATE
+- FRESH_OOS_VERDICT:                   REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS
+- ACTIVATION_READY:                    NO (PAPER=OFF, LIVE=OFF, AUTO=OFF)
+================================================================================

@@ -1,0 +1,17 @@
+{
+  "activation_ready": "NO",
+  "artifact_manifest_sha256": "8e6a56c14dd738d5288aaeb5d1f5b452a76bddc8e416edc4fa3987f37d53a739",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "engineering_verdict": "PASS",
+  "exit_event_lineage_verdict": "PASS",
+  "fresh_oos_verdict": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "phase_a_tested_executable_sha": "65b8e117271562d6c78b77e767eaebdda04928a3",
+  "phase_b_evidence_commit_sha": "9450616d57ca291c307d2cb78480e70d7bb4906c",
+  "publication_receipt": "aurum-desk/docs/artifacts/v17_9_3_1_2_11/publication_20261109T063349Z_65b8e1172715.json",
+  "run_dir": "aurum-desk/docs/artifacts/v17_9_3_1_2_11/20261109T063349Z_65b8e1172715",
+  "run_id": "20261109T063349Z_65b8e1172715",
+  "strategy_economic_verdict": "NEGATIVE_EXPECTANCY_DO_NOT_ACTIVATE",
+  "verification_truth_verdict": "PASS",
+  "verified_files_count": 80,
+  "version": "v17_9_3_1_2_11"
+}
