@@ -3970,111 +3970,139 @@ def verify_all_policy_fill_mode_lineage_independently_v17931211(
             src_recon_res = {"status": "FAIL", "checked": False, "violations": [err_msg]}
             violations.append(err_msg)
 
-    # Cross-check producer artifacts 10, 11, 12, 13, 14, 15, 16 against reconstructed partitions
-    try:
-        pnl_14 = json.loads((run_dir / "14_independent_realized_pnl_and_fee_recomputation.json").read_text(encoding="utf-8"))
-        cons_16 = json.loads((run_dir / "16_all_policies_three_fill_modes_conservation.json").read_text(encoding="utf-8"))
-        rec15_15 = json.loads((run_dir / "15_recovered_15_trades_exit_forensics_and_venn.json").read_text(encoding="utf-8"))
+    # Reconstruct Venn partition for SI1, SI2, SI3 (NEXT_BAR_OPEN_BID_ASK) directly from raw stream
+    si1_opps = {
+        c["opportunity_id"]
+        for c in reconstructed_partitions["SI1_MODEL_QUALITY_AND_ARBITRATION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+    }
+    si2_opps = {
+        c["opportunity_id"]
+        for c in reconstructed_partitions["SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+    }
+    si3_opps = {
+        c["opportunity_id"]
+        for c in reconstructed_partitions["SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+    }
+    union_opps = si1_opps | si2_opps | si3_opps
+    reconstructed_venn = {
+        "SI1_H1_H2+SI2_H3+SI3_H4": len(si1_opps & si2_opps & si3_opps),
+        "SI1_H1_H2+SI2_H3_only": len((si1_opps & si2_opps) - si3_opps),
+        "SI1_H1_H2+SI3_H4_only": len((si1_opps & si3_opps) - si2_opps),
+        "SI1_H1_H2_only": len(si1_opps - si2_opps - si3_opps),
+        "SI2_H3+SI3_H4_only": len((si2_opps & si3_opps) - si1_opps),
+        "SI2_H3_only": len(si2_opps - si1_opps - si3_opps),
+        "SI3_H4_only": len(si3_opps - si1_opps - si2_opps),
+    }
+    reconstructed_occurrences = len(si1_opps) + len(si2_opps) + len(si3_opps)
 
-        # Check summary of 14 against SI0 NEXT_BAR_OPEN_BID_ASK
-        si0_nb_rec = per_partition_results["SI0_OFF_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"]
-        s14 = pnl_14.get("summary") or {}
-        for k_num in (
-            "closed_trades_count",
-            "wins_count",
-            "losses_count",
-            "recomputed_total_gross_pnl_usd",
-            "recomputed_total_entry_fee_usd",
-            "recomputed_total_exit_fee_usd",
-            "recomputed_total_fees_usd",
-            "recomputed_total_net_pnl_usd",
-            "recomputed_expectancy_net_r",
-        ):
-            if abs(float(s14.get(k_num, -999999.0)) - float(si0_nb_rec[k_num])) > 0.0005:
-                violations.append(
-                    f"PNL_14_SUMMARY_MISMATCH:{k_num}:reported={s14.get(k_num)}!=reconstructed={si0_nb_rec[k_num]}"
-                )
+    # Cross-check producer artifacts (either .11 14/15/16 or .12 15_r4) against reconstructed partitions
+    p14_path = run_dir / "14_independent_realized_pnl_and_fee_recomputation.json"
+    p15_v12_path = run_dir / "15_r4_all_policies_three_fill_modes_replay_summary.json"
+    if p14_path.is_file():
+        try:
+            pnl_14 = json.loads(p14_path.read_text(encoding="utf-8"))
+            cons_16 = json.loads((run_dir / "16_all_policies_three_fill_modes_conservation.json").read_text(encoding="utf-8"))
+            rec15_15 = json.loads((run_dir / "15_recovered_15_trades_exit_forensics_and_venn.json").read_text(encoding="utf-8"))
 
-        # Check all 30 partitions in 14 and 16
-        for pid in CANONICAL_POLICIES_V17931211:
-            for fm in CANONICAL_FILL_MODES_V17931211:
-                rec_cell = per_partition_results[pid][fm]
-                p14_cell = ((pnl_14.get("by_policy_and_fill_mode") or {}).get(pid) or {}).get(fm)
-                if not isinstance(p14_cell, Mapping):
-                    violations.append(f"PNL_14_MISSING_PARTITION:{pid}:{fm}")
-                else:
-                    for k_num in (
-                        "closed_trades_count",
-                        "wins_count",
-                        "losses_count",
-                        "recomputed_total_gross_pnl_usd",
-                        "recomputed_total_entry_fee_usd",
-                        "recomputed_total_exit_fee_usd",
-                        "recomputed_total_fees_usd",
-                        "recomputed_total_net_pnl_usd",
-                        "recomputed_expectancy_net_r",
-                    ):
-                        if abs(float(p14_cell.get(k_num, -999999.0)) - float(rec_cell[k_num])) > 0.0005:
-                            violations.append(
-                                f"PNL_14_PARTITION_MISMATCH:{pid}:{fm}:{k_num}:{p14_cell.get(k_num)}!={rec_cell[k_num]}"
-                            )
+            # Check summary of 14 against SI0 NEXT_BAR_OPEN_BID_ASK
+            si0_nb_rec = per_partition_results["SI0_OFF_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"]
+            s14 = pnl_14.get("summary") or {}
+            for k_num in (
+                "closed_trades_count",
+                "wins_count",
+                "losses_count",
+                "recomputed_total_gross_pnl_usd",
+                "recomputed_total_entry_fee_usd",
+                "recomputed_total_exit_fee_usd",
+                "recomputed_total_fees_usd",
+                "recomputed_total_net_pnl_usd",
+                "recomputed_expectancy_net_r",
+            ):
+                if abs(float(s14.get(k_num, -999999.0)) - float(si0_nb_rec[k_num])) > 0.0005:
+                    violations.append(
+                        f"PNL_14_SUMMARY_MISMATCH:{k_num}:reported={s14.get(k_num)}!=reconstructed={si0_nb_rec[k_num]}"
+                    )
 
-                c16_cell = ((cons_16.get("conservation_by_policy_and_fill_mode") or {}).get(pid) or {}).get(fm)
-                if not isinstance(c16_cell, Mapping):
-                    violations.append(f"CONS_16_MISSING_PARTITION:{pid}:{fm}")
-                else:
-                    for k_cnt, k_rec in (
-                        ("total_scheduled_episodes", "total_episodes"),
-                        ("closed_trades_count", "closed_trades_count"),
-                        ("wins_count", "wins_count"),
-                        ("losses_count", "losses_count"),
-                        ("open_at_horizon_count", "open_at_horizon_count"),
-                        ("data_gap_unresolved_count", "data_gap_unresolved_count"),
-                        ("unfilled_no_entry_count", "unfilled_no_entry_count"),
-                        ("total_realized_gross_pnl_usd", "recomputed_total_gross_pnl_usd"),
-                        ("total_fees_usd", "recomputed_total_fees_usd"),
-                        ("total_realized_net_pnl_usd", "recomputed_total_net_pnl_usd"),
-                    ):
-                        if abs(float(c16_cell.get(k_cnt, -999999.0)) - float(rec_cell[k_rec])) > 0.0005:
-                            violations.append(
-                                f"CONS_16_PARTITION_MISMATCH:{pid}:{fm}:{k_cnt}:{c16_cell.get(k_cnt)}!={rec_cell[k_rec]}"
-                            )
+            # Check all 30 partitions in 14 and 16
+            for pid in CANONICAL_POLICIES_V17931211:
+                for fm in CANONICAL_FILL_MODES_V17931211:
+                    rec_cell = per_partition_results[pid][fm]
+                    p14_cell = ((pnl_14.get("by_policy_and_fill_mode") or {}).get(pid) or {}).get(fm)
+                    if not isinstance(p14_cell, Mapping):
+                        violations.append(f"PNL_14_MISSING_PARTITION:{pid}:{fm}")
+                    else:
+                        for k_num in (
+                            "closed_trades_count",
+                            "wins_count",
+                            "losses_count",
+                            "recomputed_total_gross_pnl_usd",
+                            "recomputed_total_entry_fee_usd",
+                            "recomputed_total_exit_fee_usd",
+                            "recomputed_total_fees_usd",
+                            "recomputed_total_net_pnl_usd",
+                            "recomputed_expectancy_net_r",
+                        ):
+                            if abs(float(p14_cell.get(k_num, -999999.0)) - float(rec_cell[k_num])) > 0.0005:
+                                violations.append(
+                                    f"PNL_14_PARTITION_MISMATCH:{pid}:{fm}:{k_num}:{p14_cell.get(k_num)}!={rec_cell[k_num]}"
+                                )
 
-        # Reconstruct Venn partition for SI1, SI2, SI3 (NEXT_BAR_OPEN_BID_ASK) from raw stream
-        si1_opps = {
-            c["opportunity_id"]
-            for c in reconstructed_partitions["SI1_MODEL_QUALITY_AND_ARBITRATION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
-        }
-        si2_opps = {
-            c["opportunity_id"]
-            for c in reconstructed_partitions["SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
-        }
-        si3_opps = {
-            c["opportunity_id"]
-            for c in reconstructed_partitions["SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
-        }
-        union_opps = si1_opps | si2_opps | si3_opps
-        reconstructed_venn = {
-            "SI1_H1_H2+SI2_H3+SI3_H4": len(si1_opps & si2_opps & si3_opps),
-            "SI1_H1_H2+SI2_H3_only": len((si1_opps & si2_opps) - si3_opps),
-            "SI1_H1_H2+SI3_H4_only": len((si1_opps & si3_opps) - si2_opps),
-            "SI1_H1_H2_only": len(si1_opps - si2_opps - si3_opps),
-            "SI2_H3+SI3_H4_only": len((si2_opps & si3_opps) - si1_opps),
-            "SI2_H3_only": len(si2_opps - si1_opps - si3_opps),
-            "SI3_H4_only": len(si3_opps - si1_opps - si2_opps),
-        }
-        reconstructed_occurrences = len(si1_opps) + len(si2_opps) + len(si3_opps)
-        if int(rec15_15.get("unique_closed_trades_count", -1)) != len(union_opps):
-            violations.append(f"REC15_UNIQUE_COUNT_MISMATCH:{rec15_15.get('unique_closed_trades_count')}!={len(union_opps)}")
-        if int(rec15_15.get("total_policy_trade_occurrences", -1)) != reconstructed_occurrences:
-            violations.append(f"REC15_OCCURRENCES_MISMATCH:{rec15_15.get('total_policy_trade_occurrences')}!={reconstructed_occurrences}")
-        if dict(rec15_15.get("venn_overlap_partition") or {}) != reconstructed_venn:
-            violations.append(f"REC15_VENN_PARTITION_MISMATCH:{rec15_15.get('venn_overlap_partition')}!={reconstructed_venn}")
-    except Exception as exc:
-        violations.append(f"PRODUCER_ARTIFACT_CROSS_CHECK_ERROR:{exc}")
-        reconstructed_venn = {}
-        reconstructed_occurrences = 0
-        union_opps = set()
+                    c16_cell = ((cons_16.get("conservation_by_policy_and_fill_mode") or {}).get(pid) or {}).get(fm)
+                    if not isinstance(c16_cell, Mapping):
+                        violations.append(f"CONS_16_MISSING_PARTITION:{pid}:{fm}")
+                    else:
+                        for k_cnt, k_rec in (
+                            ("total_scheduled_episodes", "total_episodes"),
+                            ("closed_trades_count", "closed_trades_count"),
+                            ("wins_count", "wins_count"),
+                            ("losses_count", "losses_count"),
+                            ("open_at_horizon_count", "open_at_horizon_count"),
+                            ("data_gap_unresolved_count", "data_gap_unresolved_count"),
+                            ("unfilled_no_entry_count", "unfilled_no_entry_count"),
+                            ("total_realized_gross_pnl_usd", "recomputed_total_gross_pnl_usd"),
+                            ("total_fees_usd", "recomputed_total_fees_usd"),
+                            ("total_realized_net_pnl_usd", "recomputed_total_net_pnl_usd"),
+                        ):
+                            if abs(float(c16_cell.get(k_cnt, -999999.0)) - float(rec_cell[k_rec])) > 0.0005:
+                                violations.append(
+                                    f"CONS_16_PARTITION_MISMATCH:{pid}:{fm}:{k_cnt}:{c16_cell.get(k_cnt)}!={rec_cell[k_rec]}"
+                                )
+
+            if int(rec15_15.get("unique_closed_trades_count", -1)) != len(union_opps):
+                violations.append(f"REC15_UNIQUE_COUNT_MISMATCH:{rec15_15.get('unique_closed_trades_count')}!={len(union_opps)}")
+            if int(rec15_15.get("total_policy_trade_occurrences", -1)) != reconstructed_occurrences:
+                violations.append(f"REC15_OCCURRENCES_MISMATCH:{rec15_15.get('total_policy_trade_occurrences')}!={reconstructed_occurrences}")
+            if dict(rec15_15.get("venn_overlap_partition") or {}) != reconstructed_venn:
+                violations.append(f"REC15_VENN_PARTITION_MISMATCH:{rec15_15.get('venn_overlap_partition')}!={reconstructed_venn}")
+        except Exception as exc:
+            violations.append(f"PRODUCER_ARTIFACT_CROSS_CHECK_ERROR:{exc}")
+    elif p15_v12_path.is_file():
+        try:
+            p15_doc = json.loads(p15_v12_path.read_text(encoding="utf-8"))
+            for pid in CANONICAL_POLICIES_V17931211:
+                for fm in CANONICAL_FILL_MODES_V17931211:
+                    rec_cell = per_partition_results[pid][fm]
+                    p15_cell = ((p15_doc.get("by_policy_and_fill_mode") or {}).get(pid) or {}).get(fm)
+                    if not isinstance(p15_cell, Mapping):
+                        violations.append(f"P15_V12_MISSING_PARTITION:{pid}:{fm}")
+                    else:
+                        for k_num in (
+                            "closed_trades_count",
+                            "wins_count",
+                            "losses_count",
+                            "recomputed_total_gross_pnl_usd",
+                            "recomputed_total_entry_fee_usd",
+                            "recomputed_total_exit_fee_usd",
+                            "recomputed_total_fees_usd",
+                            "recomputed_total_net_pnl_usd",
+                            "recomputed_expectancy_net_r",
+                        ):
+                            if abs(float(p15_cell.get(k_num, -999999.0)) - float(rec_cell[k_num])) > 0.0005:
+                                violations.append(
+                                    f"P15_V12_PARTITION_MISMATCH:{pid}:{fm}:{k_num}:{p15_cell.get(k_num)}!={rec_cell[k_num]}"
+                                )
+        except Exception as exc:
+            violations.append(f"PRODUCER_ARTIFACT_CROSS_CHECK_ERROR:{exc}")
 
     si0_reconstructed = reconstructed_partitions["SI0_OFF_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"]
 
@@ -4917,9 +4945,13 @@ def run_truth_closure_negative_controls_v01_to_v22_v17931211(
         r_v19 = verify_strict_report_and_handover_consistency_v17931211(bad_readme_v19, handover_text, report_metrics)
         _add_ctrl("V19_VENN_PARTITION_NARRATIVE_DRIFT_3_2_1_4_2_3_VS_6_9", readme_text, bad_readme_v19, "mutate_venn_cells_from_6_and_9_to_1_and_2", "verify_strict_report_and_handover_consistency_v17931211", "README_KV_MISMATCH:VENN_SI1_SI3_ONLY", r_v19, t0, tmp_dir)
 
-        # V20: Alter negative-control count in HANDOVER from 22 to 10
+        # V20: Alter negative-control count in HANDOVER from expected (22 or 40) to 10
         t0 = _time.time_ns()
-        bad_handover_v20 = handover_text.replace("METRICS_KV|NEGATIVE_CONTROLS_COUNT|22", "METRICS_KV|NEGATIVE_CONTROLS_COUNT|10")
+        neg_cnt_str = str((report_metrics.get("flat_kv") or {}).get("NEGATIVE_CONTROLS_COUNT", report_metrics.get("negative_controls_count", 22)))
+        bad_handover_v20 = handover_text.replace(
+            f"METRICS_KV|NEGATIVE_CONTROLS_COUNT|{neg_cnt_str}",
+            "METRICS_KV|NEGATIVE_CONTROLS_COUNT|10",
+        )
         r_v20 = verify_strict_report_and_handover_consistency_v17931211(readme_text, bad_handover_v20, report_metrics)
         _add_ctrl("V20_HANDOVER_NEGATIVE_CONTROL_COUNT_MISMATCH_10_VS_22", handover_text, bad_handover_v20, "change_negative_controls_count_kv_from_22_to_10", "verify_strict_report_and_handover_consistency_v17931211", "HANDOVER_KV_MISMATCH:NEGATIVE_CONTROLS_COUNT", r_v20, t0, tmp_dir)
 
