@@ -3154,12 +3154,17 @@ def read_exit_event_stream_strict_v17931211(
     expected_tested_sha: str,
     expected_dataset_sha: str = CANONICAL_DATASET_SHA256_V17931211,
     max_line_bytes: int = 262144,
+    allow_legacy_hash_compat: bool = False,
+    provider_capture_manifest: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Strictly reads `09_exit_event_lineage_ledger.jsonl.gz` (or `.jsonl`) from disk,
-    enforcing line-length bounds, rejecting NaN/Infinity constants, verifying run_id,
-    tested_executable_sha, dataset_sha256, global event_id uniqueness, per-event
-    semantic_hash integrity, and explicit non-UNKNOWN evidence_origin.
+    enforcing line-length bounds, rejecting NaN/Infinity constants, verifying presence,
+    type, and finiteness of all required schema fields BEFORE use, rejecting missing
+    or UNKNOWN evidence_origin / quote_source_kind / source_class without silent defaults,
+    rejecting legacy_sem_hash unless allow_legacy_hash_compat=True is explicitly requested
+    for locked initial .11 run 20261109T063349Z_65b8e1172715, and rejecting forged
+    REAL_PROVIDER_QUOTE / ACTUALLY_CAPTURED_PROVIDER_EVENT claims without provider capture proof.
     """
     violations: List[str] = []
     stream_path = Path(stream_path)
@@ -3184,6 +3189,45 @@ def read_exit_event_stream_strict_v17931211(
     source_class_counter: Counter[str] = Counter()
     quote_kind_counter: Counter[str] = Counter()
 
+    required_str_fields: Tuple[str, ...] = (
+        "run_id",
+        "tested_executable_sha",
+        "dataset_sha256",
+        "policy_id",
+        "fill_mode",
+        "opportunity_id",
+        "episode_id",
+        "event_id",
+        "event_kind",
+        "source_class",
+        "source_evidence_id",
+        "evidence_origin",
+        "quote_source_kind",
+        "price_basis",
+        "state_before",
+        "state_after",
+        "semantic_hash",
+    )
+    required_int_fields: Tuple[str, ...] = (
+        "sequence_no",
+        "source_event_timestamp_ms",
+        "observed_timestamp_ms",
+        "known_at_timestamp_ms",
+        "decision_cutoff_timestamp_ms",
+    )
+    allowed_quote_kinds = frozenset({
+        "SYNTHETIC_RESEARCH_QUOTE",
+        "HISTORICAL_BAR_QUOTE",
+        "HISTORICAL_M1_OHLC_MID",
+        "REAL_PROVIDER_QUOTE",
+    })
+    verified_provider_ids: Set[str] = set()
+    if isinstance(provider_capture_manifest, Mapping):
+        for k_prov in ("verified_event_ids", "verified_source_evidence_ids"):
+            raw_ids = provider_capture_manifest.get(k_prov)
+            if isinstance(raw_ids, (list, tuple, set)):
+                verified_provider_ids.update(str(x) for x in raw_ids if x)
+
     try:
         opener = (
             gzip.open(stream_path, "rt", encoding="utf-8")
@@ -3206,12 +3250,31 @@ def read_exit_event_stream_strict_v17931211(
                     violations.append(f"STREAM_ROW_NOT_OBJECT:line={line_no}")
                     continue
 
-                eid = str(ev.get("event_id") or "")
+                eid_raw = ev.get("event_id")
+                eid = str(eid_raw).strip() if isinstance(eid_raw, str) else ""
                 if not eid:
                     violations.append(f"STREAM_EVENT_MISSING_ID:line={line_no}")
+                    eid = f"line_{line_no}"
                 elif eid in seen_event_ids:
                     violations.append(f"STREAM_DUPLICATE_EVENT_ID:{eid}")
                 seen_event_ids.add(eid)
+
+                # Validate all required string fields for presence, non-null, non-empty string
+                for req_f in required_str_fields:
+                    val_f = ev.get(req_f)
+                    if not isinstance(val_f, str) or not val_f.strip():
+                        violations.append(f"STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD:{eid}:{req_f}")
+
+                # Validate all required integer timestamp / sequence fields
+                for req_i in required_int_fields:
+                    val_i = ev.get(req_i)
+                    if isinstance(val_i, bool) or not isinstance(val_i, int) or val_i <= 0:
+                        violations.append(f"STREAM_INVALID_REQUIRED_INT_FIELD:{eid}:{req_i}:{val_i}")
+
+                if not isinstance(ev.get("parent_event_ids"), list):
+                    violations.append(f"STREAM_INVALID_PARENT_EVENT_IDS:{eid}")
+                if not isinstance(ev.get("payload"), dict):
+                    violations.append(f"STREAM_INVALID_PAYLOAD_OBJECT:{eid}")
 
                 if str(ev.get("run_id") or "") != expected_run_id:
                     violations.append(f"STREAM_RUN_ID_MISMATCH:{eid}:{ev.get('run_id')}!={expected_run_id}")
@@ -3220,30 +3283,54 @@ def read_exit_event_stream_strict_v17931211(
                 if str(ev.get("dataset_sha256") or "") != expected_dataset_sha:
                     violations.append(f"STREAM_DATASET_SHA_MISMATCH:{eid}:{ev.get('dataset_sha256')}!={expected_dataset_sha}")
 
-                ev_origin = str(ev.get("evidence_origin") or "RECONSTRUCTED_FROM_EXECUTION_LEDGER")
-                origin_counter[ev_origin] += 1
-                if ev_origin not in EVIDENCE_ORIGIN_CLASSES_V17931211 or ev_origin == "UNKNOWN":
-                    violations.append(f"STREAM_INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN:{eid}:{ev_origin}")
+                raw_origin = ev.get("evidence_origin")
+                ev_origin = str(raw_origin).strip() if isinstance(raw_origin, str) else ""
+                if ev_origin:
+                    origin_counter[ev_origin] += 1
+                if not ev_origin or ev_origin not in EVIDENCE_ORIGIN_CLASSES_V17931211 or ev_origin == "UNKNOWN":
+                    violations.append(f"STREAM_INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN:{eid}:{raw_origin}")
 
-                src_cls = str(ev.get("source_class") or "")
-                source_class_counter[src_cls] += 1
-                if src_cls not in SOURCE_CLASSES_V17931211 or src_cls == "UNKNOWN":
-                    violations.append(f"STREAM_INVALID_OR_UNKNOWN_SOURCE_CLASS:{eid}:{src_cls}")
+                raw_src_cls = ev.get("source_class")
+                src_cls = str(raw_src_cls).strip() if isinstance(raw_src_cls, str) else ""
+                if src_cls:
+                    source_class_counter[src_cls] += 1
+                if not src_cls or src_cls not in SOURCE_CLASSES_V17931211 or src_cls == "UNKNOWN":
+                    violations.append(f"STREAM_INVALID_OR_UNKNOWN_SOURCE_CLASS:{eid}:{raw_src_cls}")
 
-                q_kind = str(ev.get("quote_source_kind") or "SYNTHETIC_RESEARCH_QUOTE")
-                quote_kind_counter[q_kind] += 1
+                raw_q_kind = ev.get("quote_source_kind")
+                q_kind = str(raw_q_kind).strip() if isinstance(raw_q_kind, str) else ""
+                if q_kind:
+                    quote_kind_counter[q_kind] += 1
+                if not q_kind or q_kind not in allowed_quote_kinds:
+                    violations.append(f"STREAM_INVALID_OR_UNKNOWN_QUOTE_SOURCE_KIND:{eid}:{raw_q_kind}")
+
+                # Reject forged REAL_PROVIDER_QUOTE / ORIGINAL_CAPTURED_EVENT / REAL_PROVIDER without capture proof
+                if (
+                    ev_origin in ("ORIGINAL_CAPTURED_EVENT", "ACTUALLY_CAPTURED_PROVIDER_EVENT")
+                    or q_kind == "REAL_PROVIDER_QUOTE"
+                    or src_cls == "REAL_PROVIDER"
+                ):
+                    src_ev_id = str(ev.get("source_evidence_id") or "")
+                    if eid not in verified_provider_ids and src_ev_id not in verified_provider_ids:
+                        violations.append(
+                            f"FORGED_REAL_PROVIDER_OR_ORIGINAL_CAPTURE_CLAIM:{eid}:{ev_origin}:{src_cls}:{q_kind}"
+                        )
 
                 expected_sem_hash = canonical_hash({
                     k: v for k, v in ev.items() if k not in ("run_id", "tested_executable_sha", "semantic_hash")
                 })
-                legacy_sem_hash = canonical_hash({
-                    k: v
-                    for k, v in ev.items()
-                    if k not in ("run_id", "tested_executable_sha", "semantic_hash", "evidence_origin", "quote_source_kind")
-                })
                 actual_sem_hash = str(ev.get("semantic_hash") or "")
-                if actual_sem_hash not in (expected_sem_hash, legacy_sem_hash):
-                    violations.append(f"STREAM_EVENT_SEMANTIC_HASH_TAMPERED:{eid}")
+                if actual_sem_hash != expected_sem_hash:
+                    if allow_legacy_hash_compat and expected_run_id == "20261109T063349Z_65b8e1172715":
+                        legacy_sem_hash = canonical_hash({
+                            k: v
+                            for k, v in ev.items()
+                            if k not in ("run_id", "tested_executable_sha", "semantic_hash", "evidence_origin", "quote_source_kind")
+                        })
+                        if actual_sem_hash != legacy_sem_hash:
+                            violations.append(f"STREAM_EVENT_SEMANTIC_HASH_TAMPERED:{eid}")
+                    else:
+                        violations.append(f"STREAM_EVENT_SEMANTIC_HASH_TAMPERED:{eid}")
 
                 events.append(ev)
     except Exception as exc:
@@ -3265,6 +3352,35 @@ def read_exit_event_stream_strict_v17931211(
         "events": events,
         "violations": violations,
     }
+
+
+def read_legacy_v17931211_initial_stream_readonly(
+    stream_path: Path,
+    *,
+    expected_run_id: str = "20261109T063349Z_65b8e1172715",
+    expected_tested_sha: str = "65b8e117271562d6c78b77e767eaebdda04928a3",
+    expected_dataset_sha: str = CANONICAL_DATASET_SHA256_V17931211,
+) -> Dict[str, Any]:
+    """
+    Explicit read-only compatibility reader strictly isolated to the locked initial .11
+    run (20261109T063349Z_65b8e1172715). Never invoked by active .11 Truth Closure or .12
+    verifiers.
+    """
+    if expected_run_id != "20261109T063349Z_65b8e1172715":
+        return {
+            "version": VERSION_V17931211,
+            "status": "FAIL",
+            "events": [],
+            "events_count": 0,
+            "violations": [f"LEGACY_READONLY_READER_FORBIDDEN_FOR_RUN:{expected_run_id}"],
+        }
+    return read_exit_event_stream_strict_v17931211(
+        stream_path,
+        expected_run_id=expected_run_id,
+        expected_tested_sha=expected_tested_sha,
+        expected_dataset_sha=expected_dataset_sha,
+        allow_legacy_hash_compat=True,
+    )
 
 
 def group_raw_exit_events_by_partition_v17931211(
@@ -3617,6 +3733,10 @@ def verify_raw_stream_vs_source_execution_v17931211(
                     violations.append(f"SOURCE_FILLED_MISMATCH:{key}")
                 if str(ch.get("outcome_label")) != str(src.get("outcome_label")):
                     violations.append(f"SOURCE_OUTCOME_MISMATCH:{key}:{ch.get('outcome_label')}!={src.get('outcome_label')}")
+                if src.get("model_id") and str(ch.get("model_id")) != str(src.get("model_id")):
+                    violations.append(f"SOURCE_MODEL_ID_MISMATCH:{key}:{ch.get('model_id')}!={src.get('model_id')}")
+                if src.get("direction") and str(ch.get("direction")).upper() != str(src.get("direction")).upper():
+                    violations.append(f"SOURCE_DIRECTION_MISMATCH:{key}:{ch.get('direction')}!={src.get('direction')}")
 
                 if ch.get("is_closed_trade"):
                     cid = closed_by_opp.get(opp_id)
@@ -3635,6 +3755,30 @@ def verify_raw_stream_vs_source_execution_v17931211(
                         v_r = float(src.get(f_src) or 0.0)
                         if abs(v_s - v_r) > 0.001:
                             violations.append(f"SOURCE_NUMERIC_MISMATCH:{key}:{f_stream}:{v_s}!={v_r}")
+
+                    for f_opt_stream, f_opt_src in (
+                        ("quantity", "quantity"),
+                        ("selected_sl", "selected_sl"),
+                        ("take_profit", "take_profit"),
+                        ("entry_reference", "entry_reference"),
+                        ("planned_net_risk_usd", "planned_net_risk_usd"),
+                        ("realized_r", "realized_r"),
+                    ):
+                        if src.get(f_opt_src) is not None and float(src.get(f_opt_src) or 0.0) != 0.0:
+                            v_s = float(cid.get(f_opt_stream) or 0.0)
+                            v_r = float(src.get(f_opt_src) or 0.0)
+                            if abs(v_s - v_r) > 0.001:
+                                violations.append(f"SOURCE_NUMERIC_MISMATCH:{key}:{f_opt_stream}:{v_s}!={v_r}")
+
+                    for f_ts_stream, f_ts_src in (
+                        ("decision_timestamp_ms", "decision_timestamp_ms"),
+                        ("entry_fill_timestamp_ms", "entry_fill_ts"),
+                        ("exit_fill_timestamp_ms", "exit_fill_ts"),
+                        ("bars_held", "bars_held"),
+                    ):
+                        if src.get(f_ts_src) is not None and int(src.get(f_ts_src) or 0) > 0:
+                            if int(cid.get(f_ts_stream) or 0) != int(src.get(f_ts_src) or 0):
+                                violations.append(f"SOURCE_TS_OR_BARS_MISMATCH:{key}:{f_ts_stream}")
 
                     trig_ts = int(cid.get("trigger_bar_timestamp_ms") or 0)
                     src_trig_ts = int(src.get("trigger_bar_ts") or 0)
@@ -3677,6 +3821,7 @@ def verify_all_policy_fill_mode_lineage_independently_v17931211(
     expected_run_id: str,
     expected_tested_sha: str,
     expected_dataset_sha: str = CANONICAL_DATASET_SHA256_V17931211,
+    require_source_reconciliation: bool = True,
 ) -> Dict[str, Any]:
     """
     P0-A & P0-B Truth-Closure Core Authority:
@@ -3684,7 +3829,8 @@ def verify_all_policy_fill_mode_lineage_independently_v17931211(
     all 30 `(policy_id, fill_mode)` pairs (`SI0..SI9` x 3 fill modes), reconstructs
     each partition's lineage bundle from raw events without reading
     `cons_16["primary_si0_lineage_bundle"]`, executes all 6 lineage verifiers on
-    every partition, cross-checks against `09_original_execution_ledger_source_reconciliation.jsonl.gz`,
+    every partition, fails closed when `09_original_execution_ledger_source_reconciliation.jsonl.gz`
+    is absent, empty, or mismatched (`require_source_reconciliation=True` by default),
     and verifies that artifacts `10`, `11`, `12`, `13`, `14`, `15`, `16` match the
     reconstructed raw stream across all 30 partitions.
     """
@@ -3790,20 +3936,39 @@ def verify_all_policy_fill_mode_lineage_independently_v17931211(
                 else "FAIL",
             }
 
-    # Cross-check against 09_original_execution_ledger_source_reconciliation.jsonl.gz when present
+    # Mandatory fail-closed cross-check against 09_original_execution_ledger_source_reconciliation.jsonl.gz
     src_recon_path = run_dir / "09_original_execution_ledger_source_reconciliation.jsonl.gz"
-    src_recon_res: Dict[str, Any] = {"status": "PASS", "checked": False, "violations": []}
-    if src_recon_path.exists():
-        with gzip.open(src_recon_path, "rt", encoding="utf-8") as fh:
-            src_rows = [json.loads(line) for line in fh if line.strip()]
-        src_recon_res = verify_raw_stream_vs_source_execution_v17931211(
-            reconstructed_partitions,
-            src_rows,
-            bars_1m_by_open_ts=bars_1m_by_open_ts,
-        )
-        src_recon_res["checked"] = True
-        if src_recon_res["status"] != "PASS":
-            violations.extend(src_recon_res["violations"])
+    src_recon_res: Dict[str, Any] = {
+        "status": "FAIL" if require_source_reconciliation else "PASS",
+        "checked": False,
+        "violations": [],
+    }
+    if not src_recon_path.exists():
+        if require_source_reconciliation:
+            miss_msg = f"MISSING_MANDATORY_SOURCE_EXECUTION_LEDGER:{src_recon_path.name}"
+            src_recon_res["violations"].append(miss_msg)
+            violations.append(miss_msg)
+    else:
+        try:
+            with gzip.open(src_recon_path, "rt", encoding="utf-8") as fh:
+                src_rows = [json.loads(line) for line in fh if line.strip()]
+            if not src_rows:
+                empty_msg = f"EMPTY_MANDATORY_SOURCE_EXECUTION_LEDGER:{src_recon_path.name}"
+                src_recon_res = {"status": "FAIL", "checked": False, "violations": [empty_msg]}
+                violations.append(empty_msg)
+            else:
+                src_recon_res = verify_raw_stream_vs_source_execution_v17931211(
+                    reconstructed_partitions,
+                    src_rows,
+                    bars_1m_by_open_ts=bars_1m_by_open_ts,
+                )
+                src_recon_res["checked"] = True
+                if src_recon_res["status"] != "PASS":
+                    violations.extend(src_recon_res["violations"])
+        except Exception as exc:
+            err_msg = f"UNREADABLE_SOURCE_EXECUTION_LEDGER:{src_recon_path.name}:{exc}"
+            src_recon_res = {"status": "FAIL", "checked": False, "violations": [err_msg]}
+            violations.append(err_msg)
 
     # Cross-check producer artifacts 10, 11, 12, 13, 14, 15, 16 against reconstructed partitions
     try:

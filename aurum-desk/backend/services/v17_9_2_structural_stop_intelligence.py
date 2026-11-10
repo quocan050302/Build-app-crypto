@@ -3344,3 +3344,226 @@ def verify_v17931_frozen_forensic_episode_parity(
         "episodes": reconciled_rows,
     }
 
+
+def evaluate_r3_counterfactual_stop_and_target_v17931212(
+    *,
+    variant_id: str,
+    opportunity_id: str,
+    episode_key: str,
+    model_id: str,
+    direction: str,
+    decision_timestamp_ms: int,
+    baseline_entry: float,
+    baseline_sl: float,
+    baseline_tp: float,
+    closed_m1: Sequence[Any],
+    closed_m5: Sequence[Any] = (),
+    closed_m15: Sequence[Any] = (),
+    forward_bars: Sequence[Any] = (),
+    pre_entry_features: Optional[Mapping[str, Any]] = None,
+    fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
+    dataset_sha: str = "",
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1.2.12 R3: Evaluates pre-registered matched counterfactual variants:
+      - A0_STRICT_BASELINE: exact baseline entry, SL, TP, and sizing.
+      - A1_ENTRY_CONFIRMATION_RETEST_ONLY: requires causal MSS/displacement or FVG retest confirmation;
+        retains baseline SL/TP geometry when confirmed.
+      - A2_PROTECTED_SL_NOISE_BUFFER_ONLY: retains baseline entry and TP; replaces SL with outer
+        causal protected swing + ATR/spread noise buffer at fixed $2.50 risk cap.
+      - A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY: retains baseline entry and SL; replaces TP with nearest
+        unswept causal liquidity pool target satisfying net RR >= 2.0.
+      - A4_COMBINED_CAUSAL_ENTRY_SL_TP: combines A1 causal entry confirmation, A2 protected SL +
+        noise buffer, and A3 unswept liquidity TP at fixed $2.50 risk cap.
+    """
+    norm_dir = str(direction or "LONG").strip().upper()
+    dec_ms = int(decision_timestamp_ms)
+    feat = dict(pre_entry_features or {})
+
+    # 1. Check Entry Confirmation gate for A1 and A4
+    if variant_id in ("A1_ENTRY_CONFIRMATION_RETEST_ONLY", "A4_COMBINED_CAUSAL_ENTRY_SL_TP"):
+        mss_ok = feat.get("mss_confirmed") is True
+        disp_ok = feat.get("displacement_valid") is True
+        fvg_retest_ok = feat.get("fvg_retest_valid") is True and feat.get("fvg_unmitigated") is True
+        sweep_rec_ok = feat.get("sweep_confirmed") is True and feat.get("sweep_reclaimed") is True
+        entry_confirmed = bool((mss_ok and disp_ok) or fvg_retest_ok or sweep_rec_ok)
+        if not entry_confirmed:
+            return {
+                "variant_id": variant_id,
+                "opportunity_id": opportunity_id,
+                "episode_key": episode_key,
+                "model_id": model_id,
+                "direction": norm_dir,
+                "decision_timestamp_ms": dec_ms,
+                "fill_mode": fill_mode,
+                "status": "REJECTED_PRE_ENTRY",
+                "rejection_reason": "ENTRY_CONFIRMATION_OR_RETEST_NOT_PROVEN_AT_CUTOFF",
+                "filled": False,
+                "is_closed": False,
+                "outcome_label": "REJECTED_PRE_ENTRY",
+                "planned_entry": round(float(baseline_entry), 2),
+                "planned_sl": round(float(baseline_sl), 2),
+                "planned_tp": round(float(baseline_tp), 2),
+                "quantity": 0.0,
+                "planned_net_risk_usd": 0.0,
+                "realized_gross_pnl_usd": 0.0,
+                "realized_net_pnl_usd": 0.0,
+                "total_fee_usd": 0.0,
+                "realized_r_net": 0.0,
+            }
+
+    v1792_plan = plan_v17_9_2_structural_stop_and_target(
+        v1792_mode="FULL_V1792",
+        model_id=model_id,
+        symbol="XAUUSDT",
+        direction=norm_dir,
+        entry_price=float(baseline_entry),
+        decision_timestamp_ms=dec_ms,
+        baseline_sl=float(baseline_sl),
+        baseline_target_price=float(baseline_tp),
+        closed_m1=closed_m1,
+        closed_m5=closed_m5,
+        closed_m15=closed_m15,
+    )
+
+    eff_entry = round(float(baseline_entry), 2)
+    eff_sl = round(float(baseline_sl), 2)
+    eff_tp = round(float(baseline_tp), 2)
+    selected_anchor_id = feat.get("selected_anchor_id") or v1792_plan.frozen_anchor_id
+    selected_target_id = feat.get("selected_target_id") or (
+        v1792_plan.target_plan.selected_target_id if v1792_plan.target_plan else None
+    )
+
+    # 2. Apply Protected SL + Noise Buffer for A2 and A4
+    if variant_id in ("A2_PROTECTED_SL_NOISE_BUFFER_ONLY", "A4_COMBINED_CAUSAL_ENTRY_SL_TP"):
+        if v1792_plan.proposed_sl is None or v1792_plan.selected_anchor is None:
+            return {
+                "variant_id": variant_id,
+                "opportunity_id": opportunity_id,
+                "episode_key": episode_key,
+                "model_id": model_id,
+                "direction": norm_dir,
+                "decision_timestamp_ms": dec_ms,
+                "fill_mode": fill_mode,
+                "status": "REJECTED_PRE_ENTRY",
+                "rejection_reason": "NO_VALID_CAUSAL_PROTECTED_SWING_ANCHOR",
+                "filled": False,
+                "is_closed": False,
+                "outcome_label": "REJECTED_PRE_ENTRY",
+                "planned_entry": eff_entry,
+                "planned_sl": eff_sl,
+                "planned_tp": eff_tp,
+                "quantity": 0.0,
+                "planned_net_risk_usd": 0.0,
+                "realized_gross_pnl_usd": 0.0,
+                "realized_net_pnl_usd": 0.0,
+                "total_fee_usd": 0.0,
+                "realized_r_net": 0.0,
+            }
+        eff_sl = round(float(v1792_plan.proposed_sl), 2)
+        selected_anchor_id = v1792_plan.frozen_anchor_id
+
+    # 3. Apply Source-Backed Liquidity TP for A3 and A4
+    if variant_id in ("A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY", "A4_COMBINED_CAUSAL_ENTRY_SL_TP"):
+        t_cands = resolve_causal_target_candidates(
+            direction=norm_dir,
+            entry_price=eff_entry,
+            decision_timestamp_ms=dec_ms,
+            closed_m1=closed_m1,
+            closed_m5=closed_m5,
+            closed_m15=closed_m15,
+        )
+        t_plan = select_viable_structural_target(
+            direction=norm_dir,
+            entry_price=eff_entry,
+            proposed_sl=eff_sl,
+            decision_timestamp_ms=dec_ms,
+            target_candidates=t_cands,
+            baseline_target_price=float(baseline_tp),
+            min_net_rr=2.0,
+            target_mode="V1792_CAUSAL_STRUCTURAL_VIABLE",
+        )
+        if t_plan.status != "VALID" or t_plan.target_price is None or len(t_plan.rejection_reasons) > 0:
+            return {
+                "variant_id": variant_id,
+                "opportunity_id": opportunity_id,
+                "episode_key": episode_key,
+                "model_id": model_id,
+                "direction": norm_dir,
+                "decision_timestamp_ms": dec_ms,
+                "fill_mode": fill_mode,
+                "status": "REJECTED_PRE_ENTRY",
+                "rejection_reason": "NO_VIABLE_UNSWEPT_LIQUIDITY_TARGET_NET_RR_2",
+                "filled": False,
+                "is_closed": False,
+                "outcome_label": "REJECTED_PRE_ENTRY",
+                "planned_entry": eff_entry,
+                "planned_sl": eff_sl,
+                "planned_tp": eff_tp,
+                "quantity": 0.0,
+                "planned_net_risk_usd": 0.0,
+                "realized_gross_pnl_usd": 0.0,
+                "realized_net_pnl_usd": 0.0,
+                "total_fee_usd": 0.0,
+                "realized_r_net": 0.0,
+            }
+        eff_tp = round(float(t_plan.target_price), 2)
+        selected_target_id = t_plan.selected_target_id
+
+    sim_entry = simulate_v17931_trade_execution_net(
+        variant=variant_id,
+        episode_key=episode_key,
+        setup_id=opportunity_id,
+        model_id=model_id,
+        direction=norm_dir,
+        decision_ts=dec_ms,
+        planned_entry=eff_entry,
+        planned_sl=eff_sl,
+        planned_tp=eff_tp,
+        forward_bars=forward_bars,
+        fill_mode=fill_mode,
+        dataset_sha=dataset_sha,
+    )
+
+    out_lbl = str(sim_entry.exit_type)
+    if out_lbl in ("LOSS_TIE_CONSERVATIVE", "ADVERSE_GAP_OPEN_STOP_LOSS"):
+        out_lbl = "LOSS"
+    is_closed = bool(sim_entry.filled and out_lbl in ("WIN", "LOSS"))
+
+    return {
+        "variant_id": variant_id,
+        "opportunity_id": opportunity_id,
+        "episode_key": episode_key,
+        "model_id": model_id,
+        "direction": norm_dir,
+        "decision_timestamp_ms": dec_ms,
+        "fill_mode": fill_mode,
+        "status": "SCHEDULED" if sim_entry.filled else "NO_FILL_OR_SIZING_REJECT",
+        "rejection_reason": sim_entry.no_fill_reason,
+        "filled": bool(sim_entry.filled),
+        "is_closed": is_closed,
+        "outcome_label": out_lbl,
+        "exit_type": str(sim_entry.exit_type),
+        "planned_entry": eff_entry,
+        "planned_sl": eff_sl,
+        "planned_tp": eff_tp,
+        "selected_anchor_id": selected_anchor_id,
+        "selected_target_id": selected_target_id,
+        "entry_fill_price": sim_entry.entry_fill_price,
+        "exit_fill_price": sim_entry.exit_fill_price,
+        "entry_fill_ts": sim_entry.entry_fill_ts,
+        "trigger_bar_ts": sim_entry.trigger_bar_ts,
+        "exit_fill_ts": sim_entry.exit_fill_ts,
+        "bars_held": int(sim_entry.bars_held),
+        "quantity": float(sim_entry.quantity),
+        "planned_net_risk_usd": float(sim_entry.planned_net_risk_usd),
+        "entry_fee_usd": float(sim_entry.entry_fee),
+        "exit_fee_usd": float(sim_entry.exit_fee),
+        "total_fee_usd": round(float(sim_entry.entry_fee) + float(sim_entry.exit_fee), 4),
+        "realized_gross_pnl_usd": float(sim_entry.realized_gross_pnl_usd),
+        "realized_net_pnl_usd": float(sim_entry.realized_net_pnl_usd),
+        "realized_r_net": float(sim_entry.realized_r_net),
+        "same_bar_sl_tp_tie": bool(sim_entry.same_bar_sl_tp_tie),
+    }
+
+

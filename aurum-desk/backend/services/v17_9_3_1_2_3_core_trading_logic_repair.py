@@ -1378,3 +1378,69 @@ def compute_v1793123_dual_verdict(
         "reason": base_stat.get("reason", ""),
     }
 
+
+def classify_r1_hierarchical_loss_forensics_v17931212(
+    ep: Mapping[str, Any],
+    feat: Mapping[str, Any],
+    *,
+    ex_post_stop_outcome_class: str = "UNKNOWN",
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1.2.12 R1: Deterministic 8-bucket hierarchical loss classifier (A..H)
+    strictly separating point-in-time pre-entry proof (`known_at_ms <= decision_timestamp_ms`)
+    from post-entry (`EX_POST`) path diagnostics, while keeping `pre_entry_point_in_time_root_cause`
+    explicitly `OTHER/UNKNOWN` whenever point-in-time proof is absent.
+    """
+    out_lbl = str(ep.get("outcome_label") or "")
+    primary_pit, all_pit = classify_single_episode_root_causes_v1793123(ep, feat)
+    if out_lbl == "WIN":
+        return {
+            "pre_entry_point_in_time_primary_cause": "WIN_REALIZED_TP",
+            "pre_entry_point_in_time_all_causes": ["WIN_REALIZED_TP"],
+            "hierarchical_bucket_a_to_h": "WIN_REALIZED_TP",
+            "evidence_timing_scope": "REALIZED_CLOSED_WIN",
+            "point_in_time_proven_pre_entry": True,
+        }
+
+    # Buckets A..E are strictly pre-entry point-in-time proven causes
+    if primary_pit == "WRONG_SIDE_HTF":
+        bucket = "A_PRE_ENTRY_HTF_CONFLICT"
+        scope = "PRE_ENTRY_POINT_IN_TIME"
+        pit_proven = True
+    elif primary_pit in ("FAKE_MSS", "IMPULSE_CHASING", "PREMATURE_ENTRY", "SWEEP_NOT_RECLAIMED"):
+        bucket = "B_PRE_ENTRY_UNCONFIRMED_OR_CHASING"
+        scope = "PRE_ENTRY_POINT_IN_TIME"
+        pit_proven = True
+    elif primary_pit in ("FVG_STALE_OR_ALREADY_MITIGATED", "FALSE_UNICORN"):
+        bucket = "C_PRE_ENTRY_STALE_OR_UNBOUND_FVG_UNICORN"
+        scope = "PRE_ENTRY_POINT_IN_TIME"
+        pit_proven = True
+    elif primary_pit in ("SL_INSIDE_NOISE", "PROTECTED_STRUCTURE_INVALID"):
+        bucket = "D_PRE_ENTRY_SL_INSIDE_NOISE_OR_UNPROTECTED"
+        scope = "PRE_ENTRY_POINT_IN_TIME"
+        pit_proven = True
+    elif primary_pit in ("TARGET_NOT_REAL_OR_ALREADY_SWEPT", "INSUFFICIENT_NET_RR"):
+        bucket = "E_PRE_ENTRY_TARGET_SWEPT_OR_UNREACHABLE"
+        scope = "PRE_ENTRY_POINT_IN_TIME"
+        pit_proven = True
+    else:
+        # Pre-entry point-in-time cause is OTHER/UNKNOWN (or execution friction);
+        # classify post-entry path diagnostic into Buckets F..H with explicit EX_POST scope
+        pit_proven = False
+        scope = "EX_POST_DIAGNOSTIC_ONLY_FORBIDDEN_IN_LIVE_DECISION"
+        if bool(ep.get("same_bar_sl_tp_tie", False)) or primary_pit in ("FEES_DOMINATE", "FILL_GAP/AMBIGUOUS_INTRABAR"):
+            bucket = "H_EX_POST_FRICTION_OR_AMBIGUOUS_BAR_DOMINATED"
+        elif ex_post_stop_outcome_class == "PREMATURE_NOISE_SWEEP_STOP":
+            bucket = "F_EX_POST_STOP_BEFORE_STRUCTURE_BREAK_NOISE_SWEEP"
+        else:
+            bucket = "G_EX_POST_TRUE_STRUCTURAL_INVALIDATION_OR_REVERSAL"
+
+    return {
+        "pre_entry_point_in_time_primary_cause": primary_pit,
+        "pre_entry_point_in_time_all_causes": list(all_pit),
+        "hierarchical_bucket_a_to_h": bucket,
+        "evidence_timing_scope": scope,
+        "point_in_time_proven_pre_entry": pit_proven,
+    }
+
+

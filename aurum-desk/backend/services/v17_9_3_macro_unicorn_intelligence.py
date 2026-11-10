@@ -2432,3 +2432,108 @@ def diagnose_v17931_d1_vs_d2_mtf_gate(
         "legacy_v1793_bind_unicorn_defect": legacy_v1793_defect,
     }
 
+
+def evaluate_r2_mtf_unicorn_ablation_matrix_v17931212(
+    feature_rows: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1.2.12 R2: Evaluates single-axis MTF/Unicorn ablations (`H4_ONLY`, `H1_ONLY`,
+    `M15_ONLY`, `M15_H1_ONLY`, `STRUCTURE_ONLY`, `LIQUIDITY_ONLY`, `FULL_MTF`) across
+    point-in-time causal feature snapshots (`known_at_ms <= decision_timestamp_ms`),
+    strictly separating `FVG_ONLY` from `UNICORN_CONFIRMED` and keeping `UNKNOWN` explicit.
+    """
+    modes = (
+        "H4_ONLY",
+        "H1_ONLY",
+        "M15_ONLY",
+        "M15_H1_ONLY",
+        "STRUCTURE_ONLY",
+        "LIQUIDITY_ONLY",
+        "FULL_MTF",
+    )
+    ablation_counts: Dict[str, Dict[str, int]] = {
+        m: {"evaluated": 0, "passed": 0, "rejected_conflict": 0, "rejected_unknown_or_missing": 0}
+        for m in modes
+    }
+    unicorn_state_counts: Dict[str, int] = {
+        "UNICORN_CONFIRMED": 0,
+        "FVG_ONLY": 0,
+        "UNKNOWN": 0,
+    }
+
+    for row in feature_rows:
+        direction = str(row.get("direction") or "LONG").upper()
+        desired = "BULLISH" if direction == "LONG" else "BEARISH"
+        h4_b = row.get("h4_bias")
+        h1_b = row.get("h1_bias")
+        m15_b = row.get("m15_bias")
+        m5_b = row.get("m5_bias")
+        uni_cls = str(row.get("unicorn_classification") or "UNKNOWN")
+        if uni_cls not in unicorn_state_counts:
+            uni_cls = "UNKNOWN"
+        unicorn_state_counts[uni_cls] += 1
+
+        sweep_ok = row.get("sweep_confirmed") is True and row.get("sweep_reclaimed") is True
+        fvg_ok = row.get("fvg_present") is True and row.get("fvg_unmitigated") is True
+        mss_ok = row.get("mss_confirmed") is True
+
+        for m in modes:
+            ablation_counts[m]["evaluated"] += 1
+            if m == "H4_ONLY":
+                if h4_b is None or h4_b == "UNKNOWN":
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif h4_b == desired:
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "H1_ONLY":
+                if h1_b is None or h1_b == "UNKNOWN":
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif h1_b == desired:
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "M15_ONLY":
+                if m15_b is None or m15_b == "UNKNOWN":
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif m15_b == desired:
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "M15_H1_ONLY":
+                if any(x is None or x == "UNKNOWN" for x in (h1_b, m15_b)):
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif h1_b == desired and m15_b == desired:
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "STRUCTURE_ONLY":
+                if any(x is None or x == "UNKNOWN" for x in (h4_b, h1_b)):
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif h4_b == desired and h1_b == desired and (mss_ok or m5_b == desired):
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "LIQUIDITY_ONLY":
+                if sweep_ok or (fvg_ok and uni_cls in ("UNICORN_CONFIRMED", "FVG_ONLY")):
+                    ablation_counts[m]["passed"] += 1
+                elif row.get("fvg_present") is None and row.get("sweep_confirmed") is None:
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+            elif m == "FULL_MTF":
+                if any(x is None or x == "UNKNOWN" for x in (h4_b, h1_b, m15_b)):
+                    ablation_counts[m]["rejected_unknown_or_missing"] += 1
+                elif h4_b == desired and h1_b == desired and m15_b == desired and (sweep_ok or fvg_ok):
+                    ablation_counts[m]["passed"] += 1
+                else:
+                    ablation_counts[m]["rejected_conflict"] += 1
+
+    return {
+        "schema_version": "17.9.3.1.2.12",
+        "total_opportunities_evaluated": len(feature_rows),
+        "unicorn_classification_breakdown": unicorn_state_counts,
+        "ablation_modes": ablation_counts,
+    }
+
+
