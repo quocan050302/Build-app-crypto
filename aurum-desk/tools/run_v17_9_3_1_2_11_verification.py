@@ -722,7 +722,7 @@ def main() -> int:
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"] = str(monitor.abort_path)
     os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "2"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "16"
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "3"
 
@@ -739,7 +739,7 @@ def main() -> int:
         collection, junit = run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             run_dir / "junit",
             tested_executable_sha=sha,
-            max_workers=2,
+            max_workers=1,
             force_fresh_execution=True,
         )
         # Remove raw .log files in junit/ after stderr_tail is captured so only clean XMLs remain
