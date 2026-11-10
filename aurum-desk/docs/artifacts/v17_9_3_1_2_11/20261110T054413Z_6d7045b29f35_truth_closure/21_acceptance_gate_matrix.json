@@ -1,0 +1,304 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "exit_event_lineage_verdict": "PASS",
+  "gates": {
+    "E01": {
+      "events_verified": 7837,
+      "gate_id": "E01",
+      "partitions_verified": 30,
+      "status": "PASS",
+      "title": "All 30 policy x fill-mode partitions reconstructed from raw event stream",
+      "violations": []
+    },
+    "E02": {
+      "closed_trades_verified_all_partitions": 566,
+      "gate_id": "E02",
+      "status": "PASS",
+      "title": "Every closed trade across all 30 partitions has valid observation -> trigger -> fill chain",
+      "violations": []
+    },
+    "E03": {
+      "gate_id": "E03",
+      "status": "PASS",
+      "title": "Event timestamps, parent DAG, and decision cutoffs causal across all 7,837 events",
+      "violations": []
+    },
+    "E04": {
+      "gate_id": "E04",
+      "status": "PASS",
+      "title": "Exit price basis, conservative same-bar SL-first ambiguity, and adverse gap pricing verified for all 3 fill modes",
+      "violations": []
+    },
+    "E05": {
+      "episodes_verified_all_partitions": 836,
+      "gate_id": "E05",
+      "status": "PASS",
+      "title": "Exit state machine transitions valid and idempotent across all 5,154 episodes",
+      "violations": []
+    },
+    "E06": {
+      "gate_id": "E06",
+      "postings_verified_all_partitions": 1965,
+      "status": "PASS",
+      "title": "Ledger postings globally unique and linked to actual ENTRY_FILL / EXIT_FILL events",
+      "violations": []
+    },
+    "E07": {
+      "gate_id": "E07",
+      "status": "PASS",
+      "title": "Independent gross PnL, entry fee, exit fee, net PnL, and R recomputation matches across all 30 partitions",
+      "violations": []
+    },
+    "E08": {
+      "gate_id": "E08",
+      "status": "PASS",
+      "title": "Open/unfilled/gap episodes excluded from closed PnL and reconciled with raw execution ledger",
+      "violations": []
+    },
+    "E09": {
+      "evidence_origin_counts": {
+        "RECONSTRUCTED_FROM_BAR": 566,
+        "RECONSTRUCTED_FROM_EXECUTION_LEDGER": 7271
+      },
+      "gate_id": "E09",
+      "status": "PASS",
+      "title": "Late/out-of-order reconciliation idempotency and explicit evidence_origin coverage (0 UNKNOWN)",
+      "violations": []
+    },
+    "E10": {
+      "gate_id": "E10",
+      "status": "PASS",
+      "title": "Cross-adapter exit parity (shared_exit_evaluator, lab.replay_execution, simulate_v17931_trade_execution_net)",
+      "violations": []
+    },
+    "E11": {
+      "controls_verified": 22,
+      "gate_id": "E11",
+      "status": "PASS",
+      "title": "All 22 adversarial negative controls V01..V22 rejected in isolated temp directories",
+      "violations": []
+    },
+    "E12": {
+      "gate_id": "E12",
+      "status": "PASS",
+      "title": "Strict schema-bound README_TRUTH_CLOSURE.md and HANDOVER_TRUTH_CLOSURE.txt table/field consistency",
+      "violations": []
+    },
+    "P01": {
+      "details": {
+        "phase_a_tested_executable_sha": "6d7045b29f358d734da61f4b44535821aa32f944",
+        "status": "PASS"
+      },
+      "gate_id": "P01",
+      "status": "PASS",
+      "title": "Phase A frozen executable SHA and Phase B immutable truth-closure evidence bundle"
+    },
+    "P02": {
+      "details": {
+        "note": "Pre-publication inside immutable run dir; finalized externally in Phase C publication_<run_id>.json and latest_truth_closure_run.json",
+        "status": "BLOCKED"
+      },
+      "gate_id": "P02",
+      "status": "BLOCKED",
+      "title": "Phase C external remote git readback (ls-remote & cat-file blob verification)"
+    },
+    "P03": {
+      "details": {
+        "prior_artifact_sha256": "f5187587f125b232bc65579554440ac3086c8a58001b829935ba102dea0c1736",
+        "status": "PASS"
+      },
+      "gate_id": "P03",
+      "status": "PASS",
+      "title": "Byte-immutability of all prior .7/.8/.9/.10 and initial .11 (20261109T063349Z_65b8e1172715) artifacts"
+    },
+    "R01": {
+      "gate_id": "R01",
+      "status": "PASS",
+      "title": "Full backend pytest suite collected and executed with 100% JUnit node bijection",
+      "violations": []
+    },
+    "R02": {
+      "gate_id": "R02",
+      "status": "PASS",
+      "title": "Full 10-policy x 3-fill-mode historical replay executed with strategy rules unchanged",
+      "violations": []
+    },
+    "R03": {
+      "gate_id": "R03",
+      "status": "PASS",
+      "title": "Canonical universe (63,085 vs 63,117 vs 75,525), 242 vs 157 cohort, and 15 recovered trades Venn (6+9=15) verified",
+      "violations": []
+    },
+    "R04": {
+      "gate_id": "R04",
+      "status": "PASS",
+      "title": "Worker 1/2/4 + repeat process truth (4 distinct PIDs in w=4) and ordered + membership digest parity",
+      "violations": []
+    },
+    "R05": {
+      "gate_id": "R05",
+      "status": "PASS",
+      "title": "Prior historical holdout explicitly labeled REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+      "violations": []
+    },
+    "R06": {
+      "gate_id": "R06",
+      "status": "PASS",
+      "title": "Complete artifact SHA-256 manifest coverage verified in separate verifier process",
+      "violations": []
+    },
+    "T01": {
+      "gate_id": "T01",
+      "status": "PASS",
+      "title": "Correct original branch, ancestry and non-destructive worktree",
+      "violations": []
+    },
+    "T02": {
+      "gate_id": "T02",
+      "status": "PASS",
+      "title": "Frozen tested executable SHA matches actual source files",
+      "violations": []
+    },
+    "T03": {
+      "gate_id": "T03",
+      "status": "PASS",
+      "title": "Dataset and cost/policy manifests source-bound and complete",
+      "violations": []
+    },
+    "T04": {
+      "collected_count": 5206,
+      "collected_node_ids_sha256": "0c8f371a5aa6dd2fa5e425985a50adff618710ce6e1305454bf36611c2e36439",
+      "gate_id": "T04",
+      "status": "PASS",
+      "title": "Fresh test collection with full exact node inventory"
+    },
+    "T05": {
+      "counters": {
+        "collected": 5206,
+        "deselected": 0,
+        "errors": 0,
+        "executed": 5206,
+        "failed": 0,
+        "mandatory_skipped": 0,
+        "passed": 5198,
+        "scheduled": 5206,
+        "skipped": 8,
+        "unknown": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "gate_id": "T05",
+      "status": "PASS",
+      "title": "Fresh full JUnit execution/exit codes, no missing/duplicate nodes",
+      "violations": []
+    },
+    "T06": {
+      "gate_id": "T06",
+      "mandatory_skipped": [],
+      "skipped_cases": [
+        {
+          "node_id": "backend/tests/test_v12_3_acceptance.py::test_p11_artifact_containment_rejects_symlink_escape",
+          "reason": "Symlink creation not permitted on this Windows user account",
+          "shard_id": "shard_16",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05_symbolic_link_to_unsafe_database_rejected",
+          "reason": "Symlink creation requires elevated privilege on Windows (WinError 1314)",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_dbs_05b_hardlink_to_runtime_database_rejected",
+          "reason": "Hardlink creation not supported across filesystems/volumes: [WinError 17] The system cannot move the file to a different disk drive: 'D:\\\\build app-crypto\\\\aurum-desk\\\\backend\\\\aurum_desk.db' -> 'C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Temp\\\\aurum_test_root_v8ia73ls\\\\hardlink_to_runtime.db'",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v17_7_database_safety.py::test_db_final_04_symlink_outside_test_root_rejected",
+          "reason": "Symlink creation requires elevated privilege on Windows",
+          "shard_id": "shard_24",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t06_downsampling_disclosure",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t23_factor_audit_real_observed_values",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t26_sheet_11_ny_quota",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        },
+        {
+          "node_id": "backend/tests/test_v12_1_acceptance.py::test_t28_comparison_workbook_5_sheets",
+          "reason": "ARTIFACT_NOT_AVAILABLE: V12_1_COMPARE_A_B_C.xlsx not in repository",
+          "shard_id": "shard_44",
+          "type": "pytest.skip"
+        }
+      ],
+      "status": "PASS",
+      "title": "Mandatory tests not skipped; retries and failures fully disclosed"
+    },
+    "T07": {
+      "gate_id": "T07",
+      "status": "PASS",
+      "title": "Bounded async workers, no orphan PIDs, real resource telemetry",
+      "violations": []
+    },
+    "T08": {
+      "gate_id": "T08",
+      "status": "PASS",
+      "title": "Independent artifact hash/manifest verification",
+      "violations": []
+    },
+    "T09": {
+      "controls_verified": 22,
+      "gate_id": "T09",
+      "status": "PASS",
+      "title": "Real negative-control tampering rejected (RED/GREEN proof)",
+      "violations": []
+    },
+    "T10": {
+      "gate_id": "T10",
+      "status": "PASS",
+      "title": "No reused 1/2/4 worker digests or fabricated worker status",
+      "violations": []
+    }
+  },
+  "gates_count": 31,
+  "pre_publication_gates_all_pass": true,
+  "prepublication_engineering_verdict": "PASS",
+  "publication_gates_all_pass": false,
+  "raw_exit_event_lineage_verdict": "RECONSTRUCTED_LINEAGE_VERIFIED",
+  "run_id": "20261110T054413Z_6d7045b29f35_truth_closure",
+  "schema_version": "17.9.3.1.2.11",
+  "split_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "BACKTEST_INTEGRITY": "PASS",
+    "FRESH_OOS": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+    "RAW_EXIT_EVENT_LINEAGE": "RECONSTRUCTED_LINEAGE_VERIFIED",
+    "STRATEGY_EXPECTANCY": "NEGATIVE_EXPECTANCY",
+    "VERIFICATION_TRUTH": "PASS"
+  },
+  "tested_executable_sha": "6d7045b29f358d734da61f4b44535821aa32f944",
+  "top_level_statuses": {
+    "ACTIVATION_READY": "NO",
+    "BACKTEST_INTEGRITY_VERDICT": "PASS",
+    "ENGINEERING_VERIFICATION_TRUTH": "PASS",
+    "EXIT_EVENT_LINEAGE_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "REUSED",
+    "RAW_EXIT_EVENT_LINEAGE": "RECONSTRUCTED_LINEAGE_VERIFIED",
+    "STRATEGY_EDGE_VERDICT": "NEGATIVE_EXPECTANCY"
+  },
+  "verification_truth_verdict": "PASS",
+  "version": "v17_9_3_1_2_11"
+}

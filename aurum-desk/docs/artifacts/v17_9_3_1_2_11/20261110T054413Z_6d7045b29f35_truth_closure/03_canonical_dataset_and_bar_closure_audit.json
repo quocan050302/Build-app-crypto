@@ -1,0 +1,17 @@
+{
+  "bad_or_unclosed_bars_count": 0,
+  "canonical_m1_bars_count": 22376,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "dataset_sha256_matches": true,
+  "expected_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "model_direction_evaluations": 223460,
+  "post_warmup_m1_checkpoints": 22346,
+  "quote_source_kind": "SYNTHETIC_RESEARCH_QUOTE",
+  "quote_spread_assumption": "CLOSE_PLUS_MINUS_0.10_USD",
+  "run_id": "20261110T054413Z_6d7045b29f35_truth_closure",
+  "schema_version": "17.9.3.1.2.11",
+  "status": "PASS",
+  "tested_executable_sha": "6d7045b29f358d734da61f4b44535821aa32f944",
+  "version": "v17_9_3_1_2_11",
+  "warmup_m1_bars_excluded": 30
+}
