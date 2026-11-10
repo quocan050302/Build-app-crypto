@@ -102,15 +102,15 @@ EVIDENCE_ORIGIN_CLASSES_V17931211 = frozenset({
 
 CANONICAL_POLICIES_V17931211: Tuple[str, ...] = (
     "SI0_OFF_BASELINE",
-    "SI1_H1_H2",
-    "SI2_H3",
-    "SI3_H4",
-    "SI4_H5",
-    "SI5_H2_H3",
-    "SI6_H1_H2_H3",
-    "SI7_H1_H2_H3_H4",
-    "SI8_RELAXED_LIQUIDITY_GATE",
-    "SI9_COMBINED_SELECTIVE_PORTFOLIO",
+    "SI1_MODEL_QUALITY_AND_ARBITRATION",
+    "SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION",
+    "SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY",
+    "SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN",
+    "SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET",
+    "SI6_COMBINED_PREDECLARED",
+    "SI7_CORE_TRADING_LOGIC_REPAIRED",
+    "SI8_RESEARCH_DISCOVERY_REPAIRED",
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
 )
 
 CANONICAL_FILL_MODES_V17931211: Tuple[str, ...] = (
@@ -3875,18 +3875,18 @@ def verify_all_policy_fill_mode_lineage_independently_v17931211(
                                 f"CONS_16_PARTITION_MISMATCH:{pid}:{fm}:{k_cnt}:{c16_cell.get(k_cnt)}!={rec_cell[k_rec]}"
                             )
 
-        # Reconstruct Venn partition for SI1_H1_H2, SI2_H3, SI3_H4 (NEXT_BAR_OPEN_BID_ASK) from raw stream
+        # Reconstruct Venn partition for SI1, SI2, SI3 (NEXT_BAR_OPEN_BID_ASK) from raw stream
         si1_opps = {
             c["opportunity_id"]
-            for c in reconstructed_partitions["SI1_H1_H2"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+            for c in reconstructed_partitions["SI1_MODEL_QUALITY_AND_ARBITRATION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
         }
         si2_opps = {
             c["opportunity_id"]
-            for c in reconstructed_partitions["SI2_H3"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+            for c in reconstructed_partitions["SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
         }
         si3_opps = {
             c["opportunity_id"]
-            for c in reconstructed_partitions["SI3_H4"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
+            for c in reconstructed_partitions["SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY"]["NEXT_BAR_OPEN_BID_ASK"]["closed_trade_identities"]
         }
         union_opps = si1_opps | si2_opps | si3_opps
         reconstructed_venn = {
@@ -4559,7 +4559,7 @@ def run_truth_closure_negative_controls_v01_to_v22_v17931211(
         # Prepare partition bundles for V10..V21
         if reconstructed_partitions is not None:
             si0_nb_bundle = copy.deepcopy(dict(reconstructed_partitions["SI0_OFF_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"]))
-            si2_nb_bundle = copy.deepcopy(dict(reconstructed_partitions["SI2_H3"]["NEXT_BAR_OPEN_BID_ASK"]))
+            si2_nb_bundle = copy.deepcopy(dict(reconstructed_partitions["SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION"]["NEXT_BAR_OPEN_BID_ASK"]))
             si0_leg_bundle = copy.deepcopy(dict(reconstructed_partitions["SI0_OFF_BASELINE"]["LEGACY_CLOSE_FILL"]))
             si0_str_bundle = copy.deepcopy(dict(reconstructed_partitions["SI0_OFF_BASELINE"]["STRESS_WIDER_SPREAD_SLIPPAGE_2X"]))
         else:
@@ -4618,11 +4618,11 @@ def run_truth_closure_negative_controls_v01_to_v22_v17931211(
                 180_000: {"open_time": 180_000, "close_time": 240_000, "open": 4098.0, "high": 4101.0, "low": 4088.0, "close": 4091.0, "is_closed": True}
             }
             si0_nb_bundle = build_exit_event_lineage_v17931211(synth_eps, bars_1m_by_open_ts=bars_1m_by_open_ts, run_id=run_id, tested_executable_sha=tested_sha, policy_id="SI0_OFF_BASELINE", fill_mode="NEXT_BAR_OPEN_BID_ASK")
-            si2_nb_bundle = build_exit_event_lineage_v17931211(synth_eps, bars_1m_by_open_ts=bars_1m_by_open_ts, run_id=run_id, tested_executable_sha=tested_sha, policy_id="SI2_H3", fill_mode="NEXT_BAR_OPEN_BID_ASK")
+            si2_nb_bundle = build_exit_event_lineage_v17931211(synth_eps, bars_1m_by_open_ts=bars_1m_by_open_ts, run_id=run_id, tested_executable_sha=tested_sha, policy_id="SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION", fill_mode="NEXT_BAR_OPEN_BID_ASK")
             si0_leg_bundle = build_exit_event_lineage_v17931211(synth_eps, bars_1m_by_open_ts=bars_1m_by_open_ts, run_id=run_id, tested_executable_sha=tested_sha, policy_id="SI0_OFF_BASELINE", fill_mode="LEGACY_CLOSE_FILL")
             si0_str_bundle = build_exit_event_lineage_v17931211(synth_eps, bars_1m_by_open_ts=bars_1m_by_open_ts, run_id=run_id, tested_executable_sha=tested_sha, policy_id="SI0_OFF_BASELINE", fill_mode="STRESS_WIDER_SPREAD_SLIPPAGE_2X")
 
-        # V10: Mutate non-SI0 policy (SI2_H3 NEXT_BAR_OPEN_BID_ASK) event in raw stream and reconstruct
+        # V10: Mutate non-SI0 policy (SI2 NEXT_BAR_OPEN_BID_ASK) event in raw stream and reconstruct
         t0 = _time.time_ns()
         si2_mut_events = copy.deepcopy(si2_nb_bundle["all_events"])
         for ev in si2_mut_events:
@@ -4630,7 +4630,7 @@ def run_truth_closure_negative_controls_v01_to_v22_v17931211(
                 ev["payload"]["realized_net_pnl_usd"] = round(float(ev["payload"]["realized_net_pnl_usd"]) + 9.99, 4)
                 break
         si2_reconstructed = reconstruct_lineage_from_raw_stream_v17931211(
-            si2_mut_events, policy_id="SI2_H3", fill_mode="NEXT_BAR_OPEN_BID_ASK", run_id=run_id, tested_sha=tested_sha
+            si2_mut_events, policy_id="SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION", fill_mode="NEXT_BAR_OPEN_BID_ASK", run_id=run_id, tested_sha=tested_sha
         )
         r_v10 = recompute_realized_pnl_from_exit_events_v17931211(si2_reconstructed)
         _add_ctrl("V10_NON_SI0_POLICY_SI2_H3_RAW_STREAM_TAMPER", si2_nb_bundle["all_events"], si2_mut_events, "tamper_si2_h3_position_closed_net_pnl_in_raw_stream", "recompute_realized_pnl_from_exit_events_v17931211", "NET_PNL_MISMATCH", r_v10, t0, tmp_dir)
