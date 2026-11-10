@@ -24,20 +24,36 @@ from services.v17_9_3_1_2_10_canonical_reconciliation_and_provenance import (
 )
 from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     CANONICAL_DATASET_SHA256_V17931211,
+    CANONICAL_FILL_MODES_V17931211,
+    CANONICAL_POLICIES_V17931211,
+    EVIDENCE_ORIGIN_CLASSES_V17931211,
     EXIT_CAUSE_NORMALIZATION_MAP_V17931211,
+    TRUTH_CLOSURE_REQUIRED_ARTIFACTS_V17931211,
     VERSION_V17931211,
+    build_canonical_report_metrics_v17931211,
     build_exit_event_lineage_v17931211,
     build_function_callgraph_and_contracts_v17931211,
+    evaluate_truth_closure_gates_v17931211,
     evaluate_v17931211_acceptance_gates,
+    group_raw_exit_events_by_partition_v17931211,
     normalize_collected_test_identity_v17931211,
+    read_exit_event_stream_strict_v17931211,
     recompute_realized_pnl_from_exit_events_v17931211,
+    reconstruct_lineage_from_raw_stream_v17931211,
+    render_truth_closure_readme_and_handover_v17931211,
+    run_truth_closure_negative_controls_v01_to_v22_v17931211,
     run_verification_truth_negative_controls_v17931211,
+    verify_all_policy_fill_mode_lineage_independently_v17931211,
+    verify_execution_not_synthetic_v17931211,
     verify_exit_event_deduplication_v17931211,
     verify_exit_event_parentage_v17931211,
     verify_exit_fill_basis_v17931211,
     verify_exit_lineage_cross_adapter_parity_v17931211,
     verify_exit_portfolio_conservation_v17931211,
     verify_exit_state_machine_v17931211,
+    verify_process_exit_and_timeout_v17931211,
+    verify_raw_stream_vs_source_execution_v17931211,
+    verify_strict_report_and_handover_consistency_v17931211,
 )
 
 
@@ -698,3 +714,203 @@ def test_p0b_parameterized_exit_lineage_negative_control(corruption_kind: str):
         assert verify_exit_event_parentage_v17931211(bad)["status"] == "FAIL"
 
 
+# ==============================================================================
+# 5. TRUTH CLOSURE: RAW STREAM RECONSTRUCTION ACROSS ALL 30 PARTITIONS
+# ==============================================================================
+
+def test_truth_closure_raw_stream_reconstruction_and_30_partition_verification(tmp_path: Path):
+    import gzip
+    import json
+
+    episodes, bars = _build_fixture_episodes_and_bars()
+    all_raw_events = []
+    source_exec_records = []
+
+    for pol in CANONICAL_POLICIES_V17931211:
+        for fm in CANONICAL_FILL_MODES_V17931211:
+            lin = build_exit_event_lineage_v17931211(
+                episodes,
+                bars_1m_by_open_ts=bars,
+                run_id="test_tc_30",
+                tested_executable_sha="a" * 40,
+                policy_id=pol,
+                fill_mode=fm,
+            )
+            all_raw_events.extend(lin["all_events"])
+            for idx, ep in enumerate(episodes):
+                is_closed = idx < 3
+                source_exec_records.append({
+                    "policy_id": pol,
+                    "fill_mode": fm,
+                    "episode_order_idx": idx,
+                    "opportunity_id": ep["opportunity_id"],
+                    "episode_key": ep["episode_key"],
+                    "direction": ep["direction"],
+                    "decision_timestamp_ms": ep["decision_timestamp_ms"],
+                    "entry_fill_ts": ep["entry_fill_ts"],
+                    "exit_fill_ts": ep["exit_fill_ts"],
+                    "trigger_bar_ts": (ep.get("execution_ledger") or {}).get("trigger_bar_ts"),
+                    "filled": ep["filled"],
+                    "is_closed": is_closed,
+                    "terminal_state": "CLOSED" if is_closed else ("OPEN_AT_HORIZON" if idx == 3 else "UNFILLED"),
+                    "outcome_label": ep["outcome_label"],
+                    "exit_type": ep["exit_type"],
+                    "entry_fill_price": ep["entry_fill_price"],
+                    "exit_fill_price": ep["exit_fill_price"],
+                    "selected_sl": ep["selected_sl"],
+                    "take_profit": ep["take_profit"],
+                    "executed_quantity": ep["executed_quantity"],
+                    "planned_net_risk_usd": ep["planned_net_risk_usd"],
+                    "entry_fee_usd": ep["entry_fee_usd"] if is_closed else 0.0,
+                    "exit_fee_usd": ep["exit_fee_usd"] if is_closed else 0.0,
+                    "realized_gross_pnl_usd": ep["realized_gross_pnl_usd"] if is_closed else 0.0,
+                    "realized_net_pnl_usd": ep["realized_net_pnl_usd"] if is_closed else 0.0,
+                    "realized_r": ep["realized_r"] if is_closed else 0.0,
+                    "same_bar_sl_tp_tie": bool(ep.get("same_bar_sl_tp_tie", False)),
+                })
+
+    stream_path = tmp_path / "09_exit_event_lineage_ledger.jsonl.gz"
+    with gzip.open(stream_path, "wt", encoding="utf-8") as gz:
+        for ev in all_raw_events:
+            gz.write(json.dumps(ev, sort_keys=True) + "\n")
+
+    read_res = read_exit_event_stream_strict_v17931211(
+        stream_path,
+        expected_run_id="test_tc_30",
+        expected_tested_sha="a" * 40,
+    )
+    assert read_res["status"] == "PASS", read_res["violations"]
+    assert read_res["events_count"] == len(all_raw_events)
+
+    group_res = group_raw_exit_events_by_partition_v17931211(read_res["events"])
+    assert group_res["status"] == "PASS", group_res["violations"]
+    assert group_res["total_partitions"] == 30
+
+    reconstructed_partitions = {pol: {} for pol in CANONICAL_POLICIES_V17931211}
+    for pol in CANONICAL_POLICIES_V17931211:
+        for fm in CANONICAL_FILL_MODES_V17931211:
+            reconstructed_partitions[pol][fm] = reconstruct_lineage_from_raw_stream_v17931211(
+                group_res["partitions"][pol][fm],
+                policy_id=pol,
+                fill_mode=fm,
+                run_id="test_tc_30",
+                tested_sha="a" * 40,
+            )
+
+    src_ver = verify_raw_stream_vs_source_execution_v17931211(
+        reconstructed_partitions,
+        source_exec_records,
+        bars_1m_by_open_ts=bars,
+    )
+    assert src_ver["status"] == "PASS", src_ver["violations"]
+    assert src_ver["reconstructed_episodes_verified"] == 150
+
+    # Tamper one event's evidence_origin to UNKNOWN -> must FAIL read_exit_event_stream_strict_v17931211
+    bad_stream_path = tmp_path / "bad_09.jsonl.gz"
+    bad_events = copy.deepcopy(read_res["events"])
+    bad_events[0]["evidence_origin"] = "UNKNOWN"
+    with gzip.open(bad_stream_path, "wt", encoding="utf-8") as gz:
+        for ev in bad_events:
+            gz.write(json.dumps(ev, sort_keys=True) + "\n")
+    bad_read = read_exit_event_stream_strict_v17931211(
+        bad_stream_path,
+        expected_run_id="test_tc_30",
+        expected_tested_sha="a" * 40,
+    )
+    assert bad_read["status"] == "FAIL"
+    assert any("UNKNOWN_EVIDENCE_ORIGIN" in v for v in bad_read["violations"])
+
+
+def test_truth_closure_process_truth_4_distinct_pids_and_ordered_digest_parity():
+    from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
+
+    ep_hashes = ["h_ep_0", "h_ep_1", "h_ep_2", "h_ep_3"]
+    ord_sha = canonical_hash({"ordered_episode_hashes": ep_hashes, "total_realized_net_pnl_usd": -345.8971})
+    mem_sha = canonical_hash({"sorted_episode_hashes": sorted(ep_hashes), "total_realized_net_pnl_usd": -345.8971})
+
+    base_col = {"collect_pid": 1001, "collected_node_ids": ["backend/tests/test_a.py::test_1"]}
+    base_shard = {
+        "shards": [
+            {
+                "shard_id": "s0",
+                "pid": 2002,
+                "junit_xml_path": "s0.xml",
+                "xml_sha256": "a" * 64,
+            }
+        ]
+    }
+    parity_good = {
+        "independent_runs": [
+            {
+                "attempt_id": label,
+                "worker_count": w_cnt,
+                "workers_started": w_cnt,
+                "workers_with_actual_nonempty_work": w_cnt,
+                "workers_completed": w_cnt,
+                "worker_pids": [5000 + idx * 10 + k for k in range(w_cnt)],
+                "started_at_ms": 100 + idx * 100,
+                "completed_at_ms": 180 + idx * 100,
+                "canonical_semantic_sha256": ord_sha,
+                "ordered_canonical_semantic_sha256": ord_sha,
+                "membership_semantic_sha256": mem_sha,
+                "ordered_episode_hashes": list(ep_hashes),
+                "total_realized_net_pnl_usd": -345.8971,
+                "raw_execution_log_sha256": f"{idx + 1:064x}",
+            }
+            for idx, (label, w_cnt) in enumerate([("w1", 1), ("w2", 2), ("w4", 4), ("w1_rep", 1)])
+        ]
+    }
+
+    res_ok = verify_execution_not_synthetic_v17931211(
+        collection_manifest=base_col,
+        shard_manifest=base_shard,
+        parity_manifest=parity_good,
+    )
+    assert res_ok["status"] == "PASS", res_ok["violations"]
+
+    # Reject w=4 with only 3 distinct PIDs
+    bad_3pids = copy.deepcopy(parity_good)
+    bad_3pids["independent_runs"][2]["worker_pids"] = [5020, 5021, 5022]
+    assert (
+        verify_execution_not_synthetic_v17931211(
+            collection_manifest=base_col,
+            shard_manifest=base_shard,
+            parity_manifest=bad_3pids,
+        )["status"]
+        == "FAIL"
+    )
+
+    # Reject permuted episode order in w=2
+    bad_order = copy.deepcopy(parity_good)
+    bad_order["independent_runs"][1]["ordered_episode_hashes"] = ["h_ep_1", "h_ep_0", "h_ep_2", "h_ep_3"]
+    assert (
+        verify_execution_not_synthetic_v17931211(
+            collection_manifest=base_col,
+            shard_manifest=base_shard,
+            parity_manifest=bad_order,
+        )["status"]
+        == "FAIL"
+    )
+
+
+@pytest.fixture(scope="module")
+def _cached_v01_to_v22_report():
+    return run_truth_closure_negative_controls_v01_to_v22_v17931211()
+
+
+@pytest.mark.parametrize(
+    "control_id",
+    [f"V{i:02d}" for i in range(1, 23)],
+)
+def test_truth_closure_all_22_negative_controls_v01_to_v22(control_id: str, _cached_v01_to_v22_report):
+    res = _cached_v01_to_v22_report
+    assert res["status"] == "PASS", res["violations"]
+    assert res["controls_count"] == 22
+    assert res["all_rejected"] is True
+    assert res["temp_dirs_cleaned"] is True
+    by_id = {c["short_id"]: c for c in res["controls"]}
+    assert control_id in by_id
+    ctrl = by_id[control_id]
+    assert ctrl["rejected"] is True
+    assert ctrl["detected_by_verifier"] is True
+    assert len(ctrl["violations_caught"]) >= 1

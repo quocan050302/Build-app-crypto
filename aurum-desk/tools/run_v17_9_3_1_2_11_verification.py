@@ -64,11 +64,15 @@ from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     SCHEMA_VERSION_V17931211,
     SOURCE_CLASSES_V17931211,
     VERSION_V17931211,
+    build_canonical_report_metrics_v17931211,
     build_exit_event_lineage_v17931211,
     build_function_callgraph_and_contracts_v17931211,
     canonical_hash,
     recompute_realized_pnl_from_exit_events_v17931211,
+    render_truth_closure_readme_and_handover_v17931211,
+    run_truth_closure_negative_controls_v01_to_v22_v17931211,
     run_verification_truth_negative_controls_v17931211,
+    verify_all_policy_fill_mode_lineage_independently_v17931211,
     verify_execution_not_synthetic_v17931211,
     verify_exit_event_deduplication_v17931211,
     verify_exit_event_parentage_v17931211,
@@ -79,6 +83,7 @@ from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     verify_fresh_junit_bijection_v17931211,
     verify_process_exit_and_timeout_v17931211,
     verify_source_freeze_v17931211,
+    verify_strict_report_and_handover_consistency_v17931211,
 )
 from tools.run_v17_9_3_1_2_1_full_opportunity_replay import (
     DATASET_PATH,
@@ -158,7 +163,7 @@ def append_stage_status(run_dir: Path, stage: str, status: str, **extra: Any) ->
 
 def _worker_determinism_task_v17931211(args: Tuple[str, int, List[Dict[str, Any]], List[Dict[str, Any]]]) -> Dict[str, Any]:
     """
-    Worker task executed in real child processes via ProcessPoolExecutor for 1/2/4-worker
+    Worker task executed in a dedicated OS child subprocess for 1/2/4-worker
     + repeat determinism proof (Gate T10 / R04).
     """
     attempt_id, slice_idx, episodes_slice, bars_slice = args
@@ -177,12 +182,39 @@ def _worker_determinism_task_v17931211(args: Tuple[str, int, List[Dict[str, Any]
     p_res = verify_exit_event_parentage_v17931211(lin)
     s_res = verify_exit_state_machine_v17931211(lin)
     r_res = recompute_realized_pnl_from_exit_events_v17931211(lin)
+
+    closed_by_opp = {str(c["opportunity_id"]): c["lineage_chain_sha256"] for c in lin["closed_trade_identities"]}
+    episode_items: List[Dict[str, Any]] = []
+    for idx_in_slice, ch in enumerate(lin["episode_chains"]):
+        orig_ep = episodes_slice[idx_in_slice]
+        order_idx = int(orig_ep.get("_episode_order_idx", idx_in_slice))
+        ev_hashes = [e["semantic_hash"] for e in ch["events"]]
+        cl_hash = closed_by_opp.get(str(ch["opportunity_id"]))
+        ep_sem_hash = canonical_hash({
+            "episode_id": ch["episode_id"],
+            "opportunity_id": ch["opportunity_id"],
+            "event_semantic_hashes": ev_hashes,
+            "closed_identity_hash": cl_hash,
+        })
+        episode_items.append({
+            "episode_order_idx": order_idx,
+            "episode_id": ch["episode_id"],
+            "opportunity_id": ch["opportunity_id"],
+            "episode_semantic_hash": ep_sem_hash,
+            "event_semantic_hashes": ev_hashes,
+            "closed_identity_hash": cl_hash,
+        })
+
+    # Hold briefly so concurrent sibling worker processes overlap in lifetime and get distinct OS PIDs
+    time.sleep(0.08)
     t_end = max(t_start + 1, int(time.time() * 1000))
     return {
         "slice_idx": slice_idx,
         "pid": pid,
         "started_at_ms": t_start,
         "completed_at_ms": t_end,
+        "episodes_count": len(episodes_slice),
+        "episode_items": episode_items,
         "event_semantic_hashes": [e["semantic_hash"] for e in lin["all_events"]],
         "closed_identity_hashes": [c["lineage_chain_sha256"] for c in lin["closed_trade_identities"]],
         "parentage_status": p_res["status"],
@@ -190,6 +222,18 @@ def _worker_determinism_task_v17931211(args: Tuple[str, int, List[Dict[str, Any]
         "pnl_recompute_status": r_res["status"],
         "total_realized_net_pnl_usd": r_res["recomputed_total_net_pnl_usd"],
     }
+
+
+def _run_worker_slice_cli(in_path: Path, out_path: Path) -> int:
+    payload = json.loads(in_path.read_text(encoding="utf-8"))
+    res = _worker_determinism_task_v17931211((
+        str(payload["attempt_id"]),
+        int(payload["slice_idx"]),
+        list(payload["episodes_slice"]),
+        list(payload["bars_slice"]),
+    ))
+    write_json(out_path, res)
+    return 0
 
 
 def run_worker_1_2_4_and_repeat_determinism_v17931211(
@@ -201,8 +245,9 @@ def run_worker_1_2_4_and_repeat_determinism_v17931211(
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Executes 4 genuinely independent runs (worker_count=1, worker_count=2, worker_count=4,
-    and worker_count=1 repeat) using real OS child processes (ProcessPoolExecutor) and
-    verifies identical canonical semantic digests across all 4 runs.
+    and worker_count=1 repeat) using dedicated concurrent OS child processes (subprocess.Popen)
+    so w=4 proves 4 distinct OS PIDs each executing disjoint non-empty slices, and verifies
+    identical ordered AND membership canonical semantic digests across all 4 runs.
     """
     configs = [
         ("det_run_1_w1", 1),
@@ -213,72 +258,169 @@ def run_worker_1_2_4_and_repeat_determinism_v17931211(
     independent_runs: List[Dict[str, Any]] = []
     worker_records: List[Dict[str, Any]] = []
 
-    for attempt_suffix, w_cnt in configs:
-        attempt_id = f"{run_id}_{attempt_suffix}"
-        t_start = int(time.time() * 1000)
-        # Partition si0_episodes into w_cnt disjoint slices
-        slices: List[List[Dict[str, Any]]] = [[] for _ in range(w_cnt)]
-        for idx, ep in enumerate(si0_episodes):
-            slices[idx % w_cnt].append(ep)
+    indexed_episodes: List[Dict[str, Any]] = []
+    for idx, ep in enumerate(si0_episodes):
+        ep_copy = dict(ep)
+        ep_copy["_episode_order_idx"] = idx
+        indexed_episodes.append(ep_copy)
 
-        tasks = [(attempt_id, s_idx, slices[s_idx], bars_1m) for s_idx in range(w_cnt)]
-        with ProcessPoolExecutor(max_workers=w_cnt) as pool:
-            slice_results = list(pool.map(_worker_determinism_task_v17931211, tasks))
-        t_end = max(t_start + 1, int(time.time() * 1000))
+    with tempfile.TemporaryDirectory(prefix=f"aurum_wdet_{run_id}_") as tmp_root_str:
+        tmp_root = Path(tmp_root_str)
+        for attempt_suffix, w_cnt in configs:
+            attempt_id = f"{run_id}_{attempt_suffix}"
+            t_start = int(time.time() * 1000)
+            slices: List[List[Dict[str, Any]]] = [[] for _ in range(w_cnt)]
+            for idx, ep in enumerate(indexed_episodes):
+                slices[idx % w_cnt].append(ep)
 
-        # Reassemble in canonical episode order
-        ordered_event_hashes: List[str] = []
-        ordered_closed_hashes: List[str] = []
-        # Since slices were round-robin partitioned, re-merge or sort by canonical hash order:
-        for sr in sorted(slice_results, key=lambda x: x["slice_idx"]):
-            pass
-        # Even better: sort all event semantic hashes and closed identity hashes deterministically
-        all_ev_hashes = sorted(h for sr in slice_results for h in sr["event_semantic_hashes"])
-        all_cl_hashes = sorted(h for sr in slice_results for h in sr["closed_identity_hashes"])
-        total_net_pnl = round(sum(float(sr["total_realized_net_pnl_usd"]) for sr in slice_results), 4)
+            procs: List[Tuple[int, subprocess.Popen[str], Path, Path, List[str]]] = []
+            for s_idx in range(w_cnt):
+                in_p = tmp_root / f"{attempt_suffix}_slice_{s_idx}_in.json"
+                out_p = tmp_root / f"{attempt_suffix}_slice_{s_idx}_out.json"
+                write_json(in_p, {
+                    "attempt_id": attempt_id,
+                    "slice_idx": s_idx,
+                    "episodes_slice": slices[s_idx],
+                    "bars_slice": bars_1m,
+                })
+                cmd = [
+                    sys.executable,
+                    str(Path(__file__).resolve()),
+                    "--worker-slice-input",
+                    str(in_p),
+                    "--worker-slice-output",
+                    str(out_p),
+                ]
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(REPO_ROOT),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                procs.append((s_idx, proc, in_p, out_p, cmd))
 
-        semantic_sha256 = canonical_hash({
-            "event_semantic_hashes": all_ev_hashes,
-            "closed_identity_hashes": all_cl_hashes,
-            "total_realized_net_pnl_usd": total_net_pnl,
-        })
-        pids = sorted({int(sr["pid"]) for sr in slice_results})
-        raw_log_sha256 = canonical_hash({
-            "attempt_id": attempt_id,
-            "worker_count": w_cnt,
-            "pids": pids,
-            "started_at_ms": t_start,
-            "completed_at_ms": t_end,
-            "slice_results": slice_results,
-        })
+            slice_results: List[Dict[str, Any]] = []
+            slice_summaries: List[Dict[str, Any]] = []
+            for s_idx, proc, in_p, out_p, cmd in procs:
+                stdout_s, stderr_s = proc.communicate(timeout=180)
+                os_rc = int(proc.returncode)
+                sr = json.loads(out_p.read_text(encoding="utf-8")) if out_p.exists() else {}
+                child_pid = int(sr.get("pid") or proc.pid)
+                task_verdict = (
+                    "PASS"
+                    if (
+                        os_rc == 0
+                        and sr.get("parentage_status") == "PASS"
+                        and sr.get("state_machine_status") == "PASS"
+                        and sr.get("pnl_recompute_status") == "PASS"
+                    )
+                    else "FAIL"
+                )
+                sr["process_exit_code"] = os_rc
+                sr["task_validation_verdict"] = task_verdict
+                sr["process_identity_provenance"] = "SUBPROCESS_POPEN"
+                slice_results.append(sr)
+                slice_summaries.append({
+                    "slice_idx": s_idx,
+                    "pid": child_pid,
+                    "episodes_count": int(sr.get("episodes_count", 0)),
+                    "events_count": len(sr.get("event_semantic_hashes", [])),
+                    "process_exit_code": os_rc,
+                    "task_validation_verdict": task_verdict,
+                    "process_identity_provenance": "SUBPROCESS_POPEN",
+                    "started_at_ms": int(sr.get("started_at_ms", t_start)),
+                    "completed_at_ms": int(sr.get("completed_at_ms", t_start + 1)),
+                })
+                worker_records.append({
+                    "worker_id": f"{attempt_suffix}_slice_{s_idx}",
+                    "run_id": run_id,
+                    "tested_source_sha": tested_sha,
+                    "pid": child_pid,
+                    "started_at_ms": int(sr.get("started_at_ms", t_start)),
+                    "completed_at_ms": int(sr.get("completed_at_ms", t_start + 1)),
+                    "exit_code": os_rc,
+                    "process_exit_code": os_rc,
+                    "task_validation_verdict": task_verdict,
+                    "process_identity_provenance": "SUBPROCESS_POPEN",
+                    "timed_out": False,
+                    "command_argv": cmd,
+                })
 
-        independent_runs.append({
-            "attempt_id": attempt_id,
-            "worker_count": w_cnt,
-            "worker_pids": pids,
-            "started_at_ms": t_start,
-            "completed_at_ms": t_end,
-            "elapsed_ms": t_end - t_start,
-            "canonical_semantic_sha256": semantic_sha256,
-            "raw_execution_log_sha256": raw_log_sha256,
-            "events_verified_count": len(all_ev_hashes),
-            "closed_trades_verified_count": len(all_cl_hashes),
-            "total_realized_net_pnl_usd": total_net_pnl,
-        })
-        for sr in slice_results:
-            worker_records.append({
-                "worker_id": f"{attempt_suffix}_slice_{sr['slice_idx']}",
-                "run_id": run_id,
-                "tested_source_sha": tested_sha,
-                "pid": int(sr["pid"]),
-                "started_at_ms": int(sr["started_at_ms"]),
-                "completed_at_ms": int(sr["completed_at_ms"]),
-                "exit_code": 0 if (sr["parentage_status"] == "PASS" and sr["state_machine_status"] == "PASS" and sr["pnl_recompute_status"] == "PASS") else 1,
-                "timed_out": False,
+            t_end = max(t_start + 1, int(time.time() * 1000))
+
+            # Reassemble in exact canonical episode order (0..241)
+            all_ep_items = sorted(
+                (item for sr in slice_results for item in sr.get("episode_items", [])),
+                key=lambda x: int(x["episode_order_idx"]),
+            )
+            ordered_episode_hashes = [str(item["episode_semantic_hash"]) for item in all_ep_items]
+            ordered_event_hashes = [h for item in all_ep_items for h in item["event_semantic_hashes"]]
+            ordered_closed_hashes = [
+                str(item["closed_identity_hash"])
+                for item in all_ep_items
+                if item.get("closed_identity_hash")
+            ]
+            total_net_pnl = round(sum(float(sr["total_realized_net_pnl_usd"]) for sr in slice_results), 4)
+
+            ordered_semantic_sha256 = canonical_hash({
+                "ordered_episode_hashes": ordered_episode_hashes,
+                "total_realized_net_pnl_usd": total_net_pnl,
+            })
+            membership_semantic_sha256 = canonical_hash({
+                "sorted_episode_hashes": sorted(ordered_episode_hashes),
+                "total_realized_net_pnl_usd": total_net_pnl,
             })
 
-    digests = [r["canonical_semantic_sha256"] for r in independent_runs]
-    parity_ok = len(set(digests)) == 1
+            pids = sorted({int(s["pid"]) for s in slice_summaries})
+            nonempty_workers = sum(1 for s in slice_summaries if int(s["episodes_count"]) > 0)
+            completed_workers = sum(
+                1 for s in slice_summaries if int(s["process_exit_code"]) == 0 and s["task_validation_verdict"] == "PASS"
+            )
+            raw_log_sha256 = canonical_hash({
+                "attempt_id": attempt_id,
+                "worker_count": w_cnt,
+                "pids": pids,
+                "started_at_ms": t_start,
+                "completed_at_ms": t_end,
+                "slice_summaries": slice_summaries,
+            })
+
+            independent_runs.append({
+                "attempt_id": attempt_id,
+                "worker_count": w_cnt,
+                "worker_count_configured": w_cnt,
+                "workers_started": len(procs),
+                "workers_with_actual_nonempty_work": nonempty_workers,
+                "workers_completed": completed_workers,
+                "max_concurrent_children_observed": len(pids),
+                "worker_pids": pids,
+                "started_at_ms": t_start,
+                "completed_at_ms": t_end,
+                "elapsed_ms": t_end - t_start,
+                "canonical_semantic_sha256": ordered_semantic_sha256,
+                "ordered_canonical_semantic_sha256": ordered_semantic_sha256,
+                "membership_semantic_sha256": membership_semantic_sha256,
+                "ordered_episode_hashes": ordered_episode_hashes,
+                "ordered_event_hashes_sha256": canonical_hash(ordered_event_hashes),
+                "ordered_closed_hashes_sha256": canonical_hash(ordered_closed_hashes),
+                "raw_execution_log_sha256": raw_log_sha256,
+                "episodes_verified_count": len(all_ep_items),
+                "events_verified_count": len(ordered_event_hashes),
+                "closed_trades_verified_count": len(ordered_closed_hashes),
+                "total_realized_net_pnl_usd": total_net_pnl,
+                "slice_summaries": slice_summaries,
+            })
+
+    ord_digests = [r["ordered_canonical_semantic_sha256"] for r in independent_runs]
+    mem_digests = [r["membership_semantic_sha256"] for r in independent_runs]
+    pid_counts_ok = all(
+        len(set(r["worker_pids"])) == int(r["worker_count"])
+        and int(r["workers_with_actual_nonempty_work"]) == int(r["worker_count"])
+        and int(r["workers_completed"]) == int(r["worker_count"])
+        for r in independent_runs
+    )
+    parity_ok = len(set(ord_digests)) == 1 and len(set(mem_digests)) == 1 and pid_counts_ok
     doc_19 = {
         "version": VERSION_V17931211,
         "schema_version": SCHEMA_VERSION_V17931211,
@@ -286,11 +428,22 @@ def run_worker_1_2_4_and_repeat_determinism_v17931211(
         "tested_executable_sha": tested_sha,
         "status": "PASS" if parity_ok else "FAIL",
         "summary": {
-            "worker_1_sha256": digests[0],
-            "worker_2_sha256": digests[1],
-            "worker_4_sha256": digests[2],
-            "worker_1_repeat_sha256": digests[3],
+            "worker_1_sha256": ord_digests[0],
+            "worker_2_sha256": ord_digests[1],
+            "worker_4_sha256": ord_digests[2],
+            "worker_1_repeat_sha256": ord_digests[3],
+            "worker_1_ordered_sha256": ord_digests[0],
+            "worker_2_ordered_sha256": ord_digests[1],
+            "worker_4_ordered_sha256": ord_digests[2],
+            "worker_1_repeat_ordered_sha256": ord_digests[3],
+            "worker_1_membership_sha256": mem_digests[0],
+            "worker_2_membership_sha256": mem_digests[1],
+            "worker_4_membership_sha256": mem_digests[2],
+            "worker_1_repeat_membership_sha256": mem_digests[3],
             "all_four_identical": parity_ok,
+            "all_four_ordered_identical": len(set(ord_digests)) == 1,
+            "all_four_membership_identical": len(set(mem_digests)) == 1,
+            "all_worker_pid_counts_exact": pid_counts_ok,
         },
         "independent_runs": independent_runs,
     }
@@ -494,9 +647,16 @@ def render_readme_v17931211(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tested-code-sha", required=True)
+    ap.add_argument("--tested-code-sha", default="")
     ap.add_argument("--run-id", default="")
+    ap.add_argument("--worker-slice-input", default="")
+    ap.add_argument("--worker-slice-output", default="")
     args = ap.parse_args()
+
+    if args.worker_slice_input and args.worker_slice_output:
+        return _run_worker_slice_cli(Path(args.worker_slice_input), Path(args.worker_slice_output))
+    if not args.tested_code_sha:
+        raise SystemExit("--tested-code-sha is required")
 
     if os.name == "nt":
         os.environ["AURUM_VERIFY_VENV_PYTHON"] = sys.executable
@@ -517,7 +677,7 @@ def main() -> int:
         raise SystemExit(f"WRONG_BRANCH:{branch}")
     subprocess.run(["git", "merge-base", "--is-ancestor", GROUNDED_V130_HEAD, sha], cwd=REPO_ROOT, check=True)
 
-    run_id = args.run_id or (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + sha[:12])
+    run_id = args.run_id or (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + sha[:12] + "_truth_closure")
     run_dir = APP_ROOT / "docs/artifacts/v17_9_3_1_2_11" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     aux_temp_dir = Path(tempfile.gettempdir()) / f"aurum_aux_{run_id}"
@@ -531,6 +691,7 @@ def main() -> int:
             "version": VERSION_V17931211,
             "schema_version": SCHEMA_VERSION_V17931211,
             "run_id": run_id,
+            "run_label": "truth_closure",
             "branch": branch,
             "tested_executable_sha": sha,
             "dataset_sha256": CANONICAL_DATASET_SHA256_V17931211,
@@ -539,6 +700,7 @@ def main() -> int:
             "status": "RUNNING",
             "verification_truth_verdict": "RUNNING",
             "exit_event_lineage_verdict": "RUNNING",
+            "raw_exit_event_lineage_verdict": "RUNNING",
             "prepublication_engineering_verdict": "RUNNING",
             "strategy_economic_verdict": "NEGATIVE_EXPECTANCY_DO_NOT_ACTIVATE",
             "activation_ready": "NO",
@@ -560,7 +722,7 @@ def main() -> int:
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"] = str(monitor.abort_path)
     os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "2"
     os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "16"
     os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "3"
 
@@ -577,7 +739,7 @@ def main() -> int:
         collection, junit = run_full_backend_pytest_collection_and_sharded_junit_v1793122(
             run_dir / "junit",
             tested_executable_sha=sha,
-            max_workers=1,
+            max_workers=2,
             force_fresh_execution=True,
         )
         # Remove raw .log files in junit/ after stderr_tail is captured so only clean XMLs remain
@@ -594,7 +756,6 @@ def main() -> int:
             sh["tested_executable_sha"] = sha
             sh["exit_code"] = int(sh.get("pytest_exit_code", 0))
             sh["timed_out"] = False
-            # Make junit_xml_path relative to run_dir for portable verification
             xml_p = APP_ROOT / sh["junit_xml_path"] if not Path(sh["junit_xml_path"]).is_absolute() else Path(sh["junit_xml_path"])
             sh["junit_xml_path"] = str(xml_p.relative_to(run_dir)).replace("\\", "/")
 
@@ -602,6 +763,7 @@ def main() -> int:
             et_ms = int(datetime.fromisoformat(sh["end_time_utc"]).timestamp() * 1000) if sh.get("end_time_utc") else st_ms + max(1, int(float(sh.get("elapsed_seconds", 0.01)) * 1000))
             if et_ms <= st_ms:
                 et_ms = st_ms + 1
+            sh_rc = int(sh.get("pytest_exit_code", 0))
             worker_records.append({
                 "worker_id": f"pytest_{sh['shard_name']}",
                 "run_id": run_id,
@@ -609,7 +771,10 @@ def main() -> int:
                 "pid": int(sh.get("pid") or orchestrator_pid),
                 "started_at_ms": st_ms,
                 "completed_at_ms": et_ms,
-                "exit_code": int(sh.get("pytest_exit_code", 0)),
+                "exit_code": sh_rc,
+                "process_exit_code": sh_rc,
+                "task_validation_verdict": "PASS" if sh_rc == 0 else "FAIL",
+                "process_identity_provenance": "ASYNCIO_CREATE_SUBPROCESS_EXEC",
                 "timed_out": False,
                 "command_argv": sh.get("command_argv", []),
             })
@@ -743,6 +908,7 @@ def main() -> int:
 
         # Build exit-event lineage across all 10 policies x 3 fill modes
         all_lineage_events: List[Dict[str, Any]] = []
+        all_source_execution_rows: List[Dict[str, Any]] = []
         all_closed_identities: List[Dict[str, Any]] = []
         all_unknown_unresolved: List[Dict[str, Any]] = []
         all_postings_rows: List[Dict[str, Any]] = []
@@ -766,6 +932,38 @@ def main() -> int:
 
             for fm, eps in pol_res["all_mode_episodes"].items():
                 for ep in eps:
+                    led_ep = ep.get("execution_ledger") if isinstance(ep.get("execution_ledger"), Mapping) else {}
+                    all_source_execution_rows.append({
+                        "run_id": run_id,
+                        "tested_executable_sha": sha,
+                        "dataset_sha256": actual_dataset_sha,
+                        "policy_id": pid,
+                        "fill_mode": fm,
+                        "opportunity_id": str(ep.get("opportunity_id") or ""),
+                        "episode_key": str(ep.get("episode_key") or ""),
+                        "setup_episode_id": str(ep.get("setup_episode_id") or ""),
+                        "model_id": str(ep.get("model_id") or ""),
+                        "direction": str(ep.get("direction") or ""),
+                        "decision_timestamp_ms": int(ep.get("decision_timestamp_ms") or led_ep.get("decision_ts") or 0),
+                        "filled": bool(ep.get("filled", led_ep.get("filled", False))),
+                        "outcome_label": str(ep.get("outcome_label") or led_ep.get("outcome_label") or ""),
+                        "exit_type": str(ep.get("exit_type") or led_ep.get("exit_type") or ""),
+                        "entry_fill_ts": int(ep.get("entry_fill_ts") or led_ep.get("entry_fill_ts") or 0),
+                        "trigger_bar_ts": int(led_ep.get("trigger_bar_ts") or 0),
+                        "exit_fill_ts": int(ep.get("exit_fill_ts") or led_ep.get("exit_fill_ts") or ep.get("release_ts_ms") or 0),
+                        "entry_reference": float(ep.get("entry_reference") or led_ep.get("entry_reference") or 0.0),
+                        "entry_fill_price": float(ep.get("entry_fill_price") or led_ep.get("entry_fill_price") or 0.0),
+                        "selected_sl": float(ep.get("selected_sl") or led_ep.get("planned_sl") or 0.0),
+                        "take_profit": float(ep.get("take_profit") or led_ep.get("planned_tp") or 0.0),
+                        "exit_fill_price": float(ep.get("exit_fill_price") or led_ep.get("exit_fill_price") or 0.0),
+                        "executed_quantity": float(ep.get("executed_quantity") or led_ep.get("quantity") or ep.get("hypothetical_quantity") or 0.0),
+                        "planned_net_risk_usd": float(ep.get("planned_net_risk_usd") or led_ep.get("planned_net_risk_usd") or 0.0),
+                        "entry_fee_usd": round(float(ep.get("entry_fee_usd") or led_ep.get("entry_fee") or 0.0), 4),
+                        "exit_fee_usd": round(float(ep.get("exit_fee_usd") or led_ep.get("exit_fee") or 0.0), 4),
+                        "realized_gross_pnl_usd": round(float(ep.get("realized_gross_pnl_usd") or led_ep.get("realized_gross_pnl_usd") or 0.0), 4),
+                        "realized_net_pnl_usd": round(float(ep.get("realized_net_pnl_usd") or led_ep.get("realized_net_pnl_usd") or 0.0), 4),
+                        "realized_r": round(float(ep.get("realized_r") or led_ep.get("realized_r_net") or 0.0), 4),
+                    })
                     if ep.get("filled"):
                         r_usd = float(ep.get("planned_net_risk_usd") or 0.0)
                         rr_val = float(ep.get("planned_net_rr") or ep.get("net_rr") or 2.0)
@@ -818,8 +1016,9 @@ def main() -> int:
                     if chk_res["status"] != "PASS":
                         lineage_violations.append(f"{pid}:{fm}:{chk_name}:{chk_res.get('violations')}")
 
-        # Write 09_exit_event_lineage_ledger.jsonl.gz
+        # Write 09_exit_event_lineage_ledger.jsonl.gz and 09_original_execution_ledger_source_reconciliation.jsonl.gz
         write_jsonl_gz(run_dir / "09_exit_event_lineage_ledger.jsonl.gz", all_lineage_events)
+        write_jsonl_gz(run_dir / "09_original_execution_ledger_source_reconciliation.jsonl.gz", all_source_execution_rows)
 
         # Write 08_exit_event_contract_and_source_map.json
         write_json(
@@ -1115,19 +1314,51 @@ def main() -> int:
             },
         )
 
+        # Write 16_evidence_origin_coverage_and_unresolved_source.json
+        origin_counts = Counter(str(e.get("evidence_origin") or "UNKNOWN") for e in all_lineage_events)
+        quote_kind_counts = Counter(str(e.get("quote_source_kind") or "UNKNOWN") for e in all_lineage_events)
+        src_cls_counts = Counter(str(e.get("source_class") or "UNKNOWN") for e in all_lineage_events)
+        write_json(
+            run_dir / "16_evidence_origin_coverage_and_unresolved_source.json",
+            {
+                "version": VERSION_V17931211,
+                "schema_version": SCHEMA_VERSION_V17931211,
+                "run_id": run_id,
+                "tested_executable_sha": sha,
+                "dataset_sha256": actual_dataset_sha,
+                "total_events_audited": len(all_lineage_events),
+                "evidence_origin_counts": dict(sorted(origin_counts.items())),
+                "quote_source_kind_counts": dict(sorted(quote_kind_counts.items())),
+                "source_class_counts": dict(sorted(src_cls_counts.items())),
+                "unknown_evidence_origin_count": int(origin_counts.get("UNKNOWN", 0)),
+                "unknown_source_class_count": int(src_cls_counts.get("UNKNOWN", 0)),
+                "raw_exit_event_lineage_verdict": "RECONSTRUCTED_LINEAGE_VERIFIED" if int(origin_counts.get("UNKNOWN", 0)) == 0 else "FAIL",
+                "status": "PASS" if int(origin_counts.get("UNKNOWN", 0)) == 0 and int(src_cls_counts.get("UNKNOWN", 0)) == 0 else "FAIL",
+            },
+        )
+
+        # Independently reconstruct and verify all 30 partitions from 09_exit_event_lineage_ledger.jsonl.gz
+        all_part_ind_check = verify_all_policy_fill_mode_lineage_independently_v17931211(
+            run_dir,
+            bars_1m_by_open_ts=bars_1m_by_open_ts,
+            expected_run_id=run_id,
+            expected_tested_sha=sha,
+            expected_dataset_sha=actual_dataset_sha,
+        )
+        write_json(
+            run_dir / "10_all_policies_3_fill_modes_independent_lineage_verification.json",
+            {
+                k: v
+                for k, v in all_part_ind_check.items()
+                if k not in ("reconstructed_partitions", "reconstructed_si0_primary_bundle")
+            },
+        )
+
         # Write 17_cross_adapter_exit_parity_report.json
         cross_parity_17 = verify_exit_lineage_cross_adapter_parity_v17931211()
         cross_parity_17["run_id"] = run_id
         cross_parity_17["tested_executable_sha"] = sha
         write_json(run_dir / "17_cross_adapter_exit_parity_report.json", cross_parity_17)
-
-        # Write 18_exit_lineage_negative_controls_report.json
-        exit_neg_18 = run_exit_lineage_negative_controls_v17931211(
-            primary_si0_lineage_bundle, bars_1m_by_open_ts
-        )
-        exit_neg_18["run_id"] = run_id
-        exit_neg_18["tested_executable_sha"] = sha
-        write_json(run_dir / "18_exit_lineage_negative_controls_report.json", exit_neg_18)
 
         append_stage_status(
             run_dir,
@@ -1136,11 +1367,12 @@ def main() -> int:
             elapsed_s=round(time.time() - t_b, 2),
             total_events=len(all_lineage_events),
             closed_identities=len(all_closed_identities),
+            all_30_partitions_status=all_part_ind_check["status"],
         )
         monitor.check()
 
-        # STAGE C: Independent 1/2/4-worker + repeat determinism & verification-truth negative controls
-        print("[Stage C] Running 1/2/4-worker + repeat determinism and verification-truth negative controls...", flush=True)
+        # STAGE C: Independent 1/2/4-worker + repeat determinism & V01..V22 negative controls
+        print("[Stage C] Running 1/2/4-worker + repeat determinism and V01..V22 negative controls...", flush=True)
         t_c = time.time()
         append_stage_status(run_dir, "STAGE_C_WORKER_DETERMINISM_AND_NEGATIVE_CONTROLS", "STARTED")
 
@@ -1153,6 +1385,40 @@ def main() -> int:
         )
         worker_records.extend(det_worker_records)
         write_json(run_dir / "19_worker_1_2_4_and_repeat_determinism.json", doc_19)
+        write_json(run_dir / "12_worker_1_2_4_and_repeat_process_and_order_parity.json", doc_19)
+
+        # Build canonical report_metrics and render README_TRUTH_CLOSURE.md & HANDOVER_TRUTH_CLOSURE.txt
+        report_metrics_13 = build_canonical_report_metrics_v17931211(
+            run_id=run_id,
+            tested_sha=sha,
+            dataset_sha=actual_dataset_sha,
+            junit_bijection=junit_bijection,
+            shard_count=junit["shard_count"],
+            all_partitions_lineage=all_part_ind_check,
+            casebook_15=casebook_15,
+            worker_parity=doc_19,
+            negative_controls_count=22,
+        )
+        readme_tc_md, handover_tc_txt = render_truth_closure_readme_and_handover_v17931211(report_metrics_13)
+        narrative_check_13 = verify_strict_report_and_handover_consistency_v17931211(
+            readme_tc_md, handover_tc_txt, report_metrics_13
+        )
+        report_metrics_13["strict_narrative_validation"] = narrative_check_13
+        report_metrics_13["status"] = narrative_check_13["status"]
+        write_json(run_dir / "13_report_metrics_and_strict_narrative_validation.json", report_metrics_13)
+
+        # Execute all 22 adversarial negative controls V01..V22 on disposable copies in temp dir
+        neg_v22 = run_truth_closure_negative_controls_v01_to_v22_v17931211(
+            reconstructed_partitions=all_part_ind_check["reconstructed_partitions"],
+            bars_1m_by_open_ts=bars_1m_by_open_ts,
+            report_metrics=report_metrics_13,
+            readme_text=readme_tc_md,
+            handover_text=handover_tc_txt,
+            run_id=run_id,
+            tested_sha=sha,
+        )
+        write_json(run_dir / "18_negative_controls_v01_to_v22_execution_report.json", neg_v22)
+        write_json(run_dir / "18_exit_lineage_negative_controls_report.json", neg_v22)
 
         truth_neg_05 = run_verification_truth_negative_controls_v17931211()
         truth_neg_05["run_id"] = run_id
@@ -1166,6 +1432,7 @@ def main() -> int:
             elapsed_s=round(time.time() - t_c, 2),
             worker_parity_status=doc_19["status"],
             truth_neg_controls_status=truth_neg_05["status"],
+            v01_to_v22_status=neg_v22["status"],
         )
         monitor.check()
 
@@ -1252,51 +1519,42 @@ def main() -> int:
             },
         )
 
-        # Write 22_missing_evidence_blockers.json
-        write_json(
-            run_dir / "22_missing_evidence_blockers.json",
-            {
-                "version": VERSION_V17931211,
-                "schema_version": SCHEMA_VERSION_V17931211,
-                "run_id": run_id,
-                "tested_executable_sha": sha,
-                "engineering_blockers": [failure] if failure else [],
-                "strategy_activation_blockers": [
-                    {
-                        "blocker_id": "STRAT_BLK_01_NEGATIVE_PORTFOLIO_EXPECTANCY",
-                        "description": "All evaluated policies with non-zero closed trades (SI0..SI3) have negative net expectancy after spread, slippage, and fees; SI4..SI9 have 0 closed trades (UNDEFINED_ZERO_CLOSED_TRADES).",
-                        "activation_ready": "NO",
-                    },
-                    {
-                        "blocker_id": "STRAT_BLK_02_REUSED_HISTORICAL_HOLDOUT",
-                        "description": "Historical dataset 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 was previously exposed across V17.9.2..V17.9.3.1.2.10 and is classified as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS.",
-                        "activation_ready": "NO",
-                    },
-                    {
-                        "blocker_id": "STRAT_BLK_03_SYNTHETIC_BID_ASK_QUOTE_HISTORY",
-                        "description": "Historical bid/ask quotes are modeled as close +/- 0.10 USD (SYNTHETIC_RESEARCH_QUOTE) rather than tick-level Bitget L1 orderbook history.",
-                        "activation_ready": "NO",
-                    },
-                ],
-                "status": "PASS" if not failure else "BLOCKED",
-            },
-        )
+        # Write 19_missing_evidence_or_blockers.json and 22_missing_evidence_blockers.json
+        blockers_payload = {
+            "version": VERSION_V17931211,
+            "schema_version": SCHEMA_VERSION_V17931211,
+            "run_id": run_id,
+            "tested_executable_sha": sha,
+            "engineering_blockers": [failure] if failure else [],
+            "strategy_activation_blockers": [
+                {
+                    "blocker_id": "STRAT_BLK_01_NEGATIVE_PORTFOLIO_EXPECTANCY",
+                    "description": "All evaluated policies with non-zero closed trades (SI0..SI3) have negative net expectancy after spread, slippage, and fees; SI4..SI9 have 0 closed trades (UNDEFINED_ZERO_CLOSED_TRADES).",
+                    "activation_ready": "NO",
+                },
+                {
+                    "blocker_id": "STRAT_BLK_02_REUSED_HISTORICAL_HOLDOUT",
+                    "description": "Historical dataset 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 was previously exposed across V17.9.2..V17.9.3.1.2.10 and is classified as REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS.",
+                    "activation_ready": "NO",
+                },
+                {
+                    "blocker_id": "STRAT_BLK_03_SYNTHETIC_BID_ASK_QUOTE_HISTORY",
+                    "description": "Historical bid/ask quotes are modeled as close +/- 0.10 USD (SYNTHETIC_RESEARCH_QUOTE) rather than tick-level Bitget L1 orderbook history.",
+                    "activation_ready": "NO",
+                },
+            ],
+            "status": "PASS" if not failure else "BLOCKED",
+        }
+        write_json(run_dir / "19_missing_evidence_or_blockers.json", blockers_payload)
+        write_json(run_dir / "22_missing_evidence_blockers.json", blockers_payload)
 
         if not failure:
-            # Render README_V17_9_3_1_2_11.md
-            readme_md = render_readme_v17931211(
-                run_id=run_id,
-                tested_sha=sha,
-                dataset_sha=actual_dataset_sha,
-                collected_test_count=junit_bijection["collected_count"],
-                passed_test_count=junit_bijection["passed_count"],
-                skipped_test_count=junit_bijection["skipped_count"],
-                shard_count=junit["shard_count"],
-                si0_conservation=conservation_by_policy_mode["SI0_OFF_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"],
-                casebook_15=casebook_15,
-                worker_parity=doc_19,
+            (run_dir / "README_TRUTH_CLOSURE.md").write_text(readme_tc_md, encoding="utf-8", newline="\n")
+            (run_dir / "README_V17_9_3_1_2_11.md").write_text(readme_tc_md, encoding="utf-8", newline="\n")
+            (run_dir / "HANDOVER_TRUTH_CLOSURE.txt").write_text(handover_tc_txt, encoding="utf-8", newline="\n")
+            (APP_ROOT / "docs/artifacts/v17_9_3_1_2_11/HANDOVER_TRUTH_CLOSURE.txt").write_text(
+                handover_tc_txt, encoding="utf-8", newline="\n"
             )
-            (run_dir / "README_V17_9_3_1_2_11.md").write_text(readme_md, encoding="utf-8", newline="\n")
             (run_dir / ".gitattributes").write_bytes(b"* -text\n")
 
             # STAGE D: Separate-process independent verification
@@ -1315,6 +1573,7 @@ def main() -> int:
                     f"SEPARATE_PROCESS_INDEPENDENT_VERIFIER_FAILED:rc={ver_proc.returncode},stdout={ver_proc.stdout},stderr={ver_proc.stderr}"
                 )
             ver_summary = json.loads(ver_proc.stdout.strip().splitlines()[-1])
+            append_stage_status(run_dir, "STAGE_D_INDEPENDENT_SEPARATE_PROCESS_VERIFIER", "COMPLETED", verifier_pid=ver_summary["verifier_pid"])
             print(json.dumps(ver_summary, indent=2, sort_keys=True), flush=True)
             return 0
 

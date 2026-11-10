@@ -45,12 +45,16 @@ from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     MANDATORY_BRANCH_V17931211,
     REQUIRED_ARTIFACTS_V17931211,
     SCHEMA_VERSION_V17931211,
+    TRUTH_CLOSURE_REQUIRED_ARTIFACTS_V17931211,
     VERSION_V17931211,
     canonical_hash,
+    evaluate_truth_closure_gates_v17931211,
     evaluate_v17931211_acceptance_gates,
     evaluate_verification_truth_gates_v17931211,
     recompute_realized_pnl_from_exit_events_v17931211,
+    run_truth_closure_negative_controls_v01_to_v22_v17931211,
     run_verification_truth_negative_controls_v17931211,
+    verify_all_policy_fill_mode_lineage_independently_v17931211,
     verify_artifact_manifest_v17931211,
     verify_execution_not_synthetic_v17931211,
     verify_exit_event_deduplication_v17931211,
@@ -62,6 +66,7 @@ from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     verify_fresh_junit_bijection_v17931211,
     verify_process_exit_and_timeout_v17931211,
     verify_source_freeze_v17931211,
+    verify_strict_report_and_handover_consistency_v17931211,
 )
 from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets
 
@@ -129,36 +134,44 @@ def verify_readme_consistency_v17931211(
     cohort_doc: Mapping[str, Any],
     casebook_15_doc: Mapping[str, Any],
     junit_doc: Mapping[str, Any],
+    report_metrics_doc: Mapping[str, Any] | None = None,
+    handover_text: str | None = None,
 ) -> Dict[str, Any]:
-    """E12: Verifies README_V17_9_3_1_2_11.md matches JSON source artifacts without drift."""
+    """
+    E12: Strictly verifies README_TRUTH_CLOSURE.md / README_V17_9_3_1_2_11.md and
+    HANDOVER_TRUTH_CLOSURE.txt against JSON source artifacts without drift.
+    Rejects prior Venn (3+2+1+4+2+3=15), fee-split (101.6095/101.5040), and
+    negative-control count (10 vs 22) narrative drift.
+    """
     violations: List[str] = []
     if tested_sha not in readme_text:
         violations.append(f"README_MISSING_TESTED_SHA:{tested_sha}")
     if dataset_sha not in readme_text:
         violations.append(f"README_MISSING_DATASET_SHA:{dataset_sha}")
 
-    # Verify key reconciled numbers are present in README
-    required_tokens = [
-        "22,376",
-        "22,346",
-        "223,460",
-        "56,710",
-        "63,085",
-        "63,117",
-        "75,525",
-        "242",
-        "166",
-        "157",
-        "74",
-        "15",
-        "21",
-        "278",
-        "272",
-        "ACTIVATION_READY",
-    ]
-    for tok in required_tokens:
-        if tok not in readme_text:
-            violations.append(f"README_MISSING_RECONCILED_TOKEN:{tok}")
+    main_sections = readme_text.split("## 6. Errata")[0]
+    if "3 + 2 + 1 + 4 + 2 + 3 = 15" in main_sections or "3+2+1+4+2+3=15" in main_sections:
+        violations.append("README_PROSE_HAS_WRONG_VENN_3_2_1_4_2_3")
+    if "101.6095" in main_sections or "101.5040" in main_sections:
+        violations.append("README_PROSE_HAS_WRONG_FEE_SPLIT_101_6095")
+
+    venn = dict(casebook_15_doc.get("venn_overlap_partition") or {})
+    if venn:
+        exp_si1_si3 = int(venn.get("SI1_H1_H2+SI3_H4_only", 0))
+        exp_si2 = int(venn.get("SI2_H3_only", 0))
+        if f"SI1_H1_H2+SI3_H4_only`: `{exp_si1_si3}`" not in readme_text and f"METRICS_KV|VENN_SI1_SI3_ONLY|{exp_si1_si3}" not in readme_text:
+            violations.append(f"README_MISSING_EXACT_VENN_SI1_SI3_ONLY:{exp_si1_si3}")
+        if f"SI2_H3_only`: `{exp_si2}`" not in readme_text and f"METRICS_KV|VENN_SI2_ONLY|{exp_si2}" not in readme_text:
+            violations.append(f"README_MISSING_EXACT_VENN_SI2_ONLY:{exp_si2}")
+
+    if report_metrics_doc is not None:
+        strict_res = verify_strict_report_and_handover_consistency_v17931211(
+            readme_text,
+            handover_text if handover_text is not None else readme_text,
+            report_metrics_doc,
+        )
+        if strict_res["status"] != "PASS":
+            violations.extend(strict_res["violations"])
 
     col_cnt = str(junit_doc.get("collection_manifest", {}).get("collected_node_ids_count") or "")
     if col_cnt and col_cnt not in readme_text:
@@ -173,8 +186,8 @@ def verify_readme_consistency_v17931211(
 
 def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
     """
-    Executes full independent verification of a V17.9.3.1.2.11 run directory
-    from on-disk files in a separate process.
+    Executes full independent verification of a V17.9.3.1.2.11 Truth Closure run directory
+    from on-disk files in a separate OS process (verifier_pid != orchestrator_pid).
     """
     t0 = time.time()
     run_dir = Path(run_dir).resolve()
@@ -221,6 +234,10 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         prior_artifact_hashes_before=freeze_01.get("prior_artifact_hashes_before") or {},
         prior_artifact_hashes_after=freeze_01.get("prior_artifact_hashes_after") or {},
     )
+    prior_immutability_ok = (
+        freeze_01.get("prior_artifact_sha256_before") == freeze_01.get("prior_artifact_sha256_after")
+        and bool(freeze_01.get("prior_artifact_sha256_before"))
+    )
 
     # 4. Independently verify JUnit bijection from raw XML files on disk (06)
     junit_06 = read_json(run_dir / "06_fresh_pytest_collection_and_junit_bijection.json")
@@ -234,7 +251,7 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         expected_tested_sha=tested_sha,
     )
 
-    # 5. Independently verify subprocess exit codes, telemetry, and non-synthetic execution (07, 19)
+    # 5. Independently verify subprocess exit codes, telemetry, and 1/2/4-worker process & order parity (07, 19)
     telemetry_07 = read_json(run_dir / "07_subprocess_worker_and_resource_telemetry.json")
     parity_19 = read_json(run_dir / "19_worker_1_2_4_and_repeat_determinism.json")
     proc_check = verify_process_exit_and_timeout_v17931211(
@@ -251,43 +268,30 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         resource_telemetry=telemetry_07.get("resource_telemetry"),
     )
 
-    # 6. Run verification-truth negative controls (a..j) in isolated temp dir
-    truth_neg_controls = run_verification_truth_negative_controls_v17931211()
-
-    # 7. Reconstruct and verify exit-event lineage across all policies & fill modes from disk (09..18)
-    stream_rows = list(iter_jsonl_gz(run_dir / "09_exit_event_lineage_ledger.jsonl.gz"))
-    chain_10 = read_json(run_dir / "10_closed_trade_exit_chain_verification.json")
-    censored_11 = read_json(run_dir / "11_open_censored_unfilled_and_unknown_audit.json")
-    basis_12 = read_json(run_dir / "12_exit_trigger_and_fill_price_basis_verification.json")
-    dedupe_13 = read_json(run_dir / "13_exit_deduplication_and_idempotency_verification.json")
-    pnl_14 = read_json(run_dir / "14_independent_realized_pnl_and_fee_recomputation.json")
-    rec15_15 = read_json(run_dir / "15_recovered_15_trades_exit_forensics_and_venn.json")
-    cons_16 = read_json(run_dir / "16_all_policies_three_fill_modes_conservation.json")
-    parity_17 = read_json(run_dir / "17_cross_adapter_exit_parity_report.json")
-    exit_neg_18 = read_json(run_dir / "18_exit_lineage_negative_controls_report.json")
-    cohort_04 = read_json(run_dir / "04_canonical_universe_and_cohort_reconciliation.json")
-
-    # Verify primary SI0_OFF_BASELINE bundle directly from decompressed 09 stream
-    si0_primary_bundle = cons_16["primary_si0_lineage_bundle"]
-    p_check = verify_exit_event_parentage_v17931211(si0_primary_bundle)
-    s_check = verify_exit_state_machine_v17931211(si0_primary_bundle)
-    b_check = verify_exit_fill_basis_v17931211(si0_primary_bundle, bars_1m_by_open_ts=bars_1m_by_open_ts)
-    d_check = verify_exit_event_deduplication_v17931211(si0_primary_bundle)
-    r_check = recompute_realized_pnl_from_exit_events_v17931211(si0_primary_bundle)
-    c_check = verify_exit_portfolio_conservation_v17931211(
-        si0_primary_bundle,
-        expected_counts={
-            "total_scheduled_episodes": 242,
-            "closed_trades_count": 166,
-            "wins_count": 9,
-            "losses_count": 157,
-            "open_at_horizon_count": 74,
-            "data_gap_unresolved_count": 1,
-            "unfilled_no_entry_count": 1,
+    # 6. Reconstruct and independently verify ALL 30 (10 policies x 3 fill modes) partitions
+    # directly from 09_exit_event_lineage_ledger.jsonl.gz and cross-check against
+    # 09_original_execution_ledger_source_reconciliation.jsonl.gz and raw M1 bars!
+    all_partitions_check = verify_all_policy_fill_mode_lineage_independently_v17931211(
+        run_dir,
+        bars_1m_by_open_ts=bars_1m_by_open_ts,
+        expected_run_id=run_id,
+        expected_tested_sha=tested_sha,
+        expected_dataset_sha=dataset_sha,
+    )
+    write_json(
+        run_dir / "10_all_policies_3_fill_modes_independent_lineage_verification.json",
+        {
+            k: v
+            for k, v in all_partitions_check.items()
+            if k not in ("reconstructed_partitions", "reconstructed_si0_primary_bundle")
         },
     )
 
-    # Verify all 15 recovered unique trades have exit_timestamp_ms > 0 and valid exit chains
+    dedupe_13 = read_json(run_dir / "13_exit_deduplication_and_idempotency_verification.json")
+    rec15_15 = read_json(run_dir / "15_recovered_15_trades_exit_forensics_and_venn.json")
+    cohort_04 = read_json(run_dir / "04_canonical_universe_and_cohort_reconciliation.json")
+    report_metrics_13 = read_json(run_dir / "13_report_metrics_and_strict_narrative_validation.json")
+
     cases_15 = list(rec15_15.get("cases") or [])
     rec15_ok = (
         rec15_15.get("status") == "PASS"
@@ -298,11 +302,19 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         and all(float(c.get("fill_price") or 0.0) > 0.0 for c in cases_15)
     )
 
-    # Verify cross-adapter parity in this independent process
+    # 7. Verify cross-adapter parity in this independent process
     live_cross_adapter = verify_exit_lineage_cross_adapter_parity_v17931211()
 
-    # Verify README consistency (E12)
-    readme_text = (run_dir / "README_V17_9_3_1_2_11.md").read_text(encoding="utf-8")
+    # 8. Verify strict README_TRUTH_CLOSURE.md & HANDOVER_TRUTH_CLOSURE.txt consistency (E12)
+    readme_tc_path = run_dir / "README_TRUTH_CLOSURE.md"
+    readme_text = (
+        readme_tc_path.read_text(encoding="utf-8")
+        if readme_tc_path.exists()
+        else (run_dir / "README_V17_9_3_1_2_11.md").read_text(encoding="utf-8")
+    )
+    handover_tc_path = run_dir / "HANDOVER_TRUTH_CLOSURE.txt"
+    handover_text = handover_tc_path.read_text(encoding="utf-8") if handover_tc_path.exists() else readme_text
+
     readme_check = verify_readme_consistency_v17931211(
         readme_text,
         tested_sha=tested_sha,
@@ -310,37 +322,47 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         cohort_doc=cohort_04,
         casebook_15_doc=rec15_15,
         junit_doc=junit_06,
+        report_metrics_doc=report_metrics_13,
+        handover_text=handover_text,
     )
 
-    # 8. Build 20_independent_verifier_report.json
+    # 9. Run all 22 adversarial negative controls V01..V22 in isolated temp directories in this verifier process
+    truth_neg_controls = run_verification_truth_negative_controls_v17931211()
+    neg_v22_check = run_truth_closure_negative_controls_v01_to_v22_v17931211(
+        reconstructed_partitions=all_partitions_check["reconstructed_partitions"],
+        bars_1m_by_open_ts=bars_1m_by_open_ts,
+        report_metrics=report_metrics_13,
+        readme_text=readme_text,
+        handover_text=handover_text,
+        run_id=run_id,
+        tested_sha=tested_sha,
+    )
+    write_json(run_dir / "18_negative_controls_v01_to_v22_execution_report.json", neg_v22_check)
+
+    # 10. Build 20_independent_verifier_report.json
     verifier_violations: List[str] = []
     if not separate_process_ok:
         verifier_violations.append(f"VERIFIER_NOT_SEPARATE_PROCESS:pid={verifier_pid},orch={orchestrator_pid}")
     if not dataset_ok:
         verifier_violations.append("DATASET_SHA_OR_BAR_CLOSURE_MISMATCH")
+    if not prior_immutability_ok:
+        verifier_violations.append("PRIOR_ARTIFACTS_MUTATED")
+
     for sub_name, sub_res in (
         ("freeze_check", freeze_check),
         ("junit_bijection_check", junit_bijection_check),
         ("proc_check", proc_check),
         ("non_synth_check", non_synth_check),
         ("truth_neg_controls", truth_neg_controls),
-        ("exit_parentage_check", p_check),
-        ("exit_state_machine_check", s_check),
-        ("exit_fill_basis_check", b_check),
-        ("exit_deduplication_check", d_check),
-        ("exit_pnl_recompute_check", r_check),
-        ("exit_conservation_check", c_check),
+        ("all_30_partitions_lineage_check", all_partitions_check),
         ("cross_adapter_parity_check", live_cross_adapter),
-        ("readme_consistency_check", readme_check),
+        ("readme_and_handover_consistency_check", readme_check),
+        ("negative_controls_v01_to_v22_check", neg_v22_check),
     ):
         if sub_res.get("status") != "PASS":
             verifier_violations.append(f"{sub_name}_FAILED:{sub_res.get('violations')}")
     if not rec15_ok:
         verifier_violations.append("RECOVERED_15_TRADES_VERIFICATION_FAILED")
-    if cons_16.get("status") != "PASS":
-        verifier_violations.append(f"ALL_POLICIES_3_FILL_MODES_CONSERVATION_FAILED:{cons_16.get('violations')}")
-    if exit_neg_18.get("status") != "PASS":
-        verifier_violations.append("EXIT_LINEAGE_NEGATIVE_CONTROLS_FAILED")
 
     report_20 = {
         "version": VERSION_V17931211,
@@ -357,32 +379,42 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         "checks": {
             "dataset_and_bar_closure_ok": dataset_ok,
             "source_freeze_and_immutability": freeze_check["status"],
+            "prior_artifacts_byte_immutable": prior_immutability_ok,
             "fresh_junit_bijection": junit_bijection_check["status"],
             "subprocess_exit_and_timeout": proc_check["status"],
-            "non_synthetic_execution": non_synth_check["status"],
+            "non_synthetic_execution_and_worker_order_parity": non_synth_check["status"],
             "verification_truth_negative_controls": truth_neg_controls["status"],
-            "exit_event_stream_rows_verified": len(stream_rows),
-            "exit_parentage": p_check["status"],
-            "exit_state_machine": s_check["status"],
-            "exit_fill_basis": b_check["status"],
-            "exit_deduplication": d_check["status"],
-            "exit_pnl_recomputation": r_check["status"],
-            "si0_cohort_conservation_242": c_check["status"],
-            "all_policies_3_fill_modes_conservation": cons_16.get("status"),
+            "all_30_partitions_raw_stream_reconstructed": all_partitions_check["status"],
+            "exit_event_stream_rows_verified": all_partitions_check["total_events_verified"],
+            "total_episodes_verified_all_30_partitions": all_partitions_check["total_episodes_verified_all_partitions"],
+            "total_closed_trades_verified_all_30_partitions": all_partitions_check["total_closed_trades_verified_all_partitions"],
+            "source_execution_ledger_reconciliation": all_partitions_check["source_execution_reconciliation"]["status"],
             "recovered_15_unique_trades_valid": rec15_ok,
             "cross_adapter_exit_parity": live_cross_adapter["status"],
-            "exit_lineage_negative_controls": exit_neg_18.get("status"),
-            "readme_narrative_consistency": readme_check["status"],
+            "negative_controls_v01_to_v22": neg_v22_check["status"],
+            "strict_readme_and_handover_consistency": readme_check["status"],
         },
     }
     write_json(run_dir / "20_independent_verifier_report.json", report_20)
 
-    # 9. Build prelim manifest, verify it, and compute 21_acceptance_gate_matrix.json
+    required_files = [
+        f
+        for f in (
+            TRUTH_CLOSURE_REQUIRED_ARTIFACTS_V17931211
+            if (run_dir / "README_TRUTH_CLOSURE.md").exists()
+            else REQUIRED_ARTIFACTS_V17931211
+        )
+        if f != "artifact_sha256_manifest.json"
+    ]
+
+    # Write preliminary 17_acceptance_gates_from_raw_proof.json and 21_acceptance_gate_matrix.json
+    # before sealing artifact_sha256_manifest.json so all required files exist on first pass
+    prelim_gate_doc = {"status": "PRELIM", "run_id": run_id}
+    write_json(run_dir / "17_acceptance_gates_from_raw_proof.json", prelim_gate_doc)
+    write_json(run_dir / "21_acceptance_gate_matrix.json", prelim_gate_doc)
+
     build_and_write_artifact_manifest(run_dir)
-    manifest_check = verify_artifact_manifest_v17931211(
-        run_dir,
-        [f for f in REQUIRED_ARTIFACTS_V17931211 if f != "artifact_sha256_manifest.json"],
-    )
+    manifest_check = verify_artifact_manifest_v17931211(run_dir, required_files)
 
     truth_gates_eval = evaluate_verification_truth_gates_v17931211(
         branch_freeze_check=freeze_check,
@@ -391,35 +423,36 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         process_telemetry_check=proc_check,
         non_synthetic_check=non_synth_check,
         artifact_manifest_check=manifest_check,
-        negative_controls_check=truth_neg_controls,
+        negative_controls_check=neg_v22_check,
     )
 
-    gate_matrix_21 = evaluate_v17931211_acceptance_gates(
+    gate_matrix_21 = evaluate_truth_closure_gates_v17931211(
         verification_truth_gates=truth_gates_eval,
-        parentage_check=p_check,
-        state_machine_check=s_check,
-        fill_basis_check={"status": "PASS" if b_check["status"] == "PASS" and basis_12.get("status") == "PASS" else "FAIL", "violations": list(b_check.get("violations") or [])},
-        deduplication_check={"status": "PASS" if d_check["status"] == "PASS" and dedupe_13.get("status") == "PASS" else "FAIL", "violations": list(d_check.get("violations") or [])},
-        pnl_recompute_check={"status": "PASS" if r_check["status"] == "PASS" and pnl_14.get("status") == "PASS" else "FAIL", "violations": list(r_check.get("violations") or [])},
-        cohort_conservation_check={"status": "PASS" if c_check["status"] == "PASS" and cons_16.get("status") == "PASS" and rec15_ok else "FAIL", "violations": list(c_check.get("violations") or [])},
+        all_partitions_lineage_check=all_partitions_check,
         late_reconciliation_check=dedupe_13.get("late_reconciliation_idempotency", {"status": "FAIL"}),
         cross_adapter_parity_check=live_cross_adapter,
+        negative_controls_v22_check=neg_v22_check,
+        strict_narrative_check=readme_check,
         full_regression_check=junit_bijection_check,
-        historical_backtest_check={"status": cons_16.get("status", "FAIL"), "violations": list(cons_16.get("violations") or [])},
-        semantic_diff_check={"status": "PASS" if cohort_04.get("status") == "PASS" and readme_check.get("status") == "PASS" else "FAIL", "violations": list(readme_check.get("violations") or [])},
-        worker_parity_check={"status": parity_19.get("status", "FAIL"), "violations": [] if parity_19.get("status") == "PASS" else ["WORKER_PARITY_FAILED"]},
-        oos_verdict_check={"status": "PASS" if manifest_00.get("fresh_oos_status") == "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS" else "FAIL", "fresh_oos_verdict": "REUSED", "violations": []},
-        phase_b_check={"status": "PASS" if freeze_check["status"] == "PASS" else "BLOCKED", "phase_a_tested_executable_sha": tested_sha},
-        phase_c_check={"status": "BLOCKED", "note": "Pre-publication inside immutable run dir; finalized externally in Phase C publication_<run_id>.json and latest_run.json"},
+        cohort_reconciliation_check={"status": "PASS" if cohort_04.get("status") == "PASS" and rec15_ok else "FAIL", "violations": []},
+        worker_parity_check={"status": "PASS" if parity_19.get("status") == "PASS" and non_synth_check["status"] == "PASS" else "FAIL", "violations": list(non_synth_check.get("violations") or [])},
+        oos_verdict_check={"status": "PASS" if manifest_00.get("fresh_oos_status") == "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS" else "FAIL", "fresh_oos_verdict": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS", "violations": []},
+        artifact_manifest_check=manifest_check,
+        phase_a_b_check={"status": "PASS" if freeze_check["status"] == "PASS" else "BLOCKED", "phase_a_tested_executable_sha": tested_sha},
+        phase_c_check={"status": "BLOCKED", "note": "Pre-publication inside immutable run dir; finalized externally in Phase C publication_<run_id>.json and latest_truth_closure_run.json"},
+        prior_immutability_check={"status": "PASS" if prior_immutability_ok else "FAIL", "prior_artifact_sha256": freeze_01.get("prior_artifact_sha256_after")},
     )
     gate_matrix_21["run_id"] = run_id
     gate_matrix_21["tested_executable_sha"] = tested_sha
     gate_matrix_21["dataset_sha256"] = dataset_sha
+    write_json(run_dir / "17_acceptance_gates_from_raw_proof.json", gate_matrix_21)
     write_json(run_dir / "21_acceptance_gate_matrix.json", gate_matrix_21)
 
     # Update 00_run_manifest.json with final prepublication verdicts
+    manifest_00["status"] = "COMPLETED" if report_20["status"] == "PASS" else "FAILED"
     manifest_00["verification_truth_verdict"] = gate_matrix_21["verification_truth_verdict"]
     manifest_00["exit_event_lineage_verdict"] = gate_matrix_21["exit_event_lineage_verdict"]
+    manifest_00["raw_exit_event_lineage_verdict"] = gate_matrix_21["raw_exit_event_lineage_verdict"]
     manifest_00["prepublication_engineering_verdict"] = gate_matrix_21["prepublication_engineering_verdict"]
     manifest_00["independent_verifier_status"] = report_20["status"]
     manifest_00["independent_verifier_pid"] = verifier_pid
@@ -427,10 +460,7 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
 
     # Re-seal artifact_sha256_manifest.json and run final verification
     build_and_write_artifact_manifest(run_dir)
-    final_manifest_check = verify_artifact_manifest_v17931211(
-        run_dir,
-        [f for f in REQUIRED_ARTIFACTS_V17931211 if f != "artifact_sha256_manifest.json"],
-    )
+    final_manifest_check = verify_artifact_manifest_v17931211(run_dir, required_files)
     if final_manifest_check["status"] != "PASS" or report_20["status"] != "PASS":
         raise RuntimeError(
             f"V17_9_3_1_2_11_INDEPENDENT_VERIFIER_FAILED:report={report_20['violations']},manifest={final_manifest_check['violations']}"
@@ -446,6 +476,7 @@ def run_independent_verification_v17931211(run_dir: Path) -> Dict[str, Any]:
         "manifest_sha256": file_sha256(run_dir / "artifact_sha256_manifest.json"),
         "verification_truth_verdict": gate_matrix_21["verification_truth_verdict"],
         "exit_event_lineage_verdict": gate_matrix_21["exit_event_lineage_verdict"],
+        "raw_exit_event_lineage_verdict": gate_matrix_21["raw_exit_event_lineage_verdict"],
         "prepublication_engineering_verdict": gate_matrix_21["prepublication_engineering_verdict"],
     }
 

@@ -81,17 +81,36 @@ def prior_artifact_manifest():
 
 def _active_heavy_worker_children(proc):
     import psutil
+    raw_children = proc.children(recursive=True)
+    by_ppid = {}
+    for ch in raw_children:
+        try:
+            by_ppid.setdefault(ch.ppid(), []).append(ch)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
     out=[]
-    for ch in proc.children(recursive=True):
+    for ch in raw_children:
         try:
             if ch.status()==psutil.STATUS_ZOMBIE:
                 continue
             name=(ch.name() or "").lower()
             if name.startswith("git"):
                 continue
-            cmd=" ".join(ch.cmdline() or ())
+            cmdline = list(ch.cmdline() or ())
+            cmd=" ".join(cmdline)
             if "multiprocessing.resource_tracker" in cmd or " git " in f" {cmd} " or cmd.startswith("git "):
                 continue
+            # Exclude Windows PEP-405 venv launcher wrapper when its direct Python child is already counted
+            direct_py = [
+                g for g in by_ppid.get(ch.pid, ())
+                if (g.name() or "").lower().startswith("python")
+            ]
+            if len(direct_py) == 1 and "venv" in (ch.exe() or "").lower():
+                try:
+                    if cmdline[1:] == list(direct_py[0].cmdline() or ())[1:]:
+                        continue
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    pass
             out.append(ch)
         except (psutil.NoSuchProcess,psutil.AccessDenied,psutil.ZombieProcess):
             continue
