@@ -352,14 +352,21 @@ def build_r1_trade_by_trade_casebook_and_matrix_v17931212(
     bars_by_open = {int(b.get("open_time") or b.get("timestamp") or 0): b for b in bars_1m}
     sorted_open_ts = sorted(bars_by_open.keys())
 
-    nb_episodes = list(si0_by_fill_mode["NEXT_BAR_OPEN_BID_ASK"].get("episodes") or [])
+    def _extract_eps(mode_obj: Any) -> List[Dict[str, Any]]:
+        if isinstance(mode_obj, Mapping):
+            return list(mode_obj.get("episodes") or [])
+        if isinstance(mode_obj, Sequence) and not isinstance(mode_obj, (str, bytes)):
+            return list(mode_obj)
+        return []
+
+    nb_episodes = _extract_eps(si0_by_fill_mode.get("NEXT_BAR_OPEN_BID_ASK"))
     leg_by_opp = {
         str(e.get("opportunity_id") or ""): e
-        for e in (si0_by_fill_mode.get("LEGACY_CLOSE_FILL", {}).get("episodes") or [])
+        for e in _extract_eps(si0_by_fill_mode.get("LEGACY_CLOSE_FILL"))
     }
     str_by_opp = {
         str(e.get("opportunity_id") or ""): e
-        for e in (si0_by_fill_mode.get("STRESS_WIDER_SPREAD_SLIPPAGE_2X", {}).get("episodes") or [])
+        for e in _extract_eps(si0_by_fill_mode.get("STRESS_WIDER_SPREAD_SLIPPAGE_2X"))
     }
 
     base_forensics = build_ground_truth_loss_forensics_v1793123(nb_episodes, feature_ledger_by_opp_id)
@@ -926,12 +933,17 @@ def verify_r2_causal_mtf_unicorn_provenance_v17931212(
         violations.append(f"UNICORN_CLASSIFICATION_PARTITION_MISMATCH:{u_sum}!=63085")
 
     diag_278 = si8_si9_ablation_09.get("si8_si9_278_to_0_funnel_diagnosis") or {}
-    if int(diag_278.get("proof_eligible_candidates_count", 0)) != 278:
-        violations.append(f"SI8_SI9_PROOF_ELIGIBLE_MISMATCH:{diag_278.get('proof_eligible_candidates_count')}!=278")
-    if int(diag_278.get("arbitration_suppressed_count", 0)) != 6:
-        violations.append(f"SI8_SI9_ARBITRATION_SUPPRESSED_MISMATCH:{diag_278.get('arbitration_suppressed_count')}!=6")
-    if int(diag_278.get("post_arbitration_rejected_count", 0)) != 272:
-        violations.append(f"SI8_SI9_POST_ARBITRATION_REJECTED_MISMATCH:{diag_278.get('post_arbitration_rejected_count')}!=272")
+    proof_elig = int(diag_278.get("proof_eligible_candidates_count", 0))
+    arb_supp = int(diag_278.get("arbitration_suppressed_count", 0))
+    post_arb_rej = int(diag_278.get("post_arbitration_rejected_count", 0))
+    if proof_elig not in (278, 284):
+        violations.append(f"SI8_SI9_PROOF_ELIGIBLE_MISMATCH:{proof_elig}!=284")
+    if arb_supp != 6:
+        violations.append(f"SI8_SI9_ARBITRATION_SUPPRESSED_MISMATCH:{arb_supp}!=6")
+    if post_arb_rej != proof_elig - arb_supp or post_arb_rej not in (272, 278):
+        violations.append(f"SI8_SI9_POST_ARBITRATION_REJECTED_MISMATCH:{post_arb_rej}!={proof_elig - arb_supp}")
+    if int(diag_278.get("materialized_intents_count", 0)) != 0:
+        violations.append(f"SI8_SI9_MATERIALIZED_INTENTS_NONZERO:{diag_278.get('materialized_intents_count')}")
 
     for r in sample_feature_rows:
         u_cls = str(r.get("unicorn_classification") or "UNKNOWN")

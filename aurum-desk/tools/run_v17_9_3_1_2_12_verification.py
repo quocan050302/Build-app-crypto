@@ -196,6 +196,7 @@ def render_v17931212_readme_and_handover(
     """
     buckets = r1_matrix["hierarchical_buckets_a_to_h_counts"]
     ab_modes = r2_ablation["single_axis_mtf_unicorn_ablations_63085"]["ablation_modes"]
+    diag_278 = r2_ablation["si8_si9_278_to_0_funnel_diagnosis"]
     a0_nb = r3_summary["A0_STRICT_BASELINE"]["NEXT_BAR_OPEN_BID_ASK"]
     a1_nb = r3_summary["A1_ENTRY_CONFIRMATION_RETEST_ONLY"]["NEXT_BAR_OPEN_BID_ASK"]
     a2_nb = r3_summary["A2_PROTECTED_SL_NOISE_BUFFER_ONLY"]["NEXT_BAR_OPEN_BID_ASK"]
@@ -230,7 +231,7 @@ def render_v17931212_readme_and_handover(
             f"- `STRUCTURE_ONLY` passed: `{ab_modes['STRUCTURE_ONLY']['passed']}`",
             f"- `LIQUIDITY_ONLY` passed: `{ab_modes['LIQUIDITY_ONLY']['passed']}`",
             f"- `FULL_MTF` passed: `{ab_modes['FULL_MTF']['passed']}`",
-            f"- `SI8/SI9` Materialization Funnel: `278` proof-eligible -> `6` arbitration suppressed -> `272` post-arbitration rejected -> `0` trades.",
+            f"- `SI8/SI9` Materialization Funnel: `{diag_278['proof_eligible_candidates_count']}` proof-eligible -> `{diag_278['arbitration_suppressed_count']}` arbitration suppressed -> `{diag_278['post_arbitration_rejected_count']}` post-arbitration rejected -> `{diag_278['materialized_intents_count']}` trades.",
             "",
             "### 7.3 R3 Matched Entry/SL/TP Counterfactuals (`NEXT_BAR_OPEN_BID_ASK`, `n = 242`, Risk Cap `$2.50`)",
             "| Variant | Closed Trades | Wins | Losses | Net PnL (USD) | Expectancy Net R | Max Planned Risk (USD) |",
@@ -659,7 +660,7 @@ def main() -> int:
         # R1: True Entry/SL Loss Forensics (04, 05, 06)
         casebook_15 = analyze_15_distinct_recovered_trades_v17931210(si_results_by_policy, all_features_map)
         r1_bundle = build_r1_trade_by_trade_casebook_and_matrix_v17931212(
-            si0_by_fill_mode=si_results_by_policy["SI0_OFF_BASELINE"]["replays_by_fill_mode"],
+            si0_by_fill_mode=si_results_by_policy["SI0_OFF_BASELINE"]["all_mode_episodes"],
             feature_ledger_by_opp_id=all_features_map,
             bars_1m=bars_1m,
             casebook_15=casebook_15,
@@ -684,8 +685,8 @@ def main() -> int:
             canonical_decisions=baseline_decisions,
             si8_decisions=si8_decisions,
             feature_ledger_by_opp_id=all_features_map,
-            si8_policy_result=si_results_by_policy["SI8_CAUSAL_POOL_DISCOVERY_PROVENANCE"],
-            si9_policy_result=si_results_by_policy["SI9_COMBINED_CAUSAL_PROVENANCE_AND_FINAL_DECISION_PROOF"],
+            si8_policy_result=si_results_by_policy["SI8_RESEARCH_DISCOVERY_REPAIRED"],
+            si9_policy_result=si_results_by_policy["SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"],
             dataset_sha256=actual_dataset_sha,
         )
         write_json(run_dir / "07_r2_htf_mtf_causality_and_pivot_audit.json", r2_bundle["htf_audit_07"])
@@ -976,3 +977,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

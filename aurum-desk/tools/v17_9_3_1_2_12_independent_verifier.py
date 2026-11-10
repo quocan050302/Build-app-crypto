@@ -438,3 +438,4 @@ if __name__ == "__main__":
     result = run_independent_verification_v17931212(Path(sys.argv[1]))
     print(json.dumps(result, sort_keys=True))
     raise SystemExit(0 if result.get("status") == "PASS" else 1)
+
