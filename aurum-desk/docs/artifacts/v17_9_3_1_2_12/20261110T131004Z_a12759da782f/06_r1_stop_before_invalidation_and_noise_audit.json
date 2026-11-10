@@ -1,0 +1,127 @@
+{
+  "closed_trades_evaluated": 166,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "ex_post_scope_enforcement": "All stop_outcome_class, tp_would_hit_after_stop, MFE, and MAE metrics are strictly labeled EX_POST_DIAGNOSTIC_ONLY_FORBIDDEN_IN_LIVE_DECISION and never enter pre-entry signal gating or model arbitration.",
+  "local_m1_swing_stop_summary": {
+    "clean_win_count": 9,
+    "data_gap_unresolved_count": 0,
+    "delayed_inevitable_loss_count": 36,
+    "delayed_inevitable_rate_of_stopped": 0.2384,
+    "has_data_gap_before_exit_count": 0,
+    "mean_bars_held": 49.21,
+    "mean_mae_r": 1.192,
+    "mean_mfe_r": 1.3466,
+    "noise_sweep_then_tp_hit_ex_post_count": 2,
+    "open_at_horizon_count": 6,
+    "outcome_class_counts": {
+      "CLEAN_WIN": 9,
+      "DATA_GAP_UNRESOLVED": 0,
+      "DELAYED_INEVITABLE_LOSS": 36,
+      "OPEN_AT_HORIZON": 6,
+      "PREMATURE_NOISE_SWEEP_STOP": 25,
+      "SAME_BAR_CONSERVATIVE_LOSS": 0,
+      "TRUE_INVALIDATION_LOSS": 90
+    },
+    "premature_stop_count": 25,
+    "premature_stop_rate_of_stopped": 0.1656,
+    "premature_stop_rate_of_stopped_wilson_95_ci": {
+      "lower_95": 0.1147,
+      "upper_95": 0.233
+    },
+    "premature_stop_rate_of_total": 0.1506,
+    "premature_stop_rate_of_total_wilson_95_ci": {
+      "lower_95": 0.1041,
+      "upper_95": 0.2129
+    },
+    "premature_wick_before_later_break_count": 16,
+    "pure_noise_sweep_structure_held_count": 7,
+    "same_bar_tie_loss_count": 0,
+    "stopped_episodes": 151,
+    "sub_class_counts": {
+      "CENSORED_OPEN_AT_HORIZON": 6,
+      "CLEAN_TARGET_HIT": 9,
+      "DELAYED_INEVITABLE_BREAK_WITHIN_5_BARS": 36,
+      "IMMEDIATE_STRUCTURE_INVALIDATION": 90,
+      "INTRATRADE_PROVIDER_GAP_BEFORE_EXIT": 0,
+      "NOISE_SWEEP_THEN_TP_HIT_EX_POST": 2,
+      "PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK": 16,
+      "PURE_NOISE_SWEEP_STRUCTURE_HELD": 7,
+      "SAME_BAR_SL_TP_TIE_CONSERVATIVE": 0
+    },
+    "total_episodes": 166,
+    "tp_would_hit_after_stop_count": 3,
+    "true_invalidation_loss_count": 90,
+    "true_invalidation_rate_of_stopped": 0.596,
+    "true_invalidation_rate_of_stopped_wilson_95_ci": {
+      "lower_95": 0.5163,
+      "upper_95": 0.671
+    }
+  },
+  "losses_evaluated": 157,
+  "outer_protected_structure_stop_summary": {
+    "clean_win_count": 9,
+    "data_gap_unresolved_count": 0,
+    "delayed_inevitable_loss_count": 15,
+    "delayed_inevitable_rate_of_stopped": 0.0993,
+    "has_data_gap_before_exit_count": 0,
+    "mean_bars_held": 49.21,
+    "mean_mae_r": 1.192,
+    "mean_mfe_r": 1.3466,
+    "noise_sweep_then_tp_hit_ex_post_count": 0,
+    "open_at_horizon_count": 6,
+    "outcome_class_counts": {
+      "CLEAN_WIN": 9,
+      "DATA_GAP_UNRESOLVED": 0,
+      "DELAYED_INEVITABLE_LOSS": 15,
+      "OPEN_AT_HORIZON": 6,
+      "PREMATURE_NOISE_SWEEP_STOP": 8,
+      "SAME_BAR_CONSERVATIVE_LOSS": 0,
+      "TRUE_INVALIDATION_LOSS": 128
+    },
+    "premature_stop_count": 8,
+    "premature_stop_rate_of_stopped": 0.053,
+    "premature_stop_rate_of_stopped_wilson_95_ci": {
+      "lower_95": 0.0271,
+      "upper_95": 0.1011
+    },
+    "premature_stop_rate_of_total": 0.0482,
+    "premature_stop_rate_of_total_wilson_95_ci": {
+      "lower_95": 0.0246,
+      "upper_95": 0.0922
+    },
+    "premature_wick_before_later_break_count": 6,
+    "pure_noise_sweep_structure_held_count": 2,
+    "same_bar_tie_loss_count": 0,
+    "stopped_episodes": 151,
+    "sub_class_counts": {
+      "CENSORED_OPEN_AT_HORIZON": 6,
+      "CLEAN_TARGET_HIT": 9,
+      "DELAYED_INEVITABLE_BREAK_WITHIN_5_BARS": 15,
+      "IMMEDIATE_STRUCTURE_INVALIDATION": 128,
+      "INTRATRADE_PROVIDER_GAP_BEFORE_EXIT": 0,
+      "NOISE_SWEEP_THEN_TP_HIT_EX_POST": 0,
+      "PREMATURE_WICK_SWEEP_BEFORE_LATER_BREAK": 6,
+      "PURE_NOISE_SWEEP_STRUCTURE_HELD": 2,
+      "SAME_BAR_SL_TP_TIE_CONSERVATIVE": 0
+    },
+    "total_episodes": 166,
+    "tp_would_hit_after_stop_count": 3,
+    "true_invalidation_loss_count": 128,
+    "true_invalidation_rate_of_stopped": 0.8477,
+    "true_invalidation_rate_of_stopped_wilson_95_ci": {
+      "lower_95": 0.7818,
+      "upper_95": 0.8963
+    }
+  },
+  "schema_version": "17.9.3.1.2.12",
+  "sl_distance_le_0_40_usd_count": 0,
+  "stop_to_atr_1m_ratio_quantiles": {
+    "max": 53.8788,
+    "median": 3.8392,
+    "min": 0.4329,
+    "p25": 1.843,
+    "p75": 7.223
+  },
+  "version": "v17_9_3_1_2_12",
+  "wins_evaluated": 9
+}

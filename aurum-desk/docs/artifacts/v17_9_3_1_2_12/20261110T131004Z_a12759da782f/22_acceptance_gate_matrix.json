@@ -1,0 +1,101 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": {
+    "G_P0A_01": {
+      "category": "P0_A_PROVENANCE_FAIL_CLOSED",
+      "gate_id": "G_P0A_01",
+      "status": "PASS",
+      "title": "read_exit_event_stream_strict_v17931211 rejects missing evidence_origin / quote_source_kind without defaults"
+    },
+    "G_P0A_02": {
+      "category": "P0_A_PROVENANCE_FAIL_CLOSED",
+      "gate_id": "G_P0A_02",
+      "status": "PASS",
+      "title": "legacy_sem_hash rejected on active runs and isolated to read-only migration helper"
+    },
+    "G_P0A_03": {
+      "category": "P0_A_PROVENANCE_FAIL_CLOSED",
+      "gate_id": "G_P0A_03",
+      "status": "PASS",
+      "title": "09_original_execution_ledger_source_reconciliation.jsonl.gz mandatory fail-closed across all 30 partitions"
+    },
+    "G_P0A_04": {
+      "category": "P0_A_PROVENANCE_FAIL_CLOSED",
+      "gate_id": "G_P0A_04",
+      "status": "PASS",
+      "title": "All 40 adversarial negative controls V01..V40 rejected in isolated temporary directories"
+    },
+    "G_P0B_01": {
+      "category": "P0_B_ASYNC_WORKER_TRUTH",
+      "gate_id": "G_P0B_01",
+      "status": "PASS",
+      "title": "Worker 1/2/4 + 1-worker repeat process truth (4 distinct OS PIDs in w=4) and ordered + membership digest parity"
+    },
+    "G_PUB_01": {
+      "category": "PUBLICATION_AND_IMMUTABILITY",
+      "gate_id": "G_PUB_01",
+      "status": "PASS",
+      "title": "Complete artifact SHA-256 manifest sealed and prior .7..11 artifacts preserved byte-immutable"
+    },
+    "G_PUB_02": {
+      "category": "PUBLICATION_AND_IMMUTABILITY",
+      "gate_id": "G_PUB_02",
+      "status": "BLOCKED",
+      "title": "Phase B commit/push and Phase C external remote git readback"
+    },
+    "G_R1_01": {
+      "category": "R1_LOSS_FORENSICS",
+      "gate_id": "G_R1_01",
+      "status": "PASS",
+      "title": "166 closed trades (157 LOSS + 9 WIN) and 242 scheduled episodes reconciled with A..H hierarchy and EX_POST separation"
+    },
+    "G_R2_01": {
+      "category": "R2_CAUSAL_MTF_UNICORN",
+      "gate_id": "G_R2_01",
+      "status": "PASS",
+      "title": "63,085 canonical universe and 278 -> 6 -> 272 -> 0 SI8/SI9 funnel audited with single-axis MTF/Unicorn ablations"
+    },
+    "G_R3_01": {
+      "category": "R3_COUNTERFACTUAL_REPAIR",
+      "gate_id": "G_R3_01",
+      "status": "PASS",
+      "title": "Pre-registered matched counterfactuals A0..A4 evaluated across all 3 fill modes at fixed $2.50 risk cap"
+    },
+    "G_R4_01": {
+      "category": "R4_REGRESSION_AND_BACKTEST",
+      "gate_id": "G_R4_01",
+      "status": "PASS",
+      "title": "Fresh full backend pytest collection and sharded JUnit XML execution with 100% node bijection and 0 failures"
+    },
+    "G_R4_02": {
+      "category": "R4_REGRESSION_AND_BACKTEST",
+      "gate_id": "G_R4_02",
+      "status": "PASS",
+      "title": "All 30 (SI0..SI9 x 3 fill modes) partitions reconstructed from raw event stream and verified"
+    },
+    "G_R4_03": {
+      "category": "R4_REGRESSION_AND_BACKTEST",
+      "gate_id": "G_R4_03",
+      "status": "PASS",
+      "title": "Honest OOS provenance: reused holdout labeled REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS and FRESH_OOS_VERDICT = BLOCKED_NO_UNTOUCHED_DATA"
+    }
+  },
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "ASYNC_RESOURCE_ENGINE_VERDICT": "PASS",
+    "ECONOMIC_VERDICT": "INCONCLUSIVE_OR_NEGATIVE_AS_OBSERVED",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PROVENANCE_CLOSURE_VERDICT": "PASS",
+    "R1_LOSS_FORENSICS_VERDICT": "PASS",
+    "R2_MTF_UNICORN_PIPELINE_VERDICT": "PASS",
+    "R3_COUNTERFACTUAL_REPAIR_VERDICT": "PASS",
+    "R4_REGRESSION_AND_REPLAY_VERDICT": "PASS",
+    "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_EXPECTANCY",
+    "VERIFICATION_TRUTH_VERDICT": "PASS"
+  },
+  "pre_publication_engineering_gates_all_pass": true,
+  "run_id": "20261110T131004Z_a12759da782f",
+  "schema_version": "17.9.3.1.2.12",
+  "tested_executable_sha": "a12759da782fbf2399657c727f57138d23280b3b",
+  "version": "v17_9_3_1_2_12"
+}

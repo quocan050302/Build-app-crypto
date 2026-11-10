@@ -1,0 +1,23 @@
+{
+  "ACTIVATION_READY": "NO",
+  "ASYNC_RESOURCE_ENGINE_VERDICT": "PASS",
+  "ECONOMIC_VERDICT": "INCONCLUSIVE_OR_NEGATIVE_AS_OBSERVED",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "PROVENANCE_CLOSURE_VERDICT": "PASS",
+  "R1_LOSS_FORENSICS_VERDICT": "PASS",
+  "R2_MTF_UNICORN_PIPELINE_VERDICT": "PASS",
+  "R3_COUNTERFACTUAL_REPAIR_VERDICT": "PASS",
+  "R4_REGRESSION_AND_REPLAY_VERDICT": "PASS",
+  "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_EXPECTANCY",
+  "VERIFICATION_TRUTH_VERDICT": "PASS",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "independent_verifier_pid": 39352,
+  "independent_verifier_status": "PASS",
+  "orchestrator_pid": 3708,
+  "phase_c_publication_note": "Inside the immutable run directory, Phase C remote readback is recorded pre-push as BLOCKED and finalized externally after git push in aurum-desk/docs/artifacts/v17_9_3_1_2_12/publication_<run_id>.json and aurum-desk/docs/artifacts/v17_9_3_1_2_12/latest_run.json.",
+  "pre_publication_engineering_gates_all_pass": true,
+  "run_id": "20261110T131004Z_a12759da782f",
+  "schema_version": "17.9.3.1.2.12",
+  "tested_executable_sha": "a12759da782fbf2399657c727f57138d23280b3b",
+  "version": "v17_9_3_1_2_12"
+}

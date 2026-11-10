@@ -1,0 +1,334 @@
+{
+  "anchored_symbols": [
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:3150-3354",
+      "line_end": 3354,
+      "line_start": 3150,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "read_exit_event_stream_strict_v17931211"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:3357-3383",
+      "line_end": 3383,
+      "line_start": 3357,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "read_legacy_v17931211_initial_stream_readonly"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:3692-3814",
+      "line_end": 3814,
+      "line_start": 3692,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "verify_raw_stream_vs_source_execution_v17931211"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:3817-4136",
+      "line_end": 4136,
+      "line_start": 3817,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "verify_all_policy_fill_mode_lineage_independently_v17931211"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:247-531",
+      "line_end": 531,
+      "line_start": 247,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "verify_fresh_junit_bijection_v17931211"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py:534-625",
+      "line_end": 625,
+      "line_start": 534,
+      "role": "P0-A Provenance fail-closed raw stream reader & mandatory source execution reconciliation",
+      "symbol": "verify_process_exit_and_timeout_v17931211"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:308-687",
+      "line_end": 687,
+      "line_start": 308,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "collect_causal_stop_anchor_candidates"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:690-771",
+      "line_end": 771,
+      "line_start": 690,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "rank_structure_valid_anchors"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:774-823",
+      "line_end": 823,
+      "line_start": 774,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "compute_causal_noise_buffer"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:826-865",
+      "line_end": 865,
+      "line_start": 826,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "derive_structure_valid_stop"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:940-1155",
+      "line_end": 1155,
+      "line_start": 940,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "resolve_causal_target_candidates"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:1158-1376",
+      "line_end": 1376,
+      "line_start": 1158,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "select_viable_structural_target"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:1801-1987",
+      "line_end": 1987,
+      "line_start": 1801,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "classify_structure_stop_outcome"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:2434-3068",
+      "line_end": 3068,
+      "line_start": 2434,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "simulate_v17931_trade_execution_net"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:3348-3567",
+      "line_end": 3567,
+      "line_start": 3348,
+      "role": "R1 Stop-vs-invalidation forensics & R3 structural Entry/SL/TP matched counterfactual engine",
+      "symbol": "evaluate_r3_counterfactual_stop_and_target_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:187-320",
+      "line_end": 320,
+      "line_start": 187,
+      "role": "R1 166-closed-trade / 242-episode loss forensics & A..H hierarchy",
+      "symbol": "build_ground_truth_loss_forensics_v1793123"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:173-184",
+      "line_end": 184,
+      "line_start": 173,
+      "role": "R1 166-closed-trade / 242-episode loss forensics & A..H hierarchy",
+      "symbol": "classify_single_episode_root_causes_v1793123"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:1382-1444",
+      "line_end": 1444,
+      "line_start": 1382,
+      "role": "R1 166-closed-trade / 242-episode loss forensics & A..H hierarchy",
+      "symbol": "classify_r1_hierarchical_loss_forensics_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py:204-481",
+      "line_end": 481,
+      "line_start": 204,
+      "role": "R1/R2 Point-in-time pre-entry causal feature derivation from closed OHLC",
+      "symbol": "derive_pre_entry_features_from_causal_context_v1793127"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py:596-629",
+      "line_end": 629,
+      "line_start": 596,
+      "role": "R1/R2 Point-in-time pre-entry causal feature derivation from closed OHLC",
+      "symbol": "verify_feature_snapshot_v1793127"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_7_causal_signal_truth.py:642-660",
+      "line_end": 660,
+      "line_start": 642,
+      "role": "R1/R2 Point-in-time pre-entry causal feature derivation from closed OHLC",
+      "symbol": "classify_observed_loss_v1793127"
+    },
+    {
+      "file": "aurum-desk/backend/services/htf_structure_service.py",
+      "file_line": "aurum-desk/backend/services/htf_structure_service.py:168-187",
+      "line_end": 187,
+      "line_start": 168,
+      "role": "R2 Causal H4/H1/M15/M5 closed-candle structure & protected swing engine",
+      "symbol": "filter_closed_candles"
+    },
+    {
+      "file": "aurum-desk/backend/services/htf_structure_service.py",
+      "file_line": "aurum-desk/backend/services/htf_structure_service.py:1300-1466",
+      "line_end": 1466,
+      "line_start": 1300,
+      "role": "R2 Causal H4/H1/M15/M5 closed-candle structure & protected swing engine",
+      "symbol": "evaluate_htf_structure"
+    },
+    {
+      "file": "aurum-desk/backend/services/htf_structure_service.py",
+      "file_line": "aurum-desk/backend/services/htf_structure_service.py:293-345",
+      "line_end": 345,
+      "line_start": 293,
+      "role": "R2 Causal H4/H1/M15/M5 closed-candle structure & protected swing engine",
+      "symbol": "evaluate_reference_close_break"
+    },
+    {
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/unicorn_evidence_service.py:80-334",
+      "line_end": 334,
+      "line_start": 80,
+      "role": "R2 Causal Breaker+FVG spatial overlap & episode binding engine",
+      "symbol": "detect_breaker_blocks"
+    },
+    {
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/unicorn_evidence_service.py:509-1094",
+      "line_end": 1094,
+      "line_start": 509,
+      "role": "R2 Causal Breaker+FVG spatial overlap & episode binding engine",
+      "symbol": "detect_unicorn_evidence"
+    },
+    {
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/unicorn_evidence_service.py:337-438",
+      "line_end": 438,
+      "line_start": 337,
+      "role": "R2 Causal Breaker+FVG spatial overlap & episode binding engine",
+      "symbol": "_is_same_causal_episode"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py:1475-1829",
+      "line_end": 1829,
+      "line_start": 1475,
+      "role": "R2 Single-axis MTF/Unicorn ablation evaluator",
+      "symbol": "evaluate_causal_unicorn_confluence"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py:2275-2433",
+      "line_end": 2433,
+      "line_start": 2275,
+      "role": "R2 Single-axis MTF/Unicorn ablation evaluator",
+      "symbol": "diagnose_v17931_d1_vs_d2_mtf_gate"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py:2436-2537",
+      "line_end": 2537,
+      "line_start": 2436,
+      "role": "R2 Single-axis MTF/Unicorn ablation evaluator",
+      "symbol": "evaluate_r2_mtf_unicorn_ablation_matrix_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:657-707",
+      "line_end": 707,
+      "line_start": 657,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "verify_r1_forensic_separation_and_conservation_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:912-962",
+      "line_end": 962,
+      "line_start": 912,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "verify_r2_causal_mtf_unicorn_provenance_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:1123-1164",
+      "line_end": 1164,
+      "line_start": 1123,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "verify_r3_counterfactual_invariants_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:1292-1322",
+      "line_end": 1322,
+      "line_start": 1292,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "verify_r4_oos_and_activation_verdict_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:1329-1732",
+      "line_end": 1732,
+      "line_start": 1329,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "run_negative_controls_v01_to_v40_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:1739-1870",
+      "line_end": 1870,
+      "line_start": 1739,
+      "role": "V17.9.3.1.2.12 provenance fail-closed, R1..R4 orchestrator & V01..V40 negative controls",
+      "symbol": "evaluate_v17931212_gate_matrix"
+    }
+  ],
+  "anchored_symbols_count": 36,
+  "repaired_defects": [
+    {
+      "defect_id": "P0A_DEFECT_01_SILENT_PROVENANCE_DEFAULTS_AND_LEGACY_HASH",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "prior_behavior": "Defaulted missing evidence_origin to RECONSTRUCTED_FROM_EXECUTION_LEDGER and missing quote_source_kind to SYNTHETIC_RESEARCH_QUOTE, and accepted legacy_sem_hash computed without those two fields on active runs.",
+      "repaired_behavior": "Validates all 17 required string fields and 5 integer fields for presence, non-null, and finiteness BEFORE use; rejects missing or UNKNOWN evidence_origin/quote_source_kind; rejects legacy_sem_hash on all active runs (allow_legacy_hash_compat=False default); rejects forged REAL_PROVIDER_QUOTE / ORIGINAL_CAPTURED_EVENT without provider capture proof.",
+      "symbol": "read_exit_event_stream_strict_v17931211"
+    },
+    {
+      "defect_id": "P0A_DEFECT_02_OPTIONAL_SOURCE_EXECUTION_LEDGER_RECONCILIATION",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "prior_behavior": "Initialized src_recon_res={'status': 'PASS', 'checked': False} and only checked 09_original_execution_ledger_source_reconciliation.jsonl.gz if the file existed.",
+      "repaired_behavior": "Enforces require_source_reconciliation=True by default; fails closed with MISSING_MANDATORY_SOURCE_EXECUTION_LEDGER or EMPTY_MANDATORY_SOURCE_EXECUTION_LEDGER if 09_original_execution_ledger_source_reconciliation.jsonl.gz is absent, empty, or unreadable, and cross-checks quantity, selected_sl, take_profit, entry_reference, timestamps, and OHLC.",
+      "symbol": "verify_all_policy_fill_mode_lineage_independently_v17931211"
+    },
+    {
+      "defect_id": "R1_DEFECT_03_PRE_ENTRY_VS_EX_POST_LOSS_FORENSIC_JOIN",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "prior_behavior": "Pre-entry point-in-time loss taxonomy (134/157 OTHER/UNKNOWN) and post-entry stop-outcome diagnostics (PREMATURE_NOISE_SWEEP_STOP vs TRUE_INVALIDATION_LOSS) were reported in separate tables.",
+      "repaired_behavior": "Joins all 166 closed trades (157 LOSS + 9 WIN) and 242 scheduled episodes into a unified per-trade forensic casebook with deterministic A..H root-cause buckets while strictly labeling Buckets F..H as EX_POST_DIAGNOSTIC_ONLY_FORBIDDEN_IN_LIVE_DECISION and preserving 134/157 pre-entry OTHER/UNKNOWN.",
+      "symbol": "classify_r1_hierarchical_loss_forensics_v17931212"
+    },
+    {
+      "defect_id": "R2_DEFECT_04_MTF_UNICORN_SINGLE_AXIS_ABLATION_AND_FUNNEL_DIAGNOSIS",
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "prior_behavior": "Combined gates in SI4/SI6/SI8/SI9 collapsed candidate flow to 0 trades without decomposing single-axis MTF/Unicorn attrition across the 63,085 canonical universe.",
+      "repaired_behavior": "Evaluates H4_ONLY, H1_ONLY, M15_ONLY, M15_H1_ONLY, STRUCTURE_ONLY, LIQUIDITY_ONLY, and FULL_MTF alongside FVG_ONLY vs UNICORN_CONFIRMED across the 63,085 canonical universe and 278 SI8/SI9 candidates.",
+      "symbol": "evaluate_r2_mtf_unicorn_ablation_matrix_v17931212"
+    },
+    {
+      "defect_id": "R3_DEFECT_05_MATCHED_COUNTERFACTUAL_ISOLATION_A0_TO_A4",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "prior_behavior": "Entry confirmation, protected SL, and liquidity TP repairs were bundled in policy replays without single-intervention matched counterfactual comparison on the 242 baseline episodes.",
+      "repaired_behavior": "Evaluates A0 (strict baseline), A1 (entry confirmation/retest ONLY), A2 (protected SL + noise buffer ONLY at fixed $2.50 risk), A3 (source-backed liquidity TP ONLY), and A4 (combined) across all 3 fill modes.",
+      "symbol": "evaluate_r3_counterfactual_stop_and_target_v17931212"
+    }
+  ],
+  "run_id": "20261110T131004Z_a12759da782f",
+  "schema_version": "17.9.3.1.2.12",
+  "tested_executable_sha": "a12759da782fbf2399657c727f57138d23280b3b",
+  "version": "v17_9_3_1_2_12"
+}

@@ -1,0 +1,45 @@
+{
+  "activation_ready": "NO",
+  "blocker_reason": "Repository contains a single historical dataset (aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz, SHA256=9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18) used across V17.9.3.1.2.1..11. No untouched post-freeze Bitget XAUUSDT dataset exists on disk; therefore FRESH_OOS_VERDICT is fail-closed to BLOCKED_NO_UNTOUCHED_DATA.",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "economic_verdict": "INCONCLUSIVE_OR_NEGATIVE_AS_OBSERVED",
+  "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+  "purged_embargoed_historical_splits_reused_not_fresh_oos": {
+    "embargo_bars_m1": 180,
+    "embargo_duration_ms": 10800000,
+    "holdout_20pct_reused_not_fresh_oos": {
+      "closed_trades": 31,
+      "expectancy_net_r": -1.0,
+      "losses": 31,
+      "provenance_label": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+      "realized_net_pnl_usd": -76.2199,
+      "scheduled_episodes": 47,
+      "start_timestamp_ms": 1792938060000,
+      "wins": 0
+    },
+    "train_60pct": {
+      "closed_trades": 107,
+      "end_timestamp_ms": 1792658820000,
+      "expectancy_net_r": -0.823,
+      "losses": 100,
+      "realized_net_pnl_usd": -216.2771,
+      "scheduled_episodes": 153,
+      "wins": 7
+    },
+    "validation_20pct": {
+      "closed_trades": 27,
+      "end_timestamp_ms": 1792927320000,
+      "expectancy_net_r": -0.7629,
+      "losses": 25,
+      "realized_net_pnl_usd": -50.9859,
+      "scheduled_episodes": 40,
+      "start_timestamp_ms": 1792669560000,
+      "wins": 2
+    }
+  },
+  "reused_historical_holdout_label": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
+  "schema_version": "17.9.3.1.2.12",
+  "strategy_expectancy_verdict": "NEGATIVE_EXPECTANCY",
+  "untouched_post_freeze_dataset_exists": false,
+  "version": "v17_9_3_1_2_12"
+}

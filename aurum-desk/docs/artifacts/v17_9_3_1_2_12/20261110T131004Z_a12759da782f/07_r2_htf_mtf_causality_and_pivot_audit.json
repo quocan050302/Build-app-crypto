@@ -1,0 +1,70 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "htf_alignment_distribution_across_63085": {
+    "ALIGNED": 7814,
+    "COUNTERTREND": 9202,
+    "MIXED": 46069
+  },
+  "pivot_confirmation_contract": {
+    "htf_left_right_bars": [
+      2,
+      2
+    ],
+    "known_at_formula": "pivot_bar_open_ms + (right_bars + 1) * timeframe_duration_ms <= decision_timestamp_ms",
+    "m1_left_right_bars": [
+      2,
+      2
+    ],
+    "zero_repaint_verified": true
+  },
+  "schema_version": "17.9.3.1.2.12",
+  "status": "PASS",
+  "timeframes_audited": {
+    "15M": {
+      "duration_ms": 900000,
+      "future_bar_strictly_excluded_at_cutoff": true,
+      "non_monotonic_bars": 0,
+      "raw_bars_count": 15090,
+      "terminal_data_status": "READY",
+      "terminal_htf_bias": "BULLISH",
+      "unclosed_or_malformed_bars": 0
+    },
+    "1H": {
+      "duration_ms": 3600000,
+      "future_bar_strictly_excluded_at_cutoff": true,
+      "non_monotonic_bars": 0,
+      "raw_bars_count": 3863,
+      "terminal_data_status": "READY",
+      "terminal_htf_bias": "BEARISH",
+      "unclosed_or_malformed_bars": 0
+    },
+    "1M": {
+      "duration_ms": 60000,
+      "future_bar_strictly_excluded_at_cutoff": true,
+      "non_monotonic_bars": 0,
+      "raw_bars_count": 22376,
+      "terminal_data_status": "READY",
+      "terminal_htf_bias": "BEARISH",
+      "unclosed_or_malformed_bars": 0
+    },
+    "4H": {
+      "duration_ms": 14400000,
+      "future_bar_strictly_excluded_at_cutoff": true,
+      "non_monotonic_bars": 0,
+      "raw_bars_count": 965,
+      "terminal_data_status": "READY",
+      "terminal_htf_bias": "BULLISH",
+      "unclosed_or_malformed_bars": 0
+    },
+    "5M": {
+      "duration_ms": 300000,
+      "future_bar_strictly_excluded_at_cutoff": true,
+      "non_monotonic_bars": 0,
+      "raw_bars_count": 31609,
+      "terminal_data_status": "READY",
+      "terminal_htf_bias": "UNKNOWN",
+      "unclosed_or_malformed_bars": 0
+    }
+  },
+  "version": "v17_9_3_1_2_12"
+}

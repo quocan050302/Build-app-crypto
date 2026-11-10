@@ -1,0 +1,10 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "external_phase_c_receipt_path": "aurum-desk/docs/artifacts/v17_9_3_1_2_12/publication_20261110T131004Z_a12759da782f.json",
+  "in_dir_pre_push_status": "BLOCKED_PRE_PUSH_FINALIZED_IN_EXTERNAL_PHASE_C_RECEIPT",
+  "latest_run_pointer_path": "aurum-desk/docs/artifacts/v17_9_3_1_2_12/latest_run.json",
+  "phase_a_tested_executable_sha": "a12759da782fbf2399657c727f57138d23280b3b",
+  "run_id": "20261110T131004Z_a12759da782f",
+  "schema_version": "17.9.3.1.2.12",
+  "version": "v17_9_3_1_2_12"
+}

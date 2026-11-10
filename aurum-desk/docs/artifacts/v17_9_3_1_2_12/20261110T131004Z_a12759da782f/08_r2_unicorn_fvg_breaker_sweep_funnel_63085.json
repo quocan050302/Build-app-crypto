@@ -1,0 +1,33 @@
+{
+  "baseline_eligible_count": 56710,
+  "by_model_counts": {
+    "CG01_SWEEP_MSS_FVG": 17938,
+    "SMC_M1_CONTINUATION": 4366,
+    "SMC_M1_FVG_CONTINUATION": 17974,
+    "SMC_M1_REVERSAL": 11768,
+    "SMC_M1_SWEEP_RECLAIM": 11039
+  },
+  "canonical_universe_total": 63085,
+  "causal_detector_funnel_counts": {
+    "displacement_valid_true": 9042,
+    "fvg_only_without_breaker_overlap": 61917,
+    "fvg_present_true": 63085,
+    "fvg_retest_valid_true": 40758,
+    "fvg_unmitigated_true": 49935,
+    "htf_aligned_h4_h1": 7814,
+    "htf_countertrend_h4_h1": 9202,
+    "htf_mixed_h4_h1": 46069,
+    "htf_unknown_warmup_or_insufficient": 0,
+    "mss_confirmed_true": 9988,
+    "sweep_confirmed_true": 3604,
+    "sweep_reclaimed_true": 2945,
+    "total_canonical_opportunities": 63085,
+    "unicorn_confirmed_breaker_fvg_overlap": 1168,
+    "unicorn_unknown_or_absent": 0
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "fvg_only_strictly_separated_from_unicorn_confirmed": true,
+  "schema_version": "17.9.3.1.2.12",
+  "si8_detector_verified_incremental_count": 6375,
+  "version": "v17_9_3_1_2_12"
+}
