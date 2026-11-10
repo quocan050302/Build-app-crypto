@@ -18,14 +18,14 @@
     "verification_truth_negative_controls": "PASS"
   },
   "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
-  "elapsed_seconds": 2.176,
+  "elapsed_seconds": 2.066,
   "orchestrator_pid": 42588,
   "run_id": "20261110T054413Z_6d7045b29f35_truth_closure",
   "schema_version": "17.9.3.1.2.11",
   "separate_process_verified": true,
   "status": "PASS",
   "tested_executable_sha": "6d7045b29f358d734da61f4b44535821aa32f944",
-  "verifier_pid": 40952,
+  "verifier_pid": 33544,
   "version": "v17_9_3_1_2_11",
   "violations": []
 }

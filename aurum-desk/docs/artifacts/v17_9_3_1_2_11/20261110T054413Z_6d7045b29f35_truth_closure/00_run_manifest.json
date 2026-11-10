@@ -4,7 +4,7 @@
   "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
   "exit_event_lineage_verdict": "PASS",
   "fresh_oos_status": "REUSED_HISTORICAL_HOLDOUT_NOT_FRESH_OOS",
-  "independent_verifier_pid": 40952,
+  "independent_verifier_pid": 33544,
   "independent_verifier_status": "PASS",
   "orchestrator_pid": 42588,
   "prepublication_engineering_verdict": "PASS",
