@@ -744,6 +744,17 @@ def build_p0a_accounting_causal_diff_and_reconciliation_v17931214(
                 violations.extend(m_val["violations"])
             variant_matched_dtos[vid][fm] = m_val["dto_dict"]
             accounting_rows_03.append({"record_kind": "SCOPE_SUMMARY", **m_val["dto_dict"]})
+            for vr in v_rows:
+                accounting_rows_03.append(
+                    {
+                        "record_kind": "SCOPE_EPISODE",
+                        "run_sha": tested_sha,
+                        "scope_entity_id": vid,
+                        "fill_mode": fm,
+                        "portfolio_scope": "VARIANT_MATCHED_242_COHORT_INDEPENDENT",
+                        **dict(vr),
+                    }
+                )
 
             p_sum = dict(portfolio_by_variant_and_mode[vid][fm])
             p_exec_ids = set(p_sum.get("closed_opportunity_ids") or [])
@@ -786,6 +797,17 @@ def build_p0a_accounting_causal_diff_and_reconciliation_v17931214(
                 violations.extend(p_val["violations"])
             variant_1pos_dtos[vid][fm] = p_val["dto_dict"]
             accounting_rows_03.append({"record_kind": "SCOPE_SUMMARY", **p_val["dto_dict"]})
+            for er in exec_1pos:
+                accounting_rows_03.append(
+                    {
+                        "record_kind": "SCOPE_EPISODE",
+                        "run_sha": tested_sha,
+                        "scope_entity_id": vid,
+                        "fill_mode": fm,
+                        "portfolio_scope": "VARIANT_1POS_CHRONOLOGICAL_PORTFOLIO",
+                        **dict(er),
+                    }
+                )
             _ = p_closed_rows
 
     p0a_causal_diff: List[Dict[str, Any]] = []
@@ -2231,7 +2253,11 @@ def build_authoritative_metrics_v17931214(
         matched_variants_nb_table=matched_rows_nb,
         portfolio_1pos_variants_nb_table=port_1pos_rows_nb,
         pytest_collected_count=int(junit_bijection["collected_count"]),
-        pytest_executed_junit_count=int(junit_bijection["executed_junit_count"]),
+        pytest_executed_junit_count=int(
+            junit_bijection["executed_junit_count"]
+            if "executed_junit_count" in junit_bijection
+            else junit_bijection["executed_count"]
+        ),
         pytest_passed_count=int(junit_bijection["passed_count"]),
         pytest_skipped_count=int(junit_bijection["skipped_count"]),
         pytest_failed_count=int(junit_bijection["failed_count"]),

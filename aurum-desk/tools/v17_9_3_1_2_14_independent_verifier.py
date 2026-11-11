@@ -187,7 +187,7 @@ def _verify_p0a_accounting_from_disk(
         if kind == "SCOPE_SUMMARY":
             key = (r.get("scope_entity_id"), r.get("fill_mode"), r.get("portfolio_scope"))
             scope_summaries[key] = r
-        elif kind == "POLICY_EPISODE":
+        elif kind in ("POLICY_EPISODE", "SCOPE_EPISODE"):
             key = (r.get("scope_entity_id"), r.get("fill_mode"), r.get("portfolio_scope"))
             episodes_by_pol_mode.setdefault(key, []).append(r)
 
@@ -195,7 +195,7 @@ def _verify_p0a_accounting_from_disk(
         violations.append(f"SCOPE_SUMMARY_COUNT_TOO_LOW:{len(scope_summaries)}<90")
 
     for (ent_id, fm, p_scope), sum_row in scope_summaries.items():
-        ep_rows = episodes_by_pol_mode.get((ent_id, fm, p_scope))
+        ep_rows = episodes_by_pol_mode.get((ent_id, fm, p_scope), [])
         chk = validate_canonical_scope_accounting_v17931214(
             sum_row,
             episode_rows=ep_rows,
@@ -410,21 +410,16 @@ def run_independent_verification_v17931214(run_dir: Path) -> Dict[str, Any]:
     )
     readme_text, handover_text = render_v17931214_readme_and_handover(auth_metrics, prelim_gates)
 
-    underlying_statuses = {
-        "G_ACCOUNTING_SOURCE_TRUTH": "PASS" if p0a_check["status"] == "PASS" and all_partitions_check["status"] == "PASS" else "FAIL",
-        "G_TARGET_SOURCE_AND_RR_TRUTH": p0b_check["status"],
-        "G_D4_CAUSAL_EXECUTION_TRUTH": d4_check["status"],
-        "G_SL_TP_GEOMETRY_AND_RISK": sl_tp_delayed_check["status"],
-        "G_REGRESSION_FULL": junit_bijection_check["status"],
-        "G_ASYNC_RESOURCE": async_proc_check["status"],
-        "G_OOS_PROVENANCE": oos_13.get("OOS_PROVENANCE_GATE", "BLOCKED_NO_UNTOUCHED_DATA"),
-    }
+    recon_04 = read_json(run_dir / "04_si8_si9_all_modes_raw_events_episodes_and_1pos_reconciliation.json")
     report_cross_view_check = verify_v17931214_cross_view_numerical_consistency(
-        readme_text,
-        handover_text,
-        auth_metrics,
+        readme_text=readme_text,
+        handover_text=handover_text,
+        metrics=auth_metrics,
+        reconciliation_04=recon_04,
+        target_summary_06=summary_06,
+        d4_summary=d4_summary_doc,
         gate_matrix_21=prelim_gates,
-        underlying_check_statuses=underlying_statuses,
+        final_verdict_25=verdict_25,
     )
     write_json(run_dir / "20_report_numerical_semantic_consistency_matrix.json", report_cross_view_check)
 
@@ -451,10 +446,6 @@ def run_independent_verification_v17931214(run_dir: Path) -> Dict[str, Any]:
         readme_v13_text=base_v13_readme,
         handover_v13_text=base_v13_handover,
         gate_matrix_18_v13=verdict_25.get("base_v13_compat_gate_matrix"),
-        authoritative_metrics_v14=auth_metrics,
-        readme_v14_text=readme_text,
-        handover_v14_text=handover_text,
-        gate_matrix_21=prelim_gates,
         run_id=run_id,
         tested_sha=tested_sha,
     )
@@ -544,11 +535,14 @@ def run_independent_verification_v17931214(run_dir: Path) -> Dict[str, Any]:
     write_text_atomic(run_dir / "24_handover_with_lineage_and_explicit_known_limitations.txt", final_handover)
 
     final_cross_view = verify_v17931214_cross_view_numerical_consistency(
-        final_readme,
-        final_handover,
-        auth_metrics,
+        readme_text=final_readme,
+        handover_text=final_handover,
+        metrics=auth_metrics,
+        reconciliation_04=recon_04,
+        target_summary_06=summary_06,
+        d4_summary=d4_summary_doc,
         gate_matrix_21=final_gates_21,
-        underlying_check_statuses=underlying_statuses,
+        final_verdict_25=verdict_25,
     )
     write_json(run_dir / "20_report_numerical_semantic_consistency_matrix.json", final_cross_view)
     if final_cross_view["status"] != "PASS":
