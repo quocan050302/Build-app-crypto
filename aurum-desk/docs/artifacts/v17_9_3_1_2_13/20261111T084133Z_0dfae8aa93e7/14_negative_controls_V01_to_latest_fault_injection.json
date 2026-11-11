@@ -1,0 +1,1353 @@
+{
+  "all_rejected": true,
+  "controls": [
+    {
+      "control_id": "V01_JUNIT_FAILURE_WITH_EXIT_ZERO",
+      "detected_by_verifier": true,
+      "expected_failure_code": "EXECUTED_TESTS_FAILED",
+      "mutated_artifact_sha256": "2e7cc54e5c10d491acfade90cee908f2ad5c20ea9c490ce914916bf758d51ee8",
+      "mutation_operator": "inject_failure_tag_in_junit_testcase",
+      "observed_failure_code": "EXECUTED_TESTS_FAILED:1",
+      "original_artifact_sha256": "73d79d321ae5264e0e2b0df49612a60b8e085f0f8a4f49a28c2c3c8275444b56",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 2.002,
+      "short_id": "V01",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_fresh_junit_bijection_v17931211",
+      "violations_caught": [
+        "SHARD_HAS_FAILURES_OR_ERRORS:shard_0:f=1,e=0",
+        "EXECUTED_TESTS_FAILED:1"
+      ]
+    },
+    {
+      "control_id": "V02_MISSING_JUNIT_TESTCASE_NODE",
+      "detected_by_verifier": true,
+      "expected_failure_code": "COLLECTION_TO_EXECUTED_BIJECTION_BROKEN",
+      "mutated_artifact_sha256": "b578dfbbc7f1733495fd1b12905c0a53e911038965d4ff2c6b46932bcaaf6bdf",
+      "mutation_operator": "drop_testcase_node_from_junit_xml",
+      "observed_failure_code": "COLLECTION_TO_EXECUTED_BIJECTION_BROKEN:missing=1,extra=0",
+      "original_artifact_sha256": "73d79d321ae5264e0e2b0df49612a60b8e085f0f8a4f49a28c2c3c8275444b56",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.408,
+      "short_id": "V02",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_fresh_junit_bijection_v17931211",
+      "violations_caught": [
+        "SHARD_SCHEDULED_VS_EXECUTED_MISMATCH:shard_0",
+        "COLLECTION_TO_EXECUTED_BIJECTION_BROKEN:missing=1,extra=0"
+      ]
+    },
+    {
+      "control_id": "V03_DUPLICATE_JUNIT_TESTCASE_NODE",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SHARD_DUPLICATE_EXECUTED_NODES",
+      "mutated_artifact_sha256": "c597332e17ba31d9c34394330e7237540b3110d09098bf5a69f011cf43e6fd50",
+      "mutation_operator": "duplicate_testcase_node_in_junit_xml",
+      "observed_failure_code": "SHARD_DUPLICATE_EXECUTED_NODES:shard_0",
+      "original_artifact_sha256": "73d79d321ae5264e0e2b0df49612a60b8e085f0f8a4f49a28c2c3c8275444b56",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.998,
+      "short_id": "V03",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_fresh_junit_bijection_v17931211",
+      "violations_caught": [
+        "SHARD_SCHEDULED_VS_EXECUTED_MISMATCH:shard_0",
+        "SHARD_DUPLICATE_EXECUTED_NODES:shard_0",
+        "CROSS_SHARD_DUPLICATE_EXECUTED_TESTCASE",
+        "COLLECTION_TO_EXECUTED_BIJECTION_BROKEN:missing=1,extra=0"
+      ]
+    },
+    {
+      "control_id": "V04_JUNIT_XML_SHA256_TAMPER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "JUNIT_SHA256_MISMATCH",
+      "mutated_artifact_sha256": "cb275970804fe2de7eae5b3e57c1c47bc0f45c1c4b84e5561d6002b14050dca0",
+      "mutation_operator": "corrupt_recorded_xml_sha256",
+      "observed_failure_code": "JUNIT_SHA256_MISMATCH:shard_0",
+      "original_artifact_sha256": "73d79d321ae5264e0e2b0df49612a60b8e085f0f8a4f49a28c2c3c8275444b56",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V04",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_fresh_junit_bijection_v17931211",
+      "violations_caught": [
+        "JUNIT_SHA256_MISMATCH:shard_0"
+      ]
+    },
+    {
+      "control_id": "V05_SKIPPED_MANDATORY_TEST_NODE",
+      "detected_by_verifier": true,
+      "expected_failure_code": "MANDATORY_TESTS_SKIPPED",
+      "mutated_artifact_sha256": "5018b65067c6227f94e1849cbb5e2d172147eac9c23e1360b7c871292b765c09",
+      "mutation_operator": "mark_mandatory_v17931211_test_skipped",
+      "observed_failure_code": "MANDATORY_TESTS_SKIPPED:['backend/tests/test_v17_9_3_1_2_11_verification_truth_and_exit_lineage.py::test_alpha']",
+      "original_artifact_sha256": "73d79d321ae5264e0e2b0df49612a60b8e085f0f8a4f49a28c2c3c8275444b56",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 3.002,
+      "short_id": "V05",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_fresh_junit_bijection_v17931211",
+      "violations_caught": [
+        "MANDATORY_TESTS_SKIPPED:['backend/tests/test_v17_9_3_1_2_11_verification_truth_and_exit_lineage.py::test_alpha']"
+      ]
+    },
+    {
+      "control_id": "V06_NONZERO_PROCESS_EXIT_MASKED_BY_ZERO_EXIT_CODE",
+      "detected_by_verifier": true,
+      "expected_failure_code": "WORKER_NONZERO_PROCESS_EXIT",
+      "mutated_artifact_sha256": "f6da483e3373b21beb35f83523864ba6d7a4413726b43bb23b8086918de1e27b",
+      "mutation_operator": "set_process_exit_code_1_with_exit_code_0",
+      "observed_failure_code": "WORKER_NONZERO_PROCESS_EXIT:w0:1",
+      "original_artifact_sha256": "ce74cb01f372178e5dbda68ea205fdc44689c950c2a533ae112b2af572f0b57d",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V06",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_process_exit_and_timeout_v17931211",
+      "violations_caught": [
+        "WORKER_NONZERO_PROCESS_EXIT:w0:1"
+      ]
+    },
+    {
+      "control_id": "V07_FOUR_WORKER_RUN_WITH_ONLY_THREE_PIDS",
+      "detected_by_verifier": true,
+      "expected_failure_code": "PARITY_WORKER_PID_COUNT_MISMATCH",
+      "mutated_artifact_sha256": "9f1b4276710d4710a34b8e54c751c03e5fe61de3880a010d3eccb880436dfa39",
+      "mutation_operator": "reduce_w4_worker_pids_to_3",
+      "observed_failure_code": "PARITY_WORKER_PID_COUNT_MISMATCH:w4:pids=3!=expected=4",
+      "original_artifact_sha256": "c8c4f7bd1fdf248673385e4720e2cd0f9569d304ab54888bf6f72e4cd0c6a97d",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V07",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_execution_not_synthetic_v17931211",
+      "violations_caught": [
+        "PARITY_WORKER_PID_COUNT_MISMATCH:w4:pids=3!=expected=4"
+      ]
+    },
+    {
+      "control_id": "V08_SWAPPED_EPISODE_ORDER_WITH_SAME_MEMBERSHIP",
+      "detected_by_verifier": true,
+      "expected_failure_code": "PARITY_ORDERED_DIGEST_RECOMPUTE_MISMATCH",
+      "mutated_artifact_sha256": "6b61294a886db8045bda075e4b0f736c187f946970e12dfcbbdebca953d42cf6",
+      "mutation_operator": "swap_episode_0_and_1_in_w2",
+      "observed_failure_code": "PARITY_ORDERED_DIGEST_RECOMPUTE_MISMATCH:w2:b16b6d0b376afa2b283e673b8a4a4fae75d43e49741530adc972aae6f9313b68!=dfa7fabaca87e51064888ff8d6e6ffbea26466d3f2c3fefaf2c722456b50fbaa",
+      "original_artifact_sha256": "c8c4f7bd1fdf248673385e4720e2cd0f9569d304ab54888bf6f72e4cd0c6a97d",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V08",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_execution_not_synthetic_v17931211",
+      "violations_caught": [
+        "PARITY_ORDERED_DIGEST_RECOMPUTE_MISMATCH:w2:b16b6d0b376afa2b283e673b8a4a4fae75d43e49741530adc972aae6f9313b68!=dfa7fabaca87e51064888ff8d6e6ffbea26466d3f2c3fefaf2c722456b50fbaa"
+      ]
+    },
+    {
+      "control_id": "V09_COPIED_W1_EXECUTION_RECORD_INTO_W2",
+      "detected_by_verifier": true,
+      "expected_failure_code": "DUPLICATE_PARITY_ATTEMPT_IDS",
+      "mutated_artifact_sha256": "5eff4d5bb2b338c6fbd032fcfa8e2b84f6e1c8b28638ac4968a0ebbc02d3c8e3",
+      "mutation_operator": "copy_w1_attempt_and_pids_to_w2",
+      "observed_failure_code": "DUPLICATE_PARITY_ATTEMPT_IDS",
+      "original_artifact_sha256": "c8c4f7bd1fdf248673385e4720e2cd0f9569d304ab54888bf6f72e4cd0c6a97d",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.999,
+      "short_id": "V09",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_execution_not_synthetic_v17931211",
+      "violations_caught": [
+        "DUPLICATE_PARITY_ATTEMPT_IDS",
+        "COPIED_OR_REUSED_WORKER_PARITY_EXECUTION_RECORDS",
+        "MISSING_REQUIRED_1_2_4_WORKER_CONFIGS:[1, 4]"
+      ]
+    },
+    {
+      "control_id": "V10_NON_SI0_POLICY_SI2_H3_RAW_STREAM_TAMPER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "NET_PNL_MISMATCH",
+      "mutated_artifact_sha256": "391fed1ece5e63b99f5abc916c84985a86ea0e93eb20294879c799d8374e908a",
+      "mutation_operator": "tamper_si2_h3_position_closed_net_pnl_in_raw_stream",
+      "observed_failure_code": "NET_PNL_MISMATCH:SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION_SMC_M1_FVG_CONTINUATION_6206_1792003260000:-2.4647!=7.5253",
+      "original_artifact_sha256": "d77e0301622f802188a4d85349a036c5c7e62f11baf27c5a63ca22fcd71d4cdf",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 4.51,
+      "short_id": "V10",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "recompute_realized_pnl_from_exit_events_v17931211",
+      "violations_caught": [
+        "NET_PNL_MISMATCH:SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION_SMC_M1_FVG_CONTINUATION_6206_1792003260000:-2.4647!=7.5253"
+      ]
+    },
+    {
+      "control_id": "V11_LEGACY_CLOSE_FILL_RAW_STREAM_TAMPER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "GROSS_PNL_MISMATCH",
+      "mutated_artifact_sha256": "a2a7fd819bb9747f7e50eb84ec5d4b6ee2011cba655f2099b2a0b7bd7d509b5e",
+      "mutation_operator": "tamper_legacy_close_fill_gross_pnl_in_raw_stream",
+      "observed_failure_code": "GROSS_PNL_MISMATCH:SI0_OFF_BASELINE_SMC_M1_FVG_CONTINUATION_30_1791439740000:-1.8844!=-9.6544",
+      "original_artifact_sha256": "0fdf35413f871f305684b2f726f8bebfcb84744b156927fe41c723491b8e0238",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 89.953,
+      "short_id": "V11",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "recompute_realized_pnl_from_exit_events_v17931211",
+      "violations_caught": [
+        "GROSS_PNL_MISMATCH:SI0_OFF_BASELINE_SMC_M1_FVG_CONTINUATION_30_1791439740000:-1.8844!=-9.6544"
+      ]
+    },
+    {
+      "control_id": "V12_STRESS_2X_FILL_MODE_RAW_STREAM_TAMPER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "EXIT_FEE_BASIS_MISMATCH",
+      "mutated_artifact_sha256": "2a95df86562a472de04dea09e897fc2fc2e084f6d320504841ab75d39a845505",
+      "mutation_operator": "tamper_stress_2x_exit_fee_in_raw_stream",
+      "observed_failure_code": "EXIT_FEE_BASIS_MISMATCH:opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca:actual=1.4841,expected=0.2341",
+      "original_artifact_sha256": "bbcc8e00d5de84bb096e73354c48238c675fca131afc5aa4c9676542d2c266ce",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 142.295,
+      "short_id": "V12",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_fill_basis_v17931211",
+      "violations_caught": [
+        "EXIT_FEE_BASIS_MISMATCH:opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca:actual=1.4841,expected=0.2341"
+      ]
+    },
+    {
+      "control_id": "V13_BROKEN_PARENT_EVENT_ID_IN_STREAM",
+      "detected_by_verifier": true,
+      "expected_failure_code": "MISSING_PARENT_EVENT",
+      "mutated_artifact_sha256": "09e762fbc0c34973d50942948d7a569187312e7a982f9cf2c9e08dcf00846eab",
+      "mutation_operator": "replace_parent_event_id_with_nonexistent_id",
+      "observed_failure_code": "MISSING_PARENT_EVENT:evt_19a5314783dba44b3232->parent=evt_nonexistent_parent_v13",
+      "original_artifact_sha256": "9e77afd0bd4cb99318bc1b72d837a489cc5583c582f3c389c8721d8004616662",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 62.551,
+      "short_id": "V13",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_event_parentage_v17931211",
+      "violations_caught": [
+        "MISSING_PARENT_EVENT:evt_19a5314783dba44b3232->parent=evt_nonexistent_parent_v13"
+      ]
+    },
+    {
+      "control_id": "V14_CLOSED_TRADE_MISSING_EXIT_TRIGGER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "INVALID_CLOSED_TRADE_STATE_PATH",
+      "mutated_artifact_sha256": "5bdb75473c9999ad66e98f1e3a5c2e6386f14b2b1c29d8dd4fdc255f78fc3461",
+      "mutation_operator": "remove_exit_trigger_from_closed_episode",
+      "observed_failure_code": "INVALID_CLOSED_TRADE_STATE_PATH:R0_BASELINE_CONTROL_SMC_M1_FVG_CONTINUATION_30_1791439740000:['DECISION', 'INTENT', 'ENTRY_FILL', 'POSITION_OPEN', 'LEDGER_POST', 'EXIT_MARKET_OBSERVATION', 'EXIT_FILL', 'POSITION_CLOSED', 'LEDGER_POST', 'LEDGER_POST']",
+      "original_artifact_sha256": "fbeaac365efee263aa940d898ac275f7812e6773cf5de504cc82e2511ec3b934",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 77.18,
+      "short_id": "V14",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_state_machine_v17931211",
+      "violations_caught": [
+        "INVALID_CLOSED_TRADE_STATE_PATH:R0_BASELINE_CONTROL_SMC_M1_FVG_CONTINUATION_30_1791439740000:['DECISION', 'INTENT', 'ENTRY_FILL', 'POSITION_OPEN', 'LEDGER_POST', 'EXIT_MARKET_OBSERVATION', 'EXIT_FILL', 'POSITION_CLOSED', 'LEDGER_POST', 'LEDGER_POST']"
+      ]
+    },
+    {
+      "control_id": "V15_OPEN_AT_HORIZON_NONZERO_REALIZED_PNL",
+      "detected_by_verifier": true,
+      "expected_failure_code": "NONZERO_REALIZED_PNL_ON_CENSORED_EPISODE",
+      "mutated_artifact_sha256": "5e941233693644abc50afe07b7a6161506af0b4f33a8703d64becfb8424bad2a",
+      "mutation_operator": "set_open_at_horizon_realized_net_pnl_to_25",
+      "observed_failure_code": "NONZERO_REALIZED_PNL_ON_CENSORED_EPISODE:R0_BASELINE_CONTROL_SMC_M1_CONTINUATION_214_1791516600000",
+      "original_artifact_sha256": "1483979bb103333efadd1f46c6be47bd5b5f9840a12ff77ae0b6058fcfc6d859",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 72.051,
+      "short_id": "V15",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_state_machine_v17931211",
+      "violations_caught": [
+        "NONZERO_REALIZED_PNL_ON_CENSORED_EPISODE:R0_BASELINE_CONTROL_SMC_M1_CONTINUATION_214_1791516600000"
+      ]
+    },
+    {
+      "control_id": "V16_EXIT_FILL_PRICE_FORMULA_DRIFT",
+      "detected_by_verifier": true,
+      "expected_failure_code": "EXIT_FILL_PRICE_BASIS_MISMATCH",
+      "mutated_artifact_sha256": "f3271049be4f2d2fc31680e43136423fad990bdc4fe3030b1abaa2bc1698b482",
+      "mutation_operator": "add_5_usd_to_exit_fill_price",
+      "observed_failure_code": "EXIT_FILL_PRICE_BASIS_MISMATCH:opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca:actual=4184.46,expected=4179.46",
+      "original_artifact_sha256": "c638ecb446b144b4ea593c2d08db755e4e6ffafe3a56d4320777c3c98c60ae71",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 181.982,
+      "short_id": "V16",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_fill_basis_v17931211",
+      "violations_caught": [
+        "EXIT_FILL_PRICE_BASIS_MISMATCH:opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca:actual=4184.46,expected=4179.46"
+      ]
+    },
+    {
+      "control_id": "V17_DUPLICATE_LEDGER_POSTING",
+      "detected_by_verifier": true,
+      "expected_failure_code": "DUPLICATE_POSTING_ID",
+      "mutated_artifact_sha256": "df3b75362ad155e4213bf0289bb6112feac4086aa16f484d3d2de50b6c3b58cd",
+      "mutation_operator": "duplicate_ledger_posting_record",
+      "observed_failure_code": "DUPLICATE_POSTING_ID:post_1ba92e7f73cf001b2b13",
+      "original_artifact_sha256": "106d5f7ac663a0a7172414b8945720dae11fcab998d8de2fdf7fa8a2d37df8e9",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 66.195,
+      "short_id": "V17",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_event_deduplication_v17931211",
+      "violations_caught": [
+        "DUPLICATE_POSTING_ID:post_1ba92e7f73cf001b2b13",
+        "DUPLICATE_POSITION_POSTING_TYPE:pos_8103da91944fb030e3dc:ENTRY_FEE"
+      ]
+    },
+    {
+      "control_id": "V18_ENTRY_EXIT_FEE_SPLIT_DRIFT_101_6095_VS_101_5524",
+      "detected_by_verifier": true,
+      "expected_failure_code": "HANDOVER_KV_MISMATCH:SI0_NB_ENTRY_FEES_USD",
+      "mutated_artifact_sha256": "c702dafb0cb610d123fa0ce8b4c6e8d0b91a9462ef04ebad09b2e1974a572a7a",
+      "mutation_operator": "replace_entry_exit_fees_with_101_6095_and_101_5040",
+      "observed_failure_code": "HANDOVER_KV_MISMATCH:SI0_NB_ENTRY_FEES_USD:actual=101.6095!=expected=101.5524",
+      "original_artifact_sha256": "24c8920498dd4c9b740ab465840217e8e7ef97f331c00f988fdd034653431e0f",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.0,
+      "short_id": "V18",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_strict_report_and_handover_consistency_v17931211",
+      "violations_caught": [
+        "HANDOVER_KV_MISMATCH:SI0_NB_ENTRY_FEES_USD:actual=101.6095!=expected=101.5524",
+        "HANDOVER_KV_MISMATCH:SI0_NB_EXIT_FEES_USD:actual=101.5040!=expected=101.5611"
+      ]
+    },
+    {
+      "control_id": "V19_VENN_PARTITION_NARRATIVE_DRIFT_3_2_1_4_2_3_VS_6_9",
+      "detected_by_verifier": true,
+      "expected_failure_code": "README_KV_MISMATCH:VENN_SI1_SI3_ONLY",
+      "mutated_artifact_sha256": "17336d2cdc7595904a1745abda40590200ebd9d436d0bb8784efc485a6779edc",
+      "mutation_operator": "mutate_venn_cells_from_6_and_9_to_1_and_2",
+      "observed_failure_code": "README_KV_MISMATCH:VENN_SI1_SI3_ONLY:actual=1!=expected=6",
+      "original_artifact_sha256": "24c8920498dd4c9b740ab465840217e8e7ef97f331c00f988fdd034653431e0f",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.001,
+      "short_id": "V19",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_strict_report_and_handover_consistency_v17931211",
+      "violations_caught": [
+        "README_KV_MISMATCH:VENN_SI1_SI3_ONLY:actual=1!=expected=6",
+        "README_KV_MISMATCH:VENN_SI2_ONLY:actual=2!=expected=9"
+      ]
+    },
+    {
+      "control_id": "V20_HANDOVER_NEGATIVE_CONTROL_COUNT_MISMATCH_10_VS_22",
+      "detected_by_verifier": true,
+      "expected_failure_code": "HANDOVER_KV_MISMATCH:NEGATIVE_CONTROLS_COUNT",
+      "mutated_artifact_sha256": "f261807627aafca4d58bc216b0fa52dc5055cb21f8259b7030fde6c23f054490",
+      "mutation_operator": "change_negative_controls_count_kv_from_22_to_10",
+      "observed_failure_code": "HANDOVER_KV_MISMATCH:NEGATIVE_CONTROLS_COUNT:actual=10!=expected=66",
+      "original_artifact_sha256": "24c8920498dd4c9b740ab465840217e8e7ef97f331c00f988fdd034653431e0f",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V20",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_strict_report_and_handover_consistency_v17931211",
+      "violations_caught": [
+        "HANDOVER_KV_MISMATCH:NEGATIVE_CONTROLS_COUNT:actual=10!=expected=66"
+      ]
+    },
+    {
+      "control_id": "V21_UNKNOWN_EVIDENCE_ORIGIN_IN_EVENT_STREAM",
+      "detected_by_verifier": true,
+      "expected_failure_code": "INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN",
+      "mutated_artifact_sha256": "82eedc84c7d0c2fa4fed03805f7b6d21401a05f6aff953f2c40c99b2933b2d5a",
+      "mutation_operator": "set_event_evidence_origin_to_UNKNOWN",
+      "observed_failure_code": "INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN:evt_4b36345ca9ec275826ae:UNKNOWN",
+      "original_artifact_sha256": "dbd654fdfd0561a325bc4fcbf498649e95dd43d85b442e92088de046d8eea0bf",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 78.243,
+      "short_id": "V21",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_exit_event_parentage_v17931211",
+      "violations_caught": [
+        "INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN:evt_4b36345ca9ec275826ae:UNKNOWN"
+      ]
+    },
+    {
+      "control_id": "V22_ARTIFACT_MANIFEST_MISSING_FILE_AND_FORGED_HASH",
+      "detected_by_verifier": true,
+      "expected_failure_code": "MANDATORY_ARTIFACT_MISSING_FROM_MANIFEST",
+      "mutated_artifact_sha256": "a9b0b297a600e89b5c098a23692eb2b2c28086ba0f3e306875c422aee8616440",
+      "mutation_operator": "corrupt_sha256_and_omit_mandatory_file_in_manifest",
+      "observed_failure_code": "MANDATORY_ARTIFACT_MISSING_FROM_MANIFEST:01_git_branch_and_source_freeze.json",
+      "original_artifact_sha256": "7e916dca8016e4ae51066f2d199b34412d38677a6dc322496d299592ca3020ef",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 2.829,
+      "short_id": "V22",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_tc_v01_v22_9idardab",
+      "verifier_function": "verify_artifact_manifest_v17931211",
+      "violations_caught": [
+        "MANDATORY_ARTIFACT_MISSING_FROM_MANIFEST:01_git_branch_and_source_freeze.json",
+        "ARTIFACT_SHA256_MISMATCH:00_run_manifest.json"
+      ]
+    },
+    {
+      "control_id": "V23_MISSING_EVIDENCE_ORIGIN_FIELD_NO_DEFAULT",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD",
+      "mutated_artifact_sha256": "f1d9f551024a4ef4260747468087d1da6f331213761772e91dcc570fe046b481",
+      "mutation_operator": "delete_evidence_origin_key_from_raw_event",
+      "observed_failure_code": "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD:evt_b357f2705942364f4c2f:evidence_origin",
+      "original_artifact_sha256": "a836f3fe99a8e1b95b787db0b2b16e41b9c09b9221dc4a2615e20fbccd334165",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.071,
+      "short_id": "V23",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "read_exit_event_stream_strict_v17931211",
+      "violations_caught": [
+        "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD:evt_b357f2705942364f4c2f:evidence_origin",
+        "STREAM_INVALID_OR_UNKNOWN_EVIDENCE_ORIGIN:evt_b357f2705942364f4c2f:None",
+        "STREAM_EVENT_SEMANTIC_HASH_TAMPERED:evt_b357f2705942364f4c2f"
+      ]
+    },
+    {
+      "control_id": "V24_MISSING_QUOTE_SOURCE_KIND_FIELD_NO_DEFAULT",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD",
+      "mutated_artifact_sha256": "f2e3ddfcea5e8370d72edfc2d782a89e45ed950705a060a54a53b68d47187129",
+      "mutation_operator": "delete_quote_source_kind_key_from_raw_event",
+      "observed_failure_code": "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD:evt_b357f2705942364f4c2f:quote_source_kind",
+      "original_artifact_sha256": "a836f3fe99a8e1b95b787db0b2b16e41b9c09b9221dc4a2615e20fbccd334165",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 4.284,
+      "short_id": "V24",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "read_exit_event_stream_strict_v17931211",
+      "violations_caught": [
+        "STREAM_MISSING_OR_EMPTY_REQUIRED_FIELD:evt_b357f2705942364f4c2f:quote_source_kind",
+        "STREAM_INVALID_OR_UNKNOWN_QUOTE_SOURCE_KIND:evt_b357f2705942364f4c2f:None",
+        "STREAM_EVENT_SEMANTIC_HASH_TAMPERED:evt_b357f2705942364f4c2f"
+      ]
+    },
+    {
+      "control_id": "V25_LEGACY_SEMANTIC_HASH_WITHOUT_PROVENANCE_FIELDS_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STREAM_EVENT_SEMANTIC_HASH_TAMPERED",
+      "mutated_artifact_sha256": "411d219aef0eccbe98446dc52fea241b02a25eeeb59b54392cca5d52528ffbbd",
+      "mutation_operator": "replace_semantic_hash_with_legacy_hash_excluding_provenance",
+      "observed_failure_code": "STREAM_EVENT_SEMANTIC_HASH_TAMPERED:evt_b357f2705942364f4c2f",
+      "original_artifact_sha256": "a836f3fe99a8e1b95b787db0b2b16e41b9c09b9221dc4a2615e20fbccd334165",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 2.622,
+      "short_id": "V25",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "read_exit_event_stream_strict_v17931211",
+      "violations_caught": [
+        "STREAM_EVENT_SEMANTIC_HASH_TAMPERED:evt_b357f2705942364f4c2f"
+      ]
+    },
+    {
+      "control_id": "V26_FORGED_REAL_PROVIDER_QUOTE_WITHOUT_PROVIDER_CAPTURE_PROOF",
+      "detected_by_verifier": true,
+      "expected_failure_code": "FORGED_REAL_PROVIDER_OR_ORIGINAL_CAPTURE_CLAIM",
+      "mutated_artifact_sha256": "7c9871dc1b10f0302dff685cdc089d09897b909478a54ff7d2becf794dab9e18",
+      "mutation_operator": "forge_real_provider_quote_and_original_captured_event",
+      "observed_failure_code": "FORGED_REAL_PROVIDER_OR_ORIGINAL_CAPTURE_CLAIM:evt_b357f2705942364f4c2f:ORIGINAL_CAPTURED_EVENT:REPLAY_CANDLE:REAL_PROVIDER_QUOTE",
+      "original_artifact_sha256": "a836f3fe99a8e1b95b787db0b2b16e41b9c09b9221dc4a2615e20fbccd334165",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.511,
+      "short_id": "V26",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "read_exit_event_stream_strict_v17931211",
+      "violations_caught": [
+        "FORGED_REAL_PROVIDER_OR_ORIGINAL_CAPTURE_CLAIM:evt_b357f2705942364f4c2f:ORIGINAL_CAPTURED_EVENT:REPLAY_CANDLE:REAL_PROVIDER_QUOTE"
+      ]
+    },
+    {
+      "control_id": "V27_MISSING_SOURCE_EXECUTION_RECONCILIATION_LEDGER_FAIL_CLOSED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "MISSING_MANDATORY_SOURCE_EXECUTION_LEDGER",
+      "mutated_artifact_sha256": "206ad7b785e616c60d0596a69553c7b78b90315fce3a1991a171ea63e120d63c",
+      "mutation_operator": "remove_09_original_execution_ledger_source_reconciliation_file",
+      "observed_failure_code": "MISSING_MANDATORY_SOURCE_EXECUTION_LEDGER:09_original_execution_ledger_source_reconciliation.jsonl.gz",
+      "original_artifact_sha256": "aabf6ad0b52164bc7a01da7b1f950bb8e2628cc021e95cba9e47a1c01d836b7d",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 4.003,
+      "short_id": "V27",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+      "violations_caught": [
+        "MISSING_MANDATORY_SOURCE_EXECUTION_LEDGER:09_original_execution_ledger_source_reconciliation.jsonl.gz"
+      ]
+    },
+    {
+      "control_id": "V28_EMPTY_SOURCE_EXECUTION_RECONCILIATION_LEDGER_FAIL_CLOSED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "EMPTY_MANDATORY_SOURCE_EXECUTION_LEDGER",
+      "mutated_artifact_sha256": "23193d3a6f66761bcb12da61039ec2e701f6bdc8eb300d7b70bfe3a10fba09ba",
+      "mutation_operator": "truncate_09_original_execution_ledger_source_reconciliation_to_empty",
+      "observed_failure_code": "EMPTY_MANDATORY_SOURCE_EXECUTION_LEDGER:09_original_execution_ledger_source_reconciliation.jsonl.gz",
+      "original_artifact_sha256": "74e2d27c7e03e296805655ddfae226dbae96b8a79693f8d6c403115a3e2e2bbc",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 4.241,
+      "short_id": "V28",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+      "violations_caught": [
+        "EMPTY_MANDATORY_SOURCE_EXECUTION_LEDGER:09_original_execution_ledger_source_reconciliation.jsonl.gz"
+      ]
+    },
+    {
+      "control_id": "V29_SOURCE_EXECUTION_LEDGER_QUANTITY_OR_SL_MISMATCH",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SOURCE_NUMERIC_MISMATCH",
+      "mutated_artifact_sha256": "070ed826c1fad8db538baa36bb8452705942758d5087d42a8dcae58ef96f0bdb",
+      "mutation_operator": "mutate_source_execution_ledger_quantity_from_0_25_to_0_55",
+      "observed_failure_code": "SOURCE_NUMERIC_MISMATCH:('SI0_OFF_BASELINE', 'NEXT_BAR_OPEN_BID_ASK', 'opp_v12_1'):quantity:0.25!=0.55",
+      "original_artifact_sha256": "85ca06ec574b50c46a50fdacff06d138efdbc54af4238a516da6f986d01923c7",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V29",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_raw_stream_vs_source_execution_v17931211",
+      "violations_caught": [
+        "SOURCE_NUMERIC_MISMATCH:('SI0_OFF_BASELINE', 'NEXT_BAR_OPEN_BID_ASK', 'opp_v12_1'):quantity:0.25!=0.55"
+      ]
+    },
+    {
+      "control_id": "V30_FUTURE_BAR_TIMESTAMP_IN_HTF_STRUCTURE_FILTER_EXCLUDED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "HTF_CAUSAL_BAR_AUDIT_FAILED",
+      "mutated_artifact_sha256": "13f24bb0cee492935887b8c5ae34f045f52caafff953d3ccfa46f6cd62b5195b",
+      "mutation_operator": "inject_unclosed_future_htf_bar_into_htf_audit",
+      "observed_failure_code": "HTF_CAUSAL_BAR_AUDIT_FAILED",
+      "original_artifact_sha256": "783b173fb8eec97c19a27521573cd90ff71aaae2533a2cba68b777e558748e43",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V30",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "HTF_CAUSAL_BAR_AUDIT_FAILED"
+      ]
+    },
+    {
+      "control_id": "V31_SWING_KNOWN_AT_BEFORE_RIGHT_CONFIRMATION_BAR_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "IMPOSSIBLE_CAUSAL_REFERENCE",
+      "mutated_artifact_sha256": "96d33a4cffcb509683ac635b4ec5d39833504d7df3f5174140765161c39ee871",
+      "mutation_operator": "set_swing_known_at_ms_earlier_than_confirmation_bar_close",
+      "observed_failure_code": "IMPOSSIBLE_CAUSAL_REFERENCE",
+      "original_artifact_sha256": "ee1fdd147393cca9533f6d9d09446a5ddd201e592d8b7d8cb5b414ee281cca72",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V31",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "CausalEvidenceRef.__post_init__",
+      "violations_caught": [
+        "IMPOSSIBLE_CAUSAL_REFERENCE"
+      ]
+    },
+    {
+      "control_id": "V32_FVG_ONLY_MISCLASSIFIED_AS_UNICORN_CONFIRMED_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "FVG_ONLY_MISLABELED_AS_UNICORN_CONFIRMED",
+      "mutated_artifact_sha256": "dd93f3d9967ed5feb1beb15b344d6e18815b84993f834f6421a172fee3d02b5e",
+      "mutation_operator": "relabel_fvg_only_as_unicorn_confirmed_when_breaker_unbound",
+      "observed_failure_code": "FVG_ONLY_MISLABELED_AS_UNICORN_CONFIRMED",
+      "original_artifact_sha256": "c3ad19cd2c9c293ca04774e3300d7cc062ad5a94b9f3ba2d30c83145eca652d4",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V32",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "FVG_ONLY_MISLABELED_AS_UNICORN_CONFIRMED"
+      ]
+    },
+    {
+      "control_id": "V33_MITIGATED_OR_STALE_FVG_RETEST_BEFORE_FORMATION_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "INVALID_FVG_RETEST_CHRONOLOGY",
+      "mutated_artifact_sha256": "5eb22f7309bc8851262b11a3dcb5d8d567ffbd9fb544e01a70fea097092b23e3",
+      "mutation_operator": "set_fvg_retest_timestamp_before_fvg_confirmed_at_ms",
+      "observed_failure_code": "INVALID_FVG_RETEST_CHRONOLOGY",
+      "original_artifact_sha256": "1219b16570277173bd77048c14a377b3817cadd7bb070f106c451d2369ae44e8",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V33",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "INVALID_FVG_RETEST_CHRONOLOGY"
+      ]
+    },
+    {
+      "control_id": "V34_EX_POST_MFE_MAE_USED_AS_PRE_ENTRY_PROOF_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "EX_POST_FEATURE_IN_PRE_ENTRY_PROOF",
+      "mutated_artifact_sha256": "0760c1234990953b88bf8bce19152065d73e15fc51e97e37feebda8f52486462",
+      "mutation_operator": "inject_ex_post_mfe_r_into_pre_entry_point_in_time_features",
+      "observed_failure_code": "EX_POST_FEATURE_IN_PRE_ENTRY_PROOF:opp_r1_10:['mfe_r']",
+      "original_artifact_sha256": "408a2440dff07f5e7dc462f95cba7988ac5c5d4eb8e9a0d64c4f85a898817061",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.997,
+      "short_id": "V34",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r1_forensic_separation_and_conservation_v17931212",
+      "violations_caught": [
+        "EX_POST_FEATURE_IN_PRE_ENTRY_PROOF:opp_r1_10:['mfe_r']"
+      ]
+    },
+    {
+      "control_id": "V35_PRE_ENTRY_UNKNOWN_ROOT_CAUSE_SILENTLY_CONVERTED_TO_PROVEN_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "UNPROVEN_PRE_ENTRY_CAUSE_ASSERTED",
+      "mutated_artifact_sha256": "4420ef77f64c50b78536689b109ed570985104280565763c6468aff855ddf189",
+      "mutation_operator": "force_wrong_side_htf_label_when_h4_and_h1_bias_are_null",
+      "observed_failure_code": "UNPROVEN_PRE_ENTRY_CAUSE_ASSERTED:opp_r1_10:WRONG_SIDE_HTF_WITH_NULL_HTF",
+      "original_artifact_sha256": "408a2440dff07f5e7dc462f95cba7988ac5c5d4eb8e9a0d64c4f85a898817061",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 2.001,
+      "short_id": "V35",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r1_forensic_separation_and_conservation_v17931212",
+      "violations_caught": [
+        "UNPROVEN_PRE_ENTRY_CAUSE_ASSERTED:opp_r1_10:WRONG_SIDE_HTF_WITH_NULL_HTF"
+      ]
+    },
+    {
+      "control_id": "V36_CIRCULAR_PROTECTED_ANCHOR_EQUAL_TO_SELECTED_SL_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "CIRCULAR_PROTECTED_ANCHOR_EQUALS_SL",
+      "mutated_artifact_sha256": "bb24e7b6b48e09eb3e21e77131d9d871da872f6104033756558fea17018bf528",
+      "mutation_operator": "set_protected_structure_anchor_equal_to_selected_sl",
+      "observed_failure_code": "CIRCULAR_PROTECTED_ANCHOR_EQUALS_SL:opp_r3_1",
+      "original_artifact_sha256": "63f2f5da64b08ff4d09036c8c85e99eec37e8c869e780c593e8d8561ff7255f0",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V36",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r3_counterfactual_invariants_v17931212",
+      "violations_caught": [
+        "CIRCULAR_PROTECTED_ANCHOR_EQUALS_SL:opp_r3_1"
+      ]
+    },
+    {
+      "control_id": "V37_COUNTERFACTUAL_PLANNED_RISK_EXCEEDS_2_50_USD_CAP_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "COUNTERFACTUAL_RISK_CAP_EXCEEDED",
+      "mutated_artifact_sha256": "4e794ca38b3ac07cce9b65a5fd0f59270d2f82d374eafb9f65acb1416e1c522f",
+      "mutation_operator": "set_planned_net_risk_usd_to_2_85_above_2_50_cap",
+      "observed_failure_code": "COUNTERFACTUAL_RISK_CAP_EXCEEDED:opp_r3_1",
+      "original_artifact_sha256": "63f2f5da64b08ff4d09036c8c85e99eec37e8c869e780c593e8d8561ff7255f0",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V37",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r3_counterfactual_invariants_v17931212",
+      "violations_caught": [
+        "COUNTERFACTUAL_RISK_CAP_EXCEEDED:opp_r3_1"
+      ]
+    },
+    {
+      "control_id": "V38_ALREADY_SWEPT_TARGET_POOL_ACCEPTED_AS_UNSWEPT_TP_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SWEPT_TARGET_CLAIMED_UNSWEPT",
+      "mutated_artifact_sha256": "de247cf5317b68cfed4e169db256b985b1e02f3e46e80266bdd0e3996710af42",
+      "mutation_operator": "mark_pre_entry_touched_liquidity_pool_as_unswept",
+      "observed_failure_code": "SWEPT_TARGET_CLAIMED_UNSWEPT:opp_r3_1",
+      "original_artifact_sha256": "63f2f5da64b08ff4d09036c8c85e99eec37e8c869e780c593e8d8561ff7255f0",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V38",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r3_counterfactual_invariants_v17931212",
+      "violations_caught": [
+        "SWEPT_TARGET_CLAIMED_UNSWEPT:opp_r3_1"
+      ]
+    },
+    {
+      "control_id": "V39_REUSED_HISTORICAL_DATASET_CLAIMED_AS_FRESH_OOS_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "REUSED_DATASET_CLAIMED_AS_FRESH_OOS",
+      "mutated_artifact_sha256": "d1da048aa277cf80b19d339500ce3a67fe4de4fcf2a8c96f536347ef03e0e66c",
+      "mutation_operator": "set_fresh_oos_verdict_PASS_on_reused_canonical_dataset",
+      "observed_failure_code": "REUSED_DATASET_CLAIMED_AS_FRESH_OOS:PASS",
+      "original_artifact_sha256": "d62235e73a56296205d1abe8d185166d1be62b886e03c298676fc67dfe1849a2",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V39",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r4_oos_and_activation_verdict_v17931212",
+      "violations_caught": [
+        "REUSED_DATASET_CLAIMED_AS_FRESH_OOS:PASS"
+      ]
+    },
+    {
+      "control_id": "V40_NEGATIVE_EXPECTANCY_STRATEGY_CLAIMED_ACTIVATION_READY_YES_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "UNSAFE_ACTIVATION_READY_CLAIM",
+      "mutated_artifact_sha256": "55c41e53061b717685a17b1e495788fa13ba4ca2556c11f2926d676f2c47575f",
+      "mutation_operator": "set_activation_ready_YES_while_expectancy_negative_and_no_fresh_oos",
+      "observed_failure_code": "UNSAFE_ACTIVATION_READY_CLAIM:YES",
+      "original_artifact_sha256": "d62235e73a56296205d1abe8d185166d1be62b886e03c298676fc67dfe1849a2",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V40",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v12_v23_v40_mf2jyb0n",
+      "verifier_function": "verify_r4_oos_and_activation_verdict_v17931212",
+      "violations_caught": [
+        "UNSAFE_ACTIVATION_READY_CLAIM:YES"
+      ]
+    },
+    {
+      "control_id": "V41_ZERO_DELAY_WAIT_BARS_IN_TRUE_DELAYED_ENTRY_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY",
+      "mutated_artifact_sha256": "c5c3b13264d131046357dca4e5fa4024b900accdee559c6828fad6c23dd11eef",
+      "mutation_operator": "set_wait_bars_0_and_same_timestamp_on_D1",
+      "observed_failure_code": "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY:D1_REAL_DELAYED_ENTRY:opp_v13_1:wb=0,b=600000,n=600000",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V41",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY:D1_REAL_DELAYED_ENTRY:opp_v13_1:wb=0,b=600000,n=600000",
+        "CONFIRMATION_LOOKAHEAD_AFTER_DECISION_TS:D1_REAL_DELAYED_ENTRY:opp_v13_1"
+      ]
+    },
+    {
+      "control_id": "V42_WAIT_BARS_EXCEEDING_12_BAR_WINDOW_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY",
+      "mutated_artifact_sha256": "9fc0709e02245ec99869e130fb8156b7684631a82df9e5d66923ae2efc69c409",
+      "mutation_operator": "set_wait_bars_15_above_max_12_window",
+      "observed_failure_code": "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY:D1_REAL_DELAYED_ENTRY:opp_v13_1:wb=15,b=600000,n=1500000",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V42",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "ZERO_DELAY_OR_INVALID_WAIT_BARS_IN_TRUE_DELAYED_ENTRY:D1_REAL_DELAYED_ENTRY:opp_v13_1:wb=15,b=600000,n=1500000"
+      ]
+    },
+    {
+      "control_id": "V43_RETROACTIVE_ENTRY_FILL_BEFORE_CONFIRMATION_CLOSE_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "RETROACTIVE_FILL_BEFORE_CONFIRMATION_CLOSE",
+      "mutated_artifact_sha256": "eae698ed3ba5aa881e35917f64adc465309e5d263dd6c8551b10f64587d27d01",
+      "mutation_operator": "set_entry_fill_ts_earlier_than_new_decision_timestamp_ms",
+      "observed_failure_code": "RETROACTIVE_FILL_BEFORE_CONFIRMATION_CLOSE:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1:fill=660000<new=780000",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V43",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "RETROACTIVE_FILL_BEFORE_CONFIRMATION_CLOSE:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1:fill=660000<new=780000"
+      ]
+    },
+    {
+      "control_id": "V44_SAME_CUTOFF_A1_FILTER_MISLABELED_AS_DELAYED_ENTRY_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "A1_SAME_CUTOFF_FILTER_MISLABELED_AS_DELAYED_ENTRY",
+      "mutated_artifact_sha256": "ee7c336d2462d0e8c30146c092494799184580d919b4fa63728654f0f1b47b51",
+      "mutation_operator": "set_old_a1_delayed_entry_executed_True",
+      "observed_failure_code": "A1_SAME_CUTOFF_FILTER_MISLABELED_AS_DELAYED_ENTRY",
+      "original_artifact_sha256": "805435114a34434b90c612caf9ac81207766a5c39ced3c24d5636efdb03015dc",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V44",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "A1_SAME_CUTOFF_FILTER_MISLABELED_AS_DELAYED_ENTRY"
+      ]
+    },
+    {
+      "control_id": "V45_CONFIRMATION_KNOWN_AT_LOOKAHEAD_AFTER_NEW_DECISION_TS_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "CONFIRMATION_LOOKAHEAD_AFTER_DECISION_TS",
+      "mutated_artifact_sha256": "67413085e0e35ee33b8a594e2e0212b874360f095f84c6b7cc6a5dc4f6fae5c7",
+      "mutation_operator": "set_confirmation_known_at_ms_after_new_decision_ts",
+      "observed_failure_code": "CONFIRMATION_LOOKAHEAD_AFTER_DECISION_TS:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V45",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "CONFIRMATION_LOOKAHEAD_AFTER_DECISION_TS:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1"
+      ]
+    },
+    {
+      "control_id": "V46_SHARED_CROSS_ADAPTER_REPLAY_SHADOW_DIVERGENCE_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "CROSS_ADAPTER_PARITY_MISMATCH",
+      "mutated_artifact_sha256": "89e56c97274576bb64236274152239f939b4f8b1db9bca567ad1c4781c3438d7",
+      "mutation_operator": "inject_replay_vs_market_shadow_adapter_divergence",
+      "observed_failure_code": "CROSS_ADAPTER_PARITY_MISMATCH",
+      "original_artifact_sha256": "805435114a34434b90c612caf9ac81207766a5c39ced3c24d5636efdb03015dc",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V46",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "CROSS_ADAPTER_PARITY_MISMATCH"
+      ]
+    },
+    {
+      "control_id": "V47_PRODUCTION_ADAPTER_ENABLED_IN_PRODUCTION_TRUE_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "PRODUCTION_ADAPTER_UNSAFE_ACTIVATION_STATE",
+      "mutated_artifact_sha256": "be5bc37fe5613062df38e4bab223e0918ea449fc5ffddc8aa965d97f113aceb6",
+      "mutation_operator": "enable_delayed_entry_adapter_in_production",
+      "observed_failure_code": "PRODUCTION_ADAPTER_UNSAFE_ACTIVATION_STATE",
+      "original_artifact_sha256": "805435114a34434b90c612caf9ac81207766a5c39ced3c24d5636efdb03015dc",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V47",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "PRODUCTION_ADAPTER_UNSAFE_ACTIVATION_STATE"
+      ]
+    },
+    {
+      "control_id": "V48_STOP_ON_WRONG_SIDE_OF_PROTECTED_ANCHOR_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STOP_ON_WRONG_SIDE_OF_PROTECTED_ANCHOR",
+      "mutated_artifact_sha256": "d9b8a902111438da7874bf0e0351e062e0a75c2ddd0a469bdc0b69031365303f",
+      "mutation_operator": "place_long_sl_above_protected_anchor_price",
+      "observed_failure_code": "STOP_ON_WRONG_SIDE_OF_PROTECTED_ANCHOR:D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL:opp_v13_1",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V48",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "STOP_ON_WRONG_SIDE_OF_PROTECTED_ANCHOR:D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL:opp_v13_1"
+      ]
+    },
+    {
+      "control_id": "V49_DELAYED_STRUCTURAL_TRADE_NET_RR_BELOW_2_0_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "NET_RR_BELOW_2_0_ACCEPTED",
+      "mutated_artifact_sha256": "0bb3f46439ac4947c36f3dfe3522be273ffd8ca699df8b1fc71a0208995a1939",
+      "mutation_operator": "set_delayed_trade_net_rr_1_45_below_2_0",
+      "observed_failure_code": "NET_RR_BELOW_2_0_ACCEPTED:D3_REAL_DELAYED_ENTRY_PLUS_TARGET:opp_v13_1:1.45",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V49",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "NET_RR_BELOW_2_0_ACCEPTED:D3_REAL_DELAYED_ENTRY_PLUS_TARGET:opp_v13_1:1.45"
+      ]
+    },
+    {
+      "control_id": "V50_DELAYED_TRADE_PLANNED_RISK_ABOVE_2_50_CAP_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "RISK_CAP_2_50_EXCEEDED",
+      "mutated_artifact_sha256": "75c1de40b53eaeb32b64050189a8aa255226d7aa9580e0e8b82885bca833b80d",
+      "mutation_operator": "set_delayed_planned_net_risk_usd_2_75",
+      "observed_failure_code": "RISK_CAP_2_50_EXCEEDED:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1",
+      "original_artifact_sha256": "05c9f93b2171b4234da684d2c9b75ccb80a3cbf250c9ca37fc865e7eade27210",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V50",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "RISK_CAP_2_50_EXCEEDED:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:opp_v13_1"
+      ]
+    },
+    {
+      "control_id": "V51_PORTFOLIO_1POS_CONCURRENT_OVERLAP_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "PORTFOLIO_1POS_OVERLAP_VIOLATION",
+      "mutated_artifact_sha256": "2c8e81a435a15446d56bbf8148a1b2ad9bd214561f59b33cfc9b2b3da5e90819",
+      "mutation_operator": "inject_overlapping_concurrent_position_in_1pos_portfolio",
+      "observed_failure_code": "PORTFOLIO_1POS_OVERLAP_VIOLATION:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:NEXT_BAR_OPEN_BID_ASK",
+      "original_artifact_sha256": "15c24fad8a5c9c57cab14e3308409fd061d05e8cba28cf31020354fbb0331799",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V51",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_delayed_entry_and_structural_sl_tp_v17931213",
+      "violations_caught": [
+        "PORTFOLIO_1POS_OVERLAP_VIOLATION:D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE:NEXT_BAR_OPEN_BID_ASK"
+      ]
+    },
+    {
+      "control_id": "V52_MISSING_SI8_INTENT_LEDGER_FAILS_CLOSED_UNKNOWN_MISSING_LEDGER",
+      "detected_by_verifier": true,
+      "expected_failure_code": "MISSING_AUTHORITATIVE_INTENT_LEDGER_FAIL_CLOSED",
+      "mutated_artifact_sha256": "d37c7dba9cf28eaf45a65795dec65e3d490fccc2dbe365371288f53e1c94d672",
+      "mutation_operator": "pass_empty_si8_decision_ledger_to_diagnosis",
+      "observed_failure_code": "MISSING_AUTHORITATIVE_INTENT_LEDGER_FAIL_CLOSED",
+      "original_artifact_sha256": "4f89e6fe9f7d42bc208c8bbcc4e38811c7f7e0ed822713af9d6f415095fd37ba",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V52",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "MISSING_AUTHORITATIVE_INTENT_LEDGER_FAIL_CLOSED"
+      ]
+    },
+    {
+      "control_id": "V53_SI8_DYNAMIC_FUNNEL_CONSERVATION_MISMATCH_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SI8_SI9_FUNNEL_CONSERVATION_MISMATCH",
+      "mutated_artifact_sha256": "9fcbb107310e2e941dd12cf7ebdc971cac0fa785580dc576ad11d2a492a926f8",
+      "mutation_operator": "inflate_materialized_intents_count_breaking_conservation",
+      "observed_failure_code": "SI8_SI9_FUNNEL_CONSERVATION_MISMATCH:330!=10+314+9",
+      "original_artifact_sha256": "f5170932a722a0a43ca3560716a45aa25808e36050ec3f335c2b0f1efc09e38c",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V53",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "SI8_SI9_FUNNEL_CONSERVATION_MISMATCH:330!=10+314+9"
+      ]
+    },
+    {
+      "control_id": "V54_MATERIALIZED_INTENT_MISSING_ID_OR_PROOF_HASH_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SI8_MATERIALIZED_INTENT_MISSING_ID_OR_PROOF",
+      "mutated_artifact_sha256": "2d7fe9cd3cd038ccf158b2af24a989e9f8af6f8e95fe28d92ed9f7e91f14c8dc",
+      "mutation_operator": "strip_si8_intent_id_and_proof_hash_from_accepted_row",
+      "observed_failure_code": "SI8_MATERIALIZED_INTENT_MISSING_ID_OR_PROOF:opp_1",
+      "original_artifact_sha256": "1714130ef529f854be1e04f67035e598cb788b874e04bc49b8c88c305d03123f",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V54",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "SI8_MATERIALIZED_INTENT_MISSING_ID_OR_PROOF:opp_1"
+      ]
+    },
+    {
+      "control_id": "V55_SUMMARY_MATERIALIZED_COUNT_CONTRADICTS_RAW_SI8_LEDGER_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SI8_RAW_DECISION_LEDGER_MISMATCH",
+      "mutated_artifact_sha256": "b82229c96acc787fa2f8974aa8ecd5f838e2427ea6eb10f58652fa01689148d1",
+      "mutation_operator": "claim_accepted_in_summary_when_raw_si8_ledger_rejected",
+      "observed_failure_code": "SI8_RAW_DECISION_LEDGER_MISMATCH:raw_elig=1,diag_elig=1,raw_mat=0,diag_mat=1",
+      "original_artifact_sha256": "e8f102c8fe88814d9559727d321d469bfcd3bd08292e0a1a594b0c8f08b33840",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V55",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_r2_causal_mtf_unicorn_provenance_v17931212",
+      "violations_caught": [
+        "SI8_RAW_DECISION_LEDGER_MISMATCH:raw_elig=1,diag_elig=1,raw_mat=0,diag_mat=1"
+      ]
+    },
+    {
+      "control_id": "V56_INCOMPLETE_267_SI9_TARGET_AUDIT_BUCKETS_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "SI9_267_TARGET_AUDIT_SUM_MISMATCH",
+      "mutated_artifact_sha256": "9bfdb11012d6ca651adf9e93d1e98fb6e5e852420c35b08e64916338e45015b2",
+      "mutation_operator": "drop_17_cases_from_267_si9_target_audit",
+      "observed_failure_code": "SI9_267_TARGET_AUDIT_SUM_MISMATCH:audited=267,sum=250",
+      "original_artifact_sha256": "bac42994c1e8dcbc25a24ece1735a0f65b8eaa0ea147249597b6f9da88f24fac",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V56",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_htf_unicorn_and_si8_si9_funnel_v17931213",
+      "violations_caught": [
+        "SI9_267_TARGET_AUDIT_SUM_MISMATCH:audited=267,sum=250"
+      ]
+    },
+    {
+      "control_id": "V57_RESIDUAL_FALSE_HTF_CONFLICT_ON_ALIGNED_CANDIDATE_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "FALSE_HTF_CONFLICT_STILL_PRESENT",
+      "mutated_artifact_sha256": "bb08d19731b0373ee2f97f21c2e2d5b1169df42d359af5eabfc568e554e3d5ff",
+      "mutation_operator": "leave_3_false_htf_conflicts_on_aligned_candidates",
+      "observed_failure_code": "FALSE_HTF_CONFLICT_STILL_PRESENT",
+      "original_artifact_sha256": "e2e7ce2f649e930e7f877b6def5cb55319fbc7ab3453e7ebf954bf355012d2ee",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V57",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_htf_unicorn_and_si8_si9_funnel_v17931213",
+      "violations_caught": [
+        "FALSE_HTF_CONFLICT_STILL_PRESENT"
+      ]
+    },
+    {
+      "control_id": "V58_INSUFFICIENT_HTF_WARMUP_BARS_FAIL_CLOSED_IN_STRUCTURAL_EVALUATOR",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STRUCTURAL_HTF_WARMUP_OR_CONFLICT_REJECTED",
+      "mutated_artifact_sha256": "ce9adf5ffac80d69f12bf349217efda8567bfc81db97a5409012f4728bea0bb4",
+      "mutation_operator": "evaluate_structural_htf_alignment_with_empty_warmup_bars",
+      "observed_failure_code": "STRUCTURAL_HTF_WARMUP_OR_CONFLICT_REJECTED:{'aligned': False, 'reason': 'REJECTED_MISSING_CAUSAL_HTF_BARS', 'rejection_reason': 'REJECTED_MISSING_CAUSAL_HTF_BARS', 'evaluator_mode': 'STRUCTURAL_HTF_EVALUATOR', 'ablation_mode': 'FULL_H1_H4', 'h4_bias': 'MISSING', 'h1_bias': 'MISSING', 'm15_bias': 'MISSING', 'm5_bias': 'MISSING', 'h4_last_close_ms': None, 'h1_last_close_ms': None, 'm15_last_close_ms': None, 'm5_last_close_ms': None}",
+      "original_artifact_sha256": "a9ccdf9aa7892f85f1df3294e4fbb9be2b3935d8ebf6eee197f2fc17cda453b4",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.002,
+      "short_id": "V58",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "_check_causal_htf_alignment_at_ts_v179312",
+      "violations_caught": [
+        "STRUCTURAL_HTF_WARMUP_OR_CONFLICT_REJECTED:{'aligned': False, 'reason': 'REJECTED_MISSING_CAUSAL_HTF_BARS', 'rejection_reason': 'REJECTED_MISSING_CAUSAL_HTF_BARS', 'evaluator_mode': 'STRUCTURAL_HTF_EVALUATOR', 'ablation_mode': 'FULL_H1_H4', 'h4_bias': 'MISSING', 'h1_bias': 'MISSING', 'm15_bias': 'MISSING', 'm5_bias': 'MISSING', 'h4_last_close_ms': None, 'h1_last_close_ms': None, 'm15_last_close_ms': None, 'm5_last_close_ms': None}"
+      ]
+    },
+    {
+      "control_id": "V59_STALE_V12_HEADER_OR_40_OF_40_PROSE_IN_README_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STALE_PRIOR_VERSION_CONTAMINATION_IN_REPORT",
+      "mutated_artifact_sha256": "e471d1fce8d37c63eb7d3a50e12dc4bf209844c061e46c65c8852a3ecde5c290",
+      "mutation_operator": "append_stale_40_of_40_v12_prose_to_readme",
+      "observed_failure_code": "STALE_PRIOR_VERSION_CONTAMINATION_IN_REPORT:40 / 40",
+      "original_artifact_sha256": "50ae4de4570a0983ab22ce1d1d7dde9ad9ae55474bae5665b84f569769f94911",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.505,
+      "short_id": "V59",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "STALE_PRIOR_VERSION_CONTAMINATION_IN_REPORT:40 / 40",
+        "STALE_PRIOR_VERSION_CONTAMINATION_IN_REPORT:V01..V40"
+      ]
+    },
+    {
+      "control_id": "V60_README_VS_HANDOVER_SI8_MATERIALIZED_COUNT_MISMATCH_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "REPORT_METRIC_MISMATCH",
+      "mutated_artifact_sha256": "e8dbbe1f1f4dd60005ccf1948d8990eb3c0e42cfdee0475e9723443554bff660",
+      "mutation_operator": "mutate_SI8_MATERIALIZED_INTENTS_COUNT_in_readme",
+      "observed_failure_code": "REPORT_METRIC_MISMATCH:README:SI8_MATERIALIZED_INTENTS_COUNT:obs=10,exp=5",
+      "original_artifact_sha256": "ec270bbf555be53977aa2349072a27b421477eb427fc70e3afd4239fea9b2f30",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V60",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "REPORT_METRIC_MISMATCH:README:SI8_MATERIALIZED_INTENTS_COUNT:obs=10,exp=5",
+        "REPORT_METRIC_MISMATCH:README_VS_HANDOVER_DIVERGENCE"
+      ]
+    },
+    {
+      "control_id": "V61_README_MARKDOWN_VARIANT_TABLE_CELL_DRIFT_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "README_VARIANT_TABLE_MISMATCH",
+      "mutated_artifact_sha256": "ae15d958f29592d4d3bd94b2451b83e94fa025866ef7ce4155340ba7a8c904b3",
+      "mutation_operator": "tamper_D1_net_pnl_cell_in_readme_markdown_table",
+      "observed_failure_code": "README_VARIANT_TABLE_MISMATCH:D1_REAL_DELAYED_ENTRY:cols=['`D1_REAL_DELAYED_ENTRY`', '`GENUINE_POST_SIGNAL_CLOSED_BAR_DELAYED_ENTRY`', '`true`', '3..12', '10', '3', '0', '3', '999.9999', '-1.0009', '3', '-7.3168']",
+      "original_artifact_sha256": "bcbf21d4cd87b242377314e8b6f9c33b0078855b9586c3d38a95fa12b6c8fed1",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V61",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "README_VARIANT_TABLE_MISMATCH:D1_REAL_DELAYED_ENTRY:cols=['`D1_REAL_DELAYED_ENTRY`', '`GENUINE_POST_SIGNAL_CLOSED_BAR_DELAYED_ENTRY`', '`true`', '3..12', '10', '3', '0', '3', '999.9999', '-1.0009', '3', '-7.3168']"
+      ]
+    },
+    {
+      "control_id": "V62_STALE_278_6_272_0_STATIC_GATE_TITLE_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "STALE_PRIOR_VERSION_CONTAMINATION_IN_GATES",
+      "mutated_artifact_sha256": "91116f927367d265c2140345b525300fe8af9011744e9db57d70d30d4bded668",
+      "mutation_operator": "inject_static_278_6_272_0_title_into_gate_G_02",
+      "observed_failure_code": "STALE_PRIOR_VERSION_CONTAMINATION_IN_GATES:G_02_HTF_UNICORN_DYNAMIC_MATERIALIZATION:278 -> 6 -> 272 -> 0 SI8/SI9 funnel audited",
+      "original_artifact_sha256": "33b3b675260c327f091f1f2674f019340783376456d17b81d41ec2cf386d2924",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V62",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "STALE_PRIOR_VERSION_CONTAMINATION_IN_GATES:G_02_HTF_UNICORN_DYNAMIC_MATERIALIZATION:278 -> 6 -> 272 -> 0 SI8/SI9 funnel audited"
+      ]
+    },
+    {
+      "control_id": "V63_GATE_CLAIMING_PASS_ON_FAILED_UNDERLYING_CHECK_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "GATE_FALSE_PASS_CONTRADICTION",
+      "mutated_artifact_sha256": "2df2e1ddd206692a720929ed221dddb0a837d65a385bce4b9c51ab17abc7ccfe",
+      "mutation_operator": "claim_G_01_PASS_when_delayed_entry_check_is_FAIL",
+      "observed_failure_code": "GATE_FALSE_PASS_CONTRADICTION:G_01_DELAYED_ENTRY_TRUTH:gate=PASS,check=FAIL",
+      "original_artifact_sha256": "ebb0fe5e71ce82bd835e206482ba8d65e7a0922d588277858a1558ba36461f57",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 1.504,
+      "short_id": "V63",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "GATE_FALSE_PASS_CONTRADICTION:G_01_DELAYED_ENTRY_TRUTH:gate=PASS,check=FAIL"
+      ]
+    },
+    {
+      "control_id": "V64_FIVE_CONCURRENT_CHILD_WORKERS_EXCEEDING_CAP_4_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "CONCURRENT_WORKER_CAP_EXCEEDED",
+      "mutated_artifact_sha256": "f656560d85f12ff567cbc7cd5f66e0d9a2aff765068dfc977d8591c1efae8d3a",
+      "mutation_operator": "spawn_5_concurrent_overlapping_workers_above_cap_4",
+      "observed_failure_code": "CONCURRENT_WORKER_CAP_EXCEEDED:peak=5>max=4",
+      "original_artifact_sha256": "eaa892e26bfc99a8cca9c0446e0264e44641204daad49465d704a4478d86ca0c",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V64",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_bounded_async_workers_v17931213",
+      "violations_caught": [
+        "CONCURRENT_WORKER_CAP_EXCEEDED:peak=5>max=4"
+      ]
+    },
+    {
+      "control_id": "V65_UNREAPED_ORPHAN_CHILD_PID_AT_CLEANUP_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "ORPHAN",
+      "mutated_artifact_sha256": "9a97d42cc44b8c0d4a94764bf096ae787a731b12c2100f3481f925e18b222b24",
+      "mutation_operator": "leave_unreaped_orphan_pid_99999_at_cleanup",
+      "observed_failure_code": "UNREAPED_ORPHAN_PIDS:[99999]",
+      "original_artifact_sha256": "730f988260d587d316fb2ece2a892f46199209a59331cda3fe42b8855c4aaa27",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V65",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_bounded_async_workers_v17931213",
+      "violations_caught": [
+        "UNREAPED_ORPHAN_PIDS:[99999]"
+      ]
+    },
+    {
+      "control_id": "V66_HANDOVER_ACTIVATION_READY_YES_CLAIM_REJECTED",
+      "detected_by_verifier": true,
+      "expected_failure_code": "UNSAFE_OOS_OR_ACTIVATION_CLAIM_IN_REPORT",
+      "mutated_artifact_sha256": "15cc9f8b74fac80aa1085eaf4d43b5fb886121f76a736831ec4089cb08aeb813",
+      "mutation_operator": "mutate_ACTIVATION_READY_to_YES_in_handover",
+      "observed_failure_code": "UNSAFE_OOS_OR_ACTIVATION_CLAIM_IN_REPORT:HANDOVER:ACTIVATION_READY:YES!=NO",
+      "original_artifact_sha256": "fe2996ba398ce9960aa57965074909e69aab0d30da717d8bcce0e4a661b72707",
+      "real_child_exit_status": 1,
+      "rejected": true,
+      "runtime_ms": 0.001,
+      "short_id": "V66",
+      "status": "PASS",
+      "temp_dir_cleaned": true,
+      "temp_dir_path": "C:\\Users\\ADMIN\\AppData\\Local\\Temp\\aurum_v13_v41_v66_mk1ry3h8",
+      "verifier_function": "verify_v17931213_authoritative_report_and_gates_consistency",
+      "violations_caught": [
+        "UNSAFE_OOS_OR_ACTIVATION_CLAIM_IN_REPORT:HANDOVER:ACTIVATION_READY:YES!=NO",
+        "REPORT_METRIC_MISMATCH:README_VS_HANDOVER_DIVERGENCE"
+      ]
+    }
+  ],
+  "controls_count": 66,
+  "rejected_count": 66,
+  "run_id": "20261111T084133Z_0dfae8aa93e7",
+  "schema_version": "17.9.3.1.2.13",
+  "status": "PASS",
+  "temp_dirs_cleaned": true,
+  "tested_executable_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "version": "V17.9.3.1.2.13",
+  "violations": []
+}

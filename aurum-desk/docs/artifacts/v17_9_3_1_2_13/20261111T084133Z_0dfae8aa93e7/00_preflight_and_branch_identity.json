@@ -1,0 +1,31 @@
+{
+  "activation_flags": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "enabled_in_production": false
+  },
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "grounded_v12_publication_head": "63f2481ea7989d08d3e55a7945b6ce5eb5b1dc98",
+  "grounded_v12_tested_executable_sha": "a12759da782fbf2399657c727f57138d23280b3b",
+  "independent_verifier_pid": 28964,
+  "independent_verifier_status": "PASS",
+  "observed_head_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "orchestrator_pid": 16824,
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "DELAYED_ENTRY_EXECUTION_VERDICT": "PASS",
+    "ECONOMIC_VERDICT": "NEGATIVE_EXPECTANCY_AS_OBSERVED",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "HTF_UNICORN_MATERIALIZATION_VERDICT": "PASS",
+    "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_EXPECTANCY",
+    "VERIFICATION_TRUTH_VERDICT": "PASS"
+  },
+  "run_id": "20261111T084133Z_0dfae8aa93e7",
+  "schema_version": "17.9.3.1.2.13",
+  "started_at_utc": "2026-11-11T08:41:37Z",
+  "status": "COMPLETED",
+  "tested_executable_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "version": "V17.9.3.1.2.13"
+}

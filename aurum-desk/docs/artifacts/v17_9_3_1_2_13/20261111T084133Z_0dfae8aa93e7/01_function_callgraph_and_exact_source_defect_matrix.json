@@ -1,0 +1,319 @@
+{
+  "anchored_symbols": [
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:3715-3974",
+      "line_end": 3974,
+      "line_start": 3715,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "evaluate_r3_counterfactual_stop_and_target_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:3357-3682",
+      "line_end": 3682,
+      "line_start": 3357,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "evaluate_r3_true_delayed_counterfactual_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:3685-3712",
+      "line_end": 3712,
+      "line_start": 3685,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "evaluate_shared_delayed_entry_adapter_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:826-865",
+      "line_end": 865,
+      "line_start": 826,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "derive_structure_valid_stop"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:1158-1376",
+      "line_end": 1376,
+      "line_start": 1158,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "select_viable_structural_target"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_line": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py:2434-3068",
+      "line_end": 3068,
+      "line_start": 2434,
+      "role": "P0-E1 Genuine post-signal closed-bar delayed entry (A1B, D1..D4) & pure cross-adapter parity",
+      "symbol": "simulate_v17931_trade_execution_net"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:2310-2461",
+      "line_end": 2461,
+      "line_start": 2310,
+      "role": "P0-E1/P0-E2 Strict k > base_idx confirmation scanner & real evaluate_htf_structure HTF alignment",
+      "symbol": "_check_causal_htf_alignment_at_ts_v179312"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:2464-2944",
+      "line_end": 2944,
+      "line_start": 2464,
+      "role": "P0-E1/P0-E2 Strict k > base_idx confirmation scanner & real evaluate_htf_structure HTF alignment",
+      "symbol": "find_next_causal_entry_confirmation_v179312"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:3200-3505",
+      "line_end": 3505,
+      "line_start": 3200,
+      "role": "P0-E1/P0-E2 Strict k > base_idx confirmation scanner & real evaluate_htf_structure HTF alignment",
+      "symbol": "derive_executable_structural_target_v179312"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:3508-3617",
+      "line_end": 3617,
+      "line_start": 3508,
+      "role": "P0-E1/P0-E2 Strict k > base_idx confirmation scanner & real evaluate_htf_structure HTF alignment",
+      "symbol": "recalculate_trade_risk_quantity_v179312"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py:4056-4154",
+      "line_end": 4154,
+      "line_start": 4056,
+      "role": "P0-E1/P0-E2 Strict k > base_idx confirmation scanner & real evaluate_htf_structure HTF alignment",
+      "symbol": "replay_intervention_outcome_v179312"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py:1118-1429",
+      "line_end": 1429,
+      "line_start": 1118,
+      "role": "P0-E2 Detector-bound canonical swing/pool IDs, post-confirmation HTF check & deterministic intent_id",
+      "symbol": "build_full_intervention_candidate_index_v1793121"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py:1432-1578",
+      "line_end": 1578,
+      "line_start": 1432,
+      "role": "P0-E2 Detector-bound canonical swing/pool IDs, post-confirmation HTF check & deterministic intent_id",
+      "symbol": "_fast_derive_outer_stop_from_index_v1793121"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py:1581-1726",
+      "line_end": 1726,
+      "line_start": 1581,
+      "role": "P0-E2 Detector-bound canonical swing/pool IDs, post-confirmation HTF check & deterministic intent_id",
+      "symbol": "_fast_derive_structural_target_from_index_v1793121"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py:1729-1852",
+      "line_end": 1852,
+      "line_start": 1729,
+      "role": "P0-E2 Detector-bound canonical swing/pool IDs, post-confirmation HTF check & deterministic intent_id",
+      "symbol": "schedule_causal_pending_confirmation_v1793121"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py:1855-2353",
+      "line_end": 2353,
+      "line_start": 1855,
+      "role": "P0-E2 Detector-bound canonical swing/pool IDs, post-confirmation HTF check & deterministic intent_id",
+      "symbol": "emit_causal_order_intents_v1793121"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:417-773",
+      "line_end": 773,
+      "line_start": 417,
+      "role": "P0-E2 Bug B-1 repair: propagate selected_sweep_id/break_id/fvg_id/breaker_id on SI8 candidates",
+      "symbol": "_eval_checkpoints_chunk_v1793125"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:776-1019",
+      "line_end": 1019,
+      "line_start": 776,
+      "role": "P0-E2 Bug B-1 repair: propagate selected_sweep_id/break_id/fvg_id/breaker_id on SI8 candidates",
+      "symbol": "discover_research_candidates_v1793123"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py:1386-1448",
+      "line_end": 1448,
+      "line_start": 1386,
+      "role": "P0-E2 Bug B-1 repair: propagate selected_sweep_id/break_id/fvg_id/breaker_id on SI8 candidates",
+      "symbol": "classify_r1_hierarchical_loss_forensics_v17931212"
+    },
+    {
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_line": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py:214-851",
+      "line_end": 851,
+      "line_start": 214,
+      "role": "P0-E2 Bug B-4 repair: timeframe-scaled ATR ceiling for HTF pools & full SI8/SI9 proof verification",
+      "symbol": "replay_single_si_policy_v1793122"
+    },
+    {
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_line": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py:116-211",
+      "line_end": 211,
+      "line_start": 116,
+      "role": "P0-E2 Bug B-4 repair: timeframe-scaled ATR ceiling for HTF pools & full SI8/SI9 proof verification",
+      "symbol": "_map_si_policy_to_executable_research_policy_v1793122"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py:1140-1283",
+      "line_end": 1283,
+      "line_start": 1140,
+      "role": "P0-E3 Dynamic materialized intent ledger derivation & fail-closed UNKNOWN_MISSING_INTENT_LEDGER",
+      "symbol": "build_si8_si9_278_materialization_diagnosis_v17931210"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:714-927",
+      "line_end": 927,
+      "line_start": 714,
+      "role": "P0-E3 Removal of hardcoded 278/6/0 checks & dynamic decision-ledger bijection verification",
+      "symbol": "build_r2_htf_unicorn_funnel_and_ablations_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py:930-1014",
+      "line_end": 1014,
+      "line_start": 930,
+      "role": "P0-E3 Removal of hardcoded 278/6/0 checks & dynamic decision-ledger bijection verification",
+      "symbol": "verify_r2_causal_mtf_unicorn_provenance_v17931212"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:389-501",
+      "line_end": 501,
+      "line_start": 389,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "enrich_si8_aligned_decisions_and_features_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:654-972",
+      "line_end": 972,
+      "line_start": 654,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "build_delayed_entry_contract_and_ledgers_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:1221-1495",
+      "line_end": 1495,
+      "line_start": 1221,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:1886-1999",
+      "line_end": 1999,
+      "line_start": 1886,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "render_v17931213_readme_and_handover"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:2164-2273",
+      "line_end": 2273,
+      "line_start": 2164,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "verify_v17931213_authoritative_report_and_gates_consistency"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:2329-2808",
+      "line_end": 2808,
+      "line_start": 2329,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "run_negative_controls_v01_to_v66_v17931213"
+    },
+    {
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_line": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py:2002-2161",
+      "line_end": 2161,
+      "line_start": 2002,
+      "role": "P0-E4 Single authoritative report/gate renderer, strict structured parser & V01..V66 negative controls",
+      "symbol": "evaluate_v17931213_gate_matrix"
+    }
+  ],
+  "anchored_symbols_count": 31,
+  "exact_source_defect_matrix": [
+    {
+      "causal_repair": "Explicitly labeled A1/A4 as SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY (delayed_entry_executed=False) for historical .12 comparability, and implemented evaluate_r3_true_delayed_counterfactual_v17931213 (A1B, D1..D4) + find_next_causal_entry_confirmation_v179312(strictly_after_base=True, model_aware=True) scanning strictly subsequent closed M1 bars (1 <= wait_bars <= 12, new_decision_timestamp_ms > base_ts) and rebuilding entry/SL/TP/quantity at new_decision_timestamp_ms.",
+      "defect_id": "P0_E1_SAME_CUTOFF_FILTER_MASQUERADING_AS_DELAYED_ENTRY",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "root_cause": "In .12, A1_ENTRY_CONFIRMATION_RETEST_ONLY checked pre-entry booleans at the original decision_timestamp_ms (wait_bars=0) without scanning k > base_idx or shifting entry/SL/TP/sizing.",
+      "symbol": "evaluate_r3_counterfactual_stop_and_target_v17931212"
+    },
+    {
+      "causal_repair": "Propagated selected_sweep_id, selected_break_id, selected_fvg_id, and selected_breaker_id onto base_rec and re-derived verified causal feature snapshots on SI8-discovered candidates.",
+      "defect_id": "P0_E2_BUG_B1_SI8_DISCOVERY_OMITTED_CAUSAL_EVIDENCE_IDS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py",
+      "root_cause": "base_rec for discovered_by_si8=True candidates omitted selected_sweep_id, selected_break_id, selected_fvg_id, and selected_breaker_id before calling derive_pre_entry_features_from_causal_context_v1793127, causing 0 / 6,375 SI8-discovered candidates to pass required_proof_rejection_v1793127.",
+      "symbol": "_eval_checkpoints_chunk_v1793125"
+    },
+    {
+      "causal_repair": "Indexed exact detector raw_id, canonical_anchor_id, canonical_target_id, contiguous window checks, 4H (1,1) pools, and post-pivot m1_post_bar_idx (occ_ms + tf_dur_ms).",
+      "defect_id": "P0_E2_BUG_B2_SWING_AND_POOL_ID_SCHEMA_MISMATCH",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+      "root_cause": "all_causal_swings synthesized IDs '{TF}_{lb}_{rb}_{SH/SL}_{occ_ms}' instead of canonical detector IDs ('1m_sh/sl_...' / 'v1792_m5_5m_sh/sl_...' for anchors; 'pool_{TF}_{tf}_sh/sl_...' for targets) and checked M1 sweep inside the HTF pivot candle itself, causing rebuild_materialized_intent_proof_v1793127 to reject re-derived stops/targets.",
+      "symbol": "build_full_intervention_candidate_index_v1793121"
+    },
+    {
+      "causal_repair": "Delegated use_structural_evaluator=True to evaluate_htf_structure on strictly closed 4H/1H/15m/5m candles (close_time <= new_decision_timestamp_ms), rejecting MISSING/UNDETERMINED/MIXED/COUNTERTREND.",
+      "defect_id": "P0_E2_BUG_B3_SIX_BAR_CLOSE_HEURISTIC_FALSE_HTF_CONFLICT",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "root_cause": "Legacy 6-bar close-comparison heuristic contradicted evaluate_htf_structure on 113 / 113 genuinely BEARISH/BEARISH (ALIGNED) SHORT candidates in SI8.",
+      "symbol": "_check_causal_htf_alignment_at_ts_v179312"
+    },
+    {
+      "causal_repair": "Scaled pre-materialization ATR ceiling by timeframe sqrt(tf_minutes) (12.0 * sqrt(tf_mins)) and enforced full emit_causal_order_intents_v1793121 + rebuild_materialized_intent_proof_v1793127 on all SI8/SI9 winners.",
+      "defect_id": "P0_E2_BUG_B4_SI9_1M_ATR_CEILING_ON_HTF_LIQUIDITY_POOLS",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "root_cause": "SI9 enforced 0.30 <= target_room_atr_m1 <= 12.0 using 1M ATR on 1H liquidity pools (~14.2 ATR_1m = ~1.8 ATR_1h) before materialization, falsely rejecting 267 / 267 proven-unswept 1H pools.",
+      "symbol": "replay_single_si_policy_v1793122"
+    },
+    {
+      "causal_repair": "Derived materialized counts/IDs dynamically from raw policy_decision_ledger rows, failed closed with UNKNOWN_MISSING_INTENT_LEDGER if ledgers are absent/empty, and enforced exact conservation + ledger bijection.",
+      "defect_id": "P0_E3_LITERAL_ZERO_MATERIALIZED_INTENTS_AND_HARDCODED_VERIFIER",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "root_cause": "Hardcoded 'materialized_intents_count': 0 and hardcoded 278/6/0 checks in verify_r2_causal_mtf_unicorn_provenance_v17931212.",
+      "symbol": "build_si8_si9_278_materialization_diagnosis_v17931210"
+    },
+    {
+      "causal_repair": "Single immutable AuthoritativeMetricsV17931213 renders README_V17_9_3_1_2_13.md, HANDOVER_V17_9_3_1_2_13.txt, and all 12 gate titles dynamically, verified by verify_v17931213_authoritative_report_and_gates_consistency.",
+      "defect_id": "P0_E4_CONCATENATED_STALE_REPORT_HEADERS_AND_GATE_TITLES",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "root_cause": "In .12, README/HANDOVER concatenated .11 prose ('26/26 negative controls') with .12 prose ('40/40') and kept a static '278 -> 6 -> 272 -> 0' G_R2_01 gate title.",
+      "symbol": "render_v17931213_readme_and_handover"
+    }
+  ],
+  "module_sha256": {
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py": "5bc12b910df7a381c05554707ed73957473b86f740ae9c5757a52d108c64b8cf",
+    "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py": "5e4a50a464fcd5d7c34283a4d3512e9c857262cf25dbd90fbd6b300e825e392c",
+    "aurum-desk/backend/services/v17_9_3_1_2_12_provenance_forensics_and_repair_service.py": "517bbcece44f2afb20709f15df3e8a36cea37fc052bc02e19c45c18c0a186241",
+    "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py": "5b1b4860a0f489458949c1cb277784f1a9d702be117edafb8330aa5b9f85466a",
+    "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py": "89e6227b074fabfd4b83112b9658bb670e020623c7c8d03810611808365088bc",
+    "aurum-desk/backend/services/v17_9_3_1_2_3_core_trading_logic_repair.py": "35e4e53f7a0c998295d9928e1a7467353f9ee86bd6e2353b998125598105e1b7",
+    "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py": "60ce73f7a8e429231bf27cc2f90b1db62c162c3c310ff43f195c0bbf0b25126e",
+    "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py": "5a94fa1f72305a3d97e7bd712b48bb74f0be5b635443d0641b4a384f3e92ab8b"
+  },
+  "repaired_defects_count": 7,
+  "run_id": "20261111T084133Z_0dfae8aa93e7",
+  "schema_version": "17.9.3.1.2.13",
+  "tested_executable_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "version": "V17.9.3.1.2.13"
+}

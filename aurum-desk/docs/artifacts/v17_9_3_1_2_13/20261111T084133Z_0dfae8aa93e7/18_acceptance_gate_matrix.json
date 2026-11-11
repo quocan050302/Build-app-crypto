@@ -1,0 +1,91 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": {
+    "G_01_DELAYED_ENTRY_TRUTH": {
+      "category": "P0_E1_GENUINE_DELAYED_ENTRY",
+      "gate_id": "G_01_DELAYED_ENTRY_TRUTH",
+      "status": "PASS",
+      "title": "A1 preserved as SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY while A1B and D1..D4 execute genuine post-signal closed-bar delayed entry (1 <= wait_bars <= 12, new_ts > base_ts, $2.50 risk cap, cross-adapter parity)"
+    },
+    "G_02_HTF_UNICORN_DYNAMIC_MATERIALIZATION": {
+      "category": "P0_E2_P0_E3_DYNAMIC_FUNNEL",
+      "gate_id": "G_02_HTF_UNICORN_DYNAMIC_MATERIALIZATION",
+      "status": "PASS",
+      "title": "63085 canonical universe & dynamic SI8 funnel (308 -> 11 -> 292 -> 5 intents) and SI9 (3 intents) verified without hardcoded counts"
+    },
+    "G_03_SI9_267_AND_HTF_113_FORENSIC_CLOSURE": {
+      "category": "P0_E2_ROOT_CAUSE_AUDITS",
+      "gate_id": "G_03_SI9_267_AND_HTF_113_FORENSIC_CLOSURE",
+      "status": "PASS",
+      "title": "All 267 historical SI9 target rejections and 113 HTF conflicts audited (0 false conflicts remaining)"
+    },
+    "G_04_PRE_ENTRY_VS_EXPOST_FORENSIC_SEPARATION": {
+      "category": "PHASE_C_LOSS_FORENSICS",
+      "gate_id": "G_04_PRE_ENTRY_VS_EXPOST_FORENSIC_SEPARATION",
+      "status": "PASS",
+      "title": "166 closed trades (157 LOSS + 9 WIN) out of 242 scheduled reconciled with strict PRE_ENTRY vs EX_POST separation"
+    },
+    "G_05_RAW_STREAM_30_PARTITIONS_AND_SOURCE_RECONCILIATION": {
+      "category": "PHASE_D_LINEAGE_PARITY",
+      "gate_id": "G_05_RAW_STREAM_30_PARTITIONS_AND_SOURCE_RECONCILIATION",
+      "status": "PASS",
+      "title": "All 30 (SI0..SI9 x 3 fill modes) partitions reconstructed from raw event stream and reconciled with source execution ledger"
+    },
+    "G_06_SINGLE_AUTHORITATIVE_REPORT_AND_GATE_CONSISTENCY": {
+      "category": "P0_E4_REPORT_TRUTH",
+      "gate_id": "G_06_SINGLE_AUTHORITATIVE_REPORT_AND_GATE_CONSISTENCY",
+      "status": "PASS",
+      "title": "README_V17_9_3_1_2_13.md, HANDOVER_V17_9_3_1_2_13.txt, and gate titles cross-validated from single AuthoritativeMetricsV17931213"
+    },
+    "G_07_BOUNDED_ASYNC_MULTI_WORKER_PERFORMANCE_AND_DETERMINISM": {
+      "category": "P1_E5_ASYNC_RESOURCE_TRUTH",
+      "gate_id": "G_07_BOUNDED_ASYNC_MULTI_WORKER_PERFORMANCE_AND_DETERMINISM",
+      "status": "PASS",
+      "title": "Async sharded pytest (1140.585s, 1.839x vs w=1) and w=1/2/4/1_repeat determinism verified (max_children=4<=4, orphans=0)"
+    },
+    "G_08_FRESH_PYTEST_COLLECTION_AND_JUNIT_BIJECTION": {
+      "category": "PHASE_G_REGRESSION_TRUTH",
+      "gate_id": "G_08_FRESH_PYTEST_COLLECTION_AND_JUNIT_BIJECTION",
+      "status": "PASS",
+      "title": "Fresh pytest collection (5319 nodes across 16 shards) with 100% JUnit XML bijection and 0 failures"
+    },
+    "G_09_NEGATIVE_CONTROLS_V01_TO_V66": {
+      "category": "PHASE_H_ADVERSARIAL_CONTROLS",
+      "gate_id": "G_09_NEGATIVE_CONTROLS_V01_TO_V66",
+      "status": "PASS",
+      "title": "All 66/66 fault-injected negative controls (V01..V66) rejected in disposable temp dirs"
+    },
+    "G_10_HONEST_OOS_AND_ACTIVATION_LOCK": {
+      "category": "P1_E6_OOS_AND_SAFETY",
+      "gate_id": "G_10_HONEST_OOS_AND_ACTIVATION_LOCK",
+      "status": "PASS",
+      "title": "FRESH_OOS_VERDICT=BLOCKED_NO_UNTOUCHED_DATA and ACTIVATION_READY=NO enforced fail-closed"
+    },
+    "G_11_SOURCE_FREEZE_AND_PRIOR_IMMUTABILITY": {
+      "category": "PUBLICATION_INTEGRITY",
+      "gate_id": "G_11_SOURCE_FREEZE_AND_PRIOR_IMMUTABILITY",
+      "status": "PASS",
+      "title": "Artifact SHA-256 manifest sealed, tested executable SHA frozen, and .7..12 prior artifact directories preserved byte-immutable"
+    },
+    "G_12_PHASE_A_B_C_COMMIT_PUSH_AND_REMOTE_READBACK": {
+      "category": "PUBLICATION_INTEGRITY",
+      "gate_id": "G_12_PHASE_A_B_C_COMMIT_PUSH_AND_REMOTE_READBACK",
+      "status": "BLOCKED",
+      "title": "Phase A/B commit+push and Phase C external remote git readback receipt"
+    }
+  },
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "DELAYED_ENTRY_EXECUTION_VERDICT": "PASS",
+    "ECONOMIC_VERDICT": "NEGATIVE_EXPECTANCY_AS_OBSERVED",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "HTF_UNICORN_MATERIALIZATION_VERDICT": "PASS",
+    "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_EXPECTANCY",
+    "VERIFICATION_TRUTH_VERDICT": "PASS"
+  },
+  "pre_publication_engineering_gates_all_pass": true,
+  "run_id": "20261111T084133Z_0dfae8aa93e7",
+  "schema_version": "17.9.3.1.2.13",
+  "tested_executable_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "version": "V17.9.3.1.2.13"
+}

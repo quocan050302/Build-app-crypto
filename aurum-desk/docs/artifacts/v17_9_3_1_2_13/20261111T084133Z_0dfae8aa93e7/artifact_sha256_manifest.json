@@ -1,0 +1,184 @@
+{
+  "files": {
+    ".gitattributes": {
+      "bytes": 8,
+      "sha256": "705fd4d6451a31d36b3df7de96f83f30ac976c9b4a6d1e51671d8e2f33e2d0da"
+    },
+    "00_preflight_and_branch_identity.json": {
+      "bytes": 1231,
+      "sha256": "d5620174642aa73c96505e2d88c3f374437a52893653c274a9acdabc86020926"
+    },
+    "01_function_callgraph_and_exact_source_defect_matrix.json": {
+      "bytes": 20510,
+      "sha256": "07b0b5f5d715739b66d555918a4921a05e2c673fbda98af33f6f6f900de05c8b"
+    },
+    "02_a1_old_filter_vs_true_delayed_entry_contract.json": {
+      "bytes": 9302,
+      "sha256": "0667d3b9c3d129ff27387dede16691a9aa35daa05b69ee3a10d307d488d702ae"
+    },
+    "03_delay_confirmation_new_timestamp_entry_sl_tp_ledger.jsonl.gz": {
+      "bytes": 201901,
+      "sha256": "3343a506e17d883606d30e9ce8f20dc0b13315f6c3e6ab05121fdd517d3f0e53"
+    },
+    "04_htf_unicorn_detector_to_intent_causal_pipeline.jsonl.gz": {
+      "bytes": 4198479,
+      "sha256": "e16378d7309fc73fb2aaf502ede1f0695b15df29d934c22777976a6c9baf60e5"
+    },
+    "05_si8_si9_dynamic_full_funnel_and_target_267_audit.json": {
+      "bytes": 530160,
+      "sha256": "cbb681e5b0970f2709acabf45a9a7ebdb55fd47dedc69a9c2ad01510a094fefa"
+    },
+    "06_pre_entry_loss_forensics_and_expost_stop_separation.jsonl.gz": {
+      "bytes": 67935,
+      "sha256": "f8ee88bde0c4f516b504f6a459daba5a94a874743e92b5a4bdb2cf897937a064"
+    },
+    "07_structural_sl_tp_position_sizing_evidence.jsonl.gz": {
+      "bytes": 57192,
+      "sha256": "b17c8f0ae47a93c54d64d7ee9a1b0c11bab11ed18b2bf3feb12fde33848cf876"
+    },
+    "08_matched_ab_all_opportunities_all_fill_modes.json": {
+      "bytes": 65244,
+      "sha256": "bd7cd193d22e407ee98ae9b557dd94b0151b18bfd0d57316bd7b438fa99228d4"
+    },
+    "09_chronological_portfolio_replay_all_variants.json": {
+      "bytes": 45772,
+      "sha256": "3b21887c5556f09f2f8035d766b2015a0b4927f10633f6a9f94a622427a05c94"
+    },
+    "09_exit_event_lineage_ledger.jsonl.gz": {
+      "bytes": 930170,
+      "sha256": "1eae9ad3987e7f5ca3eba79e4e106e1471ff0c7026cb33a32fde1bf2567c3165"
+    },
+    "09_original_execution_ledger_source_reconciliation.jsonl.gz": {
+      "bytes": 77180,
+      "sha256": "4a0f87a61ac80107ff651b6537d32253f8519d5458e61de2c09aebdce5d3b79d"
+    },
+    "10_full_30_partition_lineage_parity.json": {
+      "bytes": 82663,
+      "sha256": "03945b05d10522851e31dd39100f4f04817108f6c33bab9bb6ebbe0f3a17f6d6"
+    },
+    "11_real_async_worker_resource_and_determinism_benchmarks.json": {
+      "bytes": 86867,
+      "sha256": "b29b4b77051f1a3aa76bf77769e648064349621c7333976adb11974147146a05"
+    },
+    "12_current_pytest_fresh_collection_and_shard_map.json": {
+      "bytes": 634223,
+      "sha256": "7581535a4787857cd6d1eba0a79008272aa93a9dd4b7eb96d22a655c4413d67a"
+    },
+    "13_full_regression_junit_bijection_and_os_exit_verification.json": {
+      "bytes": 723233,
+      "sha256": "4968389a0e81eb13e48789e5bca4e40bb43ebb7ecbeecfa912790d6fa5470376"
+    },
+    "14_negative_controls_V01_to_latest_fault_injection.json": {
+      "bytes": 71170,
+      "sha256": "6cf56309bad3ae3c6ef08845320bb3d22609379cec5a2c9651c522253b29664f"
+    },
+    "15_oos_provenance_and_reused_holdout_truth.json": {
+      "bytes": 14305440,
+      "sha256": "29e12cc0ec840545325c58d0b1cefd982941c3121d81091df0031c2a8fa0226e"
+    },
+    "16_truthful_economic_verdict_and_blockers.json": {
+      "bytes": 64292,
+      "sha256": "1f8a7d123a869afe236dfbb91d504999682ae8a008e233471b51e35d4dc8c10f"
+    },
+    "17_independent_verifier_report.json": {
+      "bytes": 1142,
+      "sha256": "4b40ca2eb723d710df3aa3c45786c57be0dbd0e92ae2e967c3e7cc82c5e1f624"
+    },
+    "18_acceptance_gate_matrix.json": {
+      "bytes": 4649,
+      "sha256": "65aa2fda32d1ac0aa8a90c76609533cf0e5835abd0d670769fffb91d662e1eb2"
+    },
+    "19_source_freeze_and_immutable_prior_artifact_hashes.json": {
+      "bytes": 1582940,
+      "sha256": "9ac869bf94645754dec95b9742a4139a45ada9345c58cd3e17e021104f08943e"
+    },
+    "20_process_tree_cleanup_and_disk_ram_evidence.json": {
+      "bytes": 75875,
+      "sha256": "f3365c5461b2537e97a6df01b74f06045cf4e089a418738d6a5d32d571d89fe5"
+    },
+    "21_phase_a_b_c_commit_push_and_remote_readback.json": {
+      "bytes": 611,
+      "sha256": "a271bab6add87bb1ed8207f62ec3b323f8deb1998cd906db77ff98ff9a8ce9cb"
+    },
+    "HANDOVER_V17_9_3_1_2_13.txt": {
+      "bytes": 3173,
+      "sha256": "7d318eff2e213e9a096b6a4c7a1f67239262d841d7c6058bff0cae59cfc2e3db"
+    },
+    "README_V17_9_3_1_2_13.md": {
+      "bytes": 8621,
+      "sha256": "375a272f0e1819ca0e2aa3b181406af6a55e6f905b1f40bcefe3f69991b22891"
+    },
+    "junit/SHARD_EXCL_01_NESTED_SUBPROC_A.xml": {
+      "bytes": 64915,
+      "sha256": "6be71fe2f857660913dfaf9fb681548d7084b6b4acae611fd182c57585edf63e"
+    },
+    "junit/SHARD_EXCL_02_NESTED_SUBPROC_B.xml": {
+      "bytes": 83949,
+      "sha256": "7d937e9521ef7122a5185418daf42acf3f735dc65715500d943b90cb3f5548ff"
+    },
+    "junit/SHARD_EXCL_03_DB_OWNERSHIP.xml": {
+      "bytes": 6784,
+      "sha256": "7565261f7319039e879a9ca327562e6458b810b643d3f30d2f09b15e6c34987c"
+    },
+    "junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml": {
+      "bytes": 2853,
+      "sha256": "44391e17b1abd4ba872eb0a78ff2de32757c38403595f66a615c39685556cb56"
+    },
+    "junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml": {
+      "bytes": 38107,
+      "sha256": "195594441dfb38d260cf0be879beb74484e6e6b7c3278d586d59772a53175751"
+    },
+    "junit/SHARD_INPROC_02_V16_23_ISOLATED.xml": {
+      "bytes": 1611,
+      "sha256": "c90a5d2f02aeeb691a1b37e329fb095bf0155a888a6a078aff0f52364eb380ef"
+    },
+    "junit/SHARD_INPROC_03_BALANCED.xml": {
+      "bytes": 60208,
+      "sha256": "effa5e679c5b05246dcaa9d63fe205623a9b62323f3e7e52fc9b704f94cd8c08"
+    },
+    "junit/SHARD_INPROC_04_BALANCED.xml": {
+      "bytes": 49961,
+      "sha256": "1d8dfa2260af4f5b462a7a37e34dde32b4da4c86fb3da53c079c398f5e093906"
+    },
+    "junit/SHARD_INPROC_05_BALANCED.xml": {
+      "bytes": 47809,
+      "sha256": "e9f95c0a5c2ce7ac702c303f45f7838f7ba1b6397268381b0e60a5657a1aa22d"
+    },
+    "junit/SHARD_INPROC_06_BALANCED.xml": {
+      "bytes": 68257,
+      "sha256": "6dd60d9063a9f6fc5bafddad719e43b8b8a570fd59834ecfea8fe7407ed60f5a"
+    },
+    "junit/SHARD_INPROC_07_BALANCED.xml": {
+      "bytes": 53330,
+      "sha256": "44136eb3e1fe470942d8981824a745d4daa8405ecf5410103a14c04dcc322d38"
+    },
+    "junit/SHARD_INPROC_08_BALANCED.xml": {
+      "bytes": 59833,
+      "sha256": "943449f5fb773611881a7bed6a925d02e7b9f2ba5a9e5ea4b812cc1100e1e0ef"
+    },
+    "junit/SHARD_INPROC_09_BALANCED.xml": {
+      "bytes": 63701,
+      "sha256": "97ca4e1e38753cba7e386a3ace91b3eaa7635437a4f2dba95e7db6f1659a77a3"
+    },
+    "junit/SHARD_INPROC_10_BALANCED.xml": {
+      "bytes": 62056,
+      "sha256": "2cbe4a8654783771c7bb39088c2921039e624cb77c915bff81eed5ff0be6c41a"
+    },
+    "junit/SHARD_INPROC_11_BALANCED.xml": {
+      "bytes": 53011,
+      "sha256": "acde639a62ce794a0eddd6cb77a182aa12b21d73571bdafe585847a5e43c4087"
+    },
+    "junit/SHARD_INPROC_12_BALANCED.xml": {
+      "bytes": 60930,
+      "sha256": "f406f9cdbe2936a7165cdc1b46976c157496cb09dd5218064f8d1cac2fcbdc3b"
+    },
+    "run_status.jsonl": {
+      "bytes": 2330,
+      "sha256": "2a51c8e284c79c9f961e470915f8512c921516e8ca5d7c200a26cca7ba3c0825"
+    }
+  },
+  "files_count": 44,
+  "generated_at_epoch_ms": 1794388281546,
+  "schema_version": "17.9.3.1.2.13",
+  "version": "V17.9.3.1.2.13"
+}
