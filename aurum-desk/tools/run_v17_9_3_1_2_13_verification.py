@@ -983,9 +983,11 @@ def main() -> int:
         for rec in si8_decisions:
             si8_by_idx.setdefault(int(rec["checkpoint_index_1m"]), []).append(rec)
 
-        feat_by_opp_id: Dict[str, Dict[str, Any]] = {}
-        si8_feat_by_opp_id: Dict[str, Dict[str, Any]] = {}
-        for f_row in iter_jsonl_gz(V130_RUN / "07_verified_causal_features.jsonl.gz"):
+        from services.v17_9_3_1_2_7_causal_signal_truth import CompressedFeatureLedger
+
+        feat_by_opp_id = CompressedFeatureLedger()
+        si8_feat_by_opp_id = CompressedFeatureLedger()
+        for idx_f, f_row in enumerate(iter_jsonl_gz(V130_RUN / "07_verified_causal_features.jsonl.gz")):
             if not verify_feature_snapshot_v1793127(f_row):
                 raise RuntimeError(f"INVALID_FEATURE_SNAPSHOT_PROOF:{f_row.get('opportunity_id')}")
             oid = str(f_row["opportunity_id"])
@@ -993,6 +995,9 @@ def main() -> int:
                 si8_feat_by_opp_id[oid] = f_row
             else:
                 feat_by_opp_id[oid] = f_row
+            if idx_f > 0 and idx_f % 8000 == 0:
+                gc.collect()
+        gc.collect()
 
         # Bug B-1 repair: enrich SI8 aligned candidates with exact detector sweep/break/fvg/breaker IDs
         si8_enrich_summary = enrich_si8_aligned_decisions_and_features_v17931213(
@@ -1003,9 +1008,10 @@ def main() -> int:
             fallback_feat_by_opp_id=feat_by_opp_id,
             dataset_sha256=actual_dataset_sha,
         )
-        for oid, f_row in si8_feat_by_opp_id.items():
-            if not verify_feature_snapshot_v1793127(f_row):
+        for oid in si8_feat_by_opp_id:
+            if not verify_feature_snapshot_v1793127(si8_feat_by_opp_id[oid]):
                 raise RuntimeError(f"INVALID_ENRICHED_SI8_FEATURE_SNAPSHOT_PROOF:{oid}")
+        gc.collect()
 
         cand_index["si8_discovered_decisions_by_checkpoint_index"] = si8_by_idx
         cand_index["si8_discovered_feature_ledger_by_opp_id"] = si8_feat_by_opp_id

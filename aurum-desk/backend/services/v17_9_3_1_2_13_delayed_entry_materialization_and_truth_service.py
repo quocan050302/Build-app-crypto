@@ -29,7 +29,7 @@ import ast
 import bisect
 from collections import ChainMap, Counter
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import gzip
 import hashlib
 import json
@@ -44,6 +44,7 @@ from services.shared_strategy_evaluator import (
     MarketDecisionContext,
     ModelIdentifier,
     SharedStrategyEvaluator,
+    build_market_decision_context,
 )
 from services.v17_9_2_structural_stop_intelligence import (
     TRUE_DELAYED_ENTRY_VARIANTS_V17931213,
@@ -404,7 +405,6 @@ def enrich_si8_aligned_decisions_and_features_v17931213(
     """
     t0 = time.time()
     evaluator = SharedStrategyEvaluator()
-    pol_si8 = PREDECLARED_SIGNAL_INTELLIGENCE_POLICIES_V1793122["SI8_RESEARCH_DISCOVERY_REPAIRED"]
     bars_1m = datasets["1m"]
     bars_5m = datasets["5m"]
     bars_15m = datasets["15m"]
@@ -415,8 +415,25 @@ def enrich_si8_aligned_decisions_and_features_v17931213(
     ts_1h = close_ts_index["1H"]
     ts_4h = close_ts_index["4H"]
 
+    base_policy_cfg = {
+        "v17_9_2_mode": "STRUCTURAL_SL_ON",
+        "v17_9_2_target_mode": "STRUCTURAL_LIQUIDITY_HIERARCHY",
+        "mtf_structure_observe_only": False,
+        "v17_9_3_enabled": False,
+    }
+    snap_si8 = tuple(
+        sorted(
+            {
+                **base_policy_cfg,
+                "v17_9_3_1_2_2_signal_intelligence_mode": "RESEARCH_APPLY",
+                "v17_9_3_1_2_2_policy_id": "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            }.items()
+        )
+    )
+
     enriched_count = 0
     newly_proof_eligible_count = 0
+    from services.v17_9_3_1_2_3_core_trading_logic_repair import LEGACY_TO_CANONICAL_MODEL_MAP_V1793123
     from services.v17_9_3_1_2_7_causal_signal_truth import required_proof_rejection_v1793127
 
     for rec in si8_decisions:
@@ -437,30 +454,28 @@ def enrich_si8_aligned_decisions_and_features_v17931213(
             i1h = bisect.bisect_right(ts_1h, cur_ts)
             i4h = bisect.bisect_right(ts_4h, cur_ts)
             c_px = float(bars_1m[idx_1m]["close"])
-            ctx_si8 = MarketDecisionContext(
+            base_ctx = build_market_decision_context(
                 symbol="XAUUSDT",
                 decision_timestamp_ms=cur_ts,
-                closed_m1_candles=m1_sl,
-                closed_m5_candles=bars_5m[max(0, i5 - 80) : i5],
-                closed_m15_candles=bars_15m[max(0, i15 - 80) : i15],
-                closed_h1_candles=bars_1h[max(0, i1h - 80) : i1h],
-                closed_h4_candles=bars_4h[max(0, i4h - 80) : i4h],
+                m1_candles=m1_sl,
+                m5_candles=bars_5m[max(0, i5 - 80) : i5],
+                m15_candles=bars_15m[max(0, i15 - 60) : i15],
+                h1_candles=bars_1h[max(0, i1h - 48) : i1h],
+                h4_candles=bars_4h[max(0, i4h - 30) : i4h],
                 bid=round(c_px - 0.10, 2),
                 ask=round(c_px + 0.10, 2),
-                equity_usd=1000.0,
-                free_margin_usd=1000.0,
-                open_positions_count=0,
-                current_drawdown_pct=0.0,
-                daily_loss_pct=0.0,
-                execution_mode="REPLAY_BACKTEST",
-                signal_intelligence_mode="RESEARCH_APPLY",
-                signal_intelligence_policy_id="SI8_RESEARCH_DISCOVERY_REPAIRED",
-                v1793122_policy_override=pol_si8,
+                quote_timestamp_ms=cur_ts,
+                quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
+                policy_config=base_policy_cfg,
             )
-            s_si8 = evaluator.evaluate_strategy_decision(
+            ctx_si8 = replace(base_ctx, policy_config_snapshot=snap_si8)
+            m_raw = str(rec["model_id"])
+            m_canon = LEGACY_TO_CANONICAL_MODEL_MAP_V1793123.get(m_raw, m_raw)
+            s_si8 = evaluator.evaluate_model_direction(
                 ctx_si8,
-                model_id=ModelIdentifier(str(rec["model_id"])),
-                direction=str(rec["direction"]),
+                m_canon,
+                str(rec["direction"]),
+                adapter_origin="BACKTEST",
             )
             rec["selected_sweep_id"] = s_si8.selected_sweep_id
             rec["selected_break_id"] = s_si8.selected_break_id
@@ -471,7 +486,11 @@ def enrich_si8_aligned_decisions_and_features_v17931213(
             )
             si8_feat_by_opp_id[oid] = new_feat
             enriched_count += 1
-            if required_proof_rejection_v1793127(new_feat, str(rec["model_id"]), decision=rec) is None:
+            if enriched_count % 200 == 0:
+                import gc
+
+                gc.collect()
+            if required_proof_rejection_v1793127(new_feat, m_canon, decision=rec) is None:
                 newly_proof_eligible_count += 1
 
     return {
@@ -1302,7 +1321,10 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     sample_267_audit_rows: List[Dict[str, Any]] = []
 
     v12_si9_267_rows = [
-        r for r in v12_rows if str(r.get("si9_rejection_reason") or "") == "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN"
+        r
+        for r in v12_rows
+        if str(r.get("si9_rejection_reason") or r.get("si9_first_rejection_reason") or "")
+        == "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN"
     ]
     for r in v12_si9_267_rows:
         oid = str(r.get("opportunity_id") or "")
@@ -1351,7 +1373,10 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
             )
 
     v12_htf_113_rows = [
-        r for r in v12_rows if str(r.get("si8_rejection_reason") or "") == "REJECTED_CAUSAL_H1_H4_CONFLICT"
+        r
+        for r in v12_rows
+        if str(r.get("si8_rejection_reason") or r.get("si8_first_rejection_reason") or "")
+        == "REJECTED_CAUSAL_H1_H4_CONFLICT"
     ]
     v12_113_truly_aligned = 0
     v13_outcomes_on_113: Counter[str] = Counter()
@@ -1690,8 +1715,12 @@ def build_authoritative_metrics_v17931213(
             "closed_trades": int(nb_c["closed_trades_count"]),
             "wins": int(nb_c["wins_count"]),
             "losses": int(nb_c["losses_count"]),
-            "realized_net_pnl_usd": round(float(nb_c["realized_net_pnl_usd"]), 4),
-            "expectancy_r": round(float(nb_c["expectancy_r"]), 4),
+            "realized_net_pnl_usd": round(
+                float(nb_c.get("recomputed_total_net_pnl_usd", nb_c.get("realized_net_pnl_usd", 0.0))), 4
+            ),
+            "expectancy_r": round(
+                float(nb_c.get("recomputed_expectancy_net_r", nb_c.get("expectancy_r", 0.0))), 4
+            ),
         }
 
     var_nb_table = {
@@ -1744,7 +1773,7 @@ def build_authoritative_metrics_v17931213(
         pytest_passed_count=int(junit_bijection["passed_count"]),
         pytest_skipped_count=int(junit_bijection["skipped_count"]),
         pytest_failed_count=int(junit_bijection["failed_count"]),
-        pytest_errors_count=int(junit_bijection["errors_count"]),
+        pytest_errors_count=int(junit_bijection.get("error_count", junit_bijection.get("errors_count", 0))),
         pytest_shards_count=int(shards_count),
         pytest_async_w3_wall_seconds=round(float(pytest_w3_wall_s), 3),
         pytest_v12_w1_baseline_seconds=round(float(pytest_v12_w1_s), 3),
@@ -1774,8 +1803,12 @@ def build_authoritative_metrics_v17931213(
         si0_open_at_horizon_nb=int(si0_nb["open_at_horizon_count"]),
         si0_data_gap_nb=int(si0_nb["data_gap_unresolved_count"]),
         si0_unfilled_nb=int(si0_nb["unfilled_no_entry_count"]),
-        si0_net_pnl_usd_nb=round(float(si0_nb["realized_net_pnl_usd"]), 4),
-        si0_expectancy_r_nb=round(float(si0_nb["expectancy_r"]), 4),
+        si0_net_pnl_usd_nb=round(
+            float(si0_nb.get("recomputed_total_net_pnl_usd", si0_nb.get("realized_net_pnl_usd", 0.0))), 4
+        ),
+        si0_expectancy_r_nb=round(
+            float(si0_nb.get("recomputed_expectancy_net_r", si0_nb.get("expectancy_r", 0.0))), 4
+        ),
         r1_pre_entry_unknown_losses_count=int(r1_matrix_05["pre_entry_unknown_losses_count"]),
         r1_buckets_a_to_h={k: int(v) for k, v in r1_matrix_05["hierarchical_buckets_a_to_h_counts"].items()},
         variants_nb_table=var_nb_table,
