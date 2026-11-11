@@ -1,0 +1,200 @@
+{
+  "files": {
+    ".gitattributes": {
+      "bytes": 8,
+      "sha256": "705fd4d6451a31d36b3df7de96f83f30ac976c9b4a6d1e51671d8e2f33e2d0da"
+    },
+    "00_preflight_branch_sha_resource_contract.json": {
+      "bytes": 1710,
+      "sha256": "58ed27bd8a80699ccae6b6a5ad8bc108b80594ceb3ba950be0437c7f18f3aa7a"
+    },
+    "01_exact_source_function_callgraph_and_defect_matrix.json": {
+      "bytes": 73553,
+      "sha256": "cba2ce6714e8f6f89e263bacba078f3ba2bad8e977063b9fcb2f8334e78ac740"
+    },
+    "02_red_reproduction_and_fail_open_root_causes.json": {
+      "bytes": 6539,
+      "sha256": "6380754ae84a2fe6d456aaf5219d6aad8dea64055b1a67d07fe3789433826b95"
+    },
+    "03_policy_fill_scope_authoritative_trade_accounting.jsonl.gz": {
+      "bytes": 1034490,
+      "sha256": "8b9ec5b36c7432c93649b83a6f9571df81462cffdadf85583a35d83c893a38f7"
+    },
+    "04_si8_si9_all_modes_raw_events_episodes_and_1pos_reconciliation.json": {
+      "bytes": 166894,
+      "sha256": "ce61e1807cf9c46593b5ff983f986533ee6c1969e13d476b18138748950fa46e"
+    },
+    "05_267_target_failure_point_in_time_source_rr_audit.jsonl.gz": {
+      "bytes": 37557,
+      "sha256": "36129ad83aec60801ecaa20121e2abf3dba2dbe9c51036662d8773f4ac576295"
+    },
+    "06_267_target_failure_root_cause_summary_and_unknown_denominators.json": {
+      "bytes": 1766,
+      "sha256": "01c430482e4c97f948f284ddc547f9bca71e4d0d89f4012632f9c7470c406a5c"
+    },
+    "07_d4_full_unicorn_htf_candidate_funnel_and_rejections.jsonl.gz": {
+      "bytes": 1140957,
+      "sha256": "cfbd2467be3e8d2240f459b32e5a2a01f69aa9cb8f8fa8a903e0ee7d86194a33"
+    },
+    "08_d4_entry_sl_tp_confirmation_replay_provenance.jsonl.gz": {
+      "bytes": 55613,
+      "sha256": "cf91a6cab3b085b4dacff9e8275b62a143fdbe02c48759a85e762fba8cb8e0ab"
+    },
+    "09_exit_event_lineage_ledger.jsonl.gz": {
+      "bytes": 930070,
+      "sha256": "42376e695d9f8f8c68b5327bedde894b62963b9d78f6ca890ca14f74d4cacd94"
+    },
+    "09_original_execution_ledger_source_reconciliation.jsonl.gz": {
+      "bytes": 77181,
+      "sha256": "b9d506f50482fd6e5b03a97eec5537fd67bfd6480d04ebd71bdee99c5c582776"
+    },
+    "09_si0_si9_all_30_policy_fill_lineage_reconstruction.json": {
+      "bytes": 84979,
+      "sha256": "7daca3525fb31f326dd06a3db5b1565d7ca186e9c7f9aa0882b4f46edf5cf2dd"
+    },
+    "10_a0_a4_a1b_d1_d4_matched_counterfactuals_3_fill_modes.json": {
+      "bytes": 3402579,
+      "sha256": "6feedf2a5f743fe92c7ab392f69b5ade8d36d68f40bc626d0c580ff28d7d5721"
+    },
+    "11_independent_chronological_1pos_portfolio_replay.json": {
+      "bytes": 257027,
+      "sha256": "b1d6c2313f6d2495a6557ae0ee7f4c6f18e3394f93eb1b26ba68403d161615c2"
+    },
+    "12_stress_fees_spread_slippage_and_intrabar_tie_analysis.json": {
+      "bytes": 12599,
+      "sha256": "c6aac703482071c91352c647197a0fc7d928a142fa85a5daa3c2c826005ec8eb"
+    },
+    "13_purged_walkforward_and_fresh_oos_truth.json": {
+      "bytes": 2545,
+      "sha256": "027fb8869e1d00b24bf6d54cdcb7e7c2ceba804829f5969cd5793496d039f4ed"
+    },
+    "14_full_current_pytest_collection_and_shard_map.json": {
+      "bytes": 647953,
+      "sha256": "fed5e15dcd4463c6fbe15ad410d05eea69386639b7131d4b6da08785f11e20b3"
+    },
+    "15_actual_async_os_exit_junit_node_bijection.json": {
+      "bytes": 739399,
+      "sha256": "6c8490c5e3c7fc50abcac9d5c07a89ea74504159ecc776196ea2bf07d6380a5c"
+    },
+    "16_worker_1_2_4_repeat_semantic_parity.json": {
+      "bytes": 83348,
+      "sha256": "28904fb9d3d643a0bf3df59830d85e32bc67030154506a80370969f07b6899c3"
+    },
+    "17_same_sha_worker_speed_and_memory_disk_benchmark.json": {
+      "bytes": 2925,
+      "sha256": "1f5598e5cc3d0590134c25d4b638b5f12bd5368fb1bc6b32719d2fb92004815e"
+    },
+    "18_negative_controls_v01_v100_red_green_results.json": {
+      "bytes": 85901,
+      "sha256": "90440aa53771705265ac8a08d798e6b79144acca46b1e4e8cdee0f4edb9dac80"
+    },
+    "19_independent_report_verifier_from_disk.json": {
+      "bytes": 1124,
+      "sha256": "91b54b9f79672e6eb24622077eeaf5fd428d516a2919d427c842b42f71684f2d"
+    },
+    "20_report_numerical_semantic_consistency_matrix.json": {
+      "bytes": 105,
+      "sha256": "a36a8d65f6e829c3eb40ff2d518f2aa8a4932eff5b11284a467027c7ab345b3e"
+    },
+    "21_all_gate_matrix_orthogonal_economic_and_oos_verdicts.json": {
+      "bytes": 3526,
+      "sha256": "b9fbaf4419de3209ba11007fe45942a5f45160f7c16956122d1557db5d493287"
+    },
+    "22_process_tree_cleanup_atomic_outputs_and_resource_guard.json": {
+      "bytes": 120923,
+      "sha256": "7aa10863f1f0b847806e3f2ae1b9363812c30c69c8ce10c4419ceac7aecae454"
+    },
+    "23_source_sha_dataset_sha_artifact_sha256_manifest.json": {
+      "bytes": 1609803,
+      "sha256": "db0d4d840caba3dde33ef8796b621ac7377adcf24626829712e174163973c55d"
+    },
+    "24_handover_with_lineage_and_explicit_known_limitations.txt": {
+      "bytes": 16091,
+      "sha256": "756cbebd98f7a84997a021496f4b5903c66db7e6ca16041ea53f38e055092fca"
+    },
+    "25_final_verdict.json": {
+      "bytes": 101150,
+      "sha256": "154c0ffa749c74047b2b3e156419fad15957be01a7a82ff882e0bb9ecd076c7d"
+    },
+    "README_v17_9_3_1_2_14.md": {
+      "bytes": 15928,
+      "sha256": "19f262ee0ab579acc673ade7ae19f525d6cee72fcccef703f02aa07444f861f8"
+    },
+    "junit/SHARD_EXCL_00_REALTIME_30MS.xml": {
+      "bytes": 1341,
+      "sha256": "d84f8a6a876f6bcbe166313f678b412782ad112b0baeb902f64b1ed50aa79818"
+    },
+    "junit/SHARD_EXCL_01_NESTED_SUBPROC_A.xml": {
+      "bytes": 66164,
+      "sha256": "215d1411eb2fee1a4ede632a19a3790e471dd4616e913e68845318ea599a78f0"
+    },
+    "junit/SHARD_EXCL_02_NESTED_SUBPROC_B.xml": {
+      "bytes": 99591,
+      "sha256": "b34251463df78d8b09f53f24c0d5204ea519ce9816512f752430a7bf996ca043"
+    },
+    "junit/SHARD_EXCL_03_DB_OWNERSHIP.xml": {
+      "bytes": 5688,
+      "sha256": "96f1a26e71a52a3c6088628c2601031a2aeb29f2c9d7fc8e15b5e961776c23b5"
+    },
+    "junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml": {
+      "bytes": 2852,
+      "sha256": "d95df8a47ea64a19fcd40a01addf1d04cd61e2b2db6245afc2a6ceaeec579a95"
+    },
+    "junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml": {
+      "bytes": 38107,
+      "sha256": "52470ccb1fd12a8a1c8af49c96b04d03b8671ced0c0e4fbd168ddb71c20d6f95"
+    },
+    "junit/SHARD_INPROC_02_V16_23_ISOLATED.xml": {
+      "bytes": 1611,
+      "sha256": "b410d718a28a5efef955fc06099a3e231c819eb02ba9b02d9b3f510e617e76e5"
+    },
+    "junit/SHARD_INPROC_03_BALANCED.xml": {
+      "bytes": 60208,
+      "sha256": "59842c0c5171b7b344f047fdbb9547e050924bb215db8496d335d673947e4696"
+    },
+    "junit/SHARD_INPROC_04_BALANCED.xml": {
+      "bytes": 49960,
+      "sha256": "5234fec3fde1a28938df0da1ded8b6ba116d21e9a0687d82384691fd93aa359b"
+    },
+    "junit/SHARD_INPROC_05_BALANCED.xml": {
+      "bytes": 47808,
+      "sha256": "690b755f139e3ab9ea13fa645bf8981b28853b1e101802e49e2a0c29004f984f"
+    },
+    "junit/SHARD_INPROC_06_BALANCED.xml": {
+      "bytes": 68256,
+      "sha256": "2f1ebbd90f10e3e8be17e956e535141952efdbec4d9f174af744c6dfeec7edca"
+    },
+    "junit/SHARD_INPROC_07_BALANCED.xml": {
+      "bytes": 53330,
+      "sha256": "56c06aeff6fda352a449eb562547515f01156f30311d7cfcb1aff805290cd2c5"
+    },
+    "junit/SHARD_INPROC_08_BALANCED.xml": {
+      "bytes": 59834,
+      "sha256": "6c84e347ecca1f7b271f9231bd75d1f1311122b0980d851d4558a1acb24a8b58"
+    },
+    "junit/SHARD_INPROC_09_BALANCED.xml": {
+      "bytes": 63701,
+      "sha256": "5e0027a3705ee602698cdc676aeff60b8fea996bb50143862ca193844e79184b"
+    },
+    "junit/SHARD_INPROC_10_BALANCED.xml": {
+      "bytes": 62056,
+      "sha256": "e7aaebe5d7ec391cac7a9bca1a1c6ab62a3c53be154cc8544ce24195b9905681"
+    },
+    "junit/SHARD_INPROC_11_BALANCED.xml": {
+      "bytes": 53011,
+      "sha256": "42e916c3835938a6524b436974d820d83d9ae6ac0423460838ffa17ce61421eb"
+    },
+    "junit/SHARD_INPROC_12_BALANCED.xml": {
+      "bytes": 60929,
+      "sha256": "1de2236b7e8dbd43176a6f83aab301c0335e192aa0160fabba93f0d968bb8b15"
+    },
+    "run_status.jsonl": {
+      "bytes": 2727,
+      "sha256": "87b9b09fa381be0a06a6203760d71bd5cd7802667fe31f5107d4ad3f540cd765"
+    }
+  },
+  "files_count": 48,
+  "generated_at_epoch_ms": 1794405010639,
+  "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+  "version": "V17.9.3.1.2.14"
+}

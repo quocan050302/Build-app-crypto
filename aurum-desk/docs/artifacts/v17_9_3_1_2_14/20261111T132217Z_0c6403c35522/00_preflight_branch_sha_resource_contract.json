@@ -1,0 +1,42 @@
+{
+  "activation_flags": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "enabled_in_production": false
+  },
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "grounded_v13_evidence_sha": "b7abddbcfa12293b3f8629a8fd2c6cb0a8cefcd4",
+  "grounded_v13_remote_head": "a4dbb073ba596a4b57d4f56595ef8cbe39fecee0",
+  "grounded_v13_tested_executable_sha": "0dfae8aa93e78974f8f413bbe464e48d7bce00ac",
+  "independent_verifier_pid": 12152,
+  "independent_verifier_status": "PASS",
+  "observed_head_sha": "0c6403c35522ef3b4a386ee871f73ea0e1eb3213",
+  "orchestrator_pid": 10716,
+  "orthogonal_verdicts": {
+    "ACCOUNTING_SOURCE_TRUTH_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_UNICORN_HTF_EXECUTION_VERDICT": "PASS",
+    "ENGINEERING_AND_PROVENANCE_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_PHASE_C_STATUS": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TARGET_267_ROOT_CAUSE_VERDICT": "PASS"
+  },
+  "resource_contract": {
+    "exclusive_realtime_30ms_shard": true,
+    "global_heavy_worker_cap": 4,
+    "hard_abort_ram_bytes": 536870912,
+    "max_parallel_pytest_shards": 3,
+    "minimum_free_disk_bytes": 10737418240,
+    "soft_downshift_ram_bytes": 2147483648,
+    "telemetry_sampling_interval_seconds": 0.5
+  },
+  "run_id": "20261111T132217Z_0c6403c35522",
+  "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+  "started_at_utc": "2026-11-11T13:22:20Z",
+  "status": "COMPLETED",
+  "tested_executable_sha": "0c6403c35522ef3b4a386ee871f73ea0e1eb3213",
+  "version": "V17.9.3.1.2.14"
+}

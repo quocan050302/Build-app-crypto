@@ -1,0 +1,182 @@
+AURUM DESK — V17.9.3.1.2.14 HANDOVER WITH LINEAGE & EXPLICIT KNOWN LIMITATIONS
+================================================================================
+
+# AURUM Desk — V17.9.3.1.2.14 Authoritative Verification & Causal Accounting Truth Report
+
+## 1. Identity, Frozen Source & Prior Immutability
+- **Branch**: `feature/v17-9-2-structural-sl-tp-from-qa`
+- **Run ID**: `20261111T132217Z_0c6403c35522`
+- **Tested Executable SHA (Phase A)**: `0c6403c35522ef3b4a386ee871f73ea0e1eb3213`
+- **Canonical Dataset SHA-256**: `9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18` (`22,376` closed 1m bars; `NO_REAL_L1_EXECUTION_PROOF`)
+- **Prior Grounded `.13` SHAs**: Remote HEAD `a4dbb073ba596a4b57d4f56595ef8cbe39fecee0`, Phase A `0dfae8aa93e78974f8f413bbe464e48d7bce00ac`, Phase B `b7abddbcfa12293b3f8629a8fd2c6cb0a8cefcd4`
+- **Prior `.7`..`.13` Artifacts Byte-Immutable**: `True`
+- **Orchestrator PID / Separate Verifier PID**: `10716` / `12152`
+
+```text
+METRICS_KV:VERSION=V17.9.3.1.2.14
+METRICS_KV:RUN_ID=20261111T132217Z_0c6403c35522
+METRICS_KV:BRANCH=feature/v17-9-2-structural-sl-tp-from-qa
+METRICS_KV:TESTED_EXECUTABLE_SHA=0c6403c35522ef3b4a386ee871f73ea0e1eb3213
+METRICS_KV:DATASET_SHA256=9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+METRICS_KV:PRIOR_V7_TO_V13_IMMUTABLE=True
+METRICS_KV:CANONICAL_UNIVERSE_TOTAL=63085
+METRICS_KV:SI0_NB_SCHEDULED=242
+METRICS_KV:SI0_NB_CLOSED=166
+METRICS_KV:SI0_NB_WINS=9
+METRICS_KV:SI0_NB_LOSSES=157
+METRICS_KV:SI0_NB_NET_PNL_USD=-345.8971
+METRICS_KV:SI0_NB_EXPECTANCY_R=-0.8474
+METRICS_KV:SI8_MATERIALIZED=5
+METRICS_KV:SI8_NB_BLOCKED_1POS=1
+METRICS_KV:SI8_NB_SCHEDULED=4
+METRICS_KV:SI8_NB_CLOSED=4
+METRICS_KV:SI8_NB_WINS=0
+METRICS_KV:SI8_NB_LOSSES=4
+METRICS_KV:SI8_NB_FEES_USD=3.0656
+METRICS_KV:SI8_NB_NET_PNL_USD=-9.7372
+METRICS_KV:SI8_NB_EXPECTANCY_R=-0.9876
+METRICS_KV:SI8_LEGACY_NET_PNL_USD=-9.8512
+METRICS_KV:SI8_STRESS2X_NET_PNL_USD=-10.0162
+METRICS_KV:SI9_MATERIALIZED=3
+METRICS_KV:SI9_NB_BLOCKED_1POS=1
+METRICS_KV:SI9_NB_SCHEDULED=2
+METRICS_KV:SI9_NB_CLOSED=2
+METRICS_KV:SI9_NB_WINS=0
+METRICS_KV:SI9_NB_LOSSES=2
+METRICS_KV:SI9_NB_FEES_USD=1.3209
+METRICS_KV:SI9_NB_NET_PNL_USD=-4.8886
+METRICS_KV:SI9_NB_EXPECTANCY_R=-0.9896
+METRICS_KV:SI9_LEGACY_NET_PNL_USD=-4.9337
+METRICS_KV:SI9_STRESS2X_NET_PNL_USD=-5.0086
+METRICS_KV:TARGET_267_COUNT=267
+METRICS_KV:TARGET_267_ACTUAL_NET_RR_LT_2=0
+METRICS_KV:D4_UNIVERSE_63085_ACCEPTED_NB=0
+METRICS_KV:D4_UNIVERSE_63085_CLOSED_NB=0
+METRICS_KV:D4_UNIVERSE_63085_NET_PNL_NB=0.0000
+METRICS_KV:D4_MATCHED_242_ACCEPTED_NB=0
+METRICS_KV:D4_MATCHED_242_CLOSED_NB=0
+METRICS_KV:D4_MATCHED_242_EXPECTANCY_STATUS=INCONCLUSIVE_NO_SAMPLE
+METRICS_KV:PYTEST_COLLECTED=5425
+METRICS_KV:PYTEST_EXECUTED_JUNIT=5425
+METRICS_KV:PYTEST_PASSED=5417
+METRICS_KV:PYTEST_SKIPPED=8
+METRICS_KV:PYTEST_FAILED=0
+METRICS_KV:NEGATIVE_CONTROLS_REJECTED=100/100
+METRICS_KV:SAME_SHA_W3_SPEEDUP=2.320
+METRICS_KV:MAX_CHILDREN_OBSERVED=4
+METRICS_KV:ORPHAN_PIDS_COUNT=0
+METRICS_KV:FRESH_OOS_VERDICT=BLOCKED_NO_UNTOUCHED_DATA
+METRICS_KV:ECONOMIC_VERDICT=NEGATIVE_NO_PROVEN_EDGE
+METRICS_KV:ACTIVATION_READY=NO
+```
+
+## 2. P0-A: Authoritative Trade Accounting & `.13` Errata (`P0A_ACCOUNTING_CAUSAL_DIFF`)
+- **Root Cause Closed**: In `.13` (`build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213`), summary keys were read via `.get("total_episodes", 0)`, `.get("wins", 0)`, `.get("losses", 0)`, `.get("realized_net_pnl_usd", 0.0)` instead of producer keys `total_scheduled_episodes`, `wins_count`, `losses_count`, `total_realized_net_usd`, `expectancy_net_r`, causing `.13` `05` & headline prose to display `closed=4, wins=0, losses=0, net=$0.00` for `SI8` and `closed=2, wins=0, losses=0, net=$0.00` for `SI9` while the raw exit-event ledgers recorded losses (`-9.7372` USD and `-4.8886` USD). Prior `.13` artifacts remain untouched; `.14` enforces `CanonicalScopeAccountingDTO` fail-closed across all scopes.
+- **SI8 Closed Trade IDs (NB)**: `opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3, opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6387_ts1792014120000_ep_cont_SHORT_1792014060000_12b5f14dff, opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6463_ts1792018680000_ep_cont_SHORT_1792018620000_f8c8bc2a4b, opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401` (`5` materialized = `1` blocked by open pos + `4` scheduled/closed)
+- **SI9 Closed Trade IDs (NB)**: `opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3, opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401` (`3` materialized = `1` blocked by open pos + `2` scheduled/closed; overlapping IDs `opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3, opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401` — do NOT sum SI8 + SI9 PnL).
+
+### SI0 / SI8 / SI9 Across All 3 Fill Modes (`POLICY_1POS_CHRONOLOGICAL_PORTFOLIO`)
+| Policy | Fill Mode | Mat | Blk_1Pos | Sched | Closed | Wins | Losses | Open | Gap | Unf | EntryFee | ExitFee | TotalFee | GrossUSD | NetUSD | Exp_R | MaxDD |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `SI0_OFF_BASELINE` | `LEGACY_CLOSE_FILL` | 18744 | 18506 | 238 | 164 | 10 | 154 | 73 | 0 | 1 | 101.6799 | 101.6792 | 203.3591 | -110.2950 | -313.6541 | -0.7770 | 313.6541 |
+| `SI0_OFF_BASELINE` | `NEXT_BAR_OPEN_BID_ASK` | 18744 | 18502 | 242 | 166 | 9 | 157 | 74 | 1 | 1 | 101.5524 | 101.5611 | 203.1135 | -142.7836 | -345.8971 | -0.8474 | 345.8971 |
+| `SI0_OFF_BASELINE` | `STRESS_WIDER_SPREAD_SLIPPAGE_2X` | 18744 | 18496 | 248 | 173 | 9 | 164 | 73 | 1 | 1 | 106.4227 | 106.4338 | 212.8565 | -168.9096 | -381.7661 | -0.8968 | 381.7661 |
+| `SI8_RESEARCH_DISCOVERY_REPAIRED` | `LEGACY_CLOSE_FILL` | 5 | 1 | 4 | 4 | 0 | 4 | 0 | 0 | 0 | 1.5315 | 1.5341 | 3.0656 | -6.7856 | -9.8512 | -0.9991 | 9.8512 |
+| `SI8_RESEARCH_DISCOVERY_REPAIRED` | `NEXT_BAR_OPEN_BID_ASK` | 5 | 1 | 4 | 4 | 0 | 4 | 0 | 0 | 0 | 1.5315 | 1.5341 | 3.0656 | -6.6716 | -9.7372 | -0.9876 | 9.7372 |
+| `SI8_RESEARCH_DISCOVERY_REPAIRED` | `STRESS_WIDER_SPREAD_SLIPPAGE_2X` | 5 | 1 | 4 | 4 | 0 | 4 | 0 | 0 | 0 | 1.5314 | 1.5342 | 3.0656 | -6.9506 | -10.0162 | -1.0158 | 10.0162 |
+| `SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS` | `LEGACY_CLOSE_FILL` | 3 | 1 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 0.6598 | 0.6611 | 1.3209 | -3.6128 | -4.9337 | -0.9987 | 4.9337 |
+| `SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS` | `NEXT_BAR_OPEN_BID_ASK` | 3 | 1 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 0.6598 | 0.6611 | 1.3209 | -3.5677 | -4.8886 | -0.9896 | 4.8886 |
+| `SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS` | `STRESS_WIDER_SPREAD_SLIPPAGE_2X` | 3 | 1 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 0.6597 | 0.6612 | 1.3209 | -3.6877 | -5.0086 | -1.0138 | 5.0086 |
+
+### All 10 Canonical Policies (`SI0..SI9`, Primary `NEXT_BAR_OPEN_BID_ASK`)
+| Policy | Mat | Blk_1Pos | Sched | Closed | Wins | Losses | TotalFee | NetUSD | Exp_R | MaxDD |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `SI0_OFF_BASELINE` | 18744 | 18502 | 242 | 166 | 9 | 157 | 203.1135 | -345.8971 | -0.8474 | 345.8971 |
+| `SI1_MODEL_QUALITY_AND_ARBITRATION` | 27 | 17 | 10 | 6 | 0 | 6 | 6.3968 | -14.5997 | -0.9845 | 14.5997 |
+| `SI2_CAUSAL_HTF_STRUCTURE_AND_DIRECTION` | 165 | 149 | 16 | 9 | 0 | 9 | 12.4162 | -22.2001 | -1.0000 | 22.2001 |
+| `SI3_MSS_DISPLACEMENT_AND_CONFIRMED_ENTRY` | 32 | 22 | 10 | 6 | 0 | 6 | 6.3968 | -14.5997 | -0.9845 | 14.5997 |
+| `SI4_CAUSAL_LIQUIDITY_SWEEP_AND_TRUE_UNICORN` | 0 | 0 | 0 | 0 | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `SI5_STRUCTURAL_ENTRY_SL_AND_REACHABLE_TARGET` | 0 | 0 | 0 | 0 | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `SI6_COMBINED_PREDECLARED` | 0 | 0 | 0 | 0 | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `SI7_CORE_TRADING_LOGIC_REPAIRED` | 0 | 0 | 0 | 0 | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `SI8_RESEARCH_DISCOVERY_REPAIRED` | 5 | 1 | 4 | 4 | 0 | 4 | 3.0656 | -9.7372 | -0.9876 | 9.7372 |
+| `SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS` | 3 | 1 | 2 | 2 | 0 | 2 | 1.3209 | -4.8886 | -0.9896 | 4.8886 |
+
+## 3. P0-B: `267` Historical `SI9_H5` Target Failures + Control Cohort Source Audit
+- **Root Cause Closed**: `.13` defaulted absent `effective_net_rr` to `0.0` (`267/267` feature snapshots did not cache `effective_net_rr`) and defaulted absent `target_pool_timeframe` to `'1M'`, falsely attributing `267/267` to `Net R:R < 2.0`.
+- **Recomputed Source Truth (`267` Historical + `40` Control Cohort)**:
+  - **Source Pool Timeframes (`267`)**: `{"15M": 106, "1H": 12, "1M": 41, "4H": 52, "5M": 56}`
+  - **Tri-State Provenance (`267`)**: `{"INVALID_INCONSISTENT": 0, "UNKNOWN_MISSING": 0, "VALID_VALUE": 267, "unknown_rate": 0.0}`
+  - **Actual Recomputed `Net R:R < 2.0` Count**: `0 / 267`
+
+| Primary Root Cause Code | Historical 267 Count |
+| :--- | ---: |
+| `GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON` | 66 |
+| `M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL` | 201 |
+
+## 4. P0-C & R1: Repaired `D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE` 14-Stage Funnel & Portfolio Replays
+- **Root Causes Closed**:
+  1. `find_next_causal_entry_confirmation_v179312` passed `'1M'` as `direction` into `detect_breaker_blocks` and read non-existent `brk.bottom`/`brk.top` instead of `brk.low`/`brk.high`.
+  2. `evaluate_r3_true_delayed_counterfactual_v17931213` sliced HTF bars at `dec_ms` instead of `dec_ms + 12m`, lacked `open_time + tf_ms` fallback on `htf_cts`, fell back to base-time `htf_alignment_state` when HTF bars were empty, and omitted `closed_h1`/`closed_h4` in `plan_v17_9_2_structural_stop_and_target`.
+- **D4 Materialization Status**: `NO_CAUSALLY_ELIGIBLE_SETUPS` (Universe 63,085 NB accepted=`0`, closed=`0`, net PnL=`0.0000` USD; Matched-242 NB accepted=`0`, closed=`0`, expectancy status=`INCONCLUSIVE_NO_SAMPLE`; cross-adapter hash mismatches=`0`).
+
+| Stage | Universe 63,085 Passing Count |
+| :--- | ---: |
+| `01_CANDIDATE_REGISTERED` | 63085 |
+| `02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED` | 7562 |
+| `03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN` | 184 |
+| `04_MSS_BOS_DISPLACEMENT_PROVEN` | 14 |
+| `05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG` | 0 |
+| `06_VALID_FRESH_UNCONSUMED_RETEST` | 0 |
+| `07_POST_SIGNAL_DELAYED_CONFIRMATION` | 0 |
+| `08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR` | 0 |
+| `09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET` | 0 |
+| `10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0` | 0 |
+| `11_FIXED_RISK_SIZING_LTE_2_50_USD` | 0 |
+| `12_MATERIALIZED_INTENT_1POS_ELIGIBLE` | 0 |
+| `13_POST_CONFIRMATION_ENTRY_FILLED` | 0 |
+| `14_TERMINAL_CLOSED_OUTCOME` | 0 |
+
+### Chronological 1-Position Portfolio Replay (`A0..D4`, `NEXT_BAR_OPEN_BID_ASK`, Closure-Sorted Drawdown)
+| Variant (1-Pos Chronological NB) | Accepted | Blk_1Pos | Sched | Closed | Wins | Losses | TotalFee | NetUSD | Exp_R | MaxDD | ExpectancyStatus |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :--- |
+| `A0_STRICT_BASELINE` | 242 | 3 | 239 | 168 | 9 | 159 | 205.8314 | -350.8878 | -0.8492 | 350.8878 | `NEGATIVE_OR_ZERO` |
+| `A1_ENTRY_CONFIRMATION_RETEST_ONLY` | 89 | 0 | 89 | 66 | 3 | 63 | 76.9905 | -151.1919 | -0.9323 | 151.1919 | `NEGATIVE_OR_ZERO` |
+| `A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY` | 10 | 0 | 10 | 3 | 0 | 3 | 2.1091 | -7.3168 | -1.0009 | 7.3168 | `NEGATIVE_OR_ZERO` |
+| `A2_PROTECTED_SL_NOISE_BUFFER_ONLY` | 234 | 7 | 227 | 157 | 9 | 148 | 192.3931 | -327.0848 | -0.8453 | 327.0848 | `NEGATIVE_OR_ZERO` |
+| `A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY` | 82 | 0 | 82 | 64 | 5 | 59 | 83.6162 | -117.4135 | -0.7435 | 117.4135 | `NEGATIVE_OR_ZERO` |
+| `A4_COMBINED_CAUSAL_ENTRY_SL_TP` | 23 | 0 | 23 | 20 | 2 | 18 | 22.9814 | -33.0781 | -0.6727 | 33.0781 | `NEGATIVE_OR_ZERO` |
+| `D1_REAL_DELAYED_ENTRY` | 10 | 0 | 10 | 3 | 0 | 3 | 2.1091 | -7.3168 | -1.0009 | 7.3168 | `NEGATIVE_OR_ZERO` |
+| `D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL` | 10 | 0 | 10 | 3 | 0 | 3 | 2.1426 | -7.2935 | -1.0005 | 7.2935 | `NEGATIVE_OR_ZERO` |
+| `D3_REAL_DELAYED_ENTRY_PLUS_TARGET` | 10 | 0 | 10 | 3 | 0 | 3 | 2.1426 | -7.2935 | -1.0005 | 7.2935 | `NEGATIVE_OR_ZERO` |
+| `D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE` | 0 | 0 | 0 | 0 | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | `INCONCLUSIVE_NO_SAMPLE` |
+
+## 5. R2 & R3: Bounded Async Full Regression, Same-SHA Speedup & `V01..V100` Controls
+- **Fresh Backend Pytest Bijection**: Collected `5425` == Executed JUnit `5425` (`5417` passed, `8` skipped, `0` failed, `0` errors across `17` shards; nonzero exits=`0`; `w=3` wall=`899.46s`).
+- **Matched Same-SHA Worker Benchmark (`w=1, w=2, w=3`)**: `w=1` mean `68.868s`, `w=2` mean `40.838s`, `w=3` mean `29.683s` -> **`2.320x` speedup** (`max_children_observed=4 <= 4`, `orphan_pids=0`).
+- **Worker `1 / 2 / 4 / 1_repeat` Semantic & Ordered Parity**: `PASS` (`4` distinct worker PIDs verified=`True`).
+- **Adversarial Negative Controls (`V01..V100`)**: `100/100` caught RED -> GREEN in disposable temporary directories.
+
+## 6. Orthogonal Gate Matrix & Explicit Known Limitations
+| Gate | Status | Summary |
+| :--- | :--- | :--- |
+| `G_ACCOUNTING_SOURCE_TRUTH` | `PASS` | SI0 NB=-345.8971 USD (166 cls); SI8 NB=-9.7372 USD (4 cls); SI9 NB=-4.8886 USD (2 cls) |
+| `G_TARGET_SOURCE_AND_RR_TRUTH` | `PASS` | 267/267 historical SI9_H5 + 40 control rows source-audited; actual Net R:R < 2.0=0/267; TFs={'15M': 106, '1H': 12, '1M': 41, '4H': 52, '5M': 56} |
+| `G_D4_CAUSAL_EXECUTION_TRUTH` | `PASS` | detect_breaker_blocks signature/attrs repaired; strict post-signal Unicorn+HTF confirmation; cross-adapter mismatches=0 |
+| `G_D4_MATERIALIZATION` | `PASS` | 63,085 14-stage funnel traced: universe accepted=0 (closed=0), matched-242 accepted=0 (closed=0, status=INCONCLUSIVE_NO_SAMPLE) |
+| `G_SL_TP_GEOMETRY_AND_RISK` | `PASS` | Independent causal stop anchors, unswept liquidity targets, Net R:R >= 2.0, planned risk <= $2.50 at >= 0.01 lot |
+| `G_REGRESSION_FULL` | `PASS` | Collected=5425, JUnit=5425, Passed=5417, Skipped=8, Failed=0, Shards=17 |
+| `G_NEGATIVE_CONTROLS` | `PASS` | 100/100 fault-injected controls (V01..V100) caught RED -> GREEN |
+| `G_ASYNC_RESOURCE` | `PASS` | max_children=4<=4, orphans=0, w=1/2/4/1_rep=PASS (4 distinct PIDs=True), same-SHA w3 speedup=2.32x |
+| `G_BACKTEST_REPLAY` | `PASS` | 30-partition (SI0..SI9 x 3 fill modes) + A0..D4 x 3 replays + source freeze + .7..13 immutability verified |
+| `G_REPORT_CROSS_VIEW_TRUTH` | `PASS` | Single AuthoritativeMetricsV17931214 cross-verified across 03, 04, 06, 09, 10, 11, 21, 24, 25, and README |
+| `G_OOS_PROVENANCE` | `BLOCKED_NO_UNTOUCHED_DATA` | Historical 22,376-bar dataset reused across .7..13; FRESH_OOS_VERDICT=BLOCKED_NO_UNTOUCHED_DATA |
+| `G_STRATEGY_ECONOMIC_EDGE` | `NEGATIVE_NO_PROVEN_EDGE` | Strategy economic verdict=NEGATIVE_NO_PROVEN_EDGE (NEGATIVE_EXPECTANCY_ACROSS_EVALUATED_POLICIES) |
+| `G_ACTIVATION` | `LOCKED_OFF` | ACTIVATION_READY=NO, LIVE=OFF, PAPER=OFF, AUTO=OFF |
+| `G_PUBLICATION` | `BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR` | Finalized to PASS only in external Phase C receipt after git push + remote blob SHA-256 readback on feature/v17-9-2-structural-sl-tp-from-qa |
+
+### Explicit Known Limitations & Deployment Lock
+1. **Quote / Execution Provenance (`NO_REAL_L1_EXECUTION_PROOF`)**: Historical dataset contains OHLCV 1m bars only; bid/ask fills are modeled via synthetic bar half-spreads and conservative intrabar SL-first tie resolution.
+2. **Fresh Untouched OOS (`BLOCKED_NO_UNTOUCHED_DATA`)**: The `22,376`-bar XAUUSDT dataset was reused across `.7`..`.14`; purged chronological walk-forward folds are in-dataset validation only, not untouched post-freeze external OOS.
+3. **Strategy Economic Edge (`NEGATIVE_NO_PROVEN_EDGE`)**: Engineering, causal provenance, and accounting truth are `PASS`, while economic edge remains `NEGATIVE_NO_PROVEN_EDGE`.
+4. **Activation Lock (`ACTIVATION_READY=NO`)**: `LIVE=OFF`, `PAPER=OFF`, `AUTO=OFF`. Do NOT enable live, paper, or auto trading.
