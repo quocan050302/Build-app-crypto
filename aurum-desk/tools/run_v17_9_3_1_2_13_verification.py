@@ -866,14 +866,17 @@ def main() -> int:
     append_stage_status(run_dir, "PREFLIGHT", "COMPLETED", source_sha256=src_before["sha256"])
 
     monitor = ResourceMonitorV17931213(
-        minimum_ram_bytes=768 * 1024**2,
+        minimum_ram_bytes=512 * 1024**2,
         soft_downshift_ram_bytes=2 * 1024**3,
         minimum_disk_bytes=10 * 1024**3,
     )
     monitor.abort_path = run_dir / "resource_abort.json"
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"] = str(monitor.abort_path)
-    os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(768 * 1024**2)
+    os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
+    os.environ["AURUM_RESEARCH_TEST_WORKERS"] = "1"
+    os.environ["AURUM_RESEARCH_MAX_FILES_PER_SHARD"] = "16"
+    os.environ["AURUM_RESEARCH_STAGE_WORKERS"] = "2"
 
     worker_records: List[Dict[str, Any]] = []
     failure: Optional[Dict[str, Any]] = None
