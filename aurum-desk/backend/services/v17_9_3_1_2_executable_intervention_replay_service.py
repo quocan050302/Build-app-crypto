@@ -2943,7 +2943,7 @@ def find_next_causal_entry_confirmation_v179312(
 
             if eff_req_unicorn and not unicorn_ok and saw_consumed_fvg and not saw_any_fvg:
                 fvg_consumed_abort = True
-            elif eff_req_unicorn and not unicorn_ok and saw_consumed_fvg and k == last_scan_idx:
+            elif eff_req_unicorn and not unicorn_ok and saw_consumed_fvg and k == end_idx:
                 fvg_consumed_abort = True
 
             if fvg_consumed_abort:
@@ -3642,6 +3642,11 @@ def recalculate_trade_risk_quantity_v179312(
     net_risk = round(float(calc.net_risk_usdt or 0.0), 4)
     net_rr = round(float(calc.net_rr or 0.0), 4)
     gross_rr = round(float(calc.gross_rr or 0.0), 4)
+    entry_fee_usd = round(float(calc.entry_fee_usdt or 0.0), 4)
+    sl_exit_fee_usd = round(float(calc.sl_exit_fee_usdt or 0.0), 4)
+    tp_exit_fee_usd = round(float(calc.tp_exit_fee_usdt or 0.0), 4)
+    exit_fee_usd = tp_exit_fee_usd if tp_exit_fee_usd > 0.0 else sl_exit_fee_usd
+    fees_total_usd = round(float(calc.fees_total_usdt or (entry_fee_usd + exit_fee_usd)), 4)
 
     if not calc.is_valid or not calc.can_execute or qty < pol.min_quantity:
         return {
@@ -3652,6 +3657,11 @@ def recalculate_trade_risk_quantity_v179312(
             "planned_net_risk_usd": net_risk,
             "net_rr": net_rr,
             "gross_rr": gross_rr,
+            "entry_fee_usd": entry_fee_usd,
+            "exit_fee_usd": exit_fee_usd,
+            "sl_exit_fee_usd": sl_exit_fee_usd,
+            "tp_exit_fee_usd": tp_exit_fee_usd,
+            "fees_total_usd": fees_total_usd,
         }
     if net_risk > pol.max_planned_risk_usd + 1e-6:
         return {
@@ -3662,6 +3672,11 @@ def recalculate_trade_risk_quantity_v179312(
             "planned_net_risk_usd": net_risk,
             "net_rr": net_rr,
             "gross_rr": gross_rr,
+            "entry_fee_usd": entry_fee_usd,
+            "exit_fee_usd": exit_fee_usd,
+            "sl_exit_fee_usd": sl_exit_fee_usd,
+            "tp_exit_fee_usd": tp_exit_fee_usd,
+            "fees_total_usd": fees_total_usd,
         }
     if net_rr + 1e-9 < pol.min_net_rr:
         return {
@@ -3672,6 +3687,11 @@ def recalculate_trade_risk_quantity_v179312(
             "planned_net_risk_usd": net_risk,
             "net_rr": net_rr,
             "gross_rr": gross_rr,
+            "entry_fee_usd": entry_fee_usd,
+            "exit_fee_usd": exit_fee_usd,
+            "sl_exit_fee_usd": sl_exit_fee_usd,
+            "tp_exit_fee_usd": tp_exit_fee_usd,
+            "fees_total_usd": fees_total_usd,
         }
 
     return {
@@ -3682,6 +3702,11 @@ def recalculate_trade_risk_quantity_v179312(
         "planned_net_risk_usd": net_risk,
         "net_rr": net_rr,
         "gross_rr": gross_rr,
+        "entry_fee_usd": entry_fee_usd,
+        "exit_fee_usd": exit_fee_usd,
+        "sl_exit_fee_usd": sl_exit_fee_usd,
+        "tp_exit_fee_usd": tp_exit_fee_usd,
+        "fees_total_usd": fees_total_usd,
     }
 
 

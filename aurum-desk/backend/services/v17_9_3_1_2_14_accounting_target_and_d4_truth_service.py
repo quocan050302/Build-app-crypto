@@ -943,7 +943,12 @@ def audit_target_reachability_row_v17931214(
         or 0
     )
     direction = str(decision_row.get("direction") or feature_row.get("direction") or "LONG").upper()
-    t_pool_id = str(feature_row.get("target_pool_id") or decision_row.get("target_pool_id") or "")
+    t_pool_id = str(
+        feature_row.get("target_pool_id")
+        or decision_row.get("target_pool_id")
+        or decision_row.get("selected_target_id")
+        or ""
+    )
     pool_obj = pools_by_id.get(t_pool_id) if t_pool_id else None
 
     tf_from_id: Optional[str] = None
@@ -951,6 +956,10 @@ def audit_target_reachability_row_v17931214(
         toks = t_pool_id.split("_")
         if len(toks) >= 2 and toks[1]:
             tf_from_id = toks[1].upper()
+    elif "_" in t_pool_id:
+        tok0 = t_pool_id.split("_", 1)[0].upper()
+        if tok0 in _TF_MINUTES_V14:
+            tf_from_id = tok0
 
     tf_from_obj: Optional[str] = (
         str(pool_obj.get("timeframe")).upper()
@@ -1224,6 +1233,25 @@ def build_267_target_failure_and_control_audit_v17931214(
     si9_by_id = {str(r.get("opportunity_id") or ""): r for r in si9_led}
 
     pools_by_id: Dict[str, Mapping[str, Any]] = {}
+    for sw_obj in (candidate_index or {}).get("all_causal_swings") or []:
+        if not isinstance(sw_obj, Mapping):
+            continue
+        c_tid = str(sw_obj.get("canonical_target_id") or "")
+        r_tid = str(sw_obj.get("raw_id") or "")
+        s_tid = str(sw_obj.get("id") or "")
+        tf_sw = str(sw_obj.get("timeframe") or "").upper()
+        lb_sw = int(sw_obj.get("left_bars") or 0)
+        rb_sw = int(sw_obj.get("right_bars") or 0)
+        is_preferred_width = (tf_sw == "1M" and lb_sw == 2 and rb_sw == 2) or (
+            tf_sw in ("5M", "15M", "1H", "4H") and lb_sw == 1 and rb_sw == 1
+        )
+        if c_tid and (is_preferred_width or c_tid not in pools_by_id):
+            pools_by_id[c_tid] = sw_obj
+        if r_tid and (is_preferred_width or r_tid not in pools_by_id):
+            pools_by_id[r_tid] = sw_obj
+        if s_tid and s_tid not in pools_by_id:
+            pools_by_id[s_tid] = sw_obj
+
     for _tf_k, p_list in ((candidate_index or {}).get("causal_liquidity_pools_by_tf") or {}).items():
         if isinstance(p_list, Sequence):
             for p_obj in p_list:

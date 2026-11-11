@@ -428,6 +428,67 @@ def test_callgraph_and_required_artifacts_contract():
     assert git_ok["status"] == "PASS"
 
 
+def test_p0b_and_p0c_consumed_fvg_expiry_and_raw_swing_pool_join():
+    bars_1m, _, _ = _synthetic_unicorn_breaker_fvg_bars()
+    # Corrupt post-signal bars so an unaligned FVG is formed AND mitigated/consumed before scan end
+    mut_bars = [dict(b) for b in bars_1m]
+    base_idx = 18
+    # Create an upward gap at 19..21 followed by deep mitigation wick below b19 high so saw_consumed_fvg=True
+    mut_bars[19] = {**mut_bars[19], "low": 4000.0, "high": 4001.0, "open": 4000.2, "close": 4000.8}
+    mut_bars[20] = {**mut_bars[20], "low": 4000.8, "high": 4004.5, "open": 4000.9, "close": 4004.2}
+    mut_bars[21] = {**mut_bars[21], "low": 4002.0, "high": 4005.0, "open": 4004.1, "close": 4004.6}
+    for j in range(22, len(mut_bars)):
+        mut_bars[j] = {**mut_bars[j], "low": 3996.0, "high": 4003.0, "open": 4001.0, "close": 3999.0}
+
+    conf = find_next_causal_entry_confirmation_v179312(
+        {
+            "symbol": "XAUUSDT",
+            "model_id": "UNICORN_MODEL",
+            "direction": "LONG",
+            "checkpoint_index_1m": base_idx,
+            "decision_timestamp_ms": int(mut_bars[base_idx]["close_time"]),
+        },
+        mut_bars,
+        max_wait_bars=6,
+        require_mss_displacement=True,
+        require_breaker_fvg_retest=True,
+        strictly_after_base=True,
+        require_true_unicorn=True,
+    )
+    assert conf["status"] == "REJECTED"
+    assert conf["rejection_reason"] in (
+        "CANCELLED_FVG_CONSUMED_OR_INVALIDATED",
+        "CONFIRMATION_WINDOW_EXPIRED_NO_UNICORN_CONFLUENCE",
+        "CONFIRMATION_WINDOW_EXPIRED_NO_MSS_DISPLACEMENT",
+    )
+
+    # Also verify raw swing ID ("5m_sl_...") TF parsing and positive modeled fees
+    t0 = 1791993600000
+    ds = {
+        "1m": [{"open_time": t0 + i * 60_000, "close_time": t0 + (i + 1) * 60_000, "open": 2650.0, "high": 2651.0, "low": 2649.0, "close": 2650.0} for i in range(40)],
+        "5m": [{"open_time": t0 + i * 300_000, "close_time": t0 + (i + 1) * 300_000, "open": 2650.0, "high": 2653.0, "low": 2647.0, "close": 2650.0} for i in range(20)],
+    }
+    cts = {k: [b["close_time"] for b in v] for k, v in ds.items()}
+    dec_ts = t0 + 35 * 60_000
+    aud_5m = audit_target_reachability_row_v17931214(
+        opportunity_id="opp_5m_raw",
+        cohort_role="HISTORICAL_267_SI9_H5",
+        historical_rejection="SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN",
+        current_rejection="SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN",
+        decision_row={"decision_timestamp_ms": dec_ts, "direction": "SHORT", "entry_reference": 2650.0, "selected_sl": 2654.0, "take_profit": 2635.0},
+        feature_row={"target_pool_id": f"5m_sl_{t0 + 5 * 300_000}", "target_unswept": True, "target_room_atr_m1": 15.0, "protected_structure_independent_of_sl": True},
+        pools_by_id={f"5m_sl_{t0 + 5 * 300_000}": {"raw_id": f"5m_sl_{t0 + 5 * 300_000}", "timeframe": "5M", "price": 2635.0, "known_at_ms": t0 + 7 * 300_000}},
+        datasets=ds,
+        close_ts_index=cts,
+    )
+    assert aud_5m["tri_state_status"] == "VALID_VALUE"
+    assert aud_5m["resolved_source_tf"] == "5M"
+    assert aud_5m["first_decisive_failure_code"] == "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL"
+    assert aud_5m["entry_fee_usd"] > 0.0
+    assert aud_5m["exit_fee_usd"] > 0.0
+    assert aud_5m["total_fees_usd"] > 0.0
+
+
 @pytest.fixture(scope="module")
 def v01_to_v100_results_fixture():
     return run_negative_controls_v01_to_v100_v17931214()
