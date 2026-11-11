@@ -1254,6 +1254,53 @@ def build_si8_si9_278_materialization_diagnosis_v17931210(
         else "ZERO_VALID_EXECUTABLE_TRADES"
     )
 
+    si8_acc_opps = {r["opportunity_id"] for r in proof_eligible_rows if r["si8_accepted"]}
+    si9_acc_opps = {r["opportunity_id"] for r in proof_eligible_rows if r["si9_accepted"]}
+    overlapping_si8_si9_opps = sorted(si8_acc_opps & si9_acc_opps)
+
+    def _explain_1pos_scheduling(pol_res: Mapping[str, Any], mat_cnt: int) -> Dict[str, Any]:
+        nb_map = (pol_res.get("replays_by_fill_mode") or {}).get("NEXT_BAR_OPEN_BID_ASK") or {}
+        if not nb_map:
+            return {
+                "materialized_intents_count": mat_cnt,
+                "replay_summary_present": False,
+                "blocked_by_open_position_count": None,
+                "scheduled_episodes_count": None,
+                "closed_trades_count": None,
+                "not_closed_remaining_explanation": "UNKNOWN_REPLAY_SUMMARY_ABSENT",
+            }
+        blk_cnt = int(nb_map["blocked_by_open_position_count"]) if "blocked_by_open_position_count" in nb_map else 0
+        sch_cnt = int(nb_map["total_scheduled_episodes"]) if "total_scheduled_episodes" in nb_map else int(nb_map.get("scheduled_episodes", 0))
+        cls_cnt = int(nb_map["closed_trades_count"])
+        open_cnt = int(nb_map.get("open_at_horizon_count", 0))
+        gap_cnt = int(nb_map.get("data_gap_unresolved_count", 0))
+        unf_cnt = int(nb_map.get("unfilled_or_no_fill_count", 0))
+        reasons: List[str] = []
+        if blk_cnt > 0:
+            reasons.append(f"{blk_cnt}_SUPPRESSED_BY_1POS_CONCURRENT_OPEN_POSITION")
+        if open_cnt > 0:
+            reasons.append(f"{open_cnt}_OPEN_AT_HORIZON")
+        if gap_cnt > 0:
+            reasons.append(f"{gap_cnt}_DATA_GAP_UNRESOLVED")
+        if unf_cnt > 0:
+            reasons.append(f"{unf_cnt}_UNFILLED_OR_NO_FILL")
+        if not reasons and mat_cnt == cls_cnt:
+            reasons.append("ALL_MATERIALIZED_INTENTS_CLOSED")
+        return {
+            "materialized_intents_count": mat_cnt,
+            "replay_summary_present": True,
+            "blocked_by_open_position_count": blk_cnt,
+            "scheduled_episodes_count": sch_cnt,
+            "closed_trades_count": cls_cnt,
+            "open_at_horizon_count": open_cnt,
+            "data_gap_unresolved_count": gap_cnt,
+            "unfilled_or_no_fill_count": unf_cnt,
+            "materialized_to_closed_conservation_holds": (
+                mat_cnt == blk_cnt + sch_cnt and sch_cnt == cls_cnt + open_cnt + gap_cnt + unf_cnt
+            ),
+            "not_closed_remaining_explanation": "+".join(reasons) if reasons else "NONE",
+        }
+
     return {
         "version": VERSION_V17931210,
         "status": "PASS",
@@ -1270,6 +1317,10 @@ def build_si8_si9_278_materialization_diagnosis_v17931210(
         "si9_post_arbitration_rejected_count": si9_post_arb_rejected,
         "si8_materialized_intent_ids": si8_materialized_intent_ids,
         "si9_materialized_intent_ids": si9_materialized_intent_ids,
+        "overlapping_si8_si9_accepted_opportunity_ids": overlapping_si8_si9_opps,
+        "do_not_sum_overlapping_si8_si9_pnl": True,
+        "si8_materialized_vs_closed_1pos_accounting": _explain_1pos_scheduling(si8_result, si8_mat_count),
+        "si9_materialized_vs_closed_1pos_accounting": _explain_1pos_scheduling(si9_result, si9_mat_count),
         "by_model_direction": dict(sorted(by_model_dir.items())),
         "si8_post_proof_rejection_breakdown": dict(sorted(si8_stage_counter.items())),
         "si9_post_proof_rejection_breakdown": dict(sorted(si9_stage_counter.items())),

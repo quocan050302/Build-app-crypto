@@ -677,6 +677,8 @@ def replay_single_si_policy_v1793122(
         win_rate = round(wins_n / closed_n, 6) if closed_n > 0 else 0.0
 
         gross_usd = round(sum(float(e.get("realized_gross_pnl_usd") or 0.0) for e in closed_eps), 4)
+        entry_fees_usd = round(sum(float(e.get("entry_fee_usd") or 0.0) for e in closed_eps), 4)
+        exit_fees_usd = round(sum(float(e.get("exit_fee_usd") or 0.0) for e in closed_eps), 4)
         fees_usd = round(sum(float(e.get("total_fees_usd") or 0.0) for e in closed_eps), 4)
         net_usd = round(sum(float(e.get("realized_net_pnl_usd") or 0.0) for e in closed_eps), 4)
         exp_r = (
@@ -688,13 +690,21 @@ def replay_single_si_policy_v1793122(
         neg_sum = abs(sum(float(e.get("realized_net_pnl_usd") or 0.0) for e in losses))
         pf = round(pos_sum / neg_sum, 4) if neg_sum > 1e-9 else (99.0 if pos_sum > 0 else 0.0)
 
-        # Compute max drawdown & losing streak
+        # Compute max drawdown & losing streak in strict chronological closure order (exit_fill_ts / exit_ts_ms)
+        closed_eps_sorted = sorted(
+            closed_eps,
+            key=lambda e: (
+                int(e.get("exit_fill_ts") or e.get("exit_ts_ms") or e.get("release_ts_ms") or 0),
+                int(e.get("entry_fill_ts") or e.get("entry_ts_ms") or 0),
+                str(e.get("opportunity_id") or ""),
+            ),
+        )
         eq = 0.0
         peak = 0.0
         max_dd = 0.0
         cur_streak = 0
         max_streak = 0
-        for e in closed_eps:
+        for e in closed_eps_sorted:
             pnl = float(e.get("realized_net_pnl_usd") or 0.0)
             eq += pnl
             if eq > peak:
@@ -732,11 +742,13 @@ def replay_single_si_policy_v1793122(
             "unfilled_or_no_fill_count": len(unfilled_eps),
             "blocked_by_open_position_count": blocked_by_open_pos,
             "total_realized_gross_usd": gross_usd,
+            "total_entry_fees_usd": entry_fees_usd,
+            "total_exit_fees_usd": exit_fees_usd,
             "total_fees_usd": fees_usd,
             "total_realized_net_usd": net_usd,
             "expectancy_net_r": exp_r,
             "expectancy_status": (
-                "UNDEFINED_ZERO_CLOSED_TRADES"
+                "INCONCLUSIVE_NO_SAMPLE"
                 if closed_n == 0
                 else ("POSITIVE" if exp_r > 0 else "NEGATIVE_OR_ZERO")
             ),

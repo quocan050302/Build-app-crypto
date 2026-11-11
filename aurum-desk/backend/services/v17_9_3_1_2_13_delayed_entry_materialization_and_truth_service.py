@@ -566,6 +566,12 @@ def _summarize_counterfactual_rows_v17931213(
         "total_fees_usd": fees_usd,
         "realized_net_pnl_usd": net_usd,
         "expectancy_net_r": exp_r,
+        "expectancy_status": (
+            "INCONCLUSIVE_NO_SAMPLE"
+            if len(closed_rows) == 0
+            else ("POSITIVE" if exp_r > 0 else "NEGATIVE_OR_ZERO")
+        ),
+        "expectancy_is_positive_evidence": bool(len(closed_rows) > 0 and exp_r > 0),
         "min_wait_bars": min(waits) if waits else 0,
         "max_wait_bars": max(waits) if waits else 0,
         "mean_wait_bars": round(sum(waits) / len(waits), 3) if waits else 0.0,
@@ -617,16 +623,47 @@ def _replay_chronological_1pos_portfolio_from_matched_rows_v17931213(
             active_release_ts_ms = max(active_release_ts_ms, rel_ts)
 
     closed = [r for r in executed_rows if bool(r.get("is_closed"))]
+    non_closed_monetized = [
+        str(r.get("opportunity_id") or "")
+        for r in executed_rows
+        if not bool(r.get("is_closed")) and abs(float(r.get("realized_net_pnl_usd") or 0.0)) > 1e-9
+    ]
+    if non_closed_monetized:
+        raise ValueError(f"NON_CLOSED_OR_CANCELED_EPISODE_MONETIZED:{non_closed_monetized}")
+    closed_ids = [str(r.get("opportunity_id") or "") for r in closed]
+    if len(set(closed_ids)) != len(closed_ids):
+        raise ValueError(f"DUPLICATE_CLOSED_TRADE_IDENTITY_IN_1POS_PORTFOLIO:{v_id}:{fm}")
+
     wins = [r for r in closed if r.get("outcome_label") == "WIN"]
     losses = [r for r in closed if r.get("outcome_label") == "LOSS"]
+    if len(closed) != len(wins) + len(losses):
+        raise ValueError(
+            f"CLOSED_WINS_LOSSES_CONSERVATION_ERROR:{v_id}:{fm}:closed={len(closed)},wins={len(wins)},losses={len(losses)}"
+        )
     open_hor = [r for r in executed_rows if bool(r.get("filled")) and r.get("outcome_label") == "OPEN_AT_HORIZON"]
+    data_gap = [r for r in executed_rows if bool(r.get("filled")) and r.get("outcome_label") == "DATA_GAP_UNRESOLVED"]
+    unfilled_rows = [r for r in executed_rows if not bool(r.get("filled"))]
+
+    gross_usd = round(sum(float(r.get("realized_gross_pnl_usd") or 0.0) for r in closed), 4)
+    entry_fees_usd = round(sum(float(r.get("entry_fee_usd") or 0.0) for r in closed), 4)
+    exit_fees_usd = round(sum(float(r.get("exit_fee_usd") or 0.0) for r in closed), 4)
+    total_fees_usd = round(sum(float(r.get("total_fee_usd") or 0.0) for r in closed), 4)
     net_usd = round(sum(float(r.get("realized_net_pnl_usd") or 0.0) for r in closed), 4)
     exp_r = round(sum(float(r.get("realized_r_net") or 0.0) for r in closed) / len(closed), 4) if closed else 0.0
 
+    # Sort closed trades chronologically by closure timestamp (exit_fill_ts) before computing realized equity & max_drawdown
+    closed_sorted_by_closure = sorted(
+        closed,
+        key=lambda r: (
+            int(r.get("exit_fill_ts") or r.get("new_decision_timestamp_ms") or r.get("decision_timestamp_ms") or 0),
+            int(r.get("entry_fill_ts") or 0),
+            str(r.get("opportunity_id") or ""),
+        ),
+    )
     eq = 0.0
     peak = 0.0
     max_dd = 0.0
-    for r in closed:
+    for r in closed_sorted_by_closure:
         eq += float(r.get("realized_net_pnl_usd") or 0.0)
         if eq > peak:
             peak = eq
@@ -644,8 +681,21 @@ def _replay_chronological_1pos_portfolio_from_matched_rows_v17931213(
         "wins_count": len(wins),
         "losses_count": len(losses),
         "open_at_horizon_count": len(open_hor),
+        "data_gap_unresolved_count": len(data_gap),
+        "unfilled_or_no_fill_count": len(unfilled_rows),
+        "realized_gross_pnl_usd": gross_usd,
+        "entry_fees_usd": entry_fees_usd,
+        "exit_fees_usd": exit_fees_usd,
+        "total_fees_usd": total_fees_usd,
         "realized_net_pnl_usd": net_usd,
         "expectancy_net_r": exp_r,
+        "expectancy_status": (
+            "INCONCLUSIVE_NO_SAMPLE"
+            if len(closed) == 0
+            else ("POSITIVE" if exp_r > 0 else "NEGATIVE_OR_ZERO")
+        ),
+        "expectancy_is_positive_evidence": bool(len(closed) > 0 and exp_r > 0),
+        "closed_opportunity_ids": [str(r.get("opportunity_id") or "") for r in closed_sorted_by_closure],
         "max_drawdown_usd": round(max_dd, 4),
         "position_overlap_violations": overlap_violations,
     }
@@ -687,6 +737,9 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
     portfolio_by_variant_and_mode: Dict[str, Dict[str, Dict[str, Any]]] = {
         v: {} for v in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213
     }
+    rows_by_variant_and_mode: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
+        v: {} for v in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213
+    }
     rows_by_variant_nb: Dict[str, List[Dict[str, Any]]] = {}
     delay_ledger_03: List[Dict[str, Any]] = []
     sl_tp_sizing_07: List[Dict[str, Any]] = []
@@ -705,6 +758,11 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
         i_15m = bisect.bisect_right(close_ts_15m, dec_ms)
         i_1h = bisect.bisect_right(close_ts_1h, dec_ms)
         i_4h = bisect.bisect_right(close_ts_4h, dec_ms)
+        max_delayed_ms = dec_ms + 12 * 60_000
+        i_5m_del = bisect.bisect_right(close_ts_5m, max_delayed_ms)
+        i_15m_del = bisect.bisect_right(close_ts_15m, max_delayed_ms)
+        i_1h_del = bisect.bisect_right(close_ts_1h, max_delayed_ms)
+        i_4h_del = bisect.bisect_right(close_ts_4h, max_delayed_ms)
         ep_slices.append(
             {
                 "opp_id": opp_id,
@@ -722,10 +780,15 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
                 "closed_m15": bars_15m[max(0, i_15m - 60) : i_15m],
                 "closed_1h": bars_1h[max(0, i_1h - 60) : i_1h],
                 "closed_4h": bars_4h[max(0, i_4h - 60) : i_4h],
+                "closed_m5_delayed": bars_5m[max(0, i_5m - 60) : i_5m_del],
+                "closed_m15_delayed": bars_15m[max(0, i_15m - 60) : i_15m_del],
+                "closed_1h_delayed": bars_1h[max(0, i_1h - 60) : i_1h_del],
+                "closed_4h_delayed": bars_4h[max(0, i_4h - 60) : i_4h_del],
             }
         )
 
     for v_id in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213:
+        is_delayed_var = v_id in TRUE_DELAYED_ENTRY_VARIANTS_V17931213
         for fm in CANONICAL_FILL_MODES_V17931211:
             v_rows: List[Dict[str, Any]] = []
             for slc in ep_slices:
@@ -740,10 +803,10 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
                     baseline_sl=slc["base_sl"],
                     baseline_tp=slc["base_tp"],
                     closed_m1=slc["closed_m1"],
-                    closed_m5=slc["closed_m5"],
-                    closed_m15=slc["closed_m15"],
-                    closed_h1=slc["closed_1h"],
-                    closed_h4=slc["closed_4h"],
+                    closed_m5=slc["closed_m5_delayed"] if is_delayed_var else slc["closed_m5"],
+                    closed_m15=slc["closed_m15_delayed"] if is_delayed_var else slc["closed_m15"],
+                    closed_h1=slc["closed_1h_delayed"] if is_delayed_var else slc["closed_1h"],
+                    closed_h4=slc["closed_4h_delayed"] if is_delayed_var else slc["closed_4h"],
                     forward_bars=slc["fwd_m1"],
                     pre_entry_features=slc["feat"],
                     fill_mode=fm,
@@ -793,6 +856,7 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
             portfolio_by_variant_and_mode[v_id][fm] = _replay_chronological_1pos_portfolio_from_matched_rows_v17931213(
                 v_id, fm, v_rows
             )
+            rows_by_variant_and_mode[v_id][fm] = v_rows
             if fm == "NEXT_BAR_OPEN_BID_ASK":
                 rows_by_variant_nb[v_id] = v_rows
 
@@ -968,6 +1032,7 @@ def build_delayed_entry_contract_and_ledgers_v17931213(
         "portfolio_09": portfolio_09,
         "summary_by_variant_and_mode": summary_by_variant_and_mode,
         "portfolio_by_variant_and_mode": portfolio_by_variant_and_mode,
+        "rows_by_variant_and_mode": rows_by_variant_and_mode,
         "rows_by_variant_nb": rows_by_variant_nb,
     }
 
@@ -1218,6 +1283,97 @@ def _run_materialized_single_axis_ablation_v17931213(
     }
 
 
+def _adapt_canonical_policy_fill_mode_strict(
+    pol_id: str,
+    fm_key: str,
+    mode_summary: Mapping[str, Any],
+    pol_result: Mapping[str, Any],
+) -> Dict[str, Any]:
+    req_keys = (
+        "total_scheduled_episodes",
+        "closed_trades_count",
+        "wins_count",
+        "losses_count",
+        "open_at_horizon_count",
+        "data_gap_unresolved_count",
+        "unfilled_or_no_fill_count",
+        "blocked_by_open_position_count",
+        "total_realized_gross_usd",
+        "total_fees_usd",
+        "total_realized_net_usd",
+        "expectancy_net_r",
+    )
+    missing_keys = [k for k in req_keys if k not in mode_summary or mode_summary.get(k) is None]
+    if missing_keys:
+        raise ValueError(f"SCHEMA_ERROR_MISSING_MANDATORY_ACCOUNTING_KEYS:{pol_id}:{fm_key}:{missing_keys}")
+
+    sch_n = int(mode_summary["total_scheduled_episodes"])
+    cls_n = int(mode_summary["closed_trades_count"])
+    win_n = int(mode_summary["wins_count"])
+    los_n = int(mode_summary["losses_count"])
+    opn_n = int(mode_summary["open_at_horizon_count"])
+    gap_n = int(mode_summary["data_gap_unresolved_count"])
+    unf_n = int(mode_summary["unfilled_or_no_fill_count"])
+    blk_n = int(mode_summary["blocked_by_open_position_count"])
+    gross_v = round(float(mode_summary["total_realized_gross_usd"]), 4)
+    fees_v = round(float(mode_summary["total_fees_usd"]), 4)
+    net_v = round(float(mode_summary["total_realized_net_usd"]), 4)
+    exp_r_v = round(float(mode_summary["expectancy_net_r"]), 4)
+
+    if cls_n != win_n + los_n:
+        raise ValueError(f"ACCOUNTING_ERROR_CLOSED_NEQ_WINS_PLUS_LOSSES:{pol_id}:{fm_key}:closed={cls_n},wins={win_n},losses={los_n}")
+    if sch_n == 0 and cls_n > 0:
+        raise ValueError(f"ACCOUNTING_ERROR_ZERO_SCHEDULED_WITH_NONZERO_CLOSED:{pol_id}:{fm_key}:closed={cls_n}")
+    if sch_n != cls_n + opn_n + gap_n + unf_n:
+        raise ValueError(
+            f"ACCOUNTING_ERROR_SCHEDULED_OUTCOME_CONSERVATION:{pol_id}:{fm_key}:sch={sch_n},cls={cls_n},open={opn_n},gap={gap_n},unfilled={unf_n}"
+        )
+    if abs((gross_v - fees_v) - net_v) > 1e-3:
+        raise ValueError(f"ACCOUNTING_ERROR_GROSS_MINUS_FEES_NEQ_NET:{pol_id}:{fm_key}:gross={gross_v},fees={fees_v},net={net_v}")
+
+    eps_list = mode_summary.get("episodes")
+    if isinstance(eps_list, Sequence):
+        ep_closed = [e for e in eps_list if e.get("outcome_label") in ("WIN", "LOSS")]
+        ep_net = round(sum(float(e["realized_net_pnl_usd"]) for e in ep_closed), 4)
+        if len(ep_closed) != cls_n or abs(ep_net - net_v) > 1e-3:
+            raise ValueError(
+                f"ACCOUNTING_ERROR_SUMMARY_VS_EPISODE_LEDGER_MISMATCH:{pol_id}:{fm_key}:sum_net={ep_net},reported_net={net_v}"
+            )
+
+    mat_cnt = (
+        int(pol_result["materialized_intents_count"])
+        if "materialized_intents_count" in pol_result and pol_result.get("materialized_intents_count") is not None
+        else (sch_n + blk_n)
+    )
+    if mat_cnt != sch_n + blk_n:
+        raise ValueError(
+            f"ACCOUNTING_ERROR_1POS_GATING_CONSERVATION:{pol_id}:{fm_key}:materialized={mat_cnt}!=scheduled={sch_n}+blocked={blk_n}"
+        )
+
+    return {
+        "portfolio_scope": "POLICY_1POS_CHRONOLOGICAL_PORTFOLIO",
+        "policy_id": pol_id,
+        "fill_mode": fm_key,
+        "materialized_intents_count": mat_cnt,
+        "materialized_intent_ids": list(pol_result.get("materialized_intent_ids") or []),
+        "blocked_by_open_position_count": blk_n,
+        "scheduled_episodes": sch_n,
+        "total_scheduled_episodes": sch_n,
+        "closed_trades_count": cls_n,
+        "wins_count": win_n,
+        "losses_count": los_n,
+        "open_at_horizon_count": opn_n,
+        "data_gap_unresolved_count": gap_n,
+        "unfilled_or_no_fill_count": unf_n,
+        "realized_gross_pnl_usd": gross_v,
+        "total_fees_usd": fees_v,
+        "realized_net_pnl_usd": net_v,
+        "expectancy_r": exp_r_v,
+        "expectancy_net_r": exp_r_v,
+        "expectancy_status": "INCONCLUSIVE_NO_SAMPLE" if cls_n == 0 else ("POSITIVE" if exp_r_v > 0 else "NEGATIVE_OR_ZERO"),
+    }
+
+
 def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     *,
     datasets: Mapping[str, Any],
@@ -1316,6 +1472,8 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
         )
 
     # Forensic audit of historical .12 267 SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN cases & 113 REJECTED_CAUSAL_H1_H4_CONFLICT cases
+    from services.v17_9_3_1_2_executable_intervention_replay_service import recalculate_trade_risk_quantity_v179312
+
     v12_rows = (
         ((v12_funnel_09_doc or {}).get("si8_si9_278_to_0_funnel_diagnosis") or {}).get("rows")
         or []
@@ -1323,6 +1481,51 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     bucket_counts_267: Dict[str, int] = {b: 0 for b in SI9_267_TARGET_AUDIT_BUCKETS}
     v13_outcomes_on_267: Counter[str] = Counter()
     sample_267_audit_rows: List[Dict[str, Any]] = []
+    full_267_audit_rows: List[Dict[str, Any]] = []
+    tf_counts_267: Counter[str] = Counter()
+    tri_state_status_counts_267: Counter[str] = Counter()
+
+    # Build fast lookup maps for canonical decisions and source liquidity pools across all timeframes
+    dec_by_id: Dict[str, Mapping[str, Any]] = {
+        str(d.get("opportunity_id") or ""): d for d in all_63085 if d.get("opportunity_id")
+    }
+    pools_by_id: Dict[str, Mapping[str, Any]] = {}
+    for _tf_k, p_list in ((candidate_index or {}).get("causal_liquidity_pools_by_tf") or {}).items():
+        if isinstance(p_list, Sequence):
+            for p_obj in p_list:
+                if isinstance(p_obj, Mapping):
+                    pid_s = str(p_obj.get("pool_id") or p_obj.get("id") or "")
+                    if pid_s:
+                        pools_by_id[pid_s] = p_obj
+
+    tf_minutes_map = {"1M": 1, "5M": 5, "15M": 15, "1H": 60, "4H": 240}
+    tf_dataset_key_map = {"1M": "1m", "5M": "5m", "15M": "15m", "1H": "1H", "4H": "4H"}
+
+    def _causal_atr_at_ts(tf_norm: str, ts_ms: int) -> Optional[float]:
+        ds_key = tf_dataset_key_map.get(tf_norm)
+        if not ds_key:
+            return None
+        b_seq = datasets.get(ds_key) or []
+        c_seq = close_ts_index.get(ds_key) or []
+        if not b_seq or not c_seq:
+            return None
+        idx_r = bisect.bisect_right(c_seq, ts_ms)
+        if idx_r <= 0:
+            return None
+        win = b_seq[max(0, idx_r - 14) : idx_r]
+        trs: List[float] = []
+        prev_c: Optional[float] = None
+        for b_item in win:
+            bh = float(b_item.get("high") or 0.0)
+            bl = float(b_item.get("low") or 0.0)
+            bc = float(b_item.get("close") or 0.0)
+            tr = (bh - bl) if prev_c is None else max(bh - bl, abs(bh - prev_c), abs(bl - prev_c))
+            trs.append(max(0.0, tr))
+            prev_c = bc
+        if not trs:
+            return None
+        val = sum(trs) / len(trs)
+        return val if val > 1e-9 else None
 
     v12_si9_267_rows = [
         r
@@ -1333,24 +1536,107 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     for r in v12_si9_267_rows:
         oid = str(r.get("opportunity_id") or "")
         feat = feature_ledger_by_opp_id.get(oid) or {}
-        t_unswept = feat.get("target_unswept")
-        t_pool_id = str(feat.get("target_pool_id") or "")
-        t_room_m1 = float(feat.get("target_room_atr_m1") or 0.0)
-        eff_rr = float(feat.get("effective_net_rr") or 0.0)
-        eff_risk = float(feat.get("effective_planned_net_risk_usd") or 0.0)
-        t_tf = str(feat.get("target_pool_timeframe") or "1m").upper()
+        dec_row = dec_by_id.get(oid) or {}
+        dec_ts = int(dec_row.get("decision_timestamp_ms") or feat.get("decision_timestamp_ms") or r.get("decision_timestamp_ms") or 0)
+        norm_dir = str(dec_row.get("direction") or feat.get("direction") or r.get("direction") or "LONG").upper()
 
+        t_unswept = feat.get("target_unswept")
+        t_pool_id = str(feat.get("target_pool_id") or r.get("target_pool_id") or "")
+        pool_obj = pools_by_id.get(t_pool_id)
+
+        # Parse TF from pool_id AND from source pool object — never silently default missing TF to "1M"!
+        tf_from_id = ""
+        if t_pool_id.startswith("pool_"):
+            parts = t_pool_id.split("_")
+            if len(parts) >= 2:
+                tf_from_id = parts[1].upper()
+        tf_from_obj = str((pool_obj or {}).get("timeframe") or "").upper()
+        declared_tf_raw = feat.get("target_pool_timeframe")
+        declared_tf = str(declared_tf_raw).upper() if declared_tf_raw not in (None, "") else None
+
+        resolved_tf = tf_from_obj or tf_from_id or (declared_tf or "UNKNOWN")
+        tf_inconsistent = bool(
+            (tf_from_id and tf_from_obj and tf_from_id != tf_from_obj)
+            or (declared_tf and resolved_tf not in ("UNKNOWN", declared_tf))
+        )
+
+        # Independently recompute entry/sl/tp/fees/spread/net_rr from canonical decision geometry (never default missing to 0.0!)
+        raw_entry = dec_row.get("entry_reference") if "entry_reference" in dec_row else feat.get("entry_reference")
+        raw_sl = dec_row.get("selected_sl") if "selected_sl" in dec_row else feat.get("selected_sl")
+        raw_tp = (pool_obj or {}).get("price") if pool_obj is not None and (pool_obj or {}).get("price") is not None else dec_row.get("take_profit")
+
+        recomputed_rr: Optional[float] = None
+        recomputed_gross_rr: Optional[float] = None
+        recomputed_risk_usd: Optional[float] = None
+        recomputed_qty: Optional[float] = None
+        recomputed_fees_usd: Optional[float] = None
+        if raw_entry is not None and raw_sl is not None and raw_tp is not None and dec_ts > 0:
+            sz_calc = recalculate_trade_risk_quantity_v179312(
+                float(raw_entry),
+                float(raw_sl),
+                float(raw_tp),
+                direction=norm_dir,
+                decision_ts=dec_ts,
+            )
+            recomputed_rr = float(sz_calc["net_rr"])
+            recomputed_gross_rr = float(sz_calc["gross_rr"])
+            recomputed_risk_usd = float(sz_calc["planned_net_risk_usd"])
+            recomputed_qty = float(sz_calc["quantity"])
+            recomputed_fees_usd = round(float(sz_calc.get("entry_fee_usd", 0.0)) + float(sz_calc.get("exit_fee_usd", 0.0)), 4)
+
+        cached_rr_present = "effective_net_rr" in feat and feat.get("effective_net_rr") is not None
+        cached_rr_val = float(feat["effective_net_rr"]) if cached_rr_present else None
+        eff_rr_final = recomputed_rr if recomputed_rr is not None else cached_rr_val
+        eff_risk_final = (
+            recomputed_risk_usd
+            if recomputed_risk_usd is not None
+            else (float(feat["effective_planned_net_risk_usd"]) if feat.get("effective_planned_net_risk_usd") is not None else None)
+        )
+
+        t_room_m1_raw = feat.get("target_room_atr_m1")
+        t_room_m1 = float(t_room_m1_raw) if t_room_m1_raw is not None else None
+        atr_src_tf = _causal_atr_at_ts(resolved_tf, dec_ts) if resolved_tf in tf_minutes_map and dec_ts > 0 else None
+        atr_m1_val = _causal_atr_at_ts("1M", dec_ts) if dec_ts > 0 else None
+        target_dist_usd = (
+            abs(float(raw_tp) - float(raw_entry))
+            if raw_tp is not None and raw_entry is not None
+            else ((t_room_m1 * atr_m1_val) if (t_room_m1 is not None and atr_m1_val is not None) else None)
+        )
+        t_room_src_tf = (
+            (target_dist_usd / atr_src_tf)
+            if (target_dist_usd is not None and atr_src_tf is not None and atr_src_tf > 1e-9)
+            else (
+                (t_room_m1 / (tf_minutes_map[resolved_tf] ** 0.5))
+                if (t_room_m1 is not None and resolved_tf in tf_minutes_map)
+                else None
+            )
+        )
+        pool_known_ms = int((pool_obj or {}).get("known_at_ms") or (pool_obj or {}).get("confirmed_at_ms") or 0) if pool_obj is not None else None
+
+        if tf_inconsistent or (pool_known_ms is not None and dec_ts > 0 and pool_known_ms > dec_ts):
+            tri_status = "INVALID_INCONSISTENT"
+        elif pool_obj is None or eff_rr_final is None or t_room_m1 is None or resolved_tf not in tf_minutes_map:
+            tri_status = "UNKNOWN_MISSING"
+        else:
+            tri_status = "VALID_VALUE"
+
+        # Mutually exclusive PRIMARY root cause after validating source join, TF, point-in-time, and recomputed R:R
         if t_unswept is not True:
             b_key = "I_TARGET_ALREADY_SWEPT_BEFORE_DECISION"
-        elif not t_pool_id:
+        elif not t_pool_id or pool_obj is None or tf_inconsistent or resolved_tf not in tf_minutes_map:
             b_key = "II_TARGET_POOL_ID_FORMAT_OR_JOIN_MISMATCH"
-        elif t_room_m1 < 0.30:
+        elif t_room_m1 is None or t_room_m1 < 0.30 or (pool_known_ms is not None and dec_ts > 0 and pool_known_ms > dec_ts):
             b_key = "III_TARGET_OUTSIDE_LOOKBACK_OR_MISSING_TF_POOL"
-        elif eff_rr < 2.0:
+        elif eff_rr_final is not None and eff_rr_final < 2.0:
             b_key = "IV_TARGET_NET_RR_BELOW_2_0_AFTER_FEES_SPREAD"
-        elif t_room_m1 > 12.0 and t_tf in ("5M", "15M", "1H", "4H"):
+        elif (
+            t_room_m1 > 12.0
+            and resolved_tf in ("5M", "15M", "1H", "4H")
+            and t_room_src_tf is not None
+            and t_room_src_tf <= 12.0
+        ):
             b_key = "V_TARGET_1M_ATR_UNIT_MISMATCH_ON_HTF_POOL"
-        elif eff_risk <= 0.0 or eff_risk > 2.50:
+        elif eff_risk_final is not None and (eff_risk_final <= 0.0 or eff_risk_final > 2.50):
             b_key = "VI_PLANNED_RISK_EXCEEDS_2_50_AT_MIN_LOT"
         elif feat.get("protected_structure_independent_of_sl") is not True:
             b_key = "VII_ANCHOR_ID_FORMAT_MISMATCH_IN_POST_MATERIALIZATION_PROOF"
@@ -1358,23 +1644,40 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
             b_key = "VIII_GENUINELY_NO_VIABLE_UNSWEPT_POOL_IN_RR_BAND"
 
         bucket_counts_267[b_key] += 1
+        tf_counts_267[resolved_tf] += 1
+        tri_state_status_counts_267[tri_status] += 1
         s9_now = si9_by_id.get(oid) or {}
         now_st = "MATERIALIZED_INTENT" if s9_now.get("accepted") else str(s9_now.get("rejection_reason") or "NOT_EVALUATED")
         v13_outcomes_on_267[now_st] += 1
+        row_audit_obj = {
+            "opportunity_id": oid,
+            "historical_v12_si9_reason": "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN",
+            "root_cause_bucket": b_key,
+            "tri_state_provenance_status": tri_status,
+            "target_pool_id": t_pool_id,
+            "source_tf_from_id": tf_from_id or None,
+            "source_tf_from_object": tf_from_obj or None,
+            "declared_tf_in_feature_snapshot": declared_tf,
+            "target_pool_timeframe": resolved_tf,
+            "verified_known_at_ms": pool_known_ms,
+            "decision_timestamp_ms": dec_ts,
+            "atr_m1": round(atr_m1_val, 4) if atr_m1_val is not None else None,
+            "atr_source_tf": round(atr_src_tf, 4) if atr_src_tf is not None else None,
+            "target_distance_usd": round(target_dist_usd, 4) if target_dist_usd is not None else None,
+            "target_room_atr_m1": round(t_room_m1, 4) if t_room_m1 is not None else None,
+            "target_room_atr_source_tf": round(t_room_src_tf, 4) if t_room_src_tf is not None else None,
+            "cached_effective_net_rr_present": cached_rr_present,
+            "recomputed_gross_rr": round(recomputed_gross_rr, 4) if recomputed_gross_rr is not None else None,
+            "effective_net_rr_at_base": round(eff_rr_final, 4) if eff_rr_final is not None else None,
+            "recomputed_planned_risk_usd": round(eff_risk_final, 4) if eff_risk_final is not None else None,
+            "recomputed_quantity": recomputed_qty,
+            "recomputed_total_fees_usd": recomputed_fees_usd,
+            "repaired_v13_si9_status": now_st,
+            "repaired_v13_si9_intent_id": s9_now.get("intent_id"),
+        }
+        full_267_audit_rows.append(row_audit_obj)
         if len(sample_267_audit_rows) < 15 or s9_now.get("accepted"):
-            sample_267_audit_rows.append(
-                {
-                    "opportunity_id": oid,
-                    "historical_v12_si9_reason": "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN",
-                    "root_cause_bucket": b_key,
-                    "target_pool_id": t_pool_id,
-                    "target_pool_timeframe": t_tf,
-                    "target_room_atr_m1": round(t_room_m1, 4),
-                    "effective_net_rr_at_base": round(eff_rr, 4),
-                    "repaired_v13_si9_status": now_st,
-                    "repaired_v13_si9_intent_id": s9_now.get("intent_id"),
-                }
-            )
+            sample_267_audit_rows.append(row_audit_obj)
 
     v12_htf_113_rows = [
         r
@@ -1430,27 +1733,117 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
             **mat_ab,
         }
 
-    si8_nb = si8_policy_result["replays_by_fill_mode"]["NEXT_BAR_OPEN_BID_ASK"]
-    si9_nb = si9_policy_result["replays_by_fill_mode"]["NEXT_BAR_OPEN_BID_ASK"]
+    def _adapt_canonical_policy_fill_mode_strict(
+        pol_id: str,
+        fm_key: str,
+        mode_summary: Mapping[str, Any],
+        pol_result: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        req_keys = (
+            "total_scheduled_episodes",
+            "closed_trades_count",
+            "wins_count",
+            "losses_count",
+            "open_at_horizon_count",
+            "data_gap_unresolved_count",
+            "unfilled_or_no_fill_count",
+            "blocked_by_open_position_count",
+            "total_realized_gross_usd",
+            "total_fees_usd",
+            "total_realized_net_usd",
+            "expectancy_net_r",
+        )
+        missing_keys = [k for k in req_keys if k not in mode_summary or mode_summary.get(k) is None]
+        if missing_keys:
+            raise ValueError(f"SCHEMA_ERROR_MISSING_MANDATORY_ACCOUNTING_KEYS:{pol_id}:{fm_key}:{missing_keys}")
+
+        sch_n = int(mode_summary["total_scheduled_episodes"])
+        cls_n = int(mode_summary["closed_trades_count"])
+        win_n = int(mode_summary["wins_count"])
+        los_n = int(mode_summary["losses_count"])
+        opn_n = int(mode_summary["open_at_horizon_count"])
+        gap_n = int(mode_summary["data_gap_unresolved_count"])
+        unf_n = int(mode_summary["unfilled_or_no_fill_count"])
+        blk_n = int(mode_summary["blocked_by_open_position_count"])
+        gross_v = round(float(mode_summary["total_realized_gross_usd"]), 4)
+        fees_v = round(float(mode_summary["total_fees_usd"]), 4)
+        net_v = round(float(mode_summary["total_realized_net_usd"]), 4)
+        exp_r_v = round(float(mode_summary["expectancy_net_r"]), 4)
+
+        if cls_n != win_n + los_n:
+            raise ValueError(f"ACCOUNTING_ERROR_CLOSED_NEQ_WINS_PLUS_LOSSES:{pol_id}:{fm_key}:closed={cls_n},wins={win_n},losses={los_n}")
+        if sch_n == 0 and cls_n > 0:
+            raise ValueError(f"ACCOUNTING_ERROR_ZERO_SCHEDULED_WITH_NONZERO_CLOSED:{pol_id}:{fm_key}:closed={cls_n}")
+        if sch_n != cls_n + opn_n + gap_n + unf_n:
+            raise ValueError(
+                f"ACCOUNTING_ERROR_SCHEDULED_OUTCOME_CONSERVATION:{pol_id}:{fm_key}:sch={sch_n},cls={cls_n},open={opn_n},gap={gap_n},unfilled={unf_n}"
+            )
+        if abs((gross_v - fees_v) - net_v) > 1e-3:
+            raise ValueError(f"ACCOUNTING_ERROR_GROSS_MINUS_FEES_NEQ_NET:{pol_id}:{fm_key}:gross={gross_v},fees={fees_v},net={net_v}")
+
+        eps_list = mode_summary.get("episodes")
+        if isinstance(eps_list, Sequence):
+            ep_closed = [e for e in eps_list if e.get("outcome_label") in ("WIN", "LOSS")]
+            ep_net = round(sum(float(e["realized_net_pnl_usd"]) for e in ep_closed), 4)
+            if len(ep_closed) != cls_n or abs(ep_net - net_v) > 1e-3:
+                raise ValueError(
+                    f"ACCOUNTING_ERROR_SUMMARY_VS_EPISODE_LEDGER_MISMATCH:{pol_id}:{fm_key}:sum_net={ep_net},reported_net={net_v}"
+                )
+
+        mat_cnt = int(pol_result["materialized_intents_count"]) if "materialized_intents_count" in pol_result and pol_result.get("materialized_intents_count") is not None else (sch_n + blk_n)
+        if mat_cnt != sch_n + blk_n:
+            raise ValueError(
+                f"ACCOUNTING_ERROR_1POS_GATING_CONSERVATION:{pol_id}:{fm_key}:materialized={mat_cnt}!=scheduled={sch_n}+blocked={blk_n}"
+            )
+
+        return {
+            "portfolio_scope": "POLICY_1POS_CHRONOLOGICAL_PORTFOLIO",
+            "policy_id": pol_id,
+            "fill_mode": fm_key,
+            "materialized_intents_count": mat_cnt,
+            "materialized_intent_ids": list(pol_result.get("materialized_intent_ids") or []),
+            "blocked_by_open_position_count": blk_n,
+            "scheduled_episodes": sch_n,
+            "total_scheduled_episodes": sch_n,
+            "closed_trades_count": cls_n,
+            "wins_count": win_n,
+            "losses_count": los_n,
+            "open_at_horizon_count": opn_n,
+            "data_gap_unresolved_count": gap_n,
+            "unfilled_or_no_fill_count": unf_n,
+            "realized_gross_pnl_usd": gross_v,
+            "total_fees_usd": fees_v,
+            "realized_net_pnl_usd": net_v,
+            "expectancy_r": exp_r_v,
+            "expectancy_net_r": exp_r_v,
+            "expectancy_status": "INCONCLUSIVE_NO_SAMPLE" if cls_n == 0 else ("POSITIVE" if exp_r_v > 0 else "NEGATIVE_OR_ZERO"),
+        }
+
+    si8_all_modes = {
+        fm_k: _adapt_canonical_policy_fill_mode_strict(
+            "SI8_RESEARCH_DISCOVERY_REPAIRED",
+            fm_k,
+            si8_policy_result["replays_by_fill_mode"][fm_k],
+            si8_policy_result,
+        )
+        for fm_k in CANONICAL_FILL_MODES_V17931211
+        if fm_k in (si8_policy_result.get("replays_by_fill_mode") or {})
+    }
+    si9_all_modes = {
+        fm_k: _adapt_canonical_policy_fill_mode_strict(
+            "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+            fm_k,
+            si9_policy_result["replays_by_fill_mode"][fm_k],
+            si9_policy_result,
+        )
+        for fm_k in CANONICAL_FILL_MODES_V17931211
+        if fm_k in (si9_policy_result.get("replays_by_fill_mode") or {})
+    }
     dyn_diag = dict(r2_base["si8_si9_ablation_09"]["si8_si9_278_to_0_funnel_diagnosis"])
-    dyn_diag["si8_next_bar_open_replay"] = {
-        "scheduled_episodes": int(si8_nb.get("total_episodes", 0)),
-        "closed_trades_count": int(si8_nb.get("closed_trades_count", 0)),
-        "wins_count": int(si8_nb.get("wins", 0)),
-        "losses_count": int(si8_nb.get("losses", 0)),
-        "realized_net_pnl_usd": float(si8_nb.get("realized_net_pnl_usd", 0.0)),
-        "expectancy_r": float(si8_nb.get("expectancy_r", 0.0)),
-    }
-    dyn_diag["si9_next_bar_open_replay"] = {
-        "materialized_intents_count": int(si9_policy_result.get("materialized_intents_count", 0)),
-        "materialized_intent_ids": list(si9_policy_result.get("materialized_intent_ids") or []),
-        "scheduled_episodes": int(si9_nb.get("total_episodes", 0)),
-        "closed_trades_count": int(si9_nb.get("closed_trades_count", 0)),
-        "wins_count": int(si9_nb.get("wins", 0)),
-        "losses_count": int(si9_nb.get("losses", 0)),
-        "realized_net_pnl_usd": float(si9_nb.get("realized_net_pnl_usd", 0.0)),
-        "expectancy_r": float(si9_nb.get("expectancy_r", 0.0)),
-    }
+    dyn_diag["si8_next_bar_open_replay"] = si8_all_modes["NEXT_BAR_OPEN_BID_ASK"]
+    dyn_diag["si9_next_bar_open_replay"] = si9_all_modes["NEXT_BAR_OPEN_BID_ASK"]
+    dyn_diag["si8_all_fill_modes_replay"] = si8_all_modes
+    dyn_diag["si9_all_fill_modes_replay"] = si9_all_modes
 
     raw_si8_elig_ledger = [
         dict(r)
@@ -1458,6 +1851,14 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
         if not str(r.get("rejection_reason") or "").startswith("REJECTED_UNPROVEN:")
         or bool(r.get("entered_materialization_stage", False))
     ]
+
+    dyn_267_explanation = (
+        f"Audited {len(v12_si9_267_rows)} historical .12 SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN rows with "
+        f"source-object TF join ({dict(sorted(tf_counts_267.items()))}) and independently recomputed fee/spread-adjusted Net R:R: "
+        f"{bucket_counts_267['V_TARGET_1M_ATR_UNIT_MISMATCH_ON_HTF_POOL']} failed due to M1-vs-HTF ATR unit mismatch on valid HTF pools, "
+        f"{bucket_counts_267['VIII_GENUINELY_NO_VIABLE_UNSWEPT_POOL_IN_RR_BAND']} exceeded TF-scaled 12-ATR reachability, "
+        f"and {bucket_counts_267['IV_TARGET_NET_RR_BELOW_2_0_AFTER_FEES_SPREAD']} failed Net R:R < 2.0."
+    )
 
     funnel_audit_05 = {
         "version": VERSION_V17931213,
@@ -1471,11 +1872,9 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
             "historical_v12_cases_audited": len(v12_si9_267_rows),
             "buckets_i_to_viii_counts": bucket_counts_267,
             "buckets_sum": sum(bucket_counts_267.values()),
-            "primary_root_cause_explanation": (
-                "267 / 267 historical .12 SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN cases selected valid unswept "
-                "1H liquidity pools whose distance was ~13..22 M1 ATRs (~1.7..2.8 1H ATRs) and failed the "
-                "unscaled M1 ATR ceiling `target_room_atr_m1 <= 12.0` before materialization."
-            ),
+            "source_timeframe_distribution": dict(sorted(tf_counts_267.items())),
+            "tri_state_provenance_status_counts": dict(sorted(tri_state_status_counts_267.items())),
+            "primary_root_cause_explanation": dyn_267_explanation,
             "repaired_v13_si9_outcomes_on_267": dict(sorted(v13_outcomes_on_267.items())),
             "sample_audited_cases": sample_267_audit_rows,
         },
@@ -1491,6 +1890,7 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     return {
         "htf_pipeline_rows_04": htf_pipeline_rows_04,
         "funnel_audit_05": funnel_audit_05,
+        "full_267_audit_rows": full_267_audit_rows,
         "r2_base": r2_base,
     }
 
@@ -2227,8 +2627,30 @@ def verify_v17931213_authoritative_report_and_gates_consistency(
     if readme_kv != handover_kv:
         violations.append("REPORT_METRIC_MISMATCH:README_VS_HANDOVER_DIVERGENCE")
 
-    # Parse variant Markdown table rows in README
+    # Cross-check SI8 / SI9 headline fields vs canonical 30-partition si_policies_nb_table (fail-closed P0-A)
+    si_tbl = metrics.si_policies_nb_table or {}
+    if "SI8_RESEARCH_DISCOVERY_REPAIRED" in si_tbl:
+        s8_row = si_tbl["SI8_RESEARCH_DISCOVERY_REPAIRED"]
+        if (
+            int(s8_row["closed_trades"]) != int(metrics.si8_closed_trades_nb)
+            or abs(float(s8_row["realized_net_pnl_usd"]) - float(metrics.si8_net_pnl_usd_nb)) > 1e-4
+        ):
+            violations.append(
+                f"REPORT_POLICY_PNL_CONTRADICTION:SI8:headline=({metrics.si8_closed_trades_nb},{metrics.si8_net_pnl_usd_nb:.4f})!=table=({s8_row['closed_trades']},{float(s8_row['realized_net_pnl_usd']):.4f})"
+            )
+    if "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS" in si_tbl:
+        s9_row = si_tbl["SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"]
+        if (
+            int(s9_row["closed_trades"]) != int(metrics.si9_closed_trades_nb)
+            or abs(float(s9_row["realized_net_pnl_usd"]) - float(metrics.si9_net_pnl_usd_nb)) > 1e-4
+        ):
+            violations.append(
+                f"REPORT_POLICY_PNL_CONTRADICTION:SI9:headline=({metrics.si9_closed_trades_nb},{metrics.si9_net_pnl_usd_nb:.4f})!=table=({s9_row['closed_trades']},{float(s9_row['realized_net_pnl_usd']):.4f})"
+            )
+
+    # Parse variant & SI-policy Markdown table rows in README
     table_rows_found: Dict[str, List[str]] = {}
+    si_table_rows_found: Dict[str, List[str]] = {}
     for line in readme_text.splitlines():
         s = line.strip()
         if s.startswith("| `") and s.endswith("|"):
@@ -2236,6 +2658,8 @@ def verify_v17931213_authoritative_report_and_gates_consistency(
             v_key = cols[0].strip("`")
             if v_key in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213 and len(cols) >= 12:
                 table_rows_found[v_key] = cols
+            elif v_key in si_tbl and len(cols) == 7:
+                si_table_rows_found[v_key] = cols
 
     for vid in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213:
         cols = table_rows_found.get(vid)
@@ -2251,6 +2675,20 @@ def verify_v17931213_authoritative_report_and_gates_consistency(
             or cols[11] != f"{pc['realized_net_pnl_usd']:.4f}"
         ):
             violations.append(f"README_VARIANT_TABLE_MISMATCH:{vid}:cols={cols}")
+
+    for pid, sc in si_tbl.items():
+        p_cols = si_table_rows_found.get(pid)
+        if not p_cols:
+            violations.append(f"README_SI_POLICY_TABLE_MISSING_ROW:{pid}")
+            continue
+        if (
+            p_cols[1] != str(sc["scheduled_episodes"])
+            or p_cols[2] != str(sc["closed_trades"])
+            or p_cols[3] != str(sc["wins"])
+            or p_cols[4] != str(sc["losses"])
+            or p_cols[5] != f"{float(sc['realized_net_pnl_usd']):.4f}"
+        ):
+            violations.append(f"README_SI_POLICY_TABLE_MISMATCH:{pid}:cols={p_cols}")
 
     if gate_matrix_18 is not None:
         gates = gate_matrix_18.get("gates") or {}

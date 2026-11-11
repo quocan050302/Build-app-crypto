@@ -3375,6 +3375,7 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
     fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
     dataset_sha: str = "",
     max_wait_bars: int = 12,
+    require_strict_d4_unicorn_all_models: bool = False,
 ) -> Dict[str, Any]:
     """
     V17.9.3.1.2.13 Phase A (P0-E1 Closure):
@@ -3396,6 +3397,9 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
     closed_m1_list = [dict(b) if isinstance(b, Mapping) else b for b in closed_m1]
     fwd_list = [dict(b) if isinstance(b, Mapping) else b for b in forward_bars]
 
+    conf_src_ids_holder: Optional[Dict[str, Any]] = None
+    conf_ev_holder: Optional[Dict[str, Any]] = None
+
     def _rej(reason: str, *, wait_b: int = 0, known_ms: int = base_ms, new_ms: Optional[int] = None) -> Dict[str, Any]:
         return {
             "variant_id": variant_id,
@@ -3410,6 +3414,8 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
             "known_at_ms": int(known_ms),
             "entry_timing_contract": "GENUINE_DELAYED_POST_SIGNAL_CLOSED_BAR",
             "delayed_entry_executed": False,
+            "confirmation_source_ids": conf_src_ids_holder if new_ms is not None else None,
+            "confirmation_evidence": conf_ev_holder if new_ms is not None else None,
             "fill_mode": fill_mode,
             "status": "REJECTED_PRE_ENTRY",
             "rejection_reason": reason,
@@ -3437,13 +3443,14 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
     base_idx = len(closed_m1_list) - 1
     inv_px = float(feat.get("structural_invalidation_price") or baseline_sl or 0.0)
     is_d4 = variant_id == "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE"
+    strict_d4_unicorn = bool(require_strict_d4_unicorn_all_models or feat.get("require_true_unicorn") is True)
     req_fvg = bool(
-        is_d4 and model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG")
+        is_d4 and (strict_d4_unicorn or model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG"))
     ) or (
         variant_id in ("A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY", "D1_REAL_DELAYED_ENTRY", "D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL", "D3_REAL_DELAYED_ENTRY_PLUS_TARGET")
         and model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG")
     )
-    req_unicorn = bool(is_d4 and model_id in ("CG01_SWEEP_MSS_FVG", "UNICORN_MODEL"))
+    req_unicorn = bool(is_d4 and (strict_d4_unicorn or model_id in ("CG01_SWEEP_MSS_FVG", "UNICORN_MODEL")))
 
     conf_res = find_next_causal_entry_confirmation_v179312(
         {
@@ -3473,6 +3480,8 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
     conf_idx = int(conf_res["confirmed_checkpoint_index_1m"])
     new_dec_ms = int(conf_res["new_decision_timestamp_ms"])
     wait_bars = int(conf_res["wait_bars"])
+    conf_src_ids_holder = conf_res.get("confirmation_source_ids")
+    conf_ev_holder = conf_res.get("confirmation_evidence")
     if wait_bars < 1 or new_dec_ms <= base_ms:
         return _rej("NON_DELAYED_CONFIRMATION_TIMESTAMP_FORBIDDEN", wait_b=wait_bars, known_ms=new_dec_ms)
 
@@ -3486,27 +3495,33 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
     closed_h1_at_conf = [b for b in closed_h1 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 3_600_000)) <= new_dec_ms]
     closed_h4_at_conf = [b for b in closed_h4 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 14_400_000)) <= new_dec_ms]
 
+    htf_meta_at_conf: Optional[Dict[str, Any]] = None
     if is_d4:
-        if closed_h1_at_conf and closed_h4_at_conf:
-            htf_ds = {"4H": closed_h4_at_conf, "1H": closed_h1_at_conf, "15m": closed_m15_at_conf, "5m": closed_m5_at_conf}
-            htf_cts = {
-                "4H": [int(b.get("close_time") or 0) for b in closed_h4_at_conf],
-                "1H": [int(b.get("close_time") or 0) for b in closed_h1_at_conf],
-                "15m": [int(b.get("close_time") or 0) for b in closed_m15_at_conf],
-                "5m": [int(b.get("close_time") or 0) for b in closed_m5_at_conf],
-            }
-            htf_ok, htf_meta = _check_causal_htf_alignment_at_ts_v179312(
-                htf_ds, htf_cts, new_dec_ms, norm_dir, use_structural_evaluator=True
+        if not (closed_h1_at_conf and closed_h4_at_conf):
+            return _rej(
+                "REJECTED_MISSING_CAUSAL_HTF_BARS_AT_CONFIRMATION",
+                wait_b=wait_bars,
+                known_ms=new_dec_ms,
+                new_ms=new_dec_ms,
             )
-            if not htf_ok:
-                return _rej(
-                    str(htf_meta.get("rejection_reason") or "REJECTED_CAUSAL_H1_H4_CONFLICT"),
-                    wait_b=wait_bars,
-                    known_ms=new_dec_ms,
-                    new_ms=new_dec_ms,
-                )
-        elif str(feat.get("htf_alignment_state") or "UNKNOWN") != "ALIGNED":
-            return _rej("REJECTED_CAUSAL_H1_H4_NOT_ALIGNED", wait_b=wait_bars, known_ms=new_dec_ms, new_ms=new_dec_ms)
+        htf_ds = {"4H": closed_h4_at_conf, "1H": closed_h1_at_conf, "15m": closed_m15_at_conf, "5m": closed_m5_at_conf}
+        htf_cts = {
+            "4H": [int(b.get("close_time") or (int(b.get("open_time") or 0) + 14_400_000)) for b in closed_h4_at_conf],
+            "1H": [int(b.get("close_time") or (int(b.get("open_time") or 0) + 3_600_000)) for b in closed_h1_at_conf],
+            "15m": [int(b.get("close_time") or (int(b.get("open_time") or 0) + 900_000)) for b in closed_m15_at_conf],
+            "5m": [int(b.get("close_time") or (int(b.get("open_time") or 0) + 300_000)) for b in closed_m5_at_conf],
+        }
+        htf_ok, htf_meta = _check_causal_htf_alignment_at_ts_v179312(
+            htf_ds, htf_cts, new_dec_ms, norm_dir, use_structural_evaluator=True
+        )
+        htf_meta_at_conf = dict(htf_meta or {})
+        if not htf_ok:
+            return _rej(
+                str(htf_meta.get("rejection_reason") or "REJECTED_CAUSAL_H1_H4_CONFLICT"),
+                wait_b=wait_bars,
+                known_ms=new_dec_ms,
+                new_ms=new_dec_ms,
+            )
 
     conf_close_px = float(closed_m1_at_conf[-1]["close"])
     half_spread = 0.10
@@ -3524,6 +3539,8 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
         closed_m1=closed_m1_at_conf,
         closed_m5=closed_m5_at_conf,
         closed_m15=closed_m15_at_conf,
+        closed_h1=closed_h1_at_conf,
+        closed_h4=closed_h4_at_conf,
     )
 
     req_outer_sl = variant_id in (
@@ -3646,6 +3663,7 @@ def evaluate_r3_true_delayed_counterfactual_v17931213(
         "delayed_entry_executed": True,
         "confirmation_source_ids": conf_res.get("confirmation_source_ids"),
         "confirmation_evidence": conf_res.get("confirmation_evidence"),
+        "htf_alignment_meta_at_confirmation": htf_meta_at_conf,
         "fill_mode": fill_mode,
         "status": "SCHEDULED" if sim_entry.filled else "NO_FILL_OR_SIZING_REJECT",
         "rejection_reason": sim_entry.no_fill_reason,
@@ -3732,6 +3750,7 @@ def evaluate_r3_counterfactual_stop_and_target_v17931212(
     pre_entry_features: Optional[Mapping[str, Any]] = None,
     fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
     dataset_sha: str = "",
+    require_strict_d4_unicorn_all_models: bool = False,
 ) -> Dict[str, Any]:
     """
     V17.9.3.1.2.12 R3 & V17.9.3.1.2.13 Phase A:
@@ -3767,6 +3786,7 @@ def evaluate_r3_counterfactual_stop_and_target_v17931212(
             pre_entry_features=pre_entry_features,
             fill_mode=fill_mode,
             dataset_sha=dataset_sha,
+            require_strict_d4_unicorn_all_models=require_strict_d4_unicorn_all_models,
         )
 
     norm_dir = str(direction or "LONG").strip().upper()

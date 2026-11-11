@@ -2775,22 +2775,84 @@ def find_next_causal_entry_confirmation_v179312(
         unicorn_ok = True
         breaker_evidence: Optional[Dict[str, Any]] = None
         if eff_req_fvg:
+            from services.unicorn_evidence_service import detect_breaker_blocks
+
             retest_ok = False
             fvg_consumed_abort = False
+            unicorn_ok = not eff_req_unicorn
+            cand_breakers: List[Any] = []
+            wanted_brk = "BULLISH" if direction == "LONG" else "BEARISH"
+            if eff_req_unicorn:
+                brk_win = list(indexed_closed_bars[max(0, k - 60) : k + 1])
+                for brk in detect_breaker_blocks(
+                    brk_win,
+                    direction,
+                    k_close_ms,
+                    symbol=symbol,
+                    timeframe="1M",
+                ):
+                    b_type = str(getattr(brk, "breaker_type", "") or "").upper()
+                    b_known = int(getattr(brk, "known_at_ms", 0) or 0)
+                    if wanted_brk not in b_type or b_known <= 0 or b_known > k_close_ms:
+                        continue
+                    distal = float(getattr(brk, "distal_price", getattr(brk, "low" if direction == "LONG" else "high", 0.0)))
+                    brk_inval = False
+                    for m_b in range(max(0, k - 60), k + 1):
+                        bm = indexed_closed_bars[m_b]
+                        bm_close_ms = int(bm["close_time"])
+                        if bm_close_ms <= b_known or bm_close_ms > k_close_ms:
+                            continue
+                        if direction == "LONG" and float(bm["close"]) < distal:
+                            brk_inval = True
+                            break
+                        if direction == "SHORT" and float(bm["close"]) > distal:
+                            brk_inval = True
+                            break
+                    if not brk_inval:
+                        cand_breakers.append(brk)
+
+            def _match_breaker_overlap(f_bot: float, f_top: float, f_conf_ms: int) -> Optional[Dict[str, Any]]:
+                for brk in cand_breakers:
+                    b_known = int(getattr(brk, "known_at_ms", 0) or 0)
+                    if abs(int(f_conf_ms) - b_known) > 15 * 60_000:
+                        continue
+                    b_bot = float(getattr(brk, "low", getattr(brk, "bottom", 0.0)))
+                    b_top = float(getattr(brk, "high", getattr(brk, "top", 0.0)))
+                    if b_top < b_bot:
+                        b_bot, b_top = b_top, b_bot
+                    ov_lo = max(float(f_bot), b_bot)
+                    ov_hi = min(float(f_top), b_top)
+                    if ov_hi - ov_lo >= 0.01 - 1e-6:
+                        return {
+                            "breaker_id": str(getattr(brk, "id", "")),
+                            "breaker_bottom": round(b_bot, 2),
+                            "breaker_top": round(b_top, 2),
+                            "overlap_low": round(ov_lo, 2),
+                            "overlap_high": round(ov_hi, 2),
+                            "breaker_known_at_ms": b_known,
+                        }
+                return None
+
+            saw_any_fvg = False
+            saw_consumed_fvg = False
             for j in range(k - 2, max(1, k - 25), -1):
                 b_prev = indexed_closed_bars[j - 1]
                 b_mid = indexed_closed_bars[j]
                 b_next = indexed_closed_bars[j + 1]
                 mid_open = int(b_mid.get("open_time") or b_mid.get("timestamp") or 0)
                 if direction == "LONG" and float(b_next["low"]) > float(b_prev["high"]):
+                    saw_any_fvg = True
                     bot, top = float(b_prev["high"]), float(b_next["low"])
                     conf_ms = int(b_next["close_time"])
                     inval = any(
                         float(indexed_closed_bars[m]["close"]) < bot for m in range(j + 2, k + 1)
                     )
                     if inval:
-                        fvg_consumed_abort = True
-                        break
+                        saw_consumed_fvg = True
+                        if not eff_req_unicorn:
+                            fvg_consumed_abort = True
+                            break
+                        continue
                     retest_bars = [
                         m
                         for m in range(j + 2, k + 1)
@@ -2806,8 +2868,7 @@ def find_next_causal_entry_confirmation_v179312(
                             or (retest_close_ms - 60_000)
                         )
                         if conf_ms < retest_close_ms <= k_close_ms:
-                            retest_ok = True
-                            fvg_evidence = {
+                            cand_fvg = {
                                 "fvg_id": f"fvg-bull-1M-{mid_open}",
                                 "fvg_bottom": round(bot, 2),
                                 "fvg_top": round(top, 2),
@@ -2816,16 +2877,32 @@ def find_next_causal_entry_confirmation_v179312(
                                 "retest_bar_id": f"{symbol}:1m:{retest_open_ms}",
                                 "retest_confirmed_at_ms": retest_close_ms,
                             }
-                    break
+                            if eff_req_unicorn:
+                                brk_ev = _match_breaker_overlap(bot, top, conf_ms)
+                                if brk_ev is not None:
+                                    retest_ok = True
+                                    unicorn_ok = True
+                                    fvg_evidence = cand_fvg
+                                    breaker_evidence = brk_ev
+                                    break
+                            else:
+                                retest_ok = True
+                                fvg_evidence = cand_fvg
+                    if not eff_req_unicorn:
+                        break
                 elif direction == "SHORT" and float(b_next["high"]) < float(b_prev["low"]):
+                    saw_any_fvg = True
                     bot, top = float(b_next["high"]), float(b_prev["low"])
                     conf_ms = int(b_next["close_time"])
                     inval = any(
                         float(indexed_closed_bars[m]["close"]) > top for m in range(j + 2, k + 1)
                     )
                     if inval:
-                        fvg_consumed_abort = True
-                        break
+                        saw_consumed_fvg = True
+                        if not eff_req_unicorn:
+                            fvg_consumed_abort = True
+                            break
+                        continue
                     retest_bars = [
                         m
                         for m in range(j + 2, k + 1)
@@ -2841,8 +2918,7 @@ def find_next_causal_entry_confirmation_v179312(
                             or (retest_close_ms - 60_000)
                         )
                         if conf_ms < retest_close_ms <= k_close_ms:
-                            retest_ok = True
-                            fvg_evidence = {
+                            cand_fvg = {
                                 "fvg_id": f"fvg-bear-1M-{mid_open}",
                                 "fvg_bottom": round(bot, 2),
                                 "fvg_top": round(top, 2),
@@ -2851,7 +2927,24 @@ def find_next_causal_entry_confirmation_v179312(
                                 "retest_bar_id": f"{symbol}:1m:{retest_open_ms}",
                                 "retest_confirmed_at_ms": retest_close_ms,
                             }
-                    break
+                            if eff_req_unicorn:
+                                brk_ev = _match_breaker_overlap(bot, top, conf_ms)
+                                if brk_ev is not None:
+                                    retest_ok = True
+                                    unicorn_ok = True
+                                    fvg_evidence = cand_fvg
+                                    breaker_evidence = brk_ev
+                                    break
+                            else:
+                                retest_ok = True
+                                fvg_evidence = cand_fvg
+                    if not eff_req_unicorn:
+                        break
+
+            if eff_req_unicorn and not unicorn_ok and saw_consumed_fvg and not saw_any_fvg:
+                fvg_consumed_abort = True
+            elif eff_req_unicorn and not unicorn_ok and saw_consumed_fvg and k == last_scan_idx:
+                fvg_consumed_abort = True
 
             if fvg_consumed_abort:
                 return {
@@ -2866,31 +2959,6 @@ def find_next_causal_entry_confirmation_v179312(
                     "confirmation_timing_mode": "NONE",
                     "timing_contract": timing_contract,
                 }
-
-            if retest_ok and eff_req_unicorn and fvg_evidence is not None:
-                from services.unicorn_evidence_service import detect_breaker_blocks
-
-                unicorn_ok = False
-                brk_win = list(indexed_closed_bars[max(0, k - 60) : k + 1])
-                wanted_brk = "BULLISH" if direction == "LONG" else "BEARISH"
-                for brk in detect_breaker_blocks(brk_win, "1M", as_of_ms=k_close_ms):
-                    b_type = str(getattr(brk, "breaker_type", "") or "").upper()
-                    b_known = int(getattr(brk, "known_at_ms", 0) or 0)
-                    if wanted_brk not in b_type or b_known <= 0 or b_known > k_close_ms:
-                        continue
-                    b_bot = float(getattr(brk, "bottom", 0.0))
-                    b_top = float(getattr(brk, "top", 0.0))
-                    if b_top < b_bot:
-                        b_bot, b_top = b_top, b_bot
-                    if max(float(fvg_evidence["fvg_bottom"]), b_bot) <= min(float(fvg_evidence["fvg_top"]), b_top):
-                        unicorn_ok = True
-                        breaker_evidence = {
-                            "breaker_id": str(getattr(brk, "id", "")),
-                            "breaker_bottom": round(b_bot, 2),
-                            "breaker_top": round(b_top, 2),
-                            "breaker_known_at_ms": b_known,
-                        }
-                        break
 
         if mss_disp_ok and sweep_reclaim_ok and retest_ok and unicorn_ok:
             wait_n = k - base_idx
