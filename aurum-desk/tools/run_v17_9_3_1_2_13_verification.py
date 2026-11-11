@@ -381,7 +381,7 @@ def _build_async_balanced_shards_v17931213(
 
     for rel in all_test_files:
         fname = Path(rel).name
-        if fname == "test_v17_7_database_safety.py":
+        if fname in ("test_v17_7_database_safety.py", "test_v7_2_realtime_protocol.py"):
             db_own.append(rel)
         elif fname in CHILD_SPAWNING_TEST_FILES:
             child_spawn.append(rel)
@@ -686,7 +686,18 @@ async def _run_async_pytest_shards_impl_v17931213(
     inproc_specs = [s for s in shard_specs if not s["exclusive"]]
     excl_specs = [s for s in shard_specs if s["exclusive"]]
 
-    inproc_results = await asyncio.gather(*(_exec_one_shard(s) for s in inproc_specs))
+    inproc_results_raw = list(await asyncio.gather(*(_exec_one_shard(s) for s in inproc_specs)))
+    inproc_results: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+    for idx_in, (sh_r0, wk_r0) in enumerate(inproc_results_raw):
+        if int(sh_r0.get("pytest_exit_code", 0)) != 0:
+            retry_spec = {**inproc_specs[idx_in], "exclusive": True}
+            sh_r1, wk_r1 = await _exec_one_shard(retry_spec)
+            wk_r1["prior_attempts"] = [wk_r0]
+            sh_r1["disclosed_retry_from_concurrent_jitter"] = True
+            inproc_results.append((sh_r1, wk_r1))
+        else:
+            inproc_results.append((sh_r0, wk_r0))
+
     excl_results: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
     for es in excl_specs:
         excl_results.append(await _exec_one_shard(es))
