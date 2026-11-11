@@ -669,6 +669,10 @@ def _eval_checkpoints_chunk_v1793125(payload: Tuple[Any, ...]) -> Dict[str, Any]
                             "selected_anchor_id": s_si8.selected_anchor_id,
                             "anchor_kind": s_si8.anchor_kind,
                             "selected_target_id": s_si8.selected_target_id,
+                            "selected_sweep_id": s_si8.selected_sweep_id,
+                            "selected_break_id": s_si8.selected_break_id,
+                            "selected_fvg_id": s_si8.selected_fvg_id,
+                            "selected_breaker_id": getattr(s_si8, "selected_breaker_id", None),
                             "hypothetical_quantity": round(float(s_si8.hypothetical_quantity or 0.0), 4),
                             "executed_quantity": round(float(s_si8.hypothetical_quantity or 0.0), 4),
                             "planned_net_risk_usd": round(

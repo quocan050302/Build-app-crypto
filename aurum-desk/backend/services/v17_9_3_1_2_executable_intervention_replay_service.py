@@ -2312,11 +2312,106 @@ def _check_causal_htf_alignment_at_ts_v179312(
     close_ts_index: Mapping[str, Sequence[int]],
     asof_ms: int,
     direction: str,
+    *,
+    use_structural_evaluator: bool = False,
+    ablation_mode: str = "FULL_H1_H4",
 ) -> Tuple[bool, Dict[str, Any]]:
     """
-    Checks causal H1 and H4 structure trend at `asof_ms` using only closed bars (`close_time <= asof_ms`).
-    Rejects if either H1 or H4 opposes `direction`.
+    Checks causal H1 and H4 (and optional M15/M5 ablation) structure trend at `asof_ms`
+    using only closed bars (`close_time <= asof_ms`).
+    When `use_structural_evaluator=True` (V17.9.3.1.2.13 Phase B4), delegates to the real
+    `evaluate_htf_structure` swing-structure detector on strictly closed HTF candles rather
+    than the legacy 6-bar close heuristic, and never promotes MIXED or UNDETERMINED to ALIGNED.
     """
+    norm_dir = str(direction or "LONG").upper()
+    desired = "BULLISH" if norm_dir == "LONG" else "BEARISH"
+    opposing = "BEARISH" if norm_dir == "LONG" else "BULLISH"
+
+    if use_structural_evaluator:
+        from services.htf_structure_service import evaluate_htf_structure
+
+        def _struct_bias(tf_key: str, tf_label: str, max_bars: int = 80) -> Tuple[str, str, Optional[int]]:
+            bars = datasets.get(tf_key) or datasets.get(tf_key.lower()) or ()
+            closes = close_ts_index.get(tf_key) or close_ts_index.get(tf_key.lower()) or ()
+            if not bars:
+                return "MISSING", "MISSING_SERIES", None
+            if closes:
+                idx = bisect.bisect_right(closes, asof_ms)
+            else:
+                idx = sum(1 for b in bars if int(b.get("close_time") or 0) <= asof_ms)
+            if idx <= 0:
+                return "MISSING", "NO_CLOSED_BARS_AT_CUTOFF", None
+            last_c_ms = int(bars[idx - 1]["close_time"])
+            if last_c_ms > asof_ms or not bool(bars[idx - 1].get("is_closed", True)):
+                raise ValueError(f"HTF_FUTURE_OR_UNCLOSED_BAR_IN_{tf_key}:{last_c_ms}>{asof_ms}")
+            win = bars[max(0, idx - max_bars) : idx]
+            snap = evaluate_htf_structure(win, timeframe=tf_label, as_of_ms=asof_ms)
+            d_stat = str(getattr(snap, "data_status", "INSUFFICIENT"))
+            b_val = str(getattr(snap, "bias", "NEUTRAL") or "NEUTRAL").upper()
+            if d_stat != "READY":
+                return "UNDETERMINED", d_stat, last_c_ms
+            return b_val, d_stat, last_c_ms
+
+        h4_bias, h4_stat, h4_close_ms = _struct_bias("4H", "4h")
+        h1_bias, h1_stat, h1_close_ms = _struct_bias("1H", "1h")
+        m15_bias, m15_stat, m15_close_ms = _struct_bias("15m", "15m")
+        m5_bias, m5_stat, m5_close_ms = _struct_bias("5m", "5m")
+
+        mode_u = str(ablation_mode or "FULL_H1_H4").upper()
+        req_map = {
+            "H4_ONLY": [("4H", h4_bias, h4_stat)],
+            "H1_ONLY": [("1H", h1_bias, h1_stat)],
+            "M15_ONLY": [("15M", m15_bias, m15_stat)],
+            "M15_H1_ONLY": [("15M", m15_bias, m15_stat), ("1H", h1_bias, h1_stat)],
+            "FULL_MTF": [
+                ("4H", h4_bias, h4_stat),
+                ("1H", h1_bias, h1_stat),
+                ("15M", m15_bias, m15_stat),
+                ("5M", m5_bias, m5_stat),
+            ],
+        }
+        req_pairs = req_map.get(mode_u, [("4H", h4_bias, h4_stat), ("1H", h1_bias, h1_stat)])
+
+        if any(b in ("MISSING", "UNDETERMINED") for _, b, _ in req_pairs):
+            return False, {
+                "aligned": False,
+                "reason": "REJECTED_MISSING_CAUSAL_HTF_BARS",
+                "rejection_reason": "REJECTED_MISSING_CAUSAL_HTF_BARS",
+                "evaluator_mode": "STRUCTURAL_HTF_EVALUATOR",
+                "ablation_mode": mode_u,
+                "h4_bias": h4_bias,
+                "h1_bias": h1_bias,
+                "m15_bias": m15_bias,
+                "m5_bias": m5_bias,
+                "h4_last_close_ms": h4_close_ms,
+                "h1_last_close_ms": h1_close_ms,
+                "m15_last_close_ms": m15_close_ms,
+                "m5_last_close_ms": m5_close_ms,
+            }
+
+        all_aligned = all(b == desired for _, b, _ in req_pairs)
+        any_opposing = any(b == opposing for _, b, _ in req_pairs)
+        rej_reason = (
+            None
+            if all_aligned
+            else ("REJECTED_CAUSAL_H1_H4_CONFLICT" if any_opposing else "REJECTED_CAUSAL_HTF_MIXED_OR_NEUTRAL")
+        )
+        return all_aligned, {
+            "aligned": all_aligned,
+            "reason": rej_reason,
+            "rejection_reason": rej_reason,
+            "evaluator_mode": "STRUCTURAL_HTF_EVALUATOR",
+            "ablation_mode": mode_u,
+            "h4_bias": h4_bias,
+            "h1_bias": h1_bias,
+            "m15_bias": m15_bias,
+            "m5_bias": m5_bias,
+            "h4_last_close_ms": h4_close_ms,
+            "h1_last_close_ms": h1_close_ms,
+            "m15_last_close_ms": m15_close_ms,
+            "m5_last_close_ms": m5_close_ms,
+        }
+
     def _tf_bias(tf_key: str, lookback: int = 6) -> Tuple[str, Optional[int]]:
         bars = datasets.get(tf_key) or ()
         closes = close_ts_index.get(tf_key) or ()
@@ -2342,13 +2437,12 @@ def _check_causal_htf_alignment_at_ts_v179312(
 
     h1_bias, h1_close_ms = _tf_bias("1H", 6)
     h4_bias, h4_close_ms = _tf_bias("4H", 6)
-    norm_dir = str(direction or "LONG").upper()
-    opposing = "BEARISH" if norm_dir == "LONG" else "BULLISH"
 
     if h1_bias == "MISSING" or h4_bias == "MISSING":
         return False, {
             "aligned": False,
             "reason": "REJECTED_MISSING_CAUSAL_HTF_BARS",
+            "rejection_reason": "REJECTED_MISSING_CAUSAL_HTF_BARS",
             "h1_bias": h1_bias,
             "h4_bias": h4_bias,
             "h1_last_close_ms": h1_close_ms,
@@ -2359,6 +2453,7 @@ def _check_causal_htf_alignment_at_ts_v179312(
     return (not conflict), {
         "aligned": not conflict,
         "reason": "REJECTED_CAUSAL_H1_H4_CONFLICT" if conflict else None,
+        "rejection_reason": "REJECTED_CAUSAL_H1_H4_CONFLICT" if conflict else None,
         "h1_bias": h1_bias,
         "h4_bias": h4_bias,
         "h1_last_close_ms": h1_close_ms,
@@ -2374,22 +2469,29 @@ def find_next_causal_entry_confirmation_v179312(
     *,
     require_mss_displacement: bool = True,
     require_breaker_fvg_retest: bool = False,
+    strictly_after_base: bool = False,
+    model_aware: bool = False,
+    require_true_unicorn: bool = False,
 ) -> Dict[str, Any]:
     """
-    Section 05.A: Starting at `base_signal`, steps forward bar-by-bar up to `max_wait_bars`
-    closed M1 candles waiting for causal closed-bar MSS/BOS + directional displacement and/or
-    Breaker+FVG confirmed retest.
-    - Entry timestamp moves FORWARD to the confirmation bar's `close_time` (`new_decision_timestamp_ms >= base_ts`).
-    - Cancels immediately if:
-        * any inspected bar is unclosed (`is_closed is False`)
-        * a market gap `> 5 minutes` occurs during the wait window
-        * price invalidates `setup_invalidation` before confirmation
-        * the directional FVG is consumed/invalidated by a close beyond its distal edge
-        * the confirmation bar is over-extended (`>= 4.0 * ATR(1M)`).
+    Section 05.A / V17.9.3.1.2.13 Phase A4-A6:
+    Starting at `base_signal`, steps forward bar-by-bar up to `max_wait_bars` closed M1 candles
+    waiting for causal closed-bar confirmation.
+    - When `strictly_after_base=True` (genuine delayed entry A1B / D1..D4), scans STRICTLY
+      subsequent closed M1 bars `k in range(base_idx + 1, end_idx + 1)` so `wait_bars >= 1`
+      and `new_decision_timestamp_ms > base_decision_timestamp_ms`. `wait_bars == 0` is NEVER
+      accepted as delayed confirmation (`confirmation_timing_mode = "DELAYED"`).
+    - When `strictly_after_base=False` (legacy filter-compatible callers), retains `k >= base_idx`
+      and labels `wait_bars == 0` explicitly as `SAME_CUTOFF_FILTER_ONLY`.
+    - When `model_aware=True`, enforces model-specific causal confirmation rules with exact
+      source bar / FVG / Breaker IDs and `known_at_ms <= k_close_ms`.
     """
     base_idx = int(base_signal.get("checkpoint_index_1m", 0))
     base_ts = int(base_signal.get("decision_timestamp_ms") or indexed_closed_bars[base_idx]["close_time"])
     direction = str(base_signal.get("direction") or "LONG").upper()
+    raw_model_id = str(base_signal.get("model_id") or "")
+    symbol = str(base_signal.get("symbol") or "XAUUSDT")
+    timing_contract = "DELAYED_STRICT_POST_BASE" if strictly_after_base else "LEGACY_ALLOW_SAME_CUTOFF"
     inv_px = (
         float(setup_invalidation)
         if setup_invalidation is not None
@@ -2410,11 +2512,45 @@ def find_next_causal_entry_confirmation_v179312(
             "new_decision_timestamp_ms": None,
             "wait_bars": None,
             "known_at_ms": base_ts,
+            "confirmation_timing_mode": "NONE",
+            "timing_contract": timing_contract,
         }
 
-    end_idx = min(len(indexed_closed_bars) - 1, base_idx + max(0, int(max_wait_bars)))
+    eff_wait = max(1 if strictly_after_base else 0, int(max_wait_bars))
+    start_idx = base_idx + 1 if strictly_after_base else base_idx
+    end_idx = min(len(indexed_closed_bars) - 1, base_idx + eff_wait)
 
-    for k in range(base_idx, end_idx + 1):
+    if start_idx > end_idx:
+        return {
+            "status": "REJECTED",
+            "rejection_reason": "WAIT_WINDOW_EXPIRED_NO_SUBSEQUENT_BAR",
+            "base_checkpoint_index_1m": base_idx,
+            "base_decision_timestamp_ms": base_ts,
+            "confirmed_checkpoint_index_1m": None,
+            "new_decision_timestamp_ms": None,
+            "wait_bars": 0,
+            "known_at_ms": base_ts,
+            "confirmation_timing_mode": "NONE",
+            "timing_contract": timing_contract,
+        }
+
+    eff_req_mss = bool(require_mss_displacement)
+    eff_req_fvg = bool(require_breaker_fvg_retest or require_true_unicorn)
+    eff_req_unicorn = bool(require_true_unicorn)
+    need_sweep_reclaim = False
+    if model_aware:
+        if raw_model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG"):
+            eff_req_fvg = True
+            eff_req_mss = True
+        if raw_model_id in ("CG01_SWEEP_MSS_FVG", "UNICORN_MODEL"):
+            eff_req_unicorn = True
+        if raw_model_id in ("SMC_M1_REVERSAL", "SMC_M1_SWEEP_RECLAIM", "CG01_SWEEP_MSS_FVG"):
+            need_sweep_reclaim = True
+            eff_req_mss = True
+        if raw_model_id == "SMC_M1_CONTINUATION":
+            eff_req_mss = True
+
+    for k in range(start_idx, end_idx + 1):
         bar_k = indexed_closed_bars[k]
         if not bool(bar_k.get("is_closed", True)):
             return {
@@ -2426,19 +2562,27 @@ def find_next_causal_entry_confirmation_v179312(
                 "new_decision_timestamp_ms": None,
                 "wait_bars": k - base_idx,
                 "known_at_ms": int(bar_k.get("close_time") or base_ts),
+                "confirmation_timing_mode": "NONE",
+                "timing_contract": timing_contract,
             }
 
         k_close_ms = int(bar_k["close_time"])
-        if k_close_ms < base_ts:
+        if k_close_ms < base_ts or (strictly_after_base and k_close_ms <= base_ts):
             return {
                 "status": "REJECTED",
-                "rejection_reason": "BACKDATED_CONFIRMATION_TIMESTAMP_FORBIDDEN",
+                "rejection_reason": (
+                    "NON_DELAYED_CONFIRMATION_TIMESTAMP_FORBIDDEN"
+                    if strictly_after_base and k_close_ms == base_ts
+                    else "BACKDATED_CONFIRMATION_TIMESTAMP_FORBIDDEN"
+                ),
                 "base_checkpoint_index_1m": base_idx,
                 "base_decision_timestamp_ms": base_ts,
                 "confirmed_checkpoint_index_1m": None,
                 "new_decision_timestamp_ms": None,
                 "wait_bars": k - base_idx,
                 "known_at_ms": k_close_ms,
+                "confirmation_timing_mode": "NONE",
+                "timing_contract": timing_contract,
             }
 
         if k > base_idx:
@@ -2453,6 +2597,8 @@ def find_next_causal_entry_confirmation_v179312(
                     "new_decision_timestamp_ms": None,
                     "wait_bars": k - base_idx,
                     "known_at_ms": k_close_ms,
+                    "confirmation_timing_mode": "NONE",
+                    "timing_contract": timing_contract,
                 }
 
         k_open = float(bar_k["open"])
@@ -2472,6 +2618,8 @@ def find_next_causal_entry_confirmation_v179312(
                     "new_decision_timestamp_ms": None,
                     "wait_bars": k - base_idx,
                     "known_at_ms": k_close_ms,
+                    "confirmation_timing_mode": "NONE",
+                    "timing_contract": timing_contract,
                 }
             if direction == "SHORT" and k_high >= inv_px:
                 return {
@@ -2483,6 +2631,8 @@ def find_next_causal_entry_confirmation_v179312(
                     "new_decision_timestamp_ms": None,
                     "wait_bars": k - base_idx,
                     "known_at_ms": k_close_ms,
+                    "confirmation_timing_mode": "NONE",
+                    "timing_contract": timing_contract,
                 }
 
         w_bars = indexed_closed_bars[max(0, k - 30) : k + 1]
@@ -2493,15 +2643,23 @@ def find_next_causal_entry_confirmation_v179312(
         mss_disp_ok = True
         disp_ratio = 0.0
         ext_atr = 0.0
-        if require_mss_displacement:
+        mss_bar_open_ms: Optional[int] = None
+        if eff_req_mss:
             prior_slice = w_bars[-9:-1] if len(w_bars) >= 9 else w_bars[:-1]
             prior_high = max(float(b["high"]) for b in prior_slice) if prior_slice else k_high
             prior_low = min(float(b["low"]) for b in prior_slice) if prior_slice else k_low
             recent_3 = w_bars[-3:]
             if direction == "LONG":
-                bos_ok = k_close > prior_high or any(
-                    float(b["close"]) > prior_high and float(b["close"]) > float(b["open"]) for b in recent_3
-                )
+                bos_bars = [
+                    b
+                    for b in recent_3
+                    if float(b["close"]) > prior_high and float(b["close"]) >= float(b["open"])
+                ]
+                bos_ok = k_close > prior_high or bool(bos_bars)
+                if k_close > prior_high:
+                    mss_bar_open_ms = int(bar_k.get("open_time") or bar_k.get("timestamp") or (k_close_ms - 60_000))
+                elif bos_bars:
+                    mss_bar_open_ms = int(bos_bars[-1].get("open_time") or bos_bars[-1].get("timestamp") or 0)
                 dir_bodies = [
                     max(0.0, float(b["close"]) - float(b["open"])) for b in w_bars[-5:]
                 ]
@@ -2511,9 +2669,16 @@ def find_next_causal_entry_confirmation_v179312(
                     4,
                 )
             else:
-                bos_ok = k_close < prior_low or any(
-                    float(b["close"]) < prior_low and float(b["close"]) < float(b["open"]) for b in recent_3
-                )
+                bos_bars = [
+                    b
+                    for b in recent_3
+                    if float(b["close"]) < prior_low and float(b["close"]) <= float(b["open"])
+                ]
+                bos_ok = k_close < prior_low or bool(bos_bars)
+                if k_close < prior_low:
+                    mss_bar_open_ms = int(bar_k.get("open_time") or bar_k.get("timestamp") or (k_close_ms - 60_000))
+                elif bos_bars:
+                    mss_bar_open_ms = int(bos_bars[-1].get("open_time") or bos_bars[-1].get("timestamp") or 0)
                 dir_bodies = [
                     max(0.0, float(b["open"]) - float(b["close"])) for b in w_bars[-5:]
                 ]
@@ -2523,7 +2688,8 @@ def find_next_causal_entry_confirmation_v179312(
                     4,
                 )
 
-            if ext_atr >= 4.0 and (bos_ok and disp_ratio >= 1.25):
+            min_disp_req = 1.25 if (not model_aware or raw_model_id == "SMC_M1_CONTINUATION") else 0.85
+            if ext_atr >= 4.0 and (bos_ok and disp_ratio >= min_disp_req):
                 return {
                     "status": "REJECTED",
                     "rejection_reason": "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR",
@@ -2533,30 +2699,98 @@ def find_next_causal_entry_confirmation_v179312(
                     "new_decision_timestamp_ms": None,
                     "wait_bars": k - base_idx,
                     "known_at_ms": k_close_ms,
+                    "confirmation_timing_mode": "NONE",
+                    "timing_contract": timing_contract,
                 }
-            mss_disp_ok = bool(bos_ok and disp_ratio >= 1.25 and ext_atr < 4.0)
+            mss_disp_ok = bool(bos_ok and disp_ratio >= min_disp_req and ext_atr < 4.0)
+
+        # 1b. Model-aware sweep + reclaim check for reversal / sweep-reclaim / CG01 models
+        sweep_reclaim_ok = True
+        sweep_evidence: Optional[Dict[str, Any]] = None
+        if need_sweep_reclaim:
+            sweep_reclaim_ok = False
+            hist_slice = indexed_closed_bars[max(0, k - 35) : k + 1]
+            if len(hist_slice) >= 8:
+                anchor_bars = hist_slice[:-3]
+                if direction == "LONG":
+                    ref_low_bar = min(anchor_bars, key=lambda b: float(b["low"]))
+                    ref_px = float(ref_low_bar["low"])
+                    ref_open = int(ref_low_bar.get("open_time") or ref_low_bar.get("timestamp") or 0)
+                    post_bars = [
+                        b
+                        for b in hist_slice
+                        if int(b.get("open_time") or b.get("timestamp") or 0) > ref_open
+                    ]
+                    swept_b = next((b for b in post_bars if float(b["low"]) < ref_px), None)
+                    reclaim_b = (
+                        next(
+                            (
+                                b
+                                for b in post_bars
+                                if int(b.get("close_time") or 0) >= int(swept_b.get("close_time") or 0)
+                                and float(b["close"]) > ref_px
+                            ),
+                            None,
+                        )
+                        if swept_b is not None
+                        else None
+                    )
+                else:
+                    ref_high_bar = max(anchor_bars, key=lambda b: float(b["high"]))
+                    ref_px = float(ref_high_bar["high"])
+                    ref_open = int(ref_high_bar.get("open_time") or ref_high_bar.get("timestamp") or 0)
+                    post_bars = [
+                        b
+                        for b in hist_slice
+                        if int(b.get("open_time") or b.get("timestamp") or 0) > ref_open
+                    ]
+                    swept_b = next((b for b in post_bars if float(b["high"]) > ref_px), None)
+                    reclaim_b = (
+                        next(
+                            (
+                                b
+                                for b in post_bars
+                                if int(b.get("close_time") or 0) >= int(swept_b.get("close_time") or 0)
+                                and float(b["close"]) < ref_px
+                            ),
+                            None,
+                        )
+                        if swept_b is not None
+                        else None
+                    )
+                if swept_b is not None and reclaim_b is not None and int(reclaim_b["close_time"]) <= k_close_ms:
+                    sweep_reclaim_ok = True
+                    sw_open = int(swept_b.get("open_time") or swept_b.get("timestamp") or 0)
+                    rec_open = int(reclaim_b.get("open_time") or reclaim_b.get("timestamp") or 0)
+                    sweep_evidence = {
+                        "swept_level_price": round(ref_px, 2),
+                        "sweep_bar_id": f"{symbol}:1m:{sw_open}",
+                        "reclaim_bar_id": f"{symbol}:1m:{rec_open}",
+                        "reclaim_confirmed_at_ms": int(reclaim_b["close_time"]),
+                    }
 
         # 2. Check Breaker + FVG closed-bar retest confirmation at or up to bar `k`
         retest_ok = True
         fvg_evidence: Optional[Dict[str, Any]] = None
-        if require_breaker_fvg_retest:
+        unicorn_ok = True
+        breaker_evidence: Optional[Dict[str, Any]] = None
+        if eff_req_fvg:
             retest_ok = False
             fvg_consumed_abort = False
             for j in range(k - 2, max(1, k - 25), -1):
                 b_prev = indexed_closed_bars[j - 1]
                 b_mid = indexed_closed_bars[j]
                 b_next = indexed_closed_bars[j + 1]
+                mid_open = int(b_mid.get("open_time") or b_mid.get("timestamp") or 0)
                 if direction == "LONG" and float(b_next["low"]) > float(b_prev["high"]):
                     bot, top = float(b_prev["high"]), float(b_next["low"])
                     conf_ms = int(b_next["close_time"])
-                    # Check if consumed/invalidated by any closed bar in [j+2 .. k]
                     inval = any(
                         float(indexed_closed_bars[m]["close"]) < bot for m in range(j + 2, k + 1)
                     )
                     if inval:
                         fvg_consumed_abort = True
                         break
-                    # Retest must occur on a closed bar m in [j+2 .. k] that dips into [bot, top] and closes >= bot
                     retest_bars = [
                         m
                         for m in range(j + 2, k + 1)
@@ -2566,13 +2800,20 @@ def find_next_causal_entry_confirmation_v179312(
                     if retest_bars:
                         retest_m = retest_bars[-1]
                         retest_close_ms = int(indexed_closed_bars[retest_m]["close_time"])
+                        retest_open_ms = int(
+                            indexed_closed_bars[retest_m].get("open_time")
+                            or indexed_closed_bars[retest_m].get("timestamp")
+                            or (retest_close_ms - 60_000)
+                        )
                         if conf_ms < retest_close_ms <= k_close_ms:
                             retest_ok = True
                             fvg_evidence = {
+                                "fvg_id": f"fvg-bull-1M-{mid_open}",
                                 "fvg_bottom": round(bot, 2),
                                 "fvg_top": round(top, 2),
                                 "fvg_confirmed_at_ms": conf_ms,
                                 "retest_bar_index": retest_m,
+                                "retest_bar_id": f"{symbol}:1m:{retest_open_ms}",
                                 "retest_confirmed_at_ms": retest_close_ms,
                             }
                     break
@@ -2594,13 +2835,20 @@ def find_next_causal_entry_confirmation_v179312(
                     if retest_bars:
                         retest_m = retest_bars[-1]
                         retest_close_ms = int(indexed_closed_bars[retest_m]["close_time"])
+                        retest_open_ms = int(
+                            indexed_closed_bars[retest_m].get("open_time")
+                            or indexed_closed_bars[retest_m].get("timestamp")
+                            or (retest_close_ms - 60_000)
+                        )
                         if conf_ms < retest_close_ms <= k_close_ms:
                             retest_ok = True
                             fvg_evidence = {
+                                "fvg_id": f"fvg-bear-1M-{mid_open}",
                                 "fvg_bottom": round(bot, 2),
                                 "fvg_top": round(top, 2),
                                 "fvg_confirmed_at_ms": conf_ms,
                                 "retest_bar_index": retest_m,
+                                "retest_bar_id": f"{symbol}:1m:{retest_open_ms}",
                                 "retest_confirmed_at_ms": retest_close_ms,
                             }
                     break
@@ -2615,9 +2863,38 @@ def find_next_causal_entry_confirmation_v179312(
                     "new_decision_timestamp_ms": None,
                     "wait_bars": k - base_idx,
                     "known_at_ms": k_close_ms,
+                    "confirmation_timing_mode": "NONE",
+                    "timing_contract": timing_contract,
                 }
 
-        if mss_disp_ok and retest_ok:
+            if retest_ok and eff_req_unicorn and fvg_evidence is not None:
+                from services.unicorn_evidence_service import detect_breaker_blocks
+
+                unicorn_ok = False
+                brk_win = list(indexed_closed_bars[max(0, k - 60) : k + 1])
+                wanted_brk = "BULLISH" if direction == "LONG" else "BEARISH"
+                for brk in detect_breaker_blocks(brk_win, "1M", as_of_ms=k_close_ms):
+                    b_type = str(getattr(brk, "breaker_type", "") or "").upper()
+                    b_known = int(getattr(brk, "known_at_ms", 0) or 0)
+                    if wanted_brk not in b_type or b_known <= 0 or b_known > k_close_ms:
+                        continue
+                    b_bot = float(getattr(brk, "bottom", 0.0))
+                    b_top = float(getattr(brk, "top", 0.0))
+                    if b_top < b_bot:
+                        b_bot, b_top = b_top, b_bot
+                    if max(float(fvg_evidence["fvg_bottom"]), b_bot) <= min(float(fvg_evidence["fvg_top"]), b_top):
+                        unicorn_ok = True
+                        breaker_evidence = {
+                            "breaker_id": str(getattr(brk, "id", "")),
+                            "breaker_bottom": round(b_bot, 2),
+                            "breaker_top": round(b_top, 2),
+                            "breaker_known_at_ms": b_known,
+                        }
+                        break
+
+        if mss_disp_ok and sweep_reclaim_ok and retest_ok and unicorn_ok:
+            wait_n = k - base_idx
+            k_open_ms = int(bar_k.get("open_time") or bar_k.get("timestamp") or (k_close_ms - 60_000))
             return {
                 "status": "CONFIRMED",
                 "rejection_reason": None,
@@ -2625,26 +2902,45 @@ def find_next_causal_entry_confirmation_v179312(
                 "base_decision_timestamp_ms": base_ts,
                 "confirmed_checkpoint_index_1m": k,
                 "new_decision_timestamp_ms": k_close_ms,
-                "wait_bars": k - base_idx,
+                "wait_bars": wait_n,
                 "known_at_ms": k_close_ms,
+                "confirmation_timing_mode": "DELAYED" if wait_n >= 1 else "SAME_CUTOFF_FILTER_ONLY",
+                "timing_contract": timing_contract,
+                "confirmation_source_ids": {
+                    "confirmation_bar_id": f"{symbol}:1m:{k_open_ms}",
+                    "mss_bar_id": f"{symbol}:1m:{mss_bar_open_ms}" if mss_bar_open_ms else None,
+                    "sweep_bar_id": sweep_evidence["sweep_bar_id"] if sweep_evidence else None,
+                    "reclaim_bar_id": sweep_evidence["reclaim_bar_id"] if sweep_evidence else None,
+                    "fvg_id": fvg_evidence["fvg_id"] if fvg_evidence else None,
+                    "retest_bar_id": fvg_evidence["retest_bar_id"] if fvg_evidence else None,
+                    "breaker_id": breaker_evidence["breaker_id"] if breaker_evidence else None,
+                },
                 "confirmation_evidence": {
                     "causal_atr_1m": round(atr_1m, 4),
                     "displacement_body_atr_ratio": disp_ratio,
                     "extension_atr_multiple": ext_atr,
+                    "sweep_reclaim_evidence": sweep_evidence,
                     "fvg_retest_evidence": fvg_evidence,
+                    "breaker_overlap_evidence": breaker_evidence,
                     "confirmed_bar_close": k_close,
                 },
             }
 
     return {
         "status": "REJECTED",
-        "rejection_reason": "WAIT_WINDOW_EXPIRED_UNCONFIRMED",
+        "rejection_reason": (
+            "MISSING_CAUSAL_BREAKER_FVG_OVERLAP"
+            if (eff_req_unicorn and not unicorn_ok)
+            else "WAIT_WINDOW_EXPIRED_UNCONFIRMED"
+        ),
         "base_checkpoint_index_1m": base_idx,
         "base_decision_timestamp_ms": base_ts,
         "confirmed_checkpoint_index_1m": None,
         "new_decision_timestamp_ms": None,
         "wait_bars": end_idx - base_idx,
         "known_at_ms": int(indexed_closed_bars[end_idx]["close_time"]),
+        "confirmation_timing_mode": "NONE",
+        "timing_contract": timing_contract,
     }
 
 
@@ -3012,9 +3308,15 @@ def derive_executable_structural_target_v179312(
                 )
             if not swept:
                 seen_px.add(sw_px)
+                raw_sw_id = str(sw.get("id") or f"{tf_label.lower()}_{'sh' if norm_dir == 'LONG' else 'sl'}_{sw_occ}")
+                canon_pool_id = (
+                    raw_sw_id
+                    if tf_label == "1M"
+                    else f"pool_{tf_label}_{raw_sw_id}"
+                )
                 raw_targets.append(
                     {
-                        "id": f"{tf_label.lower()}_micro_pool_{sw.get('id', sw_occ)}",
+                        "id": canon_pool_id,
                         "price": sw_px,
                         "side": "BUY_SIDE" if norm_dir == "LONG" else "SELL_SIDE",
                         "source_kind": f"{tf_label}_CONFIRMED_SWING_{'HIGH' if norm_dir == 'LONG' else 'LOW'}",

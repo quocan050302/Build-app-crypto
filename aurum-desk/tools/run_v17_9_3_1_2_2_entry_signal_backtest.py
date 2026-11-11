@@ -300,7 +300,11 @@ def replay_single_si_policy_v1793122(
         opp_id = str(opp["opportunity_id"])
         feat = dict(eff_feature_ledger.get(opp_id) or {})
 
-        if policy_id in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS") and bool(opp.get("discovered_by_si8", False)):
+        if (
+            not candidate_index.get("v1793127_causal_truth_required")
+            and policy_id in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS")
+            and bool(opp.get("discovered_by_si8", False))
+        ):
             ent_px = round(float(opp["entry_reference"]), 2)
             sl_px = round(float(opp["selected_sl"]), 2)
             tp_px = round(float(opp["take_profit"]), 2)
@@ -327,6 +331,7 @@ def replay_single_si_policy_v1793122(
             if not sz_res["can_execute"]:
                 mat = {
                     "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                    "intent_id": None,
                     "opportunity_id": opp_id,
                     "setup_id": str(opp.get("setup_id") or ""),
                     "variant_id": policy_id,
@@ -342,8 +347,10 @@ def replay_single_si_policy_v1793122(
                     "confirmation_subtype": str(opp.get("confirmation_subtype") or "SI8_CAUSAL_DISCOVERY"),
                 }
             else:
+                det_iid = f"intent_{policy_id}_{hashlib.sha256(f'{policy_id}|{opp_id}|{dec_ts_i}'.encode('utf-8')).hexdigest()[:16]}"
                 mat = {
                     "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                    "intent_id": det_iid,
                     "opportunity_id": opp_id,
                     "setup_id": str(opp.get("setup_id") or ""),
                     "variant_id": policy_id,
@@ -392,6 +399,7 @@ def replay_single_si_policy_v1793122(
                 if float(feat.get("displacement_body_atr_ratio", 0.50) or 0.50) < si_pol.min_displacement_body_atr_ratio:
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "intent_id": None,
                         "opportunity_id": opp_id,
                         "setup_id": str(opp.get("setup_id") or ""),
                         "variant_id": policy_id,
@@ -412,6 +420,7 @@ def replay_single_si_policy_v1793122(
                 if m_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value and str(feat.get("unicorn_classification") or "NONE") != "UNICORN_CONFIRMED":
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "intent_id": None,
                         "opportunity_id": opp_id,
                         "setup_id": str(opp.get("setup_id") or ""),
                         "variant_id": policy_id,
@@ -433,6 +442,7 @@ def replay_single_si_policy_v1793122(
                 ):
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "intent_id": None,
                         "opportunity_id": opp_id,
                         "setup_id": str(opp.get("setup_id") or ""),
                         "variant_id": policy_id,
@@ -454,6 +464,7 @@ def replay_single_si_policy_v1793122(
                 if str(feat.get("htf_alignment_state") or "MIXED").upper() != "ALIGNED":
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "intent_id": None,
                         "opportunity_id": opp_id,
                         "setup_id": str(opp.get("setup_id") or ""),
                         "variant_id": policy_id,
@@ -475,9 +486,10 @@ def replay_single_si_policy_v1793122(
                         r["evidence_type"]: r
                         for r in (feat.get("causal_snapshot") or {}).get("features", ())
                     }
+                    pool_ref = refs_by_type.get("target_selected_pool_bound", {})
                     pool_bound_ok = (
                         feat.get("target_selected_pool_bound") is True
-                        and refs_by_type.get("target_selected_pool_bound", {}).get("proof_state") == "PROVEN_TRUE"
+                        and pool_ref.get("proof_state") == "PROVEN_TRUE"
                     )
                     unswept_ok = (
                         feat.get("target_unswept") is True
@@ -486,6 +498,9 @@ def replay_single_si_policy_v1793122(
                         and bool(feat.get("target_pool_id"))
                     )
                     room_atr = feat.get("target_room_atr_m1")
+                    pool_tf_str = str(pool_ref.get("timeframe") or "1M").upper()
+                    pool_tf_mins = {"1M": 1.0, "5M": 5.0, "15M": 15.0, "1H": 60.0, "4H": 240.0}.get(pool_tf_str, 1.0)
+                    max_room_atr_m1 = 12.0 * (pool_tf_mins ** 0.5)
                     raw_plan_risk = opp.get("planned_net_risk_usd")
                     if raw_plan_risk is None or float(raw_plan_risk or 0.0) <= 0.0:
                         rk_check = recalculate_trade_risk_quantity_v179312(
@@ -502,7 +517,7 @@ def replay_single_si_policy_v1793122(
                         eff_net_rr = float(opp.get("net_rr") or 0.0)
                     geom_ok = (
                         room_atr is not None
-                        and 0.30 <= float(room_atr) <= 12.0
+                        and 0.30 <= float(room_atr) <= max_room_atr_m1
                         and eff_net_rr >= 2.0
                         and 0.0 < eff_plan_risk <= 2.50
                     )
@@ -512,6 +527,7 @@ def replay_single_si_policy_v1793122(
                 if not si9_target_ok:
                     mat = {
                         "schema_version": V17_9_3_1_2_2_SCHEMA_VERSION,
+                        "intent_id": None,
                         "opportunity_id": opp_id,
                         "setup_id": str(opp.get("setup_id") or ""),
                         "variant_id": policy_id,
@@ -534,8 +550,18 @@ def replay_single_si_policy_v1793122(
             exec_pol,
             candidate_index=candidate_index,
             datasets=datasets,
+            htf_ablation_mode=str(candidate_index.get("htf_ablation_mode") or "FULL_H1_H4"),
         )
         mat["variant_id"] = policy_id
+        if mat.get("accepted"):
+            if not mat.get("intent_id"):
+                new_dec_ts_s = mat.get("new_decision_timestamp_ms")
+                mat["intent_id"] = (
+                    f"intent_{policy_id}_"
+                    f"{hashlib.sha256(f'{policy_id}|{opp_id}|{new_dec_ts_s}'.encode('utf-8')).hexdigest()[:16]}"
+                )
+        else:
+            mat["intent_id"] = None
         if mat.get("accepted") and candidate_index.get("v1793127_causal_truth_required") and policy_id!="SI0_OFF_BASELINE":
             from services.v17_9_3_1_2_7_causal_signal_truth import rebuild_materialized_intent_proof_v1793127
             final_record,final_proof,final_rejection=rebuild_materialized_intent_proof_v1793127(
@@ -543,7 +569,7 @@ def replay_single_si_policy_v1793122(
             mat["v1793127_final_record"]=final_record
             mat["v1793127_final_feature_proof"]=final_proof
             if final_rejection:
-                mat.update(accepted=False,status="REJECTED_UNPROVEN",rejection_reason=final_rejection)
+                mat.update(accepted=False,status="REJECTED_UNPROVEN",rejection_reason=final_rejection,intent_id=None)
         materialized_list.append((opp, mat))
 
     for opp, mat in materialized_list:
@@ -608,6 +634,7 @@ def replay_single_si_policy_v1793122(
                 ep_rec = dict(rep["episode_record"])
 
             ep_rec["opportunity_id"] = opp_id
+            ep_rec["intent_id"] = mat.get("intent_id")
             ep_rec["policy_id"] = policy_id
             ep_rec["fill_mode"] = f_mode
             ep_rec["confirmation_subtype"] = mat.get("confirmation_subtype")
@@ -740,6 +767,7 @@ def replay_single_si_policy_v1793122(
                 dict(mat)
                 if mat
                 else {
+                    "intent_id": None,
                     "accepted": False,
                     "status": "REJECTED_UNPROVEN" if reason else "SUPPRESSED_SAME_TIMESTAMP_TIE",
                     "rejection_reason": reason if reason else "SUPPRESSED_BY_ARBITRATION",
@@ -787,6 +815,9 @@ def replay_single_si_policy_v1793122(
         "si8_selected_incremental_winners_by_model": dict(si8_selected_incremental_by_model),
         "accepted_modified_executable_geometry_count": accepted_modified_count,
         "accepted_unchanged_noop_count": accepted_noop_count,
+        "materialized_intents_count": len(accepted_pairs),
+        "materialized_intent_ids": [str(m["intent_id"]) for _, m in accepted_pairs if m.get("intent_id")],
+        "materialized_intents": [dict(m) for _, m in accepted_pairs],
         "rejected_by_signal_intelligence_count": rejected_count,
         "rejection_reasons_breakdown": dict(rejection_reasons_counter),
         "changed_dimensions_counts": dict(changed_dim_counts),

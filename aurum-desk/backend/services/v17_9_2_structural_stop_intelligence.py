@@ -3345,6 +3345,373 @@ def verify_v17931_frozen_forensic_episode_parity(
     }
 
 
+TRUE_DELAYED_ENTRY_VARIANTS_V17931213: Tuple[str, ...] = (
+    "A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY",
+    "D1_REAL_DELAYED_ENTRY",
+    "D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL",
+    "D3_REAL_DELAYED_ENTRY_PLUS_TARGET",
+    "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE",
+)
+
+
+def evaluate_r3_true_delayed_counterfactual_v17931213(
+    *,
+    variant_id: str,
+    opportunity_id: str,
+    episode_key: str,
+    model_id: str,
+    direction: str,
+    decision_timestamp_ms: int,
+    baseline_entry: float,
+    baseline_sl: float,
+    baseline_tp: float,
+    closed_m1: Sequence[Any],
+    closed_m5: Sequence[Any] = (),
+    closed_m15: Sequence[Any] = (),
+    closed_h1: Sequence[Any] = (),
+    closed_h4: Sequence[Any] = (),
+    forward_bars: Sequence[Any] = (),
+    pre_entry_features: Optional[Mapping[str, Any]] = None,
+    fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
+    dataset_sha: str = "",
+    max_wait_bars: int = 12,
+) -> Dict[str, Any]:
+    """
+    V17.9.3.1.2.13 Phase A (P0-E1 Closure):
+    Genuine delayed-entry state machine scanning strictly subsequent closed M1 bars
+    (`1 <= wait_bars <= max_wait_bars`, `new_decision_timestamp_ms > decision_timestamp_ms`),
+    rebuilding causal entry reference, SL, TP, and $2.50-capped quantity at the new
+    confirmation timestamp, and simulating strictly from `forward_bars[wait_bars:]`
+    (`entry_fill_ts >= new_decision_timestamp_ms > base_decision_timestamp_ms`).
+    """
+    from services.v17_9_3_1_2_executable_intervention_replay_service import (
+        _check_causal_htf_alignment_at_ts_v179312,
+        find_next_causal_entry_confirmation_v179312,
+        recalculate_trade_risk_quantity_v179312,
+    )
+
+    norm_dir = str(direction or "LONG").strip().upper()
+    base_ms = int(decision_timestamp_ms)
+    feat = dict(pre_entry_features or {})
+    closed_m1_list = [dict(b) if isinstance(b, Mapping) else b for b in closed_m1]
+    fwd_list = [dict(b) if isinstance(b, Mapping) else b for b in forward_bars]
+
+    def _rej(reason: str, *, wait_b: int = 0, known_ms: int = base_ms, new_ms: Optional[int] = None) -> Dict[str, Any]:
+        return {
+            "variant_id": variant_id,
+            "opportunity_id": opportunity_id,
+            "episode_key": episode_key,
+            "model_id": model_id,
+            "direction": norm_dir,
+            "base_decision_timestamp_ms": base_ms,
+            "decision_timestamp_ms": base_ms,
+            "new_decision_timestamp_ms": new_ms,
+            "wait_bars": int(wait_b),
+            "known_at_ms": int(known_ms),
+            "entry_timing_contract": "GENUINE_DELAYED_POST_SIGNAL_CLOSED_BAR",
+            "delayed_entry_executed": False,
+            "fill_mode": fill_mode,
+            "status": "REJECTED_PRE_ENTRY",
+            "rejection_reason": reason,
+            "filled": False,
+            "is_closed": False,
+            "outcome_label": "REJECTED_PRE_ENTRY",
+            "baseline_entry": round(float(baseline_entry), 2),
+            "baseline_sl": round(float(baseline_sl), 2),
+            "baseline_tp": round(float(baseline_tp), 2),
+            "planned_entry": round(float(baseline_entry), 2),
+            "planned_sl": round(float(baseline_sl), 2),
+            "planned_tp": round(float(baseline_tp), 2),
+            "quantity": 0.0,
+            "planned_net_risk_usd": 0.0,
+            "realized_gross_pnl_usd": 0.0,
+            "realized_net_pnl_usd": 0.0,
+            "total_fee_usd": 0.0,
+            "realized_r_net": 0.0,
+        }
+
+    if len(closed_m1_list) < 11 or len(fwd_list) == 0:
+        return _rej("INSUFFICIENT_CAUSAL_HISTORY_OR_FORWARD_BARS")
+
+    combined_m1 = closed_m1_list + fwd_list
+    base_idx = len(closed_m1_list) - 1
+    inv_px = float(feat.get("structural_invalidation_price") or baseline_sl or 0.0)
+    is_d4 = variant_id == "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE"
+    req_fvg = bool(
+        is_d4 and model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG")
+    ) or (
+        variant_id in ("A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY", "D1_REAL_DELAYED_ENTRY", "D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL", "D3_REAL_DELAYED_ENTRY_PLUS_TARGET")
+        and model_id in ("SMC_M1_FVG_CONTINUATION", "UNICORN_MODEL", "CG01_SWEEP_MSS_FVG")
+    )
+    req_unicorn = bool(is_d4 and model_id in ("CG01_SWEEP_MSS_FVG", "UNICORN_MODEL"))
+
+    conf_res = find_next_causal_entry_confirmation_v179312(
+        {
+            "checkpoint_index_1m": base_idx,
+            "decision_timestamp_ms": base_ms,
+            "direction": norm_dir,
+            "model_id": model_id,
+            "selected_sl": float(baseline_sl),
+            "structural_invalidation_price": inv_px,
+        },
+        combined_m1,
+        max_wait_bars=max_wait_bars,
+        setup_invalidation=inv_px,
+        require_mss_displacement=True,
+        require_breaker_fvg_retest=req_fvg,
+        strictly_after_base=True,
+        model_aware=True,
+        require_true_unicorn=req_unicorn,
+    )
+    if conf_res["status"] != "CONFIRMED" or conf_res["confirmed_checkpoint_index_1m"] is None:
+        return _rej(
+            str(conf_res.get("rejection_reason") or "WAIT_WINDOW_EXPIRED_UNCONFIRMED"),
+            wait_b=int(conf_res.get("wait_bars") or 0),
+            known_ms=int(conf_res.get("known_at_ms") or base_ms),
+        )
+
+    conf_idx = int(conf_res["confirmed_checkpoint_index_1m"])
+    new_dec_ms = int(conf_res["new_decision_timestamp_ms"])
+    wait_bars = int(conf_res["wait_bars"])
+    if wait_bars < 1 or new_dec_ms <= base_ms:
+        return _rej("NON_DELAYED_CONFIRMATION_TIMESTAMP_FORBIDDEN", wait_b=wait_bars, known_ms=new_dec_ms)
+
+    post_conf_forward_bars = fwd_list[wait_bars:]
+    if len(post_conf_forward_bars) == 0:
+        return _rej("NO_POST_CONFIRMATION_FORWARD_BARS_FOR_EXECUTION", wait_b=wait_bars, known_ms=new_dec_ms, new_ms=new_dec_ms)
+
+    closed_m1_at_conf = combined_m1[: conf_idx + 1]
+    closed_m5_at_conf = [b for b in closed_m5 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 300_000)) <= new_dec_ms]
+    closed_m15_at_conf = [b for b in closed_m15 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 900_000)) <= new_dec_ms]
+    closed_h1_at_conf = [b for b in closed_h1 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 3_600_000)) <= new_dec_ms]
+    closed_h4_at_conf = [b for b in closed_h4 if int(b.get("close_time") or (int(b.get("open_time") or 0) + 14_400_000)) <= new_dec_ms]
+
+    if is_d4:
+        if closed_h1_at_conf and closed_h4_at_conf:
+            htf_ds = {"4H": closed_h4_at_conf, "1H": closed_h1_at_conf, "15m": closed_m15_at_conf, "5m": closed_m5_at_conf}
+            htf_cts = {
+                "4H": [int(b.get("close_time") or 0) for b in closed_h4_at_conf],
+                "1H": [int(b.get("close_time") or 0) for b in closed_h1_at_conf],
+                "15m": [int(b.get("close_time") or 0) for b in closed_m15_at_conf],
+                "5m": [int(b.get("close_time") or 0) for b in closed_m5_at_conf],
+            }
+            htf_ok, htf_meta = _check_causal_htf_alignment_at_ts_v179312(
+                htf_ds, htf_cts, new_dec_ms, norm_dir, use_structural_evaluator=True
+            )
+            if not htf_ok:
+                return _rej(
+                    str(htf_meta.get("rejection_reason") or "REJECTED_CAUSAL_H1_H4_CONFLICT"),
+                    wait_b=wait_bars,
+                    known_ms=new_dec_ms,
+                    new_ms=new_dec_ms,
+                )
+        elif str(feat.get("htf_alignment_state") or "UNKNOWN") != "ALIGNED":
+            return _rej("REJECTED_CAUSAL_H1_H4_NOT_ALIGNED", wait_b=wait_bars, known_ms=new_dec_ms, new_ms=new_dec_ms)
+
+    conf_close_px = float(closed_m1_at_conf[-1]["close"])
+    half_spread = 0.10
+    eff_entry = round(conf_close_px + half_spread if norm_dir == "LONG" else conf_close_px - half_spread, 2)
+
+    v1792_plan = plan_v17_9_2_structural_stop_and_target(
+        v1792_mode="FULL_V1792",
+        model_id=model_id,
+        symbol="XAUUSDT",
+        direction=norm_dir,
+        entry_price=eff_entry,
+        decision_timestamp_ms=new_dec_ms,
+        baseline_sl=float(baseline_sl),
+        baseline_target_price=float(baseline_tp),
+        closed_m1=closed_m1_at_conf,
+        closed_m5=closed_m5_at_conf,
+        closed_m15=closed_m15_at_conf,
+    )
+
+    req_outer_sl = variant_id in (
+        "D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL",
+        "D3_REAL_DELAYED_ENTRY_PLUS_TARGET",
+        "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE",
+    )
+    eff_sl = round(float(baseline_sl), 2)
+    selected_anchor_id = feat.get("selected_anchor_id") or v1792_plan.frozen_anchor_id
+    invalidation_px = round(float(v1792_plan.invalidation_price or eff_sl), 2)
+
+    base_sl_still_valid = (
+        (eff_sl < eff_entry - 0.15) if norm_dir == "LONG" else (eff_sl > eff_entry + 0.15)
+    )
+    if req_outer_sl or not base_sl_still_valid:
+        if v1792_plan.proposed_sl is None or v1792_plan.selected_anchor is None:
+            return _rej(
+                "NO_VALID_CAUSAL_PROTECTED_SWING_ANCHOR_AT_CONFIRMATION",
+                wait_b=wait_bars,
+                known_ms=new_dec_ms,
+                new_ms=new_dec_ms,
+            )
+        eff_sl = round(float(v1792_plan.proposed_sl), 2)
+        selected_anchor_id = v1792_plan.frozen_anchor_id
+        invalidation_px = round(float(v1792_plan.selected_anchor.anchor_price), 2)
+        if abs(invalidation_px - eff_sl) < 1e-6:
+            return _rej("CIRCULAR_PROTECTED_ANCHOR_EQUALS_SL", wait_b=wait_bars, known_ms=new_dec_ms, new_ms=new_dec_ms)
+
+    req_target = variant_id in (
+        "D3_REAL_DELAYED_ENTRY_PLUS_TARGET",
+        "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE",
+    )
+    eff_tp = round(float(baseline_tp), 2)
+    selected_target_id = feat.get("selected_target_id") or (
+        v1792_plan.target_plan.selected_target_id if v1792_plan.target_plan else None
+    )
+    base_tp_geom_ok = (eff_sl < eff_entry < eff_tp) if norm_dir == "LONG" else (eff_tp < eff_entry < eff_sl)
+    if base_tp_geom_ok and not req_target:
+        sz_chk = recalculate_trade_risk_quantity_v179312(
+            eff_entry, eff_sl, eff_tp, direction=norm_dir, decision_ts=new_dec_ms
+        )
+        if not sz_chk["can_execute"]:
+            req_target = True
+    else:
+        req_target = True
+
+    if req_target:
+        t_cands = resolve_causal_target_candidates(
+            direction=norm_dir,
+            entry_price=eff_entry,
+            decision_timestamp_ms=new_dec_ms,
+            closed_m1=closed_m1_at_conf,
+            closed_m5=closed_m5_at_conf,
+            closed_m15=closed_m15_at_conf,
+            closed_h1=closed_h1_at_conf,
+            closed_h4=closed_h4_at_conf,
+        )
+        t_plan = select_viable_structural_target(
+            direction=norm_dir,
+            entry_price=eff_entry,
+            proposed_sl=eff_sl,
+            decision_timestamp_ms=new_dec_ms,
+            target_candidates=t_cands,
+            baseline_target_price=float(baseline_tp),
+            min_net_rr=2.0,
+            target_mode="V1792_CAUSAL_STRUCTURAL_VIABLE",
+        )
+        if t_plan.status != "VALID" or t_plan.target_price is None or len(t_plan.rejection_reasons) > 0:
+            return _rej(
+                "NO_VIABLE_UNSWEPT_LIQUIDITY_TARGET_NET_RR_2_AT_CONFIRMATION",
+                wait_b=wait_bars,
+                known_ms=new_dec_ms,
+                new_ms=new_dec_ms,
+            )
+        eff_tp = round(float(t_plan.target_price), 2)
+        selected_target_id = t_plan.selected_target_id
+
+    sz_final = recalculate_trade_risk_quantity_v179312(
+        eff_entry, eff_sl, eff_tp, direction=norm_dir, decision_ts=new_dec_ms
+    )
+    if not sz_final["can_execute"]:
+        return _rej(
+            str(sz_final.get("rejection_reason") or "RISK_SIZING_REJECTED_AT_CONFIRMATION"),
+            wait_b=wait_bars,
+            known_ms=new_dec_ms,
+            new_ms=new_dec_ms,
+        )
+
+    sim_entry = simulate_v17931_trade_execution_net(
+        variant=variant_id,
+        episode_key=episode_key,
+        setup_id=opportunity_id,
+        model_id=model_id,
+        direction=norm_dir,
+        decision_ts=new_dec_ms,
+        planned_entry=eff_entry,
+        planned_sl=eff_sl,
+        planned_tp=eff_tp,
+        forward_bars=post_conf_forward_bars,
+        fill_mode=fill_mode,
+        dataset_sha=dataset_sha,
+    )
+    out_lbl = str(sim_entry.exit_type)
+    if out_lbl in ("LOSS_TIE_CONSERVATIVE", "ADVERSE_GAP_OPEN_STOP_LOSS"):
+        out_lbl = "LOSS"
+    is_closed = bool(sim_entry.filled and out_lbl in ("WIN", "LOSS"))
+
+    return {
+        "variant_id": variant_id,
+        "opportunity_id": opportunity_id,
+        "episode_key": episode_key,
+        "model_id": model_id,
+        "direction": norm_dir,
+        "base_decision_timestamp_ms": base_ms,
+        "decision_timestamp_ms": new_dec_ms,
+        "new_decision_timestamp_ms": new_dec_ms,
+        "wait_bars": wait_bars,
+        "known_at_ms": new_dec_ms,
+        "entry_timing_contract": "GENUINE_DELAYED_POST_SIGNAL_CLOSED_BAR",
+        "delayed_entry_executed": True,
+        "confirmation_source_ids": conf_res.get("confirmation_source_ids"),
+        "confirmation_evidence": conf_res.get("confirmation_evidence"),
+        "fill_mode": fill_mode,
+        "status": "SCHEDULED" if sim_entry.filled else "NO_FILL_OR_SIZING_REJECT",
+        "rejection_reason": sim_entry.no_fill_reason,
+        "filled": bool(sim_entry.filled),
+        "is_closed": is_closed,
+        "outcome_label": out_lbl,
+        "exit_type": str(sim_entry.exit_type),
+        "baseline_entry": round(float(baseline_entry), 2),
+        "baseline_sl": round(float(baseline_sl), 2),
+        "baseline_tp": round(float(baseline_tp), 2),
+        "planned_entry": eff_entry,
+        "planned_sl": eff_sl,
+        "planned_tp": eff_tp,
+        "structural_invalidation_price": invalidation_px,
+        "selected_anchor_id": selected_anchor_id,
+        "selected_target_id": selected_target_id,
+        "entry_fill_price": sim_entry.entry_fill_price,
+        "exit_fill_price": sim_entry.exit_fill_price,
+        "entry_fill_ts": sim_entry.entry_fill_ts,
+        "trigger_bar_ts": sim_entry.trigger_bar_ts,
+        "exit_fill_ts": sim_entry.exit_fill_ts,
+        "bars_held": int(sim_entry.bars_held),
+        "quantity": float(sim_entry.quantity),
+        "planned_net_risk_usd": float(sim_entry.planned_net_risk_usd),
+        "net_rr": float(sz_final["net_rr"]),
+        "gross_rr": float(sz_final["gross_rr"]),
+        "entry_fee_usd": float(sim_entry.entry_fee),
+        "exit_fee_usd": float(sim_entry.exit_fee),
+        "total_fee_usd": round(float(sim_entry.entry_fee) + float(sim_entry.exit_fee), 4),
+        "realized_gross_pnl_usd": float(sim_entry.realized_gross_pnl_usd),
+        "realized_net_pnl_usd": float(sim_entry.realized_net_pnl_usd),
+        "realized_r_net": float(sim_entry.realized_r_net),
+        "same_bar_sl_tp_tie": bool(sim_entry.same_bar_sl_tp_tie),
+    }
+
+
+def evaluate_shared_delayed_entry_adapter_v17931213(
+    *,
+    execution_context_mode: str = "REPLAY_BACKTEST",
+    activation_flags: Optional[Mapping[str, Any]] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Phase A15 Shared Production-Safe Adapter:
+    Invokes the exact same pure delayed-entry evaluation function across:
+      - REPLAY_BACKTEST
+      - MARKET_SHADOW
+      - PRODUCTION_ORCHESTRATOR_DRY_RUN (default_state = OFF)
+    Hard-blocks if any live/paper/auto flag is enabled.
+    """
+    flags = dict(activation_flags or {})
+    for forbidden_key in ("LIVE", "AUTO_LIVE", "PAPER", "AUTO_PAPER", "enabled_in_production"):
+        if bool(flags.get(forbidden_key, False)):
+            raise PermissionError(f"LIVE_OR_PAPER_ACTIVATION_FORBIDDEN_IN_V17931213:{forbidden_key}")
+    allowed_modes = ("REPLAY_BACKTEST", "MARKET_SHADOW", "PRODUCTION_ORCHESTRATOR_DRY_RUN")
+    if execution_context_mode not in allowed_modes:
+        raise ValueError(f"UNSUPPORTED_EXECUTION_CONTEXT_MODE:{execution_context_mode}")
+    res = evaluate_r3_counterfactual_stop_and_target_v17931212(**kwargs)
+    return {
+        **res,
+        "adapter_execution_context_mode": execution_context_mode,
+        "adapter_default_activation_state": "OFF",
+        "adapter_live_orders_emitted": 0,
+    }
+
+
 def evaluate_r3_counterfactual_stop_and_target_v17931212(
     *,
     variant_id: str,
@@ -3359,28 +3726,54 @@ def evaluate_r3_counterfactual_stop_and_target_v17931212(
     closed_m1: Sequence[Any],
     closed_m5: Sequence[Any] = (),
     closed_m15: Sequence[Any] = (),
+    closed_h1: Sequence[Any] = (),
+    closed_h4: Sequence[Any] = (),
     forward_bars: Sequence[Any] = (),
     pre_entry_features: Optional[Mapping[str, Any]] = None,
     fill_mode: str = "NEXT_BAR_OPEN_BID_ASK",
     dataset_sha: str = "",
 ) -> Dict[str, Any]:
     """
-    V17.9.3.1.2.12 R3: Evaluates pre-registered matched counterfactual variants:
-      - A0_STRICT_BASELINE: exact baseline entry, SL, TP, and sizing.
-      - A1_ENTRY_CONFIRMATION_RETEST_ONLY: requires causal MSS/displacement or FVG retest confirmation;
-        retains baseline SL/TP geometry when confirmed.
-      - A2_PROTECTED_SL_NOISE_BUFFER_ONLY: retains baseline entry and TP; replaces SL with outer
-        causal protected swing + ATR/spread noise buffer at fixed $2.50 risk cap.
-      - A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY: retains baseline entry and SL; replaces TP with nearest
-        unswept causal liquidity pool target satisfying net RR >= 2.0.
-      - A4_COMBINED_CAUSAL_ENTRY_SL_TP: combines A1 causal entry confirmation, A2 protected SL +
-        noise buffer, and A3 unswept liquidity TP at fixed $2.50 risk cap.
+    V17.9.3.1.2.12 R3 & V17.9.3.1.2.13 Phase A:
+    - Historical .12 same-cutoff controls:
+        * A0_STRICT_BASELINE: exact baseline entry, SL, TP, and sizing.
+        * A1_ENTRY_CONFIRMATION_RETEST_ONLY: SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY control at base cutoff.
+        * A2_PROTECTED_SL_NOISE_BUFFER_ONLY: baseline entry/TP + outer protected swing SL + noise buffer.
+        * A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY: baseline entry/SL + nearest unswept liquidity TP (RR >= 2.0).
+        * A4_COMBINED_CAUSAL_ENTRY_SL_TP: combines A1 same-cutoff filter + A2 + A3.
+    - Genuine .13 post-signal delayed-entry variants (strictly k > base_idx):
+        * A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY / D1_REAL_DELAYED_ENTRY
+        * D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL
+        * D3_REAL_DELAYED_ENTRY_PLUS_TARGET
+        * D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE
     """
+    if variant_id in TRUE_DELAYED_ENTRY_VARIANTS_V17931213:
+        return evaluate_r3_true_delayed_counterfactual_v17931213(
+            variant_id=variant_id,
+            opportunity_id=opportunity_id,
+            episode_key=episode_key,
+            model_id=model_id,
+            direction=direction,
+            decision_timestamp_ms=decision_timestamp_ms,
+            baseline_entry=baseline_entry,
+            baseline_sl=baseline_sl,
+            baseline_tp=baseline_tp,
+            closed_m1=closed_m1,
+            closed_m5=closed_m5,
+            closed_m15=closed_m15,
+            closed_h1=closed_h1,
+            closed_h4=closed_h4,
+            forward_bars=forward_bars,
+            pre_entry_features=pre_entry_features,
+            fill_mode=fill_mode,
+            dataset_sha=dataset_sha,
+        )
+
     norm_dir = str(direction or "LONG").strip().upper()
     dec_ms = int(decision_timestamp_ms)
     feat = dict(pre_entry_features or {})
 
-    # 1. Check Entry Confirmation gate for A1 and A4
+    # 1. Check Entry Confirmation gate for A1 and A4 (explicitly tagged SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY)
     if variant_id in ("A1_ENTRY_CONFIRMATION_RETEST_ONLY", "A4_COMBINED_CAUSAL_ENTRY_SL_TP"):
         mss_ok = feat.get("mss_confirmed") is True
         disp_ok = feat.get("displacement_valid") is True
@@ -3394,7 +3787,12 @@ def evaluate_r3_counterfactual_stop_and_target_v17931212(
                 "episode_key": episode_key,
                 "model_id": model_id,
                 "direction": norm_dir,
+                "base_decision_timestamp_ms": dec_ms,
                 "decision_timestamp_ms": dec_ms,
+                "new_decision_timestamp_ms": None,
+                "wait_bars": 0,
+                "entry_timing_contract": "SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY",
+                "delayed_entry_executed": False,
                 "fill_mode": fill_mode,
                 "status": "REJECTED_PRE_ENTRY",
                 "rejection_reason": "ENTRY_CONFIRMATION_OR_RETEST_NOT_PROVEN_AT_CUTOFF",
@@ -3536,7 +3934,16 @@ def evaluate_r3_counterfactual_stop_and_target_v17931212(
         "episode_key": episode_key,
         "model_id": model_id,
         "direction": norm_dir,
+        "base_decision_timestamp_ms": dec_ms,
         "decision_timestamp_ms": dec_ms,
+        "new_decision_timestamp_ms": dec_ms,
+        "wait_bars": 0,
+        "entry_timing_contract": (
+            "SAME_CUTOFF_PRE_ENTRY_FILTER_ONLY"
+            if variant_id in ("A1_ENTRY_CONFIRMATION_RETEST_ONLY", "A4_COMBINED_CAUSAL_ENTRY_SL_TP")
+            else "IMMEDIATE_BASE_CUTOFF"
+        ),
+        "delayed_entry_executed": False,
         "fill_mode": fill_mode,
         "status": "SCHEDULED" if sim_entry.filled else "NO_FILL_OR_SIZING_REJECT",
         "rejection_reason": sim_entry.no_fill_reason,

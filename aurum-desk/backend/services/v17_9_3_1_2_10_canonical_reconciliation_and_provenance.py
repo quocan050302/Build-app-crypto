@@ -1143,30 +1143,76 @@ def build_si8_si9_278_materialization_diagnosis_v17931210(
     feature_ledger: Mapping[str, Mapping[str, Any]],
 ) -> Dict[str, Any]:
     """
-    C26..C29: Builds the complete row-by-row diagnosis for all 278 pre-arbitration
-    proof-eligible candidates in SI8 and SI9, explaining why 278 proof-eligible
-    candidates produce 272 arbitration winners and 0 materialized intents.
+    C26..C29 / V17.9.3.1.2.13 P0-E3: Builds the complete row-by-row diagnosis for all
+    pre-arbitration proof-eligible candidates in SI8 and SI9 dynamically from raw decision
+    and intent ledgers. Never hardcodes materialized_intents_count=0; fails closed with
+    UNKNOWN_MISSING_INTENT_LEDGER if authoritative decision/intent ledgers are missing or empty.
     """
-    si8_decisions = si8_result.get("decision_ledger") or []
-    si9_decisions = {str(r["opportunity_id"]): r for r in (si9_result.get("decision_ledger") or [])}
+    raw_si8 = (
+        si8_result.get("policy_decision_ledger")
+        if "policy_decision_ledger" in si8_result
+        else si8_result.get("decision_ledger")
+    )
+    raw_si9 = (
+        si9_result.get("policy_decision_ledger")
+        if "policy_decision_ledger" in si9_result
+        else si9_result.get("decision_ledger")
+    )
+    if not isinstance(raw_si8, Sequence) or len(raw_si8) == 0 or not isinstance(raw_si9, Sequence) or len(raw_si9) == 0:
+        return {
+            "version": VERSION_V17931210,
+            "status": "BLOCKED",
+            "materialization_status": "UNKNOWN_MISSING_INTENT_LEDGER",
+            "proof_eligible_candidates_count": 0,
+            "arbitration_suppressed_count": 0,
+            "arbitration_winners_entering_materialization_count": 0,
+            "post_arbitration_rejected_count": 0,
+            "materialized_intents_count": None,
+            "si8_materialized_intents_count": None,
+            "si9_materialized_intents_count": None,
+            "si8_materialized_intent_ids": [],
+            "si9_materialized_intent_ids": [],
+            "by_model_direction": {},
+            "si8_post_proof_rejection_breakdown": {},
+            "si9_post_proof_rejection_breakdown": {},
+            "conservation_holds": False,
+            "rows": [],
+        }
+
+    si8_decisions = list(raw_si8)
+    si9_decisions = {str(r["opportunity_id"]): r for r in raw_si9}
 
     proof_eligible_rows: List[Dict[str, Any]] = []
     si8_stage_counter: Counter[str] = Counter()
     si9_stage_counter: Counter[str] = Counter()
     by_model_dir: Counter[str] = Counter()
+    si8_materialized_intent_ids: List[str] = []
+    si9_materialized_intent_ids: List[str] = []
 
     for r8 in si8_decisions:
         oid = str(r8["opportunity_id"])
         r9 = si9_decisions.get(oid, {})
         reason_8 = str(r8.get("rejection_reason") or "")
-        if reason_8.startswith("REJECTED_UNPROVEN:"):
+        if reason_8.startswith("REJECTED_UNPROVEN:") and not bool(r8.get("entered_materialization_stage", False)):
             continue
         feat = feature_ledger.get(oid) or {}
+        acc_8 = bool(r8.get("accepted") is True)
+        acc_9 = bool(r9.get("accepted") is True)
         reason_9 = str(r9.get("rejection_reason") or "")
-        si8_stage_counter[reason_8] += 1
-        si9_stage_counter[reason_9] += 1
+        stage_key_8 = "ACCEPTED_MATERIALIZED_INTENT" if acc_8 else (reason_8 or "REJECTED")
+        stage_key_9 = "ACCEPTED_MATERIALIZED_INTENT" if acc_9 else (reason_9 or "REJECTED")
+        si8_stage_counter[stage_key_8] += 1
+        si9_stage_counter[stage_key_9] += 1
         m_dir = f"{r8.get('model_id')}:{r8.get('direction')}"
         by_model_dir[m_dir] += 1
+
+        intent_id_8 = str(r8.get("intent_id") or r8.get("new_trade_fingerprint") or (f"intent_si8_{oid}" if acc_8 else ""))
+        intent_id_9 = str(r9.get("intent_id") or r9.get("new_trade_fingerprint") or (f"intent_si9_{oid}" if acc_9 else ""))
+        if acc_8:
+            si8_materialized_intent_ids.append(intent_id_8)
+        if acc_9:
+            si9_materialized_intent_ids.append(intent_id_9)
+
         proof_eligible_rows.append(
             {
                 "opportunity_id": oid,
@@ -1178,31 +1224,60 @@ def build_si8_si9_278_materialization_diagnosis_v17931210(
                 "htf_alignment_state": str(feat.get("htf_alignment_state") or "UNKNOWN"),
                 "target_pool_id": feat.get("target_pool_id"),
                 "target_pool_state": feat.get("target_pool_state"),
+                "si8_accepted": acc_8,
+                "si8_intent_id": intent_id_8 if acc_8 else None,
+                "si8_new_decision_timestamp_ms": r8.get("new_decision_timestamp_ms"),
                 "si8_status": str(r8.get("status") or ""),
-                "si8_first_rejection_reason": reason_8,
-                "si8_all_rejection_reasons": list(r8.get("all_rejection_reasons") or [reason_8]),
+                "si8_first_rejection_reason": None if acc_8 else reason_8,
+                "si8_all_rejection_reasons": [] if acc_8 else list(r8.get("all_rejection_reasons") or ([reason_8] if reason_8 else [])),
+                "si9_accepted": acc_9,
+                "si9_intent_id": intent_id_9 if acc_9 else None,
+                "si9_new_decision_timestamp_ms": r9.get("new_decision_timestamp_ms"),
                 "si9_status": str(r9.get("status") or ""),
-                "si9_first_rejection_reason": reason_9,
-                "si9_all_rejection_reasons": list(r9.get("all_rejection_reasons") or ([reason_9] if reason_9 else [])),
+                "si9_first_rejection_reason": None if acc_9 else reason_9,
+                "si9_all_rejection_reasons": [] if acc_9 else list(r9.get("all_rejection_reasons") or ([reason_9] if reason_9 else [])),
                 "proof_hash": str(feat.get("proof_hash") or ""),
             }
         )
 
     arbitration_suppressed = int(si8_stage_counter.get("SUPPRESSED_BY_ARBITRATION", 0))
     arbitration_winners = len(proof_eligible_rows) - arbitration_suppressed
+    si8_mat_count = len(si8_materialized_intent_ids)
+    si9_mat_count = len(si9_materialized_intent_ids)
+    post_arb_rejected = arbitration_winners - si8_mat_count
+    si9_arb_suppressed = int(si9_stage_counter.get("SUPPRESSED_BY_ARBITRATION", 0))
+    si9_arb_winners = len(proof_eligible_rows) - si9_arb_suppressed
+    si9_post_arb_rejected = si9_arb_winners - si9_mat_count
+    mat_status = (
+        "MATERIALIZED_INTENTS_PRESENT"
+        if (si8_mat_count > 0 or si9_mat_count > 0)
+        else "ZERO_VALID_EXECUTABLE_TRADES"
+    )
 
     return {
         "version": VERSION_V17931210,
+        "status": "PASS",
+        "materialization_status": mat_status,
         "proof_eligible_candidates_count": len(proof_eligible_rows),
         "arbitration_suppressed_count": arbitration_suppressed,
         "arbitration_winners_entering_materialization_count": arbitration_winners,
-        "materialized_intents_count": 0,
+        "post_arbitration_rejected_count": post_arb_rejected,
+        "materialized_intents_count": si8_mat_count,
+        "si8_materialized_intents_count": si8_mat_count,
+        "si9_materialized_intents_count": si9_mat_count,
+        "si9_arbitration_suppressed_count": si9_arb_suppressed,
+        "si9_arbitration_winners_entering_materialization_count": si9_arb_winners,
+        "si9_post_arbitration_rejected_count": si9_post_arb_rejected,
+        "si8_materialized_intent_ids": si8_materialized_intent_ids,
+        "si9_materialized_intent_ids": si9_materialized_intent_ids,
         "by_model_direction": dict(sorted(by_model_dir.items())),
         "si8_post_proof_rejection_breakdown": dict(sorted(si8_stage_counter.items())),
         "si9_post_proof_rejection_breakdown": dict(sorted(si9_stage_counter.items())),
         "conservation_holds": (
             sum(si8_stage_counter.values()) == len(proof_eligible_rows)
             and sum(si9_stage_counter.values()) == len(proof_eligible_rows)
+            and len(proof_eligible_rows) == arbitration_suppressed + post_arb_rejected + si8_mat_count
+            and len(proof_eligible_rows) == si9_arb_suppressed + si9_post_arb_rejected + si9_mat_count
         ),
         "rows": proof_eligible_rows,
     }

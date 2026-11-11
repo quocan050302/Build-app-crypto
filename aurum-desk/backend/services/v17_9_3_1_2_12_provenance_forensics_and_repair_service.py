@@ -840,9 +840,10 @@ def build_r2_htf_unicorn_funnel_and_ablations_v17931212(
     si8_diag_278 = build_si8_si9_278_materialization_diagnosis_v17931210(
         si8_wrapped, si9_wrapped, feature_ledger_by_opp_id
     )
-    si8_diag_278["post_arbitration_rejected_count"] = int(
-        si8_diag_278.get("arbitration_winners_entering_materialization_count", 0)
-    )
+    if "post_arbitration_rejected_count" not in si8_diag_278:
+        si8_diag_278["post_arbitration_rejected_count"] = int(
+            si8_diag_278.get("arbitration_winners_entering_materialization_count", 0)
+        ) - int(si8_diag_278.get("materialized_intents_count") or 0)
 
     htf_audit_07 = {
         "version": VERSION_V17931212,
@@ -915,13 +916,21 @@ def verify_r2_causal_mtf_unicorn_provenance_v17931212(
     si8_si9_ablation_09: Mapping[str, Any],
     *,
     sample_feature_rows: Sequence[Mapping[str, Any]] = (),
+    raw_si8_decision_ledger: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     violations: List[str] = []
     if htf_audit_07.get("status") != "PASS":
         violations.append("HTF_CAUSAL_BAR_AUDIT_FAILED")
 
-    if int(unicorn_funnel_08.get("canonical_universe_total", 0)) != 63085:
-        violations.append(f"CANONICAL_UNIVERSE_COUNT_MISMATCH:{unicorn_funnel_08.get('canonical_universe_total')}!=63085")
+    u_total = int(unicorn_funnel_08.get("canonical_universe_total", 0))
+    if u_total <= 0:
+        violations.append(f"CANONICAL_UNIVERSE_COUNT_INVALID:{u_total}")
+    elif "baseline_eligible_count" in unicorn_funnel_08 and "si8_detector_verified_incremental_count" in unicorn_funnel_08:
+        exp_u_total = int(unicorn_funnel_08["baseline_eligible_count"]) + int(
+            unicorn_funnel_08["si8_detector_verified_incremental_count"]
+        )
+        if u_total != exp_u_total:
+            violations.append(f"CANONICAL_UNIVERSE_COUNT_MISMATCH:{u_total}!={exp_u_total}")
 
     funnel_cnts = unicorn_funnel_08.get("causal_detector_funnel_counts") or {}
     u_sum = (
@@ -929,21 +938,47 @@ def verify_r2_causal_mtf_unicorn_provenance_v17931212(
         + int(funnel_cnts.get("fvg_only_without_breaker_overlap", 0))
         + int(funnel_cnts.get("unicorn_unknown_or_absent", 0))
     )
-    if u_sum != 63085:
-        violations.append(f"UNICORN_CLASSIFICATION_PARTITION_MISMATCH:{u_sum}!=63085")
+    if u_total > 0 and u_sum != u_total:
+        violations.append(f"UNICORN_CLASSIFICATION_PARTITION_MISMATCH:{u_sum}!={u_total}")
 
-    diag_278 = si8_si9_ablation_09.get("si8_si9_278_to_0_funnel_diagnosis") or {}
-    proof_elig = int(diag_278.get("proof_eligible_candidates_count", 0))
-    arb_supp = int(diag_278.get("arbitration_suppressed_count", 0))
-    post_arb_rej = int(diag_278.get("post_arbitration_rejected_count", 0))
-    if proof_elig not in (278, 284):
-        violations.append(f"SI8_SI9_PROOF_ELIGIBLE_MISMATCH:{proof_elig}!=284")
-    if arb_supp != 6:
-        violations.append(f"SI8_SI9_ARBITRATION_SUPPRESSED_MISMATCH:{arb_supp}!=6")
-    if post_arb_rej != proof_elig - arb_supp or post_arb_rej not in (272, 278):
-        violations.append(f"SI8_SI9_POST_ARBITRATION_REJECTED_MISMATCH:{post_arb_rej}!={proof_elig - arb_supp}")
-    if int(diag_278.get("materialized_intents_count", 0)) != 0:
-        violations.append(f"SI8_SI9_MATERIALIZED_INTENTS_NONZERO:{diag_278.get('materialized_intents_count')}")
+    diag_278 = si8_si9_ablation_09.get("si8_si9_278_to_0_funnel_diagnosis") or si8_si9_ablation_09.get("si8_si9_dynamic_funnel_diagnosis") or {}
+    if diag_278.get("status") == "BLOCKED" or diag_278.get("materialization_status") == "UNKNOWN_MISSING_INTENT_LEDGER":
+        violations.append("MISSING_AUTHORITATIVE_INTENT_LEDGER_FAIL_CLOSED")
+    else:
+        proof_elig = int(diag_278.get("proof_eligible_candidates_count", 0))
+        arb_supp = int(diag_278.get("arbitration_suppressed_count", 0))
+        post_arb_rej = int(diag_278.get("post_arbitration_rejected_count", 0))
+        raw_mat = diag_278.get("materialized_intents_count", 0)
+        mat_cnt = int(raw_mat) if raw_mat is not None else -1
+        if proof_elig <= 0 or arb_supp < 0 or post_arb_rej < 0 or mat_cnt < 0:
+            violations.append(f"SI8_SI9_FUNNEL_NEGATIVE_OR_EMPTY_COUNTS:elig={proof_elig},supp={arb_supp},rej={post_arb_rej},mat={mat_cnt}")
+        elif proof_elig != arb_supp + post_arb_rej + mat_cnt:
+            violations.append(
+                f"SI8_SI9_FUNNEL_CONSERVATION_MISMATCH:{proof_elig}!={arb_supp}+{post_arb_rej}+{mat_cnt}"
+            )
+        rows_diag = diag_278.get("rows")
+        if isinstance(rows_diag, Sequence) and len(rows_diag) > 0:
+            if len(rows_diag) != proof_elig:
+                violations.append(f"SI8_SI9_ROWS_LENGTH_MISMATCH:{len(rows_diag)}!={proof_elig}")
+            obs_acc = [r for r in rows_diag if r.get("si8_accepted") is True]
+            if any("si8_accepted" in r for r in rows_diag) and len(obs_acc) != mat_cnt:
+                violations.append(f"SI8_SI9_MATERIALIZED_INTENT_ROW_MISMATCH:{len(obs_acc)}!={mat_cnt}")
+            for acc_r in obs_acc:
+                if not acc_r.get("si8_intent_id") or not acc_r.get("proof_hash"):
+                    violations.append(f"SI8_MATERIALIZED_INTENT_MISSING_ID_OR_PROOF:{acc_r.get('opportunity_id')}")
+        if raw_si8_decision_ledger is not None:
+            raw_elig = [
+                r
+                for r in raw_si8_decision_ledger
+                if not str(r.get("rejection_reason") or "").startswith("REJECTED_UNPROVEN:")
+                or bool(r.get("entered_materialization_stage", False))
+            ]
+            raw_acc_ids = sorted(str(r["opportunity_id"]) for r in raw_elig if r.get("accepted") is True)
+            diag_acc_ids = sorted(str(r["opportunity_id"]) for r in (rows_diag or ()) if r.get("si8_accepted") is True)
+            if len(raw_elig) != proof_elig or len(raw_acc_ids) != mat_cnt or raw_acc_ids != diag_acc_ids:
+                violations.append(
+                    f"SI8_RAW_DECISION_LEDGER_MISMATCH:raw_elig={len(raw_elig)},diag_elig={proof_elig},raw_mat={len(raw_acc_ids)},diag_mat={mat_cnt}"
+                )
 
     for r in sample_feature_rows:
         u_cls = str(r.get("unicorn_classification") or "UNKNOWN")

@@ -1171,6 +1171,7 @@ def build_full_intervention_candidate_index_v1793121(
     canonical_opportunities = [selected_winners_by_idx[idx] for idx in sorted(selected_winners_by_idx.keys())]
 
     ds_cache_key = (
+        "v17931213_struct_v1",
         len(bars_1m),
         int(bars_1m[0].get("open_time") or bars_1m[0].get("timestamp") or 0) if bars_1m else 0,
         int(bars_1m[-1].get("close_time") or 0) if bars_1m else 0,
@@ -1230,7 +1231,7 @@ def build_full_intervention_candidate_index_v1793121(
 
         last_m1_close_ms = int(bars_1m[-1]["close_time"]) if bars_1m else 0
 
-        # Global causal swings with known_at_ms tags
+        # Global causal swings with known_at_ms tags and detector-bound canonical IDs
         all_causal_swings = []
         for tf_bars, tf_label, tf_dur_ms, lb, rb in (
             (bars_1m, "1M", 60_000, 2, 2),
@@ -1242,46 +1243,59 @@ def build_full_intervention_candidate_index_v1793121(
             (bars_1h, "1H", 3_600_000, 2, 2),
             (bars_1h, "1H", 3_600_000, 1, 1),
             (bars_4h, "4H", 14_400_000, 2, 2),
+            (bars_4h, "4H", 14_400_000, 1, 1),
         ):
             if len(tf_bars) < (lb + rb + 1):
                 continue
+            tf_open_set = {int(b.get("open_time") or b.get("timestamp") or 0) for b in tf_bars}
             sh_list, sl_list = identify_confirmed_swings(
                 tf_bars, timeframe=tf_label, left_bars=lb, right_bars=rb, as_of_ms=last_m1_close_ms
             )
-            for sw in sh_list:
-                occ_ms = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
-                known_ms = int(sw.get("known_at_ms", occ_ms + rb * tf_dur_ms))
-                m1_after_idx = bisect.bisect_right(m1_open_ts, occ_ms)
-                all_causal_swings.append(
-                    {
-                        "id": f"{tf_label}_{lb}_{rb}_SH_{occ_ms}",
-                        "price": round(float(sw["price"]), 2),
-                        "side": "HIGH",
-                        "timeframe": tf_label,
-                        "left_bars": lb,
-                        "right_bars": rb,
-                        "occurred_at_ms": occ_ms,
-                        "known_at_ms": known_ms,
-                        "m1_after_idx": m1_after_idx,
-                    }
-                )
-            for sw in sl_list:
-                occ_ms = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
-                known_ms = int(sw.get("known_at_ms", occ_ms + rb * tf_dur_ms))
-                m1_after_idx = bisect.bisect_right(m1_open_ts, occ_ms)
-                all_causal_swings.append(
-                    {
-                        "id": f"{tf_label}_{lb}_{rb}_SL_{occ_ms}",
-                        "price": round(float(sw["price"]), 2),
-                        "side": "LOW",
-                        "timeframe": tf_label,
-                        "left_bars": lb,
-                        "right_bars": rb,
-                        "occurred_at_ms": occ_ms,
-                        "known_at_ms": known_ms,
-                        "m1_after_idx": m1_after_idx,
-                    }
-                )
+            req_width = 2 if tf_label == "1M" else 1
+            for sw_side, sw_tag, sw_list in (("HIGH", "SH", sh_list), ("LOW", "SL", sl_list)):
+                for sw in sw_list:
+                    occ_ms = int(sw.get("occurred_at_ms", sw.get("timestamp", 0)))
+                    known_ms = int(sw.get("known_at_ms", occ_ms + rb * tf_dur_ms))
+                    m1_after_idx = bisect.bisect_right(m1_open_ts, occ_ms)
+                    m1_post_bar_idx = bisect.bisect_left(m1_open_ts, occ_ms + tf_dur_ms)
+                    raw_id = str(sw.get("id") or f"{tf_label.lower()}_{sw_tag.lower()}_{occ_ms}")
+                    raw_px = float(sw["price"])
+                    contig_ok = all(
+                        (occ_ms + w_i * tf_dur_ms) in tf_open_set
+                        for w_i in range(-req_width, req_width + 1)
+                    ) and (known_ms == occ_ms + (rb + 1) * tf_dur_ms)
+                    canon_anchor_id: Optional[str] = None
+                    if contig_ok:
+                        if tf_label == "1M" and lb == 2 and rb == 2:
+                            canon_anchor_id = raw_id
+                        elif tf_label == "5M" and lb == 1 and rb == 1:
+                            canon_anchor_id = f"v1792_m5_{raw_id}"
+                    canon_target_id: Optional[str] = None
+                    if contig_ok:
+                        if tf_label == "1M" and lb == 2 and rb == 2:
+                            canon_target_id = raw_id
+                        elif tf_label in ("5M", "15M", "1H", "4H") and lb == 1 and rb == 1:
+                            canon_target_id = f"pool_{tf_label}_{raw_id}"
+                    all_causal_swings.append(
+                        {
+                            "id": f"{tf_label}_{lb}_{rb}_{sw_tag}_{occ_ms}",
+                            "raw_id": raw_id,
+                            "canonical_anchor_id": canon_anchor_id,
+                            "canonical_target_id": canon_target_id,
+                            "price": round(raw_px, 2),
+                            "raw_price": raw_px,
+                            "side": sw_side,
+                            "timeframe": tf_label,
+                            "tf_dur_ms": tf_dur_ms,
+                            "left_bars": lb,
+                            "right_bars": rb,
+                            "occurred_at_ms": occ_ms,
+                            "known_at_ms": known_ms,
+                            "m1_after_idx": m1_after_idx,
+                            "m1_post_bar_idx": m1_post_bar_idx,
+                            "contiguous_window_ok": contig_ok,
+                        }
+                    )
 
         all_causal_swings.sort(key=lambda s: int(s["known_at_ms"]))
         swing_known_ts = [int(s["known_at_ms"]) for s in all_causal_swings]
@@ -1425,6 +1439,7 @@ def _fast_derive_outer_stop_from_index_v1793121(
     *,
     min_atr_m1_multiple: float = 0.90,
     original_stop_price: Optional[float] = None,
+    require_detector_bound_anchor_id: bool = False,
 ) -> Dict[str, Any]:
     """
     Fast O(log N) causal outer structural stop resolver using pre-indexed swings and RMQ sweep checks.
@@ -1454,37 +1469,54 @@ def _fast_derive_outer_stop_from_index_v1793121(
     right_bound = bisect.bisect_right(swing_known_ts, cutoff_ms)
     wanted_side = "LOW" if norm_dir == "LONG" else "HIGH"
     min_occ_ms = cutoff_ms - 86_400_000  # look back up to 24h for relevant structural anchors
+    scan_limit = 650 if require_detector_bound_anchor_id else 350
 
     qualifying: List[Dict[str, Any]] = []
-    # Scan backwards from most recently confirmed causal swings (bounded to 350 recent swings)
-    for s_idx in range(right_bound - 1, max(-1, right_bound - 350), -1):
+    for s_idx in range(right_bound - 1, max(-1, right_bound - scan_limit), -1):
         sw = all_swings[s_idx]
         if sw["side"] != wanted_side:
             continue
-        if int(sw["occurred_at_ms"]) < min_occ_ms:
+        occ_ms_sw = int(sw["occurred_at_ms"])
+        if occ_ms_sw < min_occ_ms:
             if int(sw["known_at_ms"]) < min_occ_ms:
                 break
             continue
-        # Only outer structural swings (2,2 on 1M/5M/15M/1H or 1,1 on 5M/15M/1H)
-        if sw["timeframe"] == "1M" and int(sw["left_bars"]) < 2:
-            continue
-        anc_px = float(sw["price"])
+        if require_detector_bound_anchor_id:
+            canon_anc = sw.get("canonical_anchor_id")
+            if not canon_anc:
+                continue
+            if sw["timeframe"] == "1M" and (cutoff_ms - occ_ms_sw > 175 * 60_000):
+                continue
+            if sw["timeframe"] == "5M" and (cutoff_ms - occ_ms_sw > 75 * 300_000):
+                continue
+            anc_px = float(sw.get("raw_price", sw["price"]))
+            out_anc_id = str(canon_anc)
+        else:
+            # Only outer structural swings (2,2 on 1M/5M/15M/1H or 1,1 on 5M/15M/1H)
+            if sw["timeframe"] == "1M" and int(sw["left_bars"]) < 2:
+                continue
+            anc_px = float(sw["price"])
+            out_anc_id = str(sw["id"])
         if norm_dir == "LONG":
             if anc_px >= entry_px - 0.05:
                 continue
             prop_sl = round(anc_px - buffer_usd, 2)
+            if prop_sl >= anc_px:
+                continue
             dist = round(entry_px - prop_sl, 4)
         else:
             if anc_px <= entry_px + 0.05:
                 continue
             prop_sl = round(anc_px + buffer_usd, 2)
+            if prop_sl <= anc_px:
+                continue
             dist = round(prop_sl - entry_px, 4)
 
         if dist + 1e-6 < min_dist or dist > 35.0:
             continue
 
-        # Check unswept between sw["m1_after_idx"] and checkpoint_idx_1m
-        m1_start = int(sw["m1_after_idx"])
+        # Check unswept between post-pivot start and checkpoint_idx_1m
+        m1_start = int(sw.get("m1_post_bar_idx", sw["m1_after_idx"]) if require_detector_bound_anchor_id else sw["m1_after_idx"])
         if m1_start <= checkpoint_idx_1m:
             if norm_dir == "LONG":
                 min_low = _query_rmq_min(rmq_min, m1_start, checkpoint_idx_1m)
@@ -1500,7 +1532,7 @@ def _fast_derive_outer_stop_from_index_v1793121(
             {
                 "selected_sl": prop_sl,
                 "anchor_price": anc_px,
-                "anchor_id": str(sw["id"]),
+                "anchor_id": out_anc_id,
                 "anchor_kind": f"{sw['timeframe']}_CONFIRMED_SWING_{sw['side']}",
                 "anchor_timeframe": str(sw["timeframe"]),
                 "known_at_ms": int(sw["known_at_ms"]),
@@ -1557,6 +1589,7 @@ def _fast_derive_structural_target_from_index_v1793121(
     min_net_rr: float = 2.0,
     max_net_rr: float = 3.50,
     original_target_price: Optional[float] = None,
+    require_detector_bound_target_id: bool = False,
 ) -> Dict[str, Any]:
     """
     Fast O(log N) causal liquidity target resolver using pre-indexed swings and RMQ sweep checks.
@@ -1582,12 +1615,33 @@ def _fast_derive_structural_target_from_index_v1793121(
     wanted_side = "HIGH" if norm_dir == "LONG" else "LOW"
     seen_px: Set[float] = set()
     viable_in_band: List[Dict[str, Any]] = []
+    scan_limit = 2500 if require_detector_bound_target_id else 400
+    tf_max_age_ms = {
+        "1M": 175 * 60_000,
+        "5M": 75 * 300_000,
+        "15M": 75 * 900_000,
+        "1H": 75 * 3_600_000,
+        "4H": 75 * 14_400_000,
+    }
 
-    for s_idx in range(right_bound - 1, max(-1, right_bound - 400), -1):
+    for s_idx in range(right_bound - 1, max(-1, right_bound - scan_limit), -1):
         sw = all_swings[s_idx]
         if sw["side"] != wanted_side:
             continue
-        t_px = float(sw["price"])
+        if require_detector_bound_target_id:
+            canon_tid = sw.get("canonical_target_id")
+            if not canon_tid:
+                continue
+            occ_ms_sw = int(sw["occurred_at_ms"])
+            max_age = tf_max_age_ms.get(str(sw["timeframe"]), 75 * 300_000)
+            if cutoff_ms - occ_ms_sw > max_age:
+                continue
+            t_px = float(sw.get("raw_price", sw["price"]))
+            out_tid = str(canon_tid)
+        else:
+            t_px = float(sw["price"])
+            out_tid = str(sw["id"])
+
         if t_px in seen_px:
             continue
         if norm_dir == "LONG" and t_px <= entry_px + 0.30:
@@ -1600,8 +1654,8 @@ def _fast_derive_structural_target_from_index_v1793121(
         if gross_rr_est + 1e-6 < float(min_net_rr) or gross_rr_est > float(max_net_rr) + 1.25:
             continue
 
-        # Check unswept between sw["m1_after_idx"] and checkpoint_idx_1m
-        m1_start = int(sw["m1_after_idx"])
+        # Check unswept strictly after target pivot candle closes up to checkpoint_idx_1m
+        m1_start = int(sw.get("m1_post_bar_idx", sw["m1_after_idx"]) if require_detector_bound_target_id else sw["m1_after_idx"])
         if m1_start <= checkpoint_idx_1m:
             if norm_dir == "LONG":
                 if _query_rmq_max(rmq_max, m1_start, checkpoint_idx_1m) >= t_px:
@@ -1625,7 +1679,7 @@ def _fast_derive_structural_target_from_index_v1793121(
             viable_in_band.append(
                 {
                     "target_price": t_px,
-                    "target_id": str(sw["id"]),
+                    "target_id": out_tid,
                     "source_kind": f"{sw['timeframe']}_CONFIRMED_SWING_{sw['side']}",
                     "timeframe": str(sw["timeframe"]),
                     "known_at_ms": int(sw["known_at_ms"]),
@@ -1682,6 +1736,8 @@ def schedule_causal_pending_confirmation_v1793121(
     require_breaker_fvg_retest: bool = False,
     require_true_unicorn_confluence: bool = False,
     candidate_index: Optional[Mapping[str, Any]] = None,
+    strictly_after_base: bool = False,
+    model_aware: bool = False,
 ) -> Dict[str, Any]:
     """
     Section 06 & 11 (P0-A, P1-H): Causal pending-confirmation state machine for delayed entries.
@@ -1700,6 +1756,9 @@ def schedule_causal_pending_confirmation_v1793121(
         setup_invalidation=setup_invalidation,
         require_mss_displacement=require_mss_displacement,
         require_breaker_fvg_retest=require_breaker_fvg_retest or require_true_unicorn_confluence,
+        strictly_after_base=strictly_after_base,
+        model_aware=model_aware,
+        require_true_unicorn=False,
     )
     if res_base["status"] != "CONFIRMED":
         return {
@@ -1799,6 +1858,8 @@ def emit_causal_order_intents_v1793121(
     *,
     candidate_index: Mapping[str, Any],
     datasets: Mapping[str, Any],
+    strict_v17931213_mode: Optional[bool] = None,
+    htf_ablation_mode: str = "FULL_H1_H4",
 ) -> Dict[str, Any]:
     """
     Section 06: Fast, exact causal materialization of `opportunity` under `policy`
@@ -1806,8 +1867,6 @@ def emit_causal_order_intents_v1793121(
     immutable `opportunity_id`).
     """
     bars_1m = datasets["1m"]
-    bars_1h = datasets.get("1H", [])
-    bars_4h = datasets.get("4H", [])
     base_idx = int(opportunity["checkpoint_index_1m"])
     base_ts = int(opportunity["decision_timestamp_ms"])
     direction = str(opportunity["direction"]).strip().upper()
@@ -1822,6 +1881,19 @@ def emit_causal_order_intents_v1793121(
     base_inv_px = opportunity.get("structural_invalidation_price") or base_sl
     s_id = str(opportunity.get("setup_id") or opportunity.get("setup_episode_id") or f"setup_{base_idx}_{model_id}_{direction}")
     opp_id = str(opportunity.get("opportunity_id") or build_canonical_opportunity_id_v1793121(opportunity))
+    p_vid = str(policy.variant_id)
+    is_strict_13 = (
+        bool(strict_v17931213_mode)
+        if strict_v17931213_mode is not None
+        else (
+            bool(candidate_index.get("v17931213_strict_materialization", False))
+            or (
+                bool(candidate_index.get("v1793127_causal_truth_required", False))
+                and p_vid in ("SI8_RESEARCH_DISCOVERY_REPAIRED", "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS")
+            )
+            or p_vid.startswith(("D1_", "D2_", "D3_", "D4_", "MTF_ABLATION_"))
+        )
+    )
 
     old_plan = {
         "opportunity_id": opp_id,
@@ -1844,8 +1916,10 @@ def emit_causal_order_intents_v1793121(
     }
 
     if policy.intervention_type == "BASELINE_CONTROL":
+        base_intent_id = f"intent_{p_vid}_{hashlib.sha256(f'{p_vid}|{opp_id}|{base_ts}'.encode('utf-8')).hexdigest()[:16]}"
         return {
             "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+            "intent_id": base_intent_id,
             "opportunity_id": opp_id,
             "setup_id": s_id,
             "variant_id": policy.variant_id,
@@ -1870,6 +1944,8 @@ def emit_causal_order_intents_v1793121(
             "changed_dimensions": [],
             "known_at_ms": base_ts,
             "confirmation_subtype": "IMMEDIATE_BASELINE",
+            "wait_bars": 0,
+            "confirmation_timing_mode": "IMMEDIATE_BASELINE",
         }
 
     # 1. Macro window filter check
@@ -1882,6 +1958,7 @@ def emit_causal_order_intents_v1793121(
         if not bool(getattr(mw, "eligible_for_macro_gate", False)):
             return {
                 "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
                 "opportunity_id": opp_id,
                 "setup_id": s_id,
                 "variant_id": policy.variant_id,
@@ -1904,12 +1981,13 @@ def emit_causal_order_intents_v1793121(
                 "confirmation_subtype": "NONE",
             }
 
-    # 2. HTF H1/H4 alignment filter check
     req_htf = bool(
         getattr(policy, "require_causal_h1_h4_alignment", False)
         or getattr(policy, "require_htf_h1_h4_alignment", False)
     )
-    if req_htf:
+
+    # 2a. Legacy HTF H1/H4 alignment filter check at base_ts (preserved for SI0..SI7 / R0..R8)
+    if req_htf and not is_strict_13:
         c_ts = candidate_index["close_ts_index"]
         htf_ok, htf_meta = _check_causal_htf_alignment_at_ts_v179312(
             datasets, c_ts, base_ts, direction
@@ -1917,6 +1995,7 @@ def emit_causal_order_intents_v1793121(
         if not htf_ok:
             return {
                 "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
                 "opportunity_id": opp_id,
                 "setup_id": s_id,
                 "variant_id": policy.variant_id,
@@ -1943,12 +2022,15 @@ def emit_causal_order_intents_v1793121(
     new_ts = base_ts
     new_entry = base_entry
     new_sl = base_sl
-    new_tp = base_tp
-    new_inv_px = round(float(base_inv_px), 2)
+    new_tp: float = base_tp
+    new_inv_px: float = round(float(base_inv_px), 2)
     new_anc_id = opportunity.get("selected_anchor_id")
     new_anc_kind = opportunity.get("anchor_kind")
     new_target_id = opportunity.get("selected_target_id")
     confirmation_subtype = "IMMEDIATE_BASELINE"
+    wait_bars_val = 0
+    confirmation_timing_mode = "IMMEDIATE_BASELINE"
+    confirmation_source_ids: List[str] = []
 
     # 3. Delayed Entry Timing Confirmation
     req_mss = bool(
@@ -1964,19 +2046,26 @@ def emit_causal_order_intents_v1793121(
         or getattr(policy, "max_confirmation_wait_bars", 12)
     )
     if req_mss or req_fvg:
+        req_true_uni = (
+            policy.variant_id == "R3_TRUE_UNICORN_BREAKER_FVG_CONFLUENCE"
+            or (is_strict_13 and model_id == "CG01_SWEEP_MSS_FVG")
+        )
         conf_res = schedule_causal_pending_confirmation_v1793121(
             opportunity,
             bars_1m,
             max_wait_bars=max_wait,
             setup_invalidation=float(base_inv_px),
             require_mss_displacement=req_mss,
-            require_breaker_fvg_retest=req_fvg,
-            require_true_unicorn_confluence=(policy.variant_id == "R3_TRUE_UNICORN_BREAKER_FVG_CONFLUENCE"),
+            require_breaker_fvg_retest=req_fvg or (is_strict_13 and model_id in ("SMC_M1_FVG_CONTINUATION", "CG01_SWEEP_MSS_FVG")),
+            require_true_unicorn_confluence=req_true_uni,
             candidate_index=candidate_index,
+            strictly_after_base=is_strict_13,
+            model_aware=is_strict_13,
         )
         if conf_res["status"] != "CONFIRMED":
             return {
                 "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
                 "opportunity_id": opp_id,
                 "setup_id": s_id,
                 "variant_id": policy.variant_id,
@@ -1997,9 +2086,14 @@ def emit_causal_order_intents_v1793121(
                 "changed_dimensions": [],
                 "known_at_ms": int(conf_res.get("known_at_ms") or base_ts),
                 "confirmation_subtype": str(conf_res.get("confirmation_subtype") or "NONE"),
+                "wait_bars": int(conf_res.get("wait_bars") or conf_res.get("bars_waited") or 0),
+                "confirmation_timing_mode": "DELAYED" if is_strict_13 else "SAME_CUTOFF_OR_DELAYED",
             }
         new_idx = int(conf_res["confirmed_checkpoint_index_1m"])
         new_ts = int(conf_res["confirmed_decision_timestamp_ms"])
+        wait_bars_val = int(conf_res.get("wait_bars") or conf_res.get("bars_waited") or (new_idx - base_idx))
+        confirmation_timing_mode = str(conf_res.get("confirmation_timing_mode") or ("DELAYED" if wait_bars_val > 0 else "SAME_CUTOFF_FILTER_ONLY"))
+        confirmation_source_ids = list(conf_res.get("confirmation_source_ids") or [])
         confirmation_subtype = str(conf_res.get("confirmation_subtype") or "CONFIRMED")
         c_bar = bars_1m[new_idx]
         c_close = float(c_bar["close"])
@@ -2008,6 +2102,47 @@ def emit_causal_order_intents_v1793121(
         )
         half_sp = 0.5 * float(q_info["spread_usd"])
         new_entry = round(c_close + half_sp if direction == "LONG" else c_close - half_sp, 2)
+
+    # 2b. V17.9.3.1.2.13 Causal Structural HTF alignment check AT new_ts (strictly closed HTF bars <= new_ts)
+    htf_eval_meta: Optional[Dict[str, Any]] = None
+    if req_htf and is_strict_13:
+        c_ts = candidate_index["close_ts_index"]
+        htf_ok, htf_eval_meta = _check_causal_htf_alignment_at_ts_v179312(
+            datasets,
+            c_ts,
+            new_ts,
+            direction,
+            use_structural_evaluator=True,
+            ablation_mode=htf_ablation_mode,
+        )
+        if not htf_ok:
+            return {
+                "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
+                "opportunity_id": opp_id,
+                "setup_id": s_id,
+                "variant_id": policy.variant_id,
+                "intervention_type": policy.intervention_type,
+                "status": "REJECTED_BY_INTERVENTION",
+                "accepted": False,
+                "rejection_reason": str(htf_eval_meta.get("rejection_reason") or "REJECTED_CAUSAL_H1_H4_CONFLICT"),
+                "old_plan": old_plan,
+                "new_checkpoint_index_1m": None,
+                "new_decision_timestamp_ms": None,
+                "new_entry_reference": None,
+                "new_selected_sl": None,
+                "new_take_profit": None,
+                "new_quantity": None,
+                "new_planned_net_risk_usd": None,
+                "new_net_rr": None,
+                "new_gross_rr": None,
+                "changed_dimensions": [],
+                "known_at_ms": new_ts,
+                "confirmation_subtype": confirmation_subtype,
+                "wait_bars": wait_bars_val,
+                "confirmation_timing_mode": confirmation_timing_mode,
+                "htf_structural_meta": htf_eval_meta,
+            }
 
     # 4. Outer Protected Structural Stop
     req_outer_sl = bool(
@@ -2028,10 +2163,12 @@ def emit_causal_order_intents_v1793121(
             new_entry,
             min_atr_m1_multiple=min_atr_mult,
             original_stop_price=base_sl,
+            require_detector_bound_anchor_id=is_strict_13,
         )
         if stop_res["status"] != "VALID" or stop_res["selected_sl"] is None:
             return {
                 "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
                 "opportunity_id": opp_id,
                 "setup_id": s_id,
                 "variant_id": policy.variant_id,
@@ -2052,9 +2189,15 @@ def emit_causal_order_intents_v1793121(
                 "changed_dimensions": [],
                 "known_at_ms": new_ts,
                 "confirmation_subtype": confirmation_subtype,
+                "wait_bars": wait_bars_val,
+                "confirmation_timing_mode": confirmation_timing_mode,
             }
         new_sl = round(float(stop_res["selected_sl"]), 2)
-        new_inv_px = round(float(stop_res["structural_invalidation_price"]), 2)
+        new_inv_px = (
+            float(stop_res["structural_invalidation_price"])
+            if is_strict_13
+            else round(float(stop_res["structural_invalidation_price"]), 2)
+        )
         new_anc_id = stop_res["selected_anchor_id"]
         new_anc_kind = stop_res["anchor_kind"]
 
@@ -2078,10 +2221,12 @@ def emit_causal_order_intents_v1793121(
             min_net_rr=2.0,
             max_net_rr=max_tp_rr,
             original_target_price=base_tp,
+            require_detector_bound_target_id=is_strict_13,
         )
         if target_res["status"] != "VALID" or target_res["take_profit"] is None:
             return {
                 "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+                "intent_id": None,
                 "opportunity_id": opp_id,
                 "setup_id": s_id,
                 "variant_id": policy.variant_id,
@@ -2102,8 +2247,14 @@ def emit_causal_order_intents_v1793121(
                 "changed_dimensions": [],
                 "known_at_ms": new_ts,
                 "confirmation_subtype": confirmation_subtype,
+                "wait_bars": wait_bars_val,
+                "confirmation_timing_mode": confirmation_timing_mode,
             }
-        new_tp = round(float(target_res["take_profit"]), 2)
+        new_tp = (
+            float(target_res["take_profit"])
+            if is_strict_13
+            else round(float(target_res["take_profit"]), 2)
+        )
         new_target_id = target_res["selected_target_id"]
 
     # 6. Recompute Risk Sizing & Lot Quantity for the new geometry
@@ -2117,6 +2268,7 @@ def emit_causal_order_intents_v1793121(
     if not size_res["can_execute"]:
         return {
             "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+            "intent_id": None,
             "opportunity_id": opp_id,
             "setup_id": s_id,
             "variant_id": policy.variant_id,
@@ -2137,6 +2289,8 @@ def emit_causal_order_intents_v1793121(
             "changed_dimensions": [],
             "known_at_ms": new_ts,
             "confirmation_subtype": confirmation_subtype,
+            "wait_bars": wait_bars_val,
+            "confirmation_timing_mode": confirmation_timing_mode,
         }
 
     new_qty = float(size_res["quantity"])
@@ -2161,8 +2315,13 @@ def emit_causal_order_intents_v1793121(
         if len(changed_dims) > 0
         else "ACCEPTED_UNCHANGED_NO_OP"
     )
+    det_intent_id = (
+        f"intent_{p_vid}_"
+        f"{hashlib.sha256(f'{p_vid}|{opp_id}|{new_ts}|{new_entry}|{new_sl}|{new_tp}|{new_qty}'.encode('utf-8')).hexdigest()[:16]}"
+    )
     return {
         "schema_version": V17_9_3_1_2_1_SCHEMA_VERSION,
+        "intent_id": det_intent_id,
         "opportunity_id": opp_id,
         "setup_id": s_id,
         "variant_id": policy.variant_id,
@@ -2187,6 +2346,10 @@ def emit_causal_order_intents_v1793121(
         "changed_dimensions": changed_dims,
         "known_at_ms": new_ts,
         "confirmation_subtype": confirmation_subtype,
+        "wait_bars": wait_bars_val,
+        "confirmation_timing_mode": confirmation_timing_mode,
+        "confirmation_source_ids": confirmation_source_ids,
+        "htf_structural_meta": htf_eval_meta,
     }
 
 
