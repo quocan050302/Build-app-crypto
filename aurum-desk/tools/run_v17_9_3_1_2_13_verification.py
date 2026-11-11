@@ -1024,13 +1024,21 @@ def main() -> int:
         # Replay all 10 policies (SI0..SI9) across all 3 fill modes
         si_results_by_policy: Dict[str, Dict[str, Any]] = {}
         for pid in CANONICAL_V1793123_POLICY_IDS:
-            si_results_by_policy[pid] = replay_single_si_policy_v1793122(
+            pol_out = replay_single_si_policy_v1793122(
                 pid,
                 cand_index,
                 datasets,
                 all_features_map,
                 fill_modes=FILL_MODES,
             )
+            if pid not in (
+                "SI8_RESEARCH_DISCOVERY_REPAIRED",
+                "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS",
+            ):
+                pol_out.pop("policy_decision_ledger", None)
+                pol_out.pop("decision_ledger", None)
+            si_results_by_policy[pid] = pol_out
+            gc.collect()
         monitor.check()
 
         # Raw exit-event lineage & source reconciliation across all 30 partitions (10)
@@ -1100,6 +1108,8 @@ def main() -> int:
             run_dir / "09_original_execution_ledger_source_reconciliation.jsonl.gz",
             all_source_execution_rows,
         )
+        del all_lineage_events, all_source_execution_rows
+        gc.collect()
 
         all_part_ind_check = verify_all_policy_fill_mode_lineage_independently_v17931211(
             run_dir,
@@ -1196,6 +1206,14 @@ def main() -> int:
             raw_si8_decision_ledger=si_results_by_policy["SI8_RESEARCH_DISCOVERY_REPAIRED"]["policy_decision_ledger"],
             expect_267_historical_audit=v12_funnel_09_doc is not None,
         )
+        funnel_bundle.pop("htf_pipeline_rows_04", None)
+        funnel_bundle.pop("r2_base", None)
+        si_results_by_policy["SI8_RESEARCH_DISCOVERY_REPAIRED"].pop("policy_decision_ledger", None)
+        si_results_by_policy["SI8_RESEARCH_DISCOVERY_REPAIRED"].pop("decision_ledger", None)
+        si_results_by_policy["SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"].pop("policy_decision_ledger", None)
+        si_results_by_policy["SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"].pop("decision_ledger", None)
+        del v130_canonical_inputs, baseline_decisions, si8_decisions, si8_by_idx, cand_index, a1_eligible
+        gc.collect()
 
         # Phase C (R1): Pre-Entry Observable Loss Causes vs Ex-Post Diagnostic Stop Behavior (06)
         casebook_15 = analyze_15_distinct_recovered_trades_v17931210(si_results_by_policy, all_features_map)
@@ -1245,6 +1263,11 @@ def main() -> int:
             si8_materialized=si_results_by_policy["SI8_RESEARCH_DISCOVERY_REPAIRED"]["materialized_intents_count"],
             si9_materialized=si_results_by_policy["SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"]["materialized_intents_count"],
         )
+        delayed_bundle.pop("delay_ledger_03", None)
+        delayed_bundle.pop("sl_tp_sizing_07", None)
+        delayed_bundle.pop("rows_by_variant_nb", None)
+        forensics_06.pop("forensic_rows_06", None)
+        del si_results_by_policy, all_features_map, feat_by_opp_id, si8_feat_by_opp_id, r1_bundle_v12, r4_oos_bundle, datasets
         gc.collect()
         monitor.check()
 
