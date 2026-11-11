@@ -1261,7 +1261,11 @@ def build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213(
     htf_pipeline_rows_04: List[Dict[str, Any]] = []
     proof_eligible_decs: List[Dict[str, Any]] = []
 
-    for dec in all_63085:
+    for idx_63, dec in enumerate(all_63085):
+        if idx_63 > 0 and idx_63 % 8000 == 0:
+            import gc
+
+            gc.collect()
         oid = str(dec.get("opportunity_id") or "")
         m_raw = str(dec.get("model_id") or "")
         m_id = LEGACY_TO_CANONICAL_MODEL_MAP_V1793123.get(m_raw, m_raw)

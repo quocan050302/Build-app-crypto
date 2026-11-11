@@ -787,15 +787,32 @@ def build_r2_htf_unicorn_funnel_and_ablations_v17931212(
     fvg_only_count = 0
     unicorn_unknown_count = 0
 
-    for dec in all_63085:
+    for idx_d, dec in enumerate(all_63085):
         opp_id = str(dec.get("opportunity_id") or "")
         m_id = LEGACY_TO_CANONICAL_MODEL_MAP_V1793123.get(
             str(dec.get("model_id") or ""), str(dec.get("model_id") or "")
         )
         by_model_counts[m_id] += 1
-        feat = dict(feature_ledger_by_opp_id.get(opp_id) or {})
-        feat_with_dir = {**feat, "direction": dec.get("direction", "LONG"), "model_id": m_id}
+        feat = feature_ledger_by_opp_id.get(opp_id) or {}
+        feat_with_dir = {
+            "direction": dec.get("direction", "LONG"),
+            "model_id": m_id,
+            "h4_bias": feat.get("h4_bias"),
+            "h1_bias": feat.get("h1_bias"),
+            "m15_bias": feat.get("m15_bias"),
+            "m5_bias": feat.get("m5_bias"),
+            "unicorn_classification": feat.get("unicorn_classification"),
+            "sweep_confirmed": feat.get("sweep_confirmed"),
+            "sweep_reclaimed": feat.get("sweep_reclaimed"),
+            "fvg_present": feat.get("fvg_present"),
+            "fvg_unmitigated": feat.get("fvg_unmitigated"),
+            "mss_confirmed": feat.get("mss_confirmed"),
+        }
         feature_rows_63085.append(feat_with_dir)
+        if idx_d > 0 and idx_d % 8000 == 0:
+            import gc
+
+            gc.collect()
 
         htf_st = str(feat.get("htf_alignment_state") or "UNKNOWN")
         htf_state_counts[htf_st] += 1

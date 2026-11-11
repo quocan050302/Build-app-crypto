@@ -1135,6 +1135,10 @@ def main() -> int:
                 },
             },
         )
+        all_part_ind_check.pop("reconstructed_partitions", None)
+        all_part_ind_check.pop("reconstructed_si0_primary_bundle", None)
+        del conservation_by_policy_mode
+        gc.collect()
 
         # Phase A (P0-E1): Delayed entry contract, ledgers, structural SL/TP sizing, matched AB & 1-pos portfolio (02, 03, 07, 08, 09)
         si0_nb_eps = si_results_by_policy["SI0_OFF_BASELINE"]["primary_episodes"]
@@ -1339,8 +1343,16 @@ def main() -> int:
             freeze_check={"status": "PASS"},
         )
 
+        stage_c_recon = verify_all_policy_fill_mode_lineage_independently_v17931211(
+            run_dir,
+            bars_1m_by_open_ts=bars_1m_by_open_ts,
+            expected_run_id=run_id,
+            expected_tested_sha=sha,
+            expected_dataset_sha=actual_dataset_sha,
+            require_source_reconciliation=True,
+        )
         neg_v66 = run_negative_controls_v01_to_v66_v17931213(
-            reconstructed_partitions=all_part_ind_check["reconstructed_partitions"],
+            reconstructed_partitions=stage_c_recon["reconstructed_partitions"],
             bars_1m_by_open_ts=bars_1m_by_open_ts,
             base_v11_report_metrics=base_v11_metrics,
             base_v11_readme_text=base_v11_readme,
@@ -1352,6 +1364,8 @@ def main() -> int:
             run_id=run_id,
             tested_sha=sha,
         )
+        del stage_c_recon
+        gc.collect()
         write_json(run_dir / "14_negative_controls_V01_to_latest_fault_injection.json", neg_v66)
 
         append_stage_status(
