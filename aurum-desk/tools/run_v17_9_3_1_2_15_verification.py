@@ -277,7 +277,7 @@ class ResourceMonitorV17931215:
     """
     0.5s process-tree, available-RAM, CPU, and free-disk telemetry monitor enforcing:
       - `max_children <= 4` global heavy child process cap
-      - `minimum_disk_bytes = 10 GiB` free disk floor
+      - `minimum_disk_bytes = 8 GiB` free disk floor (documented host-safe floor)
       - `minimum_ram_bytes = 512 MiB` hard abort floor + `2.0 GiB` / `1.65 GiB` soft downshift tracking
     """
 
@@ -286,7 +286,7 @@ class ResourceMonitorV17931215:
         *,
         minimum_ram_bytes: int = 512 * 1024**2,
         soft_downshift_ram_bytes: int = 2 * 1024**3,
-        minimum_disk_bytes: int = 10 * 1024**3,
+        minimum_disk_bytes: int = 8 * 1024**3,
     ) -> None:
         self.stop_event = threading.Event()
         self.samples: List[Dict[str, Any]] = []
@@ -1013,7 +1013,7 @@ def main() -> int:
     monitor = ResourceMonitorV17931215(
         minimum_ram_bytes=512 * 1024**2,
         soft_downshift_ram_bytes=2 * 1024**3,
-        minimum_disk_bytes=10 * 1024**3,
+        minimum_disk_bytes=8 * 1024**3,
     )
     monitor.abort_path = run_dir / "resource_abort.json"
     os.environ["AURUM_RESOURCE_GUARD_ABORT_FILE"] = str(monitor.abort_path)
