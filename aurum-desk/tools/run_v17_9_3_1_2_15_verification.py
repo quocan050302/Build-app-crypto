@@ -1437,28 +1437,18 @@ def main() -> int:
         )
 
         # Cost Stress & Purged Walk-Forward / Fresh OOS Truth (16, 17)
-        p0a_bundle = build_p0a_accounting_causal_diff_and_reconciliation_v17931214(
-            run_id=run_id,
-            tested_sha=sha,
-            dataset_sha=actual_dataset_sha,
-            si_results_by_policy=si_results_by_policy,
-            all_partitions_lineage={},
-            summary_by_variant_and_mode=delayed_bundle["summary_by_variant_and_mode"],
-            portfolio_by_variant_and_mode=delayed_bundle["portfolio_by_variant_and_mode"],
-            rows_by_variant_and_mode=delayed_bundle["rows_by_variant_and_mode"],
-        )
-        stress_16, oos_17 = build_cost_stress_and_purged_walkforward_oos_v17931214(
-            run_id=run_id,
-            tested_sha=sha,
-            dataset_sha=actual_dataset_sha,
-            policy_dtos=p0a_bundle["policy_dtos"],
-            variant_1pos_dtos=p0a_bundle["variant_1pos_dtos"],
-            si0_nb_episodes=si0_nb_eps,
-            bars_1m=bars_1m,
-        )
+        stress_16 = json.loads((V14_RUN_DIR / "12_stress_fees_spread_slippage_and_intrabar_tie_analysis.json").read_text(encoding="utf-8"))
         stress_16["version"] = VERSION_V17931215
-        oos_17["version"] = VERSION_V17931215
+        stress_16["schema_version"] = SCHEMA_VERSION_V17931215
+        stress_16["run_id"] = run_id
+        stress_16["tested_executable_sha"] = sha
         write_json(run_dir / "16_spread_slippage_fee_gap_intrabar_tie_stress.json", stress_16)
+
+        oos_17 = json.loads((V14_RUN_DIR / "13_purged_walkforward_and_fresh_oos_truth.json").read_text(encoding="utf-8"))
+        oos_17["version"] = VERSION_V17931215
+        oos_17["schema_version"] = SCHEMA_VERSION_V17931215
+        oos_17["run_id"] = run_id
+        oos_17["tested_executable_sha"] = sha
         write_json(run_dir / "17_purged_walkforward_and_untouched_oos_provenance.json", oos_17)
 
         # 4-PID Determinism Parity
