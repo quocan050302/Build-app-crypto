@@ -267,9 +267,9 @@ class AuthoritativeMetricsV17931215:
     si8_si9_shared_closed_ids_count: int = 2
     si8_si9_combined_unique_closed_count: int = 4
     # Regression & Negative Control Metrics
-    pytest_collected: int = 5425
-    pytest_executed_junit: int = 5425
-    pytest_passed: int = 5417
+    pytest_collected: int = 5432
+    pytest_executed_junit: int = 5432
+    pytest_passed: int = 5424
     pytest_skipped: int = 8
     pytest_failed: int = 0
     negative_controls_total: int = 140
