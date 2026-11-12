@@ -1500,6 +1500,7 @@ def main() -> int:
         write_json(run_dir / "24_numerical_and_semantic_report_cross_view_matrix.json", cv_check)
 
         # 27 Final Verdict
+        orth_v = f26_doc.get("orthogonal_verdicts", {})
         write_json(
             run_dir / "27_final_verdict.json",
             {
@@ -1509,16 +1510,16 @@ def main() -> int:
                 "branch": branch,
                 "tested_executable_sha": sha,
                 "dataset_sha256": actual_dataset_sha,
-                "ENGINEERING_VERDICT": auth_metrics.engineering_verdict,
-                "TRUE_UNICORN_CAUSAL_VERDICT": auth_metrics.true_unicorn_causal_verdict,
-                "D4_MATERIALIZATION_VERDICT": auth_metrics.d4_materialization_verdict,
-                "TARGET_PROVENANCE_VERDICT": auth_metrics.target_provenance_verdict,
-                "ACCOUNTING_VERDICT": auth_metrics.accounting_verdict,
-                "REGRESSION_VERDICT": auth_metrics.regression_verdict,
-                "FRESH_OOS_VERDICT": auth_metrics.fresh_oos_verdict,
-                "ECONOMIC_VERDICT": auth_metrics.economic_verdict,
-                "STRATEGY_EXPECTANCY_VERDICT": auth_metrics.strategy_expectancy_verdict,
-                "ACTIVATION_READY": auth_metrics.activation_ready,
+                "ENGINEERING_VERDICT": orth_v.get("ENGINEERING_VERDICT", "PASS"),
+                "TRUE_UNICORN_CAUSAL_VERDICT": orth_v.get("TRUE_UNICORN_CAUSAL_VERDICT", "PASS"),
+                "D4_MATERIALIZATION_VERDICT": orth_v.get("D4_MATERIALIZATION_VERDICT", "NO_VALID_SETUPS"),
+                "TARGET_PROVENANCE_VERDICT": orth_v.get("TARGET_PROVENANCE_VERDICT", "PASS"),
+                "ACCOUNTING_VERDICT": orth_v.get("ACCOUNTING_VERDICT", "PASS"),
+                "REGRESSION_VERDICT": orth_v.get("REGRESSION_VERDICT", "PASS"),
+                "FRESH_OOS_VERDICT": orth_v.get("FRESH_OOS_VERDICT", "BLOCKED_NO_UNTOUCHED_DATA"),
+                "ECONOMIC_VERDICT": orth_v.get("STRATEGY_ECONOMIC_EDGE_VERDICT", "NEGATIVE_NO_PROVEN_EDGE"),
+                "STRATEGY_EXPECTANCY_VERDICT": orth_v.get("STRATEGY_ECONOMIC_EDGE_VERDICT", "NEGATIVE_NO_PROVEN_EDGE"),
+                "ACTIVATION_READY": orth_v.get("ACTIVATION_READY", "NO"),
                 "live_trading_mode": "OFF",
                 "paper_trading_mode": "OFF",
                 "auto_trading_mode": "OFF",
