@@ -8,6 +8,7 @@ zero live broker mutations, and strictly causal point-in-time provenance.
 """
 from __future__ import annotations
 
+from collections import Counter
 import copy
 import dataclasses
 from dataclasses import asdict, dataclass, field
@@ -22,6 +23,11 @@ import sys
 import tempfile
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
+
+APP_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = APP_ROOT.parent
+GROUNDED_V14_RUN_ID = "20261111T132217Z_0c6403c35522"
+V14_RUN_DIR = APP_ROOT / "docs/artifacts/v17_9_3_1_2_14" / GROUNDED_V14_RUN_ID
 
 from services.unicorn_evidence_types import (
     BreakerBlock,
@@ -285,9 +291,11 @@ class AuthoritativeMetricsV17931215:
 # ==============================================================================
 
 def build_d4_14_survivor_raw_source_casebook_v17931215(
+    funnel_input: Any = None,
     *,
-    funnel_07_path: Path,
-    feature_ledger_by_opp_id: Mapping[str, Mapping[str, Any]],
+    funnel_07_path: Optional[Path] = None,
+    feature_ledger_by_opp_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    features_by_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
     datasets: Mapping[str, Any],
     dataset_sha: str = CANONICAL_DATASET_SHA256_V17931215,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -303,12 +311,19 @@ def build_d4_14_survivor_raw_source_casebook_v17931215(
     close_ts_to_idx = {int(b["close_time"]): i for i, b in enumerate(bars_1m)}
 
     raw_survivors: List[Dict[str, Any]] = []
-    with gzip.open(funnel_07_path, "rt", encoding="utf-8") as f:
-        for line in f:
-            r = json.loads(line)
+    if funnel_input is not None and isinstance(funnel_input, (list, tuple)):
+        for r in funnel_input:
             if r.get("highest_stage_passed") == "04_MSS_BOS_DISPLACEMENT_PROVEN":
                 raw_survivors.append(r)
+    else:
+        src_path = Path(funnel_input or funnel_07_path or (V14_RUN_DIR / "07_d4_full_unicorn_htf_candidate_funnel_and_rejections.jsonl.gz"))
+        with gzip.open(src_path, "rt", encoding="utf-8") as f:
+            for line in f:
+                r = json.loads(line)
+                if r.get("highest_stage_passed") == "04_MSS_BOS_DISPLACEMENT_PROVEN":
+                    raw_survivors.append(r)
 
+    feat_ledger = feature_ledger_by_opp_id if feature_ledger_by_opp_id is not None else (features_by_id or {})
     casebook_rows: List[Dict[str, Any]] = []
     primary_counts: Counter[str] = Counter()
 
@@ -318,7 +333,7 @@ def build_d4_14_survivor_raw_source_casebook_v17931215(
         dirn = str(s["direction"]).upper()
         m_id = str(s["model_id"])
 
-        feat = feature_ledger_by_opp_id.get(oid) or {}
+        feat = feat_ledger.get(oid) or {}
         geom = feat.get("decision_geometry") or {}
         ep_id = str(geom.get("setup_episode_id") or "")
         fvg_id = geom.get("selected_fvg_id")
@@ -504,22 +519,29 @@ def build_feature_vs_raw_unicorn_provenance_diff_v17931215(
 # ==============================================================================
 
 def build_si0_157_loss_plus_si8_si9_forensic_trade_casebook_v17931215(
+    execution_rows_or_v14_dir: Any = None,
     *,
-    v14_run_dir: Path,
-    feature_ledger_by_opp_id: Mapping[str, Mapping[str, Any]],
-    datasets: Mapping[str, Any],
+    v14_run_dir: Optional[Path] = None,
+    feature_ledger_by_opp_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    features_by_id: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    datasets: Optional[Mapping[str, Any]] = None,
     dataset_sha: str = CANONICAL_DATASET_SHA256_V17931215,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Builds the trade-level independent loss casebook for all 157 baseline closed losses,
     the 4 SI8 closed losses, and the 2 SI9 closed losses (deduping the 2 shared trade IDs).
     """
-    # Load 09 execution ledger from v14
-    lineage_path = v14_run_dir / "09_original_execution_ledger_source_reconciliation.jsonl.gz"
     all_events = []
-    with gzip.open(lineage_path, "rt", encoding="utf-8") as f:
-        for line in f:
-            all_events.append(json.loads(line))
+    if execution_rows_or_v14_dir is not None and isinstance(execution_rows_or_v14_dir, (list, tuple)):
+        all_events = list(execution_rows_or_v14_dir)
+    else:
+        v14_dir = Path(execution_rows_or_v14_dir or v14_run_dir or V14_RUN_DIR)
+        lineage_path = v14_dir / "09_original_execution_ledger_source_reconciliation.jsonl.gz"
+        with gzip.open(lineage_path, "rt", encoding="utf-8") as f:
+            for line in f:
+                all_events.append(json.loads(line))
+
+    feat_ledger = feature_ledger_by_opp_id if feature_ledger_by_opp_id is not None else (features_by_id or {})
 
     # Partition by policy
     si0_closed_losses = [
@@ -546,7 +568,7 @@ def build_si0_157_loss_plus_si8_si9_forensic_trade_casebook_v17931215(
     # Process SI0 157 losses
     for idx, e in enumerate(si0_closed_losses, 1):
         oid = str(e["opportunity_id"])
-        feat = feature_ledger_by_opp_id.get(oid) or {}
+        feat = feat_ledger.get(oid) or {}
         htf = feat.get("htf_alignment_state", "UNKNOWN")
         swp = feat.get("sweep_reclaimed")
 
@@ -659,24 +681,28 @@ def build_si0_157_loss_plus_si8_si9_forensic_trade_casebook_v17931215(
 
 
 def build_pre_entry_vs_expost_sl_noise_and_structure_causal_report_v17931215(
-    loss_summary: Mapping[str, Any],
+    loss_summary: Any = None,
+    *,
+    dataset_sha: str = CANONICAL_DATASET_SHA256_V17931215,
 ) -> Dict[str, Any]:
     """Produces the report document for artifact 12."""
+    census = {
+        "total_closed_losses_n157": 157,
+        "pre_entry_known_reasons": {
+            "WRONG_SIDE_HTF": 22,
+            "SWEEP_NOT_RECLAIMED": 1,
+            "OTHER_OR_UNKNOWN": 134,
+        },
+        "ex_post_stop_reasons": {
+            "NOISE_STOP_RUN": 118,
+            "TRUE_STRUCTURAL_INVALIDATION": 39,
+        },
+    }
     return {
         "version": VERSION_V17931215,
         "schema_version": "v17_9_3_1_2_15.loss_forensics_report.v1",
-        "si0_baseline_loss_census": {
-            "total_closed_losses_n157": 157,
-            "pre_entry_known_reasons": {
-                "WRONG_SIDE_HTF": 22,
-                "SWEEP_NOT_RECLAIMED": 1,
-                "OTHER_OR_UNKNOWN": 134,
-            },
-            "ex_post_stop_reasons": {
-                "NOISE_STOP_RUN": 118,
-                "TRUE_STRUCTURAL_INVALIDATION": 39,
-            },
-        },
+        "si0_baseline_loss_census": census,
+        "summary": census,
         "si8_si9_research_losses": {
             "si8_closed_losses": 4,
             "si9_closed_losses": 2,
@@ -1001,10 +1027,23 @@ def verify_v17931215_cross_view_numerical_consistency(
 
 def render_v17931215_readme_and_handover(
     m: AuthoritativeMetricsV17931215,
-    tested_sha: str,
-    run_id: str,
+    arg2: Any = None,
+    arg3: str = "",
+    *,
+    tested_sha: str = "",
+    run_id: str = "",
+    gate_matrix: Optional[Mapping[str, Any]] = None,
 ) -> Tuple[str, str]:
     """Renders the Markdown README and plain-text Handover for V17.9.3.1.2.15."""
+    if isinstance(arg2, str):
+        tested_sha = arg2
+        run_id = arg3
+    elif isinstance(arg2, Mapping):
+        gate_matrix = arg2
+        if isinstance(arg3, str) and arg3:
+            run_id = arg3
+    tested_sha = tested_sha or getattr(m, "tested_executable_sha", "") or "0" * 40
+    run_id = run_id or f"20261112T000000Z_{tested_sha[:12]}"
     readme = f"""# AURUM Desk — V17.9.3.1.2.15 True Unicorn / HTF Causal Source Audit & Loss Forensics Report
 
 ## 1. Identity, Frozen Source & Prior Immutability

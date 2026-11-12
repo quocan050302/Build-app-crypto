@@ -1355,10 +1355,10 @@ def main() -> int:
 
         # PHASE 1: 14 D4 Survivors Raw Source Casebook, Audit & Provenance Diff (03, 04, 05)
         print("[Phase 1] Building 14 D4 survivors casebook & Breaker+FVG causal audit...", flush=True)
-        f03_rows = build_d4_14_survivor_raw_source_casebook_v17931215(
+        f03_rows, _ = build_d4_14_survivor_raw_source_casebook_v17931215(
             d4_bundle["funnel_rows_07"],
             datasets=datasets,
-            features_by_id=all_features_map,
+            feature_ledger_by_opp_id=all_features_map,
         )
         write_jsonl_gz(run_dir / "03_d4_14_survivor_raw_source_casebook.jsonl.gz", f03_rows)
 
@@ -1392,9 +1392,9 @@ def main() -> int:
 
         # PHASE 3: Loss Forensics 157 vs 242 & SI8/SI9 Deduping (11, 12)
         print("[Phase 3] Building 157 baseline closed loss & SI8/SI9 forensic casebook...", flush=True)
-        f11_rows = build_si0_157_loss_plus_si8_si9_forensic_trade_casebook_v17931215(
+        f11_rows, _ = build_si0_157_loss_plus_si8_si9_forensic_trade_casebook_v17931215(
             all_source_execution_rows,
-            features_by_id=all_features_map,
+            feature_ledger_by_opp_id=all_features_map,
         )
         write_jsonl_gz(run_dir / "11_si0_157_loss_plus_si8_si9_forensic_trade_casebook.jsonl.gz", f11_rows)
 
@@ -1499,7 +1499,9 @@ def main() -> int:
         write_json(run_dir / "26_gate_matrix_orthogonal_verdicts.json", f26_doc)
 
         # README and Handover
-        readme_text, handover_text = render_v17931215_readme_and_handover(auth_metrics, f26_doc)
+        readme_text, handover_text = render_v17931215_readme_and_handover(
+            auth_metrics, f26_doc, run_id=run_id, tested_sha=sha
+        )
         write_text_atomic(run_dir / "README_V17_9_3_1_2_15.md", readme_text)
         write_text_atomic(run_dir / "HANDOVER_V17_9_3_1_2_15.txt", handover_text)
 
@@ -1643,3 +1645,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
