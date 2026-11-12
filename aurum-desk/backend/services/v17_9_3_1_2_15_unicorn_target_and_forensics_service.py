@@ -53,6 +53,7 @@ from services.v17_9_3_1_2_14_accounting_target_and_d4_truth_service import (
 )
 
 VERSION_V17931215 = "V17.9.3.1.2.15"
+SCHEMA_VERSION_V17931215 = "v17_9_3_1_2_15.truth_closure.v1"
 CANONICAL_DATASET_SHA256_V17931215 = "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
 MANDATORY_BRANCH_V17931215 = "feature/v17-9-2-structural-sl-tp-from-qa"
 GROUNDED_V14_REMOTE_HEAD = "5ddc9703ae340930828fcbfac56b33042ebf7d80"
