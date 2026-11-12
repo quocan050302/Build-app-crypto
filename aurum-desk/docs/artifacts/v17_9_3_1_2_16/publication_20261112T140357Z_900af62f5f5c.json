@@ -1,0 +1,35 @@
+{
+  "G_PUBLICATION": "PASS",
+  "PUBLICATION_PHASE_C_STATUS": "PASS_REMOTE_READBACK_VERIFIED",
+  "artifact_manifest_sha256": "eaf5ccde1a3e46dda35ba0411c0f6516d55ab9446cb9e15fa76008dd95171433",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "immutable_run_dir": "aurum-desk/docs/artifacts/v17_9_3_1_2_16/20261112T140357Z_900af62f5f5c",
+  "ls_remote_verified_phase_b_sha": "44061997870b69ff8e59fc555773792ddabd0810",
+  "manifest_25_sha256": "eaf5ccde1a3e46dda35ba0411c0f6516d55ab9446cb9e15fa76008dd95171433",
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_PHASE_C_STATUS": "PASS_REMOTE_READBACK_VERIFIED",
+    "REGRESSION_VERDICT": "PASS",
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TARGET_PROVENANCE_VERDICT": "PASS",
+    "TRUE_UNICORN_CAUSAL_VERDICT": "PASS"
+  },
+  "phase_a_is_ancestor_of_phase_b": true,
+  "phase_a_tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "phase_b_immutable_evidence_commit_sha": "44061997870b69ff8e59fc555773792ddabd0810",
+  "prior_v15_remote_head_sha": "7c39b2925d6bcd1ae8f99558090dbc8f8f35aad3",
+  "remote_blob_sha256_readback_verification": {
+    "status": "PASS",
+    "version": "V17.9.3.1.2.16",
+    "violations": []
+  },
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "schema_version": "v17_9_3_1_2_16.truth_closure.v1",
+  "verified_at_utc": "2026-11-12T14:29:29.788555+00:00",
+  "verified_remote_blobs_count": 52,
+  "version": "V17.9.3.1.2.16"
+}

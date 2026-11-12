@@ -1,0 +1,21 @@
+{
+  "ACCOUNTING_VERDICT": "PASS",
+  "ACTIVATION_READY": "NO",
+  "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "G_PUBLICATION": "PASS",
+  "PUBLICATION_PHASE_C_STATUS": "PASS_REMOTE_READBACK_VERIFIED",
+  "REGRESSION_VERDICT": "PASS",
+  "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "TARGET_PROVENANCE_VERDICT": "PASS",
+  "TRUE_UNICORN_CAUSAL_VERDICT": "PASS",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "phase_b_evidence_commit_sha": "44061997870b69ff8e59fc555773792ddabd0810",
+  "publication_receipt": "aurum-desk/docs/artifacts/v17_9_3_1_2_16/publication_20261112T140357Z_900af62f5f5c.json",
+  "run_dir": "aurum-desk/docs/artifacts/v17_9_3_1_2_16/20261112T140357Z_900af62f5f5c",
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "schema_version": "v17_9_3_1_2_16.truth_closure.v1",
+  "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "version": "V17.9.3.1.2.16"
+}
