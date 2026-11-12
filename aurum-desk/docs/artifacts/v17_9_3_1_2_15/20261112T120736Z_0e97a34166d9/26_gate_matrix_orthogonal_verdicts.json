@@ -1,0 +1,120 @@
+{
+  "gates": [
+    {
+      "gate_id": "G01",
+      "name": "SOURCE_AND_BRANCH",
+      "status": "PASS",
+      "summary": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa and canonical dataset 9f301fee2e62 verified."
+    },
+    {
+      "gate_id": "G02",
+      "name": "D4_14_CASES",
+      "status": "PASS",
+      "summary": "All 14 D4 survivor casebook rows source-audited and classified."
+    },
+    {
+      "gate_id": "G03",
+      "name": "D4_UNICORN_BINDING",
+      "status": "PASS",
+      "summary": "Breaker+FVG overlap point-in-time provenance consistent; no false accepts."
+    },
+    {
+      "gate_id": "G04",
+      "name": "CAUSAL_ENTRY_SL_TP",
+      "status": "PASS",
+      "summary": "Closed-only M1 entry, independent structural SL, unswept TP, risk capped <= 2.50 USD."
+    },
+    {
+      "gate_id": "G05",
+      "name": "TARGET_201_66",
+      "status": "PASS",
+      "summary": "267 target failures reconciled: 201 ATR mismatch + 66 horizon unreachable."
+    },
+    {
+      "gate_id": "G06",
+      "name": "LOSS_FORENSICS",
+      "status": "PASS",
+      "summary": "157 SI0 losses conserved; SI8/SI9 4/2 losses with 2 shared IDs deduped (4 unique)."
+    },
+    {
+      "gate_id": "G07",
+      "name": "D4_FUNNEL",
+      "status": "PASS",
+      "summary": "D4 funnel 63,085 -> 7,562 -> 184 -> 14 -> 0; 0 trades; ECONOMIC verdict INCONCLUSIVE_NO_SAMPLE."
+    },
+    {
+      "gate_id": "G08",
+      "name": "ALL_POLICY_REPLAYS",
+      "status": "PASS",
+      "summary": "10 policies x 3 fill modes = 30 raw execution partitions strictly reconciled."
+    },
+    {
+      "gate_id": "G09",
+      "name": "REGRESSION",
+      "status": "PASS",
+      "summary": "Full fresh pytest collection 5432 == 5432 executed; 5424 passed, 8 skips."
+    },
+    {
+      "gate_id": "G10",
+      "name": "NEGATIVE_CONTROLS",
+      "status": "PASS",
+      "summary": "All 140/140 adversarial negative controls (V01..V140) RED/GREEN."
+    },
+    {
+      "gate_id": "G11",
+      "name": "WORKERS",
+      "status": "PASS",
+      "summary": "Bounded async supervisor; w1/w2/w4 parity; w3 speedup 2.32x; max children 4."
+    },
+    {
+      "gate_id": "G12",
+      "name": "RESOURCE",
+      "status": "PASS",
+      "summary": "Disk/RAM guards observed; atomic file writes; zero orphans; user data preserved."
+    },
+    {
+      "gate_id": "G13",
+      "name": "REPORT_TRUTH",
+      "status": "PASS",
+      "summary": "README, Handover, Gate Matrix, and JSON ledgers 100% numerically consistent."
+    },
+    {
+      "gate_id": "G14",
+      "name": "OOS_PROVENANCE",
+      "status": "BLOCKED",
+      "summary": "No fresh untouched external dataset available; historical dataset reused for validation only."
+    },
+    {
+      "gate_id": "G15",
+      "name": "ECONOMIC_EDGE",
+      "status": "NEGATIVE",
+      "summary": "Trading strategy exhibits negative expectancy on historical window (SI0 net R=-0.8474, SI8 net R=-0.9876, SI9 net R=-0.9896)."
+    },
+    {
+      "gate_id": "G16",
+      "name": "ACTIVATION",
+      "status": "PASS",
+      "summary": "PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF; ACTIVATION_READY=NO strictly enforced."
+    },
+    {
+      "gate_id": "G17",
+      "name": "PUBLICATION",
+      "status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "summary": "Pre-push check in immutable bundle; post-push receipt verified externally."
+    }
+  ],
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_PHASE_C_STATUS": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+    "REGRESSION_VERDICT": "PASS",
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TARGET_PROVENANCE_VERDICT": "PASS",
+    "TRUE_UNICORN_CAUSAL_VERDICT": "PASS"
+  },
+  "status": "PASS",
+  "version": "V17.9.3.1.2.15"
+}

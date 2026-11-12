@@ -1,0 +1,37 @@
+{
+  "conservation_holds": true,
+  "schema_version": "v17_9_3_1_2_15.loss_forensics_report.v1",
+  "si0_baseline_loss_census": {
+    "ex_post_stop_reasons": {
+      "NOISE_STOP_RUN": 118,
+      "TRUE_STRUCTURAL_INVALIDATION": 39
+    },
+    "pre_entry_known_reasons": {
+      "OTHER_OR_UNKNOWN": 134,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 22
+    },
+    "total_closed_losses_n157": 157
+  },
+  "si8_si9_research_losses": {
+    "net_unique_closed_trades": 4,
+    "never_sum_si8_plus_si9_without_deduping": true,
+    "shared_trade_ids_between_si8_and_si9": 2,
+    "si8_closed_losses": 4,
+    "si9_closed_losses": 2
+  },
+  "status": "PASS",
+  "summary": {
+    "ex_post_stop_reasons": {
+      "NOISE_STOP_RUN": 118,
+      "TRUE_STRUCTURAL_INVALIDATION": 39
+    },
+    "pre_entry_known_reasons": {
+      "OTHER_OR_UNKNOWN": 134,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 22
+    },
+    "total_closed_losses_n157": 157
+  },
+  "version": "V17.9.3.1.2.15"
+}

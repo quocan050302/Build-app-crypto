@@ -1,0 +1,12 @@
+{
+  "gates_count": 17,
+  "manifest_sha256": "7f94d5320307fbda43aa76c0d7e101e7f2b661b421f58b111e1fc3fa9b379c43",
+  "prepublication_engineering": "PASS",
+  "run_id": "20261112T120736Z_0e97a34166d9",
+  "status": "PASS",
+  "verified_at_utc": "2026-11-12T12:34:24.915703+00:00",
+  "verified_files_count": 49,
+  "verifier_pid": 69445,
+  "version": "V17.9.3.1.2.15",
+  "violations": []
+}

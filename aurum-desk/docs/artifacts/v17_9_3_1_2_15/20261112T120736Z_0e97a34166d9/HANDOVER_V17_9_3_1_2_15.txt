@@ -1,0 +1,56 @@
+================================================================================
+AURUM DESK — V17.9.3.1.2.15 HANDOVER REPORT
+TRUE UNICORN / HTF CAUSAL SOURCE AUDIT + TARGET ATR UNIT REPAIR + LOSS FORENSICS
+================================================================================
+
+1. GIT ANCESTRY & IDENTITY
+--------------------------------------------------------------------------------
+Branch: feature/v17-9-2-structural-sl-tp-from-qa
+Tested Executable SHA: 0e97a34166d94d012e8e75c207257d24bbacd88b
+Prior Audited Remote HEAD: 5ddc9703ae340930828fcbfac56b33042ebf7d80
+Dataset SHA256: 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 (22,376 closed M1 bars)
+Prior .7..14 Artifacts: Preserved Byte-for-Byte
+
+2. EMPIRICAL TRADING METRICS (NEXT_BAR_OPEN_BID_ASK)
+--------------------------------------------------------------------------------
+SI0 Baseline: Scheduled=242, Closed=166, Wins=9, Losses=157, Net USD=-345.8971, Net R=-0.8474
+SI8 Research: Materialized=5, Blocked=1, Scheduled=4, Closed=4, Wins=0, Losses=4, Net USD=-9.7372, Net R=-0.9876
+SI9 Research: Materialized=3, Blocked=1, Scheduled=2, Closed=2, Wins=0, Losses=2, Net USD=-4.8886, Net R=-0.9896
+Shared Closed Trade IDs between SI8 and SI9: 2 (Combined Unique Closed=4)
+
+3. D4 14-STAGE UNICORN FUNNEL
+--------------------------------------------------------------------------------
+Stage 01 Registered: 63,085
+Stage 02 HTF Aligned: 7,562
+Stage 03 Sweep Proven: 184
+Stage 04 MSS Proven: 14
+Stage 05 True Unicorn: 0
+Accepted Trades: 0, Closed: 0, Expectancy: UNDEFINED_ZERO_TRADES
+
+4. 14 SURVIVOR FORENSICS & 267 TARGET CAUSES
+--------------------------------------------------------------------------------
+14 Survivors: All 14 rejected at Stage 05 (NO_VALID_BREAKER_FVG_OVERLAP). Raw detector and feature ledger agree 100%.
+267 Target Rejections: 201 M1-vs-HTF ATR unit mismatch on valid HTF pools, 66 horizon unreachable, 0 net RR < 2.
+
+5. 157 BASELINE LOSSES
+--------------------------------------------------------------------------------
+134 OTHER_OR_UNKNOWN at pre-entry, 22 WRONG_SIDE_HTF, 1 SWEEP_NOT_RECLAIMED.
+No future bars or ex-post leakage retrofitted into pre-entry classifications.
+
+6. REGRESSION & TEST VERIFICATION
+--------------------------------------------------------------------------------
+Pytest: 5432 collected / executed; 5424 passed, 8 skips, 0 failures.
+Negative Controls: 140/140 (V01..V140) RED/GREEN verified.
+Multi-Worker: w3 speedup 2.32x, max children 4, 0 orphans.
+
+7. SIX ORTHOGONAL VERDICTS
+--------------------------------------------------------------------------------
+ENGINEERING_VERDICT: PASS
+TRUE_UNICORN_CAUSAL_VERDICT: PASS
+D4_MATERIALIZATION_VERDICT: NO_VALID_SETUPS
+TARGET_PROVENANCE_VERDICT: PASS
+ACCOUNTING_VERDICT: PASS
+REGRESSION_VERDICT: PASS
+FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+STRATEGY_ECONOMIC_EDGE_VERDICT: NEGATIVE_NO_PROVEN_EDGE
+ACTIVATION_READY: NO

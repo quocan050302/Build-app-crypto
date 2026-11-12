@@ -1,0 +1,289 @@
+{
+  "ACCOUNTING_VERDICT": "PASS",
+  "ACTIVATION_READY": "NO",
+  "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+  "ECONOMIC_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "REGRESSION_VERDICT": "PASS",
+  "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "TARGET_PROVENANCE_VERDICT": "PASS",
+  "TRUE_UNICORN_CAUSAL_VERDICT": "PASS",
+  "authoritative_metrics": {
+    "baseline_opportunities_total": 56710,
+    "baseline_primary_closed_losses_distribution": {
+      "OTHER_OR_UNKNOWN": 134,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 22
+    },
+    "baseline_primary_closed_losses_n157": 157,
+    "baseline_primary_scheduled_distribution": {
+      "DATA_GAP_UNRESOLVED": 1,
+      "LOSS": 157,
+      "OPEN_AT_HORIZON": 74,
+      "UNFILLED": 1,
+      "WIN": 9
+    },
+    "baseline_primary_scheduled_episodes_n242": 242,
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_universe_total": 63085,
+    "d4_14_stage_pass_counts_63085": {
+      "01_CANDIDATE_REGISTERED": 63085,
+      "02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED": 7562,
+      "03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN": 184,
+      "04_MSS_BOS_DISPLACEMENT_PROVEN": 14,
+      "05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG": 0,
+      "06_VALID_FRESH_UNCONSUMED_RETEST": 0,
+      "07_POST_SIGNAL_DELAYED_CONFIRMATION": 0,
+      "08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR": 0,
+      "09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET": 0,
+      "10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0": 0,
+      "11_FIXED_RISK_SIZING_LTE_2_50_USD": 0,
+      "12_MATERIALIZED_INTENT_1POS_ELIGIBLE": 0,
+      "13_POST_CONFIRMATION_ENTRY_FILLED": 0,
+      "14_TERMINAL_CLOSED_OUTCOME": 0
+    },
+    "d4_matched_242_accepted_nb": 0,
+    "d4_matched_242_closed_nb": 0,
+    "d4_matched_242_expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+    "d4_matched_242_net_pnl_usd_nb": 0.0,
+    "d4_materialization_status": "NO_CAUSALLY_ELIGIBLE_SETUPS",
+    "d4_survivors_14_casebook_count": 14,
+    "d4_survivors_14_primary_status_distribution": {
+      "NO_VALID_BREAKER_FVG_OVERLAP": 14
+    },
+    "d4_universe_63085_accepted_nb": 0,
+    "d4_universe_63085_closed_nb": 0,
+    "d4_universe_63085_expectancy_status": "UNDEFINED_ZERO_TRADES",
+    "d4_universe_63085_net_pnl_usd_nb": 0.0,
+    "max_children_observed": 4,
+    "negative_controls_passed": 140,
+    "negative_controls_total": 140,
+    "orphan_pids_count": 0,
+    "pytest_collected": 5432,
+    "pytest_executed_junit": 5432,
+    "pytest_failed": 0,
+    "pytest_passed": 5424,
+    "pytest_skipped": 8,
+    "same_sha_w3_speedup": 2.32,
+    "si0_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 166,
+        "expectancy_net_r": -0.8494,
+        "losses_count": 157,
+        "realized_net_pnl_usd": -346.7321,
+        "scheduled_episodes_count": 242,
+        "wins_count": 9
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 166,
+        "expectancy_net_r": -0.8474,
+        "losses_count": 157,
+        "realized_net_pnl_usd": -345.8971,
+        "scheduled_episodes_count": 242,
+        "wins_count": 9
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 166,
+        "expectancy_net_r": -0.8609,
+        "losses_count": 157,
+        "realized_net_pnl_usd": -351.4121,
+        "scheduled_episodes_count": 242,
+        "wins_count": 9
+      }
+    },
+    "si8_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "expectancy_net_r": -0.9992,
+        "losses_count": 4,
+        "materialized_intents_count": 5,
+        "realized_net_pnl_usd": -9.8512,
+        "scheduled_episodes_count": 4,
+        "total_fees_usd": 3.0656,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "expectancy_net_r": -0.9876,
+        "losses_count": 4,
+        "materialized_intents_count": 5,
+        "realized_net_pnl_usd": -9.7372,
+        "scheduled_episodes_count": 4,
+        "total_fees_usd": 3.0656,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "expectancy_net_r": -1.0159,
+        "losses_count": 4,
+        "materialized_intents_count": 5,
+        "realized_net_pnl_usd": -10.0162,
+        "scheduled_episodes_count": 4,
+        "total_fees_usd": 3.1256,
+        "wins_count": 0
+      }
+    },
+    "si8_incremental_discovery_total": 6375,
+    "si8_si9_combined_unique_closed_count": 4,
+    "si8_si9_shared_closed_ids_count": 2,
+    "si9_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "expectancy_net_r": -0.9987,
+        "losses_count": 2,
+        "materialized_intents_count": 3,
+        "realized_net_pnl_usd": -4.9337,
+        "scheduled_episodes_count": 2,
+        "total_fees_usd": 1.3209,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "expectancy_net_r": -0.9896,
+        "losses_count": 2,
+        "materialized_intents_count": 3,
+        "realized_net_pnl_usd": -4.8886,
+        "scheduled_episodes_count": 2,
+        "total_fees_usd": 1.3209,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "expectancy_net_r": -1.0139,
+        "losses_count": 2,
+        "materialized_intents_count": 3,
+        "realized_net_pnl_usd": -5.0086,
+        "scheduled_episodes_count": 2,
+        "total_fees_usd": 1.3509,
+        "wins_count": 0
+      }
+    },
+    "target_201_m1_vs_htf_atr_mismatch_count": 201,
+    "target_267_cohort_count": 267,
+    "target_66_horizon_unreachable_count": 66,
+    "target_actual_net_rr_lt_2_count": 0,
+    "target_control_group_count": 40,
+    "version": "V17.9.3.1.2.15"
+  },
+  "auto_trading_mode": "OFF",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": [
+    {
+      "gate_id": "G01",
+      "name": "SOURCE_AND_BRANCH",
+      "status": "PASS",
+      "summary": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa and canonical dataset 9f301fee2e62 verified."
+    },
+    {
+      "gate_id": "G02",
+      "name": "D4_14_CASES",
+      "status": "PASS",
+      "summary": "All 14 D4 survivor casebook rows source-audited and classified."
+    },
+    {
+      "gate_id": "G03",
+      "name": "D4_UNICORN_BINDING",
+      "status": "PASS",
+      "summary": "Breaker+FVG overlap point-in-time provenance consistent; no false accepts."
+    },
+    {
+      "gate_id": "G04",
+      "name": "CAUSAL_ENTRY_SL_TP",
+      "status": "PASS",
+      "summary": "Closed-only M1 entry, independent structural SL, unswept TP, risk capped <= 2.50 USD."
+    },
+    {
+      "gate_id": "G05",
+      "name": "TARGET_201_66",
+      "status": "PASS",
+      "summary": "267 target failures reconciled: 201 ATR mismatch + 66 horizon unreachable."
+    },
+    {
+      "gate_id": "G06",
+      "name": "LOSS_FORENSICS",
+      "status": "PASS",
+      "summary": "157 SI0 losses conserved; SI8/SI9 4/2 losses with 2 shared IDs deduped (4 unique)."
+    },
+    {
+      "gate_id": "G07",
+      "name": "D4_FUNNEL",
+      "status": "PASS",
+      "summary": "D4 funnel 63,085 -> 7,562 -> 184 -> 14 -> 0; 0 trades; ECONOMIC verdict INCONCLUSIVE_NO_SAMPLE."
+    },
+    {
+      "gate_id": "G08",
+      "name": "ALL_POLICY_REPLAYS",
+      "status": "PASS",
+      "summary": "10 policies x 3 fill modes = 30 raw execution partitions strictly reconciled."
+    },
+    {
+      "gate_id": "G09",
+      "name": "REGRESSION",
+      "status": "PASS",
+      "summary": "Full fresh pytest collection 5432 == 5432 executed; 5424 passed, 8 skips."
+    },
+    {
+      "gate_id": "G10",
+      "name": "NEGATIVE_CONTROLS",
+      "status": "PASS",
+      "summary": "All 140/140 adversarial negative controls (V01..V140) RED/GREEN."
+    },
+    {
+      "gate_id": "G11",
+      "name": "WORKERS",
+      "status": "PASS",
+      "summary": "Bounded async supervisor; w1/w2/w4 parity; w3 speedup 2.32x; max children 4."
+    },
+    {
+      "gate_id": "G12",
+      "name": "RESOURCE",
+      "status": "PASS",
+      "summary": "Disk/RAM guards observed; atomic file writes; zero orphans; user data preserved."
+    },
+    {
+      "gate_id": "G13",
+      "name": "REPORT_TRUTH",
+      "status": "PASS",
+      "summary": "README, Handover, Gate Matrix, and JSON ledgers 100% numerically consistent."
+    },
+    {
+      "gate_id": "G14",
+      "name": "OOS_PROVENANCE",
+      "status": "BLOCKED",
+      "summary": "No fresh untouched external dataset available; historical dataset reused for validation only."
+    },
+    {
+      "gate_id": "G15",
+      "name": "ECONOMIC_EDGE",
+      "status": "NEGATIVE",
+      "summary": "Trading strategy exhibits negative expectancy on historical window (SI0 net R=-0.8474, SI8 net R=-0.9876, SI9 net R=-0.9896)."
+    },
+    {
+      "gate_id": "G16",
+      "name": "ACTIVATION",
+      "status": "PASS",
+      "summary": "PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF; ACTIVATION_READY=NO strictly enforced."
+    },
+    {
+      "gate_id": "G17",
+      "name": "PUBLICATION",
+      "status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "summary": "Pre-push check in immutable bundle; post-push receipt verified externally."
+    }
+  ],
+  "live_trading_mode": "OFF",
+  "paper_trading_mode": "OFF",
+  "run_id": "20261112T120736Z_0e97a34166d9",
+  "schema_version": "v17_9_3_1_2_15.truth_closure.v1",
+  "tested_executable_sha": "0e97a34166d94d012e8e75c207257d24bbacd88b",
+  "version": "V17.9.3.1.2.15"
+}
