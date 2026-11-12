@@ -1,0 +1,10 @@
+{
+  "combined_unique_closed_count": 4,
+  "deduplication_status": "DEDUPED_NO_DOUBLE_COUNTING",
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "shared_closed_ids_count": 2,
+  "si8_closed_count": 4,
+  "si9_closed_count": 2,
+  "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "version": "V17.9.3.1.2.16"
+}

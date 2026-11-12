@@ -1,0 +1,30 @@
+{
+  "activation_flags": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "enabled_in_production": false
+  },
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "grounded_v14_evidence_sha": "235937e51d3aa997af3c9369d1e4c7d46d1f1280",
+  "grounded_v14_remote_head": "5ddc9703ae340930828fcbfac56b33042ebf7d80",
+  "grounded_v14_tested_executable_sha": "0c6403c35522ef3b4a386ee871f73ea0e1eb3213",
+  "observed_head_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "orchestrator_pid": 77582,
+  "resource_contract": {
+    "exclusive_realtime_30ms_shard": true,
+    "global_heavy_worker_cap": 4,
+    "hard_abort_ram_bytes": 536870912,
+    "max_parallel_pytest_shards": 3,
+    "minimum_free_disk_bytes": 10737418240,
+    "soft_downshift_ram_bytes": 2147483648,
+    "telemetry_sampling_interval_seconds": 0.5
+  },
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "schema_version": "v17_9_3_1_2_16.truth_closure.v1",
+  "started_at_utc": "2026-11-12T14:03:59Z",
+  "status": "RUNNING",
+  "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "version": "V17.9.3.1.2.16"
+}

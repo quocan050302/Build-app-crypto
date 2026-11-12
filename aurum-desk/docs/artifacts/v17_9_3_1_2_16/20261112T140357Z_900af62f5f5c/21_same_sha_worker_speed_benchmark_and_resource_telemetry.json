@@ -1,0 +1,119 @@
+{
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "same_sha_speed_benchmark": {
+    "repeats_per_worker_mode": 2,
+    "run_id": "20261112T140357Z_900af62f5f5c",
+    "runs_by_worker_mode": {
+      "w=1": [
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78627,
+            78636,
+            78642,
+            78649,
+            78650,
+            78655
+          ],
+          "repeat_index": 0,
+          "wall_clock_seconds": 27.191,
+          "worker_concurrency": 1
+        },
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78669,
+            78704,
+            78711,
+            78718,
+            78719,
+            78724
+          ],
+          "repeat_index": 1,
+          "wall_clock_seconds": 26.766,
+          "worker_concurrency": 1
+        }
+      ],
+      "w=2": [
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78725,
+            78726,
+            78732,
+            78739,
+            78741,
+            78742
+          ],
+          "repeat_index": 0,
+          "wall_clock_seconds": 14.252,
+          "worker_concurrency": 2
+        },
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78747,
+            78748,
+            78754,
+            78761,
+            78762,
+            78763
+          ],
+          "repeat_index": 1,
+          "wall_clock_seconds": 14.318,
+          "worker_concurrency": 2
+        }
+      ],
+      "w=3": [
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78773,
+            78774,
+            78775,
+            78778,
+            78787,
+            78797
+          ],
+          "repeat_index": 0,
+          "wall_clock_seconds": 11.418,
+          "worker_concurrency": 3
+        },
+        {
+          "distinct_pids_count": 6,
+          "pids": [
+            78806,
+            78807,
+            78808,
+            78816,
+            78817,
+            78818
+          ],
+          "repeat_index": 1,
+          "wall_clock_seconds": 11.277,
+          "worker_concurrency": 3
+        }
+      ]
+    },
+    "same_sha_matched_workload_files": [
+      "backend/tests/test_v14_3_ny_quota.py",
+      "backend/tests/test_v17_9_1_mtf_structure_liquidity.py",
+      "backend/tests/test_v17_9_2_structural_stop.py",
+      "backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+      "backend/tests/test_v17_7_atr_provenance.py",
+      "backend/tests/test_v15_9_quote_source_rejection.py"
+    ],
+    "schema_version": "v17_9_3_1_2_16.truth_closure.v1",
+    "status": "PASS",
+    "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+    "version": "V17.9.3.1.2.16",
+    "w1_mean_seconds": 26.978,
+    "w2_mean_seconds": 14.285,
+    "w2_speedup_vs_w1": 1.889,
+    "w3_mean_seconds": 11.348,
+    "w3_speedup_vs_w1": 2.377
+  },
+  "status": "PASS",
+  "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "version": "V17.9.3.1.2.16"
+}

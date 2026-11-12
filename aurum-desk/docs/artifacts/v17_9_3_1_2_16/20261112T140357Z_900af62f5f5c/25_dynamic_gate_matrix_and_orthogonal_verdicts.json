@@ -1,0 +1,120 @@
+{
+  "gates": [
+    {
+      "gate_id": "G01",
+      "name": "BRANCH_SOURCE_FREEZE",
+      "status": "PASS",
+      "summary": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa and canonical dataset 9f301fee2e62 verified."
+    },
+    {
+      "gate_id": "G02",
+      "name": "REAL_ADVERSARIAL_CONTROLS",
+      "status": "PASS",
+      "summary": "All 140/140 negative controls passed; 58 real injected."
+    },
+    {
+      "gate_id": "G03",
+      "name": "JUNIT_NODE_OS_BIJECTION",
+      "status": "PASS",
+      "summary": "Full fresh collection 5439 == 5439 executed; 5437 passed, 2 skips."
+    },
+    {
+      "gate_id": "G04",
+      "name": "CROSS_VIEW_REPORT_TRUTH",
+      "status": "PASS",
+      "summary": "README, Handover, Gate Matrix, and JSON ledgers 100% numerically consistent."
+    },
+    {
+      "gate_id": "G05",
+      "name": "PROVENANCE_FAIL_CLOSED",
+      "status": "PASS",
+      "summary": "Point-in-time closed bar provenance verified; unproven signals fail-closed."
+    },
+    {
+      "gate_id": "G06",
+      "name": "14_SURVIVOR_DETECTOR_PROOF",
+      "status": "PASS",
+      "summary": "All 14 Stage-4 survivor cases independently audited; NO_CORE_UNICORN_PATCH_JUSTIFIED (0 trades)."
+    },
+    {
+      "gate_id": "G07",
+      "name": "UNICORN_STRICT_ANTI_LOOKAHEAD",
+      "status": "PASS",
+      "summary": "Breaker+FVG overlap strictly >=1 tick required; FVG-only correctly rejected."
+    },
+    {
+      "gate_id": "G08",
+      "name": "TARGET_UNIT_SOURCE_TRUTH",
+      "status": "PASS",
+      "summary": "267 target failures reconciled: 201 ATR unit mismatch + 66 horizon unreachable."
+    },
+    {
+      "gate_id": "G09",
+      "name": "LOSS_CAUSAL_FORENSICS",
+      "status": "PASS",
+      "summary": "157 SI0 losses conserved; SI8/SI9 4/2 losses with 2 shared IDs deduped (4 unique)."
+    },
+    {
+      "gate_id": "G10",
+      "name": "ENTRY_STOP_TARGET_GEOMETRY",
+      "status": "PASS",
+      "summary": "Closed M1 entry, independent structural SL, unswept TP, risk capped <= 2.50 USD."
+    },
+    {
+      "gate_id": "G11",
+      "name": "FULL_30_PARTITIONS",
+      "status": "PASS",
+      "summary": "10 policies x 3 fill modes = 30 raw execution partitions strictly reconciled."
+    },
+    {
+      "gate_id": "G12",
+      "name": "MATCHED_AB_AND_STRESS",
+      "status": "PASS",
+      "summary": "A0..D4 matched counterfactuals, 2x fee/spread stress, and intrabar tie conservatism verified."
+    },
+    {
+      "gate_id": "G13",
+      "name": "WORKER_PARITY_AND_RESOURCE",
+      "status": "PASS",
+      "summary": "w1/w2/w4 parity verified; measured w3 speedup 2.377x; max children 4; 0 orphans."
+    },
+    {
+      "gate_id": "G14",
+      "name": "FRESH_OOS",
+      "status": "BLOCKED",
+      "summary": "No fresh untouched external dataset available; historical dataset reused for validation only."
+    },
+    {
+      "gate_id": "G15",
+      "name": "ECONOMIC_EDGE",
+      "status": "NEGATIVE",
+      "summary": "Trading strategy exhibits negative expectancy on historical window (SI0 net R=-0.8474, SI8 net R=-0.9876, SI9 net R=-0.9896)."
+    },
+    {
+      "gate_id": "G16",
+      "name": "ACTIVATION_SAFETY",
+      "status": "PASS",
+      "summary": "PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF; ACTIVATION_READY=NO strictly enforced."
+    },
+    {
+      "gate_id": "G17",
+      "name": "GIT_PUBLICATION",
+      "status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "summary": "Pre-push check in immutable bundle; post-push receipt verified externally."
+    }
+  ],
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_PHASE_C_STATUS": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+    "REGRESSION_VERDICT": "PASS",
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TARGET_PROVENANCE_VERDICT": "PASS",
+    "TRUE_UNICORN_CAUSAL_VERDICT": "PASS"
+  },
+  "status": "PASS",
+  "version": "V17.9.3.1.2.16"
+}

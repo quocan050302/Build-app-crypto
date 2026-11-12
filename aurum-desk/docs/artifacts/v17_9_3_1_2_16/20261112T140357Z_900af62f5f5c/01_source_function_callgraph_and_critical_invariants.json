@@ -1,0 +1,1704 @@
+{
+  "anchored_symbols": [
+    {
+      "end_line": 382,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 156,
+      "symbol": "build_v17931213_callgraph_and_defect_matrix"
+    },
+    {
+      "end_line": 501,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 389,
+      "symbol": "enrich_si8_aligned_decisions_and_features_v17931213"
+    },
+    {
+      "end_line": 580,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 508,
+      "symbol": "_summarize_counterfactual_rows_v17931213"
+    },
+    {
+      "end_line": 701,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 583,
+      "symbol": "_replay_chronological_1pos_portfolio_from_matched_rows_v17931213"
+    },
+    {
+      "end_line": 1037,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 704,
+      "symbol": "build_delayed_entry_contract_and_ledgers_v17931213"
+    },
+    {
+      "end_line": 1163,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1040,
+      "symbol": "verify_delayed_entry_and_structural_sl_tp_v17931213"
+    },
+    {
+      "end_line": 1283,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1170,
+      "symbol": "_run_materialized_single_axis_ablation_v17931213"
+    },
+    {
+      "end_line": 1374,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1286,
+      "symbol": "_adapt_canonical_policy_fill_mode_strict"
+    },
+    {
+      "end_line": 1895,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1377,
+      "symbol": "build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213"
+    },
+    {
+      "end_line": 1938,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1898,
+      "symbol": "verify_htf_unicorn_and_si8_si9_funnel_v17931213"
+    },
+    {
+      "end_line": 2006,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 1945,
+      "symbol": "build_pre_entry_forensics_and_d1_d4_transitions_v17931213"
+    },
+    {
+      "end_line": 2080,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "ClassDef",
+      "start_line": 2014,
+      "symbol": "AuthoritativeMetricsV17931213"
+    },
+    {
+      "end_line": 2234,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2083,
+      "symbol": "build_authoritative_metrics_v17931213"
+    },
+    {
+      "end_line": 2283,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2237,
+      "symbol": "_authoritative_kv_map_v17931213"
+    },
+    {
+      "end_line": 2399,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2286,
+      "symbol": "render_v17931213_readme_and_handover"
+    },
+    {
+      "end_line": 2561,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2402,
+      "symbol": "evaluate_v17931213_gate_matrix"
+    },
+    {
+      "end_line": 2711,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2564,
+      "symbol": "verify_v17931213_authoritative_report_and_gates_consistency"
+    },
+    {
+      "end_line": 2764,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2718,
+      "symbol": "verify_bounded_async_workers_v17931213"
+    },
+    {
+      "end_line": 3246,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "file_sha256": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+      "kind": "FunctionDef",
+      "start_line": 2767,
+      "symbol": "run_negative_controls_v01_to_v66_v17931213"
+    },
+    {
+      "end_line": 287,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 156,
+      "symbol": "build_v17931214_callgraph_and_defect_matrix"
+    },
+    {
+      "end_line": 295,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "ClassDef",
+      "start_line": 294,
+      "symbol": "CanonicalAccountingErrorV17931214"
+    },
+    {
+      "end_line": 326,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "ClassDef",
+      "start_line": 299,
+      "symbol": "CanonicalScopeAccountingDTO"
+    },
+    {
+      "end_line": 335,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 329,
+      "symbol": "_strict_int"
+    },
+    {
+      "end_line": 344,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 338,
+      "symbol": "_strict_float"
+    },
+    {
+      "end_line": 585,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 347,
+      "symbol": "validate_canonical_scope_accounting_v17931214"
+    },
+    {
+      "end_line": 625,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 588,
+      "symbol": "compare_accounting_scopes_strict_v17931214"
+    },
+    {
+      "end_line": 897,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 628,
+      "symbol": "build_p0a_accounting_causal_diff_and_reconciliation_v17931214"
+    },
+    {
+      "end_line": 940,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 908,
+      "symbol": "compute_causal_tf_atr_v17931214"
+    },
+    {
+      "end_line": 1219,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 943,
+      "symbol": "audit_target_reachability_row_v17931214"
+    },
+    {
+      "end_line": 1399,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 1222,
+      "symbol": "build_267_target_failure_and_control_audit_v17931214"
+    },
+    {
+      "end_line": 1454,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 1402,
+      "symbol": "verify_267_target_audit_v17931214"
+    },
+    {
+      "end_line": 1828,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 1461,
+      "symbol": "build_d4_full_63085_and_matched_funnel_v17931214"
+    },
+    {
+      "end_line": 1896,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 1831,
+      "symbol": "verify_d4_funnel_and_execution_truth_v17931214"
+    },
+    {
+      "end_line": 2038,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 1899,
+      "symbol": "build_cost_stress_and_purged_walkforward_oos_v17931214"
+    },
+    {
+      "end_line": 2111,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "ClassDef",
+      "start_line": 2047,
+      "symbol": "AuthoritativeMetricsV17931214"
+    },
+    {
+      "end_line": 2287,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2114,
+      "symbol": "build_authoritative_metrics_v17931214"
+    },
+    {
+      "end_line": 2476,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2290,
+      "symbol": "evaluate_v17931214_orthogonal_gate_matrix"
+    },
+    {
+      "end_line": 2544,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2479,
+      "symbol": "_build_kv_lines_v17931214"
+    },
+    {
+      "end_line": 2690,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2547,
+      "symbol": "render_v17931214_readme_and_handover"
+    },
+    {
+      "end_line": 2700,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2693,
+      "symbol": "_parse_kv_from_text_v17931214"
+    },
+    {
+      "end_line": 2730,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2703,
+      "symbol": "_parse_policy_3mode_md_table_v17931214"
+    },
+    {
+      "end_line": 2822,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2733,
+      "symbol": "verify_v17931214_cross_view_numerical_consistency"
+    },
+    {
+      "end_line": 2868,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2825,
+      "symbol": "verify_git_push_safety_v17931214"
+    },
+    {
+      "end_line": 3139,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 2875,
+      "symbol": "_build_default_v14_control_fixtures"
+    },
+    {
+      "end_line": 3730,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+      "kind": "FunctionDef",
+      "start_line": 3142,
+      "symbol": "run_negative_controls_v01_to_v100_v17931214"
+    },
+    {
+      "end_line": 134,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 132,
+      "symbol": "_canonical_json_sha256"
+    },
+    {
+      "end_line": 142,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 137,
+      "symbol": "_ms_to_utc_iso"
+    },
+    {
+      "end_line": 160,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 145,
+      "symbol": "_session_for_ms"
+    },
+    {
+      "end_line": 198,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 167,
+      "symbol": "FullUniverseIndexManifest"
+    },
+    {
+      "end_line": 324,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 201,
+      "symbol": "enumerate_full_replay_indices_v179312"
+    },
+    {
+      "end_line": 331,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 327,
+      "symbol": "build_close_ts_index_v179312"
+    },
+    {
+      "end_line": 417,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 334,
+      "symbol": "build_causal_context_at_v179312"
+    },
+    {
+      "end_line": 497,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 420,
+      "symbol": "extract_per_timeframe_causal_provenance_v179312"
+    },
+    {
+      "end_line": 523,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 500,
+      "symbol": "_build_composite_opportunity_id_internal_v179312"
+    },
+    {
+      "end_line": 587,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 526,
+      "symbol": "_snapshot_to_compact_decision_record_v179312"
+    },
+    {
+      "end_line": 924,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 590,
+      "symbol": "evaluate_full_universe_model_batch_v179312"
+    },
+    {
+      "end_line": 975,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 927,
+      "symbol": "write_append_only_decision_stream_v179312"
+    },
+    {
+      "end_line": 996,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 979,
+      "symbol": "FullUniverseDecisionManifest"
+    },
+    {
+      "end_line": 1164,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 999,
+      "symbol": "merge_and_validate_decision_stream_v179312"
+    },
+    {
+      "end_line": 1198,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 1171,
+      "symbol": "OrderIntentV179312"
+    },
+    {
+      "end_line": 1335,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1201,
+      "symbol": "build_order_intent_from_snapshot_v179312"
+    },
+    {
+      "end_line": 1388,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1338,
+      "symbol": "arbitrate_competing_model_intents_v179312"
+    },
+    {
+      "end_line": 1408,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 1392,
+      "symbol": "PortfolioReplayStateV179312"
+    },
+    {
+      "end_line": 1453,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1411,
+      "symbol": "advance_portfolio_to_next_event_v179312"
+    },
+    {
+      "end_line": 1671,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1456,
+      "symbol": "simulate_executable_candidate_v179312"
+    },
+    {
+      "end_line": 1745,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1674,
+      "symbol": "verify_no_trade_time_overlap_v179312"
+    },
+    {
+      "end_line": 1867,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1748,
+      "symbol": "reconcile_trades_to_ledger_v179312"
+    },
+    {
+      "end_line": 1918,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 1871,
+      "symbol": "VariantReplayOutcomeV179312"
+    },
+    {
+      "end_line": 2117,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 1921,
+      "symbol": "replay_global_chronological_portfolio_v179312"
+    },
+    {
+      "end_line": 2165,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "ClassDef",
+      "start_line": 2124,
+      "symbol": "ExecutableResearchPolicyV179312"
+    },
+    {
+      "end_line": 2307,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 2304,
+      "symbol": "compute_research_policy_registry_hash_v179312"
+    },
+    {
+      "end_line": 2461,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 2310,
+      "symbol": "_check_causal_htf_alignment_at_ts_v179312"
+    },
+    {
+      "end_line": 3012,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 2464,
+      "symbol": "find_next_causal_entry_confirmation_v179312"
+    },
+    {
+      "end_line": 3067,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 3015,
+      "symbol": "rebuild_entry_reference_v179312"
+    },
+    {
+      "end_line": 3265,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 3070,
+      "symbol": "derive_executable_structural_stop_v179312"
+    },
+    {
+      "end_line": 3573,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 3268,
+      "symbol": "derive_executable_structural_target_v179312"
+    },
+    {
+      "end_line": 3710,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 3576,
+      "symbol": "recalculate_trade_risk_quantity_v179312"
+    },
+    {
+      "end_line": 4146,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 3713,
+      "symbol": "materialize_executable_counterfactual_v179312"
+    },
+    {
+      "end_line": 4247,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4149,
+      "symbol": "replay_intervention_outcome_v179312"
+    },
+    {
+      "end_line": 4374,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4250,
+      "symbol": "assert_intervention_is_real_v179312"
+    },
+    {
+      "end_line": 4656,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4377,
+      "symbol": "evaluate_executable_interventions_on_cohort_v179312"
+    },
+    {
+      "end_line": 4702,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4662,
+      "symbol": "_extract_canonical_opportunity_join_key_v179312"
+    },
+    {
+      "end_line": 4869,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4705,
+      "symbol": "match_variants_on_causal_opportunity_v179312"
+    },
+    {
+      "end_line": 4961,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4872,
+      "symbol": "attribution_v179312"
+    },
+    {
+      "end_line": 5049,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 4967,
+      "symbol": "assert_replay_oos_temporal_and_feature_integrity_v179312"
+    },
+    {
+      "end_line": 5273,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 5053,
+      "symbol": "compute_loss_root_cause_matrix_v179312"
+    },
+    {
+      "end_line": 5447,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 5276,
+      "symbol": "compute_economic_and_statistical_summary_v179312"
+    },
+    {
+      "end_line": 5485,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 5451,
+      "symbol": "build_protected_structure_authority_audit_v179312"
+    },
+    {
+      "end_line": 5511,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "file_sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "kind": "FunctionDef",
+      "start_line": 5494,
+      "symbol": "verify_default_production_flags_off_v179312"
+    },
+    {
+      "end_line": 54,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 47,
+      "symbol": "_is_valid_finite_price"
+    },
+    {
+      "end_line": 74,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 57,
+      "symbol": "_candle_close_ms"
+    },
+    {
+      "end_line": 86,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 77,
+      "symbol": "_candle_is_closed"
+    },
+    {
+      "end_line": 91,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 89,
+      "symbol": "_canonical_json_hash"
+    },
+    {
+      "end_line": 137,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "ClassDef",
+      "start_line": 95,
+      "symbol": "StructuralStopCandidate"
+    },
+    {
+      "end_line": 178,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "ClassDef",
+      "start_line": 141,
+      "symbol": "StructuralTargetPlanV1792"
+    },
+    {
+      "end_line": 241,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "ClassDef",
+      "start_line": 182,
+      "symbol": "StructuralStopPlanV1792"
+    },
+    {
+      "end_line": 305,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "ClassDef",
+      "start_line": 245,
+      "symbol": "StopOutcomeDiagnostic"
+    },
+    {
+      "end_line": 687,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 308,
+      "symbol": "collect_causal_stop_anchor_candidates"
+    },
+    {
+      "end_line": 771,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 690,
+      "symbol": "rank_structure_valid_anchors"
+    },
+    {
+      "end_line": 823,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 774,
+      "symbol": "compute_causal_noise_buffer"
+    },
+    {
+      "end_line": 865,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 826,
+      "symbol": "derive_structure_valid_stop"
+    },
+    {
+      "end_line": 937,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 868,
+      "symbol": "validate_structure_invalidation_contract"
+    },
+    {
+      "end_line": 1155,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 940,
+      "symbol": "resolve_causal_target_candidates"
+    },
+    {
+      "end_line": 1376,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1158,
+      "symbol": "select_viable_structural_target"
+    },
+    {
+      "end_line": 1487,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1379,
+      "symbol": "evaluate_stop_tp_risk_and_size"
+    },
+    {
+      "end_line": 1784,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1490,
+      "symbol": "plan_v17_9_2_structural_stop_and_target"
+    },
+    {
+      "end_line": 1798,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1787,
+      "symbol": "_wilson_interval_95"
+    },
+    {
+      "end_line": 1987,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1801,
+      "symbol": "classify_structure_stop_outcome"
+    },
+    {
+      "end_line": 2073,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 1990,
+      "symbol": "measure_premature_stop_rate"
+    },
+    {
+      "end_line": 2284,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 2076,
+      "symbol": "simulate_order_fill_and_outcome_sensitivity"
+    },
+    {
+      "end_line": 2431,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "ClassDef",
+      "start_line": 2293,
+      "symbol": "ExecutableTradeLedgerEntryV17931"
+    },
+    {
+      "end_line": 3068,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 2434,
+      "symbol": "simulate_v17931_trade_execution_net"
+    },
+    {
+      "end_line": 3074,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3071,
+      "symbol": "_snap_get"
+    },
+    {
+      "end_line": 3175,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3077,
+      "symbol": "resolve_v17931_protected_structure_authority"
+    },
+    {
+      "end_line": 3345,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3178,
+      "symbol": "verify_v17931_frozen_forensic_episode_parity"
+    },
+    {
+      "end_line": 3700,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3357,
+      "symbol": "evaluate_r3_true_delayed_counterfactual_v17931213"
+    },
+    {
+      "end_line": 3730,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3703,
+      "symbol": "evaluate_shared_delayed_entry_adapter_v17931213"
+    },
+    {
+      "end_line": 3994,
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "file_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "kind": "FunctionDef",
+      "start_line": 3733,
+      "symbol": "evaluate_r3_counterfactual_stop_and_target_v17931212"
+    },
+    {
+      "end_line": 94,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 80,
+      "symbol": "_extract_closed_series_from_context_v17931210"
+    },
+    {
+      "end_line": 102,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 97,
+      "symbol": "_has_htf_id_prefix_claim_v17931210"
+    },
+    {
+      "end_line": 391,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 105,
+      "symbol": "rederive_detector_liquidity_source_v17931210"
+    },
+    {
+      "end_line": 595,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 394,
+      "symbol": "verify_context_liquidity_pool_provenance_v17931210"
+    },
+    {
+      "end_line": 757,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 598,
+      "symbol": "build_canonical_universe_lineage_v17931210"
+    },
+    {
+      "end_line": 854,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 760,
+      "symbol": "verify_universe_bijection_and_exclusion_reasons_v17931210"
+    },
+    {
+      "end_line": 957,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 857,
+      "symbol": "verify_forensic_cohort_conservation_v17931210"
+    },
+    {
+      "end_line": 1107,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 960,
+      "symbol": "analyze_15_distinct_recovered_trades_v17931210"
+    },
+    {
+      "end_line": 1137,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 1110,
+      "symbol": "build_loss_subgroup_and_uncertainty_report_v17931210"
+    },
+    {
+      "end_line": 1334,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 1140,
+      "symbol": "build_si8_si9_278_materialization_diagnosis_v17931210"
+    },
+    {
+      "end_line": 1432,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 1337,
+      "symbol": "render_source_derived_report_v17931210"
+    },
+    {
+      "end_line": 1533,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py",
+      "file_sha256": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+      "kind": "FunctionDef",
+      "start_line": 1435,
+      "symbol": "verify_source_denom_and_trade_report_consistency_v17931210"
+    },
+    {
+      "end_line": 191,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 188,
+      "symbol": "_det_id"
+    },
+    {
+      "end_line": 198,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 194,
+      "symbol": "_is_finite_pos"
+    },
+    {
+      "end_line": 204,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 201,
+      "symbol": "_is_finite_num"
+    },
+    {
+      "end_line": 244,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 211,
+      "symbol": "normalize_collected_test_identity_v17931211"
+    },
+    {
+      "end_line": 531,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 247,
+      "symbol": "verify_fresh_junit_bijection_v17931211"
+    },
+    {
+      "end_line": 625,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 534,
+      "symbol": "verify_process_exit_and_timeout_v17931211"
+    },
+    {
+      "end_line": 785,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 628,
+      "symbol": "verify_execution_not_synthetic_v17931211"
+    },
+    {
+      "end_line": 906,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 788,
+      "symbol": "verify_source_freeze_v17931211"
+    },
+    {
+      "end_line": 973,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 909,
+      "symbol": "verify_artifact_manifest_v17931211"
+    },
+    {
+      "end_line": 1076,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 976,
+      "symbol": "evaluate_verification_truth_gates_v17931211"
+    },
+    {
+      "end_line": 1337,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 1079,
+      "symbol": "run_verification_truth_negative_controls_v17931211"
+    },
+    {
+      "end_line": 2000,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 1344,
+      "symbol": "build_exit_event_lineage_v17931211"
+    },
+    {
+      "end_line": 2081,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2003,
+      "symbol": "verify_exit_event_parentage_v17931211"
+    },
+    {
+      "end_line": 2169,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2084,
+      "symbol": "verify_exit_state_machine_v17931211"
+    },
+    {
+      "end_line": 2303,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2172,
+      "symbol": "verify_exit_fill_basis_v17931211"
+    },
+    {
+      "end_line": 2392,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2306,
+      "symbol": "verify_exit_event_deduplication_v17931211"
+    },
+    {
+      "end_line": 2510,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2395,
+      "symbol": "recompute_realized_pnl_from_exit_events_v17931211"
+    },
+    {
+      "end_line": 2621,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2513,
+      "symbol": "verify_exit_portfolio_conservation_v17931211"
+    },
+    {
+      "end_line": 2843,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2624,
+      "symbol": "verify_exit_lineage_cross_adapter_parity_v17931211"
+    },
+    {
+      "end_line": 2960,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2846,
+      "symbol": "build_function_callgraph_and_contracts_v17931211"
+    },
+    {
+      "end_line": 3142,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 2963,
+      "symbol": "evaluate_v17931211_acceptance_gates"
+    },
+    {
+      "end_line": 3354,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3150,
+      "symbol": "read_exit_event_stream_strict_v17931211"
+    },
+    {
+      "end_line": 3383,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3357,
+      "symbol": "read_legacy_v17931211_initial_stream_readonly"
+    },
+    {
+      "end_line": 3442,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3386,
+      "symbol": "group_raw_exit_events_by_partition_v17931211"
+    },
+    {
+      "end_line": 3689,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3445,
+      "symbol": "reconstruct_lineage_from_raw_stream_v17931211"
+    },
+    {
+      "end_line": 3814,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3692,
+      "symbol": "verify_raw_stream_vs_source_execution_v17931211"
+    },
+    {
+      "end_line": 4136,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 3817,
+      "symbol": "verify_all_policy_fill_mode_lineage_independently_v17931211"
+    },
+    {
+      "end_line": 4276,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 4139,
+      "symbol": "build_canonical_report_metrics_v17931211"
+    },
+    {
+      "end_line": 4367,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 4279,
+      "symbol": "render_truth_closure_readme_and_handover_v17931211"
+    },
+    {
+      "end_line": 4463,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 4370,
+      "symbol": "verify_strict_report_and_handover_consistency_v17931211"
+    },
+    {
+      "end_line": 4995,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 4466,
+      "symbol": "run_truth_closure_negative_controls_v01_to_v22_v17931211"
+    },
+    {
+      "end_line": 5222,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "file_sha256": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+      "kind": "FunctionDef",
+      "start_line": 4998,
+      "symbol": "evaluate_truth_closure_gates_v17931211"
+    },
+    {
+      "end_line": 143,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 126,
+      "symbol": "normalize_v1793_mode"
+    },
+    {
+      "end_line": 163,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 146,
+      "symbol": "_parse_hhmm"
+    },
+    {
+      "end_line": 190,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 167,
+      "symbol": "MacroWindowSpec"
+    },
+    {
+      "end_line": 228,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 194,
+      "symbol": "ValidatedMacroSchedule"
+    },
+    {
+      "end_line": 297,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 232,
+      "symbol": "MacroTimeWindowState"
+    },
+    {
+      "end_line": 325,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 301,
+      "symbol": "MacroQualityAssessment"
+    },
+    {
+      "end_line": 365,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 329,
+      "symbol": "UnicornEpisodeBindingVerdict"
+    },
+    {
+      "end_line": 446,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 369,
+      "symbol": "UnicornConfluenceAssessment"
+    },
+    {
+      "end_line": 483,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 450,
+      "symbol": "UnicornInvalidationVerdict"
+    },
+    {
+      "end_line": 538,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "ClassDef",
+      "start_line": 487,
+      "symbol": "MacroUnicornPlanV1793"
+    },
+    {
+      "end_line": 738,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 544,
+      "symbol": "validate_macro_schedule_config"
+    },
+    {
+      "end_line": 1063,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 748,
+      "symbol": "resolve_causal_macro_time_window"
+    },
+    {
+      "end_line": 1210,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1069,
+      "symbol": "classify_macro_context_quality"
+    },
+    {
+      "end_line": 1398,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1216,
+      "symbol": "bind_unicorn_to_causal_episode"
+    },
+    {
+      "end_line": 1428,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1401,
+      "symbol": "_map_unicorn_status_to_v1793_reason"
+    },
+    {
+      "end_line": 1466,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1434,
+      "symbol": "_detect_scan_unicorn_memoized"
+    },
+    {
+      "end_line": 1829,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1475,
+      "symbol": "evaluate_causal_unicorn_confluence"
+    },
+    {
+      "end_line": 1974,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1835,
+      "symbol": "validate_unicorn_invalidation_against_v1792"
+    },
+    {
+      "end_line": 2223,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 1980,
+      "symbol": "plan_v17_9_3_macro_unicorn_setup"
+    },
+    {
+      "end_line": 2272,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 2229,
+      "symbol": "serialize_v1793_decision_evidence"
+    },
+    {
+      "end_line": 2433,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 2275,
+      "symbol": "diagnose_v17931_d1_vs_d2_mtf_gate"
+    },
+    {
+      "end_line": 2537,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "kind": "FunctionDef",
+      "start_line": 2436,
+      "symbol": "evaluate_r2_mtf_unicorn_ablation_matrix_v17931212"
+    },
+    {
+      "end_line": 27,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 23,
+      "symbol": "_candle_open_ms"
+    },
+    {
+      "end_line": 33,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 30,
+      "symbol": "_candle_is_closed"
+    },
+    {
+      "end_line": 39,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 36,
+      "symbol": "_candle_ohlc"
+    },
+    {
+      "end_line": 52,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "ClassDef",
+      "start_line": 42,
+      "symbol": "_AttrCandleDict"
+    },
+    {
+      "end_line": 69,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 56,
+      "symbol": "_tf_duration_ms"
+    },
+    {
+      "end_line": 73,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 72,
+      "symbol": "_swing_occurred_ms"
+    },
+    {
+      "end_line": 77,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 76,
+      "symbol": "_swing_confirmed_ms"
+    },
+    {
+      "end_line": 334,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 80,
+      "symbol": "detect_breaker_blocks"
+    },
+    {
+      "end_line": 438,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 337,
+      "symbol": "_is_same_causal_episode"
+    },
+    {
+      "end_line": 506,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 441,
+      "symbol": "_build_rejected_evidence"
+    },
+    {
+      "end_line": 1094,
+      "file": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "file_sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "kind": "FunctionDef",
+      "start_line": 509,
+      "symbol": "detect_unicorn_evidence"
+    },
+    {
+      "end_line": 211,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 116,
+      "symbol": "_map_si_policy_to_executable_research_policy_v1793122"
+    },
+    {
+      "end_line": 863,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 214,
+      "symbol": "replay_single_si_policy_v1793122"
+    },
+    {
+      "end_line": 882,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "ClassDef",
+      "start_line": 869,
+      "symbol": "_CompressedCheckpointDecisionsV1793127"
+    },
+    {
+      "end_line": 900,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "ClassDef",
+      "start_line": 885,
+      "symbol": "_MergedCheckpointDecisionsV1793127"
+    },
+    {
+      "end_line": 911,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 903,
+      "symbol": "_bounded_worker_candidate_index_v1793127"
+    },
+    {
+      "end_line": 1014,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 914,
+      "symbol": "_worker_replay_policy_task_v1793122"
+    },
+    {
+      "end_line": 1170,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 1017,
+      "symbol": "execute_independent_worker_determinism_runs_v1793122"
+    },
+    {
+      "end_line": 1366,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 1173,
+      "symbol": "evaluate_real_shared_evaluator_snapshots_and_adapter_parity_v1793122"
+    },
+    {
+      "end_line": 1373,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 1369,
+      "symbol": "_guarded_research_call"
+    },
+    {
+      "end_line": 2049,
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py",
+      "file_sha256": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62",
+      "kind": "FunctionDef",
+      "start_line": 1376,
+      "symbol": "run_v17_9_3_1_2_2_entry_signal_backtest_pipeline"
+    }
+  ],
+  "anchored_symbols_count": 205,
+  "repaired_defects": [
+    {
+      "defect_id": "DEFECT_P0A_01_SI8_SI9_SCHEMA_KEY_MISMATCH_ZERO_PNL",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "function": "build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213",
+      "phase": "P0-A",
+      "repair": "Replaced silent `.get(..., 0)` lookups with strict fail-closed canonical policy accounting adapter raising `SCHEMA_ERROR_MISSING_MANDATORY_ACCOUNTING_KEYS` on any missing/null required key and cross-checking headline SI8/SI9 PnL against `si_policies_nb_table` and raw exit-event ledgers.",
+      "root_cause": "Read non-existent keys `total_episodes`, `wins`, `losses`, `realized_net_pnl_usd`, `expectancy_r` with `.get(..., 0)` / `.get(..., 0.0)` defaults from `replay_single_si_policy_v1793122` output, which emits `total_scheduled_episodes`, `wins_count`, `losses_count`, `total_realized_net_usd`, `expectancy_net_r`."
+    },
+    {
+      "defect_id": "DEFECT_P0A_02_CLOSURE_ORDER_DRAWDOWN_AND_ZERO_SAMPLE_EXPECTANCY",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "function": "_replay_chronological_1pos_portfolio_from_matched_rows_v17931213",
+      "phase": "P0-A",
+      "repair": "Sorted closed trades by `exit_fill_ts` prior to equity/drawdown accumulation, enforced non-monetization of non-closed episodes, and tagged zero-sample variants `INCONCLUSIVE_NO_SAMPLE`.",
+      "root_cause": "Computed realized equity/max_drawdown in schedule order instead of chronological closure (`exit_fill_ts`) order and omitted explicit `INCONCLUSIVE_NO_SAMPLE` status when `closed_trades_count == 0`."
+    },
+    {
+      "defect_id": "DEFECT_P0B_01_267_MISSING_NET_RR_AND_DEFAULT_1M_TF_MISCLASSIFICATION",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py",
+      "function": "build_htf_unicorn_and_si8_si9_dynamic_funnel_v17931213",
+      "phase": "P0-B",
+      "repair": "Implemented tri-state (`VALID_VALUE` / `UNKNOWN_MISSING` / `INVALID_INCONSISTENT`) source-backed audit resolving actual `pool_ref['timeframe']`, TF-specific causal ATR, and independently recomputed fee/spread adjusted Net R:R via `recalculate_trade_risk_quantity_v179312` before root-cause bucketing.",
+      "root_cause": "`derive_pre_entry_features_from_causal_context_v1793127` did not emit `effective_net_rr` or `target_pool_timeframe`; `.13` defaulted `eff_rr = 0.0` and `t_tf = '1M'`, falsely assigning 267/267 rows to `IV_TARGET_NET_RR_BELOW_2_0_AFTER_FEES_SPREAD` and mislabeling 226 non-1M pools as `1M`."
+    },
+    {
+      "defect_id": "DEFECT_P0C_01_BREAKER_DETECTOR_SIGNATURE_AND_ATTRIBUTE_BUG",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "function": "find_next_causal_entry_confirmation_v179312",
+      "phase": "P0-C",
+      "repair": "Passed `direction` and `timeframe='1M'` properly to `detect_breaker_blocks`, read `brk.low`/`brk.high`, enforced distal breaker non-invalidation + >=0.01 overlap + 15m causal episode proximity across unconsumed FVGs.",
+      "root_cause": "Called `detect_breaker_blocks(brk_win, '1M', as_of_ms=k_close_ms)` passing `'1M'` as positional `direction` (`'LONG'`/`'SHORT'`), and read `getattr(brk, 'bottom', 0.0)` / `getattr(brk, 'top', 0.0)` on `BreakerBlock` whose fields are `low` and `high`, causing `b_bot = b_top = 0.0` and 0% Unicorn overlap."
+    },
+    {
+      "defect_id": "DEFECT_P0C_02_DELAYED_CONFIRMATION_HTF_WINDOW_AND_STALE_FALLBACK",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "evaluate_r3_true_delayed_counterfactual_v17931213",
+      "phase": "P0-C",
+      "repair": "Sliced HTF up to `dec_ms + 12m` (filtered `<= new_dec_ms` at confirmation), removed stale base-time HTF fallback (`REJECTED_MISSING_CAUSAL_HTF_BARS_AT_CONFIRMATION`), and passed `closed_h1`/`closed_h4`.",
+      "root_cause": "`ep_slices` truncated HTF bars at `dec_ms` instead of `dec_ms + 12m` for delayed variants, `htf_cts` lacked `open_time + tf_ms` fallback, missing HTF bars fell back to base-time `feat['htf_alignment_state']`, and `plan_v17_9_2_structural_stop_and_target` omitted `closed_h1`/`closed_h4`."
+    }
+  ],
+  "repaired_defects_count": 5,
+  "run_id": "20261112T140357Z_900af62f5f5c",
+  "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+  "target_file_sha256": {
+    "aurum-desk/backend/services/unicorn_evidence_service.py": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+    "aurum-desk/backend/services/v17_9_3_1_2_10_canonical_reconciliation_and_provenance.py": "6c5840936564346962b4c7c612a9ef024ed246259c421af728f6163ded2f5b79",
+    "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py": "93c5289d4d1e67d1a196f914c405fe9115d6f62819721984e43b2d025ea5991a",
+    "aurum-desk/backend/services/v17_9_3_1_2_13_delayed_entry_materialization_and_truth_service.py": "0494ee031916cd70ea94331d984a8905c6a16a9b27673e81f623af5c4eff4a08",
+    "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py": "3e57b1e9a324f2d15e5e9c1d425eef31b6f99454e33fede939879e6521daf014",
+    "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+    "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+    "aurum-desk/tools/run_v17_9_3_1_2_2_entry_signal_backtest.py": "0df458c508349503842d412426033bc15a6be67bada0203d3902b83824151f62"
+  },
+  "target_files_count": 9,
+  "tested_executable_sha": "900af62f5f5ca7d550df48d05339c90608bff3c0",
+  "version": "V17.9.3.1.2.16"
+}

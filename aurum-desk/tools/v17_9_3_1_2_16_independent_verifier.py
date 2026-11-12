@@ -157,7 +157,7 @@ def verify_v17931216_artifacts_from_disk(run_dir: Path) -> Dict[str, Any]:
     f19 = json.loads((run_dir / "19_async_full_regression_actual_OS_exit_and_JUnit_bijection.json").read_text(encoding="utf-8"))
     j_ver = f19.get("independent_bijection_verification") or f19
     cnt = j_ver.get("counters") or {}
-    if cnt.get("collected") != 5432 or cnt.get("executed") != 5432 or cnt.get("failed") != 0:
+    if cnt.get("collected") < 5432 or cnt.get("executed") != cnt.get("collected") or cnt.get("failed") != 0 or cnt.get("errors") != 0:
         violations.append(f"JUNIT_COUNTS_MISMATCH:{cnt}")
 
     # 8. Verify 25 Gate Matrix (G01..G17)
