@@ -1,0 +1,31 @@
+{
+  "conservation_holds": true,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "observed_ex_post_stop_distribution": {
+    "PROVIDER_GAP_UNRESOLVED": 4,
+    "SL_AND_STRUCTURE_BROKEN_SAME_BAR": 69,
+    "SL_WICK_HIT_STRUCTURE_HELD": 8,
+    "STRUCTURE_BROKE_AFTER_SL": 34,
+    "STRUCTURE_BROKE_BEFORE_SL": 24,
+    "UNKNOWN_PROTECTED_STRUCTURE_NOT_ESTABLISHED": 18
+  },
+  "observed_pre_entry_known_distribution": {
+    "OTHER_OR_UNKNOWN": 18,
+    "PROTECTED_STRUCTURE_ESTABLISHED": 139
+  },
+  "schema_version": "v17_9_3_1_2_17.truth_closure.v1",
+  "si8_si9_research_losses": {
+    "combined_unique_closed_count": 4,
+    "deduplication_status": "DEDUPED_NO_DOUBLE_COUNTING",
+    "shared_trade_ids": [
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401"
+    ],
+    "shared_trade_ids_count": 2,
+    "si8_closed_losses_count": 4,
+    "si9_closed_losses_count": 2
+  },
+  "status": "PASS",
+  "total_closed_losses_n157": 157,
+  "version": "V17.9.3.1.2.17"
+}

@@ -1,0 +1,82 @@
+{
+  "passed_red_reproductions": 10,
+  "reproductions": [
+    {
+      "description": "V101 missing breaker ID returns actual FAIL from strict validator",
+      "green_confirmed": true,
+      "red_observed_reason": "REJECTED_MISSING_BREAKER_PROOF",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R0",
+      "status": "PASS"
+    },
+    {
+      "description": "Stage gate with mismatched branch cannot become PASS",
+      "green_confirmed": true,
+      "red_observed_status": "FAIL",
+      "repro_id": "R1",
+      "status": "PASS"
+    },
+    {
+      "description": "Metric builder without passed counter raises TypedMetricValidationError (no fallback)",
+      "green_confirmed": true,
+      "red_observed_status": "REJECTED",
+      "repro_id": "R2",
+      "status": "PASS"
+    },
+    {
+      "description": "Non-finite speedup raises TypedMetricValidationError (no fallback)",
+      "green_confirmed": true,
+      "red_observed_status": "REJECTED",
+      "repro_id": "R3",
+      "status": "PASS"
+    },
+    {
+      "description": "Forged stop count denominator mismatch is rejected",
+      "red_observed_reason": "REJECTED_COHORT_N157_SUM_MISMATCH",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R4",
+      "status": "PASS"
+    },
+    {
+      "description": "Ex-post leakage into pre-entry decision is rejected",
+      "red_observed_reason": "REJECTED_EXPOST_LEAKAGE_INTO_PREENTRY",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R5",
+      "status": "PASS"
+    },
+    {
+      "description": "M1 ATR ceiling on HTF pool is identified as unit mismatch",
+      "red_observed_reason": "REJECTED_M1_ATR_CEILING_ON_HTF_POOL",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R6",
+      "status": "PASS"
+    },
+    {
+      "description": "Consumed FVG is strictly rejected",
+      "red_observed_reason": "REJECTED_CONSUMED_FVG",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R7",
+      "status": "PASS"
+    },
+    {
+      "description": "Zero closed trades with positive expectancy claim is rejected",
+      "red_observed_reason": "REJECTED_ZERO_CLOSED_UNDEFINED_EXPECTANCY",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R8",
+      "status": "PASS"
+    },
+    {
+      "description": "Live/paper trading activation enabled is rejected",
+      "red_observed_reason": "REJECTED_ACTIVATION_MUST_BE_NO",
+      "red_observed_status": "REJECTED",
+      "repro_id": "R9",
+      "status": "PASS"
+    }
+  ],
+  "run_id": "20261113T051232Z_e4d2c4d52abd",
+  "schema_version": "v17_9_3_1_2_17.truth_closure.v1",
+  "status": "PASS",
+  "tested_executable_sha": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd",
+  "total_red_reproductions": 10,
+  "version": "V17.9.3.1.2.17"
+}

@@ -1,0 +1,394 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "exchange_min_lot_xauusdt": 0.01,
+  "fill_modes_compared": [
+    "LEGACY_CLOSE_FILL",
+    "NEXT_BAR_OPEN_BID_ASK",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "intrabar_ambiguity_policy": "CONSERVATIVE_STOP_LOSS_FIRST_ON_SAME_BAR_SL_TP_TIE",
+  "legacy_close_fill_role": "SENSITIVITY_ONLY_NOT_PRIMARY_PROOF",
+  "max_planned_net_risk_usd_cap": 2.5,
+  "policy_1pos_3_fill_mode_stress": {
+    "SI0_OFF_BASELINE": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 164,
+        "expectancy_net_r": -0.777,
+        "losses_count": 154,
+        "realized_net_pnl_usd": -313.6541,
+        "total_fees_usd": 203.3591,
+        "wins_count": 10
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 166,
+        "expectancy_net_r": -0.8474,
+        "losses_count": 157,
+        "realized_net_pnl_usd": -345.8971,
+        "total_fees_usd": 203.1135,
+        "wins_count": 9
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 173,
+        "expectancy_net_r": -0.8968,
+        "losses_count": 164,
+        "realized_net_pnl_usd": -381.7661,
+        "total_fees_usd": 212.8565,
+        "wins_count": 9
+      }
+    },
+    "SI8_RESEARCH_DISCOVERY_REPAIRED": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 4,
+        "expectancy_net_r": -0.9991,
+        "losses_count": 4,
+        "realized_net_pnl_usd": -9.8512,
+        "total_fees_usd": 3.0656,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 4,
+        "expectancy_net_r": -0.9876,
+        "losses_count": 4,
+        "realized_net_pnl_usd": -9.7372,
+        "total_fees_usd": 3.0656,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 4,
+        "expectancy_net_r": -1.0158,
+        "losses_count": 4,
+        "realized_net_pnl_usd": -10.0162,
+        "total_fees_usd": 3.0656,
+        "wins_count": 0
+      }
+    },
+    "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 2,
+        "expectancy_net_r": -0.9987,
+        "losses_count": 2,
+        "realized_net_pnl_usd": -4.9337,
+        "total_fees_usd": 1.3209,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 2,
+        "expectancy_net_r": -0.9896,
+        "losses_count": 2,
+        "realized_net_pnl_usd": -4.8886,
+        "total_fees_usd": 1.3209,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 2,
+        "expectancy_net_r": -1.0138,
+        "losses_count": 2,
+        "realized_net_pnl_usd": -5.0086,
+        "total_fees_usd": 1.3209,
+        "wins_count": 0
+      }
+    }
+  },
+  "primary_fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+  "quote_execution_provenance": "NO_REAL_L1_EXECUTION_PROOF",
+  "quote_source_kind": "MODELED_SYNTHETIC_BAR_HALF_SPREAD_NOT_CAPTURED_L1",
+  "run_id": "20261113T051232Z_e4d2c4d52abd",
+  "schema_version": "v17_9_3_1_2_17.truth_closure.v1",
+  "si0_nb_adverse_gap_open_stops_count": 3,
+  "si0_nb_same_bar_sl_tp_ties_count": 0,
+  "status": "PASS",
+  "tested_executable_sha": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd",
+  "variant_1pos_3_fill_mode_stress": {
+    "A0_STRICT_BASELINE": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 152,
+        "expectancy_net_r": -0.7597,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 142,
+        "realized_net_pnl_usd": -284.1354,
+        "total_fees_usd": 182.553,
+        "wins_count": 10
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 168,
+        "expectancy_net_r": -0.8492,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 159,
+        "realized_net_pnl_usd": -350.8878,
+        "total_fees_usd": 205.8314,
+        "wins_count": 9
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 167,
+        "expectancy_net_r": -0.9115,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 159,
+        "realized_net_pnl_usd": -374.6181,
+        "total_fees_usd": 205.3347,
+        "wins_count": 8
+      }
+    },
+    "A1B_GENUINE_DELAYED_CONFIRMATION_ENTRY": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0009,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.3168,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0009,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.3168,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0272,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.5088,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      }
+    },
+    "A1_ENTRY_CONFIRMATION_RETEST_ONLY": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 60,
+        "expectancy_net_r": -0.8359,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 57,
+        "realized_net_pnl_usd": -123.329,
+        "total_fees_usd": 68.6726,
+        "wins_count": 3
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 66,
+        "expectancy_net_r": -0.9323,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 63,
+        "realized_net_pnl_usd": -151.1919,
+        "total_fees_usd": 76.9905,
+        "wins_count": 3
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 66,
+        "expectancy_net_r": -0.9757,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 63,
+        "realized_net_pnl_usd": -158.2568,
+        "total_fees_usd": 76.9904,
+        "wins_count": 3
+      }
+    },
+    "A2_PROTECTED_SL_NOISE_BUFFER_ONLY": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 149,
+        "expectancy_net_r": -0.7607,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 139,
+        "realized_net_pnl_usd": -279.057,
+        "total_fees_usd": 180.0528,
+        "wins_count": 10
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 157,
+        "expectancy_net_r": -0.8453,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 148,
+        "realized_net_pnl_usd": -327.0848,
+        "total_fees_usd": 192.3931,
+        "wins_count": 9
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 156,
+        "expectancy_net_r": -0.9296,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 149,
+        "realized_net_pnl_usd": -357.6821,
+        "total_fees_usd": 191.8938,
+        "wins_count": 7
+      }
+    },
+    "A3_SOURCE_BACKED_LIQUIDITY_TP_ONLY": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 62,
+        "expectancy_net_r": -0.7352,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 57,
+        "realized_net_pnl_usd": -112.4935,
+        "total_fees_usd": 80.3597,
+        "wins_count": 5
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 64,
+        "expectancy_net_r": -0.7435,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 59,
+        "realized_net_pnl_usd": -117.4135,
+        "total_fees_usd": 83.6162,
+        "wins_count": 5
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 64,
+        "expectancy_net_r": -0.8387,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 60,
+        "realized_net_pnl_usd": -132.5001,
+        "total_fees_usd": 83.6188,
+        "wins_count": 4
+      }
+    },
+    "A4_COMBINED_CAUSAL_ENTRY_SL_TP": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 20,
+        "expectancy_net_r": -0.6727,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 18,
+        "realized_net_pnl_usd": -33.0781,
+        "total_fees_usd": 22.9814,
+        "wins_count": 2
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 20,
+        "expectancy_net_r": -0.6727,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 18,
+        "realized_net_pnl_usd": -33.0781,
+        "total_fees_usd": 22.9814,
+        "wins_count": 2
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 20,
+        "expectancy_net_r": -0.7148,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 18,
+        "realized_net_pnl_usd": -35.1533,
+        "total_fees_usd": 22.9816,
+        "wins_count": 2
+      }
+    },
+    "D1_REAL_DELAYED_ENTRY": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0009,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.3168,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0009,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.3168,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0272,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.5088,
+        "total_fees_usd": 2.1091,
+        "wins_count": 0
+      }
+    },
+    "D2_REAL_DELAYED_ENTRY_PLUS_OUTER_SL": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0005,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.2935,
+        "total_fees_usd": 2.1426,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0005,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.2935,
+        "total_fees_usd": 2.1426,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0272,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.4886,
+        "total_fees_usd": 2.1427,
+        "wins_count": 0
+      }
+    },
+    "D3_REAL_DELAYED_ENTRY_PLUS_TARGET": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0005,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.2935,
+        "total_fees_usd": 2.1426,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0005,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.2935,
+        "total_fees_usd": 2.1426,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 3,
+        "expectancy_net_r": -1.0272,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "losses_count": 3,
+        "realized_net_pnl_usd": -7.4886,
+        "total_fees_usd": 2.1427,
+        "wins_count": 0
+      }
+    },
+    "D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE": {
+      "LEGACY_CLOSE_FILL": {
+        "closed_trades_count": 0,
+        "expectancy_net_r": 0.0,
+        "expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+        "losses_count": 0,
+        "realized_net_pnl_usd": 0.0,
+        "total_fees_usd": 0.0,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades_count": 0,
+        "expectancy_net_r": 0.0,
+        "expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+        "losses_count": 0,
+        "realized_net_pnl_usd": 0.0,
+        "total_fees_usd": 0.0,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades_count": 0,
+        "expectancy_net_r": 0.0,
+        "expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+        "losses_count": 0,
+        "realized_net_pnl_usd": 0.0,
+        "total_fees_usd": 0.0,
+        "wins_count": 0
+      }
+    }
+  },
+  "version": "V17.9.3.1.2.17"
+}

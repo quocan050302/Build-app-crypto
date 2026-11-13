@@ -1,0 +1,47 @@
+{
+  "missing_value_tests": [
+    {
+      "input": {
+        "collected": null
+      },
+      "result": "TypedMetricValidationError: REJECTED_MISSING_VALUE",
+      "test": "reject_none_collected"
+    },
+    {
+      "input": {
+        "collected": true
+      },
+      "result": "TypedMetricValidationError: REJECTED_BOOLEAN_AS_INT",
+      "test": "reject_boolean_as_int"
+    },
+    {
+      "input": {
+        "collected": -5
+      },
+      "result": "TypedMetricValidationError: REJECTED_NEGATIVE_COUNT",
+      "test": "reject_negative_count"
+    },
+    {
+      "input": {
+        "collected": 10,
+        "errors": 0,
+        "executed": 10,
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "result": "TypedMetricValidationError: MULTISET_SUM_MISMATCH",
+      "test": "reject_multiset_mismatch"
+    }
+  ],
+  "run_id": "20261113T051232Z_e4d2c4d52abd",
+  "status": "PASS",
+  "tested_executable_sha": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd",
+  "validator": "parse_required_pytest_counts_v17931217 & AuthoritativeMetricsV17931217",
+  "version": "V17.9.3.1.2.17",
+  "zero_fallback_invariants": {
+    "benchmark_w3_speedup": "Raises TypedMetricValidationError if None/missing, never defaults to 2.377",
+    "losses_breakdown": "Sum of 6 forensic categories must equal exactly total closed losses (157)",
+    "negative_controls": "Calculated strictly from executed counts, never defaults to 140 or 180"
+  }
+}

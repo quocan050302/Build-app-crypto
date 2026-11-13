@@ -1,0 +1,14 @@
+{
+  "raw_evidence_fingerprints": {
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "d4_stage_05_trade_count": 0,
+    "negative_controls_count": 180,
+    "pytest_executed_junit_ids_sha256": "8216440d4e79cbc5d8cb765d5466ae86b000c5eb526b6c0fb8bd84d5eafa4b45",
+    "si0_closed_losses_count": 157,
+    "source_sha256": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd"
+  },
+  "run_id": "20261113T051232Z_e4d2c4d52abd",
+  "status": "PASS",
+  "tested_executable_sha": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd",
+  "version": "V17.9.3.1.2.17"
+}

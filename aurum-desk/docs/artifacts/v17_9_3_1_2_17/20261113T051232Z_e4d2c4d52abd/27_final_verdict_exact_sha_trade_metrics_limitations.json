@@ -1,0 +1,546 @@
+{
+  "ACCOUNTING_VERDICT": "PASS",
+  "ACTIVATION_READY": "NO",
+  "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+  "ECONOMIC_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "REGRESSION_VERDICT": "PASS",
+  "STRATEGY_EXPECTANCY_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "TARGET_PROVENANCE_VERDICT": "PASS",
+  "TRUE_UNICORN_CAUSAL_VERDICT": "PASS",
+  "authoritative_metrics": {
+    "baseline_opportunities_total": 56710,
+    "baseline_primary_closed_losses_distribution": {
+      "OTHER_OR_UNKNOWN": 134,
+      "SWEEP_NOT_RECLAIMED": 1,
+      "WRONG_SIDE_HTF": 22
+    },
+    "baseline_primary_closed_losses_n157": 157,
+    "baseline_primary_scheduled_distribution": {
+      "DATA_GAP_UNRESOLVED": 1,
+      "LOSS": 157,
+      "OPEN_AT_HORIZON": 74,
+      "UNFILLED": 1,
+      "WIN": 9
+    },
+    "baseline_primary_scheduled_episodes_n242": 242,
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_universe_total": 63085,
+    "d4_14_stage_pass_counts_63085": {
+      "01_CANDIDATE_REGISTERED": 63085,
+      "02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED": 7562,
+      "03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN": 184,
+      "04_MSS_BOS_DISPLACEMENT_PROVEN": 14,
+      "05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG": 0,
+      "06_VALID_FRESH_UNCONSUMED_RETEST": 0,
+      "07_POST_SIGNAL_DELAYED_CONFIRMATION": 0,
+      "08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR": 0,
+      "09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET": 0,
+      "10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0": 0,
+      "11_FIXED_RISK_SIZING_LTE_2_50_USD": 0,
+      "12_MATERIALIZED_INTENT_1POS_ELIGIBLE": 0,
+      "13_POST_CONFIRMATION_ENTRY_FILLED": 0,
+      "14_TERMINAL_CLOSED_OUTCOME": 0
+    },
+    "d4_matched_242_accepted_nb": 0,
+    "d4_matched_242_closed_nb": 0,
+    "d4_matched_242_expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+    "d4_matched_242_net_pnl_usd_nb": 0.0,
+    "d4_materialization_status": "NO_CAUSALLY_ELIGIBLE_SETUPS",
+    "d4_survivors_14_casebook_count": 14,
+    "d4_survivors_14_primary_status_distribution": {
+      "NO_VALID_BREAKER_FVG_OVERLAP": 14
+    },
+    "d4_universe_63085_accepted_nb": 0,
+    "d4_universe_63085_closed_nb": 0,
+    "d4_universe_63085_expectancy_status": "UNDEFINED_ZERO_TRADES",
+    "d4_universe_63085_net_pnl_usd_nb": 0.0,
+    "max_children_observed": 4,
+    "negative_controls_actually_executed": 180,
+    "negative_controls_passed": 180,
+    "negative_controls_real_injected": 146,
+    "negative_controls_report_assertion": 34,
+    "negative_controls_total": 180,
+    "no_core_unicorn_patch_justified": true,
+    "orphan_pids_count": 0,
+    "pytest_collected": 5448,
+    "pytest_errors": 0,
+    "pytest_executed_junit": 5448,
+    "pytest_failed": 0,
+    "pytest_passed": 5440,
+    "pytest_skipped": 8,
+    "same_sha_w3_speedup": 2.337,
+    "si0_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "blocked_by_open_position_count": 18506,
+        "closed_trades_count": 164,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.777,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "LEGACY_CLOSE_FILL",
+        "ledger_sha256": "448e6a90c300e7da6913223528c938908f232d97cc3db495929be6975d5e626e",
+        "loss_rate": 0.939024,
+        "losses_count": 154,
+        "max_drawdown_usd": 313.6541,
+        "max_losing_streak": 45,
+        "open_at_horizon_count": 73,
+        "profit_factor": 0.1719,
+        "total_entry_fees_usd": 101.6799,
+        "total_exit_fees_usd": 101.6792,
+        "total_fees_usd": 203.3591,
+        "total_realized_gross_usd": -110.295,
+        "total_realized_net_usd": -313.6541,
+        "total_scheduled_episodes": 238,
+        "unfilled_or_no_fill_count": 1,
+        "win_rate": 0.060976,
+        "wins_count": 10
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "blocked_by_open_position_count": 18502,
+        "closed_trades_count": 166,
+        "data_gap_unresolved_count": 1,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.8474,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+        "ledger_sha256": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+        "loss_rate": 0.945783,
+        "losses_count": 157,
+        "max_drawdown_usd": 345.8971,
+        "max_losing_streak": 47,
+        "open_at_horizon_count": 74,
+        "profit_factor": 0.1335,
+        "total_entry_fees_usd": 101.5524,
+        "total_exit_fees_usd": 101.5611,
+        "total_fees_usd": 203.1135,
+        "total_realized_gross_usd": -142.7836,
+        "total_realized_net_usd": -345.8971,
+        "total_scheduled_episodes": 242,
+        "unfilled_or_no_fill_count": 1,
+        "win_rate": 0.054217,
+        "wins_count": 9
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "blocked_by_open_position_count": 18496,
+        "closed_trades_count": 173,
+        "data_gap_unresolved_count": 1,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.8968,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+        "ledger_sha256": "187609bbe4c19842ee754edc6431a6403888a405a7a1e46b923297a0f46b88b5",
+        "loss_rate": 0.947977,
+        "losses_count": 164,
+        "max_drawdown_usd": 381.7661,
+        "max_losing_streak": 49,
+        "open_at_horizon_count": 73,
+        "profit_factor": 0.1227,
+        "total_entry_fees_usd": 106.4227,
+        "total_exit_fees_usd": 106.4338,
+        "total_fees_usd": 212.8565,
+        "total_realized_gross_usd": -168.9096,
+        "total_realized_net_usd": -381.7661,
+        "total_scheduled_episodes": 248,
+        "unfilled_or_no_fill_count": 1,
+        "win_rate": 0.052023,
+        "wins_count": 9
+      }
+    },
+    "si8_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.9991,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "LEGACY_CLOSE_FILL",
+        "ledger_sha256": "ec66f8c47c3ce3cecd83eb17b9d7312d7c6f6ddb2dae37d66e888756e3fc2885",
+        "loss_rate": 1.0,
+        "losses_count": 4,
+        "max_drawdown_usd": 9.8512,
+        "max_losing_streak": 4,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 1.5315,
+        "total_exit_fees_usd": 1.5341,
+        "total_fees_usd": 3.0656,
+        "total_realized_gross_usd": -6.7856,
+        "total_realized_net_usd": -9.8512,
+        "total_scheduled_episodes": 4,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.9875,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+        "ledger_sha256": "68066ff9e4ea00a22e91cd08bf9ac50e4082a2c18e5c2c785dab901766aa6dd2",
+        "loss_rate": 1.0,
+        "losses_count": 4,
+        "max_drawdown_usd": 9.7372,
+        "max_losing_streak": 4,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 1.5315,
+        "total_exit_fees_usd": 1.5341,
+        "total_fees_usd": 3.0656,
+        "total_realized_gross_usd": -6.6716,
+        "total_realized_net_usd": -9.7372,
+        "total_scheduled_episodes": 4,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 4,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -1.0158,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+        "ledger_sha256": "55fe138e91fe6e7df1d5a5a07dbc3f8abc810138b0e276e711ec8ff6e03fadd2",
+        "loss_rate": 1.0,
+        "losses_count": 4,
+        "max_drawdown_usd": 10.0162,
+        "max_losing_streak": 4,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 1.5314,
+        "total_exit_fees_usd": 1.5342,
+        "total_fees_usd": 3.0656,
+        "total_realized_gross_usd": -6.9506,
+        "total_realized_net_usd": -10.0162,
+        "total_scheduled_episodes": 4,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      }
+    },
+    "si8_incremental_discovery_total": 6375,
+    "si8_si9_combined_unique_closed_count": 4,
+    "si8_si9_shared_closed_ids_count": 2,
+    "si9_all_modes": {
+      "LEGACY_CLOSE_FILL": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.9987,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "LEGACY_CLOSE_FILL",
+        "ledger_sha256": "cea7d2db90f453ed40c29e627cffeb20910ed544606afaedc60b059664a95364",
+        "loss_rate": 1.0,
+        "losses_count": 2,
+        "max_drawdown_usd": 4.9337,
+        "max_losing_streak": 2,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 0.6598,
+        "total_exit_fees_usd": 0.6611,
+        "total_fees_usd": 1.3209,
+        "total_realized_gross_usd": -3.6128,
+        "total_realized_net_usd": -4.9337,
+        "total_scheduled_episodes": 2,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      },
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -0.9896,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+        "ledger_sha256": "74bbe22cc0756cc2dd16b08632f96ce9ac39fc0a1547342b97bbbbc92fbc7756",
+        "loss_rate": 1.0,
+        "losses_count": 2,
+        "max_drawdown_usd": 4.8886,
+        "max_losing_streak": 2,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 0.6598,
+        "total_exit_fees_usd": 0.6611,
+        "total_fees_usd": 1.3209,
+        "total_realized_gross_usd": -3.5677,
+        "total_realized_net_usd": -4.8886,
+        "total_scheduled_episodes": 2,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "blocked_by_open_position_count": 1,
+        "closed_trades_count": 2,
+        "data_gap_unresolved_count": 0,
+        "expectancy_is_positive_evidence": false,
+        "expectancy_net_r": -1.0139,
+        "expectancy_status": "NEGATIVE_OR_ZERO",
+        "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+        "ledger_sha256": "13397b63ea8f11b23caf0f12009431f28a71bd8b8831f370c2aef271d7227955",
+        "loss_rate": 1.0,
+        "losses_count": 2,
+        "max_drawdown_usd": 5.0086,
+        "max_losing_streak": 2,
+        "open_at_horizon_count": 0,
+        "profit_factor": 0.0,
+        "total_entry_fees_usd": 0.6597,
+        "total_exit_fees_usd": 0.6612,
+        "total_fees_usd": 1.3209,
+        "total_realized_gross_usd": -3.6877,
+        "total_realized_net_usd": -5.0086,
+        "total_scheduled_episodes": 2,
+        "unfilled_or_no_fill_count": 0,
+        "win_rate": 0.0,
+        "wins_count": 0
+      }
+    },
+    "target_201_m1_vs_htf_atr_mismatch_count": 201,
+    "target_267_cohort_count": 267,
+    "target_66_horizon_unreachable_count": 66,
+    "target_actual_net_rr_lt_2_count": 0,
+    "target_control_group_count": 40,
+    "version": "V17.9.3.1.2.17"
+  },
+  "auto_trading_mode": "OFF",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": [
+    {
+      "gate_id": "G01",
+      "name": "BRANCH_SOURCE_FREEZE",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "branch",
+        "canonical_dataset_sha256"
+      ],
+      "status": "PASS",
+      "summary": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa and dataset 9f301fee2e62 verified.",
+      "verifier_fn": "verify_source_freeze_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G02",
+      "name": "REAL_ADVERSARIAL_CONTROLS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "negative_controls_total",
+        "negative_controls_passed",
+        "negative_controls_real_injected"
+      ],
+      "status": "PASS",
+      "summary": "All 180/180 adversarial negative controls passed; 146 real fault injections executed.",
+      "verifier_fn": "run_fully_observed_adversarial_suite_v17931217",
+      "violations": []
+    },
+    {
+      "gate_id": "G03",
+      "name": "JUNIT_NODE_OS_BIJECTION",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "pytest_collected",
+        "pytest_executed_junit",
+        "pytest_failed",
+        "pytest_errors"
+      ],
+      "status": "PASS",
+      "summary": "Full fresh collection 5448 == 5448 executed; 5440 passed, 8 skipped, 0 failed.",
+      "verifier_fn": "verify_fresh_junit_bijection_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G04",
+      "name": "CROSS_VIEW_REPORT_TRUTH",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "README_V17_9_3_1_2_17.md",
+        "HANDOVER_V17_9_3_1_2_17.txt",
+        "gate_matrix"
+      ],
+      "status": "PASS",
+      "summary": "README, Handover, Gate Matrix, and JSON ledgers 100% numerically and semantically consistent.",
+      "verifier_fn": "verify_v17931217_cross_view_numerical_consistency",
+      "violations": []
+    },
+    {
+      "gate_id": "G05",
+      "name": "PROVENANCE_FAIL_CLOSED",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "07_verified_causal_features.jsonl.gz"
+      ],
+      "status": "PASS",
+      "summary": "Point-in-time closed bar provenance verified; unproven signals fail-closed.",
+      "verifier_fn": "verify_feature_snapshot_v1793127",
+      "violations": []
+    },
+    {
+      "gate_id": "G06",
+      "name": "14_SURVIVOR_DETECTOR_PROOF",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "05_d4_14_survivor_causal_raw_source_casebook.jsonl.gz"
+      ],
+      "status": "PASS",
+      "summary": "All 14 Stage-4 survivor cases independently audited; NO_CORE_UNICORN_PATCH_JUSTIFIED (0 trades).",
+      "verifier_fn": "build_d4_14_survivor_raw_source_casebook_v17931217",
+      "violations": []
+    },
+    {
+      "gate_id": "G07",
+      "name": "UNICORN_STRICT_ANTI_LOOKAHEAD",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "06_breaker_fvg_episode_binding_and_feature_provenance_diff.json"
+      ],
+      "status": "PASS",
+      "summary": "Breaker+FVG overlap strictly >=1 tick required; FVG-only correctly rejected.",
+      "verifier_fn": "validate_single_unicorn_confluence_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G08",
+      "name": "TARGET_UNIT_SOURCE_TRUTH",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "08_target_267_201_66_source_atr_horizon_and_rr_casebook.jsonl.gz"
+      ],
+      "status": "PASS",
+      "summary": "267 target failures reconciled: 201 ATR unit mismatch + 66 horizon unreachable.",
+      "verifier_fn": "audit_target_reachability_row_v17931214",
+      "violations": []
+    },
+    {
+      "gate_id": "G09",
+      "name": "LOSS_CAUSAL_FORENSICS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "11_si0_157_loss_raw_episode_forensics.jsonl.gz"
+      ],
+      "status": "PASS",
+      "summary": "157 SI0 losses conserved; SI8/SI9 4/2 losses with 2 shared IDs deduped (4 unique).",
+      "verifier_fn": "build_loss_episode_attribution_from_raw_v17931217",
+      "violations": []
+    },
+    {
+      "gate_id": "G10",
+      "name": "ENTRY_STOP_TARGET_GEOMETRY",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "14_isolated_entry_sl_tp_matched_counterfactuals_3modes.json"
+      ],
+      "status": "PASS",
+      "summary": "Closed M1 entry, independent structural SL, unswept TP, risk capped <= 2.50 USD.",
+      "verifier_fn": "validate_sl_tp_sizing_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G11",
+      "name": "FULL_30_PARTITIONS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "15_raw_30_policy_fill_execution_ledger_manifest.json"
+      ],
+      "status": "PASS",
+      "summary": "10 policies x 3 fill modes = 30 raw execution partitions strictly reconciled.",
+      "verifier_fn": "verify_exit_portfolio_conservation_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G12",
+      "name": "MATCHED_AB_AND_STRESS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "16_global_chronological_1pos_portfolio_and_cost_stress.json"
+      ],
+      "status": "PASS",
+      "summary": "A0..D4 matched counterfactuals, 2x fee/spread stress, and intrabar tie conservatism verified.",
+      "verifier_fn": "build_delayed_entry_contract_and_ledgers_v17931213",
+      "violations": []
+    },
+    {
+      "gate_id": "G13",
+      "name": "WORKER_PARITY_AND_RESOURCE",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "20_workers_1_2_4_1repeat_deterministic_ordered_hashes.json",
+        "22_memory_disk_pid_resource_monitor_and_cleanup.json"
+      ],
+      "status": "PASS",
+      "summary": "w1/w2/w4 parity verified; measured w3 speedup 2.337x; max children 4; 0 orphans.",
+      "verifier_fn": "verify_bounded_async_workers_v17931213",
+      "violations": []
+    },
+    {
+      "gate_id": "G14",
+      "name": "FRESH_OOS",
+      "observed_status": "BLOCKED",
+      "required_inputs": [
+        "17_purged_walkforward_and_fresh_oos_truth.json"
+      ],
+      "status": "BLOCKED",
+      "summary": "No fresh untouched external dataset available; historical dataset reused for validation only.",
+      "verifier_fn": "validate_system_guards_strict",
+      "violations": [
+        "NO_UNTOUCHED_FRESH_DATASET_AVAILABLE"
+      ]
+    },
+    {
+      "gate_id": "G15",
+      "name": "ECONOMIC_EDGE",
+      "observed_status": "NEGATIVE",
+      "required_inputs": [
+        "15_raw_30_policy_fill_execution_ledger_manifest.json"
+      ],
+      "status": "NEGATIVE",
+      "summary": "Trading strategy exhibits negative expectancy on historical window (SI0 net R=-0.8474, SI8 net R=-0.9875, SI9 net R=-0.9896).",
+      "verifier_fn": "validate_ledger_accounting_strict",
+      "violations": [
+        "NEGATIVE_EXPECTANCY_CONFIRMED"
+      ]
+    },
+    {
+      "gate_id": "G16",
+      "name": "ACTIVATION_SAFETY",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "system_configuration"
+      ],
+      "status": "PASS",
+      "summary": "PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF; ACTIVATION_READY=NO strictly enforced.",
+      "verifier_fn": "validate_system_guards_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G17",
+      "name": "GIT_PUBLICATION",
+      "observed_status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "required_inputs": [
+        "git_branch_ls_remote"
+      ],
+      "status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "summary": "Pre-push check in immutable bundle; post-push receipt verified externally.",
+      "verifier_fn": "verify_remote_readback_v17931217",
+      "violations": [
+        "PRE_PUSH_PENDING"
+      ]
+    }
+  ],
+  "live_trading_mode": "OFF",
+  "paper_trading_mode": "OFF",
+  "run_id": "20261113T051232Z_e4d2c4d52abd",
+  "schema_version": "v17_9_3_1_2_17.truth_closure.v1",
+  "tested_executable_sha": "e4d2c4d52abd3b42bf225fdba2cb9828f1cd4bdd",
+  "version": "V17.9.3.1.2.17"
+}
