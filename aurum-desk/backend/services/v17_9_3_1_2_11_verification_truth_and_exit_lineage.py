@@ -289,8 +289,17 @@ def verify_fresh_junit_bijection_v17931211(
         violations.append(
             f"COLLECTION_SHA_MISMATCH:{collection_manifest.get('tested_executable_sha')}!={expected_tested_sha}"
         )
-    if int(collection_manifest.get("collect_exit_code", -1)) != 0:
-        violations.append(f"COLLECTION_EXIT_NONZERO:{collection_manifest.get('collect_exit_code')}")
+    raw_collect_exit = collection_manifest.get("collect_exit_code")
+    if raw_collect_exit is None:
+        raw_collect_exit = collection_manifest.get("pytest_collect_returncode")
+    if raw_collect_exit is None:
+        violations.append("COLLECTION_EXIT_MISSING")
+    else:
+        try:
+            if int(raw_collect_exit) != 0:
+                violations.append(f"COLLECTION_EXIT_NONZERO:{raw_collect_exit}")
+        except (ValueError, TypeError):
+            violations.append(f"COLLECTION_EXIT_INVALID:{raw_collect_exit}")
 
     expected_sorted_hash = canonical_hash(sorted(normalized_collected))
     alt_newline_hash = hashlib.sha256("\n".join(sorted(normalized_collected)).encode("utf-8")).hexdigest()
