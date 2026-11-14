@@ -1,0 +1,27 @@
+{
+  "passed_reproductions": 3,
+  "reproductions": [
+    {
+      "defect_id": "DEFECT_A",
+      "name": "Collection exit code missing or nonzero caught",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "DEFECT_B",
+      "name": "Missing tested_sha rejected with TypedMetricValidationError",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "DEFECT_G",
+      "name": "220 negative controls executed without fake fallback",
+      "red_reproduced": true,
+      "status": "PASS"
+    }
+  ],
+  "run_id": "20261114T005032Z_5d626930db7a",
+  "tested_executable_sha": "5d626930db7aacec35ba8ff322844e4eb4d9a69c",
+  "total_reproductions": 3,
+  "version": "V17.9.3.1.2.18"
+}

@@ -1,0 +1,224 @@
+{
+  "gate_pass_count": 14,
+  "gates": [
+    {
+      "gate_id": "G01",
+      "name": "BRANCH_SOURCE_FREEZE",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "branch",
+        "canonical_dataset_sha256",
+        "tested_sha"
+      ],
+      "summary": "Mandatory branch feature/v17-9-2-structural-sl-tp-from-qa and dataset 9f301fee2e62 verified on SHA 5d626930db7a.",
+      "verifier_fn": "verify_source_freeze_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G02",
+      "name": "REAL_ADVERSARIAL_CONTROLS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "negative_controls_total",
+        "negative_controls_passed",
+        "negative_controls_real_injected"
+      ],
+      "summary": "All 220/220 adversarial negative controls passed; 186 real fault injections executed.",
+      "verifier_fn": "run_fully_observed_adversarial_suite_v17931218",
+      "violations": []
+    },
+    {
+      "gate_id": "G03",
+      "name": "JUNIT_NODE_OS_BIJECTION",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "pytest_collected",
+        "pytest_executed_junit",
+        "pytest_failed",
+        "pytest_errors"
+      ],
+      "summary": "Full fresh collection 5455 == 5455 executed; 5447 passed, 8 skipped, 0 failed.",
+      "verifier_fn": "verify_fresh_junit_bijection_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G04",
+      "name": "CROSS_VIEW_REPORT_TRUTH",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "README_V17_9_3_1_2_18.md",
+        "HANDOVER_V17_9_3_1_2_18.txt",
+        "gate_matrix"
+      ],
+      "summary": "README, Handover, Gate Matrix, and JSON ledgers 100% numerically and semantically consistent.",
+      "verifier_fn": "verify_v17931218_cross_view_numerical_consistency",
+      "violations": []
+    },
+    {
+      "gate_id": "G05",
+      "name": "PROVENANCE_FAIL_CLOSED",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "07_verified_causal_features.jsonl.gz"
+      ],
+      "summary": "Point-in-time closed bar provenance verified; 63,085 research universe confirmed; unproven signals fail-closed.",
+      "verifier_fn": "verify_feature_snapshot_v1793127",
+      "violations": []
+    },
+    {
+      "gate_id": "G06",
+      "name": "14_SURVIVOR_DETECTOR_PROOF",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "07_14_d4_candidate_raw_breaker_fvg_asof_casebook.jsonl.gz"
+      ],
+      "summary": "All 14 Stage-4 survivor cases independently audited; NO_CORE_UNICORN_PATCH_JUSTIFIED (0 trades).",
+      "verifier_fn": "build_d4_14_survivor_raw_source_casebook_v17931216",
+      "violations": []
+    },
+    {
+      "gate_id": "G07",
+      "name": "UNICORN_STRICT_ANTI_LOOKAHEAD",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "07_14_d4_candidate_raw_breaker_fvg_asof_casebook.jsonl.gz"
+      ],
+      "summary": "Breaker+FVG overlap strictly >=1 tick required; 0.00 ticks observed on all 14 survivors; FVG-only correctly rejected.",
+      "verifier_fn": "validate_single_unicorn_confluence_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G08",
+      "name": "TARGET_UNIT_SOURCE_TRUTH",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "09_267_target_source_tf_atr_control_casebook.jsonl.gz"
+      ],
+      "summary": "267 target failures reconciled: 201 ATR unit mismatch + 66 horizon unreachable.",
+      "verifier_fn": "audit_target_reachability_row_v17931214",
+      "violations": []
+    },
+    {
+      "gate_id": "G09",
+      "name": "LOSS_CAUSAL_FORENSICS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "11_si0_157_loss_raw_episode_forensics.jsonl.gz",
+        "12_si8_si9_unique_loss_episode_forensics.jsonl.gz"
+      ],
+      "summary": "157 SI0 losses conserved; SI8/SI9 4/2 losses with 2 shared IDs deduped (4 unique).",
+      "verifier_fn": "build_loss_episode_attribution_from_raw_v17931218",
+      "violations": []
+    },
+    {
+      "gate_id": "G10",
+      "name": "ENTRY_STOP_TARGET_GEOMETRY",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "14_isolated_entry_sl_tp_matched_counterfactuals_3modes.json"
+      ],
+      "summary": "Closed M1 entry, independent structural SL, unswept TP, risk capped <= 2.50 USD.",
+      "verifier_fn": "validate_sl_tp_sizing_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G11",
+      "name": "FULL_30_PARTITIONS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "15_raw_30_policy_fill_execution_ledger_manifest.json"
+      ],
+      "summary": "10 policies x 3 fill modes = 30 raw execution partitions strictly reconciled.",
+      "verifier_fn": "verify_exit_portfolio_conservation_v17931211",
+      "violations": []
+    },
+    {
+      "gate_id": "G12",
+      "name": "MATCHED_AB_AND_STRESS",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "16_global_chronological_1pos_portfolio_and_cost_stress.json"
+      ],
+      "summary": "A0..D4 matched counterfactuals, 2x fee/spread stress, and intrabar tie conservatism verified.",
+      "verifier_fn": "build_delayed_entry_contract_and_ledgers_v17931213",
+      "violations": []
+    },
+    {
+      "gate_id": "G13",
+      "name": "WORKER_PARITY_AND_RESOURCE",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "20_workers_1_2_4_1repeat_deterministic_ordered_hashes.json",
+        "22_memory_disk_pid_resource_monitor_and_cleanup.json"
+      ],
+      "summary": "w1/w2/w4 parity verified; measured w3 speedup 2.308x; max children 4; 0 orphans.",
+      "verifier_fn": "verify_bounded_async_workers_v17931213",
+      "violations": []
+    },
+    {
+      "gate_id": "G14",
+      "name": "FRESH_OOS",
+      "observed_status": "BLOCKED",
+      "required_inputs": [
+        "17_purged_walkforward_and_fresh_oos_truth.json"
+      ],
+      "summary": "No fresh untouched external dataset available; historical dataset reused for validation only.",
+      "verifier_fn": "validate_system_guards_strict",
+      "violations": [
+        "NO_UNTOUCHED_FRESH_DATASET_AVAILABLE"
+      ]
+    },
+    {
+      "gate_id": "G15",
+      "name": "ECONOMIC_EDGE",
+      "observed_status": "NEGATIVE",
+      "required_inputs": [
+        "15_raw_30_policy_fill_execution_ledger_manifest.json"
+      ],
+      "summary": "Trading strategy exhibits negative expectancy on historical window (SI0 net R=-0.8474, SI8 net R=-0.9875, SI9 net R=-0.9896).",
+      "verifier_fn": "validate_ledger_accounting_strict",
+      "violations": [
+        "NEGATIVE_EXPECTANCY_CONFIRMED"
+      ]
+    },
+    {
+      "gate_id": "G16",
+      "name": "ACTIVATION_SAFETY",
+      "observed_status": "PASS",
+      "required_inputs": [
+        "system_configuration"
+      ],
+      "summary": "PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF; ACTIVATION_READY=NO strictly enforced.",
+      "verifier_fn": "validate_system_guards_strict",
+      "violations": []
+    },
+    {
+      "gate_id": "G17",
+      "name": "PUBLICATION_PROOF",
+      "observed_status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+      "required_inputs": [
+        "git_remote_readback_receipt"
+      ],
+      "summary": "Phase C external git commit + push and verified remote readback receipt.",
+      "verifier_fn": "verify_git_remote_receipt_v17931211",
+      "violations": [
+        "PENDING_REMOTE_PUSH"
+      ]
+    }
+  ],
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "REGRESSION_VERDICT": "PASS",
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TARGET_PROVENANCE_VERDICT": "PASS",
+    "TRUE_UNICORN_CAUSAL_VERDICT": "PASS"
+  },
+  "publication_status": "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+  "schema_version": "v17_9_3_1_2_18.truth_closure.v1",
+  "total_gates_count": 17,
+  "version": "V17.9.3.1.2.18"
+}

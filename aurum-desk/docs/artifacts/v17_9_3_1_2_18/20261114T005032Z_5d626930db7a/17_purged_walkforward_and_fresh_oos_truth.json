@@ -1,0 +1,89 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "OOS_PROVENANCE_GATE": "BLOCKED_NO_UNTOUCHED_DATA",
+  "activation_ready": "NO",
+  "auto_trading_mode": "OFF",
+  "dataset_bars_1m_count": 22376,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "dataset_span_ms": [
+    1791437880000,
+    1793196000000
+  ],
+  "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+  "live_trading_mode": "OFF",
+  "paper_trading_mode": "OFF",
+  "purged_walkforward_embargo_minutes": 180,
+  "purged_walkforward_folds": [
+    {
+      "embargo_ms": 10800000,
+      "fold_id": "PURGED_WF_FOLD_1",
+      "is_fresh_untouched_oos": false,
+      "purged_overlapping_episodes_count": 1,
+      "train_closed_trades": 68,
+      "train_net_pnl_usd": -142.4118,
+      "train_window_ms": [
+        1791437880000,
+        1792229034000
+      ],
+      "validation_closed_trades": 12,
+      "validation_net_pnl_usd": -19.7435,
+      "validation_window_ms": [
+        1792239834000,
+        1792492752000
+      ]
+    },
+    {
+      "embargo_ms": 10800000,
+      "fold_id": "PURGED_WF_FOLD_2",
+      "is_fresh_untouched_oos": false,
+      "purged_overlapping_episodes_count": 1,
+      "train_closed_trades": 81,
+      "train_net_pnl_usd": -168.4674,
+      "train_window_ms": [
+        1791437880000,
+        1792492752000
+      ],
+      "validation_closed_trades": 35,
+      "validation_net_pnl_usd": -69.7872,
+      "validation_window_ms": [
+        1792503552000,
+        1792756470000
+      ]
+    },
+    {
+      "embargo_ms": 10800000,
+      "fold_id": "PURGED_WF_FOLD_3",
+      "is_fresh_untouched_oos": false,
+      "purged_overlapping_episodes_count": 1,
+      "train_closed_trades": 116,
+      "train_net_pnl_usd": -230.5306,
+      "train_window_ms": [
+        1791437880000,
+        1792756470000
+      ],
+      "validation_closed_trades": 47,
+      "validation_net_pnl_usd": -115.7947,
+      "validation_window_ms": [
+        1792767270000,
+        1793196000000
+      ]
+    }
+  ],
+  "reused_across_prior_versions": [
+    "V17.9.3.1.2.7",
+    "V17.9.3.1.2.8",
+    "V17.9.3.1.2.9",
+    "V17.9.3.1.2.10",
+    "V17.9.3.1.2.11",
+    "V17.9.3.1.2.12",
+    "V17.9.3.1.2.13"
+  ],
+  "run_id": "20261114T005032Z_5d626930db7a",
+  "schema_version": "v17_9_3_1_2_18.truth_closure.v1",
+  "status": "PASS",
+  "tested_executable_sha": "5d626930db7aacec35ba8ff322844e4eb4d9a69c",
+  "untouched_post_freeze_dataset_exists": false,
+  "untouched_post_freeze_external_dataset_present": false,
+  "version": "V17.9.3.1.2.18"
+}

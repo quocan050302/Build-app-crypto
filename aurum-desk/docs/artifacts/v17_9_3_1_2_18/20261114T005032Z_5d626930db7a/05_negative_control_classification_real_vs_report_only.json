@@ -1,0 +1,12 @@
+{
+  "actually_executed_count": 220,
+  "categories_breakdown": {},
+  "passed_negative_controls": 220,
+  "real_injected_count": 186,
+  "report_assertion_count": 34,
+  "run_id": "20261114T005032Z_5d626930db7a",
+  "status": "PASS",
+  "tested_executable_sha": "5d626930db7aacec35ba8ff322844e4eb4d9a69c",
+  "total_negative_controls": 220,
+  "version": "V17.9.3.1.2.18"
+}

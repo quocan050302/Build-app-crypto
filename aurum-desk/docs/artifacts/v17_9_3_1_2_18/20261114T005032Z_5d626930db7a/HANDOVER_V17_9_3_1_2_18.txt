@@ -1,0 +1,39 @@
+AURUM DESK — V17.9.3.1.2.18 HANDOVER RECEIPT
+======================================================================
+Run ID: 20261114T005032Z_5d626930db7a
+Tested SHA: 5d626930db7aacec35ba8ff322844e4eb4d9a69c
+Branch: feature/v17-9-2-structural-sl-tp-from-qa
+Canonical Dataset: 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+
+VERDICTS:
+- ENGINEERING_VERDICT: PASS
+- REGRESSION_VERDICT: PASS
+- TRUE_UNICORN_CAUSAL_VERDICT: PASS
+- D4_MATERIALIZATION_VERDICT: NO_VALID_SETUPS
+- TARGET_PROVENANCE_VERDICT: PASS
+- ACCOUNTING_VERDICT: PASS
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+- STRATEGY_ECONOMIC_EDGE_VERDICT: NEGATIVE_NO_PROVEN_EDGE
+- ACTIVATION_READY: NO
+
+NUMERICAL EVIDENCE METRICS:
+- pytest_collected: 5455
+- pytest_passed: 5447
+- pytest_skipped: 8
+- pytest_failed: 0
+- negative_controls_total: 220
+- negative_controls_passed: 220
+- negative_controls_real_injected: 186
+- canonical_universe_total: 63085
+- d4_survivors_14_casebook_count: 14
+- target_267_cohort_count: 267
+- baseline_primary_closed_losses_n157: 157
+- same_sha_w3_speedup: 2.308x
+- max_children_observed: 4
+- orphan_pids_count: 0
+
+TRADING SAFETY:
+- live_trading_mode: OFF
+- paper_trading_mode: OFF
+- auto_trading_mode: OFF
+- activation_ready: NO

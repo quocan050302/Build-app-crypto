@@ -1,0 +1,93 @@
+{
+  "d4_summary": {
+    "baseline_decisions_count": 56710,
+    "canonical_universe_total": 63085,
+    "cross_adapter_output_hash_parity": {
+      "default_activation_state": "OFF",
+      "mismatches_count": 0,
+      "production_live_orders_emitted": 0,
+      "samples": [
+        {
+          "exact_output_hash_parity": true,
+          "hashes_by_context": {
+            "MARKET_SHADOW": "653ad3298b36f3a13af3b7e19d049c920d9644fdd302a28f3a08a3c36cfc2815",
+            "PRODUCTION_ORCHESTRATOR_DRY_RUN": "653ad3298b36f3a13af3b7e19d049c920d9644fdd302a28f3a08a3c36cfc2815",
+            "REPLAY_BACKTEST": "653ad3298b36f3a13af3b7e19d049c920d9644fdd302a28f3a08a3c36cfc2815"
+          },
+          "opportunity_id": "opp_9f301fee2e62_XAUUSDT_CG01_SWEEP_MSS_FVG_SHORT_idx30_ts1791439740000_ep_CG01_SWEEP_MSS_FVG_SHORT_1791438660000_aa910d185e"
+        }
+      ],
+      "samples_verified": 1,
+      "status": "PASS"
+    },
+    "d4_14_stage_pass_counts_63085": {
+      "01_CANDIDATE_REGISTERED": 63085,
+      "02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED": 7562,
+      "03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN": 184,
+      "04_MSS_BOS_DISPLACEMENT_PROVEN": 14,
+      "05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG": 0,
+      "06_VALID_FRESH_UNCONSUMED_RETEST": 0,
+      "07_POST_SIGNAL_DELAYED_CONFIRMATION": 0,
+      "08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR": 0,
+      "09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET": 0,
+      "10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0": 0,
+      "11_FIXED_RISK_SIZING_LTE_2_50_USD": 0,
+      "12_MATERIALIZED_INTENT_1POS_ELIGIBLE": 0,
+      "13_POST_CONFIRMATION_ENTRY_FILLED": 0,
+      "14_TERMINAL_CLOSED_OUTCOME": 0
+    },
+    "d4_matched_242_accepted_nb": 0,
+    "d4_matched_242_closed_nb": 0,
+    "d4_matched_242_cohort_evaluated": 242,
+    "d4_matched_242_expectancy_status": "INCONCLUSIVE_NO_SAMPLE",
+    "d4_matched_242_rejection_breakdown_nb": {
+      "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 58,
+      "CANCELLED_MARKET_GAP_DURING_CONFIRMATION_WAIT": 1,
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 33,
+      "INSUFFICIENT_CAUSAL_HISTORY_OR_FORWARD_BARS": 1,
+      "REJECTED_CAUSAL_H1_H4_CONFLICT": 5,
+      "REJECTED_CAUSAL_HTF_MIXED_OR_NEUTRAL": 5,
+      "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 47,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 92
+    },
+    "d4_materialization_status": "NO_CAUSALLY_ELIGIBLE_SETUPS",
+    "d4_rejection_breakdown_63085": {
+      "02_HTF_NOT_ALIGNED:COUNTERTREND": 9202,
+      "02_HTF_NOT_ALIGNED:MIXED": 46321,
+      "03_SWEEP_OR_RECLAIM_NOT_PROVEN": 7378,
+      "04_MSS_OR_DISPLACEMENT_NOT_PROVEN": 170,
+      "05_NOT_TRUE_UNICORN_BREAKER_FVG:FVG_ONLY": 14
+    },
+    "d4_universe_63085_accepted_intents_nb": 0,
+    "d4_universe_63085_closed_trades_nb": 0,
+    "d4_universe_63085_realized_net_pnl_usd_nb": 0,
+    "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "run_id": "20261114T005032Z_5d626930db7a",
+    "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+    "si8_discovered_decisions_count": 6375,
+    "tested_executable_sha": "5d626930db7aacec35ba8ff322844e4eb4d9a69c",
+    "version": "V17.9.3.1.2.14"
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "run_id": "20261114T005032Z_5d626930db7a",
+  "schema_version": "v17_9_3_1_2_18.truth_closure.v1",
+  "stage_pass_counts": {
+    "01_CANDIDATE_REGISTERED": 63085,
+    "02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED": 7562,
+    "03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN": 184,
+    "04_MSS_BOS_DISPLACEMENT_PROVEN": 14,
+    "05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG": 0,
+    "06_VALID_FRESH_UNCONSUMED_RETEST": 0,
+    "07_POST_SIGNAL_DELAYED_CONFIRMATION": 0,
+    "08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR": 0,
+    "09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET": 0,
+    "10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0": 0,
+    "11_FIXED_RISK_SIZING_LTE_2_50_USD": 0,
+    "12_MATERIALIZED_INTENT_1POS_ELIGIBLE": 0,
+    "13_POST_CONFIRMATION_ENTRY_FILLED": 0,
+    "14_TERMINAL_CLOSED_OUTCOME": 0
+  },
+  "tested_executable_sha": "5d626930db7aacec35ba8ff322844e4eb4d9a69c",
+  "verified_0trade_status": "PROVEN_ZERO_MATERIALIZED_TRADES",
+  "version": "V17.9.3.1.2.18"
+}
