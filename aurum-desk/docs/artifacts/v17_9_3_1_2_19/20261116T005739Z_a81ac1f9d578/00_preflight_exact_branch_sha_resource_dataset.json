@@ -1,0 +1,8 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "run_id": "20261116T005739Z_a81ac1f9d578",
+  "tested_executable_sha": "a81ac1f9d5783121bc55bdd305063863d10cb7af",
+  "timestamp_utc": "2026-11-16T00:57:39.578148+00:00",
+  "version": "V17.9.3.1.2.19"
+}

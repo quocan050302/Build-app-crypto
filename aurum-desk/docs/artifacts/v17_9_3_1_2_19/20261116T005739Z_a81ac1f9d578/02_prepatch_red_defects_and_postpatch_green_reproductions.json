@@ -1,0 +1,127 @@
+{
+  "passed_reproductions": 20,
+  "reproductions": [
+    {
+      "defect_id": "D19-01",
+      "name": "G04 PASS when cross_view_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-02",
+      "name": "G05 PASS when provenance_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-03",
+      "name": "G07 PASS when anti_lookahead_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-04",
+      "name": "G10 PASS when geometry_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-05",
+      "name": "G11 PASS when partitions_30_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-06",
+      "name": "G12 PASS when stress_fee_conservation_verified is absent/None is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-07",
+      "name": "G03 PASS when independent JUnit verifier receipt is missing is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-08",
+      "name": "G13 PASS when worker parity/guard verifier receipt is missing is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-09",
+      "name": "G16 PASS when live/auto/paper config evidence missing (None) is prevented",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-10",
+      "name": "ENGINEERING_VERDICT FAIL when mandatory technical gates fail",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-11",
+      "name": "Missing scheduled_distribution raises TypedMetricValidationError",
+      "red_reproduced": false,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-12",
+      "name": "Missing D4 counts raises TypedMetricValidationError",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-13",
+      "name": "Missing actual_net_rr_lt_2_count raises TypedMetricValidationError",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-14",
+      "name": "Missing baseline loss count raises TypedMetricValidationError",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-15",
+      "name": "Missing SI8/SI9 overlap raises TypedMetricValidationError",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-16",
+      "name": "Inherited control missing red_fault_rejected does not default to True",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-17",
+      "name": "Final verdict cannot be PASS when mandatory gates fail",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-18",
+      "name": "Receipt with stale/mismatched tested_sha rejected",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-19",
+      "name": "Reused OOS is not treated as fresh; FRESH_OOS remains BLOCKED",
+      "red_reproduced": true,
+      "status": "PASS"
+    },
+    {
+      "defect_id": "D19-20",
+      "name": "Cross-view verifier detects missing required sections",
+      "red_reproduced": true,
+      "status": "PASS"
+    }
+  ],
+  "total_reproductions": 20,
+  "version": "V17.9.3.1.2.19"
+}

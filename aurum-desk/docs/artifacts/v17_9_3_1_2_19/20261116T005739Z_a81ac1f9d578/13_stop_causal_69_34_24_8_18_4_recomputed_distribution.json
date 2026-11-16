@@ -1,0 +1,44 @@
+{
+  "baseline_primary_closed_losses_n157": 157,
+  "baseline_primary_scheduled_episodes_n242": 242,
+  "observed_ex_post_outcome_distribution": {
+    "SL_HIT_BEFORE_TP": 157
+  },
+  "observed_pre_entry_known_distribution": {
+    "OTHER_OR_UNKNOWN": 157
+  },
+  "pre_entry_known_reasons": {
+    "OTHER_OR_UNKNOWN": 157
+  },
+  "run_id": "20261116T005739Z_a81ac1f9d578",
+  "scheduled_distribution": {
+    "DATA_GAP_UNRESOLVED": 1,
+    "LOSS": 157,
+    "OPEN_AT_HORIZON": 74,
+    "UNFILLED": 1,
+    "WIN": 9
+  },
+  "si8_si9_combined_unique_closed_count": 4,
+  "si8_si9_shared_closed_ids_count": 2,
+  "summary": {
+    "baseline_primary_closed_losses_n157": 157,
+    "baseline_primary_scheduled_episodes_n242": 242,
+    "observed_pre_entry_known_distribution": {
+      "OTHER_OR_UNKNOWN": 157
+    },
+    "pre_entry_known_reasons": {
+      "OTHER_OR_UNKNOWN": 157
+    },
+    "scheduled_distribution": {
+      "DATA_GAP_UNRESOLVED": 1,
+      "LOSS": 157,
+      "OPEN_AT_HORIZON": 74,
+      "UNFILLED": 1,
+      "WIN": 9
+    },
+    "si8_si9_combined_unique_closed_count": 4,
+    "si8_si9_shared_closed_ids_count": 2
+  },
+  "tested_executable_sha": "a81ac1f9d5783121bc55bdd305063863d10cb7af",
+  "version": "V17.9.3.1.2.19"
+}

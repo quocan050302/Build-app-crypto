@@ -1,0 +1,13 @@
+AURUM DESK HANDOVER — V17.9.3.1.2.19
+Tested SHA: a81ac1f9d5783121bc55bdd305063863d10cb7af
+Branch: feature/v17-9-2-structural-sl-tp-from-qa
+Universe: 63085 (56710 + 6375)
+D4 Stage 4 Survivors: 14 (accepted: 0, closed: 0)
+Target Forensic: 267 (201 ATR + 66 horizon)
+Losses Forensic: 157 SI0 losses; SI8/SI9 2 shared, 4 unique
+Regression: 5463 collected / 5463 executed / 5455 passed / 8 skipped / 0 failed
+Controls: 280/280 passed (246 real injected)
+Speedup w3: 2.299x
+ENGINEERING_VERDICT: PASS
+REGRESSION_VERDICT: PASS
+ACTIVATION_READY: NO

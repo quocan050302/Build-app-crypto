@@ -1,0 +1,16 @@
+{
+  "actual_net_rr_lt_2_count": 0,
+  "control_group_count": 40,
+  "counterfactuals": [],
+  "historical_267_cohort_count": 267,
+  "horizon_unreachable_count": 66,
+  "m1_vs_htf_atr_unit_mismatch_count": 201,
+  "summary": {
+    "actual_net_rr_lt_2_count": 0,
+    "control_group_count": 40,
+    "historical_267_cohort_count": 267,
+    "horizon_unreachable_count": 66,
+    "m1_vs_htf_atr_unit_mismatch_count": 201
+  },
+  "version": "V17.9.3.1.2.19"
+}

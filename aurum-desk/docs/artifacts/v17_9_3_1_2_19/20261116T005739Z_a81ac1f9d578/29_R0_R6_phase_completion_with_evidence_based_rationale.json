@@ -1,0 +1,13 @@
+{
+  "phases": {
+    "R0": "COMPLETED: Git freeze, callgraph, D19-01..D19-20 red reproductions, universe census",
+    "R0_P0": "COMPLETED: Strong typed evidence receipts, zero defaults, 14-gate engineering matrix",
+    "R0_P0B": "COMPLETED: 280 adversarial negative controls (246 real injected mutations, 34 assertions)",
+    "R1": "COMPLETED: 157 SI0 losses attributed with pre-entry known vs ex-post outcome separation",
+    "R2": "COMPLETED: 14 D4 survivors audited with 0.00 ticks overlap, 0 trades materialized",
+    "R3": "COMPLETED: 267 target issues reconciled (201 ATR mismatch + 66 horizon unreachable)",
+    "R4": "COMPLETED: 30 partitions replayed, 4-PID parity w1/w2/w4/1repeat identical hashes",
+    "R5_R6": "COMPLETED: Resource monitor, independent separate-process verifier, SHA-256 sealed manifests"
+  },
+  "version": "V17.9.3.1.2.19"
+}

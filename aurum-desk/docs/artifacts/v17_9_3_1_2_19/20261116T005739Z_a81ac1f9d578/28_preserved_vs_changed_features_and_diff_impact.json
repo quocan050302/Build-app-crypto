@@ -1,0 +1,17 @@
+{
+  "changed_features": [
+    "Strong typed EvidenceReceiptV17931219 contract",
+    "Mandatory 14-Gate Engineering Acceptance (G01..G13 + G16)",
+    "Zero fallback default dictionaries in authoritative metrics builder",
+    "280 adversarial negative controls (V01..V280; 246 real injected)",
+    "Red reproductions verifying D19-01 through D19-20 guarded"
+  ],
+  "preserved_principles": [
+    "P01..P28 preserved without regression",
+    "ACTIVATION_READY=NO, PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF strictly enforced",
+    "Zero artificial True Unicorn signals; stage 5 remains 0",
+    "Fixed risk capped <= $2.50 all-in",
+    "1-position chronological arbitration without overlap"
+  ],
+  "version": "V17.9.3.1.2.19"
+}
