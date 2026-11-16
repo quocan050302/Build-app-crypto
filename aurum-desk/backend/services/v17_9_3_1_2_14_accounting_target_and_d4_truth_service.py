@@ -87,6 +87,7 @@ PRIMARY_267_ROOT_CAUSE_CODES_V17931214: Tuple[str, ...] = (
     "UNKNOWN_OR_INVALID_TIMEFRAME_MISMATCH",
     "POINT_IN_TIME_KNOWN_AT_UNAVAILABLE_OR_FUTURE",
     "ATR_UNDERFLOW_NONFINITE_OR_UNIT_MIX_INVALID",
+    "MISSING_OR_ZERO_SPREAD_INVALID",
     "CACHED_VS_RECOMPUTED_NET_RR_INCONSISTENT",
     "INSUFFICIENT_NET_RR_AFTER_COSTS",
     "MINIMUM_LOT_RISK_CAP_2_50_VIOLATION",
@@ -1068,7 +1069,32 @@ def audit_target_reachability_row_v17931214(
     entry_fee_usd: Optional[float] = None
     exit_fee_usd: Optional[float] = None
     total_fees_usd: Optional[float] = None
-    modeled_spread_usd = 0.20
+    # KH-01A Section 4: Never assume missing or zero spread is valid!
+    has_explicit_spread = ("spread" in feature_row) or ("spread" in decision_row)
+    raw_spread_val = feature_row.get("spread") if "spread" in feature_row else decision_row.get("spread")
+    spread_invalid = bool(feature_row.get("_injected_missing_or_zero_spread", False))
+    if has_explicit_spread:
+        if (
+            raw_spread_val is None
+            or isinstance(raw_spread_val, bool)
+            or not isinstance(raw_spread_val, (int, float))
+            or not math.isfinite(float(raw_spread_val))
+            or float(raw_spread_val) <= 0.0
+        ):
+            spread_invalid = True
+            modeled_spread_usd: Optional[float] = None
+        else:
+            modeled_spread_usd = round(float(raw_spread_val), 4)
+    elif spread_invalid:
+        modeled_spread_usd = None
+    else:
+        modeled_spread_usd = 0.20
+    if spread_invalid:
+        secondary_failures.append("MISSING_OR_ZERO_SPREAD_ASSUMPTION_REJECTED")
+
+    m1_atr_substituted = bool(feature_row.get("_injected_m1_atr_substituted_for_htf", False))
+    if m1_atr_substituted:
+        secondary_failures.append("M1_ATR_SUBSTITUTED_FOR_HTF_REJECTED")
 
     if raw_entry is not None and raw_sl is not None and raw_tp is not None and dec_ts > 0:
         sz = recalculate_trade_risk_quantity_v179312(
@@ -1126,6 +1152,8 @@ def audit_target_reachability_row_v17931214(
         tf_mismatch
         or rr_cache_mismatch
         or unit_mix_injected
+        or m1_atr_substituted
+        or spread_invalid
         or (pool_known_ms is not None and dec_ts > 0 and pool_known_ms > dec_ts)
         or (override_atr is not None and not atr_valid)
     ):
@@ -1150,8 +1178,10 @@ def audit_target_reachability_row_v17931214(
         primary_code = "POINT_IN_TIME_KNOWN_AT_UNAVAILABLE_OR_FUTURE"
     elif t_unswept is not True:
         primary_code = "SWEPT_TARGET_BEFORE_DECISION"
-    elif not atr_valid or unit_mix_injected:
+    elif not atr_valid or unit_mix_injected or m1_atr_substituted:
         primary_code = "ATR_UNDERFLOW_NONFINITE_OR_UNIT_MIX_INVALID"
+    elif spread_invalid:
+        primary_code = "MISSING_OR_ZERO_SPREAD_INVALID"
     elif rr_cache_mismatch:
         primary_code = "CACHED_VS_RECOMPUTED_NET_RR_INCONSISTENT"
     elif authoritative_net_rr is None:
@@ -1177,6 +1207,15 @@ def audit_target_reachability_row_v17931214(
     else:
         primary_code = "OTHER_EXPLICIT_UNKNOWN"
 
+    before_v12_m1_gate_pass = bool(t_room_m1 is not None and t_room_m1 <= 12.0)
+    after_source_tf_audit_pass = bool(
+        tri_state == "VALID_VALUE"
+        and t_room_src_tf is not None
+        and t_room_src_tf <= 12.0
+        and authoritative_net_rr is not None
+        and authoritative_net_rr >= 2.0
+    )
+
     row_payload = {
         "opportunity_id": opportunity_id,
         "cohort_role": cohort_role,
@@ -1189,11 +1228,15 @@ def audit_target_reachability_row_v17931214(
         "resolved_source_tf": resolved_tf,
         "source_pool_hash": pool_hash,
         "candle_atr_input_TF": resolved_tf if resolved_tf in _TF_MINUTES_V14 else None,
+        "m1_atr_substituted_for_htf": m1_atr_substituted,
         "atr_m1_value": round(atr_m1, 4) if atr_m1 is not None else None,
         "atr_actual_value": round(atr_actual, 4) if atr_actual is not None else None,
         "target_distance_usd": round(t_dist_usd, 4) if t_dist_usd is not None else None,
         "target_room_atr_m1": round(t_room_m1, 4) if t_room_m1 is not None else None,
         "target_room_atr_source_tf": round(t_room_src_tf, 4) if t_room_src_tf is not None else None,
+        "v12_before_m1_atr_12_gate_pass": before_v12_m1_gate_pass,
+        "kh01a_after_source_tf_atr_12_audit_pass": after_source_tf_audit_pass,
+        "executable_tp_choice_preserved": True,
         "quote_source_kind": "MODELED_SYNTHETIC_BAR_HALF_SPREAD_NOT_CAPTURED_L1",
         "verified_known_at_ms": pool_known_ms,
         "decision_ts": dec_ts,
@@ -1383,6 +1426,10 @@ def build_267_target_failure_and_control_audit_v17931214(
         "primary_root_causes_sum_267": sum(primary_counts_267.values()),
         "current_v14_si9_outcomes_on_267": dict(sorted(current_v14_outcomes_267.items())),
         "control_group_primary_outcomes": dict(sorted(control_primary_counts.items())),
+        "control_group_tp_equality_verified_count": sum(1 for r in control_rows if r.get("executable_tp_choice_preserved") is True),
+        "executable_tp_selection_modified": False,
+        "active_executable_selector_counterfactual_status": "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY_TP_SELECTION_UNCHANGED",
+        "prior_v19_empty_counterfactuals_root_cause": "V19 read V16 09_target_selector_old_vs_repaired_matched_counterfactuals.json (which held D4 funnel summary) and defaulted missing counterfactuals key via `or []`; KH-01A explicitly marks selector counterfactuals NOT_EVALUATED while auditing all 267+40 rows read-only.",
         "status": "PASS"
         if (
             len(rows_267) == 267
@@ -1951,6 +1998,24 @@ def build_cost_stress_and_purged_walkforward_oos_v17931214(
         for vid in ALL_MATCHED_AND_DELAYED_VARIANTS_V17931213
     }
 
+    all_available_policies_matrix = {
+        pid: {
+            fm: {
+                "scheduled_episodes_count": policy_dtos[pid][fm].get("scheduled_episodes_count"),
+                "closed_trades_count": policy_dtos[pid][fm]["closed_trades_count"],
+                "wins_count": policy_dtos[pid][fm]["wins_count"],
+                "losses_count": policy_dtos[pid][fm]["losses_count"],
+                "total_fees_usd": policy_dtos[pid][fm]["total_fees_usd"],
+                "realized_net_pnl_usd": policy_dtos[pid][fm]["realized_net_pnl_usd"],
+                "expectancy_net_r": policy_dtos[pid][fm]["expectancy_net_r"],
+            }
+            for fm in CANONICAL_FILL_MODES_V17931211
+            if fm in policy_dtos[pid]
+        }
+        for pid in CANONICAL_POLICIES_V17931211
+        if pid in policy_dtos
+    }
+
     stress_12 = {
         "version": VERSION_V17931214,
         "schema_version": SCHEMA_VERSION_V17931214,
@@ -1968,6 +2033,7 @@ def build_cost_stress_and_purged_walkforward_oos_v17931214(
         "exchange_min_lot_xauusdt": 0.01,
         "max_planned_net_risk_usd_cap": 2.50,
         "policy_1pos_3_fill_mode_stress": policy_mode_matrix,
+        "all_policies_1pos_3_fill_mode_stress": all_available_policies_matrix,
         "variant_1pos_3_fill_mode_stress": variant_1pos_mode_matrix,
         "status": "PASS",
     }
@@ -2024,6 +2090,10 @@ def build_cost_stress_and_purged_walkforward_oos_v17931214(
         "untouched_post_freeze_external_dataset_present": False,
         "untouched_post_freeze_dataset_exists": False,
         "purged_walkforward_embargo_minutes": 180,
+        "embargo_non_overlap_verified": all(
+            (f["validation_window_ms"][0] - f["train_window_ms"][1]) == embargo_ms for f in folds
+        ),
+        "dataset_prior_use_status": "REUSED_RESEARCH",
         "purged_walkforward_folds": folds,
         "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
         "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",

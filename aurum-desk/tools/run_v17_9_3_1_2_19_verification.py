@@ -36,27 +36,32 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 import xml.etree.ElementTree as ET
 
 class _SafeStreamWrapper:
+    """
+    KH-01A Section 2: Never installed globally at import time, and NEVER swallows
+    storage/disk OSErrors (`ENOSPC`, `EIO`, `EROFS`, `EBADF`, or non-TTY file streams).
+    Records `write_errors_count` and re-raises storage write/flush failures fail-closed.
+    """
+
     def __init__(self, stream: Any) -> None:
         self._stream = stream
+        self.write_errors_count = 0
 
     def write(self, data: Any) -> int:
         try:
             return self._stream.write(data)
         except OSError:
-            return len(data) if hasattr(data, "__len__") else 0
+            self.write_errors_count += 1
+            raise
 
     def flush(self) -> None:
         try:
             self._stream.flush()
         except OSError:
-            pass
+            self.write_errors_count += 1
+            raise
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._stream, name)
-
-
-sys.stdout = _SafeStreamWrapper(sys.stdout)  # type: ignore[assignment]
-sys.stderr = _SafeStreamWrapper(sys.stderr)  # type: ignore[assignment]
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = APP_ROOT.parent
@@ -208,29 +213,57 @@ def git(*args: str) -> str:
 
 
 def write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}.{time.time_ns()}")
-    with tmp.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2, sort_keys=True, default=lambda o: asdict(o) if hasattr(o, "__dataclass_fields__") else str(o))
-        stream.write("\n")
-    tmp.replace(path)
+    from tools.fresh_junit_io import write_text_durable_atomic
+
+    serialized = json.dumps(
+        payload,
+        indent=2,
+        sort_keys=True,
+        allow_nan=False,
+        default=lambda o: asdict(o) if hasattr(o, "__dataclass_fields__") else str(o),
+    ) + "\n"
+    write_text_durable_atomic(path, serialized)
 
 
 def write_text_atomic(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}.{time.time_ns()}")
-    with tmp.open("w", encoding="utf-8") as stream:
-        stream.write(text)
-    tmp.replace(path)
+    from tools.fresh_junit_io import write_text_durable_atomic
+
+    write_text_durable_atomic(path, text)
 
 
 def write_jsonl_gz(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
+    from tools.fresh_junit_io import DurableArtifactWriteError
+
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}.{time.time_ns()}")
-    with gzip.open(tmp, "wt", encoding="utf-8") as stream:
-        for r in rows:
-            stream.write(json.dumps(r, sort_keys=True, default=lambda o: asdict(o) if hasattr(o, "__dataclass_fields__") else str(o)) + "\n")
-    tmp.replace(path)
+    try:
+        with tmp.open("wb") as raw_fh:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw_fh, mtime=0) as gz_fh:
+                for r in rows:
+                    line = (
+                        json.dumps(
+                            r,
+                            sort_keys=True,
+                            allow_nan=False,
+                            default=lambda o: asdict(o) if hasattr(o, "__dataclass_fields__") else str(o),
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                    gz_fh.write(line)
+            raw_fh.flush()
+            os.fsync(raw_fh.fileno())
+        os.replace(tmp, path)
+        if not path.is_file() or path.stat().st_size <= 0:
+            raise DurableArtifactWriteError(f"EMPTY_GZIP_ARTIFACT:{path}")
+    except BaseException as exc:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+        if isinstance(exc, DurableArtifactWriteError):
+            raise
+        raise DurableArtifactWriteError(f"DURABLE_GZIP_WRITE_FAILED:{path}:{exc}") from exc
 
 
 def iter_jsonl_gz(path: Path) -> Iterable[Dict[str, Any]]:
@@ -1227,21 +1260,35 @@ def main() -> int:
         # 10 Target matched selector
         v16_cf_path = V16_RUN_DIR / "09_target_selector_old_vs_repaired_matched_counterfactuals.json"
         f10_doc = json.loads(v16_cf_path.read_text(encoding="utf-8")) if v16_cf_path.exists() else {}
+        raw_cfs = f10_doc.get("counterfactuals")
+        has_evaluated_cfs = isinstance(raw_cfs, list) and len(raw_cfs) > 0
         target_summary_doc = {
             "version": VERSION_V17931219,
-            "historical_267_cohort_count": 267,
-            "m1_vs_htf_atr_unit_mismatch_count": 201,
-            "horizon_unreachable_count": 66,
-            "actual_net_rr_lt_2_count": 0,
-            "control_group_count": 40,
-            "summary": {
-                "historical_267_cohort_count": 267,
-                "m1_vs_htf_atr_unit_mismatch_count": 201,
-                "horizon_unreachable_count": 66,
-                "actual_net_rr_lt_2_count": 0,
-                "control_group_count": 40,
-            },
-            "counterfactuals": f10_doc.get("counterfactuals") or [],
+            "historical_267_cohort_count": len([r for r in f09_rows if r.get("cohort_role") == "HISTORICAL_267_SI9_H5"]),
+            "m1_vs_htf_atr_unit_mismatch_count": sum(
+                1 for r in f09_rows if r.get("cohort_role") == "HISTORICAL_267_SI9_H5" and r.get("first_decisive_failure_code") == "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL"
+            ),
+            "horizon_unreachable_count": sum(
+                1 for r in f09_rows if r.get("cohort_role") == "HISTORICAL_267_SI9_H5" and r.get("first_decisive_failure_code") == "GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON"
+            ),
+            "actual_net_rr_lt_2_count": sum(
+                1 for r in f09_rows if r.get("cohort_role") == "HISTORICAL_267_SI9_H5" and r.get("first_decisive_failure_code") == "INSUFFICIENT_NET_RR_AFTER_COSTS"
+            ),
+            "control_group_count": len([r for r in f09_rows if r.get("cohort_role") == "CONTROL_GROUP"]),
+            "evaluation_status": "EVALUATED" if has_evaluated_cfs else "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY",
+            "counterfactuals": raw_cfs if has_evaluated_cfs else None,
+            "counterfactual_disclosure": (
+                "Active executable target selector is preserved unchanged; row-level before/after M1-vs-HTF ATR audit is in 09_267_target_source_tf_atr_and_40_controls.jsonl.gz."
+                if not has_evaluated_cfs
+                else "Matched selector counterfactuals evaluated."
+            ),
+        }
+        target_summary_doc["summary"] = {
+            "historical_267_cohort_count": target_summary_doc["historical_267_cohort_count"],
+            "m1_vs_htf_atr_unit_mismatch_count": target_summary_doc["m1_vs_htf_atr_unit_mismatch_count"],
+            "horizon_unreachable_count": target_summary_doc["horizon_unreachable_count"],
+            "actual_net_rr_lt_2_count": target_summary_doc["actual_net_rr_lt_2_count"],
+            "control_group_count": target_summary_doc["control_group_count"],
         }
         write_json(run_dir / "10_active_target_selector_before_after_matched_casebook.json", target_summary_doc)
 
@@ -1276,44 +1323,32 @@ def main() -> int:
             },
         )
 
-        # 13 Stop Causal Recomputed Distribution
-        shared_losses_count = attribution_res["si8_si9_research_losses"]["shared_trade_ids_count"]
-        if shared_losses_count == 0:
-            shared_losses_count = 2
-        unique_losses_count = attribution_res["si8_si9_research_losses"]["combined_unique_closed_count"]
-        if unique_losses_count == 0:
-            unique_losses_count = 4
+        # 13 Stop Causal Recomputed Distribution (strictly from replayed episodes, ZERO hardcoded fallbacks!)
+        shared_losses_count = int(attribution_res["si8_si9_research_losses"]["shared_trade_ids_count"])
+        unique_losses_count = int(attribution_res["si8_si9_research_losses"]["combined_unique_closed_count"])
+        from collections import Counter as _Counter
+        dyn_sched_dist: Dict[str, int] = dict(
+            sorted(_Counter(str(ep.get("outcome_label") or "UNKNOWN").upper() for ep in si0_nb_eps).items())
+        )
 
         loss_summary_13 = {
             "version": VERSION_V17931219,
             "run_id": run_id,
             "tested_executable_sha": sha,
-            "baseline_primary_closed_losses_n157": len(si0_closed_losses) or 157,
-            "baseline_primary_scheduled_episodes_n242": len(si0_nb_eps) or 242,
+            "baseline_primary_closed_losses_n157": len(si0_closed_losses),
+            "baseline_primary_scheduled_episodes_n242": len(si0_nb_eps),
             "observed_pre_entry_known_distribution": attribution_res["observed_pre_entry_known_distribution"],
             "pre_entry_known_reasons": attribution_res["observed_pre_entry_known_distribution"],
             "observed_ex_post_outcome_distribution": attribution_res["observed_ex_post_outcome_distribution"],
-            "scheduled_distribution": {
-                "LOSS": 157,
-                "WIN": 9,
-                "OPEN_AT_HORIZON": 74,
-                "DATA_GAP_UNRESOLVED": 1,
-                "UNFILLED": 1,
-            },
+            "scheduled_distribution": dyn_sched_dist,
             "si8_si9_shared_closed_ids_count": shared_losses_count,
             "si8_si9_combined_unique_closed_count": unique_losses_count,
             "summary": {
-                "baseline_primary_closed_losses_n157": len(si0_closed_losses) or 157,
-                "baseline_primary_scheduled_episodes_n242": len(si0_nb_eps) or 242,
+                "baseline_primary_closed_losses_n157": len(si0_closed_losses),
+                "baseline_primary_scheduled_episodes_n242": len(si0_nb_eps),
                 "pre_entry_known_reasons": attribution_res["observed_pre_entry_known_distribution"],
                 "observed_pre_entry_known_distribution": attribution_res["observed_pre_entry_known_distribution"],
-                "scheduled_distribution": {
-                    "LOSS": 157,
-                    "WIN": 9,
-                    "OPEN_AT_HORIZON": 74,
-                    "DATA_GAP_UNRESOLVED": 1,
-                    "UNFILLED": 1,
-                },
+                "scheduled_distribution": dyn_sched_dist,
                 "si8_si9_shared_closed_ids_count": shared_losses_count,
                 "si8_si9_combined_unique_closed_count": unique_losses_count,
             },
@@ -1395,7 +1430,9 @@ def main() -> int:
 
         def _make_receipt(gid: str, st: str, path_rel: str, val_name: str, viols: Tuple[str, ...] = ()) -> None:
             full_p = run_dir / path_rel
-            c_sha = file_sha256(full_p) if full_p.exists() else "a" * 64
+            if not full_p.is_file() or full_p.stat().st_size <= 0:
+                raise FileNotFoundError(f"RECEIPT_TARGET_FILE_MISSING_OR_EMPTY:{gid}:{full_p}")
+            c_sha = file_sha256(full_p)
             rcpt = EvidenceReceiptV17931219(
                 gate_id=gid,
                 status=st,
@@ -1415,7 +1452,6 @@ def main() -> int:
         _make_receipt("G01", "PASS", "00_preflight_exact_branch_sha_resource_dataset.json", "verify_source_freeze_v17931211")
         _make_receipt("G02", "PASS", "05_negative_controls_real_vs_report_vs_blocked_breakdown.json", "run_fully_observed_adversarial_suite_v17931219")
         _make_receipt("G03", "PASS", "19_os_pids_exit_junit_xml_and_independent_node_bijection.json", "verify_fresh_junit_bijection_v17931211")
-        _make_receipt("G04", "PASS", "README_V17_9_3_1_2_19.md", "verify_v17931219_cross_view_numerical_consistency")
         _make_receipt("G05", "PASS", "07_raw_14_unicorn_survivor_causal_asof_casebook.jsonl.gz", "verify_feature_snapshot_v1793127")
         _make_receipt("G06", "PASS", "07_raw_14_unicorn_survivor_causal_asof_casebook.jsonl.gz", "build_d4_14_survivor_raw_source_casebook_v17931216")
         _make_receipt("G07", "PASS", "07_raw_14_unicorn_survivor_causal_asof_casebook.jsonl.gz", "validate_single_unicorn_confluence_strict")
@@ -1429,8 +1465,6 @@ def main() -> int:
         _make_receipt("G15", "NEGATIVE", "15_full_30_policy_fill_manifest_and_conservation.json", "validate_ledger_accounting_strict", viols=("NEGATIVE_EXPECTANCY_CONFIRMED",))
         _make_receipt("G16", "PASS", "00_preflight_exact_branch_sha_resource_dataset.json", "validate_system_guards_strict")
         _make_receipt("G17", "BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR", "00_preflight_exact_branch_sha_resource_dataset.json", "verify_git_remote_receipt_v17931211", viols=("PENDING_REMOTE_PUSH",))
-
-        write_jsonl_gz(run_dir / "06_gate_receipts_from_actual_independent_verifiers.jsonl.gz", receipts_list)
 
         # Build Authoritative Metrics
         replayed_modes = {
@@ -1453,49 +1487,78 @@ def main() -> int:
 
         merged_junit_counters = {
             **junit_bijection["counters"],
-            "collection_exit_code": int(collection.get("collect_exit_code") or 0),
-            "pytest_collect_returncode": int(collection.get("pytest_collect_returncode") or 0),
-            "shard_exits_all_zero": int(junit.get("nonzero_exit_shards_count") or 0) == 0,
+            "collection_exit_code": int(collection.get("collect_exit_code") if collection.get("collect_exit_code") is not None else -1),
+            "pytest_collect_returncode": int(collection.get("pytest_collect_returncode") if collection.get("pytest_collect_returncode") is not None else 0),
+            "shard_exits_all_zero": int(junit.get("nonzero_exit_shards_count") if junit.get("nonzero_exit_shards_count") is not None else -1) == 0,
         }
 
-        auth_metrics = build_authoritative_metrics_from_evidence_v17931219(
-            junit_counters=merged_junit_counters,
-            benchmark_data=bench_doc,
-            resource_telemetry=monitor.snapshot(),
-            neg_controls_res={
-                "total_negative_controls": adv_res["total_negative_controls"],
-                "passed_negative_controls": adv_res["passed_negative_controls"],
-                "actually_executed_count": adv_res["actually_executed_count"],
-                "real_injected_count": adv_res["real_injected_count"],
-                "report_assertion_count": adv_res["report_assertion_count"],
-            },
-            branch=branch,
-            dataset_sha=actual_dataset_sha,
-            tested_sha=sha,
-            replayed_modes=replayed_modes,
-            loss_census=loss_summary_13["summary"],
-            target_summary=target_summary_doc["summary"],
-            d4_summary=d4_summary_enriched,
-            receipts=receipts_map,
-            live_trading_mode="OFF",
-            activation_ready="NO",
-        )
+        def _build_metrics_snapshot() -> AuthoritativeMetricsV17931219:
+            return build_authoritative_metrics_from_evidence_v17931219(
+                junit_counters=merged_junit_counters,
+                benchmark_data=bench_doc,
+                resource_telemetry=monitor.snapshot(),
+                neg_controls_res={
+                    "total_negative_controls": adv_res["total_negative_controls"],
+                    "passed_negative_controls": adv_res["passed_negative_controls"],
+                    "actually_executed_count": adv_res["actually_executed_count"],
+                    "real_injected_count": adv_res["real_injected_count"],
+                    "report_assertion_count": adv_res["report_assertion_count"],
+                },
+                branch=branch,
+                dataset_sha=actual_dataset_sha,
+                tested_sha=sha,
+                replayed_modes=replayed_modes,
+                loss_census=loss_summary_13["summary"],
+                target_summary=target_summary_doc["summary"],
+                d4_summary=d4_summary_enriched,
+                receipts=receipts_map,
+                live_trading_mode="OFF",
+                activation_ready="NO",
+                run_id=run_id,
+            )
 
-        # 26 Gate Matrix
+        # Render README & Handover first using provisional metrics, verify cross-view consistency, then bind real G04 receipt SHA!
+        provisional_metrics = _build_metrics_snapshot()
+        provisional_matrix = evaluate_v17931219_orthogonal_gate_matrix(
+            provisional_metrics,
+            publication_status="BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+        )
+        readme_txt, handover_txt = render_v17931219_readme_and_handover(provisional_metrics, provisional_matrix)
+        write_text_atomic(run_dir / "README_V17_9_3_1_2_19.md", readme_txt)
+        write_text_atomic(run_dir / "HANDOVER_V17_9_3_1_2_19.txt", handover_txt)
+
+        # Temporary G04 receipt for final rendering pass
+        _make_receipt("G04", "PASS", "README_V17_9_3_1_2_19.md", "verify_v17931219_cross_view_numerical_consistency")
+        auth_metrics = _build_metrics_snapshot()
         gate_matrix_doc = evaluate_v17931219_orthogonal_gate_matrix(
             auth_metrics,
             publication_status="BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+            run_dir=run_dir,
+            expected_run_id=run_id,
+            reject_uniform_placeholder_hash=True,
         )
-        write_json(run_dir / "26_all_17_gate_contracts_and_orthogonal_verdicts.json", gate_matrix_doc)
-
-        # README & Handover
         readme_txt, handover_txt = render_v17931219_readme_and_handover(auth_metrics, gate_matrix_doc)
         write_text_atomic(run_dir / "README_V17_9_3_1_2_19.md", readme_txt)
         write_text_atomic(run_dir / "HANDOVER_V17_9_3_1_2_19.txt", handover_txt)
 
-        # 24 Independent Raw vs Report Crossview
         cv_check = verify_v17931219_cross_view_numerical_consistency(auth_metrics, readme_txt, handover_txt, gate_matrix_doc)
         write_json(run_dir / "24_independent_raw_vs_report_crossview_comparison.json", cv_check)
+        g04_st = "PASS" if cv_check.get("status") == "PASS" else "FAIL"
+        g04_viols = tuple(cv_check.get("violations") or ())
+        receipts_list = [r for r in receipts_list if r.get("gate_id") != "G04"]
+        _make_receipt("G04", g04_st, "README_V17_9_3_1_2_19.md", "verify_v17931219_cross_view_numerical_consistency", viols=g04_viols)
+        receipts_list.sort(key=lambda r: str(r.get("gate_id") or ""))
+        write_jsonl_gz(run_dir / "06_gate_receipts_from_actual_independent_verifiers.jsonl.gz", receipts_list)
+
+        auth_metrics = _build_metrics_snapshot()
+        gate_matrix_doc = evaluate_v17931219_orthogonal_gate_matrix(
+            auth_metrics,
+            publication_status="BLOCKED_PRE_PUSH_IN_IMMUTABLE_RUN_DIR",
+            run_dir=run_dir,
+            expected_run_id=run_id,
+            reject_uniform_placeholder_hash=True,
+        )
+        write_json(run_dir / "26_all_17_gate_contracts_and_orthogonal_verdicts.json", gate_matrix_doc)
 
         # 27 Final Verdict
         orth_v = gate_matrix_doc.get("orthogonal_verdicts", {})

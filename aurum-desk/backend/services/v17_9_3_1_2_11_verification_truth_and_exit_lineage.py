@@ -20,6 +20,7 @@ import math
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 import xml.etree.ElementTree as ET
 
@@ -252,10 +253,13 @@ def verify_fresh_junit_bijection_v17931211(
     expected_run_id: str,
     expected_tested_sha: str,
     mandatory_node_prefixes: Sequence[str] = (
+        "backend/tests/test_kh_01a",
         "backend/tests/test_v17_9_3_1_2",
         "backend/tests/test_v16_5_replay_shared_execution.py",
         "backend/tests/test_v17_5_exit_evidence.py",
     ),
+    require_shard_schedule: bool = False,
+    max_future_skew_ns: int = 300 * 1_000_000_000,
 ) -> Dict[str, Any]:
     """
     Independently verifies fresh JUnit XML shards on disk against the collected
@@ -333,8 +337,10 @@ def verify_fresh_junit_bijection_v17931211(
 
     resolved_run_dir = run_dir.resolve()
 
+    now_epoch_ns = time.time_ns()
+
     for idx, shard in enumerate(shards):
-        sid = str(shard.get("shard_id") or f"shard_{idx}")
+        sid = str(shard.get("shard_id") or shard.get("shard_name") or f"shard_{idx}")
         shard_errs = []
         if shard.get("run_id") != expected_run_id:
             shard_errs.append(f"SHARD_RUN_ID_MISMATCH:{sid}")
@@ -344,8 +350,9 @@ def verify_fresh_junit_bijection_v17931211(
             shard_errs.append(f"SHARD_MARKED_REUSED:{sid}")
         if shard.get("is_command_only_non_junit") is True:
             shard_errs.append(f"COMMAND_ONLY_GROUP_MASQUERADING_AS_JUNIT:{sid}")
-        if int(shard.get("exit_code", -1)) != 0:
-            shard_errs.append(f"SHARD_NONZERO_EXIT:{sid}:{shard.get('exit_code')}")
+        raw_exit_code = shard.get("exit_code")
+        if raw_exit_code is None or isinstance(raw_exit_code, bool) or int(raw_exit_code) != 0:
+            shard_errs.append(f"SHARD_NONZERO_EXIT:{sid}:{raw_exit_code}")
         if bool(shard.get("timed_out", False)):
             shard_errs.append(f"SHARD_TIMED_OUT:{sid}")
         pid = shard.get("pid")
@@ -353,6 +360,8 @@ def verify_fresh_junit_bijection_v17931211(
             shard_errs.append(f"SHARD_INVALID_PID:{sid}:{pid}")
 
         sched_raw = list(shard.get("scheduled_node_ids") or shard.get("expected_node_ids") or [])
+        if require_shard_schedule and not sched_raw:
+            shard_errs.append(f"SHARD_MISSING_SCHEDULED_NODE_IDS:{sid}")
         sched_norm: List[str] = []
         for s_nid in sched_raw:
             sn = normalize_collected_test_identity_v17931211(str(s_nid))
@@ -393,6 +402,10 @@ def verify_fresh_junit_bijection_v17931211(
             shard_errs.append(f"JUNIT_SHA256_MISMATCH:{sid}")
         if shard.get("xml_mtime_ns") is not None and int(xml_stat.st_mtime_ns) != int(shard.get("xml_mtime_ns")):
             shard_errs.append(f"JUNIT_MTIME_NS_MISMATCH:{sid}")
+        if int(xml_stat.st_mtime_ns) > now_epoch_ns + max_future_skew_ns or (
+            shard.get("xml_mtime_ns") is not None and int(shard.get("xml_mtime_ns")) > now_epoch_ns + max_future_skew_ns
+        ):
+            shard_errs.append(f"FUTURE_DATED_JUNIT_XML:{sid}")
 
         try:
             root = ET.fromstring(xml_bytes)
@@ -400,6 +413,14 @@ def verify_fresh_junit_bijection_v17931211(
             shard_errs.append(f"JUNIT_XML_PARSE_ERROR:{sid}:{exc}")
             violations.extend(shard_errs)
             continue
+
+        suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
+        declared_suite_tests: Optional[int] = None
+        if suites and all(ts.get("tests") is not None for ts in suites):
+            try:
+                declared_suite_tests = sum(int(ts.get("tests") or 0) for ts in suites)
+            except (TypeError, ValueError):
+                shard_errs.append(f"JUNIT_INVALID_SUITE_TESTS_ATTR:{sid}")
 
         shard_executed: List[str] = []
         shard_passed = 0
@@ -447,6 +468,8 @@ def verify_fresh_junit_bijection_v17931211(
                 shard_passed += 1
                 passed_nodes.append(norm_tc)
 
+        if declared_suite_tests is not None and declared_suite_tests != len(shard_executed):
+            shard_errs.append(f"JUNIT_DECLARED_TESTS_COUNT_MISMATCH:{sid}:{declared_suite_tests}!={len(shard_executed)}")
         if sched_norm and Counter(sched_norm) != Counter(shard_executed):
             shard_errs.append(f"SHARD_SCHEDULED_VS_EXECUTED_MISMATCH:{sid}")
         if len(set(shard_executed)) != len(shard_executed):

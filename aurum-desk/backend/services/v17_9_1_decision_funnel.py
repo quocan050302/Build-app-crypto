@@ -13,9 +13,11 @@ import bisect
 import datetime
 import hashlib
 import json
+import math
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from zoneinfo import ZoneInfo
 
 from domain_calculator import CostAssumptions, calculate_risk_reward
 from services.liquidity_scenario_service import identify_confirmed_swings
@@ -148,15 +150,147 @@ def format_utc_iso(ts_ms: Optional[int]) -> Optional[str]:
     )
 
 
-def classify_historical_dataset_gaps(datasets: Mapping[str, Sequence[Mapping[str, Any]]]) -> Dict[str, Any]:
+def _parse_strict_bar_epoch_ms_kh01a(val: Any) -> Optional[int]:
+    """Validate an epoch millisecond timestamp without silently coercing bools, NaNs, or seconds-scale ints."""
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, int):
+        ts = val
+    elif isinstance(val, float):
+        if not math.isfinite(val) or not val.is_integer():
+            return None
+        ts = int(val)
+    elif isinstance(val, str):
+        s = val.strip()
+        if not s or not s.lstrip("-").isdigit():
+            return None
+        ts = int(s)
+    else:
+        return None
+    # Valid epoch ms window: 1973-03-03 .. 2100-01-01 (rejects <=0 and seconds-scale timestamps)
+    if ts < 100_000_000_000 or ts > 4_102_444_800_000:
+        return None
+    return ts
+
+
+def _parse_finite_float_kh01a(val: Any) -> Optional[float]:
+    if val is None or isinstance(val, bool):
+        return None
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _evaluate_verified_calendar_state_ms_kh01a(
+    ts_ms: int,
+    *,
+    cal_verified: bool,
+    cal_tz: datetime.tzinfo,
+    explicit_windows: Sequence[Tuple[int, int, str]],
+    weekly_closures: Sequence[Mapping[str, Any]],
+    daily_maintenances: Sequence[Mapping[str, Any]],
+    default_open_when_verified: bool,
+) -> str:
     """
-    Section 04.B: Inspect and classify all timestamp discontinuities across M1, M5, M15, H1, H4, D1.
-    Distinguishes:
-      1. `WEEKEND_MARKET_CLOSED`: Gap spans Friday >=20:00 UTC into Sunday/Monday reopening (>= 24 hours).
-      2. `DAILY_ROLLOVER_OR_SESSION_BREAK`: Daily XAU maintenance / CFD session break (typically 21:00-23:05 UTC, 45m-180m).
-      3. `INTRADAY_SHORT_ILLIQUID_GAP`: Short 1-15 minute bar omission with zero volume/trades on Bitget XAUUSDT.
-      4. `INTRADAY_EXTENDED_PROVIDER_GAP`: Intraday gap > 15 minutes outside weekend/daily rollover.
-    Zero synthetic fill, zero interpolation, zero forward-fill.
+    Evaluate point-in-time session calendar state (`CLOSURE`, `MAINTENANCE`, `OPEN`, `UNKNOWN`)
+    using timezone-aware (`ZoneInfo`) DST-exact rules ONLY when `cal_verified` is True.
+    Never infers an exchange schedule from UTC weekday or hour without verified calendar evidence.
+    """
+    if not cal_verified:
+        return "UNKNOWN"
+
+    for w_start, w_end, w_state in explicit_windows:
+        if w_start <= ts_ms < w_end:
+            return w_state
+
+    local_dt = datetime.datetime.fromtimestamp(ts_ms / 1000.0, tz=datetime.timezone.utc).astimezone(cal_tz)
+    wk = local_dt.weekday()
+    mins_of_day = local_dt.hour * 60 + local_dt.minute
+    mins_of_week = wk * 1440 + mins_of_day
+
+    for rule in weekly_closures:
+        c_wk = int(rule.get("close_weekday", 4))
+        c_hm = int(rule.get("close_hour", 17)) * 60 + int(rule.get("close_minute", 0))
+        r_wk = int(rule.get("reopen_weekday", 6))
+        r_hm = int(rule.get("reopen_hour", 18)) * 60 + int(rule.get("reopen_minute", 0))
+        c_wmin = c_wk * 1440 + c_hm
+        r_wmin = r_wk * 1440 + r_hm
+        if c_wmin <= r_wmin:
+            if c_wmin <= mins_of_week < r_wmin:
+                return "CLOSURE"
+        else:
+            if mins_of_week >= c_wmin or mins_of_week < r_wmin:
+                return "CLOSURE"
+
+    for m_rule in daily_maintenances:
+        allowed_wks = m_rule.get("weekdays")
+        if allowed_wks is not None and wk not in set(int(x) for x in allowed_wks):
+            continue
+        s_hm = int(m_rule.get("start_hour", 0)) * 60 + int(m_rule.get("start_minute", 0))
+        dur_m = int(m_rule.get("duration_minutes", 0))
+        if dur_m <= 0:
+            continue
+        e_hm = s_hm + dur_m
+        if e_hm <= 1440:
+            if s_hm <= mins_of_day < e_hm:
+                return "MAINTENANCE"
+        else:
+            # Cross-midnight local maintenance window: check current day tail or previous day spillover
+            if mins_of_day >= s_hm:
+                return "MAINTENANCE"
+            prev_wk = (wk - 1) % 7
+            if (allowed_wks is None or prev_wk in set(int(x) for x in allowed_wks)) and mins_of_day < (e_hm - 1440):
+                return "MAINTENANCE"
+
+    return "OPEN" if default_open_when_verified else "UNKNOWN"
+
+
+def _legacy_v1791_heuristic_category_deprecated(delta_ms: int, prev_close_ms: int, curr_close_ms: int) -> str:
+    """Preserves the deprecated V17.9.1 heuristic solely for side-by-side before/after audit diffs."""
+    prev_dt = datetime.datetime.fromtimestamp(prev_close_ms / 1000.0, tz=datetime.timezone.utc)
+    curr_dt = datetime.datetime.fromtimestamp(curr_close_ms / 1000.0, tz=datetime.timezone.utc)
+    duration_min = round(delta_ms / 60_000.0, 2)
+    if delta_ms >= 24 * 3_600_000 or (prev_dt.weekday() in (4, 5) and curr_dt.weekday() in (6, 0)):
+        return "WEEKEND_MARKET_CLOSED"
+    if (20 <= prev_dt.hour <= 23 or 0 <= prev_dt.hour <= 2) and 30.0 <= duration_min <= 240.0:
+        return "DAILY_ROLLOVER_OR_SESSION_BREAK"
+    if duration_min <= 15.0:
+        return "INTRADAY_SHORT_ILLIQUID_GAP"
+    return "INTRADAY_EXTENDED_PROVIDER_GAP"
+
+
+def classify_historical_dataset_gaps(
+    datasets: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    session_calendar: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    KH-01A Section 1 (repaired from V17.9.1 Section 04.B):
+    Deterministic, provenance-backed timestamp discontinuity & data-integrity classifier across
+    M1, M5, M15, H1, H4, and D1.
+
+    Key guarantees:
+      - NEVER infers `WEEKEND_MARKET_CLOSED` or `DAILY_ROLLOVER_OR_SESSION_BREAK` from gap duration
+        (`>= 24h`) or unverified UTC weekday/hour heuristics alone.
+      - Separates:
+          * `VERIFIED_SCHEDULED_MARKET_CLOSURE`: 100% covered by verified `session_calendar` closure
+            with zero contradicting cross-TF active bars.
+          * `VERIFIED_MAINTENANCE_PAUSE`: 100% covered by verified `session_calendar` maintenance
+            with zero contradicting cross-TF active bars.
+          * `MIXED_INTERVAL_GAP`: Gap spans multiple regimes (e.g. verified closure + open weekday
+            hours, or proven open + unverified intervals); splits into explicit `segments` and never
+            applies a whole-gap weekend label.
+          * `PROVIDER_OR_DATA_GAP`: Market provably open via contained cross-timeframe active bars
+            (`volume > 0` or `high != low`) or verified open session calendar.
+          * `SHORT_MISSING_CANDLE`: Short 1-2 bar (`<= 15m`) candle omission during active session
+            where tick/pagination provenance cannot distinguish zero-trade vs boundary drop.
+          * `UNKNOWN_UNVERIFIED`: Session schedule is unverified and cross-timeframe bars do not
+            prove open-market trading across the missing interval.
+      - Audits invalid timestamps, unclosed bars, identical vs conflicting duplicates, out-of-order
+        bars, point-in-time `close_time` availability, and cross-timeframe OHLC coherence.
+      - Zero synthetic fill, zero interpolation, zero forward-fill, zero mutation of raw bars.
     """
     tf_specs = (
         ("M1", "1m", 60_000),
@@ -167,108 +301,649 @@ def classify_historical_dataset_gaps(datasets: Mapping[str, Sequence[Mapping[str
         ("D1", "1D", 86_400_000),
     )
 
+    # Parse optional verified session calendar
+    cal_verified = bool(
+        isinstance(session_calendar, Mapping)
+        and session_calendar.get("verified") is True
+        and str(session_calendar.get("calendar_version") or "").strip()
+        and str(session_calendar.get("evidence_source") or "").strip()
+    )
+    cal_version: Optional[str] = (
+        str(session_calendar["calendar_version"]).strip() if cal_verified and session_calendar is not None else None
+    )
+    cal_evidence_source: Optional[str] = (
+        str(session_calendar["evidence_source"]).strip() if cal_verified and session_calendar is not None else None
+    )
+    cal_tz_name = str((session_calendar or {}).get("timezone") or "UTC")
+    try:
+        cal_tz: datetime.tzinfo = ZoneInfo(cal_tz_name)
+    except Exception:
+        cal_tz = datetime.timezone.utc
+        cal_verified = False
+
+    explicit_windows: List[Tuple[int, int, str]] = []
+    weekly_closures: List[Mapping[str, Any]] = []
+    daily_maintenances: List[Mapping[str, Any]] = []
+    default_open_when_verified = False
+    allow_short_candle_omission = True
+    if cal_verified and isinstance(session_calendar, Mapping):
+        for w in session_calendar.get("explicit_windows") or []:
+            if isinstance(w, Mapping):
+                ws = _parse_strict_bar_epoch_ms_kh01a(w.get("start_ms"))
+                we = _parse_strict_bar_epoch_ms_kh01a(w.get("end_ms"))
+                st = str(w.get("state") or w.get("kind") or "").upper()
+                if ws is not None and we is not None and ws < we and st in ("CLOSURE", "MAINTENANCE", "OPEN"):
+                    explicit_windows.append((ws, we, st))
+        for r in session_calendar.get("weekly_closure_rules") or []:
+            if isinstance(r, Mapping):
+                weekly_closures.append(r)
+        for m in session_calendar.get("daily_maintenance_rules") or []:
+            if isinstance(m, Mapping):
+                daily_maintenances.append(m)
+        default_open_when_verified = bool(
+            session_calendar.get(
+                "default_unlisted_open",
+                bool(session_calendar.get("market_24x7", False) or weekly_closures or daily_maintenances),
+            )
+        )
+        allow_short_candle_omission = bool(session_calendar.get("allow_short_candle_omission", True))
+
+    # Pass 1: Validate every timeframe's raw bars without mutating inputs, and build canonical sorted closed-bar index
+    raw_scan_by_label: Dict[str, Dict[str, Any]] = {}
+    canonical_closed_by_label: Dict[str, List[Tuple[int, int, float, float, float, float, float, int]]] = {}
+    open_times_by_label: Dict[str, List[int]] = {}
+    close_times_by_label: Dict[str, List[int]] = {}
+
+    for label, ds_key, tf_ms in tf_specs:
+        raw_seq = datasets.get(ds_key) if isinstance(datasets, Mapping) else None
+        bars = list(raw_seq) if isinstance(raw_seq, Sequence) and not isinstance(raw_seq, (str, bytes)) else []
+        n_bars = len(bars)
+        if n_bars == 0:
+            raw_scan_by_label[label] = {"bars": bars, "n_bars": 0, "tf_ms": tf_ms, "ds_key": ds_key}
+            canonical_closed_by_label[label] = []
+            open_times_by_label[label] = []
+            close_times_by_label[label] = []
+            continue
+
+        try:
+            canonical_payload = json.dumps(bars, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        except TypeError:
+            canonical_payload = json.dumps(bars, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        tf_sha256 = hashlib.sha256(canonical_payload).hexdigest()
+
+        invalid_timestamp_count = 0
+        invalid_timestamp_examples: List[Dict[str, Any]] = []
+        invalid_ohlcv_count = 0
+        unclosed_bar_count = 0
+        cadence_alignment_violations = 0
+        boundary_alignment_violations = 0
+        out_of_order_count = 0
+        duplicate_count = 0
+        identical_duplicate_count = 0
+        conflicting_duplicate_count = 0
+
+        seen_by_close_ms: Dict[int, Tuple[float, float, float, float, float]] = {}
+        dedup_closed_records: Dict[int, Tuple[int, int, float, float, float, float, float, int]] = {}
+        prev_valid_close_ms: Optional[int] = None
+
+        for raw_idx, b in enumerate(bars):
+            if not isinstance(b, Mapping):
+                invalid_timestamp_count += 1
+                if len(invalid_timestamp_examples) < 5:
+                    invalid_timestamp_examples.append({"index": raw_idx, "reason": "BAR_NOT_MAPPING"})
+                continue
+
+            raw_close = b.get("close_time", b.get("close_time_ms"))
+            raw_open = b.get("open_time", b.get("open_time_ms", b.get("timestamp")))
+            c_ms = _parse_strict_bar_epoch_ms_kh01a(raw_close) if raw_close is not None else None
+            o_ms = _parse_strict_bar_epoch_ms_kh01a(raw_open) if raw_open is not None else None
+
+            if raw_close is not None and c_ms is None:
+                invalid_timestamp_count += 1
+                if len(invalid_timestamp_examples) < 5:
+                    invalid_timestamp_examples.append({"index": raw_idx, "reason": f"INVALID_CLOSE_TIME:{raw_close!r}"})
+                continue
+            if raw_open is not None and o_ms is None:
+                invalid_timestamp_count += 1
+                if len(invalid_timestamp_examples) < 5:
+                    invalid_timestamp_examples.append({"index": raw_idx, "reason": f"INVALID_OPEN_TIME:{raw_open!r}"})
+                continue
+            if c_ms is None and o_ms is not None:
+                c_ms = o_ms + tf_ms
+            elif o_ms is None and c_ms is not None:
+                o_ms = c_ms - tf_ms
+            if c_ms is None or o_ms is None or c_ms <= o_ms:
+                invalid_timestamp_count += 1
+                if len(invalid_timestamp_examples) < 5:
+                    invalid_timestamp_examples.append(
+                        {"index": raw_idx, "reason": f"MISSING_OR_NONPOSITIVE_SPAN:open={raw_open!r},close={raw_close!r}"}
+                    )
+                continue
+            if (c_ms - o_ms) != tf_ms:
+                cadence_alignment_violations += 1
+                invalid_timestamp_count += 1
+                if len(invalid_timestamp_examples) < 5:
+                    invalid_timestamp_examples.append(
+                        {"index": raw_idx, "reason": f"CADENCE_SPAN_MISMATCH:{c_ms - o_ms}!={tf_ms}"}
+                    )
+                continue
+            if (o_ms % tf_ms) != 0:
+                boundary_alignment_violations += 1
+
+            is_closed_val = b.get("is_closed", True)
+            if is_closed_val is False:
+                unclosed_bar_count += 1
+                continue
+
+            o_px = _parse_finite_float_kh01a(b.get("open"))
+            h_px = _parse_finite_float_kh01a(b.get("high"))
+            l_px = _parse_finite_float_kh01a(b.get("low"))
+            c_px = _parse_finite_float_kh01a(b.get("close"))
+            vol = _parse_finite_float_kh01a(b.get("volume", 0.0))
+            if (
+                o_px is None
+                or h_px is None
+                or l_px is None
+                or c_px is None
+                or vol is None
+                or l_px <= 0.0
+                or h_px < l_px
+                or o_px < l_px - 1e-9
+                or o_px > h_px + 1e-9
+                or c_px < l_px - 1e-9
+                or c_px > h_px + 1e-9
+                or vol < 0.0
+            ):
+                invalid_ohlcv_count += 1
+                o_px = o_px or 0.0
+                h_px = h_px or 0.0
+                l_px = l_px or 0.0
+                c_px = c_px or 0.0
+                vol = max(0.0, vol or 0.0)
+
+            sig = (round(o_px, 6), round(h_px, 6), round(l_px, 6), round(c_px, 6), round(vol, 6))
+            if prev_valid_close_ms is not None and c_ms < prev_valid_close_ms:
+                out_of_order_count += 1
+            if c_ms in seen_by_close_ms:
+                duplicate_count += 1
+                if seen_by_close_ms[c_ms] == sig:
+                    identical_duplicate_count += 1
+                else:
+                    conflicting_duplicate_count += 1
+            else:
+                seen_by_close_ms[c_ms] = sig
+                dedup_closed_records[c_ms] = (o_ms, c_ms, o_px, h_px, l_px, c_px, vol, raw_idx)
+            prev_valid_close_ms = c_ms
+
+        sorted_records = [dedup_closed_records[k] for k in sorted(dedup_closed_records.keys())]
+        canonical_closed_by_label[label] = sorted_records
+        open_times_by_label[label] = [r[0] for r in sorted_records]
+        close_times_by_label[label] = [r[1] for r in sorted_records]
+        raw_scan_by_label[label] = {
+            "bars": bars,
+            "n_bars": n_bars,
+            "tf_ms": tf_ms,
+            "ds_key": ds_key,
+            "tf_sha256": tf_sha256,
+            "invalid_timestamp_count": invalid_timestamp_count,
+            "invalid_timestamp_examples": invalid_timestamp_examples,
+            "invalid_ohlcv_count": invalid_ohlcv_count,
+            "unclosed_bar_count": unclosed_bar_count,
+            "cadence_alignment_violations_count": cadence_alignment_violations,
+            "boundary_alignment_violations_count": boundary_alignment_violations,
+            "out_of_order_count": out_of_order_count,
+            "duplicate_count": duplicate_count,
+            "identical_duplicate_count": identical_duplicate_count,
+            "conflicting_duplicate_count": conflicting_duplicate_count,
+        }
+
+    non_empty_labels = [lbl for lbl, _, _ in tf_specs if len(canonical_closed_by_label.get(lbl) or []) > 0]
+    calendar_contradictions: List[Dict[str, Any]] = []
+
+    # Pass 2: Classify gaps per timeframe using verified session calendar + cross-TF active bar coverage
     per_timeframe: Dict[str, Any] = {}
     for label, ds_key, tf_ms in tf_specs:
-        bars = list(datasets.get(ds_key) or [])
-        n_bars = len(bars)
+        scan = raw_scan_by_label[label]
+        n_bars = int(scan["n_bars"])
+        sorted_records = canonical_closed_by_label[label]
+
         if n_bars == 0:
             per_timeframe[label] = {
                 "dataset_key": ds_key,
                 "timeframe_ms": tf_ms,
                 "actual_bars": 0,
+                "valid_unique_closed_bars": 0,
+                "invalid_timestamp_count": 0,
+                "invalid_ohlcv_count": 0,
+                "unclosed_bar_count": 0,
+                "out_of_order_count": 0,
+                "duplicate_count": 0,
+                "identical_duplicate_count": 0,
+                "conflicting_duplicate_count": 0,
                 "total_missing_bars": 0,
                 "gap_events_count": 0,
+                "gap_events_by_category": {},
+                "missing_bars_by_category": {},
+                "top_15_longest_gaps": [],
+                "all_gaps": [],
             }
             continue
 
-        canonical_payload = json.dumps(bars, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        tf_sha256 = hashlib.sha256(canonical_payload).hexdigest()
+        if not sorted_records:
+            per_timeframe[label] = {
+                "dataset_key": ds_key,
+                "timeframe_ms": tf_ms,
+                "sha256": scan["tf_sha256"],
+                "actual_bars": n_bars,
+                "valid_unique_closed_bars": 0,
+                "first_open_ms": None,
+                "last_close_ms": None,
+                "first_open_utc": None,
+                "last_close_utc": None,
+                "invalid_timestamp_count": scan["invalid_timestamp_count"],
+                "invalid_timestamp_examples": scan["invalid_timestamp_examples"],
+                "invalid_ohlcv_count": scan["invalid_ohlcv_count"],
+                "unclosed_bar_count": scan["unclosed_bar_count"],
+                "cadence_alignment_violations_count": scan["cadence_alignment_violations_count"],
+                "boundary_alignment_violations_count": scan["boundary_alignment_violations_count"],
+                "out_of_order_count": scan["out_of_order_count"],
+                "duplicate_count": scan["duplicate_count"],
+                "identical_duplicate_count": scan["identical_duplicate_count"],
+                "conflicting_duplicate_count": scan["conflicting_duplicate_count"],
+                "gap_events_count": 0,
+                "total_missing_bars": 0,
+                "theoretical_continuous_span_bars": 0,
+                "observed_bar_density_ratio": 0.0,
+                "gap_events_by_category": {},
+                "missing_bars_by_category": {},
+                "top_15_longest_gaps": [],
+                "all_gaps": [],
+            }
+            continue
 
-        first_open_ms = int(bars[0].get("open_time", int(bars[0]["close_time"]) - tf_ms))
-        last_close_ms = int(bars[-1]["close_time"])
+        first_open_ms = sorted_records[0][0]
+        last_close_ms = sorted_records[-1][1]
 
         gap_events: List[Dict[str, Any]] = []
         cat_event_counts: Counter[str] = Counter()
         cat_missing_bars: Counter[str] = Counter()
-        out_of_order_count = 0
-        duplicate_count = 0
+        legacy_cat_event_counts: Counter[str] = Counter()
+        legacy_cat_missing_bars: Counter[str] = Counter()
 
-        for idx in range(1, n_bars):
-            prev_close = int(bars[idx - 1]["close_time"])
-            curr_close = int(bars[idx]["close_time"])
+        for idx in range(1, len(sorted_records)):
+            prev_rec = sorted_records[idx - 1]
+            curr_rec = sorted_records[idx]
+            prev_close = prev_rec[1]
+            curr_open = curr_rec[0]
+            curr_close = curr_rec[1]
             delta_ms = curr_close - prev_close
-            if delta_ms == 0:
-                duplicate_count += 1
-            elif delta_ms < 0:
-                out_of_order_count += 1
-            elif delta_ms > tf_ms:
-                missing_bars = (delta_ms // tf_ms) - 1
-                if missing_bars <= 0:
+            if delta_ms <= tf_ms:
+                continue
+            missing_bars = (delta_ms // tf_ms) - 1
+            if missing_bars <= 0:
+                continue
+
+            gap_start_ms = prev_close
+            gap_end_ms = curr_open
+            duration_min = round(delta_ms / 60_000.0, 2)
+            affected_min = round(max(0, gap_end_ms - gap_start_ms) / 60_000.0, 2)
+
+            # Inspect cross-timeframe bars inside or spanning [gap_start_ms, gap_end_ms]
+            cross_tf_contained_active: Dict[str, int] = {}
+            cross_tf_contained_total: Dict[str, int] = {}
+            contained_active_intervals: List[Tuple[int, int]] = []
+            boundary_active_intervals_le_1h: List[Tuple[int, int]] = []
+            coarser_spanning_active_labels: List[str] = []
+
+            for o_label, _, o_tf_ms in tf_specs:
+                if o_label == label:
                     continue
-                prev_dt = datetime.datetime.fromtimestamp(prev_close / 1000.0, tz=datetime.timezone.utc)
-                curr_dt = datetime.datetime.fromtimestamp(curr_close / 1000.0, tz=datetime.timezone.utc)
-                duration_min = round(delta_ms / 60_000.0, 2)
+                o_recs = canonical_closed_by_label.get(o_label) or []
+                if not o_recs:
+                    continue
+                o_opens = open_times_by_label[o_label]
+                # Contained bars: b_open >= gap_start_ms and b_close <= gap_end_ms
+                lo_i = bisect.bisect_left(o_opens, gap_start_ms)
+                hi_i = bisect.bisect_right(o_opens, gap_end_ms)
+                c_tot = 0
+                c_act = 0
+                for j in range(max(0, lo_i - 2), min(len(o_recs), hi_i + 2)):
+                    bo, bc, _, bh, bl, _, bvol, _ = o_recs[j]
+                    is_act = (bvol > 0.0) or (bh > bl)
+                    if bo >= gap_start_ms and bc <= gap_end_ms:
+                        c_tot += 1
+                        if is_act:
+                            c_act += 1
+                            contained_active_intervals.append((bo, bc))
+                    elif is_act and bo < gap_end_ms and bc > gap_start_ms:
+                        if bo <= gap_start_ms and bc >= gap_end_ms and o_tf_ms > tf_ms:
+                            coarser_spanning_active_labels.append(o_label)
+                        if o_tf_ms <= max(3_600_000, tf_ms):
+                            boundary_active_intervals_le_1h.append((max(gap_start_ms, bo), min(gap_end_ms, bc)))
+                if c_tot > 0:
+                    cross_tf_contained_total[o_label] = c_tot
+                if c_act > 0:
+                    cross_tf_contained_active[o_label] = c_act
 
-                # Classification rules
-                if delta_ms >= 24 * 3_600_000 or (prev_dt.weekday() in (4, 5) and curr_dt.weekday() in (6, 0)):
-                    category = "WEEKEND_MARKET_CLOSED"
-                elif (20 <= prev_dt.hour <= 23 or 0 <= prev_dt.hour <= 2) and 30.0 <= duration_min <= 240.0:
-                    category = "DAILY_ROLLOVER_OR_SESSION_BREAK"
-                elif duration_min <= 15.0:
-                    category = "INTRADAY_SHORT_ILLIQUID_GAP"
+            has_any_contained_active = len(contained_active_intervals) > 0
+            # Merge active intervals (include <=1H boundary tails ONLY when interior contained active bars also exist)
+            raw_open_proof_ivs = list(contained_active_intervals)
+            if has_any_contained_active:
+                raw_open_proof_ivs.extend(boundary_active_intervals_le_1h)
+            raw_open_proof_ivs.sort()
+            merged_open_proof_ivs: List[List[int]] = []
+            for iv_s, iv_e in raw_open_proof_ivs:
+                if not merged_open_proof_ivs or iv_s > merged_open_proof_ivs[-1][1]:
+                    merged_open_proof_ivs.append([iv_s, iv_e])
                 else:
-                    category = "INTRADAY_EXTENDED_PROVIDER_GAP"
+                    merged_open_proof_ivs[-1][1] = max(merged_open_proof_ivs[-1][1], iv_e)
+            merged_open_starts = [iv[0] for iv in merged_open_proof_ivs]
 
-                cat_event_counts[category] += 1
-                cat_missing_bars[category] += int(missing_bars)
-                gap_events.append(
+            def _is_cross_tf_proven_open(t0_ms: int, t1_ms: int) -> bool:
+                if not merged_open_proof_ivs:
+                    return False
+                k = bisect.bisect_right(merged_open_starts, t0_ms) - 1
+                if k < 0:
+                    return False
+                return merged_open_proof_ivs[k][0] <= t0_ms and merged_open_proof_ivs[k][1] >= t1_ms
+
+            def _has_contained_active_overlap(t0_ms: int, t1_ms: int) -> bool:
+                for bo, bc in contained_active_intervals:
+                    if bo < t1_ms and bc > t0_ms:
+                        return True
+                return False
+
+            # Step across [gap_start_ms, gap_end_ms] to build exact regime sub-segments
+            step_ms = 60_000 if affected_min <= 10_080.0 else 900_000
+            raw_segments: List[Dict[str, Any]] = []
+            cursor_ms = gap_start_ms
+            single_tf_only = len(non_empty_labels) == 1
+            adj_active = (prev_rec[6] > 0.0 or prev_rec[3] > prev_rec[4]) and (
+                curr_rec[6] > 0.0 or curr_rec[3] > curr_rec[4]
+            )
+            gap_contradiction = False
+
+            while cursor_ms < gap_end_ms:
+                nxt_ms = min(gap_end_ms, cursor_ms + step_ms)
+                cal_state = _evaluate_verified_calendar_state_ms_kh01a(
+                    cursor_ms,
+                    cal_verified=cal_verified,
+                    cal_tz=cal_tz,
+                    explicit_windows=explicit_windows,
+                    weekly_closures=weekly_closures,
+                    daily_maintenances=daily_maintenances,
+                    default_open_when_verified=default_open_when_verified,
+                )
+                proven_open = _is_cross_tf_proven_open(cursor_ms, nxt_ms) or _has_contained_active_overlap(
+                    cursor_ms, nxt_ms
+                )
+
+                if proven_open:
+                    if cal_state in ("CLOSURE", "MAINTENANCE"):
+                        gap_contradiction = True
+                        seg_cat = "PROVIDER_OR_DATA_GAP"
+                        seg_src = "CROSS_TF_ACTIVE_BARS_CONTRADICTING_CALENDAR"
+                    else:
+                        seg_cat = "PROVIDER_OR_DATA_GAP"
+                        seg_src = "CROSS_TF_ACTIVE_BARS"
+                elif cal_state == "CLOSURE":
+                    seg_cat = "VERIFIED_SCHEDULED_MARKET_CLOSURE"
+                    seg_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                elif cal_state == "MAINTENANCE":
+                    seg_cat = "VERIFIED_MAINTENANCE_PAUSE"
+                    seg_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                elif cal_state == "OPEN":
+                    if missing_bars <= 2 and affected_min <= 15.0 and allow_short_candle_omission:
+                        seg_cat = "SHORT_MISSING_CANDLE"
+                    else:
+                        seg_cat = "PROVIDER_OR_DATA_GAP"
+                    seg_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                else:
+                    # Unverified calendar and no contained cross-TF active bars in this sub-interval
+                    if (
+                        missing_bars <= 2
+                        and affected_min <= 15.0
+                        and (len(coarser_spanning_active_labels) > 0 or (single_tf_only and adj_active))
+                    ):
+                        seg_cat = "SHORT_MISSING_CANDLE"
+                        seg_src = (
+                            f"COARSER_ACTIVE_SESSION_BARS:{','.join(sorted(set(coarser_spanning_active_labels)))}"
+                            if coarser_spanning_active_labels
+                            else "ADJACENT_INTRADAY_ACTIVE_BARS_UNVERIFIED_CALENDAR"
+                        )
+                    else:
+                        seg_cat = "UNKNOWN_UNVERIFIED"
+                        seg_src = "INSUFFICIENT_SESSION_PROVENANCE"
+
+                if (
+                    raw_segments
+                    and raw_segments[-1]["segment_category"] == seg_cat
+                    and raw_segments[-1]["evidence_source"] == seg_src
+                ):
+                    raw_segments[-1]["end_ms"] = nxt_ms
+                    raw_segments[-1]["end_utc"] = format_utc_iso(nxt_ms)
+                    raw_segments[-1]["minutes"] = round((nxt_ms - raw_segments[-1]["start_ms"]) / 60_000.0, 2)
+                else:
+                    raw_segments.append(
+                        {
+                            "start_ms": cursor_ms,
+                            "end_ms": nxt_ms,
+                            "start_utc": format_utc_iso(cursor_ms),
+                            "end_utc": format_utc_iso(nxt_ms),
+                            "minutes": round((nxt_ms - cursor_ms) / 60_000.0, 2),
+                            "segment_category": seg_cat,
+                            "evidence_source": seg_src,
+                        }
+                    )
+                cursor_ms = nxt_ms
+
+            distinct_seg_cats = sorted({s["segment_category"] for s in raw_segments})
+            if len(distinct_seg_cats) == 1:
+                category = distinct_seg_cats[0]
+            else:
+                category = "MIXED_INTERVAL_GAP"
+
+            minutes_by_seg_cat: Counter[str] = Counter()
+            for s in raw_segments:
+                minutes_by_seg_cat[s["segment_category"]] += s["minutes"]
+
+            if gap_contradiction:
+                calendar_contradictions.append(
                     {
-                        "gap_index": len(gap_events) + 1,
-                        "bar_index_before": idx - 1,
-                        "bar_index_after": idx,
-                        "prev_close_ms": prev_close,
-                        "next_close_ms": curr_close,
-                        "prev_close_utc": format_utc_iso(prev_close),
-                        "next_close_utc": format_utc_iso(curr_close),
-                        "duration_minutes": duration_min,
-                        "missing_bars": int(missing_bars),
-                        "category": category,
+                        "timeframe": label,
+                        "gap_start_utc": format_utc_iso(gap_start_ms),
+                        "gap_end_utc": format_utc_iso(gap_end_ms),
+                        "cross_tf_contained_active_bars": cross_tf_contained_active,
                     }
                 )
 
+            if category == "PROVIDER_OR_DATA_GAP":
+                if cross_tf_contained_active:
+                    reason = (
+                        f"CROSS_TF_PROVEN_OPEN_MARKET_DATA_GAP: active bars present in "
+                        f"{dict(sorted(cross_tf_contained_active.items()))}"
+                    )
+                    ev_src = "CROSS_TIMEFRAME_ACTIVE_BARS"
+                    confidence = "HIGH"
+                    uncertainty = (
+                        "CALENDAR_CONTRADICTED_BY_EMPIRICAL_TRADES" if gap_contradiction else "NONE_MARKET_PROVEN_OPEN"
+                    )
+                else:
+                    reason = "VERIFIED_OPEN_SESSION_MISSING_DATA"
+                    ev_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                    confidence = "HIGH"
+                    uncertainty = "NONE_VERIFIED_SESSION_OPEN"
+            elif category == "VERIFIED_SCHEDULED_MARKET_CLOSURE":
+                reason = "VERIFIED_CALENDAR_SCHEDULED_MARKET_CLOSURE_NO_CONTRADICTING_BARS"
+                ev_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                confidence = "HIGH"
+                uncertainty = "NONE"
+            elif category == "VERIFIED_MAINTENANCE_PAUSE":
+                reason = "VERIFIED_CALENDAR_MAINTENANCE_OR_SESSION_PAUSE_NO_CONTRADICTING_BARS"
+                ev_src = cal_evidence_source or "VERIFIED_SESSION_CALENDAR"
+                confidence = "HIGH"
+                uncertainty = "NONE"
+            elif category == "SHORT_MISSING_CANDLE":
+                reason = "SHORT_1_TO_2_BAR_OMISSION_DURING_ACTIVE_TRADING_CONTEXT"
+                ev_src = raw_segments[0]["evidence_source"] if raw_segments else "UNVERIFIED"
+                confidence = "HIGH" if cal_verified else "MEDIUM"
+                uncertainty = (
+                    "CANNOT_DISTINGUISH_ZERO_TRADE_MINUTE_VS_PAGINATION_BOUNDARY_DROP_WITHOUT_TICK_FEED"
+                    if cal_verified
+                    else "HISTORICAL_MAINTENANCE_SCHEDULE_UNVERIFIED_AND_NO_FINER_TF_TICK_PROOF"
+                )
+            elif category == "MIXED_INTERVAL_GAP":
+                reason = (
+                    f"GAP_SPANS_MIXED_INTERVALS:{dict((k, round(v, 2)) for k, v in sorted(minutes_by_seg_cat.items()))}"
+                )
+                ev_src = "+".join(sorted({s["evidence_source"] for s in raw_segments}))
+                confidence = "MIXED_PARTIAL"
+                uncertainty = (
+                    "CONTAINS_UNVERIFIED_SUBINTERVALS"
+                    if "UNKNOWN_UNVERIFIED" in minutes_by_seg_cat
+                    else "MIXED_CLOSED_AND_OPEN_SUBINTERVALS_SPLIT_EXPLICITLY"
+                )
+            else:
+                reason = "UNVERIFIED_SESSION_SCHEDULE_AND_NO_CONTAINED_CROSS_TF_ACTIVE_BARS"
+                ev_src = "NONE_UNVERIFIED"
+                confidence = "UNKNOWN"
+                uncertainty = "CANNOT_VERIFY_OPEN_VS_CLOSED_WITHOUT_EXCHANGE_SESSION_CALENDAR_OR_CROSS_TF_BARS"
+
+            legacy_cat = _legacy_v1791_heuristic_category_deprecated(delta_ms, prev_close, curr_close)
+            legacy_cat_event_counts[legacy_cat] += 1
+            legacy_cat_missing_bars[legacy_cat] += int(missing_bars)
+
+            cat_event_counts[category] += 1
+            cat_missing_bars[category] += int(missing_bars)
+            gap_events.append(
+                {
+                    "gap_index": len(gap_events) + 1,
+                    "bar_index_before": prev_rec[7],
+                    "bar_index_after": curr_rec[7],
+                    "prev_close_ms": prev_close,
+                    "gap_start_ms": gap_start_ms,
+                    "gap_end_ms": gap_end_ms,
+                    "next_open_ms": curr_open,
+                    "next_close_ms": curr_close,
+                    "prev_close_utc": format_utc_iso(prev_close),
+                    "next_open_utc": format_utc_iso(curr_open),
+                    "next_close_utc": format_utc_iso(curr_close),
+                    "duration_minutes": duration_min,
+                    "affected_minutes": affected_min,
+                    "missing_bars": int(missing_bars),
+                    "category": category,
+                    "classification_reason": reason,
+                    "evidence_source": ev_src,
+                    "calendar_version": cal_version,
+                    "source_confidence": confidence,
+                    "uncertainty": uncertainty,
+                    "cross_tf_contained_active_bars": cross_tf_contained_active,
+                    "cross_tf_contained_total_bars": cross_tf_contained_total,
+                    "coarser_spanning_active_timeframes": sorted(set(coarser_spanning_active_labels)),
+                    "segment_minutes_breakdown": {k: round(v, 2) for k, v in sorted(minutes_by_seg_cat.items())},
+                    "segments": raw_segments,
+                    "legacy_v1791_category_deprecated": legacy_cat,
+                }
+            )
+
         total_missing = sum(cat_missing_bars.values())
-        theoretical_span_bars = n_bars + total_missing
+        valid_unique_bars = len(sorted_records)
+        theoretical_span_bars = valid_unique_bars + total_missing
         longest_gaps = sorted(gap_events, key=lambda g: g["missing_bars"], reverse=True)[:15]
 
         per_timeframe[label] = {
             "dataset_key": ds_key,
             "timeframe_ms": tf_ms,
-            "sha256": tf_sha256,
+            "sha256": scan["tf_sha256"],
             "actual_bars": n_bars,
+            "valid_unique_closed_bars": valid_unique_bars,
             "first_open_ms": first_open_ms,
             "last_close_ms": last_close_ms,
             "first_open_utc": format_utc_iso(first_open_ms),
             "last_close_utc": format_utc_iso(last_close_ms),
-            "out_of_order_count": out_of_order_count,
-            "duplicate_count": duplicate_count,
+            "invalid_timestamp_count": scan["invalid_timestamp_count"],
+            "invalid_timestamp_examples": scan["invalid_timestamp_examples"],
+            "invalid_ohlcv_count": scan["invalid_ohlcv_count"],
+            "unclosed_bar_count": scan["unclosed_bar_count"],
+            "cadence_alignment_violations_count": scan["cadence_alignment_violations_count"],
+            "boundary_alignment_violations_count": scan["boundary_alignment_violations_count"],
+            "out_of_order_count": scan["out_of_order_count"],
+            "duplicate_count": scan["duplicate_count"],
+            "identical_duplicate_count": scan["identical_duplicate_count"],
+            "conflicting_duplicate_count": scan["conflicting_duplicate_count"],
             "gap_events_count": len(gap_events),
             "total_missing_bars": int(total_missing),
             "theoretical_continuous_span_bars": int(theoretical_span_bars),
-            "observed_bar_density_ratio": round(n_bars / max(1, theoretical_span_bars), 6),
+            "observed_bar_density_ratio": round(valid_unique_bars / max(1, theoretical_span_bars), 6),
             "gap_events_by_category": dict(cat_event_counts),
             "missing_bars_by_category": dict(cat_missing_bars),
+            "unknown_unverified_gap_events_count": int(cat_event_counts.get("UNKNOWN_UNVERIFIED", 0)),
+            "unknown_unverified_missing_bars": int(cat_missing_bars.get("UNKNOWN_UNVERIFIED", 0)),
+            "legacy_deprecated_v1791_gap_events_by_category": dict(legacy_cat_event_counts),
+            "legacy_deprecated_v1791_missing_bars_by_category": dict(legacy_cat_missing_bars),
             "top_15_longest_gaps": longest_gaps,
+            "all_gaps": gap_events,
         }
 
+    # Pass 3: Cross-timeframe OHLC envelope & point-in-time availability coherence check
+    m1_recs = canonical_closed_by_label.get("M1") or []
+    m1_opens = open_times_by_label.get("M1") or []
+    cross_tf_envelope_checks: Dict[str, Any] = {}
+    if m1_recs:
+        for htf_lbl, _, htf_ms in (("M5", "5m", 300_000), ("M15", "15m", 900_000), ("H1", "1H", 3_600_000)):
+            htf_recs = canonical_closed_by_label.get(htf_lbl) or []
+            expected_m1_cnt = htf_ms // 60_000
+            full_windows_checked = 0
+            envelope_mismatch_count = 0
+            max_abs_diff_usd = 0.0
+            for ho, hc, h_open, h_high, h_low, h_close, _, _ in htf_recs:
+                if hc <= m1_recs[0][0] or ho >= m1_recs[-1][1]:
+                    continue
+                li = bisect.bisect_left(m1_opens, ho)
+                ri = bisect.bisect_left(m1_opens, hc)
+                sub = [m1_recs[k] for k in range(li, min(len(m1_recs), ri)) if ho <= m1_recs[k][0] and m1_recs[k][1] <= hc]
+                if len(sub) != expected_m1_cnt:
+                    continue
+                full_windows_checked += 1
+                agg_o = sub[0][2]
+                agg_h = max(x[3] for x in sub)
+                agg_l = min(x[4] for x in sub)
+                agg_c = sub[-1][5]
+                diff = max(abs(agg_o - h_open), abs(agg_h - h_high), abs(agg_l - h_low), abs(agg_c - h_close))
+                if diff > max_abs_diff_usd:
+                    max_abs_diff_usd = diff
+                if diff > 0.05:
+                    envelope_mismatch_count += 1
+            cross_tf_envelope_checks[htf_lbl] = {
+                "fully_covered_m1_windows_checked": full_windows_checked,
+                "ohlc_envelope_mismatch_gt_0_05_count": envelope_mismatch_count,
+                "max_abs_ohlc_diff_usd": round(max_abs_diff_usd, 4),
+            }
+
+    if not cal_verified:
+        cal_status = "UNKNOWN_UNVERIFIED"
+    elif calendar_contradictions:
+        cal_status = "CONTRADICTED_BY_OBSERVED_BARS"
+    else:
+        cal_status = "VERIFIED"
+
     return {
-        "schema_version": "17.9.1.1",
+        "schema_version": "kh_01a.gap_truth.v1",
+        "backward_compatible_with_schema": "17.9.1.1",
         "symbol": "XAUUSDT",
         "venue": "Bitget",
         "synthetic_fill_applied": False,
         "interpolation_applied": False,
         "forward_fill_applied": False,
+        "point_in_time_availability_rule": "BAR_KNOWN_ONLY_AT_CLOSE_TIME_MS_LTE_DECISION_TS_MS",
+        "session_calendar_verification_status": cal_status,
+        "calendar_version": cal_version,
+        "calendar_evidence_source": cal_evidence_source,
+        "calendar_contradictions_count": len(calendar_contradictions),
+        "calendar_contradictions": calendar_contradictions,
         "quote_construction_mode": "MODELED_SPREAD_QUOTE",
         "quote_construction_formula": "bid = round(last_m1_close - 0.10, 2), ask = round(last_m1_close + 0.10, 2)",
+        "cross_timeframe_coherence": cross_tf_envelope_checks,
         "timeframes": per_timeframe,
     }
 

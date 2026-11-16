@@ -76,6 +76,11 @@ def load_canonical_xauusdt_datasets() -> tuple[Dict[str, Any], Dict[str, Any]]:
     )
     provenance = {
         "symbol": "XAUUSDT",
+        "exchange": "Bitget",
+        "product_type": "USDT-FUTURES",
+        "timezone": "UTC",
+        "prior_use_status": "REUSED_RESEARCH",
+        "network_refresh_allowed": False,
         "dataset_path": str(dataset_file),
         "dataset_sha256": dataset_sha256,
         "bar_counts_by_tf": {
@@ -84,6 +89,16 @@ def load_canonical_xauusdt_datasets() -> tuple[Dict[str, Any], Dict[str, Any]]:
         },
     }
     return datasets, provenance
+
+
+def audit_canonical_xauusdt_dataset_manifest_readonly() -> Dict[str, Any]:
+    """KH-01A Section 5 (Item B): Read-only provenance & Fresh-OOS escrow audit without mutating dataset bytes."""
+    from services.kh_01a_foundation_service import build_dataset_registry_and_fresh_oos_audit_kh01a
+    from services.v17_9_1_decision_funnel import classify_historical_dataset_gaps
+
+    datasets, _ = load_canonical_xauusdt_datasets()
+    gap_report = classify_historical_dataset_gaps(datasets)
+    return build_dataset_registry_and_fresh_oos_audit_kh01a(REPO_ROOT, datasets, gap_report)
 
 
 def _init_full_universe_worker(legacy_screen_indices: Sequence[int]) -> None:

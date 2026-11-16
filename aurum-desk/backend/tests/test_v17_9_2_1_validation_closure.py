@@ -789,9 +789,12 @@ def test_t17_dataset_gap_classification_and_modeled_spread_quote_disclosure() ->
     m1_info = cov["timeframes"]["M1"]
     assert m1_info["actual_bars"] == 22376
     assert m1_info["total_missing_bars"] == 6926
-    assert m1_info["missing_bars_by_category"]["WEEKEND_MARKET_CLOSED"] == 2794
-    assert m1_info["missing_bars_by_category"]["INTRADAY_EXTENDED_PROVIDER_GAP"] == 4129
-    assert m1_info["missing_bars_by_category"]["INTRADAY_SHORT_ILLIQUID_GAP"] == 3
+    # KH-01A Section 1 bugfix: replaces unverified >=24h / UTC weekday weekend heuristic with
+    # cross-timeframe active-bar & verified-session provenance while preserving deprecated audit diff.
+    assert m1_info["missing_bars_by_category"].get("WEEKEND_MARKET_CLOSED", 0) == 0
+    assert m1_info["missing_bars_by_category"]["PROVIDER_OR_DATA_GAP"] == 6923
+    assert m1_info["missing_bars_by_category"]["SHORT_MISSING_CANDLE"] == 3
+    assert m1_info["legacy_deprecated_v1791_missing_bars_by_category"]["WEEKEND_MARKET_CLOSED"] == 2794
 
 
 def test_t18_chronological_oos_split_and_180_bar_embargo_guard() -> None:

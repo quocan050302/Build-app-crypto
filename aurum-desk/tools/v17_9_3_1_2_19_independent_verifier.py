@@ -234,6 +234,9 @@ def verify_v17931219_artifacts_from_disk(run_dir: Path) -> Dict[str, Any]:
                 metadata=dict(r_obj.get("metadata", {})),
             )
 
+    if "real_injected_count" not in f05 or "report_assertion_count" not in f05:
+        raise RuntimeError("MISSING_NEGATIVE_CONTROLS_BREAKDOWN_FIELDS_IN_05")
+
     m = build_authoritative_metrics_from_evidence_v17931219(
         junit_counters=cnt_merged,
         benchmark_data=f21.get("same_sha_speed_benchmark") or f21,
@@ -242,8 +245,8 @@ def verify_v17931219_artifacts_from_disk(run_dir: Path) -> Dict[str, Any]:
             "total_negative_controls": len(f04_rows),
             "passed_negative_controls": sum(1 for c in f04_rows if c.get("rejected")),
             "actually_executed_count": sum(1 for c in f04_rows if c.get("red_fault_rejected") and c.get("green_control_passed")),
-            "real_injected_count": f05.get("real_injected_count", 180),
-            "report_assertion_count": f05.get("report_assertion_count", 100),
+            "real_injected_count": f05["real_injected_count"],
+            "report_assertion_count": f05["report_assertion_count"],
         },
         tested_sha=tested_sha,
         replayed_modes=replayed_modes,

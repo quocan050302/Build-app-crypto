@@ -151,7 +151,13 @@ def test_02_dataset_sha256_and_gap_classification_no_synthetic_fill(verified_dat
     assert m1_cov["out_of_order_count"] == 0
     assert m1_cov["duplicate_count"] == 0
     assert sum(m1_cov["missing_bars_by_category"].values()) == 6926
-    assert m1_cov["missing_bars_by_category"].get("WEEKEND_MARKET_CLOSED", 0) > 0
+    # KH-01A Section 1 bugfix: Bitget XAUUSDT canonical dataset has active M15/H1 bars across
+    # all multi-bar M1 gaps and no verified closure calendar, so unverified WEEKEND_MARKET_CLOSED == 0.
+    assert m1_cov["missing_bars_by_category"].get("WEEKEND_MARKET_CLOSED", 0) == 0
+    assert m1_cov["missing_bars_by_category"] == {
+        "PROVIDER_OR_DATA_GAP": 6923,
+        "SHORT_MISSING_CANDLE": 3,
+    }
 
     assert cov["timeframes"]["M5"]["actual_bars"] == 31609
     assert cov["timeframes"]["M5"]["total_missing_bars"] == 923

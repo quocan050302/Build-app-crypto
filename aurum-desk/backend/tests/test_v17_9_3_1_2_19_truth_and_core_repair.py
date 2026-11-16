@@ -111,7 +111,16 @@ def test_v19_parse_required_pytest_counts():
 
 
 def test_v19_authoritative_metrics_strict_zero_fallbacks():
-    junit_counters = {"collected": 5455, "executed": 5455, "passed": 5447, "skipped": 8, "failed": 0, "errors": 0, "collection_exit_code": 0}
+    junit_counters = {
+        "collected": 5455,
+        "executed": 5455,
+        "passed": 5447,
+        "skipped": 8,
+        "failed": 0,
+        "errors": 0,
+        "collection_exit_code": 0,
+        "shard_exits_all_zero": True,
+    }
     benchmark_data = {"w3_speedup": 2.308}
     telemetry = {"max_children_observed": 3, "orphan_pids_observed_at_cleanup": []}
     neg_controls = {
