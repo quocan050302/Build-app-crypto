@@ -90,6 +90,7 @@ from services.v17_9_3_1_2_7_causal_signal_truth import (
 from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
     build_exit_event_lineage_v17931211,
     verify_all_policy_fill_mode_lineage_independently_v17931211,
+    verify_execution_not_synthetic_v17931211,
     verify_exit_portfolio_conservation_v17931211,
     verify_fresh_junit_bijection_v17931211,
     verify_source_freeze_v17931211,
@@ -1304,8 +1305,8 @@ def main() -> int:
             "run_id": run_id,
             "tested_executable_sha": sha,
             "dataset_sha256": actual_dataset_sha,
-            "prepatch_red_confirmed": mon_fri_m15["legacy_deprecated_v1791_category"] == "WEEKEND_MARKET_CLOSED",
-            "prepatch_mon_fri_m15_category": mon_fri_m15["legacy_deprecated_v1791_category"],
+            "prepatch_red_confirmed": mon_fri_m15["legacy_v1791_category_deprecated"] == "WEEKEND_MARKET_CLOSED",
+            "prepatch_mon_fri_m15_category": mon_fri_m15["legacy_v1791_category_deprecated"],
             "postpatch_mon_fri_m15_category": mon_fri_m15["category"],
             "unverified_weekend_labels_emitted_count": unverified_weekend_after,
             "missing_bar_totals_conserved": actual_missing_totals == expected_missing_totals,
@@ -1314,31 +1315,31 @@ def main() -> int:
                 {
                     "timeframe": "M15",
                     "interval": "2026-10-12T08:15:00Z -> 2026-10-16T01:00:00Z (354 missing bars)",
-                    "old_category": mon_fri_m15["legacy_deprecated_v1791_category"],
+                    "old_category": mon_fri_m15["legacy_v1791_category_deprecated"],
                     "new_category": mon_fri_m15["category"],
                     "proof": mon_fri_m15["classification_reason"],
-                    "cross_tf_active_bars": mon_fri_m15["cross_tf_active_bar_counts"],
+                    "cross_tf_active_bars": mon_fri_m15["cross_tf_contained_active_bars"],
                 },
                 {
                     "timeframe": "M1",
                     "interval": "2026-10-17T02:18:00Z -> 2026-10-19T00:53:00Z (2,794 missing bars)",
-                    "old_category": m1_sat_mon["legacy_deprecated_v1791_category"],
+                    "old_category": m1_sat_mon["legacy_v1791_category_deprecated"],
                     "new_category": m1_sat_mon["category"],
                     "proof": m1_sat_mon["classification_reason"],
-                    "cross_tf_active_bars": m1_sat_mon["cross_tf_active_bar_counts"],
+                    "cross_tf_active_bars": m1_sat_mon["cross_tf_contained_active_bars"],
                 },
                 {
                     "timeframe": "M5",
                     "interval": "2026-10-17T02:15:00Z -> 2026-10-19T01:00:00Z (560 missing bars)",
-                    "old_category": m5_sat_mon["legacy_deprecated_v1791_category"],
+                    "old_category": m5_sat_mon["legacy_v1791_category_deprecated"],
                     "new_category": m5_sat_mon["category"],
                     "proof": m5_sat_mon["classification_reason"],
-                    "cross_tf_active_bars": m5_sat_mon["cross_tf_active_bar_counts"],
+                    "cross_tf_active_bars": m5_sat_mon["cross_tf_contained_active_bars"],
                 },
                 {
                     "timeframe": "M15",
                     "interval": "2026-10-18T02:45:00Z -> 2026-10-18T03:15:00Z (1 missing bar at 200-bar pagination boundary)",
-                    "old_category": m15_sun_0245["legacy_deprecated_v1791_category"],
+                    "old_category": m15_sun_0245["legacy_v1791_category_deprecated"],
                     "new_category": m15_sun_0245["category"],
                     "proof": m15_sun_0245["classification_reason"],
                     "uncertainty": m15_sun_0245["uncertainty"],
@@ -1504,10 +1505,28 @@ def main() -> int:
 
         # Stage B.2: 242-episode replay slice determinism across w=1, w=2, w=4, w=1_repeat
         print("[KH-01A Stage B.2] Running 242-episode replay slice determinism across w=1, w=2, w=4, w=1_repeat...", flush=True)
-        replay_w124_doc, _ = run_worker_1_2_4_and_repeat_determinism_v17931211(
+        replay_w124_doc, replay_det_workers = run_worker_1_2_4_and_repeat_determinism_v17931211(
             si0_nb_eps, bars_1m, run_id=run_id, tested_sha=sha
         )
-        replay_w124_chk = verify_bounded_async_workers_v17931213(replay_w124_doc, monitor.samples)
+        replay_parity_chk = verify_execution_not_synthetic_v17931211(
+            collection_manifest=junit_10_disk["collection_manifest"],
+            shard_manifest=junit_10_disk["shard_manifest"],
+            parity_manifest=replay_w124_doc,
+        )
+        replay_proc_chk = verify_bounded_async_workers_v17931213(
+            replay_det_workers,
+            expected_run_id=run_id,
+            expected_tested_sha=sha,
+            max_allowed_workers=4,
+            active_orphan_pids=[],
+        )
+        replay_w124_status = (
+            "PASS"
+            if replay_w124_doc.get("status") == "PASS"
+            and replay_parity_chk.get("status") == "PASS"
+            and replay_proc_chk.get("status") == "PASS"
+            else "FAIL"
+        )
         worker_report_11 = {
             "spec_version": SPEC_VERSION_KH01A,
             "schema_version": SCHEMA_VERSION_KH01A,
@@ -1519,7 +1538,9 @@ def main() -> int:
             "measured_speedup_w4_vs_w1": subset_bench["w4_speedup_vs_w1"],
             "measured_speedup_w_parallel_vs_w1": subset_bench["best_parallel_speedup_vs_w1"],
             "replay_slice_w1_w2_w4_repeat_parity": replay_w124_doc,
-            "replay_slice_w1_w2_w4_repeat_parity_status": replay_w124_chk["status"],
+            "replay_slice_parity_verification": replay_parity_chk,
+            "replay_slice_worker_process_verification": replay_proc_chk,
+            "replay_slice_w1_w2_w4_repeat_parity_status": replay_w124_status,
         }
         write_json_durable_atomic(run_dir / "11_worker_1_2_4_repeat_determinism_speed_report.json", worker_report_11)
 
@@ -1639,8 +1660,8 @@ def main() -> int:
             si0_all_primary_episodes=si0_nb_eps,
             si8_loss_rows=si8_losses,
             si9_loss_rows=si9_losses,
-            decisions_by_opp_id=decisions_by_oid,
-            features_by_opp_id=all_features_map,
+            decision_inputs_by_opp_id=decisions_by_oid,
+            feature_ledger_by_opp_id=all_features_map,
             datasets=datasets,
             close_ts_index=close_ts,
             dataset_sha256=actual_dataset_sha,

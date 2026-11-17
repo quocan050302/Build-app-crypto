@@ -1145,9 +1145,11 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
     for uid in unique_si89_ids:
         src_ep = si8_by_id.get(uid) or si9_by_id[uid]
         r_u = _build_single_casebook_row(src_ep, "SI8_SI9_UNIQUE_RESEARCH_LOSS")
+        r_u.pop("row_sha256", None)
         r_u["present_in_policies"] = [
             p for p, mp in (("SI8_RESEARCH_DISCOVERY_REPAIRED", si8_by_id), ("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS", si9_by_id)) if uid in mp
         ]
+        r_u["row_sha256"] = canonical_hash(r_u)
         si89_unique_casebook.append(r_u)
 
     all_casebook_rows = loss_casebook + win_casebook + si89_unique_casebook
