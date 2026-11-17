@@ -1,0 +1,242 @@
+{
+  "ACCOUNTING_VERDICT": "PASS",
+  "ACTIVATION_READY": "NO",
+  "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "G_KH01A_14_PUBLICATION_READBACK_STATUS": "PASS",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "REGRESSION_VERDICT": "PASS",
+  "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "backend_git_tree_sha": "37bf112d2457ef8e10cfe71662b415b04e443472",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "executable_source_tree_equal_in_pushed_tree": true,
+  "immutable_run_dir": "aurum-desk/docs/artifacts/kh_01a/20261117T013053Z_a1fd9293e2d0",
+  "ls_remote_verified_head_sha": "95d31176e86c09d297b7ec3093307129c1dced55",
+  "manifest_15_sha256": "23bcdbddbb2c2302b6e2333907deb5dd9957eb53f91caaa2f29e62cad2fccc84",
+  "phase_a_initial_commit_sha": "0d00eab453318020d2ef95f8f72982e1e58e16f2",
+  "phase_b_immutable_evidence_commit_sha": "95d31176e86c09d297b7ec3093307129c1dced55",
+  "remote_blobs": {
+    "00_preflight_branch_source_dataset_resources.json": {
+      "byte_size": 5130,
+      "git_blob_oid": "2ba21e39e922271caa822733af7b57da185e6103",
+      "sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f"
+    },
+    "01_active_function_callgraph_and_keep_as_is_matrix.json": {
+      "byte_size": 33353,
+      "git_blob_oid": "9869ee3e85f573f292081a739a30c155c7f6c71f",
+      "sha256": "6a0ab15c137392ef75e00cf6106c6823334c8cf363d846642ef0a4f1d93d6691"
+    },
+    "02_data_gap_red_green_and_cross_tf_audit.json": {
+      "byte_size": 3022,
+      "git_blob_oid": "7c7f82eb2c658263beb26ec16b7ff12f6b49fb54",
+      "sha256": "558f39336290c5ad4002f2cbaf3dff500fa7ee35e9f1d3e1c4f4aafce7d8c752"
+    },
+    "03_frozen_dataset_sha_session_calendar_and_quality.json": {
+      "byte_size": 122534,
+      "git_blob_oid": "79bcc3b50a94e3a9bb50a0f9d677a039b38f153b",
+      "sha256": "db3330b2f0787dce2d7166294afc13a57acb34409b58c7d1ffb207c1d62572af"
+    },
+    "04_fail_closed_red_green_real_fault_injections.json": {
+      "byte_size": 11631,
+      "git_blob_oid": "1c0c8627d5958eb5c744d67750c38de6373a27fd",
+      "sha256": "c5ba79b4a9fcf4d0582402cbda6b0036bb2474bfd63303c323c8033422119cd9"
+    },
+    "05_preentry_casebook_157_losses_and_win_controls.jsonl.gz": {
+      "byte_size": 208961,
+      "git_blob_oid": "c30f6b6f2c108f924d207ab7447760555b520122",
+      "sha256": "a344ce32d1bfc3c4435d5b41fe70774d3eb9b8760cc8fcd5da485bc2914c6dab"
+    },
+    "06_causal_loss_attribution_and_unknown_evidence_census.json": {
+      "byte_size": 51633,
+      "git_blob_oid": "c6f568f731b5a56e5ecdc1d15b0d7bd2a9092fab",
+      "sha256": "1832193d803b9751d783895772d6d82175f04d2c1ea3b90583d18d29570925e0"
+    },
+    "07_target_267_plus_40_control_provenance_audit.json": {
+      "byte_size": 5659,
+      "git_blob_oid": "2a5441a3bc93740e032b9101398448f1e5070dd6",
+      "sha256": "ecb79c9cd33fe33f6694308a445d94f7b84e492458daa7edfe4ee68d10a1b4b1"
+    },
+    "08_replay_3fill_1position_oos_and_cost_stress.json": {
+      "byte_size": 633137,
+      "git_blob_oid": "0dae76077cb33075abd6d7c9a235979f347a404c",
+      "sha256": "0c90d159f261b9386fa80b76355804f84b690977ae88611d3fed14bd969f8197"
+    },
+    "09_before_after_trade_action_and_adapter_parity.json": {
+      "byte_size": 18325,
+      "git_blob_oid": "616e5823ef6e56ac0b4a62e1ac5b1974c5281794",
+      "sha256": "5ad7ba2dc4363a4636f83db94a3c38c5f8ac8a71ae4340ebdeea49a80dea7063"
+    },
+    "10_collected_node_ids_shards_junit_exit_manifest.json": {
+      "byte_size": 1394532,
+      "git_blob_oid": "41f759d72f7bfffdd21d92d5c3b2c5acb61407d4",
+      "sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289"
+    },
+    "11_worker_1_2_4_repeat_determinism_speed_report.json": {
+      "byte_size": 93631,
+      "git_blob_oid": "527834e37d6fbb13bfe3d156ad21824cccf88f3e",
+      "sha256": "a5158b7cb9bbd74257cda58a9ed97c8b47ba14ff52bdfe779e02250fe329d0d0"
+    },
+    "12_disk_ram_cpu_pid_cleanup_report.json": {
+      "byte_size": 1058,
+      "git_blob_oid": "7212957b8267175801974da9093abab5a6eb2d19",
+      "sha256": "30828975da650214582c789f9c46450a20df374937af95f63419d38b8ec27fe0"
+    },
+    "13_fresh_oos_untouched_registry_and_verdict.json": {
+      "byte_size": 11711,
+      "git_blob_oid": "50aacfe72fdb9bba1320b853d83b711e47637dc6",
+      "sha256": "44380d9cd1a8ab0fe7df582110c250f16d33faa8b7072cc281885bba536945c4"
+    },
+    "14_gate_receipts_independent_readback.json": {
+      "byte_size": 10317,
+      "git_blob_oid": "9a8801258732da1ab177636cfb7c3e27d134b470",
+      "sha256": "45831fe0e37daf9c118c6dc987c92161a90c2496b966a6f1104275cff5fed875"
+    },
+    "15_sha256_manifest_and_source_config_versions.json": {
+      "byte_size": 11261,
+      "git_blob_oid": "159adbd1052411ca193697aaf63e85fb07c4a16e",
+      "sha256": "23bcdbddbb2c2302b6e2333907deb5dd9957eb53f91caaa2f29e62cad2fccc84"
+    },
+    "16_final_orthogonal_verdicts_and_open_blockers.json": {
+      "byte_size": 24021,
+      "git_blob_oid": "a03273d8a4545039d73633b7641c8115d6656b07",
+      "sha256": "09983c7c9ac84bbf773fc42c80b861abc5f3b0eb859002685cf250c3093d33e7"
+    },
+    "HANDOVER_KH01A.txt": {
+      "byte_size": 3807,
+      "git_blob_oid": "902c851db2b593d983864f3b14b60c4a01c93da4",
+      "sha256": "d9aad7ced76cce6e7173314ac2026f9ee0365911010b936465ecd942f6091e92"
+    },
+    "README_KH01A.md": {
+      "byte_size": 2653,
+      "git_blob_oid": "c926e652b400bec1108fb9b8720125f7fc4c5f5e",
+      "sha256": "f8699fa5a03f4cd4fbaeb0f2c1e31cedd82e702b8c2113b3e81e2ea096ddaaf1"
+    },
+    "junit/SHARD_EXCL_00_REALTIME_30MS.xml": {
+      "byte_size": 3489,
+      "git_blob_oid": "077e405c071c6985c090add54469b9e5adaae5b5",
+      "sha256": "0bb1f3216d833eba7ad06af41e7800c7e28b89acec8279ce0bd767f04b0075fa"
+    },
+    "junit/SHARD_EXCL_01_NESTED_SUBPROC_A.xml": {
+      "byte_size": 74335,
+      "git_blob_oid": "3e27ba9fbd13dda962e273fd51e2af7262286dc8",
+      "sha256": "9d5c8beea1984e55f407cc16bb59470e77e2aa3294436d3ad9edc76d8cb86c3a"
+    },
+    "junit/SHARD_EXCL_02_NESTED_SUBPROC_B.xml": {
+      "byte_size": 94531,
+      "git_blob_oid": "690c0797b9bc0520fd86eea4e2b401d193b94e1a",
+      "sha256": "5d20b1c8ab0fa26287d48cb5f04d9e28ad6adf2900f4401c554a46f4f732fc1f"
+    },
+    "junit/SHARD_EXCL_03_DB_OWNERSHIP.xml": {
+      "byte_size": 5854,
+      "git_blob_oid": "3ceed0c2b44d11e0cee748c0ee0bc45940fec204",
+      "sha256": "ba721bb4f6613caa9b1590d8eb54048b224ca78106937577b09e3da0052c8d4c"
+    },
+    "junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml": {
+      "byte_size": 2859,
+      "git_blob_oid": "83b2c718299ff106b8f1241db7cb1866bbee94bc",
+      "sha256": "d6f7121221adbb75bc1fa16770261fd961b49672b701c3214592d33f113c05be"
+    },
+    "junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml": {
+      "byte_size": 38112,
+      "git_blob_oid": "5b57e92754b9ea58d81d23cc1e6d3278c03e3929",
+      "sha256": "390f8c032df936256b8b96cc7854af91af8994994d6ce5c6f4e2ca2fa9e54fdb"
+    },
+    "junit/SHARD_INPROC_02_V16_23_ISOLATED.xml": {
+      "byte_size": 1617,
+      "git_blob_oid": "f6f5b3d6a99b71cff7e5349d4fb3b3c6e2b5ed93",
+      "sha256": "4c363d1cec83b6baec7fd58ff64d61356339e51be3040d97cc3915125a19a2ad"
+    },
+    "junit/SHARD_INPROC_03_BALANCED.xml": {
+      "byte_size": 56502,
+      "git_blob_oid": "4691106a3ec867aea2a336c7f92144c56ddcfe22",
+      "sha256": "7c29ada2584bfbb9c5f8a6013b6b8fa6099477c11a6da24cb03ab01df29a8c5b"
+    },
+    "junit/SHARD_INPROC_04_BALANCED.xml": {
+      "byte_size": 44827,
+      "git_blob_oid": "9ec1c02ed48c6a9973c17be85300d4a4852c81db",
+      "sha256": "87d81c487c569c09232e0a16b1ca4a51b86bca2d2a8a0aca47216aecb93591fe"
+    },
+    "junit/SHARD_INPROC_05_BALANCED.xml": {
+      "byte_size": 56207,
+      "git_blob_oid": "09df424be6421955f8b3206568db1a323f8b1679",
+      "sha256": "e865e52e613c2ca3a49af64b2e87119474333643c1a4620f1d9eb136cfba4914"
+    },
+    "junit/SHARD_INPROC_06_BALANCED.xml": {
+      "byte_size": 48418,
+      "git_blob_oid": "a3e02491aa6ca925d9ea076718a306ab8f915cc7",
+      "sha256": "7e9d11ca86850096da54337cc5ee5e54d9b4830e7907eccdac7125d41cd62351"
+    },
+    "junit/SHARD_INPROC_07_BALANCED.xml": {
+      "byte_size": 45691,
+      "git_blob_oid": "72983e58c61e7801359d74f32441b905c7685c67",
+      "sha256": "9f00d133407b5727fd3ec9efb69e13c58d04942d3d3b136b288293ebc823f69e"
+    },
+    "junit/SHARD_INPROC_08_BALANCED.xml": {
+      "byte_size": 43331,
+      "git_blob_oid": "f285301e2474c4ecd8e7f8689b12c4c4b5dbb9f8",
+      "sha256": "e1438547eb93eb244688bba899185f7a9137908c25bd458699f47925f4d187a5"
+    },
+    "junit/SHARD_INPROC_09_BALANCED.xml": {
+      "byte_size": 51115,
+      "git_blob_oid": "a5c705d2f295dbd6fb45fe5568c7950ab559e62d",
+      "sha256": "4d8b94da7d44c5ddac5c07c4da99f4b693770ad417abd534a146ec70a672b706"
+    },
+    "junit/SHARD_INPROC_10_BALANCED.xml": {
+      "byte_size": 44996,
+      "git_blob_oid": "2dc90294bb51f1850fc892c9a32d0c66e9ef4f9f",
+      "sha256": "1c958289bcbec91c432d0147a6891a36a6977b1efff1d995653303240ca95269"
+    },
+    "junit/SHARD_INPROC_11_BALANCED.xml": {
+      "byte_size": 47571,
+      "git_blob_oid": "53959f700fdb4c08d3d738e03871a5891893879d",
+      "sha256": "26894b71ad567cc9f41028232d646e52a9dbed67596fd5d61a9a5e936889cb0a"
+    },
+    "junit/SHARD_INPROC_12_BALANCED.xml": {
+      "byte_size": 49517,
+      "git_blob_oid": "4bf15d9bdec03d9eaf24defadfd9d97bbff8ea88",
+      "sha256": "961222e7d482fb4af1873e8c8c6cc3dc2590c44bd5f6751a9d3e9e903e0e47c7"
+    },
+    "junit/SHARD_INPROC_13_BALANCED.xml": {
+      "byte_size": 47420,
+      "git_blob_oid": "a906c91547bc14ba6335e72d47890e8d950bea67",
+      "sha256": "ab94f77bc4f20fd5e9d9bf6662fe5f3f527af294bdc32ba27595100130bc5ea9"
+    },
+    "junit/SHARD_INPROC_14_BALANCED.xml": {
+      "byte_size": 46602,
+      "git_blob_oid": "555191252ec1535f10d03d619e8fbe1082c74306",
+      "sha256": "8eeef17b32eee233a9778b5f1e16e58d0e9f55c3f634ce6c1d6dbbd5bfa78775"
+    },
+    "ledgers/07_target_307_rows_source_tf_atr_audit.jsonl.gz": {
+      "byte_size": 38156,
+      "git_blob_oid": "05a48be3b98124e4eb8dc075a19e20ad68cfd514",
+      "sha256": "70c74457d4032f9950cc09618233967874f9c4ec64d1b89f5d6d44d8deb55f69"
+    },
+    "ledgers/09_exit_event_lineage_ledger.jsonl.gz": {
+      "byte_size": 930162,
+      "git_blob_oid": "6c77d09785ae289457fe33967a7c0225d9f161e7",
+      "sha256": "deb24c5fe3d2c786644ff1e79240069678fcfe1126ee63630c06332eeeb60674"
+    },
+    "ledgers/09_original_execution_ledger_source_reconciliation.jsonl.gz": {
+      "byte_size": 77132,
+      "git_blob_oid": "ac7b44945e3dd0d8c994b5991db3ae2629683003",
+      "sha256": "a800662f742d24fcd2536ce22a7329a1dde5a628092c5bbd4790f917ec6d439a"
+    },
+    "logs/pytest_shards_logs.jsonl.gz": {
+      "byte_size": 2558,
+      "git_blob_oid": "7919f7b3acfabbc732433efe534e89e369de5248",
+      "sha256": "8cae1a8ba8220b814b4401380ca248bf5cc033e9aca5bddfe76c3c67114d76fd"
+    }
+  },
+  "remote_blobs_mismatches_count": 0,
+  "remote_blobs_verified_count": 42,
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.publication_receipt.v1",
+  "spec_version": "KH-01A-v1.0",
+  "starting_reference_head_sha": "f6197343dc35123141ae010b5ee7d90e535081c1",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "tools_git_tree_sha": "9e9be62cb76e7533abf4fd8af630096cbef3d4d0",
+  "verdicts_16_sha256": "09983c7c9ac84bbf773fc42c80b861abc5f3b0eb859002685cf250c3093d33e7",
+  "verified_at_utc": "2026-11-17T02:24:38Z"
+}

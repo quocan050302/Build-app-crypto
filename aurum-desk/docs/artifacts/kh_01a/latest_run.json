@@ -1,0 +1,15 @@
+{
+  "ACTIVATION_READY": "NO",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "phase_b_immutable_evidence_commit_sha": "95d31176e86c09d297b7ec3093307129c1dced55",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_01a/publication_20261117T013053Z_a1fd9293e2d0.json",
+  "publication_receipt_sha256": "92db475550d5139968b4c963cd110be576306f5cd090815a03e0d01b6ac232a7",
+  "run_dir": "aurum-desk/docs/artifacts/kh_01a/20261117T013053Z_a1fd9293e2d0",
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+}
