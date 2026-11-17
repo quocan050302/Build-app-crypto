@@ -1,0 +1,536 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": [
+    {
+      "evaluator": "verify_source_freeze_v17931211",
+      "expected_invariant": "branch == feature/v17-9-2-structural-sl-tp-from-qa, clean frozen executable tree, 40-hex SHA",
+      "gate_id": "G-KH01A-01",
+      "independent_receipt": {
+        "content_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+        "gate_id": "G-KH01A-01",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_source_freeze_v17931211",
+        "violations": []
+      },
+      "input_artifact_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+      "name": "BRANCH_EXACT_SOURCE",
+      "observed_value": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "dirty_executable_files": [],
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+      },
+      "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "classify_historical_dataset_gaps",
+      "expected_invariant": "RED-before reproduced; Mon-Fri & cross-TF active gaps classified PROVIDER_OR_DATA_GAP; 0 unverified weekend labels; missing bar totals conserved",
+      "gate_id": "G-KH01A-02",
+      "independent_receipt": {
+        "content_sha256": "558f39336290c5ad4002f2cbaf3dff500fa7ee35e9f1d3e1c4f4aafce7d8c752",
+        "gate_id": "G-KH01A-02",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "02_data_gap_red_green_and_cross_tf_audit.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "classify_historical_dataset_gaps",
+        "violations": []
+      },
+      "input_artifact_sha256": "558f39336290c5ad4002f2cbaf3dff500fa7ee35e9f1d3e1c4f4aafce7d8c752",
+      "name": "DATA_GAP_PROOF",
+      "observed_value": {
+        "mon_fri_m15_after": "PROVIDER_OR_DATA_GAP",
+        "mon_fri_m15_before": "WEEKEND_MARKET_CLOSED",
+        "unverified_weekend_labels_after": 0
+      },
+      "receipt_path": "02_data_gap_red_green_and_cross_tf_audit.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "classify_historical_dataset_gaps",
+      "expected_invariant": "dataset_sha256 == 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 and zero synthetic/interpolated/forward-filled candles",
+      "gate_id": "G-KH01A-03",
+      "independent_receipt": {
+        "content_sha256": "db3330b2f0787dce2d7166294afc13a57acb34409b58c7d1ffb207c1d62572af",
+        "gate_id": "G-KH01A-03",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "03_frozen_dataset_sha_session_calendar_and_quality.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "classify_historical_dataset_gaps",
+        "violations": []
+      },
+      "input_artifact_sha256": "db3330b2f0787dce2d7166294afc13a57acb34409b58c7d1ffb207c1d62572af",
+      "name": "NO_SYNTHETIC_DATA",
+      "observed_value": {
+        "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "synthetic_fill": false
+      },
+      "receipt_path": "03_frozen_dataset_sha_session_calendar_and_quality.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "run_kh_01a_real_fault_injections",
+      "expected_invariant": "100% of real fault injections fail closed (RED) and pass valid control (GREEN); 0 report assertions counted as faults; nonzero-D4 positive fixture passes invariants without economic PASS",
+      "gate_id": "G-KH01A-04",
+      "independent_receipt": {
+        "content_sha256": "c5ba79b4a9fcf4d0582402cbda6b0036bb2474bfd63303c323c8033422119cd9",
+        "gate_id": "G-KH01A-04",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "04_fail_closed_red_green_real_fault_injections.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "run_kh_01a_real_fault_injections",
+        "violations": []
+      },
+      "input_artifact_sha256": "c5ba79b4a9fcf4d0582402cbda6b0036bb2474bfd63303c323c8033422119cd9",
+      "name": "FAIL_CLOSED_RED_GREEN",
+      "observed_value": {
+        "nonzero_d4_fixture_passed": true,
+        "real_faults_passed": "22/22",
+        "report_assertions_counted": 0
+      },
+      "receipt_path": "04_fail_closed_red_green_real_fault_injections.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "verify_fresh_junit_bijection_v17931211",
+      "expected_invariant": "100% node-ID bijection between --collect-only inventory and closed JUnit XML shards; 0 missing/duplicate nodes; 0 nonzero shard exits; verified disk receipts",
+      "gate_id": "G-KH01A-05",
+      "independent_receipt": {
+        "content_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+        "gate_id": "G-KH01A-05",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_fresh_junit_bijection_v17931211",
+        "violations": []
+      },
+      "input_artifact_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+      "name": "RECEIPT_AND_JUNIT_INTEGRITY",
+      "observed_value": {
+        "collected": 5477,
+        "deselected": 0,
+        "errors": 0,
+        "executed": 5477,
+        "failed": 0,
+        "mandatory_skipped": 0,
+        "passed": 5469,
+        "scheduled": 5477,
+        "skipped": 8,
+        "unknown": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "build_kh_01a_causal_loss_and_win_control_forensics",
+      "expected_invariant": "166 = 9 + 157 conserved; SI8/SI9 4+2-2=4 deduped; known_at_ms <= decision_ts_ms on all features; 0 hindsight leakage; honest unknown census",
+      "gate_id": "G-KH01A-06",
+      "independent_receipt": {
+        "content_sha256": "1832193d803b9751d783895772d6d82175f04d2c1ea3b90583d18d29570925e0",
+        "gate_id": "G-KH01A-06",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "06_causal_loss_attribution_and_unknown_evidence_census.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "build_kh_01a_causal_loss_and_win_control_forensics",
+        "violations": []
+      },
+      "input_artifact_sha256": "1832193d803b9751d783895772d6d82175f04d2c1ea3b90583d18d29570925e0",
+      "name": "PREENTRY_CAUSAL_FORENSICS",
+      "observed_value": {
+        "si0_closed": "166 = 9W + 157L",
+        "si8_si9_unique_losses": 4,
+        "unknown_rows": 0
+      },
+      "receipt_path": "06_causal_loss_attribution_and_unknown_evidence_census.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "verify_267_target_audit_v17931214",
+      "expected_invariant": "267 (201 ATR unit mismatch + 66 horizon unreachable) + 40 controls source-audited with TF-specific ATR, Net R:R >= 2.0 check, explicit NOT_EVALUATED selector status, and 0 TP behavior change",
+      "gate_id": "G-KH01A-07",
+      "independent_receipt": {
+        "content_sha256": "ecb79c9cd33fe33f6694308a445d94f7b84e492458daa7edfe4ee68d10a1b4b1",
+        "gate_id": "G-KH01A-07",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "07_target_267_plus_40_control_provenance_audit.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_267_target_audit_v17931214",
+        "violations": []
+      },
+      "input_artifact_sha256": "ecb79c9cd33fe33f6694308a445d94f7b84e492458daa7edfe4ee68d10a1b4b1",
+      "name": "TARGET_PROVENANCE_AUDIT",
+      "observed_value": {
+        "control_count": 40,
+        "historical_267": {
+          "GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON": 66,
+          "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL": 201
+        },
+        "selector_counterfactual_status": "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY_TP_SELECTION_UNCHANGED"
+      },
+      "receipt_path": "07_target_267_plus_40_control_provenance_audit.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "verify_fresh_junit_bijection_v17931211",
+      "expected_invariant": "Full backend + focused KH-01A pytest suite executed with 0 failed, 0 errors, and 0 mandatory skips",
+      "gate_id": "G-KH01A-08",
+      "independent_receipt": {
+        "content_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+        "gate_id": "G-KH01A-08",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_fresh_junit_bijection_v17931211",
+        "violations": []
+      },
+      "input_artifact_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+      "name": "REGRESSION",
+      "observed_value": {
+        "collected": 5477,
+        "deselected": 0,
+        "errors": 0,
+        "executed": 5477,
+        "failed": 0,
+        "mandatory_skipped": 0,
+        "passed": 5469,
+        "scheduled": 5477,
+        "skipped": 8,
+        "unknown": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+      "expected_invariant": "Full chronological 1-position backtest across SI0..SI9, matched A0..A4/A1B/D1..D4, 3 fill modes, and 180m purged walk-forward reconciled",
+      "gate_id": "G-KH01A-09",
+      "independent_receipt": {
+        "content_sha256": "0c90d159f261b9386fa80b76355804f84b690977ae88611d3fed14bd969f8197",
+        "gate_id": "G-KH01A-09",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "08_replay_3fill_1position_oos_and_cost_stress.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+        "violations": []
+      },
+      "input_artifact_sha256": "0c90d159f261b9386fa80b76355804f84b690977ae88611d3fed14bd969f8197",
+      "name": "CHRONOLOGICAL_BACKTEST",
+      "observed_value": {
+        "d4_accepted_nb": 0,
+        "si0_nb": {
+          "blocked_by_open_position": 18502,
+          "closed": 166,
+          "data_gap_unresolved": 1,
+          "expectancy_net_r": -0.8474,
+          "expectancy_r": -0.8474,
+          "gross_pnl_usd": -142.7836,
+          "losses": 157,
+          "max_drawdown_usd": 345.8971,
+          "net_pnl_usd": -345.8971,
+          "open_at_horizon": 74,
+          "scheduled": 242,
+          "total_fees_usd": 203.1135,
+          "unfilled": 1,
+          "wins": 9
+        }
+      },
+      "receipt_path": "08_replay_3fill_1position_oos_and_cost_stress.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "SharedStrategyEvaluator / evaluate_shared_delayed_entry_adapter_v17931213",
+      "expected_invariant": "100% bitwise parity on decision/trade-action fingerprints before vs after KH-01A, 3-adapter parity PASS, and exact ledger accounting parity",
+      "gate_id": "G-KH01A-10",
+      "independent_receipt": {
+        "content_sha256": "5ad7ba2dc4363a4636f83db94a3c38c5f8ac8a71ae4340ebdeea49a80dea7063",
+        "gate_id": "G-KH01A-10",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "09_before_after_trade_action_and_adapter_parity.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "SharedStrategyEvaluator",
+        "violations": []
+      },
+      "input_artifact_sha256": "5ad7ba2dc4363a4636f83db94a3c38c5f8ac8a71ae4340ebdeea49a80dea7063",
+      "name": "ADAPTER_AND_ACTION_PARITY",
+      "observed_value": {
+        "decision_fp_parity": true,
+        "three_adapter_parity": "PASS",
+        "trade_action_fp_parity": true
+      },
+      "receipt_path": "09_before_after_trade_action_and_adapter_parity.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "run_controlled_worker_1_2_4_subset_benchmark_kh01a",
+      "expected_invariant": "Identical canonical sorted outcome IDs & SHA256 across w=1, w=2, w=4 (capped) and repeat; measured speedup reported honestly",
+      "gate_id": "G-KH01A-11",
+      "independent_receipt": {
+        "content_sha256": "a5158b7cb9bbd74257cda58a9ed97c8b47ba14ff52bdfe779e02250fe329d0d0",
+        "gate_id": "G-KH01A-11",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "11_worker_1_2_4_repeat_determinism_speed_report.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "run_controlled_worker_1_2_4_subset_benchmark_kh01a",
+        "violations": []
+      },
+      "input_artifact_sha256": "a5158b7cb9bbd74257cda58a9ed97c8b47ba14ff52bdfe779e02250fe329d0d0",
+      "name": "ASYNC_DETERMINISM",
+      "observed_value": {
+        "measured_speedup_vs_w1": 3.14,
+        "pytest_subset_outcome_hash_identical": true,
+        "replay_slice_parity": "PASS"
+      },
+      "receipt_path": "11_worker_1_2_4_repeat_determinism_speed_report.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "TestResourceGuard / ResourceMonitorKH01A",
+      "expected_invariant": "max_children <= 4, 0 orphan PIDs, free disk safety reserve maintained, owned temp dirs cleaned via sentinel + path containment",
+      "gate_id": "G-KH01A-12",
+      "independent_receipt": {
+        "content_sha256": "30828975da650214582c789f9c46450a20df374937af95f63419d38b8ec27fe0",
+        "gate_id": "G-KH01A-12",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "12_disk_ram_cpu_pid_cleanup_report.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PASS",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "ResourceMonitorKH01A",
+        "violations": []
+      },
+      "input_artifact_sha256": "30828975da650214582c789f9c46450a20df374937af95f63419d38b8ec27fe0",
+      "name": "RESOURCE_AND_CLEANUP",
+      "observed_value": {
+        "max_children_observed": 4,
+        "min_free_disk_gb": 54.464,
+        "orphan_pids_at_cleanup_count": 0,
+        "temp_dirs_cleaned": true
+      },
+      "receipt_path": "12_disk_ram_cpu_pid_cleanup_report.json",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "evaluator": "validate_fresh_oos_escrow_claim_kh01a",
+      "expected_invariant": "Fresh OOS PASS only if verified post-freeze untouched dataset exists; otherwise honestly BLOCKED_NO_UNTOUCHED_DATA",
+      "gate_id": "G-KH01A-13",
+      "independent_receipt": {
+        "content_sha256": "44380d9cd1a8ab0fe7df582110c250f16d33faa8b7072cc281885bba536945c4",
+        "gate_id": "G-KH01A-13",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "BLOCKED",
+        "receipt_path": "13_fresh_oos_untouched_registry_and_verdict.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "BLOCKED",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "validate_fresh_oos_escrow_claim_kh01a",
+        "violations": [
+          "NO_UNTOUCHED_POST_FREEZE_DATASET_AVAILABLE"
+        ]
+      },
+      "input_artifact_sha256": "44380d9cd1a8ab0fe7df582110c250f16d33faa8b7072cc281885bba536945c4",
+      "name": "FRESH_OOS_TRUTH",
+      "observed_value": {
+        "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+        "untouched_datasets_found": 0
+      },
+      "receipt_path": "13_fresh_oos_untouched_registry_and_verdict.json",
+      "status": "BLOCKED",
+      "violations": [
+        "NO_UNTOUCHED_POST_FREEZE_DATASET_AVAILABLE"
+      ]
+    },
+    {
+      "evaluator": "verify_git_remote_receipt_v17931211",
+      "expected_invariant": "PENDING_REMOTE_PUSH inside pre-push immutable run bundle; transitions to PASS_REMOTE_VERIFIED only in post-push Phase C receipt after verified remote readback",
+      "gate_id": "G-KH01A-14",
+      "independent_receipt": {
+        "content_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+        "gate_id": "G-KH01A-14",
+        "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+        "metadata": {
+          "verified_from_closed_disk_file": true
+        },
+        "observed_status": "PENDING_REMOTE_PUSH",
+        "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+        "run_id": "20261117T013053Z_a1fd9293e2d0",
+        "status": "PENDING_REMOTE_PUSH",
+        "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+        "validator_name": "verify_git_remote_receipt_v17931211",
+        "violations": [
+          "AWAITING_POST_FREEZE_GIT_PUSH_AND_REMOTE_BLOB_READBACK"
+        ]
+      },
+      "input_artifact_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+      "name": "PUBLICATION_READBACK",
+      "observed_value": {
+        "publication_status": "PENDING_REMOTE_PUSH"
+      },
+      "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+      "status": "PENDING_REMOTE_PUSH",
+      "violations": [
+        "AWAITING_POST_FREEZE_GIT_PUSH_AND_REMOTE_BLOB_READBACK"
+      ]
+    }
+  ],
+  "mandatory_technical_gates": [
+    "G-KH01A-01",
+    "G-KH01A-02",
+    "G-KH01A-03",
+    "G-KH01A-04",
+    "G-KH01A-05",
+    "G-KH01A-06",
+    "G-KH01A-07",
+    "G-KH01A-08",
+    "G-KH01A-09",
+    "G-KH01A-10",
+    "G-KH01A-11",
+    "G-KH01A-12"
+  ],
+  "open_blockers_for_kh01b_and_activation": [
+    {
+      "blocker_id": "BLK-KH01A-ECON-01",
+      "detail": "SI0 NEXT_BAR_OPEN_BID_ASK realized net PnL is negative (expectancy -0.8474R across 166 closed trades); SI8/SI9 have only 4/2 closed trades (all losses); D4 has 0 True Unicorn setups on this window.",
+      "domain": "STRATEGY_ECONOMIC_EDGE",
+      "status": "NEGATIVE_NO_PROVEN_EDGE"
+    },
+    {
+      "blocker_id": "BLK-KH01A-OOS-02",
+      "detail": "Canonical dataset 9f301fee2e62... is REUSED_RESEARCH across V11..KH-01A; post-freeze untouched Bitget XAUUSDT candles + captured L1 BBO quotes must be collected and escrowed per 13_fresh_oos_untouched_registry_and_verdict.json.",
+      "domain": "FRESH_OOS",
+      "status": "BLOCKED_NO_UNTOUCHED_DATA"
+    },
+    {
+      "blocker_id": "BLK-KH01A-DATA-03",
+      "detail": "Historical dataset lacks independent verified exchange maintenance receipts (session_calendar_verification_status=UNKNOWN_UNVERIFIED) and uses modeled $0.20 spread quotes rather than captured L1 bid/ask ticks.",
+      "domain": "HISTORICAL_SESSION_CALENDAR_AND_L1_QUOTES",
+      "status": "DISCLOSED_LIMITATION"
+    }
+  ],
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_VERDICT": "PENDING_REMOTE_PUSH",
+    "REGRESSION_VERDICT": "PASS",
+    "RUNTIME_SAFETY_MODES": {
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF"
+    },
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE"
+  },
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "spec_version": "KH-01A-v1.0",
+  "technical_gates_passed_count": 12,
+  "technical_gates_total_count": 12,
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+}

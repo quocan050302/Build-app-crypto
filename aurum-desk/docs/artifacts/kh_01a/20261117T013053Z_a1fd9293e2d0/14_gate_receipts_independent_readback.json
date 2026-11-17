@@ -1,0 +1,237 @@
+{
+  "receipts": [
+    {
+      "content_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+      "gate_id": "G-KH01A-01",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_source_freeze_v17931211",
+      "violations": []
+    },
+    {
+      "content_sha256": "558f39336290c5ad4002f2cbaf3dff500fa7ee35e9f1d3e1c4f4aafce7d8c752",
+      "gate_id": "G-KH01A-02",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "02_data_gap_red_green_and_cross_tf_audit.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "classify_historical_dataset_gaps",
+      "violations": []
+    },
+    {
+      "content_sha256": "db3330b2f0787dce2d7166294afc13a57acb34409b58c7d1ffb207c1d62572af",
+      "gate_id": "G-KH01A-03",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "03_frozen_dataset_sha_session_calendar_and_quality.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "classify_historical_dataset_gaps",
+      "violations": []
+    },
+    {
+      "content_sha256": "c5ba79b4a9fcf4d0582402cbda6b0036bb2474bfd63303c323c8033422119cd9",
+      "gate_id": "G-KH01A-04",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "04_fail_closed_red_green_real_fault_injections.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "run_kh_01a_real_fault_injections",
+      "violations": []
+    },
+    {
+      "content_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+      "gate_id": "G-KH01A-05",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_fresh_junit_bijection_v17931211",
+      "violations": []
+    },
+    {
+      "content_sha256": "1832193d803b9751d783895772d6d82175f04d2c1ea3b90583d18d29570925e0",
+      "gate_id": "G-KH01A-06",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "06_causal_loss_attribution_and_unknown_evidence_census.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "build_kh_01a_causal_loss_and_win_control_forensics",
+      "violations": []
+    },
+    {
+      "content_sha256": "ecb79c9cd33fe33f6694308a445d94f7b84e492458daa7edfe4ee68d10a1b4b1",
+      "gate_id": "G-KH01A-07",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "07_target_267_plus_40_control_provenance_audit.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_267_target_audit_v17931214",
+      "violations": []
+    },
+    {
+      "content_sha256": "b24ceea48fc108a825758c6464298caee00af13d2cece01a5586cae1a45c5289",
+      "gate_id": "G-KH01A-08",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "10_collected_node_ids_shards_junit_exit_manifest.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_fresh_junit_bijection_v17931211",
+      "violations": []
+    },
+    {
+      "content_sha256": "0c90d159f261b9386fa80b76355804f84b690977ae88611d3fed14bd969f8197",
+      "gate_id": "G-KH01A-09",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "08_replay_3fill_1position_oos_and_cost_stress.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+      "violations": []
+    },
+    {
+      "content_sha256": "5ad7ba2dc4363a4636f83db94a3c38c5f8ac8a71ae4340ebdeea49a80dea7063",
+      "gate_id": "G-KH01A-10",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "09_before_after_trade_action_and_adapter_parity.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "SharedStrategyEvaluator",
+      "violations": []
+    },
+    {
+      "content_sha256": "a5158b7cb9bbd74257cda58a9ed97c8b47ba14ff52bdfe779e02250fe329d0d0",
+      "gate_id": "G-KH01A-11",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "11_worker_1_2_4_repeat_determinism_speed_report.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "run_controlled_worker_1_2_4_subset_benchmark_kh01a",
+      "violations": []
+    },
+    {
+      "content_sha256": "30828975da650214582c789f9c46450a20df374937af95f63419d38b8ec27fe0",
+      "gate_id": "G-KH01A-12",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PASS",
+      "receipt_path": "12_disk_ram_cpu_pid_cleanup_report.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PASS",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "ResourceMonitorKH01A",
+      "violations": []
+    },
+    {
+      "content_sha256": "44380d9cd1a8ab0fe7df582110c250f16d33faa8b7072cc281885bba536945c4",
+      "gate_id": "G-KH01A-13",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "BLOCKED",
+      "receipt_path": "13_fresh_oos_untouched_registry_and_verdict.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "BLOCKED",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "validate_fresh_oos_escrow_claim_kh01a",
+      "violations": [
+        "NO_UNTOUCHED_POST_FREEZE_DATASET_AVAILABLE"
+      ]
+    },
+    {
+      "content_sha256": "2168952b98a78030077ec543af4e8049149be5ad2e392070498c45a6dbbe780f",
+      "gate_id": "G-KH01A-14",
+      "input_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "metadata": {
+        "verified_from_closed_disk_file": true
+      },
+      "observed_status": "PENDING_REMOTE_PUSH",
+      "receipt_path": "00_preflight_branch_source_dataset_resources.json",
+      "run_id": "20261117T013053Z_a1fd9293e2d0",
+      "status": "PENDING_REMOTE_PUSH",
+      "tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_code_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+      "validator_name": "verify_git_remote_receipt_v17931211",
+      "violations": [
+        "AWAITING_POST_FREEZE_GIT_PUSH_AND_REMOTE_BLOB_READBACK"
+      ]
+    }
+  ],
+  "receipts_count": 14,
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+}

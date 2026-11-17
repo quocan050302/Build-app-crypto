@@ -1,0 +1,30 @@
+BÀN GIAO KỸ THUẬT KH-01A — NỀN TẢNG DỮ LIỆU & XÁC MINH (KH-01A-v1.0)
+================================================================================
+1. ĐỊNH DANH PHIÊN CHẠY & GIT
+- Nhánh bắt buộc (Branch): feature/v17-9-2-structural-sl-tp-from-qa
+- Starting HEAD tham chiếu: f6197343dc35123141ae010b5ee7d90e535081c1
+- Tested Executable SHA: a1fd9293e2d0ac098008264ec2a6355596baf415
+- Run ID: 20261117T013053Z_a1fd9293e2d0
+- Canonical Dataset SHA256: 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+
+2. PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS)
+- ENGINEERING_VERDICT: PASS (12/12 cổng kỹ thuật bắt buộc PASS)
+- REGRESSION_VERDICT: PASS (Collected=5477, Executed=5477, Passed=5469, Skipped=8, Failed=0, Errors=0)
+- ACCOUNTING_VERDICT: PASS
+- D4_MATERIALIZATION_VERDICT: NO_VALID_SETUPS
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+- STRATEGY_ECONOMIC_EDGE_VERDICT: NEGATIVE_NO_PROVEN_EDGE
+- ACTIVATION_READY: NO (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trong thư mục bất biến trước khi push): PENDING_REMOTE_PUSH
+
+3. TÓM TẮT KẾT QUẢ KIỂM TOÁN TRUNG THỰC
+- Phân loại khoảng trống dữ liệu (Section 1): Đã sửa triệt để lỗi gán nhãn >=24h thành WEEKEND_MARKET_CLOSED (khoảng trống M15 Thứ Hai -> Thứ Sáu 2026-10-12..16 có 4,512 nến M1 & 87 nến H1 giao dịch thực tế -> PROVIDER_OR_DATA_GAP; 0 nhãn cuối tuần giả định; lịch phiên gốc được báo cáo trung thực là UNKNOWN_UNVERIFIED).
+- Kiểm chứng Fail-Closed (Section 2): 22/22 phép tiêm lỗi thực tế (real fault injections) đều bị chặn fail-closed (RED -> GREEN), 0 report assertion bị tính gộp thành lỗi tiêm thực tế.
+- Pháp y chuỗi nhân quả trước vào lệnh (Section 3): Bảo toàn 242 episode lên lịch SI0 (166 đóng = 9 thắng + 157 thua, 74 OPEN_AT_HORIZON, 1 DATA_GAP_UNRESOLVED, 1 UNFILLED; Net PnL -345.8971 USD, Expectancy -0.8474R) và 4 lệnh lỗ nghiên cứu duy nhất từ SI8 (4) + SI9 (2), trùng 2 ID. Số dòng PRE_ENTRY_UNKNOWN trên 157 lệnh thua: 0. Tách biệt tuyệt đối nhãn hậu kiểm (ex-post MAE/MFE) khỏi đặc trưng trước vào lệnh (known_at_ms <= decision_timestamp_ms).
+- Kiểm toán nguồn mục tiêu & ATR (Section 4): Đối soát đầy đủ 267 dòng lịch sử ({'M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL': 201, 'GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON': 66}) + 40 dòng đối chứng; giữ nguyên 100% logic chọn TP thực thi (KEPT AS IS).
+- Đa tiến trình bất đồng bộ & An toàn tài nguyên (Sections 6 & 7): Tốc độ đo thực tế so với w=1 đạt 3.14x; số tiến trình con tối đa 4 (<= 4), tiến trình mồ côi = 0.
+- Bảo toàn hành vi chiến lược (KEPT AS IS): SharedStrategyEvaluator, ScalpWatcherOrchestrator.evaluate_cycle, PaperBroker.execute_market_order, ICT Macro/True Unicorn, V17.9.2 SL/TP & định cỡ rủi ro <= 2.50 USD, news guards, UI và kết nối Bitget REST/WS được GIỮ NGUYÊN (KEPT AS IS), 100% khớp trade_action_fingerprint (True).
+
+4. RÀO CẢN CÒN MỞ & ĐẦU VÀO AN TOÀN CHO KH-01B
+- KHÔNG kích hoạt giao dịch thật/paper/auto. Lợi thế kinh tế hiện tại là ÂM (NEGATIVE_NO_PROVEN_EDGE) và chưa có dữ liệu Fresh OOS độc lập sau đóng băng (BLOCKED_NO_UNTOUCHED_DATA).
+- KH-01B có thể tiêu thụ an toàn: bộ phân loại gap có kiểm chứng chéo đa khung, cổng kiểm chứng fail-closed + ghi đĩa nguyên tử fsync/readback, hồ sơ pháp y 157 lệnh thua + 9 lệnh thắng đối chứng (05, 06), kiểm toán ATR theo đúng khung thời gian nguồn (07), và quy trình niêm phong dữ liệu Fresh OOS (13).

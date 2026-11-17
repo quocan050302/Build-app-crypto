@@ -1,0 +1,30 @@
+{
+  "disk_reserve_breached": false,
+  "error": null,
+  "global_worker_cap": 4,
+  "max_children_observed": 4,
+  "min_available_ram_gb_observed": 1.541,
+  "min_free_disk_gb_observed": 54.464,
+  "minimum_available_ram_bytes": 1654874112,
+  "minimum_free_disk_bytes": 58480484352,
+  "orchestrator_pid": 26728,
+  "orphan_pids_at_cleanup_count": 0,
+  "orphan_pids_observed_at_cleanup": [],
+  "peak_system_cpu_percent_observed": 100.0,
+  "peak_total_rss_bytes": 1747394560,
+  "peak_total_rss_mb_observed": 1666.45,
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "samples_count": 4079,
+  "sampling_interval_seconds": 0.5,
+  "schema_version": "kh_01a.foundation.v1",
+  "soft_downshift_events": 8,
+  "spec_version": "KH-01A-v1.0",
+  "temp_cleanup_receipt": {
+    "cleaned": true,
+    "containment_verified": true,
+    "path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp\\aurum_kh01a_20261117T013053Z_a1fd9293e2d0",
+    "sentinel_verified": true
+  },
+  "temp_dirs_cleaned_with_sentinel_check": true,
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+}

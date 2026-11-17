@@ -1,0 +1,88 @@
+{
+  "cross_timeframe_ohlc_coherence": {
+    "H1": {
+      "fully_covered_m1_windows_checked": 361,
+      "max_abs_ohlc_diff_usd": 0.0,
+      "ohlc_envelope_mismatch_gt_0_05_count": 0
+    },
+    "M15": {
+      "fully_covered_m1_windows_checked": 1178,
+      "max_abs_ohlc_diff_usd": 0.0,
+      "ohlc_envelope_mismatch_gt_0_05_count": 0
+    },
+    "M5": {
+      "fully_covered_m1_windows_checked": 4454,
+      "max_abs_ohlc_diff_usd": 0.0,
+      "ohlc_envelope_mismatch_gt_0_05_count": 0
+    }
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "explicit_reclassification_explanations": [
+    {
+      "cross_tf_active_bars": {
+        "D1": 3,
+        "H1": 87,
+        "H4": 21,
+        "M1": 4451,
+        "M5": 889
+      },
+      "interval": "2026-10-12T08:15:00Z -> 2026-10-16T01:00:00Z (354 missing bars)",
+      "new_category": "PROVIDER_OR_DATA_GAP",
+      "old_category": "WEEKEND_MARKET_CLOSED",
+      "proof": "CROSS_TF_PROVEN_OPEN_MARKET_DATA_GAP: active bars present in {'D1': 3, 'H1': 87, 'H4': 21, 'M1': 4451, 'M5': 889}",
+      "timeframe": "M15"
+    },
+    {
+      "cross_tf_active_bars": {
+        "D1": 1,
+        "H1": 45,
+        "H4": 11,
+        "M15": 184
+      },
+      "interval": "2026-10-17T02:18:00Z -> 2026-10-19T00:53:00Z (2,794 missing bars)",
+      "new_category": "PROVIDER_OR_DATA_GAP",
+      "old_category": "WEEKEND_MARKET_CLOSED",
+      "proof": "CROSS_TF_PROVEN_OPEN_MARKET_DATA_GAP: active bars present in {'D1': 1, 'H1': 45, 'H4': 11, 'M15': 184}",
+      "timeframe": "M1"
+    },
+    {
+      "cross_tf_active_bars": {
+        "D1": 1,
+        "H1": 45,
+        "H4": 11,
+        "M1": 4,
+        "M15": 185
+      },
+      "interval": "2026-10-17T02:15:00Z -> 2026-10-19T01:00:00Z (560 missing bars)",
+      "new_category": "PROVIDER_OR_DATA_GAP",
+      "old_category": "WEEKEND_MARKET_CLOSED",
+      "proof": "CROSS_TF_PROVEN_OPEN_MARKET_DATA_GAP: active bars present in {'D1': 1, 'H1': 45, 'H4': 11, 'M1': 4, 'M15': 185}",
+      "timeframe": "M5"
+    },
+    {
+      "interval": "2026-10-18T02:45:00Z -> 2026-10-18T03:15:00Z (1 missing bar at 200-bar pagination boundary)",
+      "new_category": "SHORT_MISSING_CANDLE",
+      "old_category": "DAILY_ROLLOVER_OR_SESSION_BREAK",
+      "proof": "SHORT_1_TO_2_BAR_OMISSION_DURING_ACTIVE_TRADING_CONTEXT",
+      "timeframe": "M15",
+      "uncertainty": "HISTORICAL_MAINTENANCE_SCHEDULE_UNVERIFIED_AND_NO_FINER_TF_TICK_PROOF"
+    }
+  ],
+  "missing_bar_totals_conserved": true,
+  "missing_bars_by_timeframe": {
+    "D1": 0,
+    "H1": 0,
+    "H4": 0,
+    "M1": 6926,
+    "M15": 362,
+    "M5": 923
+  },
+  "postpatch_mon_fri_m15_category": "PROVIDER_OR_DATA_GAP",
+  "prepatch_mon_fri_m15_category": "WEEKEND_MARKET_CLOSED",
+  "prepatch_red_confirmed": true,
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "unverified_weekend_labels_emitted_count": 0
+}

@@ -1,0 +1,1418 @@
+{
+  "anti_hindsight_contract": {
+    "ex_post_leakage_into_pre_entry_count": 0,
+    "max_known_at_minus_decision_ts_ms": 0,
+    "pre_entry_classifier_receives_post_entry_fields": false,
+    "unjoined_rows_forced_to_pre_entry_unknown": true
+  },
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "ledger_conservation": {
+    "closed_equals_wins_plus_losses": true,
+    "si0_closed_total": 166,
+    "si0_losses_count": 157,
+    "si0_scheduled_distribution": {
+      "DATA_GAP_UNRESOLVED": 1,
+      "LOSS": 157,
+      "NO_FORWARD_BARS": 1,
+      "OPEN_AT_HORIZON": 74,
+      "WIN": 9
+    },
+    "si0_scheduled_total": 242,
+    "si0_wins_count": 9,
+    "si8_closed_losses_count": 4,
+    "si8_si9_shared_loss_ids": [
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401"
+    ],
+    "si8_si9_shared_loss_ids_count": 2,
+    "si8_si9_unique_loss_ids": [
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6387_ts1792014120000_ep_cont_SHORT_1792014060000_12b5f14dff",
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6463_ts1792018680000_ep_cont_SHORT_1792018620000_f8c8bc2a4b",
+      "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401"
+    ],
+    "si8_si9_unique_losses_count": 4,
+    "si9_closed_losses_count": 2,
+    "total_casebook_rows_delivered": 170
+  },
+  "ranked_testable_hypotheses_for_kh01b": [
+    {
+      "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_NOT_VALIDATED_CAUSAL_EDGE",
+      "empirical_basis_in_kh01a": {
+        "counter_htf_losses": 54,
+        "counter_htf_wins": 1,
+        "non_supportive_neutral_htf_losses": 34
+      },
+      "hypothesis_id": "KH01B-H1-HTF-DIRECTIONAL-ALIGNMENT-GATE",
+      "optimized_or_activated_in_kh01a": false,
+      "rank": 1,
+      "test_protocol_for_kh01b": "Pre-register single ablation on frozen parameter set, evaluate under 1-position NEXT_BAR_OPEN_BID_ASK + 2x cost stress, then test once on sealed post-freeze Fresh OOS.",
+      "title": "Require point-in-time H4/H1 structural bias alignment with M1 trade direction"
+    },
+    {
+      "causal_status": "DESCRIPTIVE_DATA_UNIT_AUDIT_NOT_PROVEN_PROFITABLE",
+      "empirical_basis_in_kh01a": {
+        "si0_losses_with_target_gt_12_m1_atr": 133,
+        "si9_267_genuinely_beyond_horizon_count": 66,
+        "si9_267_m1_vs_htf_unit_mismatch_count": 201
+      },
+      "hypothesis_id": "KH01B-H2-SOURCE-TF-TARGET-HORIZON-ALIGNMENT",
+      "optimized_or_activated_in_kh01a": false,
+      "rank": 2,
+      "test_protocol_for_kh01b": "Compare matched before/after target horizon filter in isolated research replay without loosening min_net_rr >= 2.0 or risk <= $2.50 USD.",
+      "title": "Align target reachability horizon check to target pool's own causal timeframe ATR rather than M1 ATR"
+    },
+    {
+      "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_SAMPLE_SIZE_LIMITED_IN_SI8_SI9",
+      "empirical_basis_in_kh01a": {
+        "outside_macro_window_losses": 157,
+        "unproven_mss_displacement_losses": 142,
+        "unproven_sweep_reclaim_losses": 155
+      },
+      "hypothesis_id": "KH01B-H3-ICT-MACRO-WINDOW-AND-SWEEP-RECLAIM-CONFLUENCE",
+      "optimized_or_activated_in_kh01a": false,
+      "rank": 3,
+      "test_protocol_for_kh01b": "Evaluate trade-frequency collapse vs expectancy trade-off across multi-month post-freeze dataset with captured L1 bid/ask quotes.",
+      "title": "Restrict M1 continuation/reversal entries to active ICT macro windows with proven sweep+reclaim & MSS displacement"
+    },
+    {
+      "causal_status": "EX_POST_DIAGNOSTIC_HYPOTHESIS_ONLY_NEVER_USE_AS_PRE_ENTRY_FEATURE",
+      "empirical_basis_in_kh01a": {
+        "losses_reaching_1r_mfe_before_stop": 40,
+        "losses_reaching_tp_after_stop_within_180m": 3
+      },
+      "hypothesis_id": "KH01B-H4-POST-STOP-WHIPSAW-VS-ANCHOR-BUFFER-DIAGNOSIS",
+      "optimized_or_activated_in_kh01a": false,
+      "rank": 4,
+      "test_protocol_for_kh01b": "Test causal structural buffer rules strictly on pre-entry ATR/swing geometry on untouched data; never condition entry on ex-post trajectory.",
+      "title": "Investigate ex-post stop-before-TP whipsaws vs true invalidation under real L1 spread"
+    }
+  ],
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "si0_157_losses_aggregates": {
+    "active_risk_flag_incidence_counts": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 54,
+      "COUNTER_M15_STRUCTURE": 17,
+      "MSS_DISPLACEMENT_NOT_PROVEN": 142,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 34,
+      "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 157,
+      "OUTSIDE_ICT_MACRO_WINDOW": 157,
+      "RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M": 3,
+      "SWEEP_RECLAIM_NOT_PROVEN": 155,
+      "TARGET_BEYOND_12_M1_ATR": 133
+    },
+    "active_risk_flag_incidence_rates": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 0.3439,
+      "COUNTER_M15_STRUCTURE": 0.1083,
+      "MSS_DISPLACEMENT_NOT_PROVEN": 0.9045,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 0.2166,
+      "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 1.0,
+      "OUTSIDE_ICT_MACRO_WINDOW": 1.0,
+      "RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M": 0.0191,
+      "SWEEP_RECLAIM_NOT_PROVEN": 0.9873,
+      "TARGET_BEYOND_12_M1_ATR": 0.8471
+    },
+    "by_direction": {
+      "LONG": 57,
+      "SHORT": 100
+    },
+    "by_h1_structure_bias": {
+      "BEARISH": 73,
+      "BULLISH": 23,
+      "UNKNOWN": 61
+    },
+    "by_in_ict_macro_window": {
+      "False": 157
+    },
+    "by_model_id": {
+      "SMC_M1_CONTINUATION": 24,
+      "SMC_M1_FVG_CONTINUATION": 49,
+      "SMC_M1_REVERSAL": 84
+    },
+    "by_ny_session_group": {
+      "INVALID": 157
+    },
+    "count": 157,
+    "ex_post_outcome_subtype_counts": {
+      "ADVERSE_GAP_OPEN_STOP_LOSS": 3,
+      "SL_HIT_BEFORE_TP": 154
+    },
+    "ex_post_post_stop_reached_tp_within_180m_count": 3,
+    "ex_post_reached_1r_mfe_before_exit_count": 40,
+    "primary_pre_entry_reason_counts": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 54,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 34,
+      "OUTSIDE_ICT_MACRO_WINDOW": 69
+    },
+    "target_distance_gt_12_m1_atr_count": 133
+  },
+  "si0_157_losses_feature_presence_and_unknown_census": {
+    "atr_h1_usd": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "atr_m1_usd": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "cost_aware_net_rr": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "direction": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "h1_structure_bias": {
+      "INVALID": 0,
+      "MISSING": 61,
+      "PRESENT": 96
+    },
+    "h4_structure_bias": {
+      "INVALID": 0,
+      "MISSING": 56,
+      "PRESENT": 101
+    },
+    "in_ict_macro_window": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "liquidity_sweep_reclaim_confirmed": {
+      "INVALID": 0,
+      "MISSING": 52,
+      "PRESENT": 105
+    },
+    "m15_structure_bias": {
+      "INVALID": 0,
+      "MISSING": 110,
+      "PRESENT": 47
+    },
+    "model_id": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "mss_bos_displacement_confirmed": {
+      "INVALID": 0,
+      "MISSING": 86,
+      "PRESENT": 71
+    },
+    "ny_session_group": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "quote_quality_mode": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "recent_m1_data_gap_within_180m": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "structural_sl_distance_usd": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "target_distance_in_m1_atr": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    },
+    "target_distance_in_source_tf_atr": {
+      "INVALID": 0,
+      "MISSING": 59,
+      "PRESENT": 98
+    },
+    "target_source_timeframe": {
+      "INVALID": 0,
+      "MISSING": 59,
+      "PRESENT": 98
+    },
+    "unicorn_overlap_state": {
+      "INVALID": 0,
+      "MISSING": 0,
+      "PRESENT": 157
+    }
+  },
+  "si0_157_losses_pre_entry_unknown_rows_count": 0,
+  "si0_9_wins_control_aggregates": {
+    "active_risk_flag_incidence_counts": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 1,
+      "COUNTER_M15_STRUCTURE": 1,
+      "MSS_DISPLACEMENT_NOT_PROVEN": 8,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 4,
+      "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 9,
+      "OUTSIDE_ICT_MACRO_WINDOW": 9,
+      "SWEEP_RECLAIM_NOT_PROVEN": 9,
+      "TARGET_BEYOND_12_M1_ATR": 7
+    },
+    "active_risk_flag_incidence_rates": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 0.1111,
+      "COUNTER_M15_STRUCTURE": 0.1111,
+      "MSS_DISPLACEMENT_NOT_PROVEN": 0.8889,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 0.4444,
+      "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 1.0,
+      "OUTSIDE_ICT_MACRO_WINDOW": 1.0,
+      "SWEEP_RECLAIM_NOT_PROVEN": 1.0,
+      "TARGET_BEYOND_12_M1_ATR": 0.7778
+    },
+    "by_direction": {
+      "LONG": 1,
+      "SHORT": 8
+    },
+    "by_h1_structure_bias": {
+      "BEARISH": 4,
+      "UNKNOWN": 5
+    },
+    "by_in_ict_macro_window": {
+      "False": 9
+    },
+    "by_model_id": {
+      "SMC_M1_FVG_CONTINUATION": 3,
+      "SMC_M1_REVERSAL": 6
+    },
+    "by_ny_session_group": {
+      "INVALID": 9
+    },
+    "count": 9,
+    "ex_post_outcome_subtype_counts": {
+      "TP_HIT_BEFORE_SL": 9
+    },
+    "ex_post_post_stop_reached_tp_within_180m_count": 0,
+    "ex_post_reached_1r_mfe_before_exit_count": 9,
+    "primary_pre_entry_reason_counts": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 1,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 4,
+      "OUTSIDE_ICT_MACRO_WINDOW": 4
+    },
+    "target_distance_gt_12_m1_atr_count": 7
+  },
+  "si8_si9_4_unique_research_losses": [
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "decision_timestamp_ms": 1792006800000,
+      "decision_timestamp_utc": "2026-10-14T19:40:00Z",
+      "direction": "SHORT",
+      "entry_fill_price": 4107.18,
+      "entry_reference": 4107.18,
+      "episode_key": "SI8_RESEARCH_DISCOVERY_REPAIRED_SMC_M1_CONTINUATION_6265_1792006800000",
+      "ex_post_outcome": {
+        "adverse_gap_open_stop": false,
+        "bars_held": 79,
+        "entry_fill_ts": 1792006800000,
+        "exit_fill_price": 4114.65,
+        "exit_fill_ts": 1792011540000,
+        "exit_type": "LOSS",
+        "is_ex_post_trajectory_label": true,
+        "mae_r": 1.0733,
+        "mae_usd_per_oz": 7.91,
+        "mfe_r": 0.19,
+        "mfe_usd_per_oz": 1.4,
+        "never_used_in_pre_entry_classification": true,
+        "outcome_code": "SL_HIT_BEFORE_TP",
+        "outcome_label": "LOSS",
+        "post_stop_reached_tp_within_180m": false,
+        "reached_0_5r_mfe_before_exit": false,
+        "reached_1_0r_mfe_before_exit": false,
+        "same_bar_sl_tp_tie": false
+      },
+      "model_id": "SMC_M1_CONTINUATION",
+      "ny_local_hour": 15,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "pre_entry_features": {
+        "atr_h1_usd": {
+          "evidence_sha256": "7e47c62fd9648b6127202826cc818b2ce1402193d82a11cdecae6b3af8abc90a",
+          "known_at_ms": 1792004400000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792004400000"
+          ],
+          "state": "PRESENT",
+          "value": 17.86
+        },
+        "atr_m1_usd": {
+          "evidence_sha256": "09ba5e58412d8435b9638fafff783edd56d3753d668f5bd43042440da79bbd00",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": 1.0429
+        },
+        "cost_aware_net_rr": {
+          "evidence_sha256": "443720dcea49b8f518a2193f9782bcc7079e357914d46bbeddad94c585e80e30",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": 2.0937
+        },
+        "direction": {
+          "evidence_sha256": "bb2358d02d8dc5d64b75d167442ab2d5aa04dd2474398e55daaf6f4543b83d93",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": "SHORT"
+        },
+        "h1_structure_bias": {
+          "evidence_sha256": "b11f764a9a7b2c180483d3092872fd23e8d3cb62c0aa41d65af6d9d7259f5f8f",
+          "known_at_ms": 1792004400000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792004400000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "h4_structure_bias": {
+          "evidence_sha256": "8f0894227963222058457ba20b61eb125d3b527275928f7f11f6e4dd3fd488b6",
+          "known_at_ms": 1791993600000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "4H:1791993600000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "in_ict_macro_window": {
+          "evidence_sha256": "172f9ddae0c7dfb58fad11e5a792abb9cc44af22d5eeb9b217826aec971f1d97",
+          "known_at_ms": 1792006800000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "liquidity_sweep_reclaim_confirmed": {
+          "evidence_sha256": "3de7259ff746920528daf500ad55732a2a59a719e8f46db9768a0b6b34685b3f",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anchor_cont_1792006260000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "m15_structure_bias": {
+          "evidence_sha256": "82f8d0c9ce4def2bcc0b2cf26e9c88d7eb36e0eddd4e5ecc48769300f68d63c2",
+          "known_at_ms": 1791792900000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "15m:1791792900000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "model_id": {
+          "evidence_sha256": "116c7f5363a4b8573203ef235a6b92e114ad47d37f5a7225c14d48ae63a30e93",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": "SMC_M1_CONTINUATION"
+        },
+        "mss_bos_displacement_confirmed": {
+          "evidence_sha256": "64274caea879907bb3047c81e4949aa5916d35eb63b2c4f49196bd7432659e58",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792006740000"
+          ],
+          "state": "PRESENT",
+          "value": true
+        },
+        "ny_session_group": {
+          "evidence_sha256": "b017b622e1250c28d8a5fada7aeaf2aed69a04c31098e0a2028720324d5d6a2e",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": "INVALID"
+        },
+        "quote_quality_mode": {
+          "evidence_sha256": "2003aa88077fe1a69909bcd3ab7bf42c39dfcd996c5cc22948e94f228d729775",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO"
+        },
+        "recent_m1_data_gap_within_180m": {
+          "evidence_sha256": "904d261928b4be3cac89e548547e2a283664aab9a724e11b22d968eeb1c10f2f",
+          "known_at_ms": 1792006800000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "structural_sl_distance_usd": {
+          "evidence_sha256": "f8202b4a1d9f1d0caba8d6658db6ed549cac4b1c2003f790d00e5bd2e07c2ea0",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anc_anchor_cont_1792006260000"
+          ],
+          "state": "PRESENT",
+          "value": 7.37
+        },
+        "target_distance_in_m1_atr": {
+          "evidence_sha256": "028905ad29f9d07b941f3bcd8878768b35422d21523b4dcd67e9e857a66dd5c5",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "pool_1H_1h_sl_1791993600000"
+          ],
+          "state": "PRESENT",
+          "value": 25.037
+        },
+        "target_distance_in_source_tf_atr": {
+          "evidence_sha256": "44dbfed856b12d222fe541274da2325dc7daf8284f6542e815b2cc879841c051",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "pool_1H_1h_sl_1791993600000"
+          ],
+          "state": "PRESENT",
+          "value": 1.4619
+        },
+        "target_source_timeframe": {
+          "evidence_sha256": "49ae248060c22a43e685b41c94f5e7faf4def3330eb3a66bbbbac8512b90b60d",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "pool_1H_1h_sl_1791993600000"
+          ],
+          "state": "PRESENT",
+          "value": "1H"
+        },
+        "unicorn_overlap_state": {
+          "evidence_sha256": "c18ea0ae7f20c65b23b3fb672ae291b78f4d4d5d8f384e8d1b0862f8b2d40ed1",
+          "known_at_ms": 1792006800000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792006740000",
+            "1m:1792006740000:1792006800000"
+          ],
+          "state": "PRESENT",
+          "value": "FVG_ONLY"
+        }
+      },
+      "pre_entry_known": {
+        "active_pre_entry_risk_flags": [
+          "OUTSIDE_ICT_MACRO_WINDOW",
+          "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP",
+          "SWEEP_RECLAIM_NOT_PROVEN",
+          "TARGET_BEYOND_12_M1_ATR"
+        ],
+        "invalid_fields_count": 0,
+        "is_causally_observable_pre_entry": true,
+        "missing_fields": [
+          "m15_structure_bias"
+        ],
+        "missing_fields_count": 1,
+        "present_fields_count": 18,
+        "raw_snapshot_joined": true,
+        "reason_code": "OUTSIDE_ICT_MACRO_WINDOW"
+      },
+      "present_in_policies": [
+        "SI8_RESEARCH_DISCOVERY_REPAIRED",
+        "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"
+      ],
+      "realized_net_pnl_usd": -2.4745,
+      "realized_r": -0.9898,
+      "row_sha256": "f257efc29ed9e80d2e270c766782a09e41dc83c8c666507abef69b32650e40b3",
+      "selected_sl": 4114.55,
+      "snapshot_lineage": {
+        "context_source_fingerprint": "6111b3dee44dc14b933615ec04b987a003d135960c64025ee691b1d2a0aeb33b",
+        "decision_fingerprint": "04afefc245b4b084d7353cc783f2f8ee30424de3e330dcd8178eb42e59dcbbf4",
+        "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792006800000_04afefc245b4",
+        "input_snapshot_hash": "0b6bb1d021e8cc41a0fc7da84a585098b1796dca50112c74f33b1e70fc9282bd",
+        "trade_action_fingerprint": "04afefc245b4b084d7353cc783f2f8ee30424de3e330dcd8178eb42e59dcbbf4"
+      },
+      "take_profit": 4081.07
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "decision_timestamp_ms": 1792014240000,
+      "decision_timestamp_utc": "2026-10-14T21:44:00Z",
+      "direction": "SHORT",
+      "entry_fill_price": 4110.69,
+      "entry_reference": 4110.66,
+      "episode_key": "SI8_RESEARCH_DISCOVERY_REPAIRED_SMC_M1_CONTINUATION_6389_1792014240000",
+      "ex_post_outcome": {
+        "adverse_gap_open_stop": false,
+        "bars_held": 38,
+        "entry_fill_ts": 1792014240000,
+        "exit_fill_price": 4115.84,
+        "exit_fill_ts": 1792016520000,
+        "exit_type": "LOSS",
+        "is_ex_post_trajectory_label": true,
+        "mae_r": 1.1743,
+        "mae_usd_per_oz": 5.93,
+        "mfe_r": 0.1446,
+        "mfe_usd_per_oz": 0.73,
+        "never_used_in_pre_entry_classification": true,
+        "outcome_code": "SL_HIT_BEFORE_TP",
+        "outcome_label": "LOSS",
+        "post_stop_reached_tp_within_180m": false,
+        "reached_0_5r_mfe_before_exit": false,
+        "reached_1_0r_mfe_before_exit": false,
+        "same_bar_sl_tp_tie": false
+      },
+      "model_id": "SMC_M1_CONTINUATION",
+      "ny_local_hour": 17,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6387_ts1792014120000_ep_cont_SHORT_1792014060000_12b5f14dff",
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "pre_entry_features": {
+        "atr_h1_usd": {
+          "evidence_sha256": "9977f6014236d61a7d8507f6781c980824370204bc32ed1b89af0dd689aaf699",
+          "known_at_ms": 1792011600000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792011600000"
+          ],
+          "state": "PRESENT",
+          "value": 16.9614
+        },
+        "atr_m1_usd": {
+          "evidence_sha256": "d2469cb449f35274bbf35c227da224939b01fb6642d9554e999c25e19ee2a575",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": 0.4607
+        },
+        "cost_aware_net_rr": {
+          "evidence_sha256": "5accc32f05c7ee6ef777533b828cc464e19109f53a28346988229efbb45e42ab",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": 2.1586
+        },
+        "direction": {
+          "evidence_sha256": "814fdfa0636f7640e094cc65374a34c16b619c73d5d82c538e5cd66f5bf6fd07",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": "SHORT"
+        },
+        "h1_structure_bias": {
+          "evidence_sha256": "16eb7b90bd754590250df28cd2d52ee28de77da81495d8ad252858d8b99a3fda",
+          "known_at_ms": 1792011600000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792011600000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "h4_structure_bias": {
+          "evidence_sha256": "3d73d718423cc4adeceeca396597a3ac8850c22fbba2768ce5b2228d8040dce3",
+          "known_at_ms": 1792008000000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "4H:1792008000000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "in_ict_macro_window": {
+          "evidence_sha256": "f0ae6f2ca48b35fb5643c90afa2288032962b445420cb1a0030688db9a8f79f2",
+          "known_at_ms": 1792014240000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "liquidity_sweep_reclaim_confirmed": {
+          "evidence_sha256": "4e352513d41935f58f65fe4327e9c9b5c135f67be32e3c2ef9d4cdf021db0934",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anchor_cont_1792013700000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "m15_structure_bias": {
+          "evidence_sha256": "82f8d0c9ce4def2bcc0b2cf26e9c88d7eb36e0eddd4e5ecc48769300f68d63c2",
+          "known_at_ms": 1791792900000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "15m:1791792900000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "model_id": {
+          "evidence_sha256": "7fbd2bcb52d9a54eb1b740f08e7cc9f89ca94dd0f39cdb143a069a40aabaf0ee",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": "SMC_M1_CONTINUATION"
+        },
+        "mss_bos_displacement_confirmed": {
+          "evidence_sha256": "78d226252e562ea1b2816fb7d07d56655ca31bca58bc8c6b56ac80c979a8548b",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792014180000"
+          ],
+          "state": "PRESENT",
+          "value": true
+        },
+        "ny_session_group": {
+          "evidence_sha256": "6b4afcd9d4c566fb23307070658dd55f2dda903a6dc1e49254189a7eff8d9434",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": "INVALID"
+        },
+        "quote_quality_mode": {
+          "evidence_sha256": "a7d5cd8d6f522a6e5448805519e7de5087c1ddfb448d9165c04fa7e8e5ccf42a",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO"
+        },
+        "recent_m1_data_gap_within_180m": {
+          "evidence_sha256": "93e3a8e08be1a754a0ee00b6c232c2403a8f1f49219b53f4792d2395399d43ac",
+          "known_at_ms": 1792014240000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "structural_sl_distance_usd": {
+          "evidence_sha256": "3d5bee72f6c58eeddd99ca9ea868d89e78cd0686c522b1db2354d3720c270263",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": 5.08
+        },
+        "target_distance_in_m1_atr": {
+          "evidence_sha256": "979fdf46e74151bcfe65455fe81f3c66787065a93b32b2e50fbc6f37975e74e3",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "PRESENT",
+          "value": 47.4915
+        },
+        "target_distance_in_source_tf_atr": {
+          "evidence_sha256": "9b5d48f2b867cb7d8f8434b2d2478cfdc9772c6315447f8bbe6e13835e4c2ec6",
+          "known_at_ms": 1792014240000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "target_source_timeframe": {
+          "evidence_sha256": "8232898aab08488f181a7126922fcc50a03d0dfa00ecbadc71511b3f29f76686",
+          "known_at_ms": 1792014240000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "unicorn_overlap_state": {
+          "evidence_sha256": "f6df62396ac83e539bc451a3e1c54362273dc34f573075ee6447ff8106fba16c",
+          "known_at_ms": 1792014240000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792014180000",
+            "1m:1792014180000:1792014240000"
+          ],
+          "state": "PRESENT",
+          "value": "FVG_ONLY"
+        }
+      },
+      "pre_entry_known": {
+        "active_pre_entry_risk_flags": [
+          "OUTSIDE_ICT_MACRO_WINDOW",
+          "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP",
+          "SWEEP_RECLAIM_NOT_PROVEN",
+          "TARGET_BEYOND_12_M1_ATR"
+        ],
+        "invalid_fields_count": 0,
+        "is_causally_observable_pre_entry": true,
+        "missing_fields": [
+          "m15_structure_bias",
+          "target_distance_in_source_tf_atr",
+          "target_source_timeframe"
+        ],
+        "missing_fields_count": 3,
+        "present_fields_count": 16,
+        "raw_snapshot_joined": true,
+        "reason_code": "OUTSIDE_ICT_MACRO_WINDOW"
+      },
+      "present_in_policies": [
+        "SI8_RESEARCH_DISCOVERY_REPAIRED"
+      ],
+      "realized_net_pnl_usd": -2.4477,
+      "realized_r": -0.983,
+      "row_sha256": "54a1aaed71a8fb4407e6df4b4ab4d9daf670f7de5dc81ed0c1b166ca80f0e578",
+      "selected_sl": 4115.74,
+      "snapshot_lineage": {
+        "context_source_fingerprint": "d1dffd60403ba91d9974f0ac99f4b2f70f15cc150b5b35cdfd9c372456d906df",
+        "decision_fingerprint": "37a37a2398a8dbb63deb34ea3a4e5ef2fdee9164b82dded6e465a7538929e35a",
+        "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792014240000_37a37a2398a8",
+        "input_snapshot_hash": "256eafecc1423c66e07c004b067e0c6dd95a1873fc632284560a29a6ce93d365",
+        "trade_action_fingerprint": "37a37a2398a8dbb63deb34ea3a4e5ef2fdee9164b82dded6e465a7538929e35a"
+      },
+      "take_profit": 4088.78
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "decision_timestamp_ms": 1792018740000,
+      "decision_timestamp_utc": "2026-10-14T22:59:00Z",
+      "direction": "SHORT",
+      "entry_fill_price": 4113.87,
+      "entry_reference": 4113.84,
+      "episode_key": "SI8_RESEARCH_DISCOVERY_REPAIRED_SMC_M1_CONTINUATION_6464_1792018740000",
+      "ex_post_outcome": {
+        "adverse_gap_open_stop": false,
+        "bars_held": 62,
+        "entry_fill_ts": 1792018740000,
+        "exit_fill_price": 4120.58,
+        "exit_fill_ts": 1792022460000,
+        "exit_type": "LOSS",
+        "is_ex_post_trajectory_label": true,
+        "mae_r": 1.1755,
+        "mae_usd_per_oz": 7.77,
+        "mfe_r": 0.9349,
+        "mfe_usd_per_oz": 6.18,
+        "never_used_in_pre_entry_classification": true,
+        "outcome_code": "SL_HIT_BEFORE_TP",
+        "outcome_label": "LOSS",
+        "post_stop_reached_tp_within_180m": false,
+        "reached_0_5r_mfe_before_exit": true,
+        "reached_1_0r_mfe_before_exit": false,
+        "same_bar_sl_tp_tie": false
+      },
+      "model_id": "SMC_M1_CONTINUATION",
+      "ny_local_hour": 18,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6463_ts1792018680000_ep_cont_SHORT_1792018620000_f8c8bc2a4b",
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "pre_entry_features": {
+        "atr_h1_usd": {
+          "evidence_sha256": "e4276de1781fb67f3b8d73352b661f87ca333205a08ecd34da2d1a491e2a2137",
+          "known_at_ms": 1792015200000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792015200000"
+          ],
+          "state": "PRESENT",
+          "value": 16.7071
+        },
+        "atr_m1_usd": {
+          "evidence_sha256": "641afb7c265140bbf0a97b13ff891252fec05bbff3ffc92ddde48b0c940e135b",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": 0.8607
+        },
+        "cost_aware_net_rr": {
+          "evidence_sha256": "cfccb213b82297f6588dd33b5d7677e17af0215cfefbfd535808400f84523b7e",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": 2.1393
+        },
+        "direction": {
+          "evidence_sha256": "eda30fd9bb6055fe3428c89db6a1869303b51e98c4b3b27b940c355c084b8343",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": "SHORT"
+        },
+        "h1_structure_bias": {
+          "evidence_sha256": "36cb3b561ba3c76dd524b5b752da52b9f1f7b5abba0c5f3590f2ba38db53dd76",
+          "known_at_ms": 1792015200000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792015200000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "h4_structure_bias": {
+          "evidence_sha256": "3d73d718423cc4adeceeca396597a3ac8850c22fbba2768ce5b2228d8040dce3",
+          "known_at_ms": 1792008000000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "4H:1792008000000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "in_ict_macro_window": {
+          "evidence_sha256": "835495ac627238495e69d51aaf92f68844a1a756df85efae9dac1cf95b7241bf",
+          "known_at_ms": 1792018740000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "liquidity_sweep_reclaim_confirmed": {
+          "evidence_sha256": "871a326e4aa2b2a48b67f71b0afcf9639725a2df1fe444b93ee92f2fa44399f5",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anchor_cont_1792018560000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "m15_structure_bias": {
+          "evidence_sha256": "82f8d0c9ce4def2bcc0b2cf26e9c88d7eb36e0eddd4e5ecc48769300f68d63c2",
+          "known_at_ms": 1791792900000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "15m:1791792900000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "model_id": {
+          "evidence_sha256": "0e016e4ad87c9ae2bd5d978e9f767bac2e1b60144f78fb5d8703e6f6da809697",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": "SMC_M1_CONTINUATION"
+        },
+        "mss_bos_displacement_confirmed": {
+          "evidence_sha256": "3ee86a65f911e404443eda9e607629989cae77779f087ec751205a8b5b54445b",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792018680000"
+          ],
+          "state": "PRESENT",
+          "value": true
+        },
+        "ny_session_group": {
+          "evidence_sha256": "9551d960849a1a7adb09716b1136ecb581dddb99ad58ffd26ff0d41c964aba6c",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": "INVALID"
+        },
+        "quote_quality_mode": {
+          "evidence_sha256": "cd1ce2c5091419e038510756e77aecf2ed0c95d6d62d0956f915b53d568072a1",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO"
+        },
+        "recent_m1_data_gap_within_180m": {
+          "evidence_sha256": "c26e024e322ce51b245e5d5c029075699b51aee8246549da2a08d9f5a55f21ee",
+          "known_at_ms": 1792018740000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "structural_sl_distance_usd": {
+          "evidence_sha256": "20dd26ca5766f2eed8e4db0f0d61efa6aebda33d2c03c3fec869999e8eb6f5e7",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anc_anchor_cont_1792018560000"
+          ],
+          "state": "PRESENT",
+          "value": 6.64
+        },
+        "target_distance_in_m1_atr": {
+          "evidence_sha256": "c40aa5caea1e63c1f4cd46f540a7a4dc5d17753443fa1c2321fe4a8500311110",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "PRESENT",
+          "value": 29.1154
+        },
+        "target_distance_in_source_tf_atr": {
+          "evidence_sha256": "def81d49849127f8d2427da6eb9d6b733779f7394ccda6799b7f3964ba9a2b89",
+          "known_at_ms": 1792018740000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "target_source_timeframe": {
+          "evidence_sha256": "d1875bf1105778ff16aa91d787071f1f05aa5050287d0f35573f2fdd4f82324a",
+          "known_at_ms": 1792018740000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "5m_sl_1792000800000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "unicorn_overlap_state": {
+          "evidence_sha256": "9634e8e3514e840378d0b7a55c31e75719ce554d93d6271bbd0e49633c01ceb7",
+          "known_at_ms": 1792018740000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792018680000",
+            "1m:1792018680000:1792018740000"
+          ],
+          "state": "PRESENT",
+          "value": "FVG_ONLY"
+        }
+      },
+      "pre_entry_known": {
+        "active_pre_entry_risk_flags": [
+          "OUTSIDE_ICT_MACRO_WINDOW",
+          "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP",
+          "SWEEP_RECLAIM_NOT_PROVEN",
+          "TARGET_BEYOND_12_M1_ATR"
+        ],
+        "invalid_fields_count": 0,
+        "is_causally_observable_pre_entry": true,
+        "missing_fields": [
+          "m15_structure_bias",
+          "target_distance_in_source_tf_atr",
+          "target_source_timeframe"
+        ],
+        "missing_fields_count": 3,
+        "present_fields_count": 16,
+        "raw_snapshot_joined": true,
+        "reason_code": "OUTSIDE_ICT_MACRO_WINDOW"
+      },
+      "present_in_policies": [
+        "SI8_RESEARCH_DISCOVERY_REPAIRED"
+      ],
+      "realized_net_pnl_usd": -2.4009,
+      "realized_r": -0.988,
+      "row_sha256": "ba8306f55aecad5e3354b172b32ff286b629e3a8803c2305a1fa8c238c1881f5",
+      "selected_sl": 4120.48,
+      "snapshot_lineage": {
+        "context_source_fingerprint": "f2766755a452a416ec16efbfd0ce8d6e1a35e19f8f0672a6e929ec1ffb6cfabc",
+        "decision_fingerprint": "6d32f1f4d8fac5f76e189c3ec20bf9f7bbab98a694a7e5e7162c51f5bbb81139",
+        "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792018740000_6d32f1f4d8fa",
+        "input_snapshot_hash": "913b8543e27e3b5631325c4b12efe643d46adb154e89ea7380057b70b10e62f3",
+        "trade_action_fingerprint": "6d32f1f4d8fac5f76e189c3ec20bf9f7bbab98a694a7e5e7162c51f5bbb81139"
+      },
+      "take_profit": 4088.78
+    },
+    {
+      "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "decision_timestamp_ms": 1792028580000,
+      "decision_timestamp_utc": "2026-10-15T01:43:00Z",
+      "direction": "SHORT",
+      "entry_fill_price": 4145.58,
+      "entry_reference": 4145.55,
+      "episode_key": "SI8_RESEARCH_DISCOVERY_REPAIRED_SMC_M1_CONTINUATION_6628_1792028580000",
+      "ex_post_outcome": {
+        "adverse_gap_open_stop": false,
+        "bars_held": 64,
+        "entry_fill_ts": 1792028580000,
+        "exit_fill_price": 4156.46,
+        "exit_fill_ts": 1792032420000,
+        "exit_type": "LOSS",
+        "is_ex_post_trajectory_label": true,
+        "mae_r": 0.9907,
+        "mae_usd_per_oz": 10.68,
+        "mfe_r": 0.2894,
+        "mfe_usd_per_oz": 3.12,
+        "never_used_in_pre_entry_classification": true,
+        "outcome_code": "SL_HIT_BEFORE_TP",
+        "outcome_label": "LOSS",
+        "post_stop_reached_tp_within_180m": false,
+        "reached_0_5r_mfe_before_exit": false,
+        "reached_1_0r_mfe_before_exit": false,
+        "same_bar_sl_tp_tie": false
+      },
+      "model_id": "SMC_M1_CONTINUATION",
+      "ny_local_hour": 21,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401",
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "pre_entry_features": {
+        "atr_h1_usd": {
+          "evidence_sha256": "0ff72b5c30894eb3b72e3e58439b9a7afb34043004356bb1890641b9a203bf80",
+          "known_at_ms": 1792026000000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792026000000"
+          ],
+          "state": "PRESENT",
+          "value": 18.8621
+        },
+        "atr_m1_usd": {
+          "evidence_sha256": "d8109546b5181eb393b326b012868dd0dce7d87ea2d37018737ac629ff457703",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": 2.3679
+        },
+        "cost_aware_net_rr": {
+          "evidence_sha256": "9d85cffd4f60af5625353401a546b86b889b5625b78a672d13184340acd412c2",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": 2.3598
+        },
+        "direction": {
+          "evidence_sha256": "b9ff5cea4527f0ae7962eb93f100ccb4d4d041f3005ec98f09977a54aca306b0",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": "SHORT"
+        },
+        "h1_structure_bias": {
+          "evidence_sha256": "686645b3b0750b4449f65f8ce1e08d58c28a835d1805290732d8af9f61cc5481",
+          "known_at_ms": 1792026000000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1H:1792026000000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "h4_structure_bias": {
+          "evidence_sha256": "66a95ddf19824cf2c2991958042c7c585380a0fc284f3c2f522660aa509dd0b1",
+          "known_at_ms": 1792022400000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "4H:1792022400000"
+          ],
+          "state": "PRESENT",
+          "value": "BEARISH"
+        },
+        "in_ict_macro_window": {
+          "evidence_sha256": "6fdc9acc0cf28dbf72fac8b9e9df32bac45c8c11375a2e50354b6e379c32ae50",
+          "known_at_ms": 1792028580000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "liquidity_sweep_reclaim_confirmed": {
+          "evidence_sha256": "693169c95f5fcdb8bcdb68b7c4265f00709e782abd6f050986cb0952d42bfc33",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anchor_cont_1792028220000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "m15_structure_bias": {
+          "evidence_sha256": "82f8d0c9ce4def2bcc0b2cf26e9c88d7eb36e0eddd4e5ecc48769300f68d63c2",
+          "known_at_ms": 1791792900000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "15m:1791792900000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "model_id": {
+          "evidence_sha256": "19833cbf495cbf72df8c0e2daa56024ca545208cbb890f916d40fbb53835ee64",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": "SMC_M1_CONTINUATION"
+        },
+        "mss_bos_displacement_confirmed": {
+          "evidence_sha256": "4760a0c4b0d9832b71ff974d1cb7aaf7a6e54776a9ce1ccb43297333309be34d",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792028520000"
+          ],
+          "state": "PRESENT",
+          "value": true
+        },
+        "ny_session_group": {
+          "evidence_sha256": "1d9fc95ffb732e3c15a434a0dc3180815bcd0cd00ab36f44012d1d70c0374492",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": "INVALID"
+        },
+        "quote_quality_mode": {
+          "evidence_sha256": "ad35c21bce7263ef0210f15d40664f3b7c2be656cc915f28cdfe5f598fc861e9",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO"
+        },
+        "recent_m1_data_gap_within_180m": {
+          "evidence_sha256": "a8811b5e56c1107a81e193c54a76f250812404ef09fcafb596d34181a15146e8",
+          "known_at_ms": 1792028580000,
+          "proof_state": "PROVEN_FALSE",
+          "raw_source_ids": [
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": false
+        },
+        "structural_sl_distance_usd": {
+          "evidence_sha256": "8881a29afc739ba09f5128bdd04b9d59a8951dcfdc02349579e188164e8ee2e7",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "anc_anchor_cont_1792028220000"
+          ],
+          "state": "PRESENT",
+          "value": 10.81
+        },
+        "target_distance_in_m1_atr": {
+          "evidence_sha256": "8bf91df3fd7da15937647e63a37d234e45165bb12360375ec9d46804cda6ff09",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "1m_sl_1792022460000"
+          ],
+          "state": "PRESENT",
+          "value": 15.7189
+        },
+        "target_distance_in_source_tf_atr": {
+          "evidence_sha256": "9e2d714fd4f02cdd8cd91a5aaa88f03a222b9a955f17b9d4332110f43e7af3de",
+          "known_at_ms": 1792028580000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "1m_sl_1792022460000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "target_source_timeframe": {
+          "evidence_sha256": "929fb34d91a96aedfde89057e24c575f6fdecb8cca637a710a06f3396d13ae36",
+          "known_at_ms": 1792028580000,
+          "proof_state": "UNKNOWN",
+          "raw_source_ids": [
+            "1m_sl_1792022460000"
+          ],
+          "state": "MISSING",
+          "value": null
+        },
+        "unicorn_overlap_state": {
+          "evidence_sha256": "3c5293c5db1a4b0b9b99c12e804298e443b0841002a1fe2718c40774fbaf8a8d",
+          "known_at_ms": 1792028580000,
+          "proof_state": "MEASURED_VALUE",
+          "raw_source_ids": [
+            "bos_SHORT_1792028520000",
+            "1m:1792028520000:1792028580000"
+          ],
+          "state": "PRESENT",
+          "value": "FVG_ONLY"
+        }
+      },
+      "pre_entry_known": {
+        "active_pre_entry_risk_flags": [
+          "OUTSIDE_ICT_MACRO_WINDOW",
+          "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP",
+          "SWEEP_RECLAIM_NOT_PROVEN",
+          "TARGET_BEYOND_12_M1_ATR"
+        ],
+        "invalid_fields_count": 0,
+        "is_causally_observable_pre_entry": true,
+        "missing_fields": [
+          "m15_structure_bias",
+          "target_distance_in_source_tf_atr",
+          "target_source_timeframe"
+        ],
+        "missing_fields_count": 3,
+        "present_fields_count": 16,
+        "raw_snapshot_joined": true,
+        "reason_code": "OUTSIDE_ICT_MACRO_WINDOW"
+      },
+      "present_in_policies": [
+        "SI8_RESEARCH_DISCOVERY_REPAIRED",
+        "SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS"
+      ],
+      "realized_net_pnl_usd": -2.4141,
+      "realized_r": -0.9894,
+      "row_sha256": "82c7f527ab3acafa0561bb543d21b69534d17a46e8e49fa675c6bffa146af053",
+      "selected_sl": 4156.36,
+      "snapshot_lineage": {
+        "context_source_fingerprint": "b34cc193d2b3f5505250b04b0806d96d5f59dcdc00895af5d3f1ab007504fb21",
+        "decision_fingerprint": "336fbc7265532ec4aad24540fa12434eb2b81ffe293a8d67caa8a0ef642e4971",
+        "decision_id": "dec_SMC_M1_CONTINUATION_XAUUSDT_SHORT_1792028580000_336fbc726553",
+        "input_snapshot_hash": "71e4a4d48942e21d9a8e3211e97dff2d9180583d49ff27a5b0a610a90c733e29",
+        "trade_action_fingerprint": "336fbc7265532ec4aad24540fa12434eb2b81ffe293a8d67caa8a0ef642e4971"
+      },
+      "take_profit": 4108.33
+    }
+  ],
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "win_vs_loss_descriptive_flag_comparison": [
+    {
+      "flag": "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP",
+      "loss_count_of_157": 157,
+      "loss_minus_win_rate_diff": 0.0,
+      "loss_rate": 1.0,
+      "win_count_of_9": 9,
+      "win_rate": 1.0
+    },
+    {
+      "flag": "OUTSIDE_ICT_MACRO_WINDOW",
+      "loss_count_of_157": 157,
+      "loss_minus_win_rate_diff": 0.0,
+      "loss_rate": 1.0,
+      "win_count_of_9": 9,
+      "win_rate": 1.0
+    },
+    {
+      "flag": "SWEEP_RECLAIM_NOT_PROVEN",
+      "loss_count_of_157": 155,
+      "loss_minus_win_rate_diff": -0.0127,
+      "loss_rate": 0.9873,
+      "win_count_of_9": 9,
+      "win_rate": 1.0
+    },
+    {
+      "flag": "MSS_DISPLACEMENT_NOT_PROVEN",
+      "loss_count_of_157": 142,
+      "loss_minus_win_rate_diff": 0.0156,
+      "loss_rate": 0.9045,
+      "win_count_of_9": 8,
+      "win_rate": 0.8889
+    },
+    {
+      "flag": "TARGET_BEYOND_12_M1_ATR",
+      "loss_count_of_157": 133,
+      "loss_minus_win_rate_diff": 0.0693,
+      "loss_rate": 0.8471,
+      "win_count_of_9": 7,
+      "win_rate": 0.7778
+    },
+    {
+      "flag": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "loss_count_of_157": 54,
+      "loss_minus_win_rate_diff": 0.2328,
+      "loss_rate": 0.3439,
+      "win_count_of_9": 1,
+      "win_rate": 0.1111
+    },
+    {
+      "flag": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "loss_count_of_157": 34,
+      "loss_minus_win_rate_diff": -0.2278,
+      "loss_rate": 0.2166,
+      "win_count_of_9": 4,
+      "win_rate": 0.4444
+    },
+    {
+      "flag": "COUNTER_M15_STRUCTURE",
+      "loss_count_of_157": 17,
+      "loss_minus_win_rate_diff": -0.0028,
+      "loss_rate": 0.1083,
+      "win_count_of_9": 1,
+      "win_rate": 0.1111
+    },
+    {
+      "flag": "RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M",
+      "loss_count_of_157": 3,
+      "loss_minus_win_rate_diff": 0.0191,
+      "loss_rate": 0.0191,
+      "win_count_of_9": 0,
+      "win_rate": 0.0
+    }
+  ]
+}

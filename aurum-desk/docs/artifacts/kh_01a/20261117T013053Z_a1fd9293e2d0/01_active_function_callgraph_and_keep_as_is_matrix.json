@@ -1,0 +1,815 @@
+{
+  "added_functions": [
+    {
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "functions": [
+        "build_kh_01a_callgraph_and_keep_as_is_matrix",
+        "classify_pre_entry_state_strictly_asof",
+        "build_kh_01a_causal_loss_and_win_control_forensics",
+        "validate_fresh_oos_escrow_claim_kh01a",
+        "build_dataset_registry_and_fresh_oos_audit_kh01a",
+        "run_kh_01a_real_fault_injections",
+        "evaluate_kh_01a_14_gates",
+        "verify_kh_01a_cross_view_consistency",
+        "render_kh_01a_readme_and_handover_vi"
+      ],
+      "reason": "Dedicated KH-01A foundation verification, causal forensics, dataset registry, and 14-gate evaluation without duplicating replay/strategy engines."
+    },
+    {
+      "file": "aurum-desk/tools/fresh_junit_io.py",
+      "functions": [
+        "write_bytes_durable_atomic",
+        "write_text_durable_atomic",
+        "write_json_durable_atomic",
+        "write_jsonl_gz_durable_atomic"
+      ],
+      "reason": "Shared fsync + atomic rename + closed-file SHA256 readback verification failing closed on ENOSPC/partial writes."
+    },
+    {
+      "file": "aurum-desk/tools/run_kh_01a_verification.py",
+      "functions": [
+        "main",
+        "run_async_pytest_shards_kh01a",
+        "run_controlled_worker_1_2_4_subset_benchmark_kh01a"
+      ],
+      "reason": "Narrow KH-01A async bounded multiprocess verification orchestrator."
+    },
+    {
+      "file": "aurum-desk/tools/kh_01a_independent_verifier.py",
+      "functions": [
+        "verify_kh_01a_run_dir_from_disk",
+        "main"
+      ],
+      "reason": "Separate-OS-process independent disk verifier reading written artifacts only."
+    }
+  ],
+  "explicit_kept_as_is_modules": [
+    "aurum-desk/backend/services/shared_strategy_evaluator.py (KEPT AS IS)",
+    "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py (KEPT AS IS)",
+    "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py (KEPT AS IS)",
+    "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py (KEPT AS IS)",
+    "aurum-desk/backend/services/v17_8_backtest_runner.py (KEPT AS IS)",
+    "aurum-desk/backend/services/scalp_watcher_orchestrator.py (KEPT AS IS)",
+    "aurum-desk/backend/paper_broker.py (KEPT AS IS)",
+    "News guards, frontend UI, Bitget REST/WS clients, and live order routing (KEPT AS IS)"
+  ],
+  "matrix": [
+    {
+      "action": "CHANGED",
+      "after_contract": "Classifies interval coverage via verified session/maintenance calendar (ZoneInfo DST-aware) + cross-timeframe active-bar proof; separates VERIFIED_SCHEDULED_MARKET_CLOSURE, VERIFIED_MAINTENANCE_PAUSE, MIXED_INTERVAL_GAP (with split segments), PROVIDER_OR_DATA_GAP, SHORT_MISSING_CANDLE, and UNKNOWN_UNVERIFIED; audits invalid timestamps, identical/conflicting duplicates, out-of-order, and cross-TF OHLC coherence; preserves raw bars & missing-bar totals.",
+      "ast_verification": {
+        "end_line": 948,
+        "exists": true,
+        "parameters": [
+          "datasets",
+          "session_calendar"
+        ],
+        "start_line": 264
+      },
+      "before_contract": "Labeled every >=24h gap as WEEKEND_MARKET_CLOSED (including Mon-Fri 2026-10-12..16 M15 gap) and inferred DAILY_ROLLOVER_OR_SESSION_BREAK from UTC hours without exchange calendar provenance.",
+      "contract_item": "A",
+      "downstream_consumers": [
+        "tools/run_kh_01a_verification.py (02_data_gap_red_green_and_cross_tf_audit.json, 03_frozen_dataset_sha_session_calendar_and_quality.json)",
+        "backend/tests/test_kh_01a_data_and_verification_foundation.py",
+        "backend/tests/test_v17_9_1_positive_path_replay.py",
+        "backend/tests/test_v17_9_2_1_validation_closure.py"
+      ],
+      "execution_role": "RUNTIME_AND_RESEARCH_AUDIT_UTILITY",
+      "file": "aurum-desk/backend/services/v17_9_1_decision_funnel.py",
+      "function": "classify_historical_dataset_gaps",
+      "reason": "Fix confirmed defect where >=24h weekday gaps and active 24/7 Bitget weekend feed outages were misclassified as weekend closures.",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec1_weekday_ge24h_gap_not_weekend",
+        "test_kh_01a_data_and_verification_foundation.py::test_sec1_mixed_weekend_weekday_gap_splits_segments",
+        "test_kh_01a_data_and_verification_foundation.py::test_sec1_verified_maintenance_and_ny_dst_transition",
+        "test_kh_01a_data_and_verification_foundation.py::test_sec1_unknown_calendar_duplicates_out_of_order_and_invalid_timestamps"
+      ],
+      "unchanged_semantics": "Raw bar bytes, SHA256, actual_bars, total_missing_bars, zero synthetic fill/interpolation/forward-fill, and all strategy trade decisions.",
+      "upstream_inputs": [
+        "datasets (1m/5m/15m/1H/4H/1D raw bars)",
+        "optional verified session_calendar"
+      ]
+    },
+    {
+      "action": "KEPT AS IS (dataset bytes & runtime loader semantics); ADDED read-only manifest audit",
+      "after_contract": "KEPT AS IS for dataset bytes and runtime loading; added read-only dataset registry & Fresh-OOS escrow audit (`build_dataset_registry_and_fresh_oos_audit_kh01a` / `audit_canonical_xauusdt_dataset_manifest_readonly`).",
+      "ast_verification": {
+        "end_line": 554,
+        "exists": true,
+        "parameters": [
+          "symbol",
+          "cache_dir",
+          "allow_network_refresh"
+        ],
+        "start_line": 358
+      },
+      "before_contract": "Loads offline canonical XAUUSDT bars across 1m/5m/15m/1H/4H/1D with allow_network_refresh=False.",
+      "contract_item": "B",
+      "downstream_consumers": [
+        "All historical replay, funnel, D4, and parity runners"
+      ],
+      "execution_role": "CANONICAL_DATASET_LOADER",
+      "file": "aurum-desk/backend/services/v17_8_backtest_runner.py",
+      "function": "collect_or_load_verified_historical_dataset",
+      "reason": "Preserve historical canonical dataset immutability while adding read-only provenance/OOS registry.",
+      "secondary_ast_verification": {
+        "end_line": 91,
+        "exists": true,
+        "parameters": [],
+        "start_line": 67
+      },
+      "secondary_file": "aurum-desk/tools/run_v17_9_3_1_2_full_universe_backtest.py",
+      "secondary_function": "load_canonical_xauusdt_datasets",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec5_dataset_registry_and_fresh_oos_escrow_fail_closed"
+      ],
+      "unchanged_semantics": "100% identical candle dicts, timestamps, prices, volumes, and canonical SHA256.",
+      "upstream_inputs": [
+        "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz (SHA256 9f301fee2e62...)"
+      ]
+    },
+    {
+      "action": "CHANGED",
+      "after_contract": "Requires explicit presence and strict Python types (rejects None, bool-as-int, str-as-bool, NaN, Inf); replaces hardcoded 14/63085 literals with dynamic funnel & partition conservation checks.",
+      "ast_verification": {
+        "end_line": 726,
+        "exists": true,
+        "parameters": [
+          "junit_counters",
+          "benchmark_data",
+          "resource_telemetry",
+          "neg_controls_res",
+          "branch",
+          "dataset_sha",
+          "expected_dataset_sha",
+          "tested_sha",
+          "replayed_modes",
+          "loss_census",
+          "target_summary",
+          "d4_summary",
+          "receipts",
+          "live_trading_mode",
+          "paper_trading_mode",
+          "auto_trading_mode",
+          "activation_ready",
+          "fresh_oos_verdict",
+          "run_id",
+          "min_negative_controls",
+          "min_real_injections",
+          "require_zero_report_assertions_as_faults"
+        ],
+        "start_line": 371
+      },
+      "before_contract": "Silently defaulted missing shard_exits_all_zero to True, string 'false' to True, missing errors to 0, missing actually_executed_count/d4_matched_242_* to 0, missing no_core_unicorn_patch_justified to True, and hardcoded survivors_count==14 / universe==63085.",
+      "contract_item": "C",
+      "downstream_consumers": [
+        "evaluate_v17931219_orthogonal_gate_matrix",
+        "tools/run_v17_9_3_1_2_19_verification.py",
+        "tools/v17_9_3_1_2_19_independent_verifier.py"
+      ],
+      "execution_role": "VERIFICATION_AUTHORITY",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_19_truth_and_core_repair_service.py",
+      "function": "build_authoritative_metrics_from_evidence_v17931219",
+      "reason": "Eliminate silent default-True/default-0 verification fallbacks and scenario-hardcoded constants.",
+      "secondary_ast_verification": {
+        "end_line": 368,
+        "exists": true,
+        "parameters": [
+          "junit_counters"
+        ],
+        "start_line": 332
+      },
+      "secondary_function": "parse_required_pytest_counts_v17931219",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec2_metrics_and_gate_matrix_fail_closed_faults"
+      ],
+      "unchanged_semantics": "Zero effect on trading/strategy logic; compatible with complete valid V19 metric dictionaries.",
+      "upstream_inputs": [
+        "junit_counters",
+        "benchmark_data",
+        "resource_telemetry",
+        "neg_controls_res",
+        "replayed_modes",
+        "loss_census",
+        "target_summary",
+        "d4_summary",
+        "receipts"
+      ]
+    },
+    {
+      "action": "CHANGED",
+      "after_contract": "Fails closed when shard_exits_all_zero is missing/non-bool/False; evaluates D4/Unicorn/Target/Loss/OOS/Economic/Publication gates dynamically from grounded evidence; keeps ENGINEERING, REGRESSION, ACCOUNTING, D4_MATERIALIZATION, FRESH_OOS, STRATEGY_ECONOMIC_EDGE, ACTIVATION_READY, and PUBLICATION strictly orthogonal.",
+      "ast_verification": {
+        "end_line": 2068,
+        "exists": true,
+        "parameters": [
+          "m",
+          "publication_status",
+          "run_dir",
+          "expected_run_id",
+          "reject_uniform_placeholder_hash"
+        ],
+        "start_line": 1516
+      },
+      "before_contract": "Defaulted missing shard_exits_all_zero to True in G03, failed legitimate nonzero D4 cohorts via hardcoded stage_05!=0 / d4_accepted!=0, and hardcoded D4/OOS/Economic verdict strings.",
+      "contract_item": "D",
+      "downstream_consumers": [
+        "V19 & KH-01A gate evaluation and cross-view verifiers"
+      ],
+      "execution_role": "VERIFICATION_GATE_MATRIX",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_19_truth_and_core_repair_service.py",
+      "function": "evaluate_v17931219_orthogonal_gate_matrix",
+      "reason": "Prevent fake PASS on missing fields while supporting grounded future nonzero D4 datasets.",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec2_metrics_and_gate_matrix_fail_closed_faults",
+        "test_kh_01a_data_and_verification_foundation.py::test_sec2_legitimate_nonzero_d4_synthetic_cohort_passes_invariants_without_economic_pass"
+      ],
+      "unchanged_semantics": "Preserves all 14 mandatory technical gates and strict safety locks (ACTIVATION_READY=NO).",
+      "upstream_inputs": [
+        "AuthoritativeMetricsV17931219",
+        "publication_status",
+        "optional run_dir"
+      ]
+    },
+    {
+      "action": "EXTENDED",
+      "after_contract": "Validates hex digests, non-empty validator/path/run_id, future-timestamp skew, optional uniform-placeholder rejection, and closed-file disk SHA256 readback; JUnit verifier enforces require_shard_schedule, <testsuite tests> count equality, future mtime guard, and mandatory test_kh_01a non-skip prefix.",
+      "ast_verification": {
+        "class_name": "EvidenceReceiptV17931219",
+        "end_line": 256,
+        "exists": true,
+        "parameters": [
+          "self",
+          "expected_run_id",
+          "expected_tested_sha",
+          "run_dir",
+          "reject_uniform_placeholder_hash",
+          "max_future_skew_seconds"
+        ],
+        "start_line": 190
+      },
+      "before_contract": "Receipt check only inspected string lengths (accepting non-hex, short input_sha256, placeholder 'a'*64, and nonexistent files); JUnit verifier skipped shard schedule check if scheduled_node_ids omitted and did not check future mtimes or <testsuite tests> counts.",
+      "contract_item": "E",
+      "downstream_consumers": [
+        "evaluate_v17931219_orthogonal_gate_matrix",
+        "evaluate_kh_01a_14_gates",
+        "tools/kh_01a_independent_verifier.py"
+      ],
+      "execution_role": "RECEIPT_AND_JUNIT_VERIFIER",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_19_truth_and_core_repair_service.py",
+      "function": "EvidenceReceiptV17931219.is_valid_pass",
+      "reason": "Ensure tampered, truncated, future-dated, or placeholder receipts/XMLs fail closed.",
+      "secondary_ast_verification": {
+        "end_line": 563,
+        "exists": true,
+        "parameters": [
+          "run_dir",
+          "collection_manifest",
+          "shard_manifest",
+          "expected_run_id",
+          "expected_tested_sha",
+          "mandatory_node_prefixes",
+          "require_shard_schedule",
+          "max_future_skew_ns"
+        ],
+        "start_line": 248
+      },
+      "secondary_file": "aurum-desk/backend/services/v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
+      "secondary_function": "verify_fresh_junit_bijection_v17931211",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec2_receipt_and_junit_adversarial_faults"
+      ],
+      "unchanged_semantics": "Backward-compatible with existing V11/V14/V19 unit tests.",
+      "upstream_inputs": [
+        "Receipt metadata + on-disk artifact files",
+        "Collected pytest node inventory + shard JUnit XMLs"
+      ]
+    },
+    {
+      "action": "CHANGED",
+      "after_contract": "Joins stable opportunity_id to verified causal pre-entry snapshots (`known_at_ms <= decision_timestamp_ms`), derives pre-entry classification strictly without post-entry arguments, preserves PRE_ENTRY_UNKNOWN + missing-evidence census when raw context is absent, separates ex-post MAE/MFE/trajectory labels, enforces 166=9+157 and SI8/SI9 deduplication, and emits ranked testable hypotheses for KH-01B.",
+      "ast_verification": {
+        "end_line": 1509,
+        "exists": true,
+        "parameters": [
+          "si0_loss_rows",
+          "si8_loss_rows",
+          "si9_loss_rows",
+          "si0_win_rows",
+          "si0_all_primary_episodes",
+          "decision_inputs_by_opp_id",
+          "feature_ledger_by_opp_id",
+          "datasets",
+          "close_ts_index",
+          "dataset_sha256"
+        ],
+        "start_line": 1361
+      },
+      "before_contract": "Read nonexistent pre_entry_known_reason from bare episode dicts, labeling 157/157 SI0 losses OTHER_OR_UNKNOWN without joining raw point-in-time snapshots.",
+      "contract_item": "F",
+      "downstream_consumers": [
+        "05_preentry_casebook_157_losses_and_win_controls.jsonl.gz",
+        "06_causal_loss_attribution_and_unknown_evidence_census.json"
+      ],
+      "execution_role": "RESEARCH_CAUSAL_FORENSICS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_19_truth_and_core_repair_service.py",
+      "function": "build_loss_episode_attribution_from_raw_v17931219",
+      "reason": "Provide complete causal pre-entry attribution without hindsight or fabricated labels.",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec3_causal_loss_forensics_no_hindsight_and_unknown_honesty"
+      ],
+      "unchanged_semantics": "Read-only post-replay forensic analysis; zero changes to signal generation or trade execution.",
+      "upstream_inputs": [
+        "si0_loss_rows (157)",
+        "si0_win_rows (9)",
+        "si8_loss_rows (4)",
+        "si9_loss_rows (2)",
+        "point-in-time MarketDecisionContext / StrategyDecisionSnapshot / CausalFeatureSnapshot"
+      ]
+    },
+    {
+      "action": "KEPT AS IS",
+      "after_contract": "KEPT AS IS \u2014 zero edits to file, thresholds, scoring, or arbitration.",
+      "ast_verification": {
+        "end_line": 2130,
+        "exists": true,
+        "parameters": [
+          "context",
+          "model_id",
+          "direction",
+          "setup_descriptors",
+          "sh_1m",
+          "sl_1m",
+          "entry_price",
+          "selected_sl",
+          "take_profit",
+          "selected_target_id",
+          "atr_m1",
+          "atr_m5",
+          "prospective_net_rr",
+          "planned_risk_usd",
+          "unicorn_evidence"
+        ],
+        "start_line": 1421
+      },
+      "before_contract": "Computes causal point-in-time signal quality evidence and SI0..SI9 research gate decisions.",
+      "contract_item": "G",
+      "downstream_consumers": [
+        "SharedStrategyEvaluator",
+        "replay_single_si_policy_v1793122",
+        "KH-01A forensics (read-only)"
+      ],
+      "execution_role": "READ_ONLY_SIGNAL_EVIDENCE_SUPPLIER",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "build_signal_quality_evidence_v1793122",
+      "reason": "Non-optimization boundary: evidence supplier only.",
+      "secondary_ast_verification": {
+        "end_line": 2864,
+        "exists": true,
+        "parameters": [
+          "context",
+          "model_id",
+          "direction",
+          "candidate_key",
+          "setup_episode_id",
+          "setup_descriptors",
+          "sh_1m",
+          "sl_1m",
+          "baseline_status",
+          "baseline_rejection_reasons",
+          "baseline_entry",
+          "baseline_sl",
+          "baseline_tp",
+          "baseline_qty",
+          "baseline_gross_rr",
+          "baseline_net_rr",
+          "baseline_anchor_id",
+          "baseline_anchor_kind",
+          "baseline_invalidation_price",
+          "baseline_target_id",
+          "atr_m1",
+          "atr_m5",
+          "unicorn_evidence",
+          "policy_settings",
+          "raw_mode",
+          "raw_policy_id",
+          "mode",
+          "policy_id",
+          "adapter_origin"
+        ],
+        "start_line": 2133
+      },
+      "secondary_function": "evaluate_signal_intelligence_gate_v1793122",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec5_trade_action_fingerprint_and_adapter_parity"
+      ],
+      "unchanged_semantics": "100% unchanged.",
+      "upstream_inputs": [
+        "MarketDecisionContext",
+        "StrategyDecisionSnapshot"
+      ]
+    },
+    {
+      "action": "KEPT AS IS",
+      "after_contract": "KEPT AS IS \u2014 zero edits to file, executable trading behavior, or decision hashes.",
+      "ast_verification": {
+        "class_name": "SharedStrategyEvaluator",
+        "end_line": 4336,
+        "exists": true,
+        "parameters": [
+          "cls",
+          "context",
+          "model_id",
+          "direction",
+          "adapter_origin",
+          "target_resolver",
+          "causal_setup_override",
+          "production_eval_spec"
+        ],
+        "start_line": 2706
+      },
+      "before_contract": "Produces StrategyDecisionSnapshot with deterministic decision_fingerprint and trade_action_fingerprint.",
+      "contract_item": "H",
+      "downstream_consumers": [
+        "ScalpWatcherOrchestrator",
+        "MarketShadowService",
+        "V17_8_BacktestRunner",
+        "KH-01A parity & forensics"
+      ],
+      "execution_role": "CANONICAL_STRATEGY_DECISION_AUTHORITY",
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function": "SharedStrategyEvaluator.evaluate_model_direction",
+      "reason": "Preserve canonical strategy decision authority intact.",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec5_trade_action_fingerprint_and_adapter_parity"
+      ],
+      "unchanged_semantics": "100% bitwise identical decision_fingerprint and trade_action_fingerprint.",
+      "upstream_inputs": [
+        "MarketDecisionContext",
+        "model_id",
+        "direction"
+      ]
+    },
+    {
+      "action": "KEPT AS IS",
+      "after_contract": "KEPT AS IS \u2014 zero edits to file, ICT timing, or True Unicorn confluence rules.",
+      "ast_verification": {
+        "end_line": 1063,
+        "exists": true,
+        "parameters": [
+          "decision_timestamp_ms",
+          "symbol",
+          "schedule_config"
+        ],
+        "start_line": 748
+      },
+      "before_contract": "Enforces ICT macro windows and strict causal Breaker+FVG >=1 tick overlap.",
+      "contract_item": "I",
+      "downstream_consumers": [
+        "SharedStrategyEvaluator",
+        "D4 causal Unicorn pipeline",
+        "KH-01A forensics (read-only)"
+      ],
+      "execution_role": "MACRO_AND_TRUE_UNICORN_AUTHORITY",
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function": "resolve_causal_macro_time_window",
+      "reason": "Phase boundary prohibits redesigning or relaxing Unicorn criteria.",
+      "secondary_ast_verification": {
+        "end_line": 1829,
+        "exists": true,
+        "parameters": [
+          "context",
+          "direction",
+          "decision_timestamp_ms",
+          "setup_descriptors",
+          "strict",
+          "require_confirmed_retest",
+          "require_htf_alignment",
+          "require_sweep_provenance"
+        ],
+        "start_line": 1475
+      },
+      "secondary_function": "evaluate_causal_unicorn_confluence",
+      "tests": [
+        "test_v17_9_3_macro_unicorn_intelligence.py"
+      ],
+      "unchanged_semantics": "100% unchanged.",
+      "upstream_inputs": [
+        "symbol",
+        "decision_timestamp_ms",
+        "closed candles",
+        "breaker & FVG zones"
+      ]
+    },
+    {
+      "action": "KEPT AS IS",
+      "after_contract": "KEPT AS IS \u2014 zero edits to file, SL/TP geometry, or risk sizing.",
+      "ast_verification": {
+        "end_line": 1784,
+        "exists": true,
+        "parameters": [
+          "model_id",
+          "symbol",
+          "direction",
+          "entry_price",
+          "decision_timestamp_ms",
+          "closed_m1",
+          "closed_m5",
+          "closed_m15",
+          "closed_h1",
+          "closed_h4",
+          "closed_d1",
+          "sh_1m",
+          "sl_1m",
+          "selected_fvg",
+          "selected_break",
+          "selected_sweep",
+          "selected_reference",
+          "unicorn_evidence",
+          "liquidity_pools",
+          "baseline_anchor",
+          "baseline_sl",
+          "baseline_buffer_price",
+          "baseline_target_price",
+          "baseline_target_id",
+          "atr_m1",
+          "atr_m5",
+          "spread",
+          "tick_size",
+          "capital_usdt",
+          "risk_pct",
+          "leverage",
+          "margin_mode",
+          "min_net_rr",
+          "costs",
+          "v1792_mode",
+          "buffer_mode",
+          "target_mode",
+          "enforce_cross_tf_sweep_check",
+          "enforce_cross_tf_invalidation_check"
+        ],
+        "start_line": 1490
+      },
+      "before_contract": "Plans independent structural SL, unswept liquidity TP, min_net_rr >= 2.0, and fixed risk <= $2.50 USD.",
+      "contract_item": "J",
+      "downstream_consumers": [
+        "SharedStrategyEvaluator",
+        "Historical & shadow adapters"
+      ],
+      "execution_role": "STRUCTURAL_SL_TP_AND_RISK_SIZING_AUTHORITY",
+      "file": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "function": "plan_v17_9_2_structural_stop_and_target",
+      "reason": "Preserve V17.9.2 structural SL/TP and <= $2.50 risk cap intact.",
+      "secondary_ast_verification": {
+        "end_line": 1376,
+        "exists": true,
+        "parameters": [
+          "direction",
+          "entry_price",
+          "proposed_sl",
+          "decision_timestamp_ms",
+          "target_candidates",
+          "baseline_target_price",
+          "baseline_target_id",
+          "min_net_rr",
+          "target_mode",
+          "capital_usdt",
+          "risk_pct",
+          "leverage",
+          "margin_mode",
+          "costs"
+        ],
+        "start_line": 1158
+      },
+      "secondary_function": "select_viable_structural_target",
+      "tests": [
+        "test_v17_9_2_structural_stop.py"
+      ],
+      "unchanged_semantics": "100% unchanged.",
+      "upstream_inputs": [
+        "Candidate entry",
+        "confirmed swings/zones",
+        "liquidity pools",
+        "CostAssumptions"
+      ]
+    },
+    {
+      "action": "EXTENDED (read-only provenance/spread/unit-guard diagnostics ONLY)",
+      "after_contract": "Rejects missing/zero spread assumptions and M1-for-HTF ATR substitution; emits explicit before/after M1-vs-source-TF gate fields, control equality verification, and NOT_EVALUATED_READ_ONLY_AUDIT_ONLY selector counterfactual status while keeping executable TP selection 100% unchanged.",
+      "ast_verification": {
+        "end_line": 1262,
+        "exists": true,
+        "parameters": [
+          "opportunity_id",
+          "cohort_role",
+          "historical_rejection",
+          "current_rejection",
+          "decision_row",
+          "feature_row",
+          "pools_by_id",
+          "datasets",
+          "close_ts_index",
+          "require_cached_rr_match_if_present"
+        ],
+        "start_line": 944
+      },
+      "before_contract": "Audited 267 + 40 rows with source-TF ATR and Net R:R, but assumed 0.20 spread even if missing/zero spread injected and lacked explicit before/after M1-vs-HTF gate fields and NOT_EVALUATED selector counterfactual disclosure.",
+      "contract_item": "K",
+      "downstream_consumers": [
+        "07_target_267_plus_40_control_provenance_audit.json",
+        "verify_267_target_audit_v17931214"
+      ],
+      "execution_role": "READ_ONLY_TARGET_DATA_AUTHORITY_AUDIT",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function": "audit_target_reachability_row_v17931214",
+      "reason": "Strengthen target/ATR provenance audit and eliminate misleading empty counterfactuals=[].",
+      "secondary_ast_verification": {
+        "end_line": 1446,
+        "exists": true,
+        "parameters": [
+          "run_id",
+          "tested_sha",
+          "dataset_sha",
+          "v12_funnel_09_doc",
+          "all_63085_decisions",
+          "feature_ledger_by_opp_id",
+          "candidate_index",
+          "datasets",
+          "close_ts_index",
+          "si9_policy_result"
+        ],
+        "start_line": 1265
+      },
+      "secondary_function": "build_267_target_failure_and_control_audit_v17931214",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec4_target_267_audit_spread_and_atr_unit_guards"
+      ],
+      "unchanged_semantics": "Zero change to executable target selection (`select_viable_structural_target` untouched).",
+      "upstream_inputs": [
+        "267 historical SI9_H5 rows + 40 control rows",
+        "causal liquidity pools",
+        "datasets",
+        "close_ts_index"
+      ]
+    },
+    {
+      "action": "EXTENDED (OOS provenance & 10-policy ledger reconciliation ONLY; strategy flags & fills KEPT AS IS)",
+      "after_contract": "Includes all 10 policies (SI0..SI9) x 3 fill modes conservation summary, fold embargo non-overlap proof, and explicit dataset reuse registry linkage while keeping all strategy flags and fill definitions KEPT AS IS.",
+      "ast_verification": {
+        "end_line": 2108,
+        "exists": true,
+        "parameters": [
+          "run_id",
+          "tested_sha",
+          "dataset_sha",
+          "policy_dtos",
+          "variant_1pos_dtos",
+          "si0_nb_episodes",
+          "bars_1m"
+        ],
+        "start_line": 1946
+      },
+      "before_contract": "Summarized SI0/SI8/SI9 + A0..D4 3-fill stress and 180m purged walk-forward folds with BLOCKED_NO_UNTOUCHED_DATA.",
+      "contract_item": "L",
+      "downstream_consumers": [
+        "08_replay_3fill_1position_oos_and_cost_stress.json",
+        "13_fresh_oos_untouched_registry_and_verdict.json"
+      ],
+      "execution_role": "CHRONOLOGICAL_BACKTEST_STRESS_AND_OOS_AUDIT",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function": "build_cost_stress_and_purged_walkforward_oos_v17931214",
+      "reason": "Strengthen OOS provenance and full SI0..SI9 ledger reconciliation.",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec5_dataset_registry_and_fresh_oos_escrow_fail_closed"
+      ],
+      "unchanged_semantics": "Identical trade fills, fees, slippage, 180m embargo, and PnL numbers.",
+      "upstream_inputs": [
+        "policy_dtos (SI0..SI9 x 3 fill modes)",
+        "variant_1pos_dtos (A0..D4 x 3 fill modes)",
+        "si0_nb_episodes",
+        "bars_1m"
+      ]
+    },
+    {
+      "action": "CHANGED CAREFULLY + ADDED narrow KH-01A entry point",
+      "after_contract": "Removed import-time stdout/stderr wrapping and OSError swallowing; added fsync+readback durable atomic writers in fresh_junit_io.py; removed 'a'*64 and hardcoded loss fallbacks; added tools/run_kh_01a_verification.py and tools/kh_01a_independent_verifier.py.",
+      "ast_verification": {
+        "class_name": "_SafeStreamWrapper",
+        "end_line": 64,
+        "exists": true,
+        "methods": [
+          "__init__",
+          "write",
+          "flush",
+          "__getattr__"
+        ],
+        "start_line": 38
+      },
+      "before_contract": "_SafeStreamWrapper wrapped stdout/stderr at import time and swallowed OSErrors; write_json lacked fsync/readback; _make_receipt forged 'a'*64 when target file missing; counterfactuals defaulted to [].",
+      "contract_item": "M",
+      "downstream_consumers": [
+        "tools/run_kh_01a_verification.py",
+        "tools/kh_01a_independent_verifier.py"
+      ],
+      "execution_role": "ASYNC_BOUNDED_VERIFICATION_ORCHESTRATOR_AND_DURABLE_IO",
+      "file": "aurum-desk/tools/run_v17_9_3_1_2_19_verification.py",
+      "function": "_SafeStreamWrapper",
+      "reason": "Ensure storage errors, partial writes, and missing receipt targets fail closed.",
+      "secondary_ast_verification": {
+        "end_line": 61,
+        "exists": true,
+        "parameters": [
+          "path",
+          "payload"
+        ],
+        "start_line": 17
+      },
+      "secondary_file": "aurum-desk/tools/fresh_junit_io.py",
+      "secondary_function": "write_bytes_durable_atomic",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec2_durable_io_enospc_and_safe_stream_fail_closed"
+      ],
+      "unchanged_semantics": "Existing immutable V19 published artifacts in docs/artifacts/v17_9_3_1_2_19 remain byte-untouched.",
+      "upstream_inputs": [
+        "Frozen repository tree",
+        "pytest shards",
+        "canonical dataset",
+        "TestResourceGuard"
+      ]
+    },
+    {
+      "action": "KEPT AS IS",
+      "after_contract": "KEPT AS IS \u2014 zero edits, zero order activation, PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF.",
+      "ast_verification": {
+        "class_name": "ScalpWatcherOrchestrator",
+        "end_line": 2891,
+        "exists": true,
+        "parameters": [
+          "self",
+          "db",
+          "symbol",
+          "now_ms",
+          "clock",
+          "ticker",
+          "quote",
+          "candles_1m",
+          "candles_5m",
+          "candles_15m",
+          "candles_1h",
+          "candles_4h",
+          "candles_1d",
+          "htf_bias",
+          "h1_alignment",
+          "config",
+          "auto_enabled",
+          "feed_health",
+          "execution_financial_context",
+          "research_context",
+          "caller_identity",
+          "evaluation_origin",
+          "execution_scope"
+        ],
+        "start_line": 999
+      },
+      "before_contract": "Runtime orchestration, paper broker execution, news guards, UI, Bitget REST/WS, and live routing.",
+      "contract_item": "N",
+      "downstream_consumers": [
+        "Runtime execution boundary (STRICTLY OFF in KH-01A)"
+      ],
+      "execution_role": "LIVE_PAPER_RUNTIME_ORCHESTRATION_AND_UI",
+      "file": "aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+      "function": "ScalpWatcherOrchestrator.evaluate_cycle",
+      "reason": "Strict safety & scope boundary: no live/paper/UI/exchange routing modifications.",
+      "secondary_ast_verification": {
+        "class_name": "PaperBroker",
+        "end_line": 227,
+        "exists": true,
+        "parameters": [
+          "db",
+          "order_create",
+          "current_bid",
+          "current_ask",
+          "validated_quote",
+          "now_ms",
+          "clock",
+          "feed_health"
+        ],
+        "start_line": 81
+      },
+      "secondary_file": "aurum-desk/backend/paper_broker.py",
+      "secondary_function": "PaperBroker.execute_market_order",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec5_trade_action_fingerprint_and_adapter_parity"
+      ],
+      "unchanged_semantics": "100% untouched.",
+      "upstream_inputs": [
+        "Live/paper runtime state, news guards, Bitget REST/WS, frontend UI"
+      ]
+    }
+  ],
+  "removed_functions": [],
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415"
+}

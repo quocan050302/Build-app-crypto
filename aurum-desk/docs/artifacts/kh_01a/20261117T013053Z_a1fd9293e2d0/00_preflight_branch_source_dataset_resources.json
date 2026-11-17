@@ -1,0 +1,106 @@
+{
+  "backend_git_tree_sha": "37bf112d2457ef8e10cfe71662b415b04e443472",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "completed_at_utc": "2026-11-17T02:08:38Z",
+  "config_versions_and_hashes": {
+    "cost_assumptions_sha256": "0fbd26c552566e0a35536f8bbc972eb5548f84723d268c897fb12d6ff9fe7afd",
+    "research_policy_registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913",
+    "scalp_config_sha256": "7c929fe49cb906a8780d304dd267f159abd62767fcaebbd12fd569ca4d162dc3",
+    "signal_intelligence_registry_hash": "9fd87faffa9a0ed2f29c4680673122e03e3670f7c4c98ea1ed90d00cd3f9fba2"
+  },
+  "dirty_executable_files": [],
+  "orchestrator_pid": 26728,
+  "preflight_host_resources": {
+    "available_ram_bytes": 7642058752,
+    "available_ram_gb": 7.12,
+    "estimated_peak_footprint_bytes": 536870912,
+    "free_disk_bytes": 58566086656,
+    "free_disk_gb": 54.54,
+    "global_nested_child_process_cap": 4,
+    "inode_tracking_note": "NTFS on Windows does not expose fixed POSIX inode quotas; Master File Table free-space reserve enforced via 10 GiB disk floor.",
+    "logical_cpus": 12,
+    "minimum_free_disk_reserve_bytes": 10737418240,
+    "os_platform": "win32",
+    "owned_temp_root": "C:\\Users\\QuocAn\\AppData\\Local\\Temp\\aurum_kh01a_20261117T013053Z_a1fd9293e2d0",
+    "physical_cpus": 6,
+    "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "total_disk_bytes": 154640838656,
+    "total_ram_bytes": 34088599552
+  },
+  "prepatch_baseline_reference_hashes": {
+    "backend_git_tree_sha": "f21a4d4fbcfe101e322b7b43690a68b788a58f70",
+    "baseline_config_hashes": {
+      "cost_assumptions_sha256": "0fbd26c552566e0a35536f8bbc972eb5548f84723d268c897fb12d6ff9fe7afd",
+      "research_policy_registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913",
+      "scalp_config_sha256": "7c929fe49cb906a8780d304dd267f159abd62767fcaebbd12fd569ca4d162dc3",
+      "signal_intelligence_registry_hash": "9fd87faffa9a0ed2f29c4680673122e03e3670f7c4c98ea1ed90d00cd3f9fba2"
+    },
+    "baseline_source_files_count": 790,
+    "baseline_source_manifest_sha256": "5ade3b960ed8f2a5fa9ec02de16ad1d7ec3086db6d204f8fd36e4442000313bb",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "prepatch_adapter_fingerprints_sha256": "0ae21d70e0dc25c2be81084781c658df746586ad16c40a3b44f4c38ed11baca5",
+    "prepatch_evaluator_fingerprints_sha256": "96f805fb03bbc4ebd05d4a3faed3e9e0223699f4cc5de3be9131fc3045335628",
+    "prepatch_si0_nb_accounting": {
+      "closed_trades_count": 166,
+      "data_gap_unresolved_count": 1,
+      "expectancy_net_r": -0.8474,
+      "ledger_sha256": "d168169dc37ec8b8ee3db0c5f2d4bbb9ac35dc3be53a1f7c6bd37df809af9904",
+      "losses_count": 157,
+      "open_at_horizon_count": 74,
+      "total_fees_usd": 203.1135,
+      "total_realized_gross_usd": -142.7836,
+      "total_realized_net_usd": -345.8971,
+      "total_scheduled_episodes": 242,
+      "unfilled_or_no_fill_count": 1,
+      "wins_count": 9
+    },
+    "prepatch_si8_nb_accounting": {
+      "closed_trades_count": 4,
+      "expectancy_net_r": -0.9875,
+      "ledger_sha256": "68066ff9e4ea00a22e91cd08bf9ac50e4082a2c18e5c2c785dab901766aa6dd2",
+      "losses_count": 4,
+      "total_realized_net_usd": -9.7372,
+      "total_scheduled_episodes": 4,
+      "wins_count": 0
+    },
+    "prepatch_si9_nb_accounting": {
+      "closed_trades_count": 2,
+      "expectancy_net_r": -0.9896,
+      "ledger_sha256": "74bbe22cc0756cc2dd16b08632f96ce9ac39fc0a1547342b97bbbbc92fbc7756",
+      "losses_count": 2,
+      "total_realized_net_usd": -4.8886,
+      "total_scheduled_episodes": 2,
+      "wins_count": 0
+    },
+    "prior_v19_tested_executable_sha": "a81ac1f9d5783121bc55bdd305063863d10cb7af",
+    "starting_head_sha": "f6197343dc35123141ae010b5ee7d90e535081c1",
+    "tools_git_tree_sha": "81c9911a75f0d534cc003143ba13ad1dc9ce62c9"
+  },
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_immutable_artifacts_snapshot": {
+    "files_count": 1117,
+    "sha256": "318126a5e7174e37e97170a28d4ab3d3a998e6799d0a946e92b852770d83cf90"
+  },
+  "prior_v19_tested_executable_sha": "a81ac1f9d5783121bc55bdd305063863d10cb7af",
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "runtime_safety_locks": {
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_01a.foundation.v1",
+  "source_manifest": {
+    "files_count": 794,
+    "sha256": "12ba8ebe5f50e0799fb7f0f1af1723b48360dcdf1e16d70365f496ba61711539"
+  },
+  "source_tree_unchanged_during_run": true,
+  "spec_version": "KH-01A-v1.0",
+  "started_at_utc": "2026-11-17T01:30:54Z",
+  "starting_reference_head_sha": "f6197343dc35123141ae010b5ee7d90e535081c1",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "tools_git_tree_sha": "9e9be62cb76e7533abf4fd8af630096cbef3d4d0"
+}

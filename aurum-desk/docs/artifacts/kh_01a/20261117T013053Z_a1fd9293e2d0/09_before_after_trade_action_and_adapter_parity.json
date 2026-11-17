@@ -1,0 +1,331 @@
+{
+  "before_after_evaluator_decision_fingerprint_parity": true,
+  "before_after_trade_action_fingerprint_parity": true,
+  "config_hashes_exact_match_vs_baseline": true,
+  "postpatch_adapter_fingerprints_sha256": "0ae21d70e0dc25c2be81084781c658df746586ad16c40a3b44f4c38ed11baca5",
+  "postpatch_evaluator_fingerprints_sha256": "96f805fb03bbc4ebd05d4a3faed3e9e0223699f4cc5de3be9131fc3045335628",
+  "prepatch_adapter_fingerprints_sha256": "0ae21d70e0dc25c2be81084781c658df746586ad16c40a3b44f4c38ed11baca5",
+  "prepatch_evaluator_fingerprints_sha256": "96f805fb03bbc4ebd05d4a3faed3e9e0223699f4cc5de3be9131fc3045335628",
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "sample_adapter_fingerprints": [
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "e2acd9890b294e662e34dee58ffb8af2fcf6e4266479a7f5c565a71bdb93952f",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "e2acd9890b294e662e34dee58ffb8af2fcf6e4266479a7f5c565a71bdb93952f",
+        "REPLAY_BACKTEST": "e2acd9890b294e662e34dee58ffb8af2fcf6e4266479a7f5c565a71bdb93952f"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "7d95efc44fb3818c8e1865c50a1dcba2cafc31be5c7e450b5cd503f50b0f7bd2",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "7d95efc44fb3818c8e1865c50a1dcba2cafc31be5c7e450b5cd503f50b0f7bd2",
+        "REPLAY_BACKTEST": "7d95efc44fb3818c8e1865c50a1dcba2cafc31be5c7e450b5cd503f50b0f7bd2"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx574_ts1791593340000_ep_cont_LONG_1791593280000_94c74d621c",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "7f8064d71aed3ca55bf8a88973183f448476846b527e83ba08e4634000d968af",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "7f8064d71aed3ca55bf8a88973183f448476846b527e83ba08e4634000d968af",
+        "REPLAY_BACKTEST": "7f8064d71aed3ca55bf8a88973183f448476846b527e83ba08e4634000d968af"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx607_ts1791595320000_ep_SMC_M1_REVERSAL_LONG_1791595140000_b8fc6fe63d",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "f198481b785b14762b416475ddbf758426c80ecac16b70cbfd6f8c0a34e10c24",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "f198481b785b14762b416475ddbf758426c80ecac16b70cbfd6f8c0a34e10c24",
+        "REPLAY_BACKTEST": "f198481b785b14762b416475ddbf758426c80ecac16b70cbfd6f8c0a34e10c24"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx615_ts1791595800000_ep_cont_SHORT_1791595740000_01a0968564",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "bb38af40a38ab1350d22f3f66362a1bf8c15a035b4484e10fe55126108a016a1",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "bb38af40a38ab1350d22f3f66362a1bf8c15a035b4484e10fe55126108a016a1",
+        "REPLAY_BACKTEST": "bb38af40a38ab1350d22f3f66362a1bf8c15a035b4484e10fe55126108a016a1"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx923_ts1791614280000_ep_SMC_M1_REVERSAL_SHORT_1791613980000_a76c3bbe1d",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "217326570300fc9597440119042ccd733f9eaba6e383581defbff07ac38b612a",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "217326570300fc9597440119042ccd733f9eaba6e383581defbff07ac38b612a",
+        "REPLAY_BACKTEST": "217326570300fc9597440119042ccd733f9eaba6e383581defbff07ac38b612a"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx944_ts1791615540000_ep_SMC_M1_REVERSAL_SHORT_1791615240000_a0918cce96",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "15b6c0a5e165d016a9bcf456295e9ee79a9e3e45778671e3b23072f6419525da",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "15b6c0a5e165d016a9bcf456295e9ee79a9e3e45778671e3b23072f6419525da",
+        "REPLAY_BACKTEST": "15b6c0a5e165d016a9bcf456295e9ee79a9e3e45778671e3b23072f6419525da"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx1235_ts1791633000000_ep_SMC_M1_REVERSAL_SHORT_1791632760000_dfa565e34a",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "b2f78b1310de99c0cc1dc4f009093dbcc28206ff4d873f4eec715363d6ee162a",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "b2f78b1310de99c0cc1dc4f009093dbcc28206ff4d873f4eec715363d6ee162a",
+        "REPLAY_BACKTEST": "b2f78b1310de99c0cc1dc4f009093dbcc28206ff4d873f4eec715363d6ee162a"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx1379_ts1791641640000_ep_cont_LONG_1791641580000_86b65838fd",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "d182ce0f08f378783646a6ef3a1e7b590af5adb5643e3cdb71427d7dea0f8db8",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "d182ce0f08f378783646a6ef3a1e7b590af5adb5643e3cdb71427d7dea0f8db8",
+        "REPLAY_BACKTEST": "d182ce0f08f378783646a6ef3a1e7b590af5adb5643e3cdb71427d7dea0f8db8"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx1860_ts1791670500000_ep_SMC_M1_REVERSAL_LONG_1791670200000_5a9b35edba",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "c4a0efc9d6e3bb7ad80275fd40d14c114accc644c9fcc27348d7ec7d77277b53",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "c4a0efc9d6e3bb7ad80275fd40d14c114accc644c9fcc27348d7ec7d77277b53",
+        "REPLAY_BACKTEST": "c4a0efc9d6e3bb7ad80275fd40d14c114accc644c9fcc27348d7ec7d77277b53"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx1866_ts1791670860000_ep_SMC_M1_REVERSAL_LONG_1791670680000_87de72d2d9",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "7b46717940b92a1a958ea09b984e8eaf334ab00f4bacc3723de2e7415ba34ba5",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "7b46717940b92a1a958ea09b984e8eaf334ab00f4bacc3723de2e7415ba34ba5",
+        "REPLAY_BACKTEST": "7b46717940b92a1a958ea09b984e8eaf334ab00f4bacc3723de2e7415ba34ba5"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx2249_ts1791693840000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791693480000_9b668119f2",
+      "parity": true
+    },
+    {
+      "hashes_by_context": {
+        "MARKET_SHADOW": "7f637c6dd8d4c241e6ff63065573212f147b71afaea3220254e32d2bfb08bf1d",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN": "7f637c6dd8d4c241e6ff63065573212f147b71afaea3220254e32d2bfb08bf1d",
+        "REPLAY_BACKTEST": "7f637c6dd8d4c241e6ff63065573212f147b71afaea3220254e32d2bfb08bf1d"
+      },
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx2554_ts1791715020000_ep_SMC_M1_REVERSAL_LONG_1791714840000_e35dcf3b0d",
+      "parity": true
+    }
+  ],
+  "sample_evaluator_fingerprints": [
+    {
+      "decision_fingerprint": "43cd5bed0fb614dfde12c9acbbbbec7706b5a4d1f00e8cf9bb3f3fda2d713c8a",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791439740000,
+      "direction": "SHORT",
+      "entry_reference": 4124.8,
+      "hypothetical_quantity": 0.25,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "net_rr": -0.1532,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.1532 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-0.38 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4131.15,
+      "take_profit": 4122.91,
+      "trade_action_fingerprint": "43cd5bed0fb614dfde12c9acbbbbec7706b5a4d1f00e8cf9bb3f3fda2d713c8a"
+    },
+    {
+      "decision_fingerprint": "fe657475e7be587042527cbf8d3e0ba1cd10a8679bef003057cf20c69ca4ee4a",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791593340000,
+      "direction": "LONG",
+      "entry_reference": 4198.73,
+      "hypothetical_quantity": 0.45,
+      "model_id": "SMC_M1_CONTINUATION",
+      "net_rr": -0.5064,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx574_ts1791593340000_ep_cont_LONG_1791593280000_94c74d621c",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.5064 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.25 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4196.8,
+      "take_profit": 4199.41,
+      "trade_action_fingerprint": "fe657475e7be587042527cbf8d3e0ba1cd10a8679bef003057cf20c69ca4ee4a"
+    },
+    {
+      "decision_fingerprint": "9f4366ac05bc6503f443e5a0bf8fcb539d12d99297803ed46e3980aaf66b64e8",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791595320000,
+      "direction": "LONG",
+      "entry_reference": 4195.81,
+      "hypothetical_quantity": 0.61,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.682,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx607_ts1791595320000_ep_SMC_M1_REVERSAL_LONG_1791595140000_b8fc6fe63d",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.6820 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.70 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4195.28,
+      "take_profit": 4196.48,
+      "trade_action_fingerprint": "9f4366ac05bc6503f443e5a0bf8fcb539d12d99297803ed46e3980aaf66b64e8"
+    },
+    {
+      "decision_fingerprint": "582cac867479a2106ed034ad9d27f008a477922c2603dc786e3f9c5fa31123e5",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791595800000,
+      "direction": "SHORT",
+      "entry_reference": 4195.01,
+      "hypothetical_quantity": 0.45,
+      "model_id": "SMC_M1_CONTINUATION",
+      "net_rr": -0.3847,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx615_ts1791595800000_ep_cont_SHORT_1791595740000_01a0968564",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.3847 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-0.94 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4196.9,
+      "take_profit": 4193.65,
+      "trade_action_fingerprint": "582cac867479a2106ed034ad9d27f008a477922c2603dc786e3f9c5fa31123e5"
+    },
+    {
+      "decision_fingerprint": "61478478d43cadcfe9b4df8b8142d2fe4f941cad12a0cacae8fd24597058ad2c",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791614280000,
+      "direction": "SHORT",
+      "entry_reference": 4194.55,
+      "hypothetical_quantity": 0.63,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.7049,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx923_ts1791614280000_ep_SMC_M1_REVERSAL_SHORT_1791613980000_a76c3bbe1d",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.7049 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.76 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4194.96,
+      "take_profit": 4193.89,
+      "trade_action_fingerprint": "61478478d43cadcfe9b4df8b8142d2fe4f941cad12a0cacae8fd24597058ad2c"
+    },
+    {
+      "decision_fingerprint": "3b16e50a19dbb7bf1413c861c105a4a0e5d5bbe155c5ba7ede2f68b1f9230b92",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791615540000,
+      "direction": "SHORT",
+      "entry_reference": 4195.71,
+      "hypothetical_quantity": 0.63,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.7327,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx944_ts1791615540000_ep_SMC_M1_REVERSAL_SHORT_1791615240000_a0918cce96",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.7327 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.83 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4196.12,
+      "take_profit": 4195.16,
+      "trade_action_fingerprint": "3b16e50a19dbb7bf1413c861c105a4a0e5d5bbe155c5ba7ede2f68b1f9230b92"
+    },
+    {
+      "decision_fingerprint": "56fdba8a93e083739186e5c16b3d6eb3aa5ec82c2ed0dc0fcfeeafe01ac19cdb",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791633000000,
+      "direction": "SHORT",
+      "entry_reference": 4196.44,
+      "hypothetical_quantity": 0.61,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.7063,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx1235_ts1791633000000_ep_SMC_M1_REVERSAL_SHORT_1791632760000_dfa565e34a",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.7063 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.76 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4196.97,
+      "take_profit": 4195.87,
+      "trade_action_fingerprint": "56fdba8a93e083739186e5c16b3d6eb3aa5ec82c2ed0dc0fcfeeafe01ac19cdb"
+    },
+    {
+      "decision_fingerprint": "0794c80032e7310aa19d9ea613c10a9a51b7298a8a9f0ac5ee3b782189f9cdde",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791641640000,
+      "direction": "LONG",
+      "entry_reference": 4197.54,
+      "hypothetical_quantity": 0.0,
+      "model_id": "SMC_M1_CONTINUATION",
+      "net_rr": 0.0,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx1379_ts1791641640000_ep_cont_LONG_1791641580000_86b65838fd",
+      "rejection_reason_codes": [
+        "SHADOW_REJECTED_NO_VALID_TARGET"
+      ],
+      "selected_sl": 4196.18,
+      "take_profit": null,
+      "trade_action_fingerprint": "0794c80032e7310aa19d9ea613c10a9a51b7298a8a9f0ac5ee3b782189f9cdde"
+    },
+    {
+      "decision_fingerprint": "02e24c65b875434b27e2d75d5ee2db686c0a58aeed917e77544fd5b829d25250",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791670500000,
+      "direction": "LONG",
+      "entry_reference": 4196.89,
+      "hypothetical_quantity": 0.6,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.7079,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx1860_ts1791670500000_ep_SMC_M1_REVERSAL_LONG_1791670200000_5a9b35edba",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.7079 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.74 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4196.34,
+      "take_profit": 4197.44,
+      "trade_action_fingerprint": "02e24c65b875434b27e2d75d5ee2db686c0a58aeed917e77544fd5b829d25250"
+    },
+    {
+      "decision_fingerprint": "0c46ca91b522b5a50dd80eea23464a8a2f357865f6b04ba4ce4f6e919cd700f7",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791670860000,
+      "direction": "LONG",
+      "entry_reference": 4196.39,
+      "hypothetical_quantity": 0.6,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.7107,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx1866_ts1791670860000_ep_SMC_M1_REVERSAL_LONG_1791670680000_87de72d2d9",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.7107 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.77 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4195.8,
+      "take_profit": 4196.9,
+      "trade_action_fingerprint": "0c46ca91b522b5a50dd80eea23464a8a2f357865f6b04ba4ce4f6e919cd700f7"
+    },
+    {
+      "decision_fingerprint": "a2e514f147146bfafe237a55d97970e289ca568800204980ae6002a5eae47641",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791693840000,
+      "direction": "SHORT",
+      "entry_reference": 4196.56,
+      "hypothetical_quantity": 0.56,
+      "model_id": "SMC_M1_FVG_CONTINUATION",
+      "net_rr": -0.6581,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx2249_ts1791693840000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791693480000_9b668119f2",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.6581 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.64 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4197.45,
+      "take_profit": 4196.03,
+      "trade_action_fingerprint": "a2e514f147146bfafe237a55d97970e289ca568800204980ae6002a5eae47641"
+    },
+    {
+      "decision_fingerprint": "9b33c5e66049ab9f1895915efe3d89cc0dff0b6d5d50e563006d36d9c6a0dc69",
+      "decision_status": "VALID_SETUP_REJECTED_BY_RISK",
+      "decision_timestamp_ms": 1791715020000,
+      "direction": "LONG",
+      "entry_reference": 4199.15,
+      "hypothetical_quantity": 0.59,
+      "model_id": "SMC_M1_REVERSAL",
+      "net_rr": -0.6747,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx2554_ts1791715020000_ep_SMC_M1_REVERSAL_LONG_1791714840000_e35dcf3b0d",
+      "rejection_reason_codes": [
+        "NET_RR_TOO_LOW: Net R:R 1:-0.6747 ch\u01b0a \u0111\u1ea1t ng\u01b0\u1ee1ng t\u1ed1i thi\u1ec3u 1:2.0 (NET_REWARD_NON_POSITIVE: L\u1ee3i nhu\u1eadn r\u00f2ng d\u1ef1 ki\u1ebfn $-1.66 <= 0 sau chi ph\u00ed)"
+      ],
+      "selected_sl": 4198.53,
+      "take_profit": 4199.79,
+      "trade_action_fingerprint": "9b33c5e66049ab9f1895915efe3d89cc0dff0b6d5d50e563006d36d9c6a0dc69"
+    }
+  ],
+  "schema_version": "kh_01a.foundation.v1",
+  "si0_si8_si9_accounting_exact_match_vs_baseline": true,
+  "spec_version": "KH-01A-v1.0",
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "three_adapter_parity_status": "PASS"
+}

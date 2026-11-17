@@ -1,0 +1,127 @@
+{
+  "active_executable_selector_counterfactual_status": "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY_TP_SELECTION_UNCHANGED",
+  "counterfactuals": null,
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "executable_tp_selection_modified": false,
+  "row_level_ledger_path": "ledgers/07_target_307_rows_source_tf_atr_audit.jsonl.gz",
+  "row_level_ledger_sha256": "70c74457d4032f9950cc09618233967874f9c4ec64d1b89f5d6d44d8deb55f69",
+  "run_id": "20261117T013053Z_a1fd9293e2d0",
+  "schema_version": "kh_01a.foundation.v1",
+  "spec_version": "KH-01A-v1.0",
+  "summary": {
+    "active_executable_selector_counterfactual_status": "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY_TP_SELECTION_UNCHANGED",
+    "control_group_count": 40,
+    "control_group_primary_outcomes": {
+      "CONTROL_COHORT_VALID_REACHABLE_TARGET": 10,
+      "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL": 30
+    },
+    "control_group_tp_equality_verified_count": 40,
+    "current_v14_si9_outcomes_on_267": {
+      "ACCEPTED_MATERIALIZED_INTENT": 2,
+      "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 53,
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 3,
+      "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 13,
+      "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 10,
+      "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": 166,
+      "SUPPRESSED_BY_ARBITRATION": 4,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 16
+    },
+    "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "exact_267_conservation_holds": true,
+    "executable_tp_selection_modified": false,
+    "historical_267_cohort_count": 267,
+    "mutually_exclusive_primary_root_causes_267": {
+      "GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON": 66,
+      "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL": 201
+    },
+    "primary_root_causes_sum_267": 267,
+    "prior_v13_bug_diagnosis": {
+      "cached_effective_net_rr_missing_in_feature_snapshot_count": 267,
+      "prior_v13_default_1m_tf_mislabeled_non_1m_count": 226,
+      "prior_v13_false_net_rr_below_2_0_count": 267,
+      "verified_actual_net_rr_below_2_0_count": 0
+    },
+    "prior_v19_empty_counterfactuals_root_cause": "V19 read V16 09_target_selector_old_vs_repaired_matched_counterfactuals.json (which held D4 funnel summary) and defaulted missing counterfactuals key via `or []`; KH-01A explicitly marks selector counterfactuals NOT_EVALUATED while auditing all 267+40 rows read-only.",
+    "run_id": "20261117T013053Z_a1fd9293e2d0",
+    "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+    "source_timeframe_distribution_267": {
+      "15M": 106,
+      "1H": 12,
+      "1M": 41,
+      "4H": 52,
+      "5M": 56
+    },
+    "status": "PASS",
+    "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+    "total_audited_rows_in_05": 307,
+    "tri_state_provenance_counts_267": {
+      "INVALID_INCONSISTENT": 0,
+      "UNKNOWN_MISSING": 0,
+      "VALID_VALUE": 267,
+      "unknown_rate": 0.0
+    },
+    "version": "V17.9.3.1.2.14"
+  },
+  "summary_v14": {
+    "active_executable_selector_counterfactual_status": "NOT_EVALUATED_READ_ONLY_AUDIT_ONLY_TP_SELECTION_UNCHANGED",
+    "control_group_count": 40,
+    "control_group_primary_outcomes": {
+      "CONTROL_COHORT_VALID_REACHABLE_TARGET": 10,
+      "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL": 30
+    },
+    "control_group_tp_equality_verified_count": 40,
+    "current_v14_si9_outcomes_on_267": {
+      "ACCEPTED_MATERIALIZED_INTENT": 2,
+      "CANCELLED_FVG_CONSUMED_OR_INVALIDATED": 53,
+      "CANCELLED_SETUP_INVALIDATED_BEFORE_CONFIRMATION": 3,
+      "REJECTED_LATE_ENTRY_EXTENSION_OVER_4_ATR": 13,
+      "REJECTED_NO_CAUSAL_TARGET_IN_NET_RR_BAND": 10,
+      "SI9_H5_TARGET_NOT_REACHABLE_OR_UNPROVEN": 166,
+      "SUPPRESSED_BY_ARBITRATION": 4,
+      "WAIT_WINDOW_EXPIRED_UNCONFIRMED": 16
+    },
+    "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "exact_267_conservation_holds": true,
+    "executable_tp_selection_modified": false,
+    "historical_267_cohort_count": 267,
+    "mutually_exclusive_primary_root_causes_267": {
+      "GENUINELY_UNREACHABLE_TARGET_BEYOND_TF_HORIZON": 66,
+      "M1_VS_HTF_ATR_UNIT_MISMATCH_ON_VALID_HTF_POOL": 201
+    },
+    "primary_root_causes_sum_267": 267,
+    "prior_v13_bug_diagnosis": {
+      "cached_effective_net_rr_missing_in_feature_snapshot_count": 267,
+      "prior_v13_default_1m_tf_mislabeled_non_1m_count": 226,
+      "prior_v13_false_net_rr_below_2_0_count": 267,
+      "verified_actual_net_rr_below_2_0_count": 0
+    },
+    "prior_v19_empty_counterfactuals_root_cause": "V19 read V16 09_target_selector_old_vs_repaired_matched_counterfactuals.json (which held D4 funnel summary) and defaulted missing counterfactuals key via `or []`; KH-01A explicitly marks selector counterfactuals NOT_EVALUATED while auditing all 267+40 rows read-only.",
+    "run_id": "20261117T013053Z_a1fd9293e2d0",
+    "schema_version": "v17_9_3_1_2_14.truth_closure.v1",
+    "source_timeframe_distribution_267": {
+      "15M": 106,
+      "1H": 12,
+      "1M": 41,
+      "4H": 52,
+      "5M": 56
+    },
+    "status": "PASS",
+    "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+    "total_audited_rows_in_05": 307,
+    "tri_state_provenance_counts_267": {
+      "INVALID_INCONSISTENT": 0,
+      "UNKNOWN_MISSING": 0,
+      "VALID_VALUE": 267,
+      "unknown_rate": 0.0
+    },
+    "version": "V17.9.3.1.2.14"
+  },
+  "tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "verification": {
+    "control_group_verified": 40,
+    "historical_267_verified": 267,
+    "status": "PASS",
+    "version": "V17.9.3.1.2.14",
+    "violations": []
+  }
+}
