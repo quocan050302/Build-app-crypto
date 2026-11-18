@@ -319,7 +319,8 @@ def prior_immutable_artifacts_hash() -> Dict[str, Any]:
 
 def create_owned_temp_root(run_id: str) -> Path:
     base_tmp = Path(tempfile.gettempdir()).resolve()
-    owned = (base_tmp / f"aurum_kh01a_{run_id}").resolve()
+    short_tag = hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:10]
+    owned = (base_tmp / f"ak1_{short_tag}").resolve()
     if not owned.is_relative_to(base_tmp):
         raise RuntimeError(f"UNSAFE_TEMP_ROOT_PATH:{owned}")
     owned.mkdir(parents=True, exist_ok=True)
@@ -512,7 +513,12 @@ def _build_deterministic_shards_kh01a(
     db_own: List[str] = []
     child_spawn: List[str] = []
     v17_9_0_1_heavy: List[str] = []
-    v16_23_iso: List[str] = []
+    cg01_iso_by_name: Dict[str, List[str]] = {
+        "test_v16_23_red_reproductions.py": [],
+        "test_v16_23_production_flow.py": [],
+        "test_v16_24_production_flow.py": [],
+        "test_v16_25_production_flow.py": [],
+    }
     db_serial: List[str] = []
     regular_inproc: List[str] = []
 
@@ -526,8 +532,8 @@ def _build_deterministic_shards_kh01a(
             child_spawn.append(rel)
         elif fname == "test_v17_9_0_1_runtime_integration_and_gates.py":
             v17_9_0_1_heavy.append(rel)
-        elif fname == "test_v16_23_red_reproductions.py":
-            v16_23_iso.append(rel)
+        elif fname in cg01_iso_by_name:
+            cg01_iso_by_name[fname].append(rel)
         elif fname in SHARED_DB_SERIAL_TEST_FILES:
             db_serial.append(rel)
         else:
@@ -538,8 +544,19 @@ def _build_deterministic_shards_kh01a(
         shards.append({"shard_name": "SHARD_INPROC_00_V17_9_0_1_RUNTIME", "files": v17_9_0_1_heavy, "exclusive": False, "needs_venv": False})
     if db_serial:
         shards.append({"shard_name": "SHARD_INPROC_01_SHARED_DB_SERIAL", "files": sorted(db_serial), "exclusive": False, "needs_venv": False})
-    if v16_23_iso:
-        shards.append({"shard_name": "SHARD_INPROC_02_V16_23_ISOLATED", "files": v16_23_iso, "exclusive": False, "needs_venv": False})
+    for iso_tag, iso_fname in (
+        ("02A_V16_23_RED", "test_v16_23_red_reproductions.py"),
+        ("02B_V16_23_FLOW", "test_v16_23_production_flow.py"),
+        ("02C_V16_24_FLOW", "test_v16_24_production_flow.py"),
+        ("02D_V16_25_FLOW", "test_v16_25_production_flow.py"),
+    ):
+        if cg01_iso_by_name[iso_fname]:
+            shards.append({
+                "shard_name": f"SHARD_INPROC_{iso_tag}_ISOLATED",
+                "files": cg01_iso_by_name[iso_fname],
+                "exclusive": False,
+                "needs_venv": False,
+            })
 
     num_buckets = 12
     buckets: List[List[str]] = [[] for _ in range(num_buckets)]
@@ -707,11 +724,12 @@ async def run_async_pytest_shards_kh01a(
 
         await _acquire_slot(exclusive)
         try:
-            shard_tmp = owned_temp_root / "shards" / shard_name
+            shard_short_id = hashlib.sha256(shard_name.encode("utf-8")).hexdigest()[:6]
+            shard_tmp = owned_temp_root / "s" / shard_short_id
             shard_tmp.mkdir(parents=True, exist_ok=True)
             abs_paths = [str(APP_ROOT / rp) for rp in rel_paths]
             xml_path = junit_dir / f"{shard_name}.xml"
-            raw_log_tmp = shard_tmp / f"{shard_name}.raw.log"
+            raw_log_tmp = shard_tmp / "shard.raw.log"
 
             scheduled_ids: List[str] = []
             for rp in rel_paths:
@@ -983,7 +1001,7 @@ async def run_controlled_worker_1_2_4_subset_benchmark_kh01a(
     reports actual measured speedups honestly without hardcoding.
     """
     py_exe = sys.executable
-    bench_root = owned_temp_root / "subset_w124_bench"
+    bench_root = owned_temp_root / "b"
     bench_root.mkdir(parents=True, exist_ok=True)
 
     modes: Tuple[Tuple[str, int], ...] = (

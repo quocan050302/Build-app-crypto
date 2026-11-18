@@ -22,12 +22,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 VERIFIER_SCRIPT = REPO_ROOT / "aurum-desk/tools/kh_01a_r1_independent_verifier.py"
 
 
-def test_r1_separate_process_verifier_rejects_corrupt_gz_and_forged_pass(tmp_path: Path) -> None:
+def test_r1_subproc_verifier_fail_closed(tmp_path: Path) -> None:
     sha = "0123456789abcdef0123456789abcdef01234567"
     run_id = "TEST_SUBPROC_VERIFIER"
 
     # Case 1: Incomplete directory exits nonzero
-    inc_dir = tmp_path / "incomplete"
+    inc_dir = tmp_path / "inc"
     inc_dir.mkdir()
     p1 = subprocess.run(
         [sys.executable, str(VERIFIER_SCRIPT), "--run-dir", str(inc_dir), "--skip-git-freeze-check"],
@@ -40,7 +40,7 @@ def test_r1_separate_process_verifier_rejects_corrupt_gz_and_forged_pass(tmp_pat
     assert any("MISSING_REQUIRED_ARTIFACT" in v for v in out1["violations"])
 
     # Case 2: Corrupted compressed 05_r1_preentry_170_rows.jsonl.gz exits nonzero even if 16 claims PASS
-    corrupt_dir = tmp_path / "corrupt_gz"
+    corrupt_dir = tmp_path / "bad"
     corrupt_dir.mkdir()
     for req in REQUIRED_ARTIFACTS_KH01A_R1:
         if req == "15_independent_verifier_receipts_sha256_manifest.json":
