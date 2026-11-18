@@ -55,6 +55,7 @@ from services.v17_9_3_1_2_2_signal_intelligence import (
 )
 from services.v17_9_3_1_2_7_causal_signal_truth import (
     canonical_hash,
+    derive_pre_entry_features_from_causal_context_v1793127,
     verify_feature_snapshot_v1793127,
 )
 from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
@@ -82,10 +83,30 @@ from services.v17_9_3_macro_unicorn_intelligence import resolve_causal_macro_tim
 
 SPEC_VERSION_KH01A = "KH-01A-v1.0"
 SCHEMA_VERSION_KH01A = "kh_01a.foundation.v1"
+SPEC_VERSION_KH01A_R1 = "KH-01A.R1"
+SCHEMA_VERSION_KH01A_R1 = "kh_01a_r1.forensics_closure.v1"
+RECONSTRUCTION_ALGO_VERSION_KH01A_R1 = "kh_01a_r1.asof_a1_v1792_context_120_96_96_96_64_30.v1"
+RECONSTRUCTION_ALGO_SHA256_KH01A_R1 = hashlib.sha256(
+    RECONSTRUCTION_ALGO_VERSION_KH01A_R1.encode("utf-8")
+).hexdigest()
+VALID_SOURCE_ORIGINS_KH01A_R1: Tuple[str, ...] = (
+    "PERSISTED_VERIFIED_SNAPSHOT",
+    "RECONSTRUCTED_ASOF_RAW_BARS",
+    "LEDGER_ONLY_UNVERIFIED",
+    "MISSING",
+    "INVALID",
+)
+VALID_MACRO_3WAY_CATEGORIES_KH01A_R1: Tuple[str, ...] = (
+    "ELIGIBLE_IN_VERIFIED_WINDOW",
+    "VALID_OUTSIDE_WINDOW",
+    "UNKNOWN_OR_INVALID_MACRO_STATE",
+)
 MANDATORY_BRANCH_KH01A = MANDATORY_BRANCH_V17931219
 CANONICAL_DATASET_SHA256_KH01A = CANONICAL_DATASET_SHA256_V17931219
 PRIOR_V19_TESTED_SHA = "a81ac1f9d5783121bc55bdd305063863d10cb7af"
 PRIOR_V19_PUBLICATION_HEAD_SHA = "f6197343dc35123141ae010b5ee7d90e535081c1"
+PRIOR_KH01A_TESTED_SHA = "a1fd9293e2d0ac098008264ec2a6355596baf415"
+PRIOR_KH01A_AUDITED_HEAD_SHA = "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7"
 
 NY_TZ = ZoneInfo("America/New_York")
 
@@ -473,8 +494,189 @@ def build_kh_01a_callgraph_and_keep_as_is_matrix(repo_root: Path) -> Dict[str, A
 
 
 # ==============================================================================
-# 3. CAUSAL LOSS & WIN-CONTROL FORENSICS (ZERO HINDSIGHT)
+# 3. CAUSAL LOSS & WIN-CONTROL FORENSICS (ZERO HINDSIGHT, R1 PROVENANCE CLOSURE)
 # ==============================================================================
+
+_PLACEHOLDER_SOURCE_ID_TOKENS: Tuple[str, ...] = (
+    "PLACEHOLDER",
+    "FAKE_BAR",
+    "DUMMY_BAR",
+    "SYNTHETIC_BAR",
+    "UNVERIFIED_BAR",
+    "TODO",
+)
+
+
+def validate_and_classify_macro_state_kh01a_r1(
+    macro_st: Any,
+    *,
+    expected_decision_timestamp_ms: Any,
+    expected_symbol: Any = "XAUUSDT",
+) -> Dict[str, Any]:
+    """
+    KH-01A.R1 Phase 1 (D2-D4): Strictly validates a `MacroTimeWindowState` against
+    expected `(decision_timestamp_ms, symbol)` and classifies it into exactly one of
+    THREE mutually exclusive states:
+      1. `ELIGIBLE_IN_VERIFIED_WINDOW`: valid timestamp, symbol, NY/DST conversion, and
+         configured schedule (`schedule_valid=True`, `session_group` valid), with
+         `eligible_for_macro_gate is True`.
+      2. `VALID_OUTSIDE_WINDOW`: valid timestamp, symbol, NY/DST conversion, and configured
+         schedule (`schedule_valid=True`, `session_group` valid), with
+         `eligible_for_macro_gate is False`.
+      3. `UNKNOWN_OR_INVALID_MACRO_STATE`: invalid timestamp, reversed arguments, invalid
+         schedule, unresolved calendar (`CALENDAR_UNVERIFIED`), `session_group == "INVALID"`,
+         incompatible symbol, or missing NY/DST fields.
+         NEVER converts an unknown/invalid macro state into `in_ict_macro_window = False`
+         or `ny_session_group = "INVALID"` (`PRESENT`).
+    """
+    violations: List[str] = []
+    ts_type_ok = (
+        isinstance(expected_decision_timestamp_ms, int)
+        and not isinstance(expected_decision_timestamp_ms, bool)
+        and expected_decision_timestamp_ms > 0
+    )
+    if not ts_type_ok:
+        violations.append(f"EXPECTED_DECISION_TS_INVALID:{expected_decision_timestamp_ms!r}")
+
+    sym_ok = isinstance(expected_symbol, str) and expected_symbol.strip().upper() == "XAUUSDT"
+    if not sym_ok:
+        violations.append(f"EXPECTED_SYMBOL_INVALID:{expected_symbol!r}")
+
+    st_sym = getattr(macro_st, "symbol", None)
+    if st_sym != "XAUUSDT":
+        violations.append(f"MACRO_STATE_SYMBOL_MISMATCH:{st_sym!r}!=XAUUSDT")
+
+    st_ts = getattr(macro_st, "decision_timestamp_ms", None)
+    is_valid_ts = getattr(macro_st, "is_valid_timestamp", None)
+    if is_valid_ts is not True:
+        violations.append(f"MACRO_STATE_TIMESTAMP_INVALID:{is_valid_ts!r}")
+    if ts_type_ok and st_ts != expected_decision_timestamp_ms:
+        violations.append(f"MACRO_STATE_TS_MISMATCH:{st_ts!r}!={expected_decision_timestamp_ms!r}")
+
+    sched_valid = getattr(macro_st, "schedule_valid", None)
+    if sched_valid is not True:
+        violations.append(f"MACRO_SCHEDULE_INVALID:{sched_valid!r}")
+
+    sess_grp = str(getattr(macro_st, "session_group", "") or "")
+    is_calendar_unverified_block = (sess_grp == "CALENDAR_UNVERIFIED")
+    if sess_grp in ("", "INVALID", "INVALID_SCHEDULE", "CALENDAR_UNVERIFIED"):
+        violations.append(f"MACRO_SESSION_GROUP_NOT_RESOLVED:{sess_grp!r}")
+
+    tz_name = getattr(macro_st, "timezone_name", None)
+    ny_iso = getattr(macro_st, "ny_local_iso", None)
+    ny_hhmm = getattr(macro_st, "ny_local_hhmm", None)
+    ny_wd = getattr(macro_st, "ny_weekday", None)
+    is_dst = getattr(macro_st, "is_dst", None)
+    utc_off = getattr(macro_st, "utc_offset_minutes", None)
+    if (
+        tz_name != "America/New_York"
+        or not isinstance(ny_iso, str)
+        or not ny_iso
+        or not isinstance(ny_hhmm, str)
+        or len(ny_hhmm) != 5
+        or not isinstance(ny_wd, int)
+        or isinstance(ny_wd, bool)
+        or ny_wd not in range(7)
+        or not isinstance(is_dst, bool)
+        or utc_off not in (-240, -300)
+    ):
+        violations.append(
+            f"MACRO_NY_DST_CONVERSION_INVALID:tz={tz_name!r},hhmm={ny_hhmm!r},dst={is_dst!r},off={utc_off!r}"
+        )
+
+    elig = getattr(macro_st, "eligible_for_macro_gate", None)
+    if not isinstance(elig, bool):
+        violations.append(f"MACRO_ELIGIBLE_NOT_BOOL:{elig!r}")
+
+    active_wids = tuple(getattr(macro_st, "active_window_ids", ()) or ())
+    prim_wid = str(getattr(macro_st, "primary_window_id", "") or "")
+    is_wknd = bool(getattr(macro_st, "is_weekend_or_closed", False))
+    is_hol = bool(getattr(macro_st, "is_holiday_closed", False))
+
+    if not violations and elig is True:
+        if is_wknd or is_hol or not active_wids or prim_wid in ("", "OUTSIDE_MACRO_WINDOW", "INVALID_TIMESTAMP", "INVALID_SCHEDULE"):
+            violations.append(
+                f"MACRO_ELIGIBLE_INCONSISTENT_WITH_WINDOW_STATE:wknd={is_wknd},hol={is_hol},active={active_wids},prim={prim_wid}"
+            )
+
+    if not violations:
+        category = "ELIGIBLE_IN_VERIFIED_WINDOW" if elig is True else "VALID_OUTSIDE_WINDOW"
+        is_valid_resolution = True
+        in_window_value: Optional[bool] = bool(elig)
+        session_value: Optional[str] = sess_grp
+        cell_state = "PRESENT"
+        in_window_proof = "PROVEN_TRUE" if elig is True else "PROVEN_FALSE"
+        session_proof = "MEASURED_VALUE"
+        source_origin = "RECONSTRUCTED_ASOF_RAW_BARS"
+    else:
+        category = "UNKNOWN_OR_INVALID_MACRO_STATE"
+        is_valid_resolution = False
+        in_window_value = None
+        session_value = None
+        if (
+            ts_type_ok
+            and sym_ok
+            and is_valid_ts is True
+            and sched_valid is True
+            and is_calendar_unverified_block
+        ):
+            cell_state = "MISSING"
+            in_window_proof = "UNKNOWN"
+            session_proof = "UNKNOWN"
+            source_origin = "MISSING"
+        else:
+            cell_state = "INVALID"
+            in_window_proof = "INVALID"
+            session_proof = "INVALID"
+            source_origin = "INVALID"
+
+    cal_status = str(getattr(macro_st, "calendar_verification_status", "CALENDAR_NOT_VERIFIED") or "CALENDAR_NOT_VERIFIED")
+    sched_src = str(getattr(macro_st, "source", "RESEARCH_HYPOTHESIS_CONFIG") or "RESEARCH_HYPOTHESIS_CONFIG")
+    return {
+        "macro_state_category": category,
+        "is_valid_macro_resolution": is_valid_resolution,
+        "in_ict_macro_window_value": in_window_value,
+        "ny_session_group_value": session_value,
+        "cell_state": cell_state,
+        "in_window_proof_state": in_window_proof,
+        "session_proof_state": session_proof,
+        "source_origin": source_origin,
+        "validation_violations": violations,
+        "raw_macro_diagnostics": {
+            "symbol": st_sym,
+            "decision_timestamp_ms": st_ts,
+            "is_valid_timestamp": bool(is_valid_ts) if isinstance(is_valid_ts, bool) else False,
+            "schedule_valid": bool(sched_valid) if isinstance(sched_valid, bool) else False,
+            "schedule_version": getattr(macro_st, "schedule_version", None),
+            "schedule_sha256": getattr(macro_st, "schedule_sha256", None),
+            "schedule_source": sched_src,
+            "exchange_calendar_verification_status": cal_status,
+            "schedule_provenance_disclosure": (
+                "Deterministic ICT America/New_York macro window configuration (DST-aware half-open [start, end)); "
+                f"official Bitget exchange holiday/maintenance calendar status is {cal_status} (never claimed as official exchange closure proof)."
+            ),
+            "timezone_name": tz_name,
+            "utc_iso": getattr(macro_st, "utc_iso", None),
+            "ny_local_iso": ny_iso,
+            "ny_local_date": getattr(macro_st, "ny_local_date", None),
+            "ny_local_hhmm": ny_hhmm,
+            "ny_weekday": ny_wd,
+            "utc_offset_minutes": utc_off,
+            "is_dst": is_dst,
+            "is_weekend_or_closed": is_wknd,
+            "is_holiday_closed": is_hol,
+            "primary_window_id": prim_wid,
+            "active_window_ids": list(active_wids),
+            "session_group": sess_grp,
+            "eligible_for_macro_gate_raw": elig,
+            "minutes_into_active_window": getattr(macro_st, "minutes_into_active_window", None),
+            "minutes_remaining_in_active_window": getattr(macro_st, "minutes_remaining_in_active_window", None),
+            "nearest_window_id": getattr(macro_st, "nearest_window_id", None),
+            "minutes_to_nearest_window": getattr(macro_st, "minutes_to_nearest_window", None),
+            "reason_codes": list(getattr(macro_st, "reason_codes", ()) or ()),
+        },
+    }
+
 
 def _make_feature_cell(
     feature_name: str,
@@ -485,30 +687,82 @@ def _make_feature_cell(
     known_at_ms: Optional[int],
     decision_ts_ms: int,
     raw_source_ids: Sequence[str],
+    source_origin: Optional[str] = None,
+    source_timeframe: Optional[str] = None,
+    closed_bar_close_ms: Optional[int] = None,
+    reconstruction_algo_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     if state not in ("PRESENT", "MISSING", "INVALID"):
         raise ValueError(f"INVALID_FEATURE_STATE:{feature_name}:{state}")
-    if known_at_ms is not None and int(known_at_ms) > int(decision_ts_ms):
-        raise ValueError(
-            f"CAUSAL_PRE_ENTRY_LOOKAHEAD_VIOLATION:{feature_name}:known_at_ms={known_at_ms}>decision_ts_ms={decision_ts_ms}"
-        )
-    src_list = [str(s) for s in raw_source_ids if s]
+    eff_origin = source_origin or (
+        "RECONSTRUCTED_ASOF_RAW_BARS"
+        if state == "PRESENT"
+        else ("MISSING" if state == "MISSING" else "INVALID")
+    )
+    if eff_origin not in VALID_SOURCE_ORIGINS_KH01A_R1:
+        raise ValueError(f"INVALID_FEATURE_SOURCE_ORIGIN:{feature_name}:{eff_origin}")
+    if state == "PRESENT" and eff_origin in ("MISSING", "INVALID"):
+        raise ValueError(f"PRESENT_FEATURE_WITH_NON_PRESENT_ORIGIN:{feature_name}:{eff_origin}")
+    if state == "MISSING" and value is not None:
+        raise ValueError(f"MISSING_FEATURE_MUST_HAVE_NULL_VALUE:{feature_name}:{value!r}")
+    if state == "INVALID" and value is not None:
+        raise ValueError(f"INVALID_FEATURE_MUST_HAVE_NULL_VALUE:{feature_name}:{value!r}")
+
+    if known_at_ms is not None:
+        if isinstance(known_at_ms, bool) or not isinstance(known_at_ms, int):
+            raise ValueError(f"INVALID_KNOWN_AT_MS_TYPE:{feature_name}:{known_at_ms!r}")
+        if int(known_at_ms) > int(decision_ts_ms):
+            raise ValueError(
+                f"CAUSAL_PRE_ENTRY_LOOKAHEAD_VIOLATION:{feature_name}:known_at_ms={known_at_ms}>decision_ts_ms={decision_ts_ms}"
+            )
+
+    eff_close_ms = closed_bar_close_ms if closed_bar_close_ms is not None else (
+        int(known_at_ms) if (state == "PRESENT" and known_at_ms is not None) else None
+    )
+    if eff_close_ms is not None:
+        if isinstance(eff_close_ms, bool) or not isinstance(eff_close_ms, int):
+            raise ValueError(f"INVALID_CLOSED_BAR_CLOSE_MS_TYPE:{feature_name}:{eff_close_ms!r}")
+        if int(eff_close_ms) > int(decision_ts_ms):
+            raise ValueError(
+                f"CAUSAL_PRE_ENTRY_BAR_CLOSE_LOOKAHEAD_VIOLATION:{feature_name}:closed_bar_close_ms={eff_close_ms}>decision_ts_ms={decision_ts_ms}"
+            )
+
+    src_list = [str(s).strip() for s in raw_source_ids if s and str(s).strip()]
+    if state == "PRESENT":
+        if not src_list and eff_origin in ("PERSISTED_VERIFIED_SNAPSHOT", "RECONSTRUCTED_ASOF_RAW_BARS"):
+            raise ValueError(f"MISSING_SOURCE_BAR_IDS_FOR_PRESENT_FEATURE:{feature_name}:{eff_origin}")
+        for sid in src_list:
+            up_sid = sid.upper()
+            if any(tok in up_sid for tok in _PLACEHOLDER_SOURCE_ID_TOKENS):
+                raise ValueError(f"PLACEHOLDER_SOURCE_ID_REJECTED:{feature_name}:{sid}")
+
+    eff_algo_sha = reconstruction_algo_sha256 or (
+        RECONSTRUCTION_ALGO_SHA256_KH01A_R1 if eff_origin == "RECONSTRUCTED_ASOF_RAW_BARS" else None
+    )
     ev_hash = canonical_hash(
         {
             "feature": feature_name,
             "value": value,
             "state": state,
             "proof_state": proof_state,
-            "known_at_ms": known_at_ms,
+            "source_origin": eff_origin,
+            "source_timeframe": source_timeframe,
+            "known_at_ms": int(known_at_ms) if known_at_ms is not None else None,
+            "closed_bar_close_ms": int(eff_close_ms) if eff_close_ms is not None else None,
             "raw_source_ids": src_list,
+            "reconstruction_algo_sha256": eff_algo_sha,
         }
     )
     return {
         "value": value,
         "state": state,
         "proof_state": proof_state,
+        "source_origin": eff_origin,
+        "source_timeframe": source_timeframe,
         "known_at_ms": int(known_at_ms) if known_at_ms is not None else None,
+        "closed_bar_close_ms": int(eff_close_ms) if eff_close_ms is not None else None,
         "raw_source_ids": src_list,
+        "reconstruction_algo_sha256": eff_algo_sha,
         "evidence_sha256": ev_hash,
     }
 
@@ -519,13 +773,25 @@ def classify_pre_entry_state_strictly_asof(
     direction: str,
     pre_entry_features: Mapping[str, Mapping[str, Any]],
     raw_snapshot_joined: bool,
+    original_snapshot_verified: bool = False,
+    asof_reconstruction_verified: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
-    Pure point-in-time pre-entry classifier.
+    Pure point-in-time pre-entry classifier (KH-01A.R1 hardened).
     STRUCTURAL ANTI-HINDSIGHT GUARANTEE: Does NOT accept `outcome_label`, `exit_type`,
     `exit_fill_price`, `realized_net_pnl_usd`, or `forward_bars`. Identical logic runs
     on both wins and losses.
+    R1 SEMANTIC GUARANTEES:
+      - `OUTSIDE_ICT_MACRO_WINDOW` is emitted ONLY when `in_ict_macro_window` has
+        `state == "PRESENT"` and `value is False`. Unknown/missing macro state emits
+        `ICT_MACRO_WINDOW_UNKNOWN` in `unknown_or_unproven_flags` and NEVER claims
+        a proven entry failure.
+      - Unknown/missing features (`sweep`, `MSS`, `Unicorn`, `HTF bias`, `target TF`)
+        are NEVER treated as proven `False`; they are recorded in `unknown_or_unproven_flags`.
+      - Row `evidence_completeness` is explicitly `"COMPLETE"`, `"PARTIAL"`, `"UNKNOWN"`,
+        or `"INVALID"`.
     """
+    eff_asof_verified = bool(raw_snapshot_joined) if asof_reconstruction_verified is None else bool(asof_reconstruction_verified)
     present_fields = sorted([k for k, v in pre_entry_features.items() if v.get("state") == "PRESENT"])
     missing_fields = sorted([k for k, v in pre_entry_features.items() if v.get("state") == "MISSING"])
     invalid_fields = sorted([k for k, v in pre_entry_features.items() if v.get("state") == "INVALID"])
@@ -534,13 +800,23 @@ def classify_pre_entry_state_strictly_asof(
         kn = v.get("known_at_ms")
         if kn is not None and int(kn) > int(decision_timestamp_ms):
             raise ValueError(f"CAUSAL_PRE_ENTRY_LOOKAHEAD_VIOLATION:{k}:{kn}>{decision_timestamp_ms}")
+        cb = v.get("closed_bar_close_ms")
+        if cb is not None and int(cb) > int(decision_timestamp_ms):
+            raise ValueError(f"CAUSAL_PRE_ENTRY_BAR_CLOSE_LOOKAHEAD_VIOLATION:{k}:{cb}>{decision_timestamp_ms}")
 
     if invalid_fields:
+        inv_unknown_flags = [f"INVALID_{f.upper()}" for f in invalid_fields]
+        if "in_ict_macro_window" in invalid_fields or "ny_session_group" in invalid_fields:
+            inv_unknown_flags.append("ICT_MACRO_WINDOW_UNKNOWN")
         return {
             "primary_pre_entry_code": "PRE_ENTRY_INVALID_EVIDENCE",
+            "evidence_completeness": "INVALID",
             "is_causally_observable_pre_entry": False,
             "raw_snapshot_joined": raw_snapshot_joined,
+            "original_snapshot_verified": bool(original_snapshot_verified),
+            "asof_reconstruction_verified": False,
             "active_pre_entry_risk_flags": ["INVALID_PRE_ENTRY_EVIDENCE"],
+            "unknown_or_unproven_flags": sorted(set(inv_unknown_flags)),
             "present_fields_count": len(present_fields),
             "missing_fields_count": len(missing_fields),
             "invalid_fields_count": len(invalid_fields),
@@ -551,9 +827,13 @@ def classify_pre_entry_state_strictly_asof(
     if not raw_snapshot_joined or not present_fields:
         return {
             "primary_pre_entry_code": "PRE_ENTRY_UNKNOWN",
+            "evidence_completeness": "UNKNOWN",
             "is_causally_observable_pre_entry": False,
             "raw_snapshot_joined": False,
+            "original_snapshot_verified": False,
+            "asof_reconstruction_verified": False,
             "active_pre_entry_risk_flags": [],
+            "unknown_or_unproven_flags": ["ALL_PRE_ENTRY_CONTEXT_UNJOINED"],
             "present_fields_count": len(present_fields),
             "missing_fields_count": len(missing_fields),
             "invalid_fields_count": 0,
@@ -565,40 +845,126 @@ def classify_pre_entry_state_strictly_asof(
     expected_htf = "BULLISH" if dir_up == "LONG" else "BEARISH"
     opposing_htf = "BEARISH" if dir_up == "LONG" else "BULLISH"
 
-    h4_b = str((pre_entry_features.get("h4_structure_bias") or {}).get("value") or "UNKNOWN").upper()
-    h1_b = str((pre_entry_features.get("h1_structure_bias") or {}).get("value") or "UNKNOWN").upper()
-    m15_b = str((pre_entry_features.get("m15_structure_bias") or {}).get("value") or "UNKNOWN").upper()
-    in_macro = (pre_entry_features.get("in_ict_macro_window") or {}).get("value")
-    uni_cls = str((pre_entry_features.get("unicorn_overlap_state") or {}).get("value") or "UNKNOWN").upper()
-    swp_ok = (pre_entry_features.get("liquidity_sweep_reclaim_confirmed") or {}).get("value")
-    mss_ok = (pre_entry_features.get("mss_bos_displacement_confirmed") or {}).get("value")
-    room_m1 = (pre_entry_features.get("target_distance_in_m1_atr") or {}).get("value")
-    net_rr = (pre_entry_features.get("cost_aware_net_rr") or {}).get("value")
-    gap_180m = (pre_entry_features.get("recent_m1_data_gap_within_180m") or {}).get("value")
+    def _cell(fk: str) -> Mapping[str, Any]:
+        c = pre_entry_features.get(fk)
+        return c if isinstance(c, Mapping) else {}
+
+    h4_c = _cell("h4_structure_bias")
+    h1_c = _cell("h1_structure_bias")
+    m15_c = _cell("m15_structure_bias")
+    macro_c = _cell("in_ict_macro_window")
+    sess_c = _cell("ny_session_group")
+    uni_c = _cell("unicorn_overlap_state")
+    swp_c = _cell("liquidity_sweep_reclaim_confirmed")
+    mss_c = _cell("mss_bos_displacement_confirmed")
+    room_m1_c = _cell("target_distance_in_m1_atr")
+    t_tf_c = _cell("target_source_timeframe")
+    rr_c = _cell("cost_aware_net_rr")
+    gap_c = _cell("recent_m1_data_gap_within_180m")
+
+    # Guard against poisoned ny_session_group == "INVALID" masquerading as PRESENT
+    if sess_c.get("state") == "PRESENT" and str(sess_c.get("value") or "").upper() in ("INVALID", "INVALID_SCHEDULE", "CALENDAR_UNVERIFIED"):
+        return {
+            "primary_pre_entry_code": "PRE_ENTRY_INVALID_EVIDENCE",
+            "evidence_completeness": "INVALID",
+            "is_causally_observable_pre_entry": False,
+            "raw_snapshot_joined": raw_snapshot_joined,
+            "original_snapshot_verified": bool(original_snapshot_verified),
+            "asof_reconstruction_verified": False,
+            "active_pre_entry_risk_flags": ["INVALID_PRE_ENTRY_EVIDENCE"],
+            "unknown_or_unproven_flags": ["ICT_MACRO_WINDOW_UNKNOWN"],
+            "present_fields_count": len(present_fields),
+            "missing_fields_count": len(missing_fields),
+            "invalid_fields_count": 1,
+            "missing_fields": missing_fields,
+            "invalid_fields": ["ny_session_group"],
+        }
 
     risk_flags: List[str] = []
-    if h4_b == opposing_htf or h1_b == opposing_htf:
-        risk_flags.append("COUNTER_HTF_H4_OR_H1_BIAS")
-    elif h4_b != expected_htf and h1_b != expected_htf:
-        risk_flags.append("NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE")
-    if m15_b == opposing_htf:
-        risk_flags.append("COUNTER_M15_STRUCTURE")
-    if in_macro is False:
-        risk_flags.append("OUTSIDE_ICT_MACRO_WINDOW")
-    if uni_cls not in ("TRUE_UNICORN_BREAKER_FVG", "VALID", "TRUE_UNICORN"):
-        risk_flags.append("NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP")
-    if swp_ok is not True:
-        risk_flags.append("SWEEP_RECLAIM_NOT_PROVEN")
-    if mss_ok is not True:
-        risk_flags.append("MSS_DISPLACEMENT_NOT_PROVEN")
-    if isinstance(room_m1, (int, float)) and float(room_m1) > 12.0:
-        risk_flags.append("TARGET_BEYOND_12_M1_ATR")
-    if isinstance(net_rr, (int, float)) and float(net_rr) < 2.0:
-        risk_flags.append("COST_AWARE_NET_RR_BELOW_2_0")
-    if gap_180m is True:
-        risk_flags.append("RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M")
+    unknown_flags: List[str] = []
 
-    # Deterministic hierarchical primary pre-entry condition (observable at t <= decision_timestamp_ms)
+    h4_present = h4_c.get("state") == "PRESENT" and str(h4_c.get("value") or "").upper() in ("BULLISH", "BEARISH", "NEUTRAL")
+    h1_present = h1_c.get("state") == "PRESENT" and str(h1_c.get("value") or "").upper() in ("BULLISH", "BEARISH", "NEUTRAL")
+    h4_b = str(h4_c.get("value")).upper() if h4_present else "UNKNOWN"
+    h1_b = str(h1_c.get("value")).upper() if h1_present else "UNKNOWN"
+
+    if not h4_present:
+        unknown_flags.append("H4_STRUCTURE_BIAS_UNKNOWN")
+    if not h1_present:
+        unknown_flags.append("H1_STRUCTURE_BIAS_UNKNOWN")
+
+    if (h4_present and h4_b == opposing_htf) or (h1_present and h1_b == opposing_htf):
+        risk_flags.append("COUNTER_HTF_H4_OR_H1_BIAS")
+    elif h4_present and h1_present and h4_b != expected_htf and h1_b != expected_htf:
+        risk_flags.append("NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE")
+    elif (h4_present and h4_b == "NEUTRAL" and not h1_present) or (h1_present and h1_b == "NEUTRAL" and not h4_present):
+        risk_flags.append("NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE")
+
+    m15_present = m15_c.get("state") == "PRESENT" and str(m15_c.get("value") or "").upper() in ("BULLISH", "BEARISH", "NEUTRAL")
+    if m15_present:
+        if str(m15_c.get("value")).upper() == opposing_htf:
+            risk_flags.append("COUNTER_M15_STRUCTURE")
+    else:
+        unknown_flags.append("M15_STRUCTURE_BIAS_UNKNOWN")
+
+    # D5: OUTSIDE_ICT_MACRO_WINDOW ONLY when macro fact is explicitly PRESENT, valid, and False!
+    if (
+        macro_c.get("state") == "PRESENT"
+        and isinstance(macro_c.get("value"), bool)
+        and sess_c.get("state") != "INVALID"
+    ):
+        if macro_c.get("value") is False:
+            risk_flags.append("OUTSIDE_ICT_MACRO_WINDOW")
+    else:
+        unknown_flags.append("ICT_MACRO_WINDOW_UNKNOWN")
+
+    # E4: Never treat missing/unknown Unicorn, sweep, or MSS as proven negative failure!
+    uni_present = uni_c.get("state") == "PRESENT" and str(uni_c.get("value") or "").strip().upper() not in ("", "UNKNOWN")
+    if uni_present:
+        uni_cls = str(uni_c.get("value")).strip().upper()
+        if uni_cls not in ("TRUE_UNICORN_BREAKER_FVG", "UNICORN_CONFIRMED", "VALID", "TRUE_UNICORN"):
+            risk_flags.append("NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP")
+    else:
+        unknown_flags.append("TRUE_UNICORN_OVERLAP_UNKNOWN")
+
+    if swp_c.get("state") == "PRESENT" and isinstance(swp_c.get("value"), bool):
+        if swp_c.get("value") is False:
+            risk_flags.append("SWEEP_RECLAIM_PROVEN_FALSE")
+    else:
+        unknown_flags.append("SWEEP_RECLAIM_UNKNOWN")
+
+    if mss_c.get("state") == "PRESENT" and isinstance(mss_c.get("value"), bool):
+        if mss_c.get("value") is False:
+            risk_flags.append("MSS_DISPLACEMENT_PROVEN_FALSE")
+    else:
+        unknown_flags.append("MSS_DISPLACEMENT_UNKNOWN")
+
+    if t_tf_c.get("state") != "PRESENT":
+        unknown_flags.append("TARGET_SOURCE_TIMEFRAME_UNKNOWN")
+
+    room_m1 = room_m1_c.get("value") if room_m1_c.get("state") == "PRESENT" else None
+    if isinstance(room_m1, (int, float)) and not isinstance(room_m1, bool):
+        if float(room_m1) > 12.0:
+            risk_flags.append("TARGET_BEYOND_12_M1_ATR")
+    else:
+        unknown_flags.append("TARGET_DISTANCE_M1_ATR_UNKNOWN")
+
+    net_rr = rr_c.get("value") if rr_c.get("state") == "PRESENT" else None
+    if isinstance(net_rr, (int, float)) and not isinstance(net_rr, bool):
+        if float(net_rr) < 2.0:
+            risk_flags.append("COST_AWARE_NET_RR_BELOW_2_0")
+    else:
+        unknown_flags.append("COST_AWARE_NET_RR_UNKNOWN")
+
+    if gap_c.get("state") == "PRESENT" and isinstance(gap_c.get("value"), bool):
+        if gap_c.get("value") is True:
+            risk_flags.append("RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M")
+    else:
+        unknown_flags.append("RECENT_M1_DATA_GAP_UNKNOWN")
+
+    completeness = "COMPLETE" if len(missing_fields) == 0 else "PARTIAL"
+
+    # Deterministic hierarchical primary pre-entry condition strictly from PROVEN pre-entry facts
     if "COUNTER_HTF_H4_OR_H1_BIAS" in risk_flags:
         primary_code = "COUNTER_HTF_H4_OR_H1_BIAS"
     elif "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE" in risk_flags:
@@ -609,18 +975,26 @@ def classify_pre_entry_state_strictly_asof(
         primary_code = "TARGET_BEYOND_12_M1_ATR"
     elif "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP" in risk_flags:
         primary_code = "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP"
-    elif "SWEEP_RECLAIM_NOT_PROVEN" in risk_flags or "MSS_DISPLACEMENT_NOT_PROVEN" in risk_flags:
-        primary_code = "UNCONFIRMED_LTF_SWEEP_OR_MSS_DISPLACEMENT"
+    elif "SWEEP_RECLAIM_PROVEN_FALSE" in risk_flags or "MSS_DISPLACEMENT_PROVEN_FALSE" in risk_flags:
+        primary_code = "PROVEN_FALSE_LTF_SWEEP_OR_MSS_DISPLACEMENT"
+    elif "COST_AWARE_NET_RR_BELOW_2_0" in risk_flags:
+        primary_code = "COST_AWARE_NET_RR_BELOW_2_0"
     elif "RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M" in risk_flags:
         primary_code = "RECENT_PRE_ENTRY_M1_GAP_WITHIN_180M"
-    else:
+    elif completeness == "COMPLETE":
         primary_code = "ALL_CHECKED_PRE_ENTRY_CONDITIONS_ALIGNED"
+    else:
+        primary_code = "ALIGNED_ON_PRESENT_FIELDS_WITH_PARTIAL_UNKNOWN_EVIDENCE"
 
     return {
         "primary_pre_entry_code": primary_code,
+        "evidence_completeness": completeness,
         "is_causally_observable_pre_entry": True,
         "raw_snapshot_joined": True,
+        "original_snapshot_verified": bool(original_snapshot_verified),
+        "asof_reconstruction_verified": eff_asof_verified,
         "active_pre_entry_risk_flags": risk_flags,
+        "unknown_or_unproven_flags": unknown_flags,
         "present_fields_count": len(present_fields),
         "missing_fields_count": len(missing_fields),
         "invalid_fields_count": 0,
@@ -727,12 +1101,24 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
     datasets: Optional[Mapping[str, Sequence[Mapping[str, Any]]]] = None,
     close_ts_index: Optional[Mapping[str, Sequence[int]]] = None,
     dataset_sha256: str = CANONICAL_DATASET_SHA256_KH01A,
+    macro_schedule_config: Optional[Mapping[str, Any]] = None,
+    _macro_resolver_override: Optional[Callable[..., Any]] = None,
 ) -> Dict[str, Any]:
     """
-    KH-01A Section 3: Joins every closed SI0 loss (157) + closed SI0 win control (9) + SI8/SI9
-    research losses (4 + 2, 2 shared = 4 unique) by stable `opportunity_id` to point-in-time
-    `MarketDecisionContext`, `StrategyDecisionSnapshot`, `SignalQualityEvidenceV1793122`,
-    `MacroTimeWindowState`, and verified `CausalFeatureSnapshot`.
+    KH-01A / KH-01A.R1 Section 3: Joins every closed SI0 loss (157) + closed SI0 win control (9) +
+    SI8/SI9 research losses (4 + 2, 2 shared = 4 unique) by stable `opportunity_id` to point-in-time
+    reconstructed `MarketDecisionContext`, `StrategyDecisionSnapshot`, `SignalQualityEvidenceV1793122`,
+    validated `MacroTimeWindowState` (keyword arguments enforced), and verified `CausalFeatureSnapshot`
+    (`07_verified_causal_features.jsonl.gz`).
+
+    R1 Provenance Honesty Guarantees:
+      - Per-feature `source_origin` distinguishes `PERSISTED_VERIFIED_SNAPSHOT`,
+        `RECONSTRUCTED_ASOF_RAW_BARS`, `LEDGER_ONLY_UNVERIFIED`, `MISSING`, and `INVALID`.
+      - Never claims full original runtime `MarketDecisionContext` persistence where not stored
+        (`full_original_runtime_context_status = "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS"`).
+      - Compares persisted `10_canonical_decision_inputs` fingerprints against as-of reconstructed
+        `StrategyDecisionSnapshot` fingerprints (`MATCH` / `MISMATCH` / `NOT_COMPARABLE`).
+      - Never infers `sweep_confirmed` or `mss_confirmed` from `bool(snap.selected_...)`.
     """
     seen_si0_ids: Set[str] = set()
     for ep in si0_all_primary_episodes:
@@ -762,6 +1148,21 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
     bars_4h = list(datasets.get("4H") or []) if isinstance(datasets, Mapping) else []
     bars_1d = list(datasets.get("1D") or []) if isinstance(datasets, Mapping) else []
 
+    bar_close_by_tf_open: Dict[Tuple[str, int], int] = {}
+    for tf_u, b_seq, def_span in (
+        ("1M", bars_1m, 60_000),
+        ("5M", bars_5m, 300_000),
+        ("15M", bars_15m, 900_000),
+        ("1H", bars_1h, 3_600_000),
+        ("4H", bars_4h, 14_400_000),
+        ("1D", bars_1d, 86_400_000),
+    ):
+        for b in b_seq:
+            o_ms = int(b.get("open_time") or b.get("timestamp") or 0)
+            c_ms = int(b.get("close_time") or (o_ms + def_span))
+            if o_ms > 0:
+                bar_close_by_tf_open[(tf_u, o_ms)] = c_ms
+
     eff_close_ts = (
         close_ts_index
         if close_ts_index is not None
@@ -776,6 +1177,135 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
     close_1d = [int(b.get("close_time") or (int(b.get("timestamp") or 0) + 86_400_000)) for b in bars_1d]
 
     evaluator = SharedStrategyEvaluator() if bars_1m else None
+    variant_ctx_builder = None
+    pol_a1_fast: Optional[Dict[str, Any]] = None
+    if bars_1m:
+        try:
+            from tools.run_v17_9_3_macro_unicorn_backtest import (
+                V1793_VARIANT_POLICIES,
+                build_v1793_variant_market_context,
+            )
+
+            variant_ctx_builder = build_v1793_variant_market_context
+            pol_a1_fast = dict(V1793_VARIANT_POLICIES["A1_V1792_SL_TP_BASELINE"])
+            pol_a1_fast["mtf_structure_observe_only"] = False
+        except Exception:
+            variant_ctx_builder = None
+            pol_a1_fast = None
+
+    def _build_asof_a1_context(asof_ts_ms: int) -> Tuple[Any, Dict[str, Any]]:
+        j1 = bisect.bisect_right(close_1m, asof_ts_ms)
+        j5 = bisect.bisect_right(close_5m, asof_ts_ms)
+        j15 = bisect.bisect_right(close_15m, asof_ts_ms)
+        jh1 = bisect.bisect_right(close_1h, asof_ts_ms)
+        jh4 = bisect.bisect_right(close_4h, asof_ts_ms)
+        jd1 = bisect.bisect_right(close_1d, asof_ts_ms)
+
+        m1_sl = bars_1m[max(0, j1 - 120) : j1]
+        m5_sl = bars_5m[max(0, j5 - 96) : j5]
+        m15_sl = bars_15m[max(0, j15 - 96) : j15]
+        h1_sl = bars_1h[max(0, jh1 - 96) : jh1]
+        h4_sl = bars_4h[max(0, jh4 - 64) : jh4]
+        d1_sl = bars_1d[max(0, jd1 - 30) : jd1]
+
+        for tf_name, sl_seq, def_sp in (
+            ("1M", m1_sl, 60_000),
+            ("5M", m5_sl, 300_000),
+            ("15M", m15_sl, 900_000),
+            ("1H", h1_sl, 3_600_000),
+            ("4H", h4_sl, 14_400_000),
+            ("1D", d1_sl, 86_400_000),
+        ):
+            if sl_seq:
+                last_b = sl_seq[-1]
+                last_c = int(last_b.get("close_time") or (int(last_b.get("open_time") or last_b.get("timestamp") or 0) + def_sp))
+                if last_c > asof_ts_ms:
+                    raise ValueError(
+                        f"CAUSAL_SLICE_FUTURE_BAR_DETECTED:{tf_name}:close_time={last_c}>decision_ts={asof_ts_ms}"
+                    )
+
+        last_m1_b = m1_sl[-1]
+        last_m1_o = int(last_m1_b.get("open_time") or last_m1_b.get("timestamp") or 0)
+        last_m1_c = int(last_m1_b.get("close_time") or asof_ts_ms)
+        cur_close_px = float(last_m1_b["close"])
+
+        base_in = {
+            "symbol": "XAUUSDT",
+            "decision_timestamp_ms": asof_ts_ms,
+            "m1_candles": m1_sl,
+            "m5_candles": m5_sl,
+            "m15_candles": m15_sl,
+            "h1_candles": h1_sl,
+            "h4_candles": h4_sl,
+            "d1_candles": d1_sl,
+            "bid": round(cur_close_px - 0.10, 2),
+            "ask": round(cur_close_px + 0.10, 2),
+        }
+        if variant_ctx_builder is not None and pol_a1_fast is not None:
+            ctx_obj = variant_ctx_builder(base_in, pol_a1_fast, decision_time=asof_ts_ms)
+        else:
+            ctx_obj = build_market_decision_context(
+                **base_in,
+                quote_timestamp_ms=last_m1_c,
+                quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
+            )
+        slices_meta = {
+            "j1": j1,
+            "m1_slice": m1_sl,
+            "m5_slice": m5_sl,
+            "m15_slice": m15_sl,
+            "h1_slice": h1_sl,
+            "h4_slice": h4_sl,
+            "d1_slice": d1_sl,
+            "last_m1_open_ms": last_m1_o,
+            "last_m1_close_ms": last_m1_c,
+        }
+        return ctx_obj, slices_meta
+
+    def _verify_source_bar_ids_exist_and_closed(
+        src_ids: Sequence[str],
+        decision_ts_ms: int,
+        feature_key: str,
+    ) -> Tuple[List[str], int]:
+        cleaned = [str(s).strip() for s in src_ids if s and str(s).strip()]
+        if not cleaned:
+            raise ValueError(f"EMPTY_PERSISTED_SOURCE_BAR_IDS:{feature_key}")
+        max_close_seen = 0
+        for sid in cleaned:
+            up = sid.upper()
+            if any(tok in up for tok in _PLACEHOLDER_SOURCE_ID_TOKENS):
+                raise ValueError(f"PLACEHOLDER_SOURCE_BAR_ID_REJECTED:{feature_key}:{sid}")
+            parts = sid.split(":")
+            if bar_close_by_tf_open and len(parts) >= 3 and parts[0].upper() == "XAUUSDT":
+                tf_u = parts[1].upper()
+                try:
+                    o_ms = int(parts[2])
+                except ValueError as exc:
+                    raise ValueError(f"MALFORMED_SOURCE_BAR_OPEN_MS:{feature_key}:{sid}") from exc
+                c_ms = bar_close_by_tf_open.get((tf_u, o_ms))
+                if c_ms is None:
+                    raise ValueError(f"NONEXISTENT_SOURCE_BAR_ID_IN_CANONICAL_DATASET:{feature_key}:{sid}")
+                if c_ms > decision_ts_ms:
+                    raise ValueError(
+                        f"CAUSAL_PRE_ENTRY_BAR_CLOSE_LOOKAHEAD_VIOLATION:{feature_key}:{sid}:close_ms={c_ms}>decision_ts={decision_ts_ms}"
+                    )
+                max_close_seen = max(max_close_seen, c_ms)
+        return cleaned, max_close_seen
+
+    def _parse_target_tf_from_pool_id(pool_id: str) -> str:
+        pid = str(pool_id or "").strip()
+        if not pid:
+            return "UNKNOWN"
+        parts = pid.split("_")
+        if pid.startswith("pool_") and len(parts) >= 2:
+            cand = parts[1].upper()
+            if cand in ("1M", "5M", "15M", "1H", "4H"):
+                return cand
+        if parts:
+            cand0 = parts[0].upper()
+            if cand0 in ("1M", "5M", "15M", "1H", "4H"):
+                return cand0
+        return "UNKNOWN"
 
     def _build_single_casebook_row(ep: Mapping[str, Any], population_role: str) -> Dict[str, Any]:
         oid = str(ep.get("opportunity_id") or "")
@@ -785,17 +1315,27 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         dec_in = (decision_inputs_by_opp_id or {}).get(oid) if decision_inputs_by_opp_id is not None else None
         feat_in = (feature_ledger_by_opp_id or {}).get(oid) if feature_ledger_by_opp_id is not None else None
 
-        if feat_in is not None and not verify_feature_snapshot_v1793127(feat_in):
-            raise ValueError(f"INVALID_OR_FUTURE_LEAKED_FEATURE_SNAPSHOT:{oid}")
+        if dec_in is not None and str(dec_in.get("opportunity_id") or oid) != oid:
+            raise ValueError(f"MISMATCHED_DECISION_INPUT_OPPORTUNITY_ID:{oid}!={dec_in.get('opportunity_id')}")
 
-        dec_ts = int(
+        if feat_in is not None:
+            if str(feat_in.get("opportunity_id") or oid) != oid:
+                raise ValueError(f"MISMATCHED_FEATURE_LEDGER_OPPORTUNITY_ID:{oid}!={feat_in.get('opportunity_id')}")
+            feat_ds_sha = str(feat_in.get("source_dataset_sha256") or "")
+            if feat_ds_sha and feat_ds_sha != dataset_sha256:
+                raise ValueError(f"STALE_FEATURE_LEDGER_DATASET_SHA:{oid}:{feat_ds_sha}!={dataset_sha256}")
+            if not verify_feature_snapshot_v1793127(feat_in):
+                raise ValueError(f"INVALID_OR_FUTURE_LEAKED_FEATURE_SNAPSHOT:{oid}")
+
+        dec_ts_raw = (
             ep.get("decision_timestamp_ms")
             or led.get("decision_ts")
             or (dec_in or {}).get("decision_timestamp_ms")
             or 0
         )
-        if dec_ts <= 0:
-            raise ValueError(f"INVALID_DECISION_TIMESTAMP_MS:{oid}:{dec_ts}")
+        if isinstance(dec_ts_raw, bool) or not isinstance(dec_ts_raw, int) or int(dec_ts_raw) <= 0:
+            raise ValueError(f"INVALID_DECISION_TIMESTAMP_MS:{oid}:{dec_ts_raw!r}")
+        dec_ts = int(dec_ts_raw)
 
         direction = str(ep.get("direction") or (dec_in or {}).get("direction") or "").strip().upper()
         if direction not in ("LONG", "SHORT"):
@@ -817,65 +1357,188 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
 
         raw_joined = False
         pre_features: Dict[str, Dict[str, Any]] = {}
+        macro_validation: Optional[Dict[str, Any]] = None
+        provenance_summary: Dict[str, Any]
 
         i1 = bisect.bisect_right(close_1m, dec_ts) if close_1m else 0
         has_point_in_time_m1 = bool(bars_1m and i1 > 0)
 
+        # Also validate any explicit evidence_refs passed on feat_in (fail-closed on lookahead/bad IDs)
+        explicit_refs = (feat_in or {}).get("evidence_refs") if isinstance((feat_in or {}).get("evidence_refs"), Mapping) else {}
+        for ref_k, ref_v in explicit_refs.items():
+            if isinstance(ref_v, Mapping):
+                rk_ms = ref_v.get("known_at_ms")
+                if rk_ms is not None and int(rk_ms) > dec_ts:
+                    raise ValueError(f"CAUSAL_PRE_ENTRY_LOOKAHEAD_VIOLATION:{ref_k}:{rk_ms}>{dec_ts}")
+                rc_ms = ref_v.get("source_bar_close_ms") or ref_v.get("closed_bar_close_ms")
+                if rc_ms is not None and int(rc_ms) > dec_ts:
+                    raise ValueError(f"CAUSAL_PRE_ENTRY_BAR_CLOSE_LOOKAHEAD_VIOLATION:{ref_k}:{rc_ms}>{dec_ts}")
+                r_sids = ref_v.get("source_bar_ids") or ref_v.get("source_ids")
+                if r_sids is not None:
+                    _verify_source_bar_ids_exist_and_closed(r_sids, dec_ts, str(ref_k))
+
+        # Index persisted verified CausalFeatureSnapshot items when captured at exact dec_ts
+        persisted_items_by_type: Dict[str, Mapping[str, Any]] = {}
+        persisted_snapshot_exact_ts = (
+            feat_in is not None
+            and isinstance(feat_in.get("causal_snapshot"), Mapping)
+            and int(feat_in.get("decision_timestamp_ms") or 0) == dec_ts
+        )
+        if persisted_snapshot_exact_ts:
+            cs_feats = feat_in["causal_snapshot"].get("features")  # type: ignore[index]
+            if isinstance(cs_feats, Sequence):
+                for f_item in cs_feats:
+                    if isinstance(f_item, Mapping) and f_item.get("evidence_type"):
+                        persisted_items_by_type[str(f_item["evidence_type"])] = f_item
+
+        def _extract_persisted_verified_meta(ev_type: str) -> Optional[Dict[str, Any]]:
+            p_item = persisted_items_by_type.get(ev_type)
+            if not isinstance(p_item, Mapping):
+                return None
+            p_state = str(p_item.get("proof_state") or "UNKNOWN")
+            if p_state not in ("MEASURED_VALUE", "PROVEN_TRUE", "PROVEN_FALSE"):
+                return None
+            k_ms = p_item.get("known_at_ms")
+            sb_close = p_item.get("source_bar_close_ms")
+            s_ids = p_item.get("source_bar_ids") or []
+            if k_ms is None or sb_close is None or not s_ids:
+                return None
+            if int(k_ms) > dec_ts or int(sb_close) > dec_ts:
+                raise ValueError(
+                    f"CAUSAL_PRE_ENTRY_LOOKAHEAD_VIOLATION:{ev_type}:known={k_ms},close={sb_close},dec={dec_ts}"
+                )
+            verified_sids, max_c = _verify_source_bar_ids_exist_and_closed(s_ids, dec_ts, ev_type)
+            eff_c = max(int(sb_close), max_c) if max_c > 0 else int(sb_close)
+            return {
+                "measured_value": p_item.get("measured_value"),
+                "proof_state": p_state,
+                "known_at_ms": int(k_ms),
+                "closed_bar_close_ms": eff_c,
+                "raw_source_ids": verified_sids,
+                "timeframe": str(p_item.get("timeframe") or "").upper() or None,
+                "evidence_id": p_item.get("evidence_id"),
+            }
+
         if has_point_in_time_m1 and evaluator is not None and model_id:
+            from types import SimpleNamespace
+
             raw_joined = True
-            i5 = bisect.bisect_right(close_5m, dec_ts)
-            i15 = bisect.bisect_right(close_15m, dec_ts)
-            ih1 = bisect.bisect_right(close_1h, dec_ts)
-            ih4 = bisect.bisect_right(close_4h, dec_ts)
-            id1 = bisect.bisect_right(close_1d, dec_ts)
+            ctx, sl_meta = _build_asof_a1_context(dec_ts)
+            m1_slice = sl_meta["m1_slice"]
+            m5_slice = sl_meta["m5_slice"]
+            m15_slice = sl_meta["m15_slice"]
+            h1_slice = sl_meta["h1_slice"]
+            h4_slice = sl_meta["h4_slice"]
+            last_m1_open_ms = int(sl_meta["last_m1_open_ms"])
+            last_m1_close_ms = int(sl_meta["last_m1_close_ms"])
+            last_m1_id = f"XAUUSDT:1m:{last_m1_open_ms}"
 
-            m1_slice = bars_1m[max(0, i1 - 240) : i1]
-            m5_slice = bars_5m[max(0, i5 - 120) : i5]
-            m15_slice = bars_15m[max(0, i15 - 120) : i15]
-            h1_slice = bars_1h[max(0, ih1 - 120) : ih1]
-            h4_slice = bars_4h[max(0, ih4 - 120) : ih4]
-            d1_slice = bars_1d[max(0, id1 - 60) : id1]
-
-            last_m1 = m1_slice[-1]
-            last_m1_close_ms = int(last_m1.get("close_time") or dec_ts)
-            last_m1_id = f"1m:{int(last_m1.get('open_time') or last_m1.get('timestamp') or 0)}:{last_m1_close_ms}"
-            cur_px = float(last_m1["close"])
-
-            ctx = build_market_decision_context(
-                symbol="XAUUSDT",
-                decision_timestamp_ms=dec_ts,
-                m1_candles=m1_slice,
-                m5_candles=m5_slice,
-                m15_candles=m15_slice,
-                h1_candles=h1_slice,
-                h4_candles=h4_slice,
-                d1_candles=d1_slice,
-                bid=round(cur_px - 0.10, 2),
-                ask=round(cur_px + 0.10, 2),
-                quote_timestamp_ms=last_m1_close_ms,
-                quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
-            )
             snap: StrategyDecisionSnapshot = evaluator.evaluate_model_direction(
                 context=ctx,
                 model_id=model_id,
                 direction=direction,
             )
-            sq_ev = build_signal_quality_evidence_v1793122(
-                context=ctx,
-                model_id=model_id,
-                direction=direction,
-                entry_price=entry_ref,
-                selected_sl=sel_sl if sel_sl > 0 else snap.selected_sl,
-                take_profit=sel_tp if sel_tp > 0 else snap.take_profit,
-                selected_target_id=snap.selected_target_id,
-                atr_m1=ctx.atr_m1,
-                atr_m5=ctx.atr_m5,
+
+            # When no persisted verified snapshot exists at exact `dec_ts` (e.g. delayed-entry SI8/SI9
+            # confirmation bar or unit test), reconstruct tri-state causal features as-of `dec_ts` using
+            # the authoritative V17.9.3.1.2.7/8 detector (`Missing proof stays UNKNOWN`, never boolean False!).
+            reconstructed_v7_items: Dict[str, Mapping[str, Any]] = {}
+            reconstructed_v7_doc: Optional[Dict[str, Any]] = None
+            if not persisted_snapshot_exact_ts:
+                j1_v7 = int(sl_meta["j1"])
+                j5_v7 = bisect.bisect_right(close_5m, dec_ts)
+                j15_v7 = bisect.bisect_right(close_15m, dec_ts)
+                jh1_v7 = bisect.bisect_right(close_1h, dec_ts)
+                jh4_v7 = bisect.bisect_right(close_4h, dec_ts)
+                cur_px_v7 = float(m1_slice[-1]["close"])
+                v7_ctx = SimpleNamespace(
+                    symbol="XAUUSDT",
+                    decision_timestamp_ms=dec_ts,
+                    closed_m1_candles=bars_1m[max(0, j1_v7 - 181) : j1_v7],
+                    closed_m5_candles=bars_5m[max(0, j5_v7 - 80) : j5_v7],
+                    closed_m15_candles=bars_15m[max(0, j15_v7 - 80) : j15_v7],
+                    closed_h1_candles=bars_1h[max(0, jh1_v7 - 80) : jh1_v7],
+                    closed_h4_candles=bars_4h[max(0, jh4_v7 - 80) : jh4_v7],
+                    bid=round(cur_px_v7 - 0.10, 2),
+                    ask=round(cur_px_v7 + 0.10, 2),
+                    quote_source_kind="SYNTHETIC_RESEARCH_QUOTE",
+                )
+                v7_dec = {
+                    "opportunity_id": oid,
+                    "setup_episode_id": str(ep.get("setup_episode_id") or snap.setup_episode_id or oid),
+                    "decision_timestamp_ms": dec_ts,
+                    "model_id": model_id,
+                    "direction": direction,
+                    "entry_reference": entry_ref,
+                    "selected_sl": sel_sl if sel_sl > 0 else snap.selected_sl,
+                    "take_profit": sel_tp if sel_tp > 0 else snap.take_profit,
+                    "hypothetical_quantity": snap.hypothetical_quantity,
+                    "selected_anchor_id": snap.selected_anchor_id,
+                    "selected_target_id": snap.selected_target_id,
+                    "structural_invalidation_price": snap.structural_invalidation_price,
+                    "selected_fvg_id": snap.selected_fvg_id,
+                    "selected_breaker_id": getattr(snap, "selected_breaker_id", None),
+                    "selected_sweep_id": snap.selected_sweep_id,
+                    "selected_break_id": snap.selected_break_id,
+                }
+                reconstructed_v7_doc = derive_pre_entry_features_from_causal_context_v1793127(
+                    v7_dec, v7_ctx, dataset_sha256=dataset_sha256
+                )
+                for f_item in (reconstructed_v7_doc.get("causal_snapshot") or {}).get("features", ()):
+                    if isinstance(f_item, Mapping) and f_item.get("evidence_type"):
+                        reconstructed_v7_items[str(f_item["evidence_type"])] = f_item
+
+            def _extract_reconstructed_v7_meta(ev_type: str) -> Optional[Dict[str, Any]]:
+                r_item = reconstructed_v7_items.get(ev_type)
+                if not isinstance(r_item, Mapping):
+                    return None
+                p_state = str(r_item.get("proof_state") or "UNKNOWN")
+                if p_state not in ("MEASURED_VALUE", "PROVEN_TRUE", "PROVEN_FALSE"):
+                    return None
+                k_ms = r_item.get("known_at_ms")
+                sb_close = r_item.get("source_bar_close_ms")
+                s_ids = r_item.get("source_bar_ids") or []
+                if k_ms is None or sb_close is None or not s_ids:
+                    return None
+                verified_sids, max_c = _verify_source_bar_ids_exist_and_closed(s_ids, dec_ts, ev_type)
+                eff_c = max(int(sb_close), max_c) if max_c > 0 else int(sb_close)
+                return {
+                    "measured_value": r_item.get("measured_value"),
+                    "proof_state": p_state,
+                    "known_at_ms": int(k_ms),
+                    "closed_bar_close_ms": eff_c,
+                    "raw_source_ids": verified_sids,
+                    "timeframe": str(r_item.get("timeframe") or "").upper() or None,
+                }
+
+            # KH-01A.R1 Phase 1 (D1): Exact keyword argument call to resolve_causal_macro_time_window!
+            if _macro_resolver_override is not None:
+                macro_st = _macro_resolver_override(
+                    decision_timestamp_ms=dec_ts,
+                    symbol="XAUUSDT",
+                )
+            elif macro_schedule_config is None:
+                macro_st = resolve_causal_macro_time_window(
+                    decision_timestamp_ms=dec_ts,
+                    symbol="XAUUSDT",
+                )
+            else:
+                macro_st = resolve_causal_macro_time_window(
+                    decision_timestamp_ms=dec_ts,
+                    symbol="XAUUSDT",
+                    schedule_config=macro_schedule_config,
+                )
+
+            macro_validation = validate_and_classify_macro_state_kh01a_r1(
+                macro_st,
+                expected_decision_timestamp_ms=dec_ts,
+                expected_symbol="XAUUSDT",
             )
-            macro_st = resolve_causal_macro_time_window("XAUUSDT", dec_ts)
 
             # Check recent M1 gap within [dec_ts - 180m, dec_ts]
             recent_m1_gap = False
-            gap_check_bars = bars_1m[max(0, i1 - 181) : i1]
+            j1_full = int(sl_meta["j1"])
+            gap_check_bars = bars_1m[max(0, j1_full - 181) : j1_full]
             for gi in range(1, len(gap_check_bars)):
                 pc = int(gap_check_bars[gi - 1]["close_time"])
                 cc = int(gap_check_bars[gi]["close_time"])
@@ -883,125 +1546,356 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
                     recent_m1_gap = True
                     break
 
-            # Feature refs from 07_verified_causal_features if available
-            f_refs = (feat_in or {}).get("evidence_refs") if isinstance((feat_in or {}).get("evidence_refs"), Mapping) else {}
+            def _tf_last_bar_meta(sl_bars: Sequence[Mapping[str, Any]], tf_tag: str, def_span: int) -> Tuple[Optional[int], List[str]]:
+                if not sl_bars:
+                    return None, []
+                lb = sl_bars[-1]
+                lo = int(lb.get("open_time") or lb.get("timestamp") or 0)
+                lc = int(lb.get("close_time") or (lo + def_span))
+                return lc, [f"XAUUSDT:{tf_tag.lower()}:{lo}"]
 
-            def _ref_meta(fkey: str, fallback_ms: int, fallback_ids: Sequence[str]) -> Tuple[int, List[str], str]:
-                r_obj = f_refs.get(fkey) if isinstance(f_refs, Mapping) else None
-                if isinstance(r_obj, Mapping):
-                    k_ms = int(r_obj.get("known_at_ms") or fallback_ms)
-                    s_ids = list(r_obj.get("source_bar_ids") or r_obj.get("source_ids") or fallback_ids)
-                    p_st = str(r_obj.get("proof_state") or "MEASURED_VALUE")
-                    return k_ms, s_ids, p_st
-                return fallback_ms, list(fallback_ids), "MEASURED_VALUE"
-
-            h4_last_ms = int(h4_slice[-1]["close_time"]) if h4_slice else last_m1_close_ms
-            h1_last_ms = int(h1_slice[-1]["close_time"]) if h1_slice else last_m1_close_ms
-            m15_last_ms = int(m15_slice[-1]["close_time"]) if m15_slice else last_m1_close_ms
-            h4_id = f"4H:{h4_last_ms}" if h4_slice else last_m1_id
-            h1_id = f"1H:{h1_last_ms}" if h1_slice else last_m1_id
-            m15_id = f"15m:{m15_last_ms}" if m15_slice else last_m1_id
-
-            h4_bias_val = str(getattr(sq_ev, "h4_structure_bias", None) or (feat_in or {}).get("h4_bias") or "UNKNOWN").upper()
-            h1_bias_val = str(getattr(sq_ev, "h1_structure_bias", None) or (feat_in or {}).get("h1_bias") or "UNKNOWN").upper()
-            m15_bias_val = str(getattr(sq_ev, "m15_structure_bias", None) or (feat_in or {}).get("m15_bias") or "UNKNOWN").upper()
+            h4_last_ms, h4_ids = _tf_last_bar_meta(h4_slice, "4h", 14_400_000)
+            h1_last_ms, h1_ids = _tf_last_bar_meta(h1_slice, "1h", 3_600_000)
+            m15_last_ms, m15_ids = _tf_last_bar_meta(m15_slice, "15m", 900_000)
+            m5_last_ms, m5_ids = _tf_last_bar_meta(m5_slice, "5m", 300_000)
 
             pre_features["model_id"] = _make_feature_cell(
-                "model_id", model_id, state="PRESENT", proof_state="MEASURED_VALUE",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                "model_id",
+                model_id,
+                state="PRESENT",
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms,
+                closed_bar_close_ms=last_m1_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id],
             )
             pre_features["direction"] = _make_feature_cell(
-                "direction", direction, state="PRESENT", proof_state="MEASURED_VALUE",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                "direction",
+                direction,
+                state="PRESENT",
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms,
+                closed_bar_close_ms=last_m1_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id],
             )
+
+            # Macro features strictly governed by 3-way validation (D3, D4)
+            m_cell_state = str(macro_validation["cell_state"])
+            m_src_origin = str(macro_validation["source_origin"])
+            m_src_ids = [last_m1_id] if m_cell_state == "PRESENT" else []
+            m_known_ms = dec_ts if m_cell_state == "PRESENT" else None
+            m_close_ms = last_m1_close_ms if m_cell_state == "PRESENT" else None
+
             pre_features["ny_session_group"] = _make_feature_cell(
-                "ny_session_group", str(macro_st.session_group), state="PRESENT", proof_state="MEASURED_VALUE",
-                known_at_ms=dec_ts, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                "ny_session_group",
+                macro_validation["ny_session_group_value"],
+                state=m_cell_state,
+                proof_state=str(macro_validation["session_proof_state"]),
+                source_origin=m_src_origin,
+                source_timeframe="1M" if m_cell_state == "PRESENT" else None,
+                known_at_ms=m_known_ms,
+                closed_bar_close_ms=m_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=m_src_ids,
             )
             pre_features["in_ict_macro_window"] = _make_feature_cell(
-                "in_ict_macro_window", bool(macro_st.eligible_for_macro_gate), state="PRESENT",
-                proof_state="PROVEN_TRUE" if macro_st.eligible_for_macro_gate else "PROVEN_FALSE",
-                known_at_ms=dec_ts, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
-            )
-            pre_features["h4_structure_bias"] = _make_feature_cell(
-                "h4_structure_bias", h4_bias_val if h4_bias_val != "UNKNOWN" else None,
-                state="PRESENT" if h4_bias_val != "UNKNOWN" else "MISSING",
-                proof_state="MEASURED_VALUE" if h4_bias_val != "UNKNOWN" else "UNKNOWN",
-                known_at_ms=h4_last_ms, decision_ts_ms=dec_ts, raw_source_ids=[h4_id],
-            )
-            pre_features["h1_structure_bias"] = _make_feature_cell(
-                "h1_structure_bias", h1_bias_val if h1_bias_val != "UNKNOWN" else None,
-                state="PRESENT" if h1_bias_val != "UNKNOWN" else "MISSING",
-                proof_state="MEASURED_VALUE" if h1_bias_val != "UNKNOWN" else "UNKNOWN",
-                known_at_ms=h1_last_ms, decision_ts_ms=dec_ts, raw_source_ids=[h1_id],
-            )
-            pre_features["m15_structure_bias"] = _make_feature_cell(
-                "m15_structure_bias", m15_bias_val if m15_bias_val != "UNKNOWN" else None,
-                state="PRESENT" if m15_bias_val != "UNKNOWN" else "MISSING",
-                proof_state="MEASURED_VALUE" if m15_bias_val != "UNKNOWN" else "UNKNOWN",
-                known_at_ms=m15_last_ms, decision_ts_ms=dec_ts, raw_source_ids=[m15_id],
+                "in_ict_macro_window",
+                macro_validation["in_ict_macro_window_value"],
+                state=m_cell_state,
+                proof_state=str(macro_validation["in_window_proof_state"]),
+                source_origin=m_src_origin,
+                source_timeframe="1M" if m_cell_state == "PRESENT" else None,
+                known_at_ms=m_known_ms,
+                closed_bar_close_ms=m_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=m_src_ids,
             )
 
-            swp_kn, swp_ids, swp_pst = _ref_meta("sweep_confirmed", last_m1_close_ms, [snap.selected_sweep_id or last_m1_id])
-            swp_val = (feat_in or {}).get("sweep_confirmed")
-            if swp_val is None:
-                swp_val = bool(getattr(sq_ev, "sweep_reclaim_confirmed", False)) if snap.selected_sweep_id else None
-            pre_features["liquidity_sweep_reclaim_confirmed"] = _make_feature_cell(
-                "liquidity_sweep_reclaim_confirmed", swp_val,
-                state="PRESENT" if isinstance(swp_val, bool) else "MISSING",
-                proof_state=swp_pst if isinstance(swp_val, bool) else "UNKNOWN",
-                known_at_ms=swp_kn, decision_ts_ms=dec_ts, raw_source_ids=swp_ids,
-            )
+            # HTF/MTF biases: strictly honor V17.9.3.1.2.7/8 tri-state (PERSISTED when at dec_ts, else RECONSTRUCTED; UNKNOWN stays MISSING!)
+            for feat_key, ev_key, tf_u in (
+                ("h4_structure_bias", "h4_bias", "4H"),
+                ("h1_structure_bias", "h1_bias", "1H"),
+                ("m15_structure_bias", "m15_bias", "15M"),
+            ):
+                if persisted_snapshot_exact_ts:
+                    p_meta = _extract_persisted_verified_meta(ev_key)
+                    p_val = str(p_meta["measured_value"] or "UNKNOWN").upper() if p_meta is not None else "UNKNOWN"
+                    if p_meta is not None and p_val in ("BULLISH", "BEARISH", "NEUTRAL"):
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            p_val,
+                            state="PRESENT",
+                            proof_state=str(p_meta["proof_state"]),
+                            source_origin="PERSISTED_VERIFIED_SNAPSHOT",
+                            source_timeframe=tf_u,
+                            known_at_ms=int(p_meta["known_at_ms"]),
+                            closed_bar_close_ms=int(p_meta["closed_bar_close_ms"]),
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=p_meta["raw_source_ids"],
+                        )
+                    else:
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            None,
+                            state="MISSING",
+                            proof_state="UNKNOWN",
+                            source_origin="MISSING",
+                            source_timeframe=tf_u,
+                            known_at_ms=None,
+                            closed_bar_close_ms=None,
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=[],
+                        )
+                else:
+                    r_meta = _extract_reconstructed_v7_meta(ev_key)
+                    r_val = str(r_meta["measured_value"] or "UNKNOWN").upper() if r_meta is not None else "UNKNOWN"
+                    if r_meta is not None and r_val in ("BULLISH", "BEARISH", "NEUTRAL"):
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            r_val,
+                            state="PRESENT",
+                            proof_state="RECONSTRUCTED_CAUSAL_VALUE",
+                            source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                            source_timeframe=tf_u,
+                            known_at_ms=int(r_meta["known_at_ms"]),
+                            closed_bar_close_ms=int(r_meta["closed_bar_close_ms"]),
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=r_meta["raw_source_ids"],
+                        )
+                    else:
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            None,
+                            state="MISSING",
+                            proof_state="UNKNOWN",
+                            source_origin="MISSING",
+                            source_timeframe=tf_u,
+                            known_at_ms=None,
+                            closed_bar_close_ms=None,
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=[],
+                        )
 
-            mss_kn, mss_ids, mss_pst = _ref_meta("mss_confirmed", last_m1_close_ms, [snap.selected_break_id or last_m1_id])
-            mss_val = (feat_in or {}).get("mss_confirmed")
-            if mss_val is None:
-                mss_val = bool(getattr(sq_ev, "mss_displacement_confirmed", False)) if snap.selected_break_id else None
-            pre_features["mss_bos_displacement_confirmed"] = _make_feature_cell(
-                "mss_bos_displacement_confirmed", mss_val,
-                state="PRESENT" if isinstance(mss_val, bool) else "MISSING",
-                proof_state=mss_pst if isinstance(mss_val, bool) else "UNKNOWN",
-                known_at_ms=mss_kn, decision_ts_ms=dec_ts, raw_source_ids=mss_ids,
-            )
+            # Sweep & MSS: strictly tri-state from V17.9.3.1.2.7/8 (NEVER infer False from bool(snap.selected_...) or .2 default!)
+            for feat_key, ev_key in (
+                ("liquidity_sweep_reclaim_confirmed", "sweep_confirmed"),
+                ("mss_bos_displacement_confirmed", "mss_confirmed"),
+            ):
+                if persisted_snapshot_exact_ts:
+                    p_meta = _extract_persisted_verified_meta(ev_key)
+                    if p_meta is not None and isinstance(p_meta["measured_value"], bool):
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            bool(p_meta["measured_value"]),
+                            state="PRESENT",
+                            proof_state=str(p_meta["proof_state"]),
+                            source_origin="PERSISTED_VERIFIED_SNAPSHOT",
+                            source_timeframe=p_meta["timeframe"] or "1M",
+                            known_at_ms=int(p_meta["known_at_ms"]),
+                            closed_bar_close_ms=int(p_meta["closed_bar_close_ms"]),
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=p_meta["raw_source_ids"],
+                        )
+                    else:
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            None,
+                            state="MISSING",
+                            proof_state="UNKNOWN",
+                            source_origin="MISSING",
+                            source_timeframe="1M",
+                            known_at_ms=None,
+                            closed_bar_close_ms=None,
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=[],
+                        )
+                else:
+                    r_meta = _extract_reconstructed_v7_meta(ev_key)
+                    if r_meta is not None and isinstance(r_meta["measured_value"], bool):
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            bool(r_meta["measured_value"]),
+                            state="PRESENT",
+                            proof_state=str(r_meta["proof_state"]),
+                            source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                            source_timeframe=r_meta["timeframe"] or "1M",
+                            known_at_ms=int(r_meta["known_at_ms"]),
+                            closed_bar_close_ms=int(r_meta["closed_bar_close_ms"]),
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=r_meta["raw_source_ids"],
+                        )
+                    else:
+                        pre_features[feat_key] = _make_feature_cell(
+                            feat_key,
+                            None,
+                            state="MISSING",
+                            proof_state="UNKNOWN",
+                            source_origin="MISSING",
+                            source_timeframe="1M",
+                            known_at_ms=None,
+                            closed_bar_close_ms=None,
+                            decision_ts_ms=dec_ts,
+                            raw_source_ids=[],
+                        )
 
-            uni_val = str((feat_in or {}).get("unicorn_classification") or getattr(sq_ev, "unicorn_classification", "") or snap.unicorn_validity or "NONE")
-            pre_features["unicorn_overlap_state"] = _make_feature_cell(
-                "unicorn_overlap_state", uni_val, state="PRESENT", proof_state="MEASURED_VALUE",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts,
-                raw_source_ids=[x for x in (snap.selected_fvg_id, snap.selected_break_id, last_m1_id) if x],
-            )
+            # Unicorn overlap state
+            if persisted_snapshot_exact_ts:
+                p_uni = _extract_persisted_verified_meta("unicorn_breaker_fvg_bound")
+                persisted_uni_cls = str((feat_in or {}).get("unicorn_classification") or "").strip().upper()
+                if p_uni is not None and isinstance(p_uni["measured_value"], bool) and persisted_uni_cls not in ("", "UNKNOWN"):
+                    pre_features["unicorn_overlap_state"] = _make_feature_cell(
+                        "unicorn_overlap_state",
+                        persisted_uni_cls,
+                        state="PRESENT",
+                        proof_state=str(p_uni["proof_state"]),
+                        source_origin="PERSISTED_VERIFIED_SNAPSHOT",
+                        source_timeframe=p_uni["timeframe"] or "1M",
+                        known_at_ms=int(p_uni["known_at_ms"]),
+                        closed_bar_close_ms=int(p_uni["closed_bar_close_ms"]),
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=p_uni["raw_source_ids"],
+                    )
+                else:
+                    pre_features["unicorn_overlap_state"] = _make_feature_cell(
+                        "unicorn_overlap_state",
+                        None,
+                        state="MISSING",
+                        proof_state="UNKNOWN",
+                        source_origin="MISSING",
+                        source_timeframe="1M",
+                        known_at_ms=None,
+                        closed_bar_close_ms=None,
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=[],
+                    )
+            else:
+                r_uni = _extract_reconstructed_v7_meta("unicorn_breaker_fvg_bound")
+                rec_uni_cls = str((reconstructed_v7_doc or {}).get("unicorn_classification") or "").strip().upper()
+                if r_uni is not None and isinstance(r_uni["measured_value"], bool) and rec_uni_cls not in ("", "UNKNOWN"):
+                    pre_features["unicorn_overlap_state"] = _make_feature_cell(
+                        "unicorn_overlap_state",
+                        rec_uni_cls,
+                        state="PRESENT",
+                        proof_state=str(r_uni["proof_state"]),
+                        source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                        source_timeframe=r_uni["timeframe"] or "1M",
+                        known_at_ms=int(r_uni["known_at_ms"]),
+                        closed_bar_close_ms=int(r_uni["closed_bar_close_ms"]),
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=r_uni["raw_source_ids"],
+                    )
+                else:
+                    pre_features["unicorn_overlap_state"] = _make_feature_cell(
+                        "unicorn_overlap_state",
+                        None,
+                        state="MISSING",
+                        proof_state="UNKNOWN",
+                        source_origin="MISSING",
+                        source_timeframe="1M",
+                        known_at_ms=None,
+                        closed_bar_close_ms=None,
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=[],
+                    )
 
-            t_pool_id = str((feat_in or {}).get("target_pool_id") or snap.selected_target_id or "")
-            t_tf = str((feat_in or {}).get("target_pool_timeframe") or "").upper()
-            if not t_tf and t_pool_id.startswith("pool_"):
-                parts = t_pool_id.split("_")
-                if len(parts) >= 2:
-                    t_tf = parts[1].upper()
-            if t_tf not in ("1M", "5M", "15M", "1H", "4H"):
-                t_tf = "UNKNOWN"
+            # Target source timeframe: check persisted target_selected_pool_bound first, else causal pool ID
+            p_tgt = _extract_persisted_verified_meta("target_selected_pool_bound")
+            t_pool_id = str(
+                ((feat_in or {}).get("target_pool_id") if persisted_snapshot_exact_ts else None)
+                or snap.selected_target_id
+                or ""
+            )
+            if (
+                p_tgt is not None
+                and p_tgt["measured_value"] is True
+                and p_tgt["timeframe"] in ("1M", "5M", "15M", "1H", "4H")
+            ):
+                t_tf = str(p_tgt["timeframe"])
+                pre_features["target_source_timeframe"] = _make_feature_cell(
+                    "target_source_timeframe",
+                    t_tf,
+                    state="PRESENT",
+                    proof_state=str(p_tgt["proof_state"]),
+                    source_origin="PERSISTED_VERIFIED_SNAPSHOT",
+                    source_timeframe=t_tf,
+                    known_at_ms=int(p_tgt["known_at_ms"]),
+                    closed_bar_close_ms=int(p_tgt["closed_bar_close_ms"]),
+                    decision_ts_ms=dec_ts,
+                    raw_source_ids=p_tgt["raw_source_ids"],
+                )
+            else:
+                parsed_tf = str((feat_in or {}).get("target_pool_timeframe") or "").upper() if persisted_snapshot_exact_ts else ""
+                if parsed_tf not in ("1M", "5M", "15M", "1H", "4H"):
+                    parsed_tf = _parse_target_tf_from_pool_id(t_pool_id)
+                tf_bar_map = {
+                    "1M": (last_m1_close_ms, [last_m1_id]),
+                    "5M": (m5_last_ms, m5_ids),
+                    "15M": (m15_last_ms, m15_ids),
+                    "1H": (h1_last_ms, h1_ids),
+                    "4H": (h4_last_ms, h4_ids),
+                }
+                tf_c_ms, tf_s_ids = tf_bar_map.get(parsed_tf, (None, []))
+                if parsed_tf in ("1M", "5M", "15M", "1H", "4H") and tf_c_ms is not None and tf_s_ids:
+                    t_tf = parsed_tf
+                    pre_features["target_source_timeframe"] = _make_feature_cell(
+                        "target_source_timeframe",
+                        t_tf,
+                        state="PRESENT",
+                        proof_state="RECONSTRUCTED_CAUSAL_VALUE",
+                        source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                        source_timeframe=t_tf,
+                        known_at_ms=tf_c_ms,
+                        closed_bar_close_ms=tf_c_ms,
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=tf_s_ids,
+                    )
+                else:
+                    t_tf = "UNKNOWN"
+                    pre_features["target_source_timeframe"] = _make_feature_cell(
+                        "target_source_timeframe",
+                        None,
+                        state="MISSING",
+                        proof_state="UNKNOWN",
+                        source_origin="MISSING",
+                        source_timeframe=None,
+                        known_at_ms=None,
+                        closed_bar_close_ms=None,
+                        decision_ts_ms=dec_ts,
+                        raw_source_ids=[],
+                    )
 
             atr_m1_v = compute_causal_tf_atr_v17931214(datasets, eff_close_ts, "1M", dec_ts) if datasets else None
             atr_htf_v = compute_causal_tf_atr_v17931214(datasets, eff_close_ts, t_tf, dec_ts) if (datasets and t_tf != "UNKNOWN") else None
             atr_h1_v = compute_causal_tf_atr_v17931214(datasets, eff_close_ts, "1H", dec_ts) if datasets else None
 
             pre_features["atr_m1_usd"] = _make_feature_cell(
-                "atr_m1_usd", round(atr_m1_v, 4) if atr_m1_v is not None else None,
+                "atr_m1_usd",
+                round(atr_m1_v, 4) if atr_m1_v is not None else None,
                 state="PRESENT" if atr_m1_v is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if atr_m1_v is not None else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if atr_m1_v is not None else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if atr_m1_v is not None else "MISSING",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms if atr_m1_v is not None else None,
+                closed_bar_close_ms=last_m1_close_ms if atr_m1_close_ok(atr_m1_v) else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id] if atr_m1_v is not None else [],
             )
             pre_features["atr_h1_usd"] = _make_feature_cell(
-                "atr_h1_usd", round(atr_h1_v, 4) if atr_h1_v is not None else None,
-                state="PRESENT" if atr_h1_v is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if atr_h1_v is not None else "UNKNOWN",
-                known_at_ms=h1_last_ms, decision_ts_ms=dec_ts, raw_source_ids=[h1_id],
-            )
-            pre_features["target_source_timeframe"] = _make_feature_cell(
-                "target_source_timeframe", t_tf if t_tf != "UNKNOWN" else None,
-                state="PRESENT" if t_tf != "UNKNOWN" else "MISSING",
-                proof_state="MEASURED_VALUE" if t_tf != "UNKNOWN" else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts,
-                raw_source_ids=[t_pool_id] if t_pool_id else [last_m1_id],
+                "atr_h1_usd",
+                round(atr_h1_v, 4) if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else None,
+                state="PRESENT" if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else "MISSING",
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else "MISSING",
+                source_timeframe="1H",
+                known_at_ms=h1_last_ms if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else None,
+                closed_bar_close_ms=h1_last_ms if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=h1_ids if (atr_h1_v is not None and h1_last_ms is not None and h1_ids) else [],
             )
 
             sl_dist_usd = abs(entry_ref - sel_sl) if (entry_ref > 0 and sel_sl > 0) else None
@@ -1009,26 +1903,51 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             room_m1 = (tp_dist_usd / atr_m1_v) if (tp_dist_usd is not None and atr_m1_v and atr_m1_v > 1e-9) else None
             room_src_tf = (tp_dist_usd / atr_htf_v) if (tp_dist_usd is not None and atr_htf_v and atr_htf_v > 1e-9) else None
 
+            tf_bar_map_src = {
+                "1M": (last_m1_close_ms, [last_m1_id]),
+                "5M": (m5_last_ms, m5_ids),
+                "15M": (m15_last_ms, m15_ids),
+                "1H": (h1_last_ms, h1_ids),
+                "4H": (h4_last_ms, h4_ids),
+            }
+            src_tf_c_ms, src_tf_ids = tf_bar_map_src.get(t_tf, (None, []))
+
             pre_features["structural_sl_distance_usd"] = _make_feature_cell(
-                "structural_sl_distance_usd", round(sl_dist_usd, 4) if sl_dist_usd is not None else None,
+                "structural_sl_distance_usd",
+                round(sl_dist_usd, 4) if sl_dist_usd is not None else None,
                 state="PRESENT" if sl_dist_usd is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if sl_dist_usd is not None else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts,
-                raw_source_ids=[snap.selected_anchor_id or last_m1_id],
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if sl_dist_usd is not None else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if sl_dist_usd is not None else "MISSING",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms if sl_dist_usd is not None else None,
+                closed_bar_close_ms=last_m1_close_ms if sl_dist_usd is not None else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id] if sl_dist_usd is not None else [],
             )
             pre_features["target_distance_in_m1_atr"] = _make_feature_cell(
-                "target_distance_in_m1_atr", round(room_m1, 4) if room_m1 is not None else None,
+                "target_distance_in_m1_atr",
+                round(room_m1, 4) if room_m1 is not None else None,
                 state="PRESENT" if room_m1 is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if room_m1 is not None else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts,
-                raw_source_ids=[t_pool_id or last_m1_id],
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if room_m1 is not None else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if room_m1 is not None else "MISSING",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms if room_m1 is not None else None,
+                closed_bar_close_ms=last_m1_close_ms if room_m1 is not None else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id] if room_m1 is not None else [],
             )
+            has_room_src = (room_src_tf is not None and src_tf_c_ms is not None and bool(src_tf_ids))
             pre_features["target_distance_in_source_tf_atr"] = _make_feature_cell(
-                "target_distance_in_source_tf_atr", round(room_src_tf, 4) if room_src_tf is not None else None,
-                state="PRESENT" if room_src_tf is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if room_src_tf is not None else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts,
-                raw_source_ids=[t_pool_id or last_m1_id],
+                "target_distance_in_source_tf_atr",
+                round(room_src_tf, 4) if has_room_src else None,
+                state="PRESENT" if has_room_src else "MISSING",
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if has_room_src else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if has_room_src else "MISSING",
+                source_timeframe=t_tf if has_room_src else None,
+                known_at_ms=src_tf_c_ms if has_room_src else None,
+                closed_bar_close_ms=src_tf_c_ms if has_room_src else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=src_tf_ids if has_room_src else [],
             )
 
             sz_calc = (
@@ -1038,27 +1957,109 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             )
             net_rr_v = round(float(sz_calc["net_rr"]), 4) if sz_calc is not None else snap.net_rr
             pre_features["cost_aware_net_rr"] = _make_feature_cell(
-                "cost_aware_net_rr", net_rr_v,
+                "cost_aware_net_rr",
+                net_rr_v,
                 state="PRESENT" if net_rr_v is not None else "MISSING",
-                proof_state="MEASURED_VALUE" if net_rr_v is not None else "UNKNOWN",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE" if net_rr_v is not None else "UNKNOWN",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS" if net_rr_v is not None else "MISSING",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms if net_rr_v is not None else None,
+                closed_bar_close_ms=last_m1_close_ms if net_rr_v is not None else None,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id] if net_rr_v is not None else [],
             )
             pre_features["quote_quality_mode"] = _make_feature_cell(
-                "quote_quality_mode", "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO",
-                state="PRESENT", proof_state="MEASURED_VALUE",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                "quote_quality_mode",
+                "SYNTHETIC_MODELED_SPREAD_0_20_USD_NO_L1_BBO",
+                state="PRESENT",
+                proof_state="RECONSTRUCTED_CAUSAL_VALUE",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms,
+                closed_bar_close_ms=last_m1_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id],
             )
             pre_features["recent_m1_data_gap_within_180m"] = _make_feature_cell(
-                "recent_m1_data_gap_within_180m", recent_m1_gap,
-                state="PRESENT", proof_state="PROVEN_TRUE" if recent_m1_gap else "PROVEN_FALSE",
-                known_at_ms=last_m1_close_ms, decision_ts_ms=dec_ts, raw_source_ids=[last_m1_id],
+                "recent_m1_data_gap_within_180m",
+                recent_m1_gap,
+                state="PRESENT",
+                proof_state="PROVEN_TRUE" if recent_m1_gap else "PROVEN_FALSE",
+                source_origin="RECONSTRUCTED_ASOF_RAW_BARS",
+                source_timeframe="1M",
+                known_at_ms=last_m1_close_ms,
+                closed_bar_close_ms=last_m1_close_ms,
+                decision_ts_ms=dec_ts,
+                raw_source_ids=[last_m1_id],
             )
+
+            # Original persisted decision record vs as-of reconstructed snapshot comparison (E1, E6)
+            orig_dec_fp = str((dec_in or {}).get("decision_fingerprint") or "") or None
+            orig_act_fp = str((dec_in or {}).get("trade_action_fingerprint") or "") or None
+            orig_dec_ts = int((dec_in or {}).get("decision_timestamp_ms") or 0) if dec_in is not None else None
+            cand_ts_a1_match: Optional[bool] = None
+
+            if dec_in is None or not orig_dec_fp or not orig_act_fp:
+                fp_status = "NOT_COMPARABLE"
+                fp_reason = "NO_PERSISTED_DECISION_FINGERPRINT_RECORD_AVAILABLE"
+            elif orig_dec_ts == dec_ts:
+                if snap.decision_fingerprint == orig_dec_fp and snap.trade_action_fingerprint == orig_act_fp:
+                    fp_status = "MATCH"
+                    fp_reason = "EXACT_ASOF_A1_V1792_RECONSTRUCTION_MATCHES_PERSISTED_DECISION_AND_ACTION_FINGERPRINTS"
+                else:
+                    fp_status = "MISMATCH"
+                    fp_reason = (
+                        f"FINGERPRINT_MISMATCH_AT_SAME_DECISION_TS:orig_dec={orig_dec_fp},recomp_dec={snap.decision_fingerprint},"
+                        f"orig_act={orig_act_fp},recomp_act={snap.trade_action_fingerprint}"
+                    )
+            else:
+                # Delayed entry confirmation (e.g. SI8/SI9): dec_in was persisted at candidate_ts < dec_ts
+                if orig_dec_ts is not None and orig_dec_ts > 0 and orig_dec_ts <= dec_ts:
+                    ctx_cand, _ = _build_asof_a1_context(orig_dec_ts)
+                    sn_cand = evaluator.evaluate_model_direction(
+                        context=ctx_cand, model_id=model_id, direction=direction
+                    )
+                    cand_ts_a1_match = bool(
+                        sn_cand.decision_fingerprint == orig_dec_fp
+                        and sn_cand.trade_action_fingerprint == orig_act_fp
+                    )
+                fp_status = "NOT_COMPARABLE"
+                fp_reason = (
+                    f"DELAYED_CONFIRMATION_ENTRY_TS_{dec_ts}_DIFFERS_FROM_PERSISTED_CANDIDATE_TS_{orig_dec_ts}"
+                    f"_CANDIDATE_TS_A1_FINGERPRINT_MATCH_{cand_ts_a1_match}"
+                )
+
             snap_lineage = {
                 "decision_id": snap.decision_id,
                 "decision_fingerprint": snap.decision_fingerprint,
                 "trade_action_fingerprint": snap.trade_action_fingerprint,
                 "input_snapshot_hash": snap.input_snapshot_hash,
                 "context_source_fingerprint": ctx.source_fingerprint,
+                "persisted_decision_fingerprint": orig_dec_fp,
+                "persisted_trade_action_fingerprint": orig_act_fp,
+                "persisted_decision_timestamp_ms": orig_dec_ts,
+                "persisted_feature_snapshot_proof_hash": (feat_in or {}).get("proof_hash") if persisted_snapshot_exact_ts else None,
+                "reconstruction_algo_version": RECONSTRUCTION_ALGO_VERSION_KH01A_R1,
+                "reconstruction_algo_sha256": RECONSTRUCTION_ALGO_SHA256_KH01A_R1,
+                "original_vs_recomputed_fingerprint_status": fp_status,
+                "original_vs_recomputed_fingerprint_reason": fp_reason,
+                "candidate_ts_a1_fingerprint_match": cand_ts_a1_match,
+            }
+            origin_counts_row = Counter(str(v.get("source_origin")) for v in pre_features.values())
+            provenance_summary = {
+                "original_snapshot_verified": False,
+                "full_original_runtime_context_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS",
+                "full_original_runtime_context_note": (
+                    "Historical backtest persisted compact StrategyDecisionSnapshot records (10_canonical_decision_inputs.jsonl.gz) "
+                    "and verified CausalFeatureSnapshot proofs (07_verified_causal_features.jsonl.gz), not full raw MarketDecisionContext objects."
+                ),
+                "persisted_decision_record_joined": dec_in is not None,
+                "persisted_feature_ledger_verified_at_decision_ts": persisted_snapshot_exact_ts,
+                "asof_reconstruction_verified": bool(macro_validation["is_valid_macro_resolution"]),
+                "original_vs_recomputed_fingerprint_status": fp_status,
+                "original_vs_recomputed_fingerprint_reason": fp_reason,
+                "candidate_ts_a1_fingerprint_match": cand_ts_a1_match,
+                "feature_source_origin_counts": dict(sorted(origin_counts_row.items())),
             }
         else:
             # Honest missing-evidence census when raw MarketDecisionContext / bars cannot be joined
@@ -1084,10 +2085,29 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
                 "recent_m1_data_gap_within_180m",
             ):
                 pre_features[missing_k] = _make_feature_cell(
-                    missing_k, None, state="MISSING", proof_state="UNKNOWN",
-                    known_at_ms=None, decision_ts_ms=dec_ts, raw_source_ids=[],
+                    missing_k,
+                    None,
+                    state="MISSING",
+                    proof_state="UNKNOWN",
+                    source_origin="MISSING",
+                    source_timeframe=None,
+                    known_at_ms=None,
+                    closed_bar_close_ms=None,
+                    decision_ts_ms=dec_ts,
+                    raw_source_ids=[],
                 )
             snap_lineage = None
+            provenance_summary = {
+                "original_snapshot_verified": False,
+                "full_original_runtime_context_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS",
+                "persisted_decision_record_joined": dec_in is not None,
+                "persisted_feature_ledger_verified_at_decision_ts": False,
+                "asof_reconstruction_verified": False,
+                "original_vs_recomputed_fingerprint_status": "NOT_COMPARABLE",
+                "original_vs_recomputed_fingerprint_reason": "RAW_CANDLE_SLICES_NOT_JOINED",
+                "candidate_ts_a1_fingerprint_match": None,
+                "feature_source_origin_counts": {"MISSING": len(pre_features)},
+            }
 
         # Pre-entry classification invoked WITHOUT any post-entry outcome parameters!
         pre_cls = classify_pre_entry_state_strictly_asof(
@@ -1095,10 +2115,13 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             direction=direction,
             pre_entry_features=pre_features,
             raw_snapshot_joined=raw_joined,
+            original_snapshot_verified=False,
+            asof_reconstruction_verified=bool(provenance_summary["asof_reconstruction_verified"]),
         )
         ex_post = _compute_ex_post_diagnostics_from_bars(ep, bars_1m=bars_1m, open_ts_1m=open_1m)
 
         row_out = {
+            "schema_version": SCHEMA_VERSION_KH01A_R1,
             "opportunity_id": oid,
             "episode_key": str(ep.get("episode_key") or oid),
             "population_role": population_role,
@@ -1114,22 +2137,32 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             "take_profit": round(sel_tp, 4),
             "realized_net_pnl_usd": net_pnl,
             "realized_r": real_r,
+            "macro_window_state": macro_validation,
+            "provenance_summary": provenance_summary,
             "snapshot_lineage": snap_lineage,
             "pre_entry_features": pre_features,
             "pre_entry_known": {
                 "reason_code": pre_cls["primary_pre_entry_code"],
+                "evidence_completeness": pre_cls["evidence_completeness"],
                 "is_causally_observable_pre_entry": pre_cls["is_causally_observable_pre_entry"],
                 "raw_snapshot_joined": pre_cls["raw_snapshot_joined"],
+                "original_snapshot_verified": pre_cls["original_snapshot_verified"],
+                "asof_reconstruction_verified": pre_cls["asof_reconstruction_verified"],
                 "active_pre_entry_risk_flags": pre_cls["active_pre_entry_risk_flags"],
+                "unknown_or_unproven_flags": pre_cls["unknown_or_unproven_flags"],
                 "present_fields_count": pre_cls["present_fields_count"],
                 "missing_fields_count": pre_cls["missing_fields_count"],
                 "invalid_fields_count": pre_cls["invalid_fields_count"],
                 "missing_fields": pre_cls["missing_fields"],
+                "invalid_fields": pre_cls["invalid_fields"],
             },
             "ex_post_outcome": ex_post,
         }
         row_out["row_sha256"] = canonical_hash(row_out)
         return row_out
+
+    def atr_m1_close_ok(val: Optional[float]) -> bool:
+        return val is not None
 
     loss_casebook = [_build_single_casebook_row(ep, "SI0_CLOSED_LOSS") for ep in si0_losses]
     win_casebook = [_build_single_casebook_row(ep, "SI0_CLOSED_WIN_CONTROL") for ep in si0_wins]
@@ -1147,32 +2180,60 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         r_u = _build_single_casebook_row(src_ep, "SI8_SI9_UNIQUE_RESEARCH_LOSS")
         r_u.pop("row_sha256", None)
         r_u["present_in_policies"] = [
-            p for p, mp in (("SI8_RESEARCH_DISCOVERY_REPAIRED", si8_by_id), ("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS", si9_by_id)) if uid in mp
+            p
+            for p, mp in (
+                ("SI8_RESEARCH_DISCOVERY_REPAIRED", si8_by_id),
+                ("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS", si9_by_id),
+            )
+            if uid in mp
         ]
         r_u["row_sha256"] = canonical_hash(r_u)
         si89_unique_casebook.append(r_u)
 
     all_casebook_rows = loss_casebook + win_casebook + si89_unique_casebook
 
-    # Missing/Unknown Evidence Census across the 157 SI0 losses
+    # Missing/Unknown & Source-Origin Census across the 157 SI0 losses and all 170 rows
     feature_census_157: Dict[str, Dict[str, int]] = defaultdict(lambda: {"PRESENT": 0, "MISSING": 0, "INVALID": 0})
+    feature_origin_census_157: Dict[str, Dict[str, int]] = defaultdict(lambda: Counter())
+    feature_origin_census_170: Dict[str, Dict[str, int]] = defaultdict(lambda: Counter())
     for r in loss_casebook:
         for fk, fv in r["pre_entry_features"].items():
             feature_census_157[fk][str(fv["state"])] += 1
+            feature_origin_census_157[fk][str(fv["source_origin"])] += 1
+    for r in all_casebook_rows:
+        for fk, fv in r["pre_entry_features"].items():
+            feature_origin_census_170[fk][str(fv["source_origin"])] += 1
 
     # Aggregations & Win-vs-Loss comparison
     def _agg_pop(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
         n = max(1, len(rows))
         by_primary = Counter(r["pre_entry_known"]["reason_code"] for r in rows)
+        by_completeness = Counter(str(r["pre_entry_known"].get("evidence_completeness") or "UNKNOWN") for r in rows)
         by_flag = Counter(fl for r in rows for fl in r["pre_entry_known"]["active_pre_entry_risk_flags"])
+        by_unk_flag = Counter(fl for r in rows for fl in (r["pre_entry_known"].get("unknown_or_unproven_flags") or ()))
         by_session = Counter(str((r["pre_entry_features"].get("ny_session_group") or {}).get("value") or "UNKNOWN") for r in rows)
         by_macro = Counter(str((r["pre_entry_features"].get("in_ict_macro_window") or {}).get("value")) for r in rows)
+        by_macro_3way = Counter(
+            str(((r.get("macro_window_state") or {}).get("macro_state_category")) or "UNKNOWN_OR_INVALID_MACRO_STATE")
+            for r in rows
+        )
+        by_macro_win_id = Counter(
+            str((((r.get("macro_window_state") or {}).get("raw_macro_diagnostics") or {}).get("primary_window_id")) or "NONE")
+            for r in rows
+        )
+        by_fp_status = Counter(
+            str(((r.get("provenance_summary") or {}).get("original_vs_recomputed_fingerprint_status")) or "NOT_COMPARABLE")
+            for r in rows
+        )
         by_model = Counter(str(r["model_id"]) for r in rows)
         by_dir = Counter(str(r["direction"]) for r in rows)
+        by_h4 = Counter(str((r["pre_entry_features"].get("h4_structure_bias") or {}).get("value") or "UNKNOWN") for r in rows)
         by_h1 = Counter(str((r["pre_entry_features"].get("h1_structure_bias") or {}).get("value") or "UNKNOWN") for r in rows)
+        by_m15 = Counter(str((r["pre_entry_features"].get("m15_structure_bias") or {}).get("value") or "UNKNOWN") for r in rows)
         by_expost = Counter(str(r["ex_post_outcome"]["outcome_code"]) for r in rows)
         room_gt_12 = sum(
-            1 for r in rows
+            1
+            for r in rows
             if isinstance((r["pre_entry_features"].get("target_distance_in_m1_atr") or {}).get("value"), (int, float))
             and float(r["pre_entry_features"]["target_distance_in_m1_atr"]["value"]) > 12.0
         )
@@ -1181,13 +2242,21 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         return {
             "count": len(rows),
             "primary_pre_entry_reason_counts": dict(sorted(by_primary.items())),
+            "evidence_completeness_counts": dict(sorted(by_completeness.items())),
             "active_risk_flag_incidence_counts": dict(sorted(by_flag.items())),
             "active_risk_flag_incidence_rates": {k: round(v / n, 4) for k, v in sorted(by_flag.items())},
+            "unknown_or_unproven_flag_incidence_counts": dict(sorted(by_unk_flag.items())),
+            "unknown_or_unproven_flag_incidence_rates": {k: round(v / n, 4) for k, v in sorted(by_unk_flag.items())},
             "by_ny_session_group": dict(sorted(by_session.items())),
             "by_in_ict_macro_window": dict(sorted(by_macro.items())),
+            "by_macro_3way_category": dict(sorted(by_macro_3way.items())),
+            "by_macro_primary_window_id": dict(sorted(by_macro_win_id.items())),
+            "by_original_vs_recomputed_fingerprint_status": dict(sorted(by_fp_status.items())),
             "by_model_id": dict(sorted(by_model.items())),
             "by_direction": dict(sorted(by_dir.items())),
+            "by_h4_structure_bias": dict(sorted(by_h4.items())),
             "by_h1_structure_bias": dict(sorted(by_h1.items())),
+            "by_m15_structure_bias": dict(sorted(by_m15.items())),
             "target_distance_gt_12_m1_atr_count": room_gt_12,
             "ex_post_outcome_subtype_counts": dict(sorted(by_expost.items())),
             "ex_post_reached_1r_mfe_before_exit_count": mfe_1r,
@@ -1196,8 +2265,10 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
 
     loss_agg = _agg_pop(loss_casebook)
     win_agg = _agg_pop(win_casebook)
+    si89_agg = _agg_pop(si89_unique_casebook)
+    all170_agg = _agg_pop(all_casebook_rows)
 
-    # Ranked evidence-backed TESTABLE hypotheses for KH-01B (strictly descriptive in KH-01A; zero activation!)
+    # Ranked evidence-backed TESTABLE hypotheses for KH-01B (strictly descriptive; small win control sample n=9 disclosed!)
     n_loss = max(1, len(loss_casebook))
     n_win = max(1, len(win_casebook))
     flag_diffs: List[Dict[str, Any]] = []
@@ -1213,6 +2284,7 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             "win_count_of_9": w_c,
             "win_rate": w_r,
             "loss_minus_win_rate_diff": round(l_r - w_r, 4),
+            "small_sample_disclosure": "Win control cohort has only n=9 trades; rate differences are strictly descriptive/correlational.",
         })
     flag_diffs.sort(key=lambda x: (x["loss_count_of_157"], x["loss_minus_win_rate_diff"]), reverse=True)
 
@@ -1224,9 +2296,11 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
             "empirical_basis_in_kh01a": {
                 "counter_htf_losses": loss_agg["active_risk_flag_incidence_counts"].get("COUNTER_HTF_H4_OR_H1_BIAS", 0),
                 "non_supportive_neutral_htf_losses": loss_agg["active_risk_flag_incidence_counts"].get("NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE", 0),
-                "counter_htf_wins": win_agg["active_risk_flag_incidence_counts"].get("COUNTER_HTF_H4_OR_H1_BIAS", 0),
+                "counter_htf_wins_of_9": win_agg["active_risk_flag_incidence_counts"].get("COUNTER_HTF_H4_OR_H1_BIAS", 0),
+                "h4_unknown_losses": loss_agg["unknown_or_unproven_flag_incidence_counts"].get("H4_STRUCTURE_BIAS_UNKNOWN", 0),
+                "h1_unknown_losses": loss_agg["unknown_or_unproven_flag_incidence_counts"].get("H1_STRUCTURE_BIAS_UNKNOWN", 0),
             },
-            "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_NOT_VALIDATED_CAUSAL_EDGE",
+            "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_SMALL_WIN_SAMPLE_N9_NOT_VALIDATED_CAUSAL_EDGE",
             "test_protocol_for_kh01b": "Pre-register single ablation on frozen parameter set, evaluate under 1-position NEXT_BAR_OPEN_BID_ASK + 2x cost stress, then test once on sealed post-freeze Fresh OOS.",
             "optimized_or_activated_in_kh01a": False,
         },
@@ -1238,6 +2312,7 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
                 "si0_losses_with_target_gt_12_m1_atr": loss_agg["target_distance_gt_12_m1_atr_count"],
                 "si9_267_m1_vs_htf_unit_mismatch_count": 201,
                 "si9_267_genuinely_beyond_horizon_count": 66,
+                "target_source_tf_unknown_losses": loss_agg["unknown_or_unproven_flag_incidence_counts"].get("TARGET_SOURCE_TIMEFRAME_UNKNOWN", 0),
             },
             "causal_status": "DESCRIPTIVE_DATA_UNIT_AUDIT_NOT_PROVEN_PROFITABLE",
             "test_protocol_for_kh01b": "Compare matched before/after target horizon filter in isolated research replay without loosening min_net_rr >= 2.0 or risk <= $2.50 USD.",
@@ -1246,13 +2321,17 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         {
             "rank": 3,
             "hypothesis_id": "KH01B-H3-ICT-MACRO-WINDOW-AND-SWEEP-RECLAIM-CONFLUENCE",
-            "title": "Restrict M1 continuation/reversal entries to active ICT macro windows with proven sweep+reclaim & MSS displacement",
+            "title": "Evaluate configured ICT NY macro windows alongside causal sweep+reclaim & MSS displacement detectors",
             "empirical_basis_in_kh01a": {
-                "outside_macro_window_losses": loss_agg["active_risk_flag_incidence_counts"].get("OUTSIDE_ICT_MACRO_WINDOW", 0),
-                "unproven_sweep_reclaim_losses": loss_agg["active_risk_flag_incidence_counts"].get("SWEEP_RECLAIM_NOT_PROVEN", 0),
-                "unproven_mss_displacement_losses": loss_agg["active_risk_flag_incidence_counts"].get("MSS_DISPLACEMENT_NOT_PROVEN", 0),
+                "in_macro_window_losses": loss_agg["by_macro_3way_category"].get("ELIGIBLE_IN_VERIFIED_WINDOW", 0),
+                "valid_outside_macro_window_losses": loss_agg["by_macro_3way_category"].get("VALID_OUTSIDE_WINDOW", 0),
+                "in_macro_window_wins_of_9": win_agg["by_macro_3way_category"].get("ELIGIBLE_IN_VERIFIED_WINDOW", 0),
+                "valid_outside_macro_window_wins_of_9": win_agg["by_macro_3way_category"].get("VALID_OUTSIDE_WINDOW", 0),
+                "sweep_unknown_losses": loss_agg["unknown_or_unproven_flag_incidence_counts"].get("SWEEP_RECLAIM_UNKNOWN", 0),
+                "mss_unknown_losses": loss_agg["unknown_or_unproven_flag_incidence_counts"].get("MSS_DISPLACEMENT_UNKNOWN", 0),
+                "macro_schedule_provenance_note": "Configured V17_9_3_NY_ICT_MACRO_SCHEDULE_V1 (RESEARCH_HYPOTHESIS_CONFIG); exchange holiday/maintenance calendar is CALENDAR_NOT_VERIFIED.",
             },
-            "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_SAMPLE_SIZE_LIMITED_IN_SI8_SI9",
+            "causal_status": "DESCRIPTIVE_CORRELATION_ONLY_SMALL_WIN_SAMPLE_N9_NO_PROVEN_MACRO_EDGE",
             "test_protocol_for_kh01b": "Evaluate trade-frequency collapse vs expectancy trade-off across multi-month post-freeze dataset with captured L1 bid/ask quotes.",
             "optimized_or_activated_in_kh01a": False,
         },
@@ -1270,10 +2349,32 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         },
     ]
 
+    invalid_evidence_170 = sum(
+        1 for r in all_casebook_rows if r["pre_entry_known"]["reason_code"] == "PRE_ENTRY_INVALID_EVIDENCE"
+    )
+    max_kn_delta = 0
+    max_cb_delta = 0
+    for r in all_casebook_rows:
+        dts = int(r["decision_timestamp_ms"])
+        for fv in r["pre_entry_features"].values():
+            if fv.get("known_at_ms") is not None:
+                max_kn_delta = max(max_kn_delta, int(fv["known_at_ms"]) - dts)
+            if fv.get("closed_bar_close_ms") is not None:
+                max_cb_delta = max(max_cb_delta, int(fv["closed_bar_close_ms"]) - dts)
+
     census_summary = {
-        "spec_version": SPEC_VERSION_KH01A,
-        "schema_version": SCHEMA_VERSION_KH01A,
+        "spec_version": SPEC_VERSION_KH01A_R1,
+        "schema_version": SCHEMA_VERSION_KH01A_R1,
         "dataset_sha256": dataset_sha256,
+        "reconstruction_algo_version": RECONSTRUCTION_ALGO_VERSION_KH01A_R1,
+        "reconstruction_algo_sha256": RECONSTRUCTION_ALGO_SHA256_KH01A_R1,
+        "full_original_runtime_context_completeness_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS",
+        "macro_schedule_provenance": {
+            "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+            "schedule_source": "RESEARCH_HYPOTHESIS_CONFIG",
+            "exchange_calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+            "caller_keyword_binding_verified": _macro_resolver_override is None,
+        },
         "ledger_conservation": {
             "si0_scheduled_total": len(si0_all_primary_episodes),
             "si0_scheduled_distribution": dict(sorted(sched_dist.items())),
@@ -1291,18 +2392,32 @@ def build_kh_01a_causal_loss_and_win_control_forensics(
         },
         "anti_hindsight_contract": {
             "pre_entry_classifier_receives_post_entry_fields": False,
-            "max_known_at_minus_decision_ts_ms": 0,
+            "max_known_at_minus_decision_ts_ms": max_kn_delta,
+            "max_closed_bar_close_minus_decision_ts_ms": max_cb_delta,
             "ex_post_leakage_into_pre_entry_count": 0,
             "unjoined_rows_forced_to_pre_entry_unknown": True,
         },
+        "all_170_invalid_evidence_rows_count": invalid_evidence_170,
+        "macro_3way_census_all_170": all170_agg["by_macro_3way_category"],
+        "ny_session_group_census_all_170": all170_agg["by_ny_session_group"],
+        "evidence_completeness_census_all_170": all170_agg["evidence_completeness_counts"],
+        "original_vs_recomputed_fingerprint_census_all_170": all170_agg["by_original_vs_recomputed_fingerprint_status"],
         "si0_157_losses_feature_presence_and_unknown_census": {
             k: dict(v) for k, v in sorted(feature_census_157.items())
+        },
+        "si0_157_losses_feature_source_origin_census": {
+            k: dict(sorted(v.items())) for k, v in sorted(feature_origin_census_157.items())
+        },
+        "all_170_rows_feature_source_origin_census": {
+            k: dict(sorted(v.items())) for k, v in sorted(feature_origin_census_170.items())
         },
         "si0_157_losses_pre_entry_unknown_rows_count": int(
             loss_agg["primary_pre_entry_reason_counts"].get("PRE_ENTRY_UNKNOWN", 0)
         ),
         "si0_157_losses_aggregates": loss_agg,
         "si0_9_wins_control_aggregates": win_agg,
+        "si8_si9_4_unique_losses_aggregates": si89_agg,
+        "all_170_casebook_aggregates": all170_agg,
         "win_vs_loss_descriptive_flag_comparison": flag_diffs,
         "si8_si9_4_unique_research_losses": si89_unique_casebook,
         "ranked_testable_hypotheses_for_kh01b": kh01b_hypotheses,
@@ -2312,26 +3427,56 @@ def evaluate_kh_01a_14_gates(
         "PASS" if not g05_v else "FAIL", g05_v,
     )
 
-    # G-KH01A-06 PREENTRY_CAUSAL_FORENSICS
+    # G-KH01A-06 PREENTRY_CAUSAL_FORENSICS (KH-01A.R1 hardened: semantic macro & provenance truth)
     g06_v = []
     lc = forensics_06.get("ledger_conservation") or {}
     ah = forensics_06.get("anti_hindsight_contract") or {}
+    f06_schema = str(forensics_06.get("schema_version") or "")
+    if f06_schema != SCHEMA_VERSION_KH01A_R1:
+        g06_v.append(f"OUTDATED_OR_INVALID_FORENSICS_SCHEMA:{f06_schema}!={SCHEMA_VERSION_KH01A_R1}")
     if not lc.get("closed_equals_wins_plus_losses"):
         g06_v.append("CLOSED_WINS_LOSSES_CONSERVATION_BROKEN")
     if int(lc.get("si0_closed_total", 0)) != 166 or int(lc.get("si0_wins_count", 0)) != 9 or int(lc.get("si0_losses_count", 0)) != 157:
         g06_v.append(f"UNEXPECTED_SI0_COUNTS:{lc}")
     if int(lc.get("si8_si9_unique_losses_count", 0)) != 4 or int(lc.get("si8_si9_shared_loss_ids_count", 0)) != 2:
         g06_v.append(f"UNEXPECTED_SI8_SI9_DEDUP:{lc}")
+    if int(lc.get("total_casebook_rows_delivered", 0)) != 170:
+        g06_v.append(f"UNEXPECTED_CASEBOOK_TOTAL_ROWS:{lc.get('total_casebook_rows_delivered')}!=170")
     if int(ah.get("ex_post_leakage_into_pre_entry_count", 1)) != 0 or ah.get("pre_entry_classifier_receives_post_entry_fields") is not False:
         g06_v.append("HINDSIGHT_LEAKAGE_DETECTED")
+    if int(ah.get("max_known_at_minus_decision_ts_ms", 1)) > 0 or int(ah.get("max_closed_bar_close_minus_decision_ts_ms", 1)) > 0:
+        g06_v.append("CAUSAL_ASOF_CLOCK_VIOLATION_IN_SUMMARY")
+
+    sess_170 = forensics_06.get("ny_session_group_census_all_170") or {}
+    loss_sess = ((forensics_06.get("si0_157_losses_aggregates") or {}).get("by_ny_session_group") or {})
+    win_sess = ((forensics_06.get("si0_9_wins_control_aggregates") or {}).get("by_ny_session_group") or {})
+    for bad_sess in ("INVALID", "INVALID_SCHEDULE", "CALENDAR_UNVERIFIED", "UNKNOWN"):
+        if int(sess_170.get(bad_sess, 0)) > 0 or int(loss_sess.get(bad_sess, 0)) > 0 or int(win_sess.get(bad_sess, 0)) > 0:
+            g06_v.append(f"FORENSICS_SESSION_GROUP_INVALID_ON_VALID_COHORT:{bad_sess}")
+
+    m3_170 = forensics_06.get("macro_3way_census_all_170") or {}
+    if not isinstance(m3_170, Mapping) or sum(int(v) for v in m3_170.values()) != 170:
+        g06_v.append(f"MACRO_3WAY_CENSUS_DOES_NOT_SUM_TO_170:{m3_170}")
+    if int(m3_170.get("UNKNOWN_OR_INVALID_MACRO_STATE", 0)) != 0:
+        g06_v.append(f"UNKNOWN_OR_INVALID_MACRO_STATE_OBSERVED:{m3_170.get('UNKNOWN_OR_INVALID_MACRO_STATE')}")
+
+    if int(forensics_06.get("all_170_invalid_evidence_rows_count", 1)) != 0:
+        g06_v.append(f"INVALID_EVIDENCE_ROWS_PRESENT:{forensics_06.get('all_170_invalid_evidence_rows_count')}")
+
+    fp_cen = forensics_06.get("original_vs_recomputed_fingerprint_census_all_170") or {}
+    if int(fp_cen.get("MISMATCH", 0)) != 0:
+        g06_v.append(f"ORIGINAL_VS_RECOMPUTED_FINGERPRINT_MISMATCH:{fp_cen}")
+
     _add_gate(
         "G-KH01A-06", "PREENTRY_CAUSAL_FORENSICS", "build_kh_01a_causal_loss_and_win_control_forensics",
         {
             "si0_closed": f"{lc.get('si0_closed_total')} = {lc.get('si0_wins_count')}W + {lc.get('si0_losses_count')}L",
             "si8_si9_unique_losses": lc.get("si8_si9_unique_losses_count"),
+            "macro_3way_all_170": m3_170,
+            "fingerprint_census_all_170": fp_cen,
             "unknown_rows": forensics_06.get("si0_157_losses_pre_entry_unknown_rows_count"),
         },
-        "166 = 9 + 157 conserved; SI8/SI9 4+2-2=4 deduped; known_at_ms <= decision_ts_ms on all features; 0 hindsight leakage; honest unknown census",
+        "170 rows (157L + 9W + 4 SI8/SI9) conserved; 0 INVALID sessions; valid 3-way macro states; honest persisted vs reconstructed provenance; 0 fingerprint mismatches; 0 hindsight leakage",
         "PASS" if not g06_v else "FAIL", g06_v,
     )
 
@@ -2496,6 +3641,7 @@ def evaluate_kh_01a_14_gates(
 
     orthogonal_verdicts = {
         "ENGINEERING_VERDICT": "PASS" if eng_pass else "FAIL",
+        "FORENSICS_SEMANTIC_VERDICT": "PASS" if gate_by_id["G-KH01A-06"]["status"] == "PASS" else "FAIL",
         "REGRESSION_VERDICT": "PASS" if gate_by_id["G-KH01A-08"]["status"] == "PASS" else "FAIL",
         "ACCOUNTING_VERDICT": "PASS" if gate_by_id["G-KH01A-09"]["status"] == "PASS" else "FAIL",
         "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS" if d4_acc_nb == 0 else "MATERIALIZED_SAMPLE_OBSERVED",

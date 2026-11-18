@@ -675,3 +675,41 @@ def test_sec7_sentinel_temp_cleanup_and_independent_disk_verifier_fail_closed(tm
     assert ver_res["independent_verifier_status"] == "FAIL"
     assert any("MISSING_REQUIRED_ARTIFACT" in v for v in ver_res["violations"])
 
+
+def test_sec8_kh01a_r1_macro_caller_never_emits_invalid_session_on_valid_timestamp() -> None:
+    """KH-01A.R1 guard: valid historical bar timestamp must NEVER resolve to ny_session_group == 'INVALID'."""
+    datasets, prov = load_canonical_xauusdt_datasets()
+    close_ts = build_close_ts_index_v179312(datasets)
+    dec_ts = int(datasets["1m"][600]["close_time"])
+    px = float(datasets["1m"][600]["close"])
+    ep = {
+        "opportunity_id": "OPP_R1_CHECK_1",
+        "episode_key": "EP_R1_CHECK_1",
+        "model_id": "SMC_M1_CONTINUATION",
+        "direction": "SHORT",
+        "decision_timestamp_ms": dec_ts,
+        "entry_reference": px,
+        "entry_fill_price": round(px - 0.10, 2),
+        "selected_sl": round(px + 4.0, 2),
+        "take_profit": round(px - 10.0, 2),
+        "outcome_label": "LOSS",
+        "realized_net_pnl_usd": -2.45,
+        "realized_r": -0.98,
+    }
+    res = build_kh_01a_causal_loss_and_win_control_forensics(
+        si0_all_primary_episodes=[ep],
+        si8_loss_rows=[],
+        si9_loss_rows=[],
+        datasets=datasets,
+        close_ts_index=close_ts,
+        dataset_sha256=prov["dataset_sha256"],
+    )
+    row = res["loss_casebook_157"][0]
+    assert row["pre_entry_features"]["ny_session_group"]["state"] == "PRESENT"
+    assert row["pre_entry_features"]["ny_session_group"]["value"] != "INVALID"
+    assert row["macro_window_state"]["macro_state_category"] in (
+        "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "VALID_OUTSIDE_WINDOW",
+    )
+
+

@@ -846,11 +846,46 @@ def _validate_loss_forensics_row_strict(row: Mapping[str, Any]) -> None:
         raise ValueError(f"INVALID_DIRECTION_IN_LOSS_ROW:{d}")
     if "decision_timestamp_ms" not in row or row["decision_timestamp_ms"] is None:
         raise ValueError("MISSING_DECISION_TIMESTAMP_IN_LOSS_ROW")
+    if isinstance(row["decision_timestamp_ms"], bool) or not isinstance(row["decision_timestamp_ms"], int) or int(row["decision_timestamp_ms"]) <= 0:
+        raise ValueError(f"INVALID_DECISION_TIMESTAMP_IN_LOSS_ROW:{row['decision_timestamp_ms']!r}")
     if "entry_fill_price" not in row or row["entry_fill_price"] is None:
         raise ValueError("MISSING_ENTRY_PRICE_IN_LOSS_ROW")
     px = float(row["entry_fill_price"])
     if px <= 0.0 or not math.isfinite(px):
         raise ValueError(f"INVALID_ENTRY_PRICE_IN_LOSS_ROW:{px}")
+    # Disallow ex-post outcome fields disguised inside pre_entry_features
+    pre_f = row.get("pre_entry_features")
+    if isinstance(pre_f, Mapping):
+        for forbidden_expost_k in ("exit_fill_price", "realized_net_pnl_usd", "mae_r", "mfe_r", "outcome_label", "forward_bars"):
+            if forbidden_expost_k in pre_f:
+                raise ValueError(f"EX_POST_FIELD_IN_PRE_ENTRY_FEATURES:{forbidden_expost_k}")
+
+
+def validate_r1_forensics_summary_and_macro_strict_v17931219(summary_doc: Mapping[str, Any]) -> None:
+    """
+    KH-01A.R1 (F3): Rejects legacy `kh_01a.foundation.v1` forensics summaries and any
+    summary that preserves numeric conservation (`166 = 9 + 157`) while containing
+    `session_group == "INVALID"` or `UNKNOWN_OR_INVALID_MACRO_STATE`.
+    """
+    schema_v = str(summary_doc.get("schema_version") or "")
+    if schema_v != "kh_01a_r1.forensics_closure.v1":
+        raise ValueError(f"LEGACY_OR_INVALID_R1_FORENSICS_SCHEMA:{schema_v!r}")
+    lc = summary_doc.get("ledger_conservation")
+    if not isinstance(lc, Mapping):
+        raise ValueError("MISSING_LEDGER_CONSERVATION")
+    if not lc.get("closed_equals_wins_plus_losses"):
+        raise ValueError("CLOSED_WINS_LOSSES_CONSERVATION_BROKEN")
+    sess_170 = summary_doc.get("ny_session_group_census_all_170")
+    if not isinstance(sess_170, Mapping) or not sess_170:
+        raise ValueError("MISSING_NY_SESSION_GROUP_CENSUS_ALL_170")
+    for bad_s in ("INVALID", "INVALID_SCHEDULE", "CALENDAR_UNVERIFIED", "UNKNOWN"):
+        if int(sess_170.get(bad_s, 0)) > 0:
+            raise ValueError(f"INVALID_MACRO_SESSION_IN_FORENSICS_SUMMARY:{bad_s}={sess_170.get(bad_s)}")
+    m3 = summary_doc.get("macro_3way_census_all_170")
+    if not isinstance(m3, Mapping) or int(m3.get("UNKNOWN_OR_INVALID_MACRO_STATE", 0)) > 0:
+        raise ValueError(f"UNKNOWN_OR_INVALID_MACRO_STATE_IN_SUMMARY:{m3}")
+    if int(summary_doc.get("all_170_invalid_evidence_rows_count", 1)) != 0:
+        raise ValueError("INVALID_EVIDENCE_ROWS_IN_SUMMARY")
 
 
 def execute_isolated_fault_case_v17931219(
