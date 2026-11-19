@@ -1,0 +1,11 @@
+{
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "phase_b_evidence_commit_sha": "6469e5014be3e1029cdf1f185139d72bc299e611",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_01b_r1/publication_20261119T115223Z_3661c2eeb562.json",
+  "publication_receipt_sha256": "e53535ce87d0dffc443260398d7fe2d15b826f56fb3a2a4f49bfc7b18bd63874",
+  "run_dir": "aurum-desk/docs/artifacts/kh_01b_r1/20261119T115223Z_3661c2eeb562",
+  "run_id": "20261119T115223Z_3661c2eeb562",
+  "spec_version": "KH-01B.R1-v1.0",
+  "tested_executable_sha": "3661c2eeb562d326c3065bd71c89df7878203736"
+}
