@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import bisect
 from collections import ChainMap, Counter
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -1602,45 +1603,62 @@ def run_kh01b_r1_bounded_async_orchestrator(
         )
         si8_pol_res = replay_single_si_policy_v1793122("SI8_RESEARCH_DISCOVERY_REPAIRED", cand_index, datasets, all_features_map, fill_modes=FILL_MODES_KH01B)
         si9_pol_res = replay_single_si_policy_v1793122("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS", cand_index, datasets, all_features_map, fill_modes=FILL_MODES_KH01B)
-        all_246_eps = (
-            list(bundles_map["E00"].primary_nb_episodes)
-            + list((si8_pol_res["episodes_by_mode"].get("NEXT_BAR_OPEN_BID_ASK") or []))
-            + list((si9_pol_res["episodes_by_mode"].get("NEXT_BAR_OPEN_BID_ASK") or []))
-        )
         bars_1m = list(datasets["1m"])
+        bars_5m = list(datasets["5m"])
+        bars_15m = list(datasets["15m"])
+        bars_1h = list(datasets["1H"])
+        bars_4h = list(datasets["4H"])
+        open_1m = [int(b.get("open_time") or b.get("timestamp") or 0) for b in bars_1m]
+
+        all_246_eps: List[Mapping[str, Any]] = []
+        seen_246: Set[str] = set()
+        for ep_s in (
+            list(bundles_map["E00"].primary_nb_episodes)
+            + list(si8_pol_res["primary_episodes"])
+            + list(si9_pol_res["primary_episodes"])
+        ):
+            oid_e = str(ep_s["opportunity_id"])
+            if oid_e not in seen_246:
+                seen_246.add(oid_e)
+                all_246_eps.append(ep_s)
+
         ad_mismatches = 0
-        for ep_a in all_246_eps:
-            oid_a = str(ep_a["opportunity_id"])
-            f_row_a = dict(all_features_map.get(oid_a) or {})
-            base_in = {
-                "opportunity_id": oid_a,
-                "model_id": ep_a.get("model_id"),
-                "direction": ep_a.get("direction"),
-                "checkpoint_index_1m": ep_a.get("checkpoint_index_1m", 30),
-                "decision_timestamp_ms": ep_a.get("decision_timestamp_ms"),
-                "entry_reference": ep_a.get("entry_reference") or ep_a.get("entry_fill_price") or 3000.0,
-                "selected_sl": ep_a.get("selected_sl") or 2995.0,
-                "take_profit": ep_a.get("take_profit") or 3010.0,
-                "structural_invalidation_price": ep_a.get("selected_sl") or 2995.0,
-            }
-            outs_ad = [
-                evaluate_shared_delayed_entry_adapter_v17931213(
-                    execution_context_mode=adm,
-                    activation_flags={"LIVE": False, "PAPER": False, "AUTO_LIVE": False, "enabled_in_production": False},
-                    variant_id="A0_STRICT_BASELINE",
-                    base_episode=base_in,
-                    feature_row=f_row_a,
-                    bars_1m=bars_1m,
-                    datasets=datasets,
+        for ep_x in all_246_eps:
+            ts_e = int(ep_x["decision_timestamp_ms"])
+            j1 = bisect.bisect_right(close_ts["1m"], ts_e)
+            j5 = bisect.bisect_right(close_ts["5m"], ts_e)
+            j15 = bisect.bisect_right(close_ts["15m"], ts_e)
+            jh1 = bisect.bisect_right(close_ts["1H"], ts_e)
+            jh4 = bisect.bisect_right(close_ts["4H"], ts_e)
+            fi = bisect.bisect_left(open_1m, ts_e)
+            mode_shas: Set[str] = set()
+            for ctx_m in ("REPLAY_BACKTEST", "MARKET_SHADOW", "PRODUCTION_ORCHESTRATOR_DRY_RUN"):
+                ad_out = evaluate_shared_delayed_entry_adapter_v17931213(
+                    execution_context_mode=ctx_m,
+                    activation_flags={"LIVE": False, "PAPER": False, "AUTO_LIVE": False, "AUTO_PAPER": False, "enabled_in_production": False},
+                    variant_id="D4_CAUSAL_UNICORN_HTF_FULL_PIPELINE",
+                    opportunity_id=str(ep_x["opportunity_id"]),
+                    episode_key=str(ep_x.get("episode_key") or ep_x["opportunity_id"]),
+                    model_id=str(ep_x["model_id"]),
+                    direction=str(ep_x["direction"]),
+                    decision_timestamp_ms=ts_e,
+                    baseline_entry=float(ep_x["entry_reference"]),
+                    baseline_sl=float(ep_x["selected_sl"]),
+                    baseline_tp=float(ep_x["take_profit"]),
+                    closed_m1=bars_1m[max(0, j1 - 180) : j1],
+                    closed_m5=bars_5m[max(0, j5 - 60) : j5],
+                    closed_m15=bars_15m[max(0, j15 - 60) : j15],
+                    closed_h1=bars_1h[max(0, jh1 - 60) : jh1],
+                    closed_h4=bars_4h[max(0, jh4 - 60) : jh4],
+                    forward_bars=bars_1m[fi : min(len(bars_1m), fi + 180)],
+                    pre_entry_features=dict(all_features_map.get(str(ep_x["opportunity_id"])) or {}),
                     fill_mode="NEXT_BAR_OPEN_BID_ASK",
+                    dataset_sha=actual_ds_sha,
                 )
-                for adm in ("REPLAY_BACKTEST", "MARKET_SHADOW", "PRODUCTION_ORCHESTRATOR_DRY_RUN")
-            ]
-            digs = {
-                canonical_hash({k: v for k, v in o.items() if k != "adapter_execution_context_mode"})
-                for o in outs_ad
-            }
-            if len(digs) != 1 or any(o["adapter_default_activation_state"] != "OFF" or o["adapter_live_orders_emitted"] != 0 for o in outs_ad):
+                if ad_out["adapter_default_activation_state"] != "OFF" or ad_out["adapter_live_orders_emitted"] != 0:
+                    ad_mismatches += 1
+                mode_shas.add(canonical_hash({k: v for k, v in ad_out.items() if k != "adapter_execution_context_mode"}))
+            if len(mode_shas) != 1:
                 ad_mismatches += 1
 
         # Negative control: intentionally tamper 1 A1 fingerprint -> verify parity verifier catches it!
