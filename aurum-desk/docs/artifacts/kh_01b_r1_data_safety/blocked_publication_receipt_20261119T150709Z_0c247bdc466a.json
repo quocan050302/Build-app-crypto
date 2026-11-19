@@ -1,0 +1,81 @@
+{
+  "CLOSURE_STATUS": "BLOCKED_LOW_DISK",
+  "PUBLICATION_VERDICT": "REMOTE_BLOBS_VERIFIED_FOR_BLOCKED_LOW_DISK_RUN_NOT_ACCEPTED_PASS",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "latest_run_json_published": false,
+  "ls_remote_head_sha": "070a7e4ab0bddd741f4dc9c7cb511fcf20b2300e",
+  "phase_a_tested_executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+  "phase_b_evidence_commit_sha": "070a7e4ab0bddd741f4dc9c7cb511fcf20b2300e",
+  "prior_kh01b_r1_latest_run_json_untouched": true,
+  "remote_readback_checks": [
+    {
+      "byte_size": 74748,
+      "exact_match": true,
+      "github_https_raw_sha256": "07ed7432d84c2a945069c9ee0614bc46f2d3723796830402523e8d5d94711349",
+      "local_sha256": "07ed7432d84c2a945069c9ee0614bc46f2d3723796830402523e8d5d94711349",
+      "origin_git_blob_sha256": "07ed7432d84c2a945069c9ee0614bc46f2d3723796830402523e8d5d94711349",
+      "path": "aurum-desk/tools/kh_01b_r1_collect_market_data.py"
+    },
+    {
+      "byte_size": 97850,
+      "exact_match": true,
+      "github_https_raw_sha256": "e5d5ee23ffda726f47136aee7cb3880f11d3aba8becf20f442436ea81827ce58",
+      "local_sha256": "e5d5ee23ffda726f47136aee7cb3880f11d3aba8becf20f442436ea81827ce58",
+      "origin_git_blob_sha256": "e5d5ee23ffda726f47136aee7cb3880f11d3aba8becf20f442436ea81827ce58",
+      "path": "aurum-desk/tools/run_kh_01b_r1_verification.py"
+    },
+    {
+      "byte_size": 104927,
+      "exact_match": true,
+      "github_https_raw_sha256": "8c651035ea90df6e961d9e10c6003ff320fa57aca75e2a1c16bea40e7e95e0fa",
+      "local_sha256": "8c651035ea90df6e961d9e10c6003ff320fa57aca75e2a1c16bea40e7e95e0fa",
+      "origin_git_blob_sha256": "8c651035ea90df6e961d9e10c6003ff320fa57aca75e2a1c16bea40e7e95e0fa",
+      "path": "aurum-desk/backend/services/kh_01b_r1_data_safety_closure_service.py"
+    },
+    {
+      "byte_size": 20155,
+      "exact_match": true,
+      "github_https_raw_sha256": "db97d7fdd3ee3905cc7d12c50864d9f6f0ebdf3b361300e2bde75a442f6efac2",
+      "local_sha256": "db97d7fdd3ee3905cc7d12c50864d9f6f0ebdf3b361300e2bde75a442f6efac2",
+      "origin_git_blob_sha256": "db97d7fdd3ee3905cc7d12c50864d9f6f0ebdf3b361300e2bde75a442f6efac2",
+      "path": "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py"
+    },
+    {
+      "byte_size": 14703,
+      "exact_match": true,
+      "github_https_raw_sha256": "f6e50767b063e0f96b41540b41fea0d7a36fd4f90e237630d52e322b119deb67",
+      "local_sha256": "f6e50767b063e0f96b41540b41fea0d7a36fd4f90e237630d52e322b119deb67",
+      "origin_git_blob_sha256": "f6e50767b063e0f96b41540b41fea0d7a36fd4f90e237630d52e322b119deb67",
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a/13_manifest_sha256_independent_os_readback.json"
+    },
+    {
+      "byte_size": 19484,
+      "exact_match": true,
+      "github_https_raw_sha256": "de10430e814cc3d102669ced04613c3a949c85aa9220731cc64a51689b05066a",
+      "local_sha256": "de10430e814cc3d102669ced04613c3a949c85aa9220731cc64a51689b05066a",
+      "origin_git_blob_sha256": "de10430e814cc3d102669ced04613c3a949c85aa9220731cc64a51689b05066a",
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a/14_final_orthogonal_verdicts_and_blockers.json"
+    },
+    {
+      "byte_size": 4122,
+      "exact_match": true,
+      "github_https_raw_sha256": "4e5b0c87cc229c23b9fbb5c3c14668703bc7fb8ca689269cc8078762717083ab",
+      "local_sha256": "4e5b0c87cc229c23b9fbb5c3c14668703bc7fb8ca689269cc8078762717083ab",
+      "origin_git_blob_sha256": "4e5b0c87cc229c23b9fbb5c3c14668703bc7fb8ca689269cc8078762717083ab",
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a/README_KH01B_R1_DATA_SAFETY_CLOSURE.md"
+    },
+    {
+      "byte_size": 5476,
+      "exact_match": true,
+      "github_https_raw_sha256": "d86cae5682b90c282d75483a3e233e161429dd9177230a4bd816dc299641c2c9",
+      "local_sha256": "d86cae5682b90c282d75483a3e233e161429dd9177230a4bd816dc299641c2c9",
+      "origin_git_blob_sha256": "d86cae5682b90c282d75483a3e233e161429dd9177230a4bd816dc299641c2c9",
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a/HANDOVER_KH01B_R1_DATA_SAFETY_VI.txt"
+    }
+  ],
+  "run_id": "20261119T150709Z_0c247bdc466a",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "starting_head_sha": "1ee4a8747e7a1205e64a5fbfacfde1da0aa72782",
+  "verified_at_utc": "2026-11-19T15:09:07Z",
+  "verified_files_count": 8
+}
