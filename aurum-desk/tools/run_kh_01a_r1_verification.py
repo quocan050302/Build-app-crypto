@@ -1481,9 +1481,13 @@ def main() -> int:
             return _val_r1_04()
 
         def _val_r1_06() -> Dict[str, Any]:
+            fp_cnts = lineage_07["fingerprint_comparison_counts_all_170"]
             ok = (
                 lineage_07["two_independent_runs_semantic_hash_identical"] is True
-                and int(lineage_07["fingerprint_comparison_counts_all_170"].get("MISMATCH", 1)) == 0
+                and int(fp_cnts.get("MISMATCH", 0)) == 0
+                and int(fp_cnts.get("MATCH", 0)) == 166
+                and int(fp_cnts.get("NOT_COMPARABLE", 0)) == 4
+                and sum(int(x) for x in fp_cnts.values()) == 170
                 and int(forensics_06["anti_hindsight_contract"]["max_known_at_minus_decision_ts_ms"]) <= 0
                 and int(forensics_06["anti_hindsight_contract"]["max_closed_bar_close_minus_decision_ts_ms"]) <= 0
             )

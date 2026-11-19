@@ -259,6 +259,8 @@ CHILD_SPAWNING_TEST_FILES: Set[str] = MULTI_CHILD_SPAWNING_TEST_FILES | SINGLE_C
 
 EMPIRICAL_HEAVY_FILE_WEIGHT_BONUS: Dict[str, int] = {
     "test_v5_authoritative_lab.py": 450_000,
+    "test_v17_9_3_macro_unicorn_backtest.py": 380_000,
+    "test_r332_raw_regression_retry_integrity.py": 320_000,
     "test_v13_2_replay_repair.py": 210_000,
     "test_v17_6_4_3b_unique_commit_truth.py": 175_000,
     "test_v17_9_3_1_2_3_core_trading_logic_repair.py": 175_000,

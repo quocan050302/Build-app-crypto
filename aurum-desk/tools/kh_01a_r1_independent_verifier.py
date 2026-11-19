@@ -12,6 +12,7 @@ audit rows + dynamic gate receipts + prior KH-01A artifact immutability, and sea
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 from datetime import datetime, timezone
 import gzip
 import hashlib

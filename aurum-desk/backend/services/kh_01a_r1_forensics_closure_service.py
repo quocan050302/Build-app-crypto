@@ -1754,7 +1754,8 @@ def evaluate_kh_01a_r1_14_gates(
         v04.extend(val_06.get("violations") or ["STRICT_BUNDLE_VALIDATION_FAILED"])
     m3_170 = forensics_06.get("macro_3way_census_all_170") or {}
     sess_170 = forensics_06.get("ny_session_group_census_all_170") or {}
-    if int(m3_170.get("UNKNOWN_OR_INVALID_MACRO_STATE", 1)) != 0:
+    valid_m3_sum = int(m3_170.get("ELIGIBLE_IN_VERIFIED_WINDOW", 0)) + int(m3_170.get("VALID_OUTSIDE_WINDOW", 0))
+    if not m3_170 or int(m3_170.get("UNKNOWN_OR_INVALID_MACRO_STATE", 0)) != 0 or valid_m3_sum != 170:
         v04.append(f"UNKNOWN_OR_INVALID_MACRO_ROWS:{m3_170}")
     if int(sess_170.get("INVALID", 0)) > 0:
         v04.append(f"INVALID_SESSION_GROUP_ROWS:{sess_170}")
@@ -1812,7 +1813,13 @@ def evaluate_kh_01a_r1_14_gates(
     if lineage_07.get("two_independent_runs_semantic_hash_identical") is not True:
         v06.append("RECONSTRUCTION_REPRODUCIBILITY_MISMATCH")
     fp_c = lineage_07.get("fingerprint_comparison_counts_all_170") or {}
-    if int(fp_c.get("MISMATCH", 1)) != 0 or int(fp_c.get("MATCH", 0)) != 166 or int(fp_c.get("NOT_COMPARABLE", 0)) != 4:
+    if (
+        not fp_c
+        or int(fp_c.get("MISMATCH", 0)) != 0
+        or int(fp_c.get("MATCH", 0)) != 166
+        or int(fp_c.get("NOT_COMPARABLE", 0)) != 4
+        or sum(int(x) for x in fp_c.values()) != 170
+    ):
         v06.append(f"UNEXPECTED_FINGERPRINT_LINEAGE_COUNTS:{fp_c}")
     _add_r1_gate(
         "G-KH01A-R1-06",
