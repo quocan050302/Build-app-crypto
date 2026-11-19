@@ -222,43 +222,52 @@ CONTROLLED_SUBSET_BENCHMARK_FILES: Tuple[str, ...] = (
     "backend/tests/test_v15_9_quote_source_rejection.py",
 )
 
-CHILD_SPAWNING_TEST_FILES: Set[str] = {
-    "test_kh_01a_r1_subprocess_verifier.py",
+MULTI_CHILD_SPAWNING_TEST_FILES: Set[str] = {
     "test_r331_acceptance_runner_and_resources.py",
+    "test_v17_9_0_1_2_strict_eligibility_and_parity.py",
+    "test_v17_9_async_regression.py",
+    "test_v17_9_3_1_2_2_verification_integrity.py",
+    "test_v17_9_3_1_2_7_causal_truth.py",
+}
+
+SINGLE_CHILD_SPAWNING_TEST_FILES: Set[str] = {
+    "test_kh_01a_r1_subprocess_verifier.py",
     "test_r332_raw_regression_retry_integrity.py",
     "test_v14_4_2_chart_export_robustness.py",
     "test_v16_39_10_snapshot_api_cli.py",
-    "test_v17_6_4_2_acceptance_integrity.py",
-    "test_v17_6_4_3a_acceptance_integrity.py",
     "test_v17_6_4_3a_discovery_integrity.py",
     "test_v17_6_4_3b_acceptance_integrity.py",
     "test_v17_7_adaptive_stop_loss.py",
-    "test_v17_7_database_safety.py",
     "test_v17_8_0_4_parity_and_integrity.py",
-    "test_v17_9_0_1_2_strict_eligibility_and_parity.py",
-    "test_v17_9_1_positive_path_replay.py",
     "test_v17_9_3_macro_unicorn_backtest.py",
-    "test_v17_9_async_regression.py",
     "test_v17_9_3_1_2_1_root_cause_evidence.py",
-    "test_v17_9_3_1_2_2_verification_integrity.py",
-    "test_v17_9_3_1_2_7_causal_truth.py",
     "test_v17_9_3_1_2_9_liquidity_provenance.py",
     "test_v17_9_3_1_2_10_canonical_universe_and_provenance.py",
     "test_v17_9_3_1_2_10_verification_parity.py",
     "test_v17_9_3_1_2_11_lineage_and_exit_integrity.py",
-    "test_v17_9_3_1_2_11_verification_truth_and_exit_lineage.py",
-    "test_v17_9_3_1_2_12_provenance_forensics_and_repair.py",
     "test_v17_9_3_1_2_12_regression_and_accounting_truth.py",
     "test_v17_9_3_1_2_13_delayed_entry_and_workers.py",
-    "test_v17_9_3_1_2_13_delayed_entry_materialization_and_truth.py",
-    "test_v17_9_3_1_2_14_accounting_target_and_d4_truth.py",
     "test_v17_9_3_1_2_15_verification_and_adversarial_suite.py",
-    "test_v17_9_3_1_2_16_verification_and_forensics.py",
     "test_v17_9_3_1_2_17_truth_closure_and_evidence.py",
-    "test_v17_9_3_1_2_18_truth_and_core_repair.py",
-    "test_v17_9_3_1_2_19_truth_and_core_repair.py",
     "test_v17_9_3_1_2_full_universe_executable_interventions.py",
     "test_v17_9_3_1_historical_execution_truth.py",
+}
+
+CHILD_SPAWNING_TEST_FILES: Set[str] = MULTI_CHILD_SPAWNING_TEST_FILES | SINGLE_CHILD_SPAWNING_TEST_FILES | {
+    "test_v17_7_database_safety.py",
+}
+
+EMPIRICAL_HEAVY_FILE_WEIGHT_BONUS: Dict[str, int] = {
+    "test_v5_authoritative_lab.py": 450_000,
+    "test_v13_2_replay_repair.py": 210_000,
+    "test_v17_6_4_3b_unique_commit_truth.py": 175_000,
+    "test_v17_9_3_1_2_3_core_trading_logic_repair.py": 175_000,
+    "test_v13_3_daily_scheduler.py": 145_000,
+    "test_v17_9_3_1_2_1_opportunity_identity.py": 140_000,
+    "test_v17_6_4_3a_commit_truth.py": 135_000,
+    "test_v17_9_3_1_2_1_portfolio_censoring.py": 120_000,
+    "test_kh_01a_r1_forensics_truth_closure.py": 115_000,
+    "test_kh_01a_data_and_verification_foundation.py": 105_000,
 }
 
 SHARED_DB_SERIAL_TEST_FILES: Set[str] = {
@@ -511,7 +520,8 @@ def _build_deterministic_shards_kh01a(
 ) -> List[Dict[str, Any]]:
     realtime_30ms: List[str] = []
     db_own: List[str] = []
-    child_spawn: List[str] = []
+    multi_child_spawn: List[str] = []
+    single_child_spawn: List[str] = []
     v17_9_0_1_heavy: List[str] = []
     cg01_iso_by_name: Dict[str, List[str]] = {
         "test_v16_23_red_reproductions.py": [],
@@ -528,8 +538,10 @@ def _build_deterministic_shards_kh01a(
             realtime_30ms.append(rel)
         elif fname == "test_v17_7_database_safety.py":
             db_own.append(rel)
-        elif fname in CHILD_SPAWNING_TEST_FILES:
-            child_spawn.append(rel)
+        elif fname in MULTI_CHILD_SPAWNING_TEST_FILES:
+            multi_child_spawn.append(rel)
+        elif fname in SINGLE_CHILD_SPAWNING_TEST_FILES:
+            single_child_spawn.append(rel)
         elif fname == "test_v17_9_0_1_runtime_integration_and_gates.py":
             v17_9_0_1_heavy.append(rel)
         elif fname in cg01_iso_by_name:
@@ -539,33 +551,54 @@ def _build_deterministic_shards_kh01a(
         else:
             regular_inproc.append(rel)
 
-    shards: List[Dict[str, Any]] = []
-    if v17_9_0_1_heavy:
-        shards.append({"shard_name": "SHARD_INPROC_00_V17_9_0_1_RUNTIME", "files": v17_9_0_1_heavy, "exclusive": False, "needs_venv": False})
-    if db_serial:
-        shards.append({"shard_name": "SHARD_INPROC_01_SHARED_DB_SERIAL", "files": sorted(db_serial), "exclusive": False, "needs_venv": False})
-    for iso_tag, iso_fname in (
-        ("02A_V16_23_RED", "test_v16_23_red_reproductions.py"),
-        ("02B_V16_23_FLOW", "test_v16_23_production_flow.py"),
-        ("02C_V16_24_FLOW", "test_v16_24_production_flow.py"),
-        ("02D_V16_25_FLOW", "test_v16_25_production_flow.py"),
-    ):
-        if cg01_iso_by_name[iso_fname]:
-            shards.append({
-                "shard_name": f"SHARD_INPROC_{iso_tag}_ISOLATED",
-                "files": cg01_iso_by_name[iso_fname],
-                "exclusive": False,
-                "needs_venv": False,
-            })
-
-    num_buckets = 12
-    buckets: List[List[str]] = [[] for _ in range(num_buckets)]
-    weights = [0 for _ in range(num_buckets)]
-
     def _file_weight(rel_p: str) -> Tuple[int, str]:
+        fname_p = Path(rel_p).name
         sz = (APP_ROOT / rel_p).stat().st_size if (APP_ROOT / rel_p).exists() else 1
         n_nodes = len(collected_by_file.get(rel_p, ()))
-        return (sz + n_nodes * 512, rel_p)
+        bonus = EMPIRICAL_HEAVY_FILE_WEIGHT_BONUS.get(fname_p, 0)
+        return (sz + n_nodes * 512 + bonus, rel_p)
+
+    shards: List[Dict[str, Any]] = []
+    if v17_9_0_1_heavy:
+        shards.append({
+            "shard_name": "SHARD_INPROC_00_V17_9_0_1_RUNTIME",
+            "files": v17_9_0_1_heavy,
+            "exclusive": False,
+            "slot_cost": 1,
+            "priority_weight": 999_999,
+            "needs_venv": False,
+        })
+    if db_serial:
+        shards.append({
+            "shard_name": "SHARD_INPROC_01_SHARED_DB_SERIAL",
+            "files": sorted(db_serial),
+            "exclusive": False,
+            "slot_cost": 1,
+            "priority_weight": 500_000,
+            "needs_venv": False,
+        })
+
+    if single_child_spawn:
+        sc_buckets: List[List[str]] = [[], [], []]
+        sc_weights = [0, 0, 0]
+        for r in sorted(single_child_spawn, key=lambda x: (-_file_weight(x)[0], x)):
+            bi = min(range(3), key=lambda i: (sc_weights[i], i))
+            sc_buckets[bi].append(r)
+            sc_weights[bi] += _file_weight(r)[0]
+        for sc_idx, sc_files in enumerate(sc_buckets, start=1):
+            if sc_files:
+                shards.append({
+                    "shard_name": f"SHARD_SINGLE_CHILD_{sc_idx:02d}_BUDGET2",
+                    "files": sorted(sc_files),
+                    "exclusive": False,
+                    "slot_cost": 2,
+                    "priority_weight": 420_000 + sc_weights[sc_idx - 1],
+                    "needs_venv": False,
+                })
+
+    num_buckets = 16
+    buckets: List[List[str]] = [[] for _ in range(num_buckets)]
+    weights = [0 for _ in range(num_buckets)]
 
     for r in sorted(regular_inproc, key=lambda x: (-_file_weight(x)[0], x)):
         b_idx = min(range(num_buckets), key=lambda i: (weights[i], i))
@@ -578,19 +611,54 @@ def _build_deterministic_shards_kh01a(
                 "shard_name": f"SHARD_INPROC_{idx:02d}_BALANCED",
                 "files": sorted(b_files),
                 "exclusive": False,
+                "slot_cost": 1,
+                "priority_weight": weights[idx - 3],
+                "needs_venv": False,
+            })
+
+    for iso_tag, iso_fname in (
+        ("02A_V16_23_RED", "test_v16_23_red_reproductions.py"),
+        ("02B_V16_23_FLOW", "test_v16_23_production_flow.py"),
+        ("02C_V16_24_FLOW", "test_v16_24_production_flow.py"),
+        ("02D_V16_25_FLOW", "test_v16_25_production_flow.py"),
+    ):
+        if cg01_iso_by_name[iso_fname]:
+            shards.append({
+                "shard_name": f"SHARD_INPROC_{iso_tag}_ISOLATED",
+                "files": cg01_iso_by_name[iso_fname],
+                "exclusive": False,
+                "slot_cost": 1,
+                "priority_weight": 25_000,
                 "needs_venv": False,
             })
 
     if realtime_30ms:
-        shards.append({"shard_name": "SHARD_EXCL_00_REALTIME_30MS", "files": sorted(realtime_30ms), "exclusive": True, "needs_venv": True})
-    if child_spawn:
-        cs_sorted = sorted(child_spawn)
-        mid = max(1, len(cs_sorted) // 2)
-        shards.append({"shard_name": "SHARD_EXCL_01_NESTED_SUBPROC_A", "files": cs_sorted[:mid], "exclusive": True, "needs_venv": False})
-        if cs_sorted[mid:]:
-            shards.append({"shard_name": "SHARD_EXCL_02_NESTED_SUBPROC_B", "files": cs_sorted[mid:], "exclusive": True, "needs_venv": False})
+        shards.append({
+            "shard_name": "SHARD_EXCL_00_REALTIME_30MS",
+            "files": sorted(realtime_30ms),
+            "exclusive": True,
+            "slot_cost": 4,
+            "priority_weight": 100_000,
+            "needs_venv": True,
+        })
+    if multi_child_spawn:
+        shards.append({
+            "shard_name": "SHARD_EXCL_01_MULTI_CHILD",
+            "files": sorted(multi_child_spawn),
+            "exclusive": True,
+            "slot_cost": 4,
+            "priority_weight": 300_000,
+            "needs_venv": False,
+        })
     if db_own:
-        shards.append({"shard_name": "SHARD_EXCL_03_DB_OWNERSHIP", "files": sorted(db_own), "exclusive": True, "needs_venv": True})
+        shards.append({
+            "shard_name": "SHARD_EXCL_03_DB_OWNERSHIP",
+            "files": sorted(db_own),
+            "exclusive": True,
+            "slot_cost": 4,
+            "priority_weight": 100_000,
+            "needs_venv": True,
+        })
 
     return shards
 
@@ -601,7 +669,7 @@ async def run_async_pytest_shards_kh01a(
     *,
     run_id: str,
     tested_executable_sha: str,
-    max_parallel_workers: int = 3,
+    max_parallel_workers: int = 4,
 ) -> Dict[str, Any]:
     """
     Section 6: Truly asynchronous (`asyncio.create_subprocess_exec`) bounded pytest shard
@@ -666,6 +734,7 @@ async def run_async_pytest_shards_kh01a(
 
     cond = asyncio.Condition()
     active_slots = 0
+    active_shards_count = 0
     exclusive_running = False
     downshift_count = 0
     peak_parallel_shards = 0
@@ -683,10 +752,12 @@ async def run_async_pytest_shards_kh01a(
         if avail_ram < int(2.0 * 1024**3):
             downshift_count += 1
             return min(2, max_parallel_workers)
-        return min(3, max_parallel_workers)
+        if avail_ram < int(2.3 * 1024**3):
+            return min(3, max_parallel_workers)
+        return min(4, max_parallel_workers)
 
-    async def _acquire_slot(exclusive: bool) -> None:
-        nonlocal active_slots, exclusive_running, peak_parallel_shards
+    async def _acquire_slot(exclusive: bool, slot_cost: int) -> int:
+        nonlocal active_slots, active_shards_count, exclusive_running, peak_parallel_shards
         async with cond:
             while True:
                 abort_p = os.environ.get("AURUM_RESOURCE_GUARD_ABORT_FILE")
@@ -695,34 +766,42 @@ async def run_async_pytest_shards_kh01a(
                 if exclusive:
                     if active_slots == 0 and not exclusive_running:
                         exclusive_running = True
-                        active_slots = 1
+                        active_slots = 4
+                        active_shards_count = 1
                         peak_parallel_shards = max(peak_parallel_shards, 1)
-                        return
+                        return 4
                 else:
                     lim = _effective_slot_limit()
-                    if not exclusive_running and active_slots < lim:
-                        active_slots += 1
-                        peak_parallel_shards = max(peak_parallel_shards, active_slots)
-                        return
+                    eff_cost = max(1, int(slot_cost))
+                    if not exclusive_running and (
+                        (active_slots + eff_cost <= lim) or (active_slots == 0)
+                    ):
+                        active_slots += eff_cost
+                        active_shards_count += 1
+                        peak_parallel_shards = max(peak_parallel_shards, active_shards_count)
+                        return eff_cost
                 await cond.wait()
 
-    async def _release_slot(exclusive: bool) -> None:
-        nonlocal active_slots, exclusive_running
+    async def _release_slot(exclusive: bool, acquired_cost: int) -> None:
+        nonlocal active_slots, active_shards_count, exclusive_running
         async with cond:
             if exclusive:
                 exclusive_running = False
                 active_slots = 0
+                active_shards_count = 0
             else:
-                active_slots = max(0, active_slots - 1)
+                active_slots = max(0, active_slots - acquired_cost)
+                active_shards_count = max(0, active_shards_count - 1)
             cond.notify_all()
 
     async def _exec_one_shard(spec: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         shard_name = str(spec["shard_name"])
         rel_paths: List[str] = list(spec["files"])
         exclusive = bool(spec["exclusive"])
+        slot_cost = int(spec.get("slot_cost", 4 if exclusive else 1))
         needs_venv = bool(spec["needs_venv"])
 
-        await _acquire_slot(exclusive)
+        acquired_cost = await _acquire_slot(exclusive, slot_cost)
         try:
             shard_short_id = hashlib.sha256(shard_name.encode("utf-8")).hexdigest()[:6]
             shard_tmp = owned_temp_root / "s" / shard_short_id
@@ -755,48 +834,53 @@ async def run_async_pytest_shards_kh01a(
             start_utc = datetime.now(timezone.utc).isoformat()
             shard_peak_rss = 0
 
-            with raw_log_tmp.open("wb") as log_fh:
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd_argv,
-                    cwd=str(APP_ROOT),
-                    env=child_env,
-                    stdout=log_fh,
-                    stderr=asyncio.subprocess.STDOUT,
-                )
-                shard_pid = int(proc.pid)
-                active_procs[shard_pid] = proc
+            proc = await asyncio.create_subprocess_exec(
+                *cmd_argv,
+                cwd=str(APP_ROOT),
+                env=child_env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            shard_pid = int(proc.pid)
+            active_procs[shard_pid] = proc
+
+            async def _sample_rss() -> None:
+                nonlocal shard_peak_rss
                 try:
                     ps_p = psutil.Process(shard_pid)
                 except psutil.Error:
-                    ps_p = None
-                try:
-                    deadline = time.monotonic() + 1800.0
-                    while proc.returncode is None:
-                        if ps_p is not None:
-                            try:
-                                shard_peak_rss = max(shard_peak_rss, int(ps_p.memory_info().rss))
-                            except psutil.Error:
-                                pass
-                        if time.monotonic() >= deadline:
-                            proc.kill()
-                            await proc.wait()
-                            raise RuntimeError(f"ASYNC_PYTEST_SHARD_TIMEOUT:{shard_name}")
-                        try:
-                            await asyncio.wait_for(asyncio.shield(proc.wait()), timeout=0.25)
-                        except asyncio.TimeoutError:
-                            pass
-                finally:
-                    active_procs.pop(shard_pid, None)
+                    return
+                while True:
+                    try:
+                        shard_peak_rss = max(shard_peak_rss, int(ps_p.memory_info().rss))
+                    except psutil.Error:
+                        return
+                    await asyncio.sleep(1.0)
 
+            rss_task = asyncio.create_task(_sample_rss())
+            try:
+                out_bytes, _ = await asyncio.wait_for(proc.communicate(), timeout=1800.0)
+            except asyncio.TimeoutError as exc:
+                proc.kill()
+                await proc.wait()
+                raise RuntimeError(f"ASYNC_PYTEST_SHARD_TIMEOUT:{shard_name}") from exc
+            finally:
+                rss_task.cancel()
+                try:
+                    await rss_task
+                except asyncio.CancelledError:
+                    pass
+                active_procs.pop(shard_pid, None)
+
+            raw_log_tmp.write_bytes(out_bytes)
             rc = int(proc.returncode if proc.returncode is not None else -1)
             elapsed = round(time.perf_counter() - t_s, 3)
             et_ms = max(st_ms + 1, int(time.time() * 1000))
             end_utc = datetime.now(timezone.utc).isoformat()
 
-            raw_size = raw_log_tmp.stat().st_size if raw_log_tmp.is_file() else 0
+            raw_size = len(out_bytes)
             log_truncated = raw_size > MAX_SHARD_LOG_BYTES
-            with raw_log_tmp.open("rb") as rf:
-                capped_bytes = rf.read(MAX_SHARD_LOG_BYTES)
+            capped_bytes = out_bytes[:MAX_SHARD_LOG_BYTES]
             capped_text = capped_bytes.decode("utf-8", errors="replace")
 
             if rc != 0:
@@ -826,7 +910,7 @@ async def run_async_pytest_shards_kh01a(
             bij = verify_collect_vs_junit_node_id_bijection_v1793122(scheduled_ids, shard_junit_ids)
 
             print(
-                f"  [KH01A Shard {shard_name}] excl={exclusive} pid={shard_pid} files={len(rel_paths)} "
+                f"  [KH01A Shard {shard_name}] excl={exclusive} cost={slot_cost} pid={shard_pid} files={len(rel_paths)} "
                 f"junit={len(shard_junit_ids)} rc={rc} bij={bij['exact_node_id_bijection_verified']} in {elapsed}s",
                 flush=True,
             )
@@ -836,6 +920,7 @@ async def run_async_pytest_shards_kh01a(
                 "shard_name": shard_name,
                 "reused": False,
                 "exclusive_slot": exclusive,
+                "slot_cost": slot_cost,
                 "run_id": run_id,
                 "tested_executable_sha": tested_executable_sha,
                 "pid": shard_pid,
@@ -890,13 +975,34 @@ async def run_async_pytest_shards_kh01a(
             }
             return shard_rec, log_rec, worker_rec
         finally:
-            await _release_slot(exclusive)
+            await _release_slot(exclusive, acquired_cost)
 
-    inproc_specs = [s for s in shard_specs if not s["exclusive"]]
-    excl_specs = [s for s in shard_specs if s["exclusive"]]
+    inproc_specs = sorted(
+        [s for s in shard_specs if not s["exclusive"]],
+        key=lambda s: (-int(s.get("priority_weight", 0)), str(s["shard_name"])),
+    )
+    excl_specs = sorted(
+        [s for s in shard_specs if s["exclusive"]],
+        key=lambda s: (-int(s.get("priority_weight", 0)), str(s["shard_name"])),
+    )
+
+    inproc_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+    for sp in inproc_specs:
+        inproc_queue.put_nowait(sp)
+    inproc_out: List[Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]] = []
+
+    async def _queue_consumer() -> None:
+        while True:
+            try:
+                nxt = inproc_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            res = await _exec_one_shard(nxt)
+            inproc_out.append(res)
 
     try:
-        inproc_out = list(await asyncio.gather(*(_exec_one_shard(s) for s in inproc_specs)))
+        n_consumers = max(1, min(4, int(max_parallel_workers)))
+        await asyncio.gather(*(_queue_consumer() for _ in range(n_consumers)))
         excl_out: List[Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]] = []
         for es in excl_specs:
             excl_out.append(await _exec_one_shard(es))

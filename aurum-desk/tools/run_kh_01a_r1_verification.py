@@ -180,18 +180,21 @@ def _run_forensics_slice_cli(in_gz_path: Path, out_json_path: Path) -> int:
     datasets, prov = load_canonical_xauusdt_datasets()
     close_ts = build_close_ts_index_v179312(datasets)
 
-    target_oids = set(payload["target_oids"])
-    d10_map: Dict[str, Dict[str, Any]] = {}
-    for row in iter_jsonl_gz(V130_RUN / "10_canonical_decision_inputs.jsonl.gz"):
-        oid = str(row.get("opportunity_id") or "")
-        if oid in target_oids:
-            d10_map[oid] = row
-
-    f07_map: Dict[str, Dict[str, Any]] = {}
-    for f_row in iter_jsonl_gz(V130_RUN / "07_verified_causal_features.jsonl.gz"):
-        oid = str(f_row.get("opportunity_id") or "")
-        if oid in target_oids:
-            f07_map[oid] = f_row
+    if "d10_slice" in payload and "f07_slice" in payload:
+        d10_map: Dict[str, Dict[str, Any]] = dict(payload["d10_slice"])
+        f07_map: Dict[str, Dict[str, Any]] = dict(payload["f07_slice"])
+    else:
+        target_oids = set(payload["target_oids"])
+        d10_map = {}
+        for row in iter_jsonl_gz(V130_RUN / "10_canonical_decision_inputs.jsonl.gz"):
+            oid = str(row.get("opportunity_id") or "")
+            if oid in target_oids:
+                d10_map[oid] = row
+        f07_map = {}
+        for f_row in iter_jsonl_gz(V130_RUN / "07_verified_causal_features.jsonl.gz"):
+            oid = str(f_row.get("opportunity_id") or "")
+            if oid in target_oids:
+                f07_map[oid] = f_row
 
     out_bundle = build_kh_01a_causal_loss_and_win_control_forensics(
         si0_all_primary_episodes=payload["si0_slice"],
@@ -231,9 +234,11 @@ def _run_parity_a1_slice_cli(in_json_path: Path, out_json_path: Path) -> int:
         build_v1793_variant_market_context,
     )
 
-    spec = json.loads(in_json_path.read_text(encoding="utf-8"))
-    min_ts = int(spec["min_ts_inclusive"])
-    max_ts = int(spec["max_ts_inclusive"])
+    if str(in_json_path).endswith(".gz"):
+        with gzip.open(in_json_path, "rt", encoding="utf-8") as fh:
+            spec = json.load(fh)
+    else:
+        spec = json.loads(in_json_path.read_text(encoding="utf-8"))
 
     datasets, _ = load_canonical_xauusdt_datasets()
     close_ts = build_close_ts_index_v179312(datasets)
@@ -248,12 +253,18 @@ def _run_parity_a1_slice_cli(in_json_path: Path, out_json_path: Path) -> int:
     pol_a1_fast["mtf_structure_observe_only"] = False
 
     by_ts: Dict[int, List[Dict[str, Any]]] = {}
-    for row in iter_jsonl_gz(V130_RUN / "10_canonical_decision_inputs.jsonl.gz"):
-        if row.get("discovered_by_si8"):
-            continue
-        ts = int(row["decision_timestamp_ms"])
-        if min_ts <= ts <= max_ts:
-            by_ts.setdefault(ts, []).append(row)
+    if "records" in spec:
+        for row in spec["records"]:
+            by_ts.setdefault(int(row["decision_timestamp_ms"]), []).append(row)
+    else:
+        min_ts = int(spec["min_ts_inclusive"])
+        max_ts = int(spec["max_ts_inclusive"])
+        for row in iter_jsonl_gz(V130_RUN / "10_canonical_decision_inputs.jsonl.gz"):
+            if row.get("discovered_by_si8"):
+                continue
+            ts = int(row["decision_timestamp_ms"])
+            if min_ts <= ts <= max_ts:
+                by_ts.setdefault(ts, []).append(row)
 
     evaluated_count = 0
     mismatches: List[Dict[str, Any]] = []
@@ -326,6 +337,8 @@ async def run_forensics_170_w1_w2_w4_determinism_r1(
     si0_closed_eps: Sequence[Mapping[str, Any]],
     si8_losses: Sequence[Mapping[str, Any]],
     si9_losses: Sequence[Mapping[str, Any]],
+    decisions_by_oid: Mapping[str, Mapping[str, Any]],
+    features_by_oid: Mapping[str, Mapping[str, Any]],
 ) -> Dict[str, Any]:
     """
     KH-01A.R1 Phase 5 (H3): Runs the 170-row forensic casebook (`166` SI0 closed +
@@ -335,7 +348,7 @@ async def run_forensics_170_w1_w2_w4_determinism_r1(
     """
     py_exe = sys.executable
     script_path = str(Path(__file__).resolve())
-    bench_dir = owned_temp_root / "forensics_170_w124"
+    bench_dir = owned_temp_root / "f170"
     bench_dir.mkdir(parents=True, exist_ok=True)
 
     si8_by_id = {str(r["opportunity_id"]): r for r in si8_losses}
@@ -373,16 +386,22 @@ async def run_forensics_170_w1_w2_w4_determinism_r1(
                 tag = f"{mode_lbl.replace('=', '')}_p{p_idx}"
                 in_gz = bench_dir / f"{tag}_in.json.gz"
                 out_json = bench_dir / f"{tag}_out.json"
-                oids = {str(e["opportunity_id"]) for e in si0_parts[p_idx]} | {
-                    str(e["opportunity_id"]) for e in si8_parts[p_idx]
-                } | {str(e["opportunity_id"]) for e in si9_parts[p_idx]}
+                oids = sorted(
+                    {str(e["opportunity_id"]) for e in si0_parts[p_idx]}
+                    | {str(e["opportunity_id"]) for e in si8_parts[p_idx]}
+                    | {str(e["opportunity_id"]) for e in si9_parts[p_idx]}
+                )
+                d10_sub = {oid: dict(decisions_by_oid[oid]) for oid in oids if oid in decisions_by_oid}
+                f07_sub = {oid: dict(features_by_oid[oid]) for oid in oids if oid in features_by_oid}
                 with gzip.open(in_gz, "wt", encoding="utf-8") as fh:
                     json.dump(
                         {
                             "si0_slice": si0_parts[p_idx],
                             "si8_slice": si8_parts[p_idx],
                             "si9_slice": si9_parts[p_idx],
-                            "target_oids": sorted(oids),
+                            "target_oids": oids,
+                            "d10_slice": d10_sub,
+                            "f07_slice": f07_sub,
                         },
                         fh,
                     )
@@ -434,7 +453,7 @@ async def run_streaming_full_56710_a1_parity_r1(
     owned_temp_root: Path,
     baseline_decisions: Sequence[Mapping[str, Any]],
     *,
-    num_workers: int = 3,
+    num_workers: int = 4,
 ) -> Dict[str, Any]:
     """
     KH-01A.R1 Phase 4 (G4): Bounded multi-process streaming verification of
@@ -444,25 +463,50 @@ async def run_streaming_full_56710_a1_parity_r1(
     """
     py_exe = sys.executable
     script_path = str(Path(__file__).resolve())
-    p_dir = owned_temp_root / "parity_a1_56710"
+    p_dir = owned_temp_root / "pa1"
     p_dir.mkdir(parents=True, exist_ok=True)
 
     unique_ts = sorted({int(r["decision_timestamp_ms"]) for r in baseline_decisions})
-    eff_w = max(1, min(3, int(num_workers)))
+    eff_w = max(1, min(4, int(num_workers)))
     chunk_len = (len(unique_ts) + eff_w - 1) // eff_w
     ts_ranges: List[Tuple[int, int]] = []
     for i in range(0, len(unique_ts), chunk_len):
         sub = unique_ts[i : i + chunk_len]
         ts_ranges.append((sub[0], sub[-1]))
 
+    compact_by_part: List[List[Dict[str, Any]]] = [[] for _ in range(len(ts_ranges))]
+    for r in baseline_decisions:
+        ts_r = int(r["decision_timestamp_ms"])
+        for p_idx, (lo_b, hi_b) in enumerate(ts_ranges):
+            if lo_b <= ts_r <= hi_b:
+                compact_by_part[p_idx].append({
+                    "opportunity_id": str(r["opportunity_id"]),
+                    "decision_timestamp_ms": ts_r,
+                    "model_id": str(r["model_id"]),
+                    "direction": str(r["direction"]),
+                    "decision_fingerprint": r.get("decision_fingerprint"),
+                    "trade_action_fingerprint": r.get("trade_action_fingerprint"),
+                    "decision_status": str(r.get("decision_status")),
+                    "hypothetical_quantity": float(r.get("hypothetical_quantity") or 0.0),
+                })
+                break
+
     sem = asyncio.Semaphore(eff_w)
     t0 = time.perf_counter()
 
     async def _run_part(idx: int, lo_ts: int, hi_ts: int) -> Dict[str, Any]:
         async with sem:
-            in_p = p_dir / f"part_{idx}_in.json"
-            out_p = p_dir / f"part_{idx}_out.json"
-            write_json_durable_atomic(in_p, {"min_ts_inclusive": lo_ts, "max_ts_inclusive": hi_ts})
+            in_p = p_dir / f"p{idx}_in.json.gz"
+            out_p = p_dir / f"p{idx}_out.json"
+            with gzip.open(in_p, "wt", encoding="utf-8") as gz_fh:
+                json.dump(
+                    {
+                        "min_ts_inclusive": lo_ts,
+                        "max_ts_inclusive": hi_ts,
+                        "records": compact_by_part[idx],
+                    },
+                    gz_fh,
+                )
             env = dict(os.environ)
             env["PYTHONHASHSEED"] = "0"
             proc = await asyncio.create_subprocess_exec(
@@ -512,7 +556,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="KH-01A.R1 Forensics Truth Closure Orchestrator")
     ap.add_argument("--tested-code-sha", default="")
     ap.add_argument("--run-id", default="")
-    ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--output-root", default="")
     ap.add_argument("--worker-slice-input", default="")
     ap.add_argument("--worker-slice-output", default="")
@@ -1116,6 +1160,8 @@ def main() -> int:
                 si0_closed_eps=si0_closed_166,
                 si8_losses=si8_losses,
                 si9_losses=si9_losses,
+                decisions_by_oid=decisions_by_oid,
+                features_by_oid=all_features_map,
             )
         )
         replay_w124_doc, replay_det_workers = run_worker_1_2_4_and_repeat_determinism_v17931211(
