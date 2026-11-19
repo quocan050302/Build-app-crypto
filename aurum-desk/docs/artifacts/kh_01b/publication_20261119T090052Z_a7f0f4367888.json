@@ -1,0 +1,38 @@
+{
+  "G_KH01B_16_STATUS": "PASS_REMOTE_VERIFIED",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "github_https_raw_readbacks": {
+    "18_independent_verifier_manifest_receipts_hashes.json": {
+      "matched_local": true,
+      "sha256": "52f3d7f779054859463a5a800e9d0368de68f378938c0db6b3f6670c5dd04cca",
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/49ddae9fbeb00eb6f168345b001d7da5608873a0/aurum-desk/docs/artifacts/kh_01b/20261119T090052Z_a7f0f4367888/18_independent_verifier_manifest_receipts_hashes.json"
+    },
+    "19_final_orthogonal_gates_blockers_and_kh01c_candidates.json": {
+      "matched_local": true,
+      "sha256": "ddaf8864634692311fbd272894b76b4e58fc0893dad3b4d7d12da2bcbfae85b9",
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/49ddae9fbeb00eb6f168345b001d7da5608873a0/aurum-desk/docs/artifacts/kh_01b/20261119T090052Z_a7f0f4367888/19_final_orthogonal_gates_blockers_and_kh01c_candidates.json"
+    },
+    "HANDOVER_KH01B_VI.txt": {
+      "matched_local": true,
+      "sha256": "5c708b073100e8ad09f7d48de4306f3352876e930e83f27d20e1b5671efc9e10",
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/49ddae9fbeb00eb6f168345b001d7da5608873a0/aurum-desk/docs/artifacts/kh_01b/20261119T090052Z_a7f0f4367888/HANDOVER_KH01B_VI.txt"
+    },
+    "README_KH01B.md": {
+      "matched_local": true,
+      "sha256": "09ae35a9a6c063cddb72001fcc584cee364bfb66edb5e7b264fd406a23eb06cf",
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/49ddae9fbeb00eb6f168345b001d7da5608873a0/aurum-desk/docs/artifacts/kh_01b/20261119T090052Z_a7f0f4367888/README_KH01B.md"
+    }
+  },
+  "ls_remote_verified_head_sha": "49ddae9fbeb00eb6f168345b001d7da5608873a0",
+  "phase_b_evidence_commit_sha": "49ddae9fbeb00eb6f168345b001d7da5608873a0",
+  "reference_r1_starting_head_sha": "d05f0fd74b65e2d0ef870e2bac259e81799c34cc",
+  "remote_git_blob_mismatches_count": 0,
+  "remote_git_blobs_verified_count": 72,
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "schema_version": "kh_01b.publication_receipt.v1",
+  "sealed_run_bundle_modified_post_push": false,
+  "spec_version": "KH-01B-v1.0",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+  "verified_at_utc": "2026-11-19T09:37:44Z"
+}
