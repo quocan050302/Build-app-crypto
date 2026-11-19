@@ -213,6 +213,8 @@ PREPATCH_BASELINE_REFERENCE: Dict[str, Any] = {
 CONTROLLED_SUBSET_BENCHMARK_FILES: Tuple[str, ...] = (
     "backend/tests/test_kh_01a_data_and_verification_foundation.py",
     "backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+    "backend/tests/test_kh_01b_entry_unicorn_research.py",
+    "backend/tests/test_kh_01b_causal_antileakage.py",
     "backend/tests/test_v14_3_ny_quota.py",
     "backend/tests/test_v17_9_1_mtf_structure_liquidity.py",
     "backend/tests/test_v17_9_2_structural_stop.py",
@@ -232,6 +234,7 @@ MULTI_CHILD_SPAWNING_TEST_FILES: Set[str] = {
 
 SINGLE_CHILD_SPAWNING_TEST_FILES: Set[str] = {
     "test_kh_01a_r1_subprocess_verifier.py",
+    "test_kh_01b_replay_resource_and_truth.py",
     "test_r332_raw_regression_retry_integrity.py",
     "test_v14_4_2_chart_export_robustness.py",
     "test_v16_39_10_snapshot_api_cli.py",
