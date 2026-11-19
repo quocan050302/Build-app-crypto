@@ -1,0 +1,39 @@
+{
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "gate_G_KH01A_R1_14_status": "PASS_REMOTE_VERIFIED",
+  "github_https_raw_get_samples_verified": {
+    "05_r1_preentry_170_rows.jsonl.gz": {
+      "http_status": 200,
+      "sha256": "84722e0d4408e43f74d14dedb1bdb6aae97b18bb3d6c9fa7f7a1894ad77a954e",
+      "verified_match": true
+    },
+    "15_independent_verifier_receipts_sha256_manifest.json": {
+      "http_status": 200,
+      "sha256": "5df06d1d252337c9783d40025361ea6b4bafa8882d58322419e40e3f3c69f9f4",
+      "verified_match": true
+    },
+    "16_final_orthogonal_verdicts_open_blockers.json": {
+      "http_status": 200,
+      "sha256": "e1d5ecff05a11d49778e751402027573716cf7542da59f91b4afadc6adbf9fd5",
+      "verified_match": true
+    },
+    "README_KH01A_R1.md": {
+      "http_status": 200,
+      "sha256": "02b2d8fd0d4f14d261d2708b4ff073bacacb345cfa81308ce66f27bec7ca540a",
+      "verified_match": true
+    }
+  },
+  "immutable_bundle_kept_unmodified_post_push": true,
+  "manifest_15_sha256": "5df06d1d252337c9783d40025361ea6b4bafa8882d58322419e40e3f3c69f9f4",
+  "phase_b_immutable_evidence_commit_sha": "47907544c5582cdcb15a74647cbfde60fdb37dc2",
+  "prior_audited_head_sha": "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7",
+  "remote_git_blob_mismatches_count": 0,
+  "remote_git_blobs_verified_count": 65,
+  "remote_ls_remote_verified_sha": "47907544c5582cdcb15a74647cbfde60fdb37dc2",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.publication_receipt.v1",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "verified_at_utc": "2026-11-19T02:59:19Z"
+}

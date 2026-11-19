@@ -1,0 +1,19 @@
+{
+  "ACCOUNTING_VERDICT": "PASS",
+  "ACTIVATION_READY": "NO",
+  "ENGINEERING_VERDICT": "PASS",
+  "FORENSICS_SEMANTIC_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "REGRESSION_VERDICT": "PASS",
+  "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "TRADING_PARITY_VERDICT": "PASS",
+  "phase_b_evidence_commit_sha": "47907544c5582cdcb15a74647cbfde60fdb37dc2",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_01a_r1/publication_20261119T021545Z_c1ba40df7ed9.json",
+  "publication_receipt_sha256": "510adf4b6cf53e56acdd2a407bb1d99790852922255c52121e304a856d047d10",
+  "readme_path": "aurum-desk/docs/artifacts/kh_01a_r1/20261119T021545Z_c1ba40df7ed9/README_KH01A_R1.md",
+  "run_dir": "aurum-desk/docs/artifacts/kh_01a_r1/20261119T021545Z_c1ba40df7ed9",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+}
