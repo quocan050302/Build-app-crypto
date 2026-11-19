@@ -1,0 +1,51 @@
+{
+  "exchange_session_calendar_audit": {
+    "outage_inference_prohibition": "Missing slots under unverified calendar are NEVER declared proven provider outages.",
+    "public_historical_holiday_maintenance_endpoint_available": false,
+    "session_calendar_verification_status": "UNKNOWN_UNVERIFIED"
+  },
+  "historical_ohlcv_quote_provenance": {
+    "formula": "bid = round(close - 0.10, 2), ask = round(close + 0.10, 2)",
+    "historical_l1_bbo_status": "UNAVAILABLE_OR_NOT_CAPTURED",
+    "modeled_spread_usd": 0.2,
+    "quote_mode": "MODELED_BID_ASK",
+    "synthetic_real_bbo_claim_allowed": false
+  },
+  "prospective_single_bbo_snapshot_audit": {
+    "ask": 3726.88,
+    "ask_size": 8.78,
+    "bid": 3726.87,
+    "bid_size": 7.82,
+    "continuous_historical_series_coverage": false,
+    "exchange_calendar_verified": false,
+    "exchange_ts_ms": 1795090016100,
+    "historical_backtest_usable": false,
+    "latency_or_clock_skew_ms": 87,
+    "origin_http_sha_in_receipts": true,
+    "quote_classification": "CAPTURED_REAL_BBO_PROSPECTIVE_POINT_SNAPSHOT",
+    "raw_http_sha256": "59caec14e7fdedb6f7528e148cdbd8d96d111e3f419d70550e1bec730eec4095",
+    "receive_ts_ms": 1795090016013,
+    "scope_limitation": "SINGLE_POINT_IN_TIME_CAPABILITY_SNAPSHOT_NOT_48H_HISTORICAL_SERIES",
+    "signed_clock_skew_ms": -87,
+    "spread_usd": 0.01,
+    "status": "PASS",
+    "symbol": "XAUUSDT",
+    "violations": []
+  },
+  "public_contract_fee_snapshot_audit": {
+    "account_tier_inference_prohibition": "Public Bitget contract metadata reports default non-VIP takerFeeRate=0.0006 at observation time. Actual user/account VIP or BGB discount tier is NOT locally verified and MUST remain UNKNOWN.",
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "domain_calculator_reference_maker_fee_rate": "0.0002",
+    "domain_calculator_reference_taker_fee_rate": "0.0004",
+    "observed_public_maker_fee_rate": "0.0002",
+    "observed_public_taker_fee_rate": "0.0006",
+    "observed_receive_ts_ms": 1795090015722,
+    "observed_request_ts_ms": 1795090015500,
+    "origin_http_receipt_sha256": "6346466a16c4608c2edc5cd3a86d3fe180ae67ff13e1d9e9ebadb180cfcad591",
+    "productType": "USDT-FUTURES",
+    "symbol": "XAUUSDT"
+  },
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "status": "PASS"
+}

@@ -1,0 +1,110 @@
+{
+  "controls": [
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "dedup=PASS_WITH_DEDUP_RECEIPT,replay=['DUPLICATE_PAGE_HTTP_SHA256_REPLAY:page=1:sha=aaaaaaaaaaaaaaaa']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M04",
+      "name": "EXACT_CROSS_PAGE_BOUNDARY_DEDUPED_VS_FULL_PAGE_REPLAY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['WITHIN_PAGE_DUPLICATE_BAR_TIMESTAMP:page=0:1m', 'DUPLICATE_BAR_TIMESTAMP_NON_BOUNDARY_OR_REPLAY:1m:1794787200000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M05",
+      "name": "WITHIN_PAGE_DUPLICATE_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['CONFLICTING_DUPLICATE_BAR_TIMESTAMP:1m:1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M06",
+      "name": "CONFLICTING_CROSS_PAGE_BOUNDARY_OHLCV_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['CONFLICTING_DUPLICATE_BAR_TIMESTAMP:1m:1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M07",
+      "name": "PRECISION_COLLIDING_NEAR_EQUAL_DECIMALS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compare_boundary_candles_exactly"
+    },
+    {
+      "category": "PAGE_ORDERING",
+      "diagnostic": "['INTRA_PAGE_NON_MONOTONIC_DISORDER:page=0']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M08",
+      "name": "INTRA_PAGE_SCRAMBLED_ORDER_REJECTED_VS_DOCUMENTED_DESCENDING_AUDITED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "CURSOR_PROGRESS",
+      "diagnostic": "['REPEATED_HTTP_PAGE_PAYLOAD_SHA256:aaaaaaaaaaaaaaaa', 'NON_DESCENDING_PAGINATION_CURSOR:next=1794787800000>=prev=1794787800000', 'STALLED_OR_ADVANCING_PAGE_EARLIEST_BAR:curr=1794787260000>=prev=1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M09",
+      "name": "STALLED_CURSOR_AND_REPEATED_PAGE_SHA_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_http_page_cursor_progress"
+    },
+    {
+      "category": "HTTP_RESILIENCE",
+      "diagnostic": "calls=4,reason=RuntimeError:HTTP_RATE_LIMIT_OR_TRANSIENT_EXHAUSTED:status=429:endpoint=contracts",
+      "green_accepted": true,
+      "mutation_id": "DSC-M10",
+      "name": "HTTP_429_BOUNDED_BACKOFF_NO_INFINITE_LOOP",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "collect_online_bitget_audit_and_extended_dev"
+    },
+    {
+      "category": "TIMEFRAME_ALIGNMENT",
+      "diagnostic": "5m=['INVALID_BAR_OPEN_ALIGNMENT:5m:open_ms=1794787260000_not_divisible_by_300000'],1D=['INVALID_1D_EXCHANGE_SESSION_ALIGNMENT:open_ms=1794787200000_expected_offset_ms=57600000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M11",
+      "name": "NON_GRID_5M_AND_WRONG_1D_SESSION_BOUNDARY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_bar_open_alignment_for_granularity"
+    },
+    {
+      "category": "CANDLE_INTEGRITY",
+      "diagnostic": "['INVALID_OHLC_GEOMETRY:1m:1794787200000', 'NON_NUMERIC_OR_NONFINITE_CANDLE_FIELD:page=0:row=0']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M12",
+      "name": "NEGATIVE_VOLUME_AND_NAN_CANDLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    }
+  ],
+  "failed_controls_count": 0,
+  "m1_48h_dynamic_page_budget": {
+    "budget_capped_by_hard_max": false,
+    "duration_ms": 60000,
+    "effective_page_budget": 17,
+    "estimated_slots_in_span": 2880,
+    "hard_max_pages": 256,
+    "page_limit": 200,
+    "requested_end_ms": 1794960000000,
+    "requested_start_ms": 1794787200000,
+    "required_pages_for_full_window": 17
+  },
+  "passed_controls_count": 9,
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "status": "PASS"
+}

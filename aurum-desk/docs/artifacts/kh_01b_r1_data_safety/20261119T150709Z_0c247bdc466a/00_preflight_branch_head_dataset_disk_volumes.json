@@ -1,0 +1,91 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "completed_at_utc": "2026-11-19T15:07:42Z",
+  "disk_reserve_policy": {
+    "abort_reason": "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497",
+    "acceptance_eligible": false,
+    "baseline_already_below_20gib": true,
+    "can_proceed": false,
+    "constraining_volume": "repo",
+    "disk_safety_verdict": "BLOCKED_LOW_DISK",
+    "effective_enforced_reserve_bytes": 21474836480,
+    "effective_enforced_reserve_gib": 20.0,
+    "enforced_reserve_gib": 20.0,
+    "hard_abort_floor_gib": 20.0,
+    "lowered_reserve_without_approval": false,
+    "min_acceptance_preflight_gib": 20.5,
+    "policy_mode": "STRICT_ACCEPTANCE_20GIB",
+    "preflight_baseline_free_bytes": 18415034368,
+    "preflight_baseline_free_gb_decimal": 18.415,
+    "preflight_baseline_free_gib": 17.1503,
+    "shortfall_bytes": 3596673024,
+    "shortfall_gib": 3.3497,
+    "stage_allowance_bytes": 536870912,
+    "stage_allowance_gib": 0.5,
+    "standard_target_reserve_gib": 20.0,
+    "volumes": {
+      "output": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      },
+      "repo": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      },
+      "temp": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      }
+    }
+  },
+  "freeze_timestamp_ms": 1795100829607,
+  "orchestrator_pid": 70073,
+  "preflight_host_resources": {
+    "available_ram_gib": 3.506,
+    "cpu_count": 8,
+    "volumes_free_bytes": {
+      "output": 18415034368,
+      "repo": 18415034368,
+      "temp": 18415034368
+    }
+  },
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_immutable_bundles_before": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "kh01b_r1_latest_run_ptr_sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+    "kh01b_r1_published_files_count": 77,
+    "kh01b_r1_published_sha256": "f700f1c69897087c77344abe5069342bdc87f1bf7b7e340b6c1bdee571984780",
+    "v10_to_v19_files_count": 1364,
+    "v10_to_v19_sha256": "63667c755941267aa991d1d954f98b91d21316a4c5fdb3e3541909cae911bfe5"
+  },
+  "prior_use_status": "REUSED_RESEARCH",
+  "run_id": "20261119T150709Z_0c247bdc466a",
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "source_manifest_before": {
+    "files_count": 816,
+    "sha256": "8e39e74d3b5f23aaf3d78426cefab3cc1231b8cbf0bdd03e60c8ffc86daba967"
+  },
+  "source_tree_unchanged_during_run": true,
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "stale_owned_temp_reclamation": {
+    "reclaimed_entries": [],
+    "reclaimed_owned_dirs_count": 0,
+    "reclaimed_total_bytes": 0,
+    "reclaimed_total_mib": 0.0,
+    "skipped_active_owner_count": 0,
+    "skipped_unowned_or_unsentineled_count": 0,
+    "temp_root_scanned": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T",
+    "unowned_paths_deleted_count": 0
+  },
+  "started_at_utc": "2026-11-19T15:07:10Z",
+  "starting_head_sha": "1ee4a8747e7a1205e64a5fbfacfde1da0aa72782",
+  "tested_executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e"
+}

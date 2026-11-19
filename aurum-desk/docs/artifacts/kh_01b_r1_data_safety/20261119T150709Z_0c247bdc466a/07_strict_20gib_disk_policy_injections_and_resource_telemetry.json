@@ -1,0 +1,119 @@
+{
+  "disk_reserve_policy": {
+    "abort_reason": "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497",
+    "acceptance_eligible": false,
+    "baseline_already_below_20gib": true,
+    "can_proceed": false,
+    "constraining_volume": "repo",
+    "disk_safety_verdict": "BLOCKED_LOW_DISK",
+    "effective_enforced_reserve_bytes": 21474836480,
+    "effective_enforced_reserve_gib": 20.0,
+    "enforced_reserve_gib": 20.0,
+    "hard_abort_floor_gib": 20.0,
+    "lowered_reserve_without_approval": false,
+    "min_acceptance_preflight_gib": 20.5,
+    "policy_mode": "STRICT_ACCEPTANCE_20GIB",
+    "preflight_baseline_free_bytes": 18415034368,
+    "preflight_baseline_free_gb_decimal": 18.415,
+    "preflight_baseline_free_gib": 17.1503,
+    "shortfall_bytes": 3596673024,
+    "shortfall_gib": 3.3497,
+    "stage_allowance_bytes": 536870912,
+    "stage_allowance_gib": 0.5,
+    "standard_target_reserve_gib": 20.0,
+    "volumes": {
+      "output": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      },
+      "repo": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      },
+      "temp": {
+        "free_bytes": 18415034368,
+        "free_gb_decimal": 18.415,
+        "free_gib": 17.1503,
+        "meets_strict_20gib_plus_stage": false
+      }
+    }
+  },
+  "policy_injections": [
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "13.4667_shortfall_gib=7.0333",
+      "green_accepted": true,
+      "mutation_id": "DSC-M17",
+      "name": "PREFLIGHT_20P49_18P5_13P47_8P0_GIB_ALL_BLOCKED_STRICT_20GIB",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_disk_reserve_policy"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "BLOCKED_LOW_DISK:volume=temp:free_gib=14.0<required_gib=20.5:shortfall_gib=6.5",
+      "green_accepted": true,
+      "mutation_id": "DSC-M18",
+      "name": "MULTI_VOLUME_LOW_TEMP_AND_COLLECTOR_LOW_DISK_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_disk_reserve_policy"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "breached=True",
+      "green_accepted": true,
+      "mutation_id": "DSC-M19",
+      "name": "RUNTIME_DISK_DROP_AND_ENOSPC_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_kh01b_r1_resource_cleanup"
+    },
+    {
+      "category": "TEMP_SAFETY",
+      "diagnostic": "victim_intact=True",
+      "green_accepted": true,
+      "mutation_id": "DSC-M20",
+      "name": "SYMLINK_ESCAPE_AND_SENTINEL_MISMATCH_REFUSED_VICTIM_INTACT",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "safe_cleanup_owned_temp_root_r1"
+    }
+  ],
+  "policy_injections_status": "PASS",
+  "runtime_telemetry": {
+    "disk_reserve_breached": false,
+    "error": null,
+    "global_worker_cap": 4,
+    "live_post_stop_orphan_pids": [],
+    "max_children_observed": 1,
+    "min_available_ram_gb_observed": 2.951,
+    "min_free_disk_gb_observed": 17.149,
+    "minimum_available_ram_bytes": 3168796672,
+    "minimum_free_disk_bytes": 18413174784,
+    "orchestrator_pid": 70073,
+    "orphan_pids_at_cleanup_count": 0,
+    "orphan_pids_observed_at_cleanup": [],
+    "peak_system_cpu_percent_observed": 98.5,
+    "peak_total_rss_bytes": 411877376,
+    "peak_total_rss_mb_observed": 392.8,
+    "post_cleanup_free_gib": 17.1535,
+    "samples_count": 61,
+    "sampling_interval_seconds": 0.5,
+    "soft_downshift_events": 0,
+    "temp_cleanup_receipt": {
+      "cleaned": true,
+      "containment_verified": true,
+      "path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/ak1_34f5895157",
+      "sentinel_verified": true
+    },
+    "temp_dirs_cleaned_with_sentinel_check": true,
+    "unowned_paths_deleted_count": 0
+  },
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0"
+}

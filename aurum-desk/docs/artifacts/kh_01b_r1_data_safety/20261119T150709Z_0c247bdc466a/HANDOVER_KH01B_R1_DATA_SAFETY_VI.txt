@@ -1,0 +1,46 @@
+BÀN GIAO NGHIỆM THU ĐÓNG SỰ THẬT DỮ LIỆU & AN TOÀN — AURUM DESK KH-01B.R1.DSC-v1.0
+Run ID: 20261119T150709Z_0c247bdc466a
+Nhánh bắt buộc (giữ nguyên): feature/v17-9-2-structural-sl-tp-from-qa
+Starting HEAD trước khi vá (KH-01B.R1 Phase C): 1ee4a8747e7a1205e64a5fbfacfde1da0aa72782
+Tested Executable Source SHA (mã nguồn đã commit trước khi chạy kiểm định): 0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e
+Canonical Dataset SHA256 (bất biến): 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+
+A. MA TRẬN PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS):
+- ENGINEERING_CLOSURE_VERDICT: BLOCKED_LOW_DISK
+- DISK_SAFETY_VERDICT: BLOCKED_LOW_DISK (Yêu cầu chuẩn >= 20.5 GiB [20.0 GiB dự trữ + 0.5 GiB biên độ tầng]; Thực tế khả dụng: 17.1503 GiB [18.415 GB thập phân]; Thiếu hụt: 3.3497 GiB; lowered_reserve_without_approval=False)
+- DATA_ACQUISITION_VERDICT: VERIFIED_PARTIAL
+- FULL_REGRESSION_VERDICT: NOT_RUN_BLOCKED_LOW_DISK
+- BACKTEST_VERDICT: NOT_RUN_BLOCKED_LOW_DISK
+- WORKER_DETERMINISM_VERDICT: NOT_RUN_BLOCKED_LOW_DISK
+- RESEARCH_ECONOMIC_VERDICT: NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE
+- KH01C_ADVANCEMENT_VERDICT: NO_ECONOMIC_ADVANCEMENT_CANDIDATE
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+- ACTIVATION_READY: NO (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trước khi đọc lại từ GitHub): PENDING_REMOTE_PUSH
+
+B. KẾT QUẢ SỬA LỖI THEO TỪNG HẠNG MỤC (DEFECTS A–F):
+1) Gap Schema Mapping (G-DS-02 -> PASS): Đã sửa map_gap_truth_to_acquisition_summary() ánh xạ chính xác {'1m':'M1','5m':'M5','15m':'M15','1H':'H1','4H':'H4','1D':'D1'} vào gap_audit['timeframes']; từ chối schema null cũ với FAIL_INTEGRITY.
+2) Window Coverage & Dynamic Pagination (G-DS-03, G-DS-04 -> PASS): Loại bỏ trần ngầm max_pages_per_tf=8 (1600 nến M1); tính động 17 trang cho cửa sổ 48h M1; kiểm toán lại snapshot 48h đã lưu cho thấy M1 chỉ có 1600/2880 slot (thiếu 1280 slot đầu cửa sổ, tỷ lệ 0.555556) -> phân loại trung thực là VERIFIED_PARTIAL / PARTIAL_COVERAGE_WITH_UNVERIFIED_SESSION.
+3) Cross-Page Boundary Duplicate & Ordering (G-DS-03 -> PASS): Dùng Decimal chính xác để gộp duy nhất nến trùng biên liên trang hợp lệ (PASS_WITH_DEDUP_RECEIPT, giữ đủ 2 mã băm HTTP gốc), đồng thời đánh FAIL mọi trùng lặp trong cùng trang, phát lại nguyên trang, xung đột OHLCV hoặc xung đột làm tròn số lẻ (3700.50004 so với 3700.50001). Kiểm tra thứ tự trang thô TRƯỚC khi sắp xếp và căn chỉnh khung giờ chuẩn (1D Bitget mở lúc 16:00 UTC = 00:00 UTC+8).
+4) Strict 20 GiB Disk Reserve (G-DS-07 -> BLOCKED_LOW_DISK, G-DS-08 -> PASS): Bỏ hoàn toàn cơ chế tự hạ sàn xuống 10 GiB trong chế độ nghiệm thu chuẩn; kiểm tra tất cả phân vùng ghi (repo, output, temp).
+5) Fee Provenance & Sensitivity 0.0004 vs 0.0006 (G-DS-05, G-DS-06 -> PASS): Giữ nguyên CostAssumptions(taker_fee_rate=0.0004) không đổi; đối chiếu gốc SI0/E00 khớp tuyệt đối 166 lệnh đóng, Gross PnL = -142.7836 USD, Fees = 203.1135 USD, Net PnL = -345.8971 USD (0 sai lệch từng lệnh). Phân tích độ nhạy độc lập:
+   - FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS: tại 0.0004 Net 1x = -345.8971 USD (2x = -594.6226 USD, 3x = -803.8121 USD); tại 0.0006 Fees 1x tăng lên 304.6696 USD, Net 1x = -447.4532 USD (2x = -807.4762 USD, 3x = -1108.4804 USD).
+   - FULL_RE_RISKED_REPLAY (trên 242 cơ hội SI0): tại 0.0004 đóng 166 lệnh, Net 1x = -345.8971 USD; tại 0.0006 đóng 87 lệnh (bị loại thêm bởi ngưỡng net_rr >= 2.0), Net 1x = -210.6112 USD.
+   - Bậc phí VIP thực tế của tài khoản: UNKNOWN_NOT_LOCALLY_VERIFIED.
+
+C. BẢNG ĐỘ BAO PHỦ CỬA SỔ 48H THEO KHUNG THỜI GIAN:
+| Timeframe | Expected Closed Slots | Observed Unique Closed | Leading Missing | Internal Missing | Trailing Missing | Coverage Ratio | Coverage Verdict |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `1m` | `2880` | `1600` | `1280` | `0` | `0` | `0.555556` | `PARTIAL_COVERAGE_WITH_UNVERIFIED_SESSION` |
+| `5m` | `576` | `576` | `0` | `0` | `0` | `1.0` | `VERIFIED_COMPLETE` |
+| `15m` | `192` | `192` | `0` | `0` | `0` | `1.0` | `VERIFIED_COMPLETE` |
+| `1H` | `48` | `48` | `0` | `0` | `0` | `1.0` | `VERIFIED_COMPLETE` |
+| `4H` | `12` | `12` | `0` | `0` | `0` | `1.0` | `VERIFIED_COMPLETE` |
+| `1D` | `1` | `1` | `0` | `0` | `0` | `1.0` | `VERIFIED_COMPLETE` |
+
+D. PHẠM VI THỰC THI TEST & HƯỚNG DẪN KHẮC PHỤC DUNG LƯỢNG ĐĨA (NẾU BỊ CHẶN BLOCKED_LOW_DISK):
+- Đột biến đối chứng ĐỎ/XANH (DSC-M01..DSC-M22): 22/22 PASS.
+- Unit test tập trung trong bộ nhớ (Focused Pytest): status=PASS, executed=15, passed=15, failed=0.
+- Hồi quy toàn kho (~5500+ test), Backtest lịch sử đầy đủ & Benchmark đa luồng w1/w2/w4: NOT_RUN_BLOCKED_LOW_DISK / NOT_RUN_BLOCKED_LOW_DISK / NOT_RUN_BLOCKED_LOW_DISK.
+- Lệnh chạy lại toàn diện sau khi người vận hành tự giải phóng thêm >= 3.3497 GiB (để dung lượng trống >= 20.5 GiB trên mọi phân vùng ghi) hoặc gắn ổ ngoài >= 20.5 GiB:
+  cd /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk && backend/venv/bin/python tools/run_kh_01b_r1_data_safety_closure.py --tested-sha 0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e

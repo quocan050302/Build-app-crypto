@@ -1,0 +1,23 @@
+{
+  "blocker_reason": "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497",
+  "execution_status": "NOT_RUN_BLOCKED_LOW_DISK",
+  "focused_in_memory_unit_tests": {
+    "elapsed_seconds": 29.813,
+    "executed_count": 15,
+    "failed_count": 0,
+    "files_tested": [
+      "backend/tests/test_kh_01b_r1_data_safety_closure.py",
+      "backend/tests/test_kh_01b_r1_causal_and_forensics.py",
+      "backend/tests/test_kh_01b_r1_replay_economics_and_data.py",
+      "backend/tests/test_kh_01b_r1_verifier_and_resources.py"
+    ],
+    "passed_count": 15,
+    "pytest_exit_code": 0,
+    "scope_disclosure": "FOCUSED_IN_MEMORY_UNIT_AND_SUBPROCESS_VERIFIER_TESTS_ONLY_NOT_FULL_REPO_REGRESSION",
+    "skipped_count": 0,
+    "status": "PASS"
+  },
+  "full_repository_regression_executed": false,
+  "junit_xml_files_written_count": 0,
+  "spec_version": "KH-01B.R1.DSC-v1.0"
+}

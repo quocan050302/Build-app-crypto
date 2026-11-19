@@ -1,0 +1,16 @@
+{
+  "blocker_reason": "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497",
+  "execution_status": "NOT_RUN_BLOCKED_LOW_DISK",
+  "full_historical_backtest_executed_in_this_run": false,
+  "immutable_reference_v130_si0_ledger_verified_read_only": {
+    "closed_trades": 166,
+    "gross_pnl_usd": -142.7836,
+    "leg_trades_sha256": "60af3dff3695d838fd4d89ac3cb9adc37f282298d163728c3d343fad9b60c170",
+    "nb_trades_sha256": "f5a8d773e50463642b196f8f536bf64dff6ec7e616f8a2e4fc4d88ee4c2f429c",
+    "net_pnl_usd": -345.8971,
+    "scheduled_episodes": 242,
+    "sp2_trades_sha256": "6799b21e9dc59274aa5fe770d45d8bf4603e1ba22a7aaf37c260a5a66d8f6806",
+    "total_fees_usd": 203.1135
+  },
+  "spec_version": "KH-01B.R1.DSC-v1.0"
+}

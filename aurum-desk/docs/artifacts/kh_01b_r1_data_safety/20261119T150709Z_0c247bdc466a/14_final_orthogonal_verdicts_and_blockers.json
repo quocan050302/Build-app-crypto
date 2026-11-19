@@ -1,0 +1,441 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "explicit_blockers": [
+    "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497"
+  ],
+  "gates": [
+    {
+      "artifact_path": "00_preflight_branch_head_dataset_disk_volumes.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-01",
+      "independent_receipt": {
+        "content_sha256": "119fe046ebb8cd8eb7b9b5746168051bc032d41b8ae1216b0fe351c4552220ec",
+        "gate_id": "G-DS-01",
+        "input_sha256": "119fe046ebb8cd8eb7b9b5746168051bc032d41b8ae1216b0fe351c4552220ec",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "00_preflight_branch_head_dataset_disk_volumes.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "BRANCH_SHA_CLEAN_TREE_AND_IMMUTABLE_BASELINE",
+      "observed_values": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "locked_modified": 0,
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e"
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "02_gap_schema_mapping_red_green_and_six_tf_completeness.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-02",
+      "independent_receipt": {
+        "content_sha256": "990e9312dc096b6a2211146415324e44e715f6b1c327d28ed1f537731a9fd6de",
+        "gate_id": "G-DS-02",
+        "input_sha256": "990e9312dc096b6a2211146415324e44e715f6b1c327d28ed1f537731a9fd6de",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "02_gap_schema_mapping_red_green_and_six_tf_completeness.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "SIX_TIMEFRAME_NON_NULL_GAP_SCHEMA_AND_RED_CONTROL",
+      "observed_values": {
+        "canonical_status": "PASS",
+        "extended_dev_status": "PASS"
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "03_pagination_cursor_order_boundary_duplicates_negative_controls.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-03",
+      "independent_receipt": {
+        "content_sha256": "c60fdf061d874a983619a519d9bb2f7eeb0cd69a494c6ae1bc75336cd0896cc9",
+        "gate_id": "G-DS-03",
+        "input_sha256": "c60fdf061d874a983619a519d9bb2f7eeb0cd69a494c6ae1bc75336cd0896cc9",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "03_pagination_cursor_order_boundary_duplicates_negative_controls.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "PAGINATION_BUDGET_CURSOR_AND_EXACT_BOUNDARY_DEDUPE",
+      "observed_values": {
+        "controls_passed": 9,
+        "m1_48h_page_budget": 17
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "04_extended_dev_requested_vs_observed_window_coverage.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-04",
+      "independent_receipt": {
+        "content_sha256": "531f87bfe62ec0c0c251af8492aac31205c225fd25b8c357aa2f8708bf22a0e9",
+        "gate_id": "G-DS-04",
+        "input_sha256": "531f87bfe62ec0c0c251af8492aac31205c225fd25b8c357aa2f8708bf22a0e9",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "04_extended_dev_requested_vs_observed_window_coverage.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "REQUESTED_WINDOW_SLOT_CONSERVATION_AND_PARTIAL_TRUTH",
+      "observed_values": {
+        "m1_observed_vs_expected": "1600/2880",
+        "reclassified_verdict": "VERIFIED_PARTIAL"
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "05_bitget_origin_fee_quote_calendar_provenance.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-05",
+      "independent_receipt": {
+        "content_sha256": "3fd2030a25d3c7d9b2ae8adef3d821d193bfafc933f52c48a3bce0bcc162819a",
+        "gate_id": "G-DS-05",
+        "input_sha256": "3fd2030a25d3c7d9b2ae8adef3d821d193bfafc933f52c48a3bce0bcc162819a",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "05_bitget_origin_fee_quote_calendar_provenance.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "QUOTE_CONTRACT_FEE_AND_CALENDAR_PROVENANCE_TRUTH",
+      "observed_values": {
+        "account_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+        "public_taker_fee": "0.0006"
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "06_baseline_0p04_vs_public_0p06_fee_sensitivity_caveats.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-06",
+      "independent_receipt": {
+        "content_sha256": "fd8beb1764d02bbac46f494be7121db6a51f208c27357cf483c36836edb6d949",
+        "gate_id": "G-DS-06",
+        "input_sha256": "fd8beb1764d02bbac46f494be7121db6a51f208c27357cf483c36836edb6d949",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "06_baseline_0p04_vs_public_0p06_fee_sensitivity_caveats.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "DECIMAL_FEE_SENSITIVITY_0P04_VS_0P06_AND_STRESS",
+      "observed_values": {
+        "e00_net_0p04": -345.8971,
+        "e00_net_0p06_fixed_fills": -447.4532
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "07_strict_20gib_disk_policy_injections_and_resource_telemetry.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-07",
+      "independent_receipt": null,
+      "name": "STRICT_20GIB_DISK_RESERVE_ON_ALL_WRITING_VOLUMES",
+      "observed_values": {
+        "disk_safety_verdict": "BLOCKED_LOW_DISK",
+        "preflight_free_gib": 17.1503,
+        "shortfall_gib": 3.3497
+      },
+      "status": "BLOCKED_LOW_DISK",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": [
+        "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497"
+      ]
+    },
+    {
+      "artifact_path": "07_strict_20gib_disk_policy_injections_and_resource_telemetry.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-08",
+      "independent_receipt": {
+        "content_sha256": "432a3edbbf74bacd985c7fd10243ca0fc7a078095a123255a1e4aacc8b5683dd",
+        "gate_id": "G-DS-08",
+        "input_sha256": "432a3edbbf74bacd985c7fd10243ca0fc7a078095a123255a1e4aacc8b5683dd",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "07_strict_20gib_disk_policy_injections_and_resource_telemetry.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "BOUNDED_DESCENDANTS_ZERO_ORPHANS_AND_SENTINEL_CLEANUP",
+      "observed_values": {
+        "max_children": 1,
+        "orphans": 0,
+        "sentinel_cleaned": true
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "09_full_regression_collected_executed_junit_exit_bijection.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-09",
+      "independent_receipt": null,
+      "name": "FRESH_FULL_PYTEST_COLLECTED_EXECUTED_JUNIT_BIJECTION",
+      "observed_values": {
+        "execution_status": "NOT_RUN_BLOCKED_LOW_DISK",
+        "focused_in_memory_tests": {
+          "elapsed_seconds": 29.813,
+          "executed_count": 15,
+          "failed_count": 0,
+          "files_tested": [
+            "backend/tests/test_kh_01b_r1_data_safety_closure.py",
+            "backend/tests/test_kh_01b_r1_causal_and_forensics.py",
+            "backend/tests/test_kh_01b_r1_replay_economics_and_data.py",
+            "backend/tests/test_kh_01b_r1_verifier_and_resources.py"
+          ],
+          "passed_count": 15,
+          "pytest_exit_code": 0,
+          "scope_disclosure": "FOCUSED_IN_MEMORY_UNIT_AND_SUBPROCESS_VERIFIER_TESTS_ONLY_NOT_FULL_REPO_REGRESSION",
+          "skipped_count": 0,
+          "status": "PASS"
+        }
+      },
+      "status": "NOT_RUN_BLOCKED_LOW_DISK",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": [
+        "NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"
+      ]
+    },
+    {
+      "artifact_path": "10_backtest_original_parity_three_fill_and_adapter_fingerprints.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-10",
+      "independent_receipt": null,
+      "name": "HISTORICAL_E00_B00_THREE_FILL_AND_ADAPTER_PARITY",
+      "observed_values": {
+        "execution_status": "NOT_RUN_BLOCKED_LOW_DISK"
+      },
+      "status": "NOT_RUN_BLOCKED_LOW_DISK",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": [
+        "NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"
+      ]
+    },
+    {
+      "artifact_path": "08_async_w1_w2_w4_repeat_determinism_and_speed.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-11",
+      "independent_receipt": null,
+      "name": "WORKER_W1_W2_W4_REPEAT_CANONICAL_PARITY_AND_SPEED",
+      "observed_values": {
+        "execution_status": "NOT_RUN_BLOCKED_LOW_DISK"
+      },
+      "status": "NOT_RUN_BLOCKED_LOW_DISK",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": [
+        "NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"
+      ]
+    },
+    {
+      "artifact_path": "12_independent_verifier_fault_injections.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-12",
+      "independent_receipt": {
+        "content_sha256": "18866f81dbdfbc068b60f074dc033a399bcdbf5d0b124caa953ec271029a4828",
+        "gate_id": "G-DS-12",
+        "input_sha256": "18866f81dbdfbc068b60f074dc033a399bcdbf5d0b124caa953ec271029a4828",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "12_independent_verifier_fault_injections.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "REAL_FAULT_INJECTION_RED_GREEN_CONTROLS",
+      "observed_values": {
+        "passed_mutations": "22/22"
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "11_data_oos_partition_never_evaluated_verdict.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-13",
+      "independent_receipt": {
+        "content_sha256": "1b9c6b8fed4d3289310df5ffe2f5a16f18da0ceb924ce9476453af063ac8eb66",
+        "gate_id": "G-DS-13",
+        "input_sha256": "1b9c6b8fed4d3289310df5ffe2f5a16f18da0ceb924ce9476453af063ac8eb66",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "11_data_oos_partition_never_evaluated_verdict.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "OOS_ESCROW_ZERO_EVALUATION_AND_RUNTIME_MODES_OFF",
+      "observed_values": {
+        "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+        "evaluation_count": 0
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "00_preflight_branch_head_dataset_disk_volumes.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-14",
+      "independent_receipt": {
+        "content_sha256": "119fe046ebb8cd8eb7b9b5746168051bc032d41b8ae1216b0fe351c4552220ec",
+        "gate_id": "G-DS-14",
+        "input_sha256": "119fe046ebb8cd8eb7b9b5746168051bc032d41b8ae1216b0fe351c4552220ec",
+        "metadata": {
+          "executable_git_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+          "validator_python_source_sha256": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "00_preflight_branch_head_dataset_disk_volumes.json",
+        "run_id": "20261119T150709Z_0c247bdc466a",
+        "status": "PASS",
+        "tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+        "validator_code_sha": "63c539b9a304e35b7938d77c2bb27254057bad6e1b31d746d9ff648a2908c828",
+        "validator_name": "<lambda>",
+        "violations": []
+      },
+      "name": "SEPARATE_OS_INDEPENDENT_VERIFIER_AND_RECEIPTS",
+      "observed_values": {
+        "receipts_count": 10
+      },
+      "status": "PASS",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": []
+    },
+    {
+      "artifact_path": "00_preflight_branch_head_dataset_disk_volumes.json",
+      "executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+      "gate_id": "G-DS-15",
+      "independent_receipt": null,
+      "name": "SAME_BRANCH_PUBLICATION_AND_REMOTE_BLOB_READBACK",
+      "observed_values": {
+        "publication_status": "PENDING_REMOTE_PUSH"
+      },
+      "status": "PENDING_REMOTE_PUSH",
+      "tested_run_id": "20261119T150709Z_0c247bdc466a",
+      "violations": [
+        "AWAITING_REMOTE_PUSH_AND_READBACK"
+      ]
+    }
+  ],
+  "gates_summary": {
+    "blocked_or_not_run_count": 5,
+    "fail_count": 0,
+    "pass_count": 10,
+    "total_gates": 15
+  },
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "BACKTEST_VERDICT": "NOT_RUN_BLOCKED_LOW_DISK",
+    "DATA_ACQUISITION_VERDICT": "VERIFIED_PARTIAL",
+    "DISK_SAFETY_VERDICT": "BLOCKED_LOW_DISK",
+    "ENGINEERING_CLOSURE_VERDICT": "BLOCKED_LOW_DISK",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FULL_REGRESSION_VERDICT": "NOT_RUN_BLOCKED_LOW_DISK",
+    "KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+    "PUBLICATION_VERDICT": "PENDING_REMOTE_PUSH",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE",
+    "RUNTIME_SAFETY_MODES": {
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF"
+    },
+    "WORKER_DETERMINISM_VERDICT": "NOT_RUN_BLOCKED_LOW_DISK"
+  },
+  "run_id": "20261119T150709Z_0c247bdc466a",
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "tested_executable_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e"
+}

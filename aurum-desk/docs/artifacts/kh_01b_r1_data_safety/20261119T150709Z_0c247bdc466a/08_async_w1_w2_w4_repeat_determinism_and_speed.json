@@ -1,0 +1,9 @@
+{
+  "blocker_reason": "BLOCKED_LOW_DISK:volume=repo:free_gib=17.1503<required_gib=20.5:shortfall_gib=3.3497",
+  "execution_status": "NOT_RUN_BLOCKED_LOW_DISK",
+  "measured_speedup_w4_vs_w1": null,
+  "note": "Heavy multi-process worker benchmark skipped fail-closed because free disk < 20.5 GiB.",
+  "pytest_subset_w1_w2_w4_repeat_identical": null,
+  "r1_variant_slice_w1_w2_w4_repeat_identical": null,
+  "spec_version": "KH-01B.R1.DSC-v1.0"
+}

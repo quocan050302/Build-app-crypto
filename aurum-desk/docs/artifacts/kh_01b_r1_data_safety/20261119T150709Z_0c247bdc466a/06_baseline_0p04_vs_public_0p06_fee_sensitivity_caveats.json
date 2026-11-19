@@ -1,0 +1,102 @@
+{
+  "FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS": {
+    "0.0004": {
+      "assumed_leg_execution": "ENTRY_TAKER_MARKET_AND_EXIT_TAKER_STOP_OR_TP",
+      "closed_trades_count": 166,
+      "entry_fees_1x_usd": 101.5524,
+      "exit_fees_1x_usd": 101.5611,
+      "fee_drag_1x_r": 0.4975,
+      "gross_pnl_1x_usd": -142.7836,
+      "gross_positive_flipped_negative_by_fees_count": 0,
+      "mode": "FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS",
+      "net_expectancy_1x_r": -0.8474,
+      "net_pnl_1x_usd": -345.8971,
+      "net_positive_trades_count": 9,
+      "stress_2x_all_cost_net_pnl_usd": -594.6226,
+      "stress_3x_all_cost_net_pnl_usd": -803.8121,
+      "taker_fee_rate": 0.0004,
+      "total_fees_1x_usd": 203.1135
+    },
+    "0.0006": {
+      "assumed_leg_execution": "ENTRY_TAKER_MARKET_AND_EXIT_TAKER_STOP_OR_TP",
+      "closed_trades_count": 166,
+      "entry_fees_1x_usd": 152.3284,
+      "exit_fees_1x_usd": 152.3412,
+      "fee_drag_1x_r": 0.7462,
+      "gross_pnl_1x_usd": -142.7836,
+      "gross_positive_flipped_negative_by_fees_count": 0,
+      "mode": "FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS",
+      "net_expectancy_1x_r": -1.0954,
+      "net_pnl_1x_usd": -447.4532,
+      "net_positive_trades_count": 9,
+      "stress_2x_all_cost_net_pnl_usd": -807.4762,
+      "stress_3x_all_cost_net_pnl_usd": -1108.4804,
+      "taker_fee_rate": 0.0006,
+      "total_fees_1x_usd": 304.6696
+    }
+  },
+  "FULL_RE_RISKED_REPLAY": {
+    "0.0004": {
+      "closed_trades_count": 166,
+      "evaluated_si0_episodes": 242,
+      "gross_pnl_1x_usd": -142.7836,
+      "losses_count": 157,
+      "mode": "FULL_RE_RISKED_REPLAY_ON_SI0_242_COHORT",
+      "net_pnl_1x_usd": -345.8971,
+      "rejected_by_fee_aware_min_rr_or_risk_cap_count": 0,
+      "scheduled_after_1pos_non_overlap_count": 242,
+      "scope_caveat": "Re-sizes quantity (net_risk <= $2.50) and re-checks net_rr >= 2.0 on the 242 SI0 setups. Upstream 56,710 A1 candidate stream was emitted at reference 0.0004; higher taker fees strictly tighten min_net_rr >= 2.0 and cannot rescue negative gross alpha.",
+      "stress_2x_all_cost_net_pnl_usd": -561.3786,
+      "stress_3x_all_cost_net_pnl_usd": -776.8601,
+      "taker_fee_rate": 0.0004,
+      "total_fees_1x_usd": 203.1135,
+      "wins_count": 9
+    },
+    "0.0006": {
+      "closed_trades_count": 87,
+      "evaluated_si0_episodes": 242,
+      "gross_pnl_1x_usd": -94.9552,
+      "losses_count": 86,
+      "mode": "FULL_RE_RISKED_REPLAY_ON_SI0_242_COHORT",
+      "net_pnl_1x_usd": -210.6112,
+      "rejected_by_fee_aware_min_rr_or_risk_cap_count": 113,
+      "scheduled_after_1pos_non_overlap_count": 129,
+      "scope_caveat": "Re-sizes quantity (net_risk <= $2.50) and re-checks net_rr >= 2.0 on the 242 SI0 setups. Upstream 56,710 A1 candidate stream was emitted at reference 0.0004; higher taker fees strictly tighten min_net_rr >= 2.0 and cannot rescue negative gross alpha.",
+      "stress_2x_all_cost_net_pnl_usd": -330.9512,
+      "stress_3x_all_cost_net_pnl_usd": -451.2912,
+      "taker_fee_rate": 0.0006,
+      "total_fees_1x_usd": 115.656,
+      "wins_count": 1
+    }
+  },
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "delta_0p06_vs_0p04_fixed_fills": {
+    "additional_fees_1x_usd": 101.5561,
+    "net_expectancy_change_1x_r": -0.248,
+    "net_pnl_change_1x_usd": -101.5561
+  },
+  "domain_calculator_defaults_preserved": {
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "taker_fee_rate": 0.0004,
+    "unchanged_verified": true
+  },
+  "economic_conclusion": "SI0/E00 is already net negative BEFORE fees (gross = -142.7836 USD). Increasing taker fee from reference 0.0004 (fees = 203.1135 USD, net = -345.8971 USD) to current public default 0.0006 deepens fixed-fill fee drag by ~50% and rejects additional marginal R:R setups in FULL_RE_RISKED_REPLAY. Neither fee assumption produces positive expectancy; KH01C_ADVANCEMENT_VERDICT remains NO_ECONOMIC_ADVANCEMENT_CANDIDATE.",
+  "historical_quote_provenance": "MODELED_FROM_M1_OHLC_SPREAD_0.20_NOT_REAL_L1_BBO",
+  "kh01c_advancement_verdict_unchanged": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "original_e00_b00_reference_parity": {
+    "closed_count": 166,
+    "gross_pnl_usd": -142.7836,
+    "losses_count": 157,
+    "net_pnl_usd": -345.8971,
+    "per_trade_decimal_0004_fee_mismatches_count": 0,
+    "scheduled_count": 242,
+    "taker_fee_rate_reference": 0.0004,
+    "total_fees_usd": 203.1135,
+    "wins_count": 9
+  },
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "status": "PASS",
+  "violations": []
+}
