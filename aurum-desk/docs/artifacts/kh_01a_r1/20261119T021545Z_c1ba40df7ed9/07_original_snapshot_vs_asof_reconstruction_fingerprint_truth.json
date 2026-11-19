@@ -1,0 +1,56 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "fingerprint_comparison_counts_all_170": {
+    "MATCH": 166,
+    "NOT_COMPARABLE": 4
+  },
+  "full_original_market_decision_context_persisted": false,
+  "full_original_runtime_context_completeness_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS",
+  "not_comparable_rows_detail": [
+    {
+      "candidate_ts_a1_fingerprint_match": true,
+      "decision_timestamp_ms": 1792006800000,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+      "persisted_decision_timestamp_ms": 1792006740000,
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "reason": "DELAYED_CONFIRMATION_ENTRY_TS_1792006800000_DIFFERS_FROM_PERSISTED_CANDIDATE_TS_1792006740000_CANDIDATE_TS_A1_FINGERPRINT_MATCH_True"
+    },
+    {
+      "candidate_ts_a1_fingerprint_match": true,
+      "decision_timestamp_ms": 1792014240000,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6387_ts1792014120000_ep_cont_SHORT_1792014060000_12b5f14dff",
+      "persisted_decision_timestamp_ms": 1792014120000,
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "reason": "DELAYED_CONFIRMATION_ENTRY_TS_1792014240000_DIFFERS_FROM_PERSISTED_CANDIDATE_TS_1792014120000_CANDIDATE_TS_A1_FINGERPRINT_MATCH_True"
+    },
+    {
+      "candidate_ts_a1_fingerprint_match": true,
+      "decision_timestamp_ms": 1792018740000,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6463_ts1792018680000_ep_cont_SHORT_1792018620000_f8c8bc2a4b",
+      "persisted_decision_timestamp_ms": 1792018680000,
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "reason": "DELAYED_CONFIRMATION_ENTRY_TS_1792018740000_DIFFERS_FROM_PERSISTED_CANDIDATE_TS_1792018680000_CANDIDATE_TS_A1_FINGERPRINT_MATCH_True"
+    },
+    {
+      "candidate_ts_a1_fingerprint_match": true,
+      "decision_timestamp_ms": 1792028580000,
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401",
+      "persisted_decision_timestamp_ms": 1792028520000,
+      "population_role": "SI8_SI9_UNIQUE_RESEARCH_LOSS",
+      "reason": "DELAYED_CONFIRMATION_ENTRY_TS_1792028580000_DIFFERS_FROM_PERSISTED_CANDIDATE_TS_1792028520000_CANDIDATE_TS_A1_FINGERPRINT_MATCH_True"
+    }
+  ],
+  "persisted_artifacts_used": {
+    "decision_records": "aurum-desk/docs/artifacts/v17_9_3_1_2_10/20261107T150245Z_b772a03bb7cc/10_canonical_decision_inputs.jsonl.gz",
+    "verified_feature_snapshots": "aurum-desk/docs/artifacts/v17_9_3_1_2_10/20261107T150245Z_b772a03bb7cc/07_verified_causal_features.jsonl.gz"
+  },
+  "reconstruction_algo_sha256": "7c4f34ff438110bc7d0383953a04e3d93a2d7a0e1dd209925395a5d04decd83f",
+  "reconstruction_algo_version": "kh_01a_r1.asof_a1_v1792_context_120_96_96_96_64_30.v1",
+  "run_1_aggregate_row_sha256": "ca7534fa4b8a02d3acabbcdea7d7def6c0c5924f85568f9e29b73f0f2ed88b98",
+  "run_2_aggregate_row_sha256": "ca7534fa4b8a02d3acabbcdea7d7def6c0c5924f85568f9e29b73f0f2ed88b98",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "two_independent_runs_semantic_hash_identical": true
+}

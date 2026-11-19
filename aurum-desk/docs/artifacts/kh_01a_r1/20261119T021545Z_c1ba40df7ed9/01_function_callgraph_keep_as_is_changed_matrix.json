@@ -1,0 +1,1076 @@
+{
+  "macro_call_site_ast_audit": {
+    "call_sites": [
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "dec_ts",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 1521,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "dec_ts",
+          "schedule_config": "macro_schedule_config",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 1526,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_est_pre_spring",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 526,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_edt_post_spring",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 527,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_est_post_fall",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 528,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_weekend_sat",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 529,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 436,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "t_start - 1",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 500,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "t_start",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 501,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "t_end - 1",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 502,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "t_end",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 503,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "1792000000",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 1161,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "1792000000",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 534,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "-60000",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 535,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "True",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 536,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_edt_post_spring",
+          "schedule_config": "{'windows': []}",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 537,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_edt_post_spring",
+          "schedule_config": "{'require_verified_holiday_calendar': True, 'calendar_verification_status': 'CALENDAR_NOT_VERIFIED'}",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 538,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_edt_post_spring",
+          "symbol": "'BTCUSDT'"
+        },
+        "line": 539,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/kh_01a_r1_forensics_closure_service.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 1099,
+        "positional_args": [
+          "symbol",
+          "decision_timestamp_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 4527,
+        "positional_args": [
+          "int(timestamp_ms)"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 1957,
+        "positional_args": [
+          "base_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_1_root_cause_evidence_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 4879,
+        "positional_args": [
+          "dec_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 146,
+        "positional_args": [
+          "int(ts_ms)"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 692,
+        "positional_args": [
+          "asof_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 3833,
+        "positional_args": [
+          "new_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "schedule_config": "schedule_config",
+          "symbol": "symbol"
+        },
+        "line": 2021,
+        "positional_args": [
+          "ts_ms"
+        ]
+      },
+      {
+        "classification": "INTENTIONAL_NEGATIVE_CONTROL_TEST_CALL",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 101,
+        "positional_args": [
+          "'XAUUSDT'",
+          "ts_in"
+        ]
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "_ny_epoch_ms(2026, 3, 6, 9, 55)",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 183,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "_ny_epoch_ms(2026, 3, 9, 9, 55)",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 184,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "_ny_epoch_ms(2026, 11, 2, 9, 55)",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 185,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "_ny_epoch_ms(2026, 10, 17, 10, 0)",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 191,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "ts_mon",
+          "schedule_config": "{'require_verified_holiday_calendar': True, 'calendar_verification_status': 'CALENDAR_NOT_VERIFIED'}",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 201,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "c_ms",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 88,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "t0 - 1",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 177,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "t0",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 178,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "t1 - 1",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 179,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_EXPLICIT_KEYWORD_BINDING",
+        "file": "aurum-desk/backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "decision_timestamp_ms": "t1",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 180,
+        "positional_args": []
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_2_full_universe_executable_interventions.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 173,
+        "positional_args": [
+          "int(ds['1m'][idx]['close_time'])"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 962,
+        "positional_args": [
+          "est_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 968,
+        "positional_args": [
+          "edt_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 997,
+        "positional_args": [
+          "_ny_to_utc_ms(2026, 3, 28, 8, 55, 0)"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 1038,
+        "positional_args": [
+          "ts_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 987,
+        "positional_args": [
+          "_ny_to_utc_ms(2026, 3, 25, sh, sm, 0) - 1"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 988,
+        "positional_args": [
+          "_ny_to_utc_ms(2026, 3, 25, sh, sm, 0)"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 989,
+        "positional_args": [
+          "_ny_to_utc_ms(2026, 3, 25, eh, em, 0) - 1"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_1_historical_execution_truth.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 990,
+        "positional_args": [
+          "_ny_to_utc_ms(2026, 3, 25, eh, em, 0)"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 289,
+        "positional_args": [
+          "est_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 298,
+        "positional_args": [
+          "est_early_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 305,
+        "positional_args": [
+          "edt_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 359,
+        "positional_args": [
+          "sat_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "schedule_config": "hol_cfg"
+        },
+        "line": 373,
+        "positional_args": [
+          "wed_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {
+          "schedule_config": "req_cal_cfg"
+        },
+        "line": 386,
+        "positional_args": [
+          "wed_ts"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 489,
+        "positional_args": [
+          "ts_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 268,
+        "positional_args": [
+          "ts_ms",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 277,
+        "positional_args": [
+          "bad_ts",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 329,
+        "positional_args": [
+          "ts_before"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 335,
+        "positional_args": [
+          "ts_start"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 341,
+        "positional_args": [
+          "ts_before_end"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+        "is_test_file": true,
+        "keyword_args": {},
+        "line": 347,
+        "positional_args": [
+          "ts_end"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_macro_unicorn_backtest.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "schedule_config": "schedule_config",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 348,
+        "positional_args": [
+          "asof_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_macro_unicorn_backtest.py",
+        "is_test_file": false,
+        "keyword_args": {
+          "schedule_config": "schedule_config",
+          "symbol": "'XAUUSDT'"
+        },
+        "line": 688,
+        "positional_args": [
+          "asof_ms"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 503,
+        "positional_args": [
+          "ms_est",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 504,
+        "positional_args": [
+          "ms_edt",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 687,
+        "positional_args": [
+          "ts_edt_ms",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 707,
+        "positional_args": [
+          "ts_end_ms",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 472,
+        "positional_args": [
+          "s_ms - 1",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 473,
+        "positional_args": [
+          "s_ms",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 474,
+        "positional_args": [
+          "e_ms - 1",
+          "'XAUUSDT'"
+        ]
+      },
+      {
+        "classification": "VALID_TIMESTAMP_FIRST_CALL",
+        "file": "aurum-desk/tools/run_v17_9_3_verification.py",
+        "is_test_file": false,
+        "keyword_args": {},
+        "line": 475,
+        "positional_args": [
+          "e_ms",
+          "'XAUUSDT'"
+        ]
+      }
+    ],
+    "inspected_function": "services.v17_9_3_macro_unicorn_intelligence.resolve_causal_macro_time_window",
+    "inspected_signature": "(decision_timestamp_ms: 'int', symbol: 'str' = 'XAUUSDT', *, schedule_config: 'Optional[Mapping[str, Any]]' = None) -> 'MacroTimeWindowState'",
+    "invalid_production_call_sites": [],
+    "invalid_production_call_sites_count": 0,
+    "prior_buggy_call_site_repaired": {
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "prior_call": "resolve_causal_macro_time_window(\"XAUUSDT\", dec_ts)",
+      "prior_head": "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7",
+      "repaired_call": "resolve_causal_macro_time_window(decision_timestamp_ms=dec_ts, symbol=\"XAUUSDT\")"
+    },
+    "production_call_sites_count": 36,
+    "signature_parameters": [
+      {
+        "default": null,
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "name": "decision_timestamp_ms"
+      },
+      {
+        "default": "'XAUUSDT'",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "name": "symbol"
+      },
+      {
+        "default": "None",
+        "kind": "KEYWORD_ONLY",
+        "name": "schedule_config"
+      }
+    ],
+    "test_call_sites_count": 33,
+    "total_call_sites_found": 69
+  },
+  "prior_audited_head_sha": "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7",
+  "prior_tested_executable_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "responsibility_matrix": [
+    {
+      "ast_verification": {
+        "end_line": 2432,
+        "exists": true,
+        "parameters": [
+          "si0_all_primary_episodes",
+          "si8_loss_rows",
+          "si9_loss_rows",
+          "decision_inputs_by_opp_id",
+          "feature_ledger_by_opp_id",
+          "datasets",
+          "close_ts_index",
+          "dataset_sha256",
+          "macro_schedule_config",
+          "_macro_resolver_override"
+        ],
+        "start_line": 1094
+      },
+      "change_summary": "Fixed reversed `resolve_causal_macro_time_window('XAUUSDT', dec_ts)` call to explicit keyword binding; reconstructed canonical A1 V17.9.2 context (`120/96/96/96/64/30`) matching 166/166 SI0 persisted decision & action fingerprints; extracted real persisted `CausalFeatureSnapshot` items (`PERSISTED_VERIFIED_SNAPSHOT`) vs `RECONSTRUCTED_ASOF_RAW_BARS` vs `MISSING`; eliminated false `bool(snap.selected_...)` sweep/MSS inference.",
+      "downstream_consumers": [
+        "05_r1_preentry_170_rows.jsonl.gz",
+        "06_feature_evidence_origin_missing_invalid_source_hash_census.json",
+        "07_original_snapshot_vs_asof_reconstruction_fingerprint_truth.json",
+        "build_loss_episode_attribution_from_raw_v17931219"
+      ],
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "function": "build_kh_01a_causal_loss_and_win_control_forensics",
+      "item_id": "R1-FN-01",
+      "risk_classification": "P0_FORENSICS_ONLY_ZERO_TRADING_IMPACT",
+      "status": "CHANGED",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_macro_reversed_args_red_and_keyword_caller_green",
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_per_field_provenance_and_no_selected_id_inference"
+      ],
+      "upstream_evidence": [
+        "SI0 primary episodes (242 scheduled, 166 closed = 9W + 157L)",
+        "SI8 (4) + SI9 (2) research losses -> 4 unique",
+        "10_canonical_decision_inputs.jsonl.gz",
+        "07_verified_causal_features.jsonl.gz",
+        "Canonical XAUUSDT 6-TF raw closed bars"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 678,
+        "exists": true,
+        "parameters": [
+          "macro_st",
+          "expected_decision_timestamp_ms",
+          "expected_symbol"
+        ],
+        "start_line": 510
+      },
+      "change_summary": "Enforces 3-way macro categorization (`ELIGIBLE_IN_VERIFIED_WINDOW`, `VALID_OUTSIDE_WINDOW`, `UNKNOWN_OR_INVALID_MACRO_STATE`) and blocks invalid/unverified states from emitting `in_ict_macro_window=False` or `ny_session_group='INVALID'` as `PRESENT`.",
+      "downstream_consumers": [
+        "build_kh_01a_causal_loss_and_win_control_forensics",
+        "R1 macro DST/boundary audit"
+      ],
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "function": "validate_and_classify_macro_state_kh01a_r1",
+      "item_id": "R1-FN-02",
+      "risk_classification": "P0_FORENSICS_VALIDATION_HELPER",
+      "status": "ADDED",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_macro_dst_boundaries_weekends_and_invalid_inputs"
+      ],
+      "upstream_evidence": [
+        "MacroTimeWindowState",
+        "expected_decision_timestamp_ms",
+        "expected_symbol"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 1003,
+        "exists": true,
+        "parameters": [
+          "decision_timestamp_ms",
+          "direction",
+          "pre_entry_features",
+          "raw_snapshot_joined",
+          "original_snapshot_verified",
+          "asof_reconstruction_verified"
+        ],
+        "start_line": 770
+      },
+      "change_summary": "Emits `OUTSIDE_ICT_MACRO_WINDOW` only when `in_ict_macro_window` is `PRESENT` and `False`; routes unknown/missing macro, HTF, sweep, MSS, Unicorn, and target-TF states to `unknown_or_unproven_flags` rather than proven failure flags; reports row `evidence_completeness` (`COMPLETE`/`PARTIAL`/`UNKNOWN`/`INVALID`).",
+      "downstream_consumers": [
+        "build_kh_01a_causal_loss_and_win_control_forensics"
+      ],
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "function": "classify_pre_entry_state_strictly_asof",
+      "item_id": "R1-FN-03",
+      "risk_classification": "P0_PRE_ENTRY_CLASSIFIER_SEMANTICS",
+      "status": "CHANGED",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_classifier_unknown_never_proven_false_and_partial_completeness"
+      ],
+      "upstream_evidence": [
+        "decision_timestamp_ms",
+        "direction",
+        "pre_entry_features"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 3692,
+        "exists": true,
+        "parameters": [
+          "run_dir",
+          "run_id",
+          "branch",
+          "tested_sha",
+          "dataset_sha",
+          "preflight_00",
+          "gap_audit_02",
+          "dataset_quality_03",
+          "fault_suite_04",
+          "forensics_06",
+          "target_audit_07",
+          "replay_08",
+          "parity_09",
+          "junit_manifest_10",
+          "worker_report_11",
+          "resource_report_12",
+          "fresh_oos_13",
+          "receipts_by_gate",
+          "publication_status"
+        ],
+        "start_line": 3275
+      },
+      "change_summary": "Hardened `G-KH01A-06` to reject legacy `kh_01a.foundation.v1` schema, any `INVALID` session group, any `UNKNOWN_OR_INVALID_MACRO_STATE` on valid historical bars, and any fingerprint `MISMATCH`; added `FORENSICS_SEMANTIC_VERDICT`.",
+      "downstream_consumers": [
+        "kh_01a_independent_verifier.py",
+        "kh_01a_r1_independent_verifier.py"
+      ],
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "function": "evaluate_kh_01a_14_gates",
+      "item_id": "R1-FN-04",
+      "risk_classification": "P0_GATE_ANTI_FAKE_PASS",
+      "status": "CHANGED",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_gate_rejects_invalid_session_even_when_166_conserved"
+      ],
+      "upstream_evidence": [
+        "KH-01A/R1 evidence artifacts + disk-verified EvidenceReceiptV17931219"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 888,
+        "exists": true,
+        "parameters": [
+          "summary_doc"
+        ],
+        "start_line": 864
+      },
+      "change_summary": "Rejects legacy forensics schema versions, ex-post fields in pre-entry features, and `INVALID` macro session censuses.",
+      "downstream_consumers": [
+        "R1 fault-injection suite & gate receipt validators"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_19_truth_and_core_repair_service.py",
+      "function": "validate_r1_forensics_summary_and_macro_strict_v17931219",
+      "item_id": "R1-FN-05",
+      "risk_classification": "P0_FORENSICS_SCHEMA_GUARD",
+      "status": "EXTENDED",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_legacy_schema_and_mutated_macro_rejected"
+      ],
+      "upstream_evidence": [
+        "R1 forensics summary JSON"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 1063,
+        "exists": true,
+        "parameters": [
+          "decision_timestamp_ms",
+          "symbol",
+          "schedule_config"
+        ],
+        "start_line": 748
+      },
+      "change_summary": "KEPT AS IS \u2014 implementation is pure, DST-aware, and correct; defect was exclusively in caller argument order.",
+      "downstream_consumers": [
+        "Full-universe backtest, D1..D4 pipelines, and KH-01A.R1 forensics"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function": "resolve_causal_macro_time_window",
+      "item_id": "R1-FN-06",
+      "risk_classification": "IMMUTABLE_MACRO_AND_UNICORN_AUTHORITY",
+      "status": "KEPT AS IS",
+      "tests": [
+        "test_v17_9_3_macro_unicorn_intelligence.py",
+        "test_kh_01a_r1_forensics_truth_closure.py"
+      ],
+      "upstream_evidence": [
+        "decision_timestamp_ms: int",
+        "symbol: str = 'XAUUSDT'",
+        "schedule_config"
+      ]
+    },
+    {
+      "ast_verification": {
+        "class_name": "SharedStrategyEvaluator",
+        "end_line": 4336,
+        "exists": true,
+        "parameters": [
+          "cls",
+          "context",
+          "model_id",
+          "direction",
+          "adapter_origin",
+          "target_resolver",
+          "causal_setup_override",
+          "production_eval_spec"
+        ],
+        "start_line": 2706
+      },
+      "change_summary": "KEPT AS IS \u2014 0 edits; verified bitwise equal across all 56,710 canonical A1 opportunities.",
+      "downstream_consumers": [
+        "REPLAY_BACKTEST",
+        "MARKET_SHADOW",
+        "PRODUCTION_ORCHESTRATOR_DRY_RUN"
+      ],
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function": "SharedStrategyEvaluator.evaluate_model_direction",
+      "item_id": "R1-FN-07",
+      "risk_classification": "IMMUTABLE_TRADING_DECISION_AUTHORITY",
+      "status": "KEPT AS IS",
+      "tests": [
+        "test_kh_01a_r1_forensics_truth_closure.py::test_r1_evaluator_and_3_adapter_parity"
+      ],
+      "upstream_evidence": [
+        "MarketDecisionContext",
+        "model_id",
+        "direction"
+      ]
+    },
+    {
+      "ast_verification": {
+        "end_line": 948,
+        "exists": true,
+        "parameters": [
+          "datasets",
+          "session_calendar"
+        ],
+        "start_line": 264
+      },
+      "change_summary": "KEPT AS IS \u2014 preserves verified KH-01A weekday multi-day `PROVIDER_OR_DATA_GAP` fix.",
+      "downstream_consumers": [
+        "Dataset quality & Fresh-OOS audit"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_1_decision_funnel.py",
+      "function": "classify_historical_dataset_gaps",
+      "item_id": "R1-FN-08",
+      "risk_classification": "IMMUTABLE_DATA_GAP_REPAIR",
+      "status": "KEPT AS IS",
+      "tests": [
+        "test_kh_01a_data_and_verification_foundation.py::test_sec1_weekday_ge24h_gap_not_weekend"
+      ],
+      "upstream_evidence": [
+        "Canonical 6-TF OHLCV bars"
+      ]
+    }
+  ],
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+}

@@ -1,0 +1,51 @@
+{
+  "FORENSIC_RECOMPUTATION_STATUS": "FORENSIC_RECOMPUTATION_CHANGED_AS_EXPECTED",
+  "TRADING_PARITY": "PASS",
+  "continuity_12_sample_evaluator_sha256_match": true,
+  "full_a1_56710_evaluated_count": 56710,
+  "full_a1_56710_mismatches_count": 0,
+  "full_a1_56710_streaming_evaluator_parity": {
+    "aggregate_partitions_sha256": "d3e695746ff4dd3c9e419c6ee6b9471d71b3066ad95c389c3427655d0f28efa8",
+    "elapsed_seconds": 146.056,
+    "evaluated_count": 56710,
+    "mismatches": [],
+    "mismatches_count": 0,
+    "partition_digests": [
+      "759e2307b9b1ed8c2c0669c08ecb0f4166fa92bbf4398ff2151cc0a7d9013e30",
+      "533e0571945e056af90128f0f78f520ef1848630ef3203f5b7117700fa3420ca",
+      "f70885ea679fd295e96b20ad203b2c6419e375298c8a4de038ce90b75c4edef1"
+    ],
+    "population_denominator": 56710,
+    "population_name": "CANONICAL_A1_V1792_SL_TP_BASELINE_ELIGIBLE_OPPORTUNITIES",
+    "status": "PASS",
+    "unique_timestamps_denominator": 18744,
+    "unique_timestamps_evaluated": 18744,
+    "worker_partitions_used": 3
+  },
+  "full_universe_denominator_breakdown": {
+    "a1_v1792_baseline_opportunities": 56710,
+    "canonical_universe_total": 63085,
+    "si0_scheduled_plus_si89_unique_3_adapter_cohort": 246,
+    "si8_incremental_opportunities": 6375
+  },
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "si0_si8_si9_ledger_sha256_exact_match": true,
+  "si8_6375_incremental_universe_check": {
+    "count": 6375,
+    "risk_cap_gt_2_50_violations": 0,
+    "sorted_fingerprints_sha256": "7fb3a9505ac3606bd75a98cbfe905a09325ce13eedfd3fcb9aee23cc3da3a35a"
+  },
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "three_adapter_246_cohort_parity": {
+    "evaluated_count": 246,
+    "max_planned_net_risk_usd_observed": 2.5,
+    "mismatches": [],
+    "mismatches_count": 0,
+    "risk_cap_le_2_50_usd_verified": true,
+    "sorted_246_adapter_sha256": "563439d448112e3ba92d8acdd84c490ab5928cedcafe8702af8c415f5fb5a612"
+  },
+  "three_adapter_246_evaluated_count": 246,
+  "three_adapter_246_mismatches_count": 0
+}

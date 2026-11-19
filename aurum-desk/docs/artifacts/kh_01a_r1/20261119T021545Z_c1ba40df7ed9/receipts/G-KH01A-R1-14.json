@@ -1,0 +1,30 @@
+{
+  "gate_id": "G-KH01A-R1-14",
+  "receipt": {
+    "content_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+    "gate_id": "G-KH01A-R1-14",
+    "input_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+    "metadata": {
+      "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PENDING_REMOTE_PUSH",
+    "receipt_path": "00_branch_sha_config_dataset_preflight.json",
+    "run_id": "20261119T021545Z_c1ba40df7ed9",
+    "status": "PENDING_REMOTE_PUSH",
+    "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+    "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+    "validator_name": "_val_r1_14",
+    "violations": [
+      "AWAITING_PHASE_B_GIT_PUSH_AND_PHASE_C_REMOTE_BLOB_READBACK"
+    ]
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PENDING_REMOTE_PUSH",
+    "violations": [
+      "AWAITING_PHASE_B_GIT_PUSH_AND_PHASE_C_REMOTE_BLOB_READBACK"
+    ]
+  }
+}

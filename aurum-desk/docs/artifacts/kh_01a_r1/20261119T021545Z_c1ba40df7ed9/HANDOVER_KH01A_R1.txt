@@ -1,0 +1,37 @@
+BÀN GIAO KỸ THUẬT KH-01A.R1 — ĐÓNG HỒ SƠ SỰ THẬT PHÁP Y (FORENSICS TRUTH CLOSURE)
+================================================================================
+1. ĐỊNH DANH PHIÊN CHẠY & GIT
+- Nhánh bắt buộc (Branch): feature/v17-9-2-structural-sl-tp-from-qa
+- Audited Starting HEAD trước R1: 4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7
+- Prior KH-01A Tested Executable SHA: a1fd9293e2d0ac098008264ec2a6355596baf415
+- R1 Tested Executable SHA: c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01
+- Run ID: 20261119T021545Z_c1ba40df7ed9
+- Canonical Dataset SHA256: 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18 (bất biến 100% so với baseline)
+
+2. PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS)
+- ENGINEERING_VERDICT: PASS (12/12 cổng kỹ thuật R1 PASS)
+- FORENSICS_SEMANTIC_VERDICT: PASS
+- REGRESSION_VERDICT: PASS (Collected=5486, Executed=5486, Passed=5478, Skipped=8, Failed=0, Errors=0)
+- ACCOUNTING_VERDICT: PASS
+- TRADING_PARITY_VERDICT: PASS
+- D4_MATERIALIZATION_VERDICT: NO_VALID_SETUPS
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+- STRATEGY_ECONOMIC_EDGE_VERDICT: NEGATIVE_NO_PROVEN_EDGE
+- ACTIVATION_READY: NO (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trong thư mục bất biến trước khi push): PENDING_REMOTE_PUSH
+
+3. KẾT QUẢ SỬA LỖI ICT MACRO & MINH BẠCH NGUỒN GỐC ĐẶC TRƯNG
+- Đã sửa lỗi đảo ngược tham số tại `kh_01a_foundation_service.py`: `resolve_causal_macro_time_window("XAUUSDT", dec_ts)` -> `resolve_causal_macro_time_window(decision_timestamp_ms=dec_ts, symbol="XAUUSDT")`.
+- Đối chiếu trước/sau trên 170 dòng casebook (157 lệnh thua SI0 + 9 lệnh thắng SI0 + 4 lệnh thua duy nhất SI8/SI9):
+  * Trước R1 (bị nhiễm lỗi): 170/170 dòng có `ny_session_group="INVALID"`, 157/157 lệnh thua và 9/9 lệnh thắng bị gán ngoài khung Macro, 69/157 lệnh thua nhận lý do chính `OUTSIDE_ICT_MACRO_WINDOW`.
+  * Sau R1 (đã sửa đúng): 0/170 dòng `INVALID` ({'LONDON': 3, 'LONDON_OPEN': 1, 'NY_AM': 1, 'NY_PM': 2, 'OUTSIDE_MACRO': 128, 'WEEKEND_CLOSED': 35}). Trên 157 lệnh thua SI0: 7/157 (4.46%) thuộc `ELIGIBLE_IN_VERIFIED_WINDOW`, 150/157 (95.54%) thuộc `VALID_OUTSIDE_WINDOW`, 0/157 `UNKNOWN_OR_INVALID_MACRO_STATE`. Trên 9 lệnh thắng đối chứng SI0: 0/9 trong khung Macro, 9/9 ngoài khung Macro. Phân bố lý do chính mới trên 157 lệnh thua: {'COUNTER_HTF_H4_OR_H1_BIAS': 54, 'NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP': 1, 'OUTSIDE_ICT_MACRO_WINDOW': 98, 'TARGET_BEYOND_12_M1_ATR': 4}.
+- Minh bạch nguồn gốc dữ liệu (Provenance):
+  * Toàn bộ kết quả phân tích 170 dòng dựa trên kết hợp bản ghi đặc trưng đã xác minh (`07_verified_causal_features.jsonl.gz` -> `PERSISTED_VERIFIED_SNAPSHOT`) và tái dựng nhân quả tại thời điểm quyết định từ nến đóng (`close_time <= decision_timestamp_ms` -> `RECONSTRUCTED_ASOF_RAW_BARS`); đối tượng `MarketDecisionContext` đầy đủ thời gian thực gốc KHÔNG được lưu trữ nguyên bản nên được ghi nhận trung thực là `NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS`.
+  * Lịch ICT Macro (`V17_9_3_NY_ICT_MACRO_SCHEDULE_V1`) là cấu hình giả thuyết nghiên cứu (`RESEARCH_HYPOTHESIS_CONFIG`); lịch nghỉ lễ/bảo trì chính thức của sàn Bitget vẫn là `CALENDAR_NOT_VERIFIED` / `UNKNOWN_UNVERIFIED`.
+  * Không bao giờ biến đặc trưng `MISSING`/`UNKNOWN` (như `sweep_confirmed` thiếu 155/157, `mss_confirmed` thiếu 142/157, `m15_structure_bias` thiếu 110/157, `h1_structure_bias` thiếu 61/157, `h4_structure_bias` thiếu 56/157, `target_source_timeframe` thiếu 0/157) thành kết luận phủ định `False`.
+
+4. BẢO TOÀN HÀNH VI GIAO DỊCH (KEPT AS IS) & AN TOÀN HỆ THỐNG
+- Các thành phần thực thi & chiến lược (`SharedStrategyEvaluator.evaluate_model_direction`, `resolve_causal_macro_time_window`, V17.9.2 SL/TP, True Unicorn D4, trần rủi ro <= 2.50 USD, 3 execution adapters) được GIỮ NGUYÊN (KEPT AS IS): khớp 100% trên toàn bộ 56710/56710 cơ hội A1 chuẩn và 246/246 episode qua 3 adapter (0 sai lệch); kết quả SI0 giữ nguyên tuyệt đối 242 lên lịch, 166 đóng = 9W + 157L, Net PnL -345.8971 USD, Expectancy -0.8474R.
+- Tiêm lỗi đối kháng: 38/38 phép tiêm lỗi thực thi thật đều bị chặn fail-closed.
+- Hiệu năng & Tài nguyên: Đa tiến trình bất đồng bộ `w=1, w=2, w=4, w=1_repeat` khớp tuyệt đối SHA256 trên cả pytest subset (tăng tốc 2.905x), 170 dòng pháp y và 242 episode replay; tối đa 4 tiến trình con (<= 4), 0 orphan PID.
+- CẢNH BÁO AN TOÀN: `FRESH_OOS_VERDICT = BLOCKED_NO_UNTOUCHED_DATA` và `STRATEGY_ECONOMIC_EDGE_VERDICT = NEGATIVE_NO_PROVEN_EDGE`. Tuyệt đối KHÔNG kích hoạt giao dịch thật/paper/auto.

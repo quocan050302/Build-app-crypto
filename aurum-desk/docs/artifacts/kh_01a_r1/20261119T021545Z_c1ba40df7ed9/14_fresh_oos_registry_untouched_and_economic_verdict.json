@@ -1,0 +1,243 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+  "actionable_post_freeze_collection_and_escrow_plan": {
+    "step_1_policy_freeze": "Commit and tag frozen KH-01B candidate executable SHA + config SHA256 BEFORE collecting any evaluation bars (`policy_freeze_timestamp_ms`).",
+    "step_2_embargo_window": "Enforce strict chronological gap `first_open_timestamp_ms >= max(last_reused_bar_close_ms, policy_freeze_timestamp_ms) + 180 * 60_000` (minimum 180-minute trade-horizon embargo).",
+    "step_3_pagination_bugfix": "Acquire Bitget `USDT-FUTURES` `XAUUSDT` closed candles (`1m`, `5m`, `15m`, `1H`, `4H`, `1D`) using `endTime = earliest_open_ms` with deduplication by `open_time` (eliminating the legacy `earliest - 1` 200-bar 1-candle boundary drop) PLUS captured L1 top-of-book bid/ask snapshots.",
+    "step_4_cryptographic_escrow": "Write immutable `.json.gz` + raw HTTP response SHA256 receipt (`origin_receipt_sha256`) + verified exchange maintenance log into a write-once escrow manifest with `strategy_evaluation_count = 0`.",
+    "step_5_single_blind_pass": "Run `validate_fresh_oos_escrow_claim_kh01a` first, then execute at most ONE blinded evaluation pass (`strategy_evaluation_count = 1`); thereafter transition status to `REUSED_RESEARCH` automatically."
+  },
+  "auxiliary_repository_datasets_scanned": [
+    {
+      "byte_size": 3527758,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_CG01_SUBSET",
+      "relative_path": "aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/data/xauusdt_m1_14d.json",
+      "sha256": "a360f4f01d0e6e77a2ad0d190774bc91fe1c84285763b22b967a4c1db32f00a8"
+    },
+    {
+      "byte_size": 7558230,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_CG01_SUBSET",
+      "relative_path": "aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/data/xauusdt_m1_30d.json",
+      "sha256": "36b2b826e0eb6af88cbfb94bd61807fe1c7f126be06f84c74c7e8a704335ae6b"
+    },
+    {
+      "byte_size": 887669,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_15m_1779289200000_1784214000000.json",
+      "sha256": "93978bf801fb935a14eeab6eb4d094e9b9fcec573fa29eaf0596076b233dc2a2"
+    },
+    {
+      "byte_size": 2210870,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_15m_1779289200000_1791558000000.json",
+      "sha256": "5c5ea3c8dcd32a9427f5ecd62a8ed7653aac2bab6ba37b82d9974c5d0512f051"
+    },
+    {
+      "byte_size": 2189446,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_15m_1779642000000_1791793667634.json",
+      "sha256": "c193a2d5c2122cc3ef7de7f6bb24b87e42d38517b132e3d4cbd840729b470535"
+    },
+    {
+      "byte_size": 9242,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1D_1779289200000_1784214000000.json",
+      "sha256": "3ca398f5953e2307b5b0e9e75f643a68e2a3593c2c70d40f5df4853f037e4ce7"
+    },
+    {
+      "byte_size": 23112,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1D_1779289200000_1791558000000.json",
+      "sha256": "d8a0b8b025ac7901f94a8d154d1a0a3655bd59e5ad6d564d28f4996baf333704"
+    },
+    {
+      "byte_size": 22783,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1D_1779642000000_1791793667634.json",
+      "sha256": "b4617b96598d22f60bc188779ffe119e070541d27dce4b1539c0482980b85b50"
+    },
+    {
+      "byte_size": 223068,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1H_1779289200000_1784214000000.json",
+      "sha256": "c7eefc02a920d5b4ea639b60202e8b2b52ce175397f2523e4be0e220ea502390"
+    },
+    {
+      "byte_size": 555003,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1H_1779289200000_1791558000000.json",
+      "sha256": "79697eee4ec6adf4aa0274e79fc844a97b9d8664ae88bcc108804c2200240bdd"
+    },
+    {
+      "byte_size": 549568,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_1H_1779642000000_1791793667634.json",
+      "sha256": "f61e4f59a37d401af73461b03814366f80e5aa8696e55c3ea90a6d6e6aeb3cc1"
+    },
+    {
+      "byte_size": 55823,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_4H_1779289200000_1784214000000.json",
+      "sha256": "16764cb9175e910b2f9badb15aaaca9734b4ab2ab6e63176a9c23aa85d8b3781"
+    },
+    {
+      "byte_size": 139056,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_4H_1779289200000_1791558000000.json",
+      "sha256": "900b698bba9c77dfb2a693ee198023511e3e6d00cb530d56d4e07d659d45457b"
+    },
+    {
+      "byte_size": 137736,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_4H_1779642000000_1791793667634.json",
+      "sha256": "7d255b2110f41c751b3736f46685f59c2b47beeb4e651e6e081f429c58158a57"
+    },
+    {
+      "byte_size": 418885,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_5m_1783436400000_1784214000000.json",
+      "sha256": "42036f0485e8998c64bd9ff77cdda9e951c31d3c35fcfdef24be70a6b2704e87"
+    },
+    {
+      "byte_size": 4375314,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_5m_1783436400000_1791558000000.json",
+      "sha256": "77bba24e4547acad5b6ee727789b2214906eef596c1f630f56f4f17fd5735e64"
+    },
+    {
+      "byte_size": 4311767,
+      "eligible_as_fresh_untouched_oos": false,
+      "prior_use_status": "REUSED_RESEARCH_LEGACY_V11_V12_CACHE",
+      "relative_path": "aurum-desk/backend/lab/data/XAUUSDT_5m_1783789200000_1791793667634.json",
+      "sha256": "7595e15dd5197577c1390c59377c4568791f795bf2c588be685c04a9f482dd26"
+    }
+  ],
+  "canonical_dataset_manifest": {
+    "acquired_at_ms": 1793196000000,
+    "bar_coverage_by_tf": {
+      "15m": {
+        "actual_bars": 15090,
+        "first_open_ms": 1779289200000,
+        "first_open_utc": "2026-05-20T15:00:00Z",
+        "last_close_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00Z",
+        "sha256": "1fd0a07ebeac26bbfa1a6ce6a1504c372119d029e9d5d15f02ed1f3092717aaa",
+        "total_missing_bars": 362
+      },
+      "1D": {
+        "actual_bars": 181,
+        "first_open_ms": 1777478400000,
+        "first_open_utc": "2026-04-29T16:00:00Z",
+        "last_close_ms": 1793116800000,
+        "last_close_utc": "2026-10-27T16:00:00Z",
+        "sha256": "ecb4a73897d7c94e062a94819541eab9c56b9d3a93d8cb7dc741467d52749d61",
+        "total_missing_bars": 0
+      },
+      "1H": {
+        "actual_bars": 3863,
+        "first_open_ms": 1779289200000,
+        "first_open_utc": "2026-05-20T15:00:00Z",
+        "last_close_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00Z",
+        "sha256": "9f877be3edf9faa85d378530ea2fcd2ccc11cda01f2ac276fda7041a2944d1e4",
+        "total_missing_bars": 0
+      },
+      "1m": {
+        "actual_bars": 22376,
+        "first_open_ms": 1791437880000,
+        "first_open_utc": "2026-10-08T05:38:00Z",
+        "last_close_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00Z",
+        "sha256": "fa6b1c69f361ac324e45e8104b9c621cff7a3be86a13ad4bdeb4d21790adadff",
+        "total_missing_bars": 6926
+      },
+      "4H": {
+        "actual_bars": 965,
+        "first_open_ms": 1779292800000,
+        "first_open_utc": "2026-05-20T16:00:00Z",
+        "last_close_ms": 1793188800000,
+        "last_close_utc": "2026-10-28T12:00:00Z",
+        "sha256": "1cd6c47e6fa1fef454b8058a5c0d7a9d0af12741e14914a702888eb61654e966",
+        "total_missing_bars": 0
+      },
+      "5m": {
+        "actual_bars": 31609,
+        "first_open_ms": 1783436400000,
+        "first_open_utc": "2026-07-07T15:00:00Z",
+        "last_close_ms": 1793196000000,
+        "last_close_utc": "2026-10-28T14:00:00Z",
+        "sha256": "820f99d09ea81333832efdeed59ff74d22432f3ec9d68a3da1f8136e61f7305b",
+        "total_missing_bars": 923
+      }
+    },
+    "byte_size": 1892029,
+    "cohort_eligibility": {
+      "fresh_untouched_oos_proof": false,
+      "in_sample_research_replay": true,
+      "purged_walkforward_contamination_diagnostic": true,
+      "strategy_activation_proof": false
+    },
+    "dataset_id": "XAUUSDT_BITGET_CANONICAL_V17_8_SNAPSHOT",
+    "exchange": "Bitget",
+    "first_open_timestamp_ms": 1777478400000,
+    "first_open_utc": "2026-04-29T16:00:00Z",
+    "first_strategy_access_timestamp_ms": 1793145600000,
+    "last_close_timestamp_ms": 1793196000000,
+    "last_close_utc": "2026-10-28T14:00:00Z",
+    "origin_receipt_sha256": null,
+    "origin_uri": "https://api.bitget.com/api/v2/mix/market/history-candles?symbol=XAUUSDT&productType=USDT-FUTURES",
+    "permission_flags": {
+      "allow_fresh_oos_claim": false,
+      "allow_network_refresh_overwrite": false,
+      "allow_offline_research_replay": true,
+      "allow_paper_or_live_activation": false
+    },
+    "policy_freeze_timestamp_ms": null,
+    "prior_use_status": "REUSED_RESEARCH",
+    "product_type": "USDT-FUTURES",
+    "quality_verdict": "USABLE_REUSED_RESEARCH_WITH_DISCLOSED_PROVIDER_GAPS_AND_UNVERIFIED_SESSION_CALENDAR",
+    "quote_coverage": "OHLCV_ONLY_MODELED_0_20_USD_SPREAD_NO_CAPTURED_L1_BBO",
+    "relative_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+    "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "strategy_evaluation_count": 19,
+    "symbol": "XAUUSDT",
+    "timezone": "UTC"
+  },
+  "canonical_escrow_check": {
+    "dataset_id": "XAUUSDT_BITGET_CANONICAL_V17_8_SNAPSHOT",
+    "eligible_as_fresh_untouched_oos": false,
+    "verdict": "REJECTED_NOT_FRESH_UNTOUCHED",
+    "violations": [
+      "DATASET_SHA256_MATCHES_PRIOR_REUSED_RESEARCH_DATA",
+      "TEMPORAL_OVERLAP_WITH_PRIOR_RESEARCH_WINDOW:[1777478400000,1793196000000]_OVERLAPS_[1777478400000,1793196000000]",
+      "PRIOR_USE_STATUS_NOT_FRESH_UNTOUCHED:REUSED_RESEARCH",
+      "ACQUIRED_BEFORE_OR_WITHOUT_POLICY_FREEZE:acq=1793196000000,freeze=1795057005620",
+      "MISSING_IMMUTABLE_ORIGIN_RECEIPT_SHA256",
+      "MULTIPLE_STRATEGY_PASSES_CONTAMINATE_FRESH_OOS:19",
+      "PERMISSION_FLAG_ALLOW_FRESH_OOS_CLAIM_FALSE"
+    ]
+  },
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "untouched_post_freeze_datasets_found_count": 0
+}

@@ -1,0 +1,26 @@
+{
+  "gate_id": "G-KH01A-R1-06",
+  "receipt": {
+    "content_sha256": "f8b899bf5d27ec0313861b9d71fe563c9e107ccc6f2261fd5d056a6f24832702",
+    "gate_id": "G-KH01A-R1-06",
+    "input_sha256": "f8b899bf5d27ec0313861b9d71fe563c9e107ccc6f2261fd5d056a6f24832702",
+    "metadata": {
+      "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "07_original_snapshot_vs_asof_reconstruction_fingerprint_truth.json",
+    "run_id": "20261119T021545Z_c1ba40df7ed9",
+    "status": "PASS",
+    "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+    "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+    "validator_name": "_val_r1_06",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}

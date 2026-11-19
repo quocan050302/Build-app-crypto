@@ -1,0 +1,885 @@
+{
+  "changed_or_exemplar_rows": [
+    {
+      "decision_timestamp_ms": 1792530000000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "c87757e4ea755eeae6200ad03c590c8d7cc82f95d385e401eea19186df562909",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "20247c5bd87b19d8069b9da7517ee922eed97b3f0efc775758286477a1d6ae8a",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx11278_ts1792530000000_ep_cont_LONG_1792529940000_59aa517dd4",
+      "persisted_trade_action_fingerprint": "047535757296eaa39f985d31e579b9d98890cbd0da571ecfa0eae4edb9bd7578",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "047535757296eaa39f985d31e579b9d98890cbd0da571ecfa0eae4edb9bd7578"
+    },
+    {
+      "decision_timestamp_ms": 1792560300000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "fcbb3150f6cba5dc70628e7a54f8ab328d29a370d843b8f6115f3659d2df67cb",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "fc7e518dbafed6b4dead8e07d94219f299bb9d1130aadc0d67e22105f66535e2",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx11783_ts1792560300000_ep_cont_LONG_1792560240000_4584a44926",
+      "persisted_trade_action_fingerprint": "22bf5ca5f48518235b2c30f64568426c13cdd17449922d30d60fda794eaf5159",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "22bf5ca5f48518235b2c30f64568426c13cdd17449922d30d60fda794eaf5159"
+    },
+    {
+      "decision_timestamp_ms": 1792620060000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "f6f395bd9d79eb83a22966238f39dce41ef805add2003d6d19d57e9a0d40a9ed",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "ed32d281ec78d2fe25af6d7e1a46a9ab9519b45f4a014c72f814b268edab42d6",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx12779_ts1792620060000_ep_cont_LONG_1792620000000_ebcb9ac844",
+      "persisted_trade_action_fingerprint": "fcc22c4fb2e0acb92c0e0a9c5e2912c714dfbe3b57befeaefa8e77518d77fcb7",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "fcc22c4fb2e0acb92c0e0a9c5e2912c714dfbe3b57befeaefa8e77518d77fcb7"
+    },
+    {
+      "decision_timestamp_ms": 1791641640000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "2c7c36e165a8414e202d6aa67a160822fff2bf0539beb8cbc6d79fcf2808c2fa",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "fedacc89bfe556b75899647160352f412ed9299031a36154e18b7caeaa8b1151",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx1379_ts1791641640000_ep_cont_LONG_1791641580000_86b65838fd",
+      "persisted_trade_action_fingerprint": "5eb897dea7c17127353014113f045a004c137dda36ed444c94d209f8c6066070",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "5eb897dea7c17127353014113f045a004c137dda36ed444c94d209f8c6066070"
+    },
+    {
+      "decision_timestamp_ms": 1792704600000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "2526d437e19122b9286ecca68bbe68a629aa40f052b01b202168f033464d40cc",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "95853bd3fc1bca4ac0c0d6b2aee7e9cdd2e8c136ac93715d675e38a1d5cc2166",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx14188_ts1792704600000_ep_cont_LONG_1792704540000_eaceab466b",
+      "persisted_trade_action_fingerprint": "e3db59312399b7eb6b59bef86697823118132c719acc50f6e835a338f4ae5ff3",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "e3db59312399b7eb6b59bef86697823118132c719acc50f6e835a338f4ae5ff3"
+    },
+    {
+      "decision_timestamp_ms": 1792717200000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "97e2b68897935c8b1f502cdd78f30a5f4bf17d3758cd44aa4bcfd3ac8654c749",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "3f19c321f92484947491eb9b959cc622ed97f9a801cb99d951f4fa756fee9469",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx14398_ts1792717200000_ep_cont_LONG_1792717140000_5e4e5cd228",
+      "persisted_trade_action_fingerprint": "7a85d2c8039ae9b3c5702c095642f1c4b72775db084d9d0ecb2c1ede4e61684b",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "7a85d2c8039ae9b3c5702c095642f1c4b72775db084d9d0ecb2c1ede4e61684b"
+    },
+    {
+      "decision_timestamp_ms": 1793004720000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "218438f263f1bb24dbffe3f6aeec093a9d9aa2d71808d3023f487d56fe0344eb",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "a00459f444625847b7472305c8a1f782d5d039c6bb045b30450a763fda679bd0",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx19190_ts1793004720000_ep_cont_LONG_1793004660000_5ceb919194",
+      "persisted_trade_action_fingerprint": "bae7bbea9499c447e784c953afb39a9f31e8b2ada89ff49676e19ad948e0e6c1",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "bae7bbea9499c447e784c953afb39a9f31e8b2ada89ff49676e19ad948e0e6c1"
+    },
+    {
+      "decision_timestamp_ms": 1793017800000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "7fa3ee17d9f0daae2f90840af779be77c2bfba58b16fb51c9948d1b5a097ecc7",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "1a7171525a0c90949a64cde7ad493a6b2e87a6a9bfe05802b738d31600618c43",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx19408_ts1793017800000_ep_cont_LONG_1793017740000_6642a33283",
+      "persisted_trade_action_fingerprint": "c5ae17d7c8ddb2f8330defb1754ec44b8742959ccd05fc0ec3adf87d561efbef",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "c5ae17d7c8ddb2f8330defb1754ec44b8742959ccd05fc0ec3adf87d561efbef"
+    },
+    {
+      "decision_timestamp_ms": 1793050980000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "893a2e782337e532676bae53579d5efe10476f095d7b69d428db17513cb6c5ac",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "993810b6ca4c6a977436daed352f3c8dd930935117b34cdacb573092b0fa6a76",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx19961_ts1793050980000_ep_cont_LONG_1793050920000_aee0972444",
+      "persisted_trade_action_fingerprint": "51c145933912f04e14bb2733ea9ccc72e6203de43c5eff7fbfdcc13d3156de2e",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "51c145933912f04e14bb2733ea9ccc72e6203de43c5eff7fbfdcc13d3156de2e"
+    },
+    {
+      "decision_timestamp_ms": 1791593340000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "4f56b9e0fd969b915249ef778f9317d4d9bd4e7b13d37523d59b59f10129dd5d",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "4d3e053b3dbd42d6e1bb96189103d5b9239065b22278377a22f83cecbdc6a248",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx574_ts1791593340000_ep_cont_LONG_1791593280000_94c74d621c",
+      "persisted_trade_action_fingerprint": "8be0a741cb50e25de5c83c9d7e13c66ace58ab8179a229d5bda657ce54d0b6ec",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "8be0a741cb50e25de5c83c9d7e13c66ace58ab8179a229d5bda657ce54d0b6ec"
+    },
+    {
+      "decision_timestamp_ms": 1792435740000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "b0927fa10ce478211f0a574414e6d4bcac3d1dca9e8f4e5b7fd3d490e398dc94",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "e564a6e1d3ddbf1842face426609fd66c87c460032834047d561e0dce1c6e6fb",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx9707_ts1792435740000_ep_cont_LONG_1792435680000_5b87e3c0d5",
+      "persisted_trade_action_fingerprint": "8e1660e4958e91edcaaecc253606cedd6899e66a870f6aa3cae8af7ac489fb28",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "8e1660e4958e91edcaaecc253606cedd6899e66a870f6aa3cae8af7ac489fb28"
+    },
+    {
+      "decision_timestamp_ms": 1792563840000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "0c6b60b178e5944f587a6b91ff2ff6a9ea732489123a5a2ec011951d462cf05a",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "e861ed70e8bcad90756889b99fb900ca2ae0b7b1a5ef4731425ca2e03f1b4c97",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx11842_ts1792563840000_ep_cont_SHORT_1792563780000_d169d8c674",
+      "persisted_trade_action_fingerprint": "dadf2b400e7d16e4e73c2904c1efc2e307b299f2dd3ac10726daf620dea6d9df",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "dadf2b400e7d16e4e73c2904c1efc2e307b299f2dd3ac10726daf620dea6d9df"
+    },
+    {
+      "decision_timestamp_ms": 1792994220000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "5da61398ac4a343b59b8eb36886e9747d04af5dda293677c9712080b5c02136b",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "09868eb1133ee72aa3d62632253518d8cec399ee4378145c8f5d19cedbd8feed",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx19015_ts1792994220000_ep_SMC_M1_CONTINUATION_SHORT_1792994220000_678c009154",
+      "persisted_trade_action_fingerprint": "a79d074364cd9dd7bacc507196694f2bc6bd689d6025730ebe24e30e273c674b",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "a79d074364cd9dd7bacc507196694f2bc6bd689d6025730ebe24e30e273c674b"
+    },
+    {
+      "decision_timestamp_ms": 1793011200000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "d953df8ad3da121b7b942ab5e8ab78b84da55a81a928acb6b03c4c34581b6d03",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "f598fb6c961685e9ef8474bc92df9f23e3ecf166f3886c845b4535b9b5d15465",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx19298_ts1793011200000_ep_cont_SHORT_1793011140000_5800edc0a8",
+      "persisted_trade_action_fingerprint": "701dc9063b7747a270759d76353fdda178e96fd697810ab7917783c1898071c0",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "701dc9063b7747a270759d76353fdda178e96fd697810ab7917783c1898071c0"
+    },
+    {
+      "decision_timestamp_ms": 1793020560000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "bcfd950f9aea08d670dad1c5f8719b43de59aaa1d5db4d42ca53b4693329edc0",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "b7355b9d09cec3a80908c7a8019bd17a320a9e3fa7e241bf4e4c8468d8b50c2c",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx19454_ts1793020560000_ep_cont_SHORT_1793020500000_ca508e9edb",
+      "persisted_trade_action_fingerprint": "b20205c5bb1a1bc41dfa8f0582eb6e2c46a56d2df812e5f2f925b953db94a90c",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "b20205c5bb1a1bc41dfa8f0582eb6e2c46a56d2df812e5f2f925b953db94a90c"
+    },
+    {
+      "decision_timestamp_ms": 1793183640000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "7fcd419cdc6aa09a998942142734b7fad9ea1e15a31bb084c66b4bd7452d0962",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "old_row_sha256": "3b74070f1364f23526b02273261718d8af69cfd408b214e99a5391853d7fb1a9",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx22170_ts1793183640000_ep_SMC_M1_CONTINUATION_SHORT_1793183640000_e5faf0cc0d",
+      "persisted_trade_action_fingerprint": "1d7fdc24b3397d442b67356c5f178322562c41913841ca8709902ebfd2db27e9",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "1d7fdc24b3397d442b67356c5f178322562c41913841ca8709902ebfd2db27e9"
+    },
+    {
+      "decision_timestamp_ms": 1791716880000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "9c7fd527bfc64e08b8f1f649296a10619cc3f5fbb03a43f3cafa381d29cb6e92",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "5dc28320b86448a9a8ede432516a465490e1e1d3872955acbf7ee842795042b7",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx2585_ts1791716880000_ep_cont_SHORT_1791716820000_4c881cec4e",
+      "persisted_trade_action_fingerprint": "5fb26c3dc5d284b60b7b28e5678cb0ac5081416503180bf0f6845617c1de7d96",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "5fb26c3dc5d284b60b7b28e5678cb0ac5081416503180bf0f6845617c1de7d96"
+    },
+    {
+      "decision_timestamp_ms": 1791759180000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "5511ebb3354e02bd8e5d4c01a6a477ccea1b6ef4c190f86bf23af629a48d0ec6",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "33585df66b2e71a657be2177a80a3aea0920ea05c0fbc321769e4e70b1f8df38",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx2936_ts1791759180000_ep_cont_SHORT_1791759120000_694e9622b3",
+      "persisted_trade_action_fingerprint": "a506df7eff19a9a14a1f749538eef2f2467e39b298270bb3bb2979487689a984",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "a506df7eff19a9a14a1f749538eef2f2467e39b298270bb3bb2979487689a984"
+    },
+    {
+      "decision_timestamp_ms": 1791833040000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "fb9cb0ce19a60d42bf5992e7b95bda2b441d7e31f09a30e20fcbb298e715b9da",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "9a5bcb8397bda01c2d4b31eb952752796c7616ca3230c98c614b65937c300f2a",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx3993_ts1791833040000_ep_cont_SHORT_1791832980000_69e63305a8",
+      "persisted_trade_action_fingerprint": "aabcc5f670fbf07bde8c3ce97914c63e965f1be467a72918122220960c7c14e8",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "aabcc5f670fbf07bde8c3ce97914c63e965f1be467a72918122220960c7c14e8"
+    },
+    {
+      "decision_timestamp_ms": 1791852960000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "2fe035372df552eb4fb1f97a3744a947513f4069dc75e8b0582f1aa1edb7e1f0",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "7e637982cd69ff145e84133d59a5134479264a340e3567fa6126e45d7ba2ff0b",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx4325_ts1791852960000_ep_cont_SHORT_1791852900000_614a956775",
+      "persisted_trade_action_fingerprint": "4933d44bf05e39dc6eaddb57ee514686312fed8f9e683dc7399b82695b1de199",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "4933d44bf05e39dc6eaddb57ee514686312fed8f9e683dc7399b82695b1de199"
+    },
+    {
+      "decision_timestamp_ms": 1791957480000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "3c84c65ba2f74bdd6afc4fd03b96e9c0a0faa24e11dc1acc41d2099cafda3c2f",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "b92ec38d4a1df7016f6db2e61c14f9d600daf702f382e3914f16607816b009d8",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6067_ts1791957480000_ep_cont_SHORT_1791957420000_3f27690bdc",
+      "persisted_trade_action_fingerprint": "1dc3dd61236602ff6bfcdd734dc5a4302102018aea64408c016a4ac45a57d716",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "1dc3dd61236602ff6bfcdd734dc5a4302102018aea64408c016a4ac45a57d716"
+    },
+    {
+      "decision_timestamp_ms": 1791595800000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "a0410d016324f3febc3a3db972815412744cabe80df52368f55982eb83a18359",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "c34b0973dc30a5c74dcc1e381264f97198e87cb849aa41fa2afb2f65407d09af",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx615_ts1791595800000_ep_cont_SHORT_1791595740000_01a0968564",
+      "persisted_trade_action_fingerprint": "812150c4b0be05851fdb005d48a3f06e0bd5768171afa5711329790d6170e62b",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "812150c4b0be05851fdb005d48a3f06e0bd5768171afa5711329790d6170e62b"
+    },
+    {
+      "decision_timestamp_ms": 1792114320000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "f8f5bef1cc0737b8ea47b9c2f554887846bd7bf8b738114ff29d23a7ddf89ced",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "7a220f7a81b1e7fb5b3ee99e8ab4b13fd66c7f7df1ccd70a783a5d6243aa84ce",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx8057_ts1792114320000_ep_cont_SHORT_1792114260000_4c78be3c28",
+      "persisted_trade_action_fingerprint": "98ab72ee4c5204e65a1cd4bf7b7ae1dbd325bf387661129d075073309db53904",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "98ab72ee4c5204e65a1cd4bf7b7ae1dbd325bf387661129d075073309db53904"
+    },
+    {
+      "decision_timestamp_ms": 1792428420000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "e94f36e64b6918891b060d7a8f88a8f5481cbf37409a36612f864e4bbcc4ba77",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "b2ffcad35e8c21c6abf2a2489a1bb06dcd000936f3e40ac00dc048b1b09ba69a",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx9585_ts1792428420000_ep_cont_SHORT_1792428360000_8d0bce7abf",
+      "persisted_trade_action_fingerprint": "88b99897bbfdd6a45aa968fa3c29e50dbc404364df555d788958acb899710a39",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "88b99897bbfdd6a45aa968fa3c29e50dbc404364df555d788958acb899710a39"
+    },
+    {
+      "decision_timestamp_ms": 1792548000000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "4e1a5eba06fdc141d9f62c6d5a320e74454ce65fd86b68a3e5491772295f94c7",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "25f3e249f572654a0a0700666adea15542668f0dd42ca0aa6b26c5660c2749b8",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx11578_ts1792548000000_ep_SMC_M1_FVG_CONTINUATION_LONG_1792547640000_b52b311ac4",
+      "persisted_trade_action_fingerprint": "2a876e495576d17b1027466335222a07a2c583e0dcf84917d9e25ea5c51d6d1f",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "2a876e495576d17b1027466335222a07a2c583e0dcf84917d9e25ea5c51d6d1f"
+    },
+    {
+      "decision_timestamp_ms": 1793019600000,
+      "new_in_ict_macro_window": true,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "6710fcd65496cc1cc08066f712b3fbe3aabc75a848483b7b3a6023db7119844d",
+      "new_session_group": "NY_AM",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "427b71db54397a2674da4abfc3c1051772c2a0bf78d2600f1ab87f737b0d9b61",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx19438_ts1793019600000_ep_SMC_M1_FVG_CONTINUATION_LONG_1793014740000_5a1ae8bea0",
+      "persisted_trade_action_fingerprint": "968d8bc9e6751f77d3f91c6a32abe39de9934c0315cf945009f3c4c7842ee2be",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "968d8bc9e6751f77d3f91c6a32abe39de9934c0315cf945009f3c4c7842ee2be"
+    },
+    {
+      "decision_timestamp_ms": 1791715680000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "2411824316c535682c95bb57e8f8df78930a3f667142422507e90b534c414ce6",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "a1ba523489fb04e76307a42fe867283efd3094c02fb5e4d2ec21497db0712f67",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx2565_ts1791715680000_ep_SMC_M1_FVG_CONTINUATION_LONG_1791706320000_57154b47a5",
+      "persisted_trade_action_fingerprint": "bc7f3552d11562e621ae03c62c0ad55fb1c7ea62e3b7379ef35f3fb649cf524d",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "bc7f3552d11562e621ae03c62c0ad55fb1c7ea62e3b7379ef35f3fb649cf524d"
+    },
+    {
+      "decision_timestamp_ms": 1791765000000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "e086cafbd557bebda7e1917a49bdc0c58b3c7a716657473675c37732b8541a69",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "27e3528a1b18a6b8028ca271b66fc58749dffa24e77ac5113fde9022a1787a75",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx3033_ts1791765000000_ep_SMC_M1_FVG_CONTINUATION_LONG_1791764460000_e1758bb279",
+      "persisted_trade_action_fingerprint": "d0580621b67d65b9414cd2c2a9dd8daa7c4adf675bf08ee1b87bf1744766fcd0",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "d0580621b67d65b9414cd2c2a9dd8daa7c4adf675bf08ee1b87bf1744766fcd0"
+    },
+    {
+      "decision_timestamp_ms": 1791768780000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "24b3822127ed444078bb2ac60b43e8326b11c03e2a293341a41a857f91f08b53",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "d509a702e178d9da4f66141811b1c69f55949f8aa3119a80082a9778bf03643a",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx3096_ts1791768780000_ep_SMC_M1_FVG_CONTINUATION_LONG_1791767880000_d61d1c235a",
+      "persisted_trade_action_fingerprint": "676ec0b8806fc84a441350ff72d758b03d10f55d68f84f8e7ee595f3c7372a91",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "676ec0b8806fc84a441350ff72d758b03d10f55d68f84f8e7ee595f3c7372a91"
+    },
+    {
+      "decision_timestamp_ms": 1791769500000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "375540f268252f3fd3ef03132e833b9e45b6bf15991eb674fcbb2cdcad003e0c",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "0b27fbb2d4d04ce27600d4afa8fcd487671962822a41af4db8a019317f72a707",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx3108_ts1791769500000_ep_SMC_M1_FVG_CONTINUATION_LONG_1791763800000_0635020528",
+      "persisted_trade_action_fingerprint": "e27d5920e9f6886b9bc825118d9b8414e17647b4f3117a08b4a4f686f55a2a3c",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "e27d5920e9f6886b9bc825118d9b8414e17647b4f3117a08b4a4f686f55a2a3c"
+    },
+    {
+      "decision_timestamp_ms": 1792382820000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "7eb8f6a12a75e0e532c00daa68af2f937c93b68ce486210e7e721d19fc25f33c",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "cff5e70d2e88ddeb3e25b84350e0af38f568cd4f17724f7aa0fd077c093cb192",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx8825_ts1792382820000_ep_SMC_M1_FVG_CONTINUATION_LONG_1792379100000_b1a158ea58",
+      "persisted_trade_action_fingerprint": "298a141663838587e807354934b8ae662faea90f0843c497aa51ae0ffa0c8707",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "298a141663838587e807354934b8ae662faea90f0843c497aa51ae0ffa0c8707"
+    },
+    {
+      "decision_timestamp_ms": 1792383240000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "2e4c588508e461916a2275ad98465949f842abca404953b0d355b9ecd06df592",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "031860c3ff2559a10e605dbeea8e072676dd58f795c21cc48a2394d626736ac1",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx8832_ts1792383240000_ep_SMC_M1_FVG_CONTINUATION_LONG_1792379100000_52bd149962",
+      "persisted_trade_action_fingerprint": "2fd3a007d7fcbe1daf7c3d2a386d1cfab8e7d347561b59e329dcde306ba01f5a",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "2fd3a007d7fcbe1daf7c3d2a386d1cfab8e7d347561b59e329dcde306ba01f5a"
+    },
+    {
+      "decision_timestamp_ms": 1792394220000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "54714473cec868b330333a13842ae48e67c6b5fee8f0c974d2e69288069a3328",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "f3840bcc4a54770689ec75c114a724556827f6d84f4f8a54b1ccf1f2ddc0c12b",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx9015_ts1792394220000_ep_SMC_M1_FVG_CONTINUATION_LONG_1792393020000_40ff2c4d9f",
+      "persisted_trade_action_fingerprint": "5030619d43a5784e99ffe961cb58b9e49a422373628bfc548bd9068b6251e1d9",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "5030619d43a5784e99ffe961cb58b9e49a422373628bfc548bd9068b6251e1d9"
+    },
+    {
+      "decision_timestamp_ms": 1792437300000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "a1c14dc8a35226902f8496503539d8b838e7f860dfc782ec55da829aad8d56ca",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "2b737ab4e3387dd3290d2b318c3ad0c94a6b23c803da95e5d021a2e00012637a",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx9733_ts1792437300000_ep_SMC_M1_FVG_CONTINUATION_LONG_1792431240000_78d76cd302",
+      "persisted_trade_action_fingerprint": "18609177774d1d60d5e05b2f8b3bb35ff1f410493152ca3de037e3e62675a9d6",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "18609177774d1d60d5e05b2f8b3bb35ff1f410493152ca3de037e3e62675a9d6"
+    },
+    {
+      "decision_timestamp_ms": 1793083440000,
+      "new_in_ict_macro_window": true,
+      "new_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "new_row_sha256": "ee60853cc8b65875778ccb4f4c25c5e4b95ac84ebc00fbf8f021e2156d5d3247",
+      "new_session_group": "LONDON_OPEN",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "COUNTER_HTF_H4_OR_H1_BIAS",
+      "old_row_sha256": "c772ed3136c2e79543776b9ab6607184df6dbab6be4f26eb330c98282435a1f9",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx20502_ts1793083440000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1793082600000_fb21bce5d5",
+      "persisted_trade_action_fingerprint": "a8ddf9374db10df8b20eaff400c936c699eaa6e3978d4276e9da0e9846d3ff2b",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "a8ddf9374db10df8b20eaff400c936c699eaa6e3978d4276e9da0e9846d3ff2b"
+    },
+    {
+      "decision_timestamp_ms": 1791693840000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "cf246ff08025532f7a74f3318500b9e6677233e6d1b16351927558a12e1e9cd1",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "8922d1a9a10e0e954de35d4f41484bc152d6adce5991f5433471679acf80dc77",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx2249_ts1791693840000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791693480000_9b668119f2",
+      "persisted_trade_action_fingerprint": "9cde10df0b905787ad7bd7b10286cfe68517d94524631d7c512166f6e18efbd5",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "9cde10df0b905787ad7bd7b10286cfe68517d94524631d7c512166f6e18efbd5"
+    },
+    {
+      "decision_timestamp_ms": 1791760440000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "b141bdade18feb74190136460ab1074a9654b6162acfdfc31264940a355c61cc",
+      "new_session_group": "WEEKEND_CLOSED",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "42d3bde42b8b6270d03325ca1bd1107e17c6ca21662e40572937e1080ca19677",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx2957_ts1791760440000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791756780000_73cb028e25",
+      "persisted_trade_action_fingerprint": "cda861de53d1de51710d6a41d1c51c689321f8c6012a8561d3045728a71c8e6f",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "cda861de53d1de51710d6a41d1c51c689321f8c6012a8561d3045728a71c8e6f"
+    },
+    {
+      "decision_timestamp_ms": 1791800100000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "01bbc93ff8e865855a4698a43ffb6cf0b8e61cc100279580390a00a68f8e4650",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "5a623382ec9e22f9c28eae8b7cf2421cc87d3069a9bf51a669846c1d15eab452",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx3618_ts1791800100000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791796560000_bf05e2f8fa",
+      "persisted_trade_action_fingerprint": "eaf58de10a69b3e85e8fe0476a56ee7bb11b04e194f3301ef7e3518d4b19dbe6",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "eaf58de10a69b3e85e8fe0476a56ee7bb11b04e194f3301ef7e3518d4b19dbe6"
+    },
+    {
+      "decision_timestamp_ms": 1791836640000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "0eaba0ea90342f0937385ff0b1d42a411e832fbc4c98105e8c7ca8a894b10831",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "cda00570183417369e33eee98fc9ee5ba63ad7db67d402e42a9418f0c92f2f21",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx4053_ts1791836640000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791830160000_55eb2ba945",
+      "persisted_trade_action_fingerprint": "e9588a1058ff4c81be16926e1917b5d548bc576a8cf4421a4e340570da1a7bff",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "e9588a1058ff4c81be16926e1917b5d548bc576a8cf4421a4e340570da1a7bff"
+    },
+    {
+      "decision_timestamp_ms": 1791853920000,
+      "new_in_ict_macro_window": false,
+      "new_primary_reason": "OUTSIDE_ICT_MACRO_WINDOW",
+      "new_row_sha256": "fccffaba0e74e560b0e31a72cf11c94bb00b159ec67a315957c3da9977dd84b2",
+      "new_session_group": "OUTSIDE_MACRO",
+      "old_in_ict_macro_window": false,
+      "old_primary_reason": "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE",
+      "old_row_sha256": "30436514444a3b992448ff172d8a07955f1be5b7f021e2ea4f784f169a948c8d",
+      "old_session_group": "INVALID",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx4341_ts1791853920000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791849840000_5354ff877b",
+      "persisted_trade_action_fingerprint": "90080bd701f8e5688a0d473007317cdb6af55a5e4e6bbfa9d21b31cd859ef1d7",
+      "population_role": "SI0_CLOSED_LOSS",
+      "recomputed_trade_action_fingerprint": "90080bd701f8e5688a0d473007317cdb6af55a5e4e6bbfa9d21b31cd859ef1d7"
+    }
+  ],
+  "cohort_170_keys_identical": true,
+  "explicit_delta_explanations": [
+    {
+      "delta_id": "DELTA-01-MACRO-SESSION-AND-WINDOW",
+      "explanation": "Prior KH-01A passed ('XAUUSDT', dec_ts) to resolve_causal_macro_time_window, causing 170/170 rows to receive session_group='INVALID' and eligible_for_macro_gate=False. R1 keyword binding resolves true America/New_York sessions with 0 INVALID rows; rows inside active NY ICT macro windows flip from OUTSIDE_ICT_MACRO_WINDOW to their next proven pre-entry condition (or aligned-on-present)."
+    },
+    {
+      "delta_id": "DELTA-02-CANONICAL-A1-CONTEXT-AND-PERSISTED-SNAPSHOT-JOIN",
+      "explanation": "Prior KH-01A reconstructed with generic 240/120 bar windows and ignored feat_in['causal_snapshot']['features'] (checking nonexistent top-level evidence_refs), plus inferred False sweep/MSS from bool(snap.selected_...). R1 reconstructs with exact A1 V17.9.2 120/96/96/96/64/30 windows (166/166 SI0 fingerprint MATCH), binds verified 07_verified_causal_features items (including 5m/1m target_selected_pool_bound timeframes), and keeps unestablished sweep/MSS strictly MISSING/UNKNOWN in unknown_or_unproven_flags."
+    }
+  ],
+  "forensic_recomputation_status": "FORENSIC_RECOMPUTATION_CHANGED_AS_EXPECTED",
+  "primary_reason_transition_matrix_all_170": {
+    "COUNTER_HTF_H4_OR_H1_BIAS -> COUNTER_HTF_H4_OR_H1_BIAS": 55,
+    "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE -> OUTSIDE_ICT_MACRO_WINDOW": 38,
+    "OUTSIDE_ICT_MACRO_WINDOW -> NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 1,
+    "OUTSIDE_ICT_MACRO_WINDOW -> OUTSIDE_ICT_MACRO_WINDOW": 72,
+    "OUTSIDE_ICT_MACRO_WINDOW -> TARGET_BEYOND_12_M1_ATR": 4
+  },
+  "prior_casebook_05_sha256": "a344ce32d1bfc3c4435d5b41fe70774d3eb9b8760cc8fcd5da485bc2914c6dab",
+  "prior_census_06_sha256": "1832193d803b9751d783895772d6d82175f04d2c1ea3b90583d18d29570925e0",
+  "prior_kh01a_run_dir": "aurum-desk/docs/artifacts/kh_01a/20261117T013053Z_a1fd9293e2d0",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "si0_157_losses_before_vs_after": {
+    "feature_presence_census_after": {
+      "atr_h1_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "atr_m1_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "cost_aware_net_rr": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "direction": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "h1_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 61,
+        "PRESENT": 96
+      },
+      "h4_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 56,
+        "PRESENT": 101
+      },
+      "in_ict_macro_window": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "liquidity_sweep_reclaim_confirmed": {
+        "INVALID": 0,
+        "MISSING": 155,
+        "PRESENT": 2
+      },
+      "m15_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 110,
+        "PRESENT": 47
+      },
+      "model_id": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "mss_bos_displacement_confirmed": {
+        "INVALID": 0,
+        "MISSING": 142,
+        "PRESENT": 15
+      },
+      "ny_session_group": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "quote_quality_mode": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "recent_m1_data_gap_within_180m": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "structural_sl_distance_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "target_distance_in_m1_atr": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "target_distance_in_source_tf_atr": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "target_source_timeframe": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "unicorn_overlap_state": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      }
+    },
+    "feature_presence_census_before": {
+      "atr_h1_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "atr_m1_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "cost_aware_net_rr": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "direction": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "h1_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 61,
+        "PRESENT": 96
+      },
+      "h4_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 56,
+        "PRESENT": 101
+      },
+      "in_ict_macro_window": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "liquidity_sweep_reclaim_confirmed": {
+        "INVALID": 0,
+        "MISSING": 52,
+        "PRESENT": 105
+      },
+      "m15_structure_bias": {
+        "INVALID": 0,
+        "MISSING": 110,
+        "PRESENT": 47
+      },
+      "model_id": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "mss_bos_displacement_confirmed": {
+        "INVALID": 0,
+        "MISSING": 86,
+        "PRESENT": 71
+      },
+      "ny_session_group": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "quote_quality_mode": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "recent_m1_data_gap_within_180m": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "structural_sl_distance_usd": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "target_distance_in_m1_atr": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      },
+      "target_distance_in_source_tf_atr": {
+        "INVALID": 0,
+        "MISSING": 59,
+        "PRESENT": 98
+      },
+      "target_source_timeframe": {
+        "INVALID": 0,
+        "MISSING": 59,
+        "PRESENT": 98
+      },
+      "unicorn_overlap_state": {
+        "INVALID": 0,
+        "MISSING": 0,
+        "PRESENT": 157
+      }
+    },
+    "in_ict_macro_window_after": {
+      "False": 150,
+      "True": 7
+    },
+    "in_ict_macro_window_before": {
+      "False": 157
+    },
+    "macro_3way_after": {
+      "ELIGIBLE_IN_VERIFIED_WINDOW": 7,
+      "VALID_OUTSIDE_WINDOW": 150
+    },
+    "ny_session_group_after": {
+      "LONDON": 3,
+      "LONDON_OPEN": 1,
+      "NY_AM": 1,
+      "NY_PM": 2,
+      "OUTSIDE_MACRO": 116,
+      "WEEKEND_CLOSED": 34
+    },
+    "ny_session_group_before": {
+      "INVALID": 157
+    },
+    "primary_reason_counts_after": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 54,
+      "NO_TRUE_UNICORN_BREAKER_FVG_OVERLAP": 1,
+      "OUTSIDE_ICT_MACRO_WINDOW": 98,
+      "TARGET_BEYOND_12_M1_ATR": 4
+    },
+    "primary_reason_counts_before": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 54,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 34,
+      "OUTSIDE_ICT_MACRO_WINDOW": 69
+    }
+  },
+  "si0_9_wins_before_vs_after": {
+    "in_ict_macro_window_after": {
+      "False": 9
+    },
+    "in_ict_macro_window_before": {
+      "False": 9
+    },
+    "ny_session_group_after": {
+      "OUTSIDE_MACRO": 8,
+      "WEEKEND_CLOSED": 1
+    },
+    "ny_session_group_before": {
+      "INVALID": 9
+    },
+    "primary_reason_counts_after": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 1,
+      "OUTSIDE_ICT_MACRO_WINDOW": 8
+    },
+    "primary_reason_counts_before": {
+      "COUNTER_HTF_H4_OR_H1_BIAS": 1,
+      "NON_SUPPORTIVE_NEUTRAL_HTF_STRUCTURE": 4,
+      "OUTSIDE_ICT_MACRO_WINDOW": 4
+    }
+  },
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "trading_geometry_pnl_and_expost_identical_all_170": true,
+  "trading_or_geometry_drifts": []
+}

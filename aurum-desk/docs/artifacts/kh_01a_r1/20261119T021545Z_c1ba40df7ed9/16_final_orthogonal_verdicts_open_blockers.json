@@ -1,0 +1,739 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "gates": [
+    {
+      "authoritative_function": "verify_source_freeze_v17931211",
+      "direct_artifact_path": "00_branch_sha_config_dataset_preflight.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "branch==feature/v17-9-2-structural-sl-tp-from-qa, clean tree, dataset_sha==9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18, prior kh_01a bundle untouched",
+      "gate_id": "G-KH01A-R1-01",
+      "green_control": "Preflight & post-run source/prior-artifact hash equality",
+      "independent_receipt": {
+        "content_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+        "gate_id": "G-KH01A-R1-01",
+        "input_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "00_branch_sha_config_dataset_preflight.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_01",
+        "violations": []
+      },
+      "intent": "Verify mandatory branch, clean frozen executable SHA, immutable canonical dataset, and untouched prior KH-01A/V19 artifacts.",
+      "name": "BRANCH_SOURCE_FREEZE_AND_IMMUTABLE_PRIOR_ARTIFACTS",
+      "observed_values": {
+        "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+        "prior_artifacts_unchanged": true,
+        "source_unchanged": true,
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+      },
+      "raw_input_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+      "red_control": "FI-13_MISMATCHED_TESTED_SHA_AND_RUN_ID",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_01",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "scan_all_macro_window_call_sites_ast",
+      "direct_artifact_path": "02_macro_reversed_args_red_green_diff.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "RED reversed call yields 170/170 INVALID; GREEN keyword call yields 0 INVALID and 0 invalid AST call sites in production code",
+      "gate_id": "G-KH01A-R1-02",
+      "green_control": "Explicit keyword binding decision_timestamp_ms=dec_ts, symbol='XAUUSDT'",
+      "independent_receipt": {
+        "content_sha256": "0d9bf07f747090dfc9a209776669421738602170c3d808be857d35f742241407",
+        "gate_id": "G-KH01A-R1-02",
+        "input_sha256": "0d9bf07f747090dfc9a209776669421738602170c3d808be857d35f742241407",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "02_macro_reversed_args_red_green_diff.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_02",
+        "violations": []
+      },
+      "intent": "Reproduce reversed-argument RED defect on all 170 cohort rows and prove explicit keyword caller GREEN with 0 invalid production AST call sites.",
+      "name": "MACRO_REVERSED_ARGS_RED_AND_KEYWORD_CALLER_GREEN",
+      "observed_values": {
+        "green_after_sessions": {
+          "LONDON": 3,
+          "LONDON_OPEN": 1,
+          "NY_AM": 1,
+          "NY_PM": 2,
+          "OUTSIDE_MACRO": 128,
+          "WEEKEND_CLOSED": 35
+        },
+        "invalid_production_call_sites": 0,
+        "production_call_sites": 36,
+        "red_before_sessions": {
+          "INVALID": 170
+        }
+      },
+      "raw_input_sha256": "0d9bf07f747090dfc9a209776669421738602170c3d808be857d35f742241407",
+      "red_control": "G-KH01A-R1-FOR-01_SWAPPED_MACRO_ARGS_ON_REAL_170_COHORT",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_02",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "validate_and_classify_macro_state_kh01a_r1",
+      "direct_artifact_path": "03_macro_dst_schedule_semantics_and_invalid_samples.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "All 7 windows pass [start, end) boundary checks; US DST EDT(-240)/EST(-300) exact; invalid/unverified inputs map to UNKNOWN_OR_INVALID_MACRO_STATE (never False)",
+      "gate_id": "G-KH01A-R1-03",
+      "green_control": "All 7 NY macro windows + spring/fall DST probes PASS",
+      "independent_receipt": {
+        "content_sha256": "736f223ca9a381ef2c95698be91e77d59e646a9c59874a75e6c7aa77fea2cc6b",
+        "gate_id": "G-KH01A-R1-03",
+        "input_sha256": "736f223ca9a381ef2c95698be91e77d59e646a9c59874a75e6c7aa77fea2cc6b",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "03_macro_dst_schedule_semantics_and_invalid_samples.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_03",
+        "violations": []
+      },
+      "intent": "Verify NY DST spring/fall transitions, all 7 half-open [start, end) macro boundaries, weekend closure, and invalid/unverified input rejection.",
+      "name": "MACRO_TIMESTAMP_SYMBOL_SESSION_AND_NY_DST_BOUNDARIES",
+      "observed_values": {
+        "dst_transitions": {
+          "post_fall_2026_11_02_est": {
+            "is_dst": false,
+            "utc_offset_minutes": -300,
+            "window": "NY_AM_MACRO_0950_1010"
+          },
+          "post_spring_2026_03_09_edt": {
+            "is_dst": true,
+            "utc_offset_minutes": -240,
+            "window": "NY_AM_MACRO_0950_1010"
+          },
+          "pre_spring_2026_03_06_est": {
+            "is_dst": false,
+            "utc_offset_minutes": -300,
+            "window": "NY_AM_MACRO_0950_1010"
+          },
+          "weekend_2026_10_17_sat": {
+            "eligible": false,
+            "session_group": "WEEKEND_CLOSED"
+          }
+        },
+        "invalid_probes_checked": 7,
+        "windows_checked": 7
+      },
+      "raw_input_sha256": "736f223ca9a381ef2c95698be91e77d59e646a9c59874a75e6c7aa77fea2cc6b",
+      "red_control": "R1-FI-04_INVALID_MACRO_TIMESTAMP_REJECTED_NOT_OUTSIDE_WINDOW",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_03",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "validate_kh_01a_r1_forensics_bundle_strict",
+      "direct_artifact_path": "04_previous_vs_r1_170_casebook_distribution_diff.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "170 rows re-evaluated; 0 INVALID sessions; 0 UNKNOWN_OR_INVALID_MACRO_STATE; research-hypothesis schedule provenance disclosed honestly",
+      "gate_id": "G-KH01A-R1-04",
+      "green_control": "170/170 rows validated by validate_kh_01a_r1_forensics_bundle_strict",
+      "independent_receipt": {
+        "content_sha256": "0e8028591733c20696d1dd634f19b43cfc20368e71bcba81f96d72abdbf85573",
+        "gate_id": "G-KH01A-R1-04",
+        "input_sha256": "0e8028591733c20696d1dd634f19b43cfc20368e71bcba81f96d72abdbf85573",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "04_previous_vs_r1_170_casebook_distribution_diff.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_04",
+        "violations": []
+      },
+      "intent": "Re-evaluate all 170 casebook rows (157 SI0 losses + 9 SI0 wins + 4 unique SI8/SI9 losses) with credible NY sessions, 0 INVALID sessions, and explicit schedule provenance disclosure.",
+      "name": "ALL_170_CASEBOOK_ROWS_CREDIBLE_MACRO_ZERO_INVALID",
+      "observed_values": {
+        "macro_3way_all_170": {
+          "ELIGIBLE_IN_VERIFIED_WINDOW": 7,
+          "VALID_OUTSIDE_WINDOW": 163
+        },
+        "ny_session_groups_all_170": {
+          "LONDON": 3,
+          "LONDON_OPEN": 1,
+          "NY_AM": 1,
+          "NY_PM": 2,
+          "OUTSIDE_MACRO": 128,
+          "WEEKEND_CLOSED": 35
+        },
+        "schedule_provenance": {
+          "caller_keyword_binding_verified": true,
+          "exchange_calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+          "schedule_source": "RESEARCH_HYPOTHESIS_CONFIG",
+          "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1"
+        }
+      },
+      "raw_input_sha256": "0e8028591733c20696d1dd634f19b43cfc20368e71bcba81f96d72abdbf85573",
+      "red_control": "R1-FI-03_MUTATE_SESSION_INVALID_PRESERVING_166_CONSERVATION",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_04",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "validate_kh_01a_r1_forensics_bundle_strict",
+      "direct_artifact_path": "06_feature_evidence_origin_missing_invalid_source_hash_census.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "Per-field origin verified; PARTIAL rows explicitly marked PARTIAL; unknown sweep/MSS/HTF placed in unknown_or_unproven_flags, never proven false",
+      "gate_id": "G-KH01A-R1-05",
+      "green_control": "All 3,230 feature cells (170x19) pass origin & tri-state validation",
+      "independent_receipt": {
+        "content_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+        "gate_id": "G-KH01A-R1-05",
+        "input_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "06_feature_evidence_origin_missing_invalid_source_hash_census.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_05",
+        "violations": []
+      },
+      "intent": "Classify per-field evidence origin honestly (PERSISTED_VERIFIED_SNAPSHOT vs RECONSTRUCTED_ASOF_RAW_BARS vs MISSING); never treat UNKNOWN as proven FALSE.",
+      "name": "PROVENANCE_TRISTATE_PERSISTED_RECONSTRUCTED_UNKNOWN_HONESTY",
+      "observed_values": {
+        "evidence_completeness_all_170": {
+          "PARTIAL": 170
+        },
+        "full_original_runtime_context_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS"
+      },
+      "raw_input_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+      "red_control": "R1-FI-06_RECONSTRUCTED_FEATURE_CLAIMED_AS_PERSISTED_SNAPSHOT",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_05",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "build_kh_01a_causal_loss_and_win_control_forensics",
+      "direct_artifact_path": "07_original_snapshot_vs_asof_reconstruction_fingerprint_truth.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "0ms lookahead; 166/166 SI0 MATCH + 4/4 delayed-entry SI8/SI9 NOT_COMPARABLE (with 4/4 candidate_ts MATCH); 2 independent runs 100% hash-identical",
+      "gate_id": "G-KH01A-R1-06",
+      "green_control": "Two independent reconstruction passes produce identical row SHA256s",
+      "independent_receipt": {
+        "content_sha256": "f8b899bf5d27ec0313861b9d71fe563c9e107ccc6f2261fd5d056a6f24832702",
+        "gate_id": "G-KH01A-R1-06",
+        "input_sha256": "f8b899bf5d27ec0313861b9d71fe563c9e107ccc6f2261fd5d056a6f24832702",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "07_original_snapshot_vs_asof_reconstruction_fingerprint_truth.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_06",
+        "violations": []
+      },
+      "intent": "Enforce known_at_ms <= decision_ts_ms and closed_bar_close_ms <= decision_ts_ms, verify original-vs-reconstructed fingerprints, and prove 2-run deterministic reconstruction.",
+      "name": "PER_FEATURE_ASOF_CLOCK_LINEAGE_AND_ZERO_HINDSIGHT",
+      "observed_values": {
+        "fingerprint_lineage_170": {
+          "MATCH": 166,
+          "NOT_COMPARABLE": 4
+        },
+        "max_closed_bar_minus_decision_ms": 0,
+        "max_known_at_minus_decision_ms": 0,
+        "two_run_reproducible": true
+      },
+      "raw_input_sha256": "f8b899bf5d27ec0313861b9d71fe563c9e107ccc6f2261fd5d056a6f24832702",
+      "red_control": "R1-FI-05_INJECTED_FUTURE_H4_BAR_CLOSE_LOOKAHEAD",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_06",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "build_loss_episode_attribution_from_raw_v17931219",
+      "direct_artifact_path": "06_feature_evidence_origin_missing_invalid_source_hash_census.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "242 scheduled; 166 = 9 + 157; SI8(4) + SI9(2) - shared(2) = 4 unique -> 170 total rows",
+      "gate_id": "G-KH01A-R1-07",
+      "green_control": "Exact ledger-to-casebook conservation across 242 / 166 / 4 cohorts",
+      "independent_receipt": {
+        "content_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+        "gate_id": "G-KH01A-R1-07",
+        "input_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "06_feature_evidence_origin_missing_invalid_source_hash_census.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_07",
+        "violations": []
+      },
+      "intent": "Verify exact cohort conservation: 242 scheduled, 166 = 9W + 157L, and SI8=4 / SI9=2 with 2 shared -> 4 unique research losses.",
+      "name": "COHORT_ACCOUNTING_242_166_9W_157L_AND_SI89_UNIQUE_4",
+      "observed_values": {
+        "closed_equals_wins_plus_losses": true,
+        "si0_closed_total": 166,
+        "si0_losses_count": 157,
+        "si0_scheduled_distribution": {
+          "DATA_GAP_UNRESOLVED": 1,
+          "LOSS": 157,
+          "NO_FORWARD_BARS": 1,
+          "OPEN_AT_HORIZON": 74,
+          "WIN": 9
+        },
+        "si0_scheduled_total": 242,
+        "si0_wins_count": 9,
+        "si8_closed_losses_count": 4,
+        "si8_si9_shared_loss_ids": [
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401"
+        ],
+        "si8_si9_shared_loss_ids_count": 2,
+        "si8_si9_unique_loss_ids": [
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6264_ts1792006740000_ep_cont_SHORT_1792006680000_14488bc6b3",
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6387_ts1792014120000_ep_cont_SHORT_1792014060000_12b5f14dff",
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6463_ts1792018680000_ep_cont_SHORT_1792018620000_f8c8bc2a4b",
+          "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx6627_ts1792028520000_ep_cont_SHORT_1792028460000_d0b81ed401"
+        ],
+        "si8_si9_unique_losses_count": 4,
+        "si9_closed_losses_count": 2,
+        "total_casebook_rows_delivered": 170
+      },
+      "raw_input_sha256": "55e8630bccc05e9f79941727b9b6412d9ee3a276a6f856a26f081751db1d58ba",
+      "red_control": "R1-FI-11_DUPLICATE_SI8_SI9_OPPORTUNITY_IDS_REJECTED",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_07",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "verify_fresh_junit_bijection_v17931211",
+      "direct_artifact_path": "11_pytest_collection_junit_closed_shard_exit_bijection.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "collected == executed > 5477; R1 test nodes present; 0 failed, 0 errors, 0 mandatory skips; all real fault injections PASS",
+      "gate_id": "G-KH01A-R1-08",
+      "green_control": "Closed JUnit XML shard bijection across full test inventory",
+      "independent_receipt": {
+        "content_sha256": "f41920210b34d08e49024551d19c8de3e402f66227e6f3850b1a6d8ada8ca434",
+        "gate_id": "G-KH01A-R1-08",
+        "input_sha256": "f41920210b34d08e49024551d19c8de3e402f66227e6f3850b1a6d8ada8ca434",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "11_pytest_collection_junit_closed_shard_exit_bijection.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_08",
+        "violations": []
+      },
+      "intent": "Verify closed JUnit XML bijection across full backend + new R1 tests with 0 failures/errors/mandatory-skips and 100% real fault injections PASS.",
+      "name": "FULL_REGRESSION_AND_R1_JUNIT_CLOSED_BIJECTION",
+      "observed_values": {
+        "fault_injections": "38/38",
+        "pytest_counters": {
+          "collected": 5486,
+          "deselected": 0,
+          "errors": 0,
+          "executed": 5486,
+          "failed": 0,
+          "mandatory_skipped": 0,
+          "passed": 5478,
+          "scheduled": 5486,
+          "skipped": 8,
+          "unknown": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        "r1_test_nodes_present": true
+      },
+      "raw_input_sha256": "f41920210b34d08e49024551d19c8de3e402f66227e6f3850b1a6d8ada8ca434",
+      "red_control": "R1-FI-14_MODIFIED_JUNIT_XML_ON_DISK_AFTER_SEAL",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_08",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "verify_all_policy_fill_mode_lineage_independently_v17931211",
+      "direct_artifact_path": "09_all_3_fill_modes_si0_to_si9_one_position_backtest_oos_cost_stress.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "30 SI partitions + A0..D4 reconciled; SI0 NB = 242 sched, 166 closed (9W/157L), -$345.8971, -0.8474R; D4=0 setups; 267+40 target audit PASS",
+      "gate_id": "G-KH01A-R1-09",
+      "green_control": "Independent 30-partition exit-lineage & source ledger reconciliation PASS",
+      "independent_receipt": {
+        "content_sha256": "a1b2e5d552ed23cd6c168d58f2be47fccd9ce385653ce922e948ebdb59c81870",
+        "gate_id": "G-KH01A-R1-09",
+        "input_sha256": "a1b2e5d552ed23cd6c168d58f2be47fccd9ce385653ce922e948ebdb59c81870",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "09_all_3_fill_modes_si0_to_si9_one_position_backtest_oos_cost_stress.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_09",
+        "violations": []
+      },
+      "intent": "Replay SI0..SI9 x 3 fill modes + A0..D4 1-position accounting + 180m purged walk-forward + 267+40 target audit with exact trading baseline preservation.",
+      "name": "FULL_HISTORICAL_BACKTEST_3FILL_1POS_AND_PURGED_WF",
+      "observed_values": {
+        "d4_accepted_nb": 0,
+        "si0_nb": {
+          "blocked_by_open_position": 18502,
+          "closed": 166,
+          "data_gap_unresolved": 1,
+          "expectancy_net_r": -0.8474,
+          "expectancy_r": -0.8474,
+          "gross_pnl_usd": -142.7836,
+          "losses": 157,
+          "max_drawdown_usd": 345.8971,
+          "net_pnl_usd": -345.8971,
+          "open_at_horizon": 74,
+          "scheduled": 242,
+          "total_fees_usd": 203.1135,
+          "unfilled": 1,
+          "wins": 9
+        },
+        "target_267_audit": "PASS"
+      },
+      "raw_input_sha256": "a1b2e5d552ed23cd6c168d58f2be47fccd9ce385653ce922e948ebdb59c81870",
+      "red_control": "FI-06_INFINITY_FLOAT_METRIC",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_09",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "SharedStrategyEvaluator.evaluate_model_direction",
+      "direct_artifact_path": "10_full_trade_action_and_3_adapter_parity.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "56,710/56,710 A1 decision & trade_action fingerprints match (0 mismatches); 246/246 3-adapter hashes match; 30/30 accounting ledgers unchanged",
+      "gate_id": "G-KH01A-R1-10",
+      "green_control": "Streaming full-universe 56,710 + 246 3-adapter bitwise equality",
+      "independent_receipt": {
+        "content_sha256": "06165cbf10d367e114235e7aa9c7de743669520ecdd4affb6ce99603e715a6d7",
+        "gate_id": "G-KH01A-R1-10",
+        "input_sha256": "06165cbf10d367e114235e7aa9c7de743669520ecdd4affb6ce99603e715a6d7",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "10_full_trade_action_and_3_adapter_parity.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_10",
+        "violations": []
+      },
+      "intent": "Verify bounded streaming parity across all 56,710 canonical A1 opportunities (+ 6,375 SI8 = 63,085), 3-adapter dry-run parity across all 246 scheduled SI0/SI8/SI9 episodes, and unchanged <= $2.50 risk limits.",
+      "name": "FULL_POPULATION_TRADING_EVALUATOR_AND_3_ADAPTER_PARITY",
+      "observed_values": {
+        "FORENSIC_RECOMPUTATION_STATUS": "FORENSIC_RECOMPUTATION_CHANGED_AS_EXPECTED",
+        "TRADING_PARITY": "PASS",
+        "a1_population_verified": "56710/56710 (mismatches=0)",
+        "three_adapter_population_verified": "246/246 (mismatches=0)"
+      },
+      "raw_input_sha256": "06165cbf10d367e114235e7aa9c7de743669520ecdd4affb6ce99603e715a6d7",
+      "red_control": "FI-04_NONE_VALUE_IN_METRIC",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_10",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "run_controlled_worker_1_2_4_subset_benchmark_kh01a",
+      "direct_artifact_path": "12_worker_w1_w2_w4_repeat_determinism_and_speed.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "100% identical canonical SHA256 across w=1, w=2, w=4, w=1_repeat on pytest subset, 170 forensic rows, and 242 replay episodes",
+      "gate_id": "G-KH01A-R1-11",
+      "green_control": "12 deterministic worker benchmark runs (4 pytest + 4 forensics + 4 replay)",
+      "independent_receipt": {
+        "content_sha256": "a4c3229031b91f52958093440b1b30974114442c524b8744b83ed12bedacc5af",
+        "gate_id": "G-KH01A-R1-11",
+        "input_sha256": "a4c3229031b91f52958093440b1b30974114442c524b8744b83ed12bedacc5af",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "12_worker_w1_w2_w4_repeat_determinism_and_speed.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_11",
+        "violations": []
+      },
+      "intent": "Verify canonical hash equality across w=1, w=2, w=4, and w=1_repeat for pytest subset, 170-row R1 forensic casebook, and 242-episode replay, with honest measured speedup.",
+      "name": "BOUNDED_ASYNC_W1_W2_W4_REPEAT_DETERMINISM_AND_SPEED",
+      "observed_values": {
+        "forensics_170_w124_identical": true,
+        "measured_pytest_speedup_w4_vs_w1": 2.905,
+        "pytest_w124_identical": true,
+        "replay_242_w124_status": "PASS"
+      },
+      "raw_input_sha256": "a4c3229031b91f52958093440b1b30974114442c524b8744b83ed12bedacc5af",
+      "red_control": "FI-05_NAN_FLOAT_METRIC",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_11",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "ResourceMonitorKH01A",
+      "direct_artifact_path": "13_disk_ram_cpu_child_process_temp_cleanup.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "1 <= max_children <= 4; 0 orphan PIDs; free disk >= 10 GiB reserve; sentinel-verified temp cleanup",
+      "gate_id": "G-KH01A-R1-12",
+      "green_control": "0.5s live resource monitor + sentinel cleanup receipt",
+      "independent_receipt": {
+        "content_sha256": "3091691af9583286089816eb5db52857104122f7f15d6813bd87d592dddd0802",
+        "gate_id": "G-KH01A-R1-12",
+        "input_sha256": "3091691af9583286089816eb5db52857104122f7f15d6813bd87d592dddd0802",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PASS",
+        "receipt_path": "13_disk_ram_cpu_child_process_temp_cleanup.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PASS",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_12",
+        "violations": []
+      },
+      "intent": "Enforce max 4 child processes, >=8 GiB (10 GiB configured) disk reserve, atomic fsync+readback writes, sentinel-verified temp cleanup, and 0 orphan PIDs.",
+      "name": "DISK_RAM_PID_SAFETY_ATOMIC_IO_AND_SENTINEL_CLEANUP",
+      "observed_values": {
+        "max_children_observed": 4,
+        "min_available_ram_gb": 3.171,
+        "min_free_disk_gb": 47.041,
+        "orphan_pids_count": 0,
+        "peak_total_rss_mb": 2233.86,
+        "sentinel_temp_cleaned": true
+      },
+      "raw_input_sha256": "3091691af9583286089816eb5db52857104122f7f15d6813bd87d592dddd0802",
+      "red_control": "FI-19_SIMULATED_ENOSPC_STREAM_WRITE",
+      "status": "PASS",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_12",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": []
+    },
+    {
+      "authoritative_function": "validate_fresh_oos_escrow_claim_kh01a",
+      "direct_artifact_path": "14_fresh_oos_registry_untouched_and_economic_verdict.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "BLOCKED_NO_UNTOUCHED_DATA honestly disclosed (never fabricated as PASS)",
+      "gate_id": "G-KH01A-R1-13",
+      "green_control": "Read-only escrow audit confirms 0 untouched post-freeze datasets",
+      "independent_receipt": {
+        "content_sha256": "17166335ceb47ac069000e9afe75fd8bfe97ee919ecf54fce77e2e7996563301",
+        "gate_id": "G-KH01A-R1-13",
+        "input_sha256": "17166335ceb47ac069000e9afe75fd8bfe97ee919ecf54fce77e2e7996563301",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "BLOCKED_NO_UNTOUCHED_DATA",
+        "receipt_path": "14_fresh_oos_registry_untouched_and_economic_verdict.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "BLOCKED_NO_UNTOUCHED_DATA",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_13",
+        "violations": [
+          "NO_UNTOUCHED_POST_FREEZE_DATASET_AVAILABLE"
+        ]
+      },
+      "intent": "Keep Fresh OOS honestly BLOCKED_NO_UNTOUCHED_DATA until post-freeze untouched Bitget candles + L1 quotes are escrowed.",
+      "name": "FRESH_OOS_UNTOUCHED_ESCROW_TRUTH",
+      "observed_values": {
+        "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+        "untouched_post_freeze_datasets_found": 0
+      },
+      "raw_input_sha256": "17166335ceb47ac069000e9afe75fd8bfe97ee919ecf54fce77e2e7996563301",
+      "red_control": "FI-22_CHRONOLOGICAL_SPLIT_OF_OLD_DATA_CLAIMED_AS_FRESH_OOS",
+      "status": "BLOCKED_NO_UNTOUCHED_DATA",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_13",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": [
+        "NO_UNTOUCHED_POST_FREEZE_DATASET_AVAILABLE"
+      ]
+    },
+    {
+      "authoritative_function": "verify_git_remote_receipt_v17931211",
+      "direct_artifact_path": "00_branch_sha_config_dataset_preflight.json",
+      "executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+      "expected_invariant": "PENDING_REMOTE_PUSH pre-push; PASS_REMOTE_VERIFIED in parent publication receipt post-push",
+      "gate_id": "G-KH01A-R1-14",
+      "green_control": "Two-phase immutable bundle + post-push remote readback pointer",
+      "independent_receipt": {
+        "content_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+        "gate_id": "G-KH01A-R1-14",
+        "input_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+        "metadata": {
+          "executable_git_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+          "validator_python_source_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+          "verified_dynamically_by_validator_before_sealing": true
+        },
+        "observed_status": "PENDING_REMOTE_PUSH",
+        "receipt_path": "00_branch_sha_config_dataset_preflight.json",
+        "run_id": "20261119T021545Z_c1ba40df7ed9",
+        "status": "PENDING_REMOTE_PUSH",
+        "tested_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+        "validator_code_sha": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+        "validator_name": "_val_r1_14",
+        "violations": [
+          "AWAITING_PHASE_B_GIT_PUSH_AND_PHASE_C_REMOTE_BLOB_READBACK"
+        ]
+      },
+      "intent": "Keep pre-push bundle PENDING_REMOTE_PUSH; record PASS_REMOTE_VERIFIED in post-push publication_<RUN_ID>.json only after verified remote blob readback.",
+      "name": "AUTOMATIC_GIT_COMMIT_PUSH_AND_REMOTE_READBACK",
+      "observed_values": {
+        "publication_status_in_immutable_bundle": "PENDING_REMOTE_PUSH"
+      },
+      "raw_input_sha256": "9f525433bcb847fea0d665a2aad1e8c533f30e53d9319ed645d3646114a8904e",
+      "red_control": "FI-11_ARTIFACT_MUTATION_STALE_RECEIPT_HASH",
+      "status": "PENDING_REMOTE_PUSH",
+      "tested_run_id": "20261119T021545Z_c1ba40df7ed9",
+      "validator_name": "_val_r1_14",
+      "validator_sha256": "585503765740137c961cf611ce828e559c463605c065b3257b24f41cc1c6f1b0",
+      "violations": [
+        "AWAITING_PHASE_B_GIT_PUSH_AND_PHASE_C_REMOTE_BLOB_READBACK"
+      ]
+    }
+  ],
+  "mandatory_technical_gates": [
+    "G-KH01A-R1-01",
+    "G-KH01A-R1-02",
+    "G-KH01A-R1-03",
+    "G-KH01A-R1-04",
+    "G-KH01A-R1-05",
+    "G-KH01A-R1-06",
+    "G-KH01A-R1-07",
+    "G-KH01A-R1-08",
+    "G-KH01A-R1-09",
+    "G-KH01A-R1-10",
+    "G-KH01A-R1-11",
+    "G-KH01A-R1-12"
+  ],
+  "open_blockers_for_kh01b_and_activation": [
+    {
+      "blocker_id": "BLK-KH01A-R1-ECON-01",
+      "detail": "SI0 NEXT_BAR_OPEN_BID_ASK realized net PnL remains -$345.8971 USD (-0.8474R across 166 closed trades); SI8/SI9 have 4/2 closed losses; D4 has 0 True Unicorn setups.",
+      "domain": "STRATEGY_ECONOMIC_EDGE",
+      "status": "NEGATIVE_NO_PROVEN_EDGE"
+    },
+    {
+      "blocker_id": "BLK-KH01A-R1-OOS-02",
+      "detail": "No post-freeze untouched Bitget XAUUSDT dataset + L1 BBO quotes exist yet; all local datasets are REUSED_RESEARCH.",
+      "domain": "FRESH_OOS",
+      "status": "BLOCKED_NO_UNTOUCHED_DATA"
+    },
+    {
+      "blocker_id": "BLK-KH01A-R1-PROV-03",
+      "detail": "Full raw MarketDecisionContext objects were not persisted in historical runs (NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS; point-in-time reconstruction matches 166/166 SI0 fingerprints), and Bitget holiday/maintenance calendar remains CALENDAR_NOT_VERIFIED / UNKNOWN_UNVERIFIED.",
+      "domain": "ORIGINAL_RUNTIME_CONTEXT_AND_EXCHANGE_CALENDAR",
+      "status": "DISCLOSED_NON_FAKEABLE_LIMITATION"
+    }
+  ],
+  "orthogonal_verdicts": {
+    "ACCOUNTING_VERDICT": "PASS",
+    "ACTIVATION_READY": "NO",
+    "D4_MATERIALIZATION_VERDICT": "NO_VALID_SETUPS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FORENSICS_SEMANTIC_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_VERDICT": "PENDING_REMOTE_PUSH",
+    "REGRESSION_VERDICT": "PASS",
+    "RUNTIME_SAFETY_MODES": {
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF"
+    },
+    "STRATEGY_ECONOMIC_EDGE_VERDICT": "NEGATIVE_NO_PROVEN_EDGE",
+    "TRADING_PARITY_VERDICT": "PASS"
+  },
+  "prior_audited_head_sha": "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7",
+  "prior_kh01a_tested_sha": "a1fd9293e2d0ac098008264ec2a6355596baf415",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "technical_gates_passed_count": 12,
+  "technical_gates_total_count": 12,
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+}

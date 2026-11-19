@@ -1,0 +1,177 @@
+{
+  "all_7_windows_half_open_boundaries": [
+    {
+      "end_hhmm": "03:00",
+      "half_open_boundary_verified": true,
+      "session_group": "LONDON_OPEN",
+      "start_hhmm": "02:33",
+      "window_id": "LONDON_OPEN_MACRO_0233_0300"
+    },
+    {
+      "end_hhmm": "04:30",
+      "half_open_boundary_verified": true,
+      "session_group": "LONDON",
+      "start_hhmm": "04:03",
+      "window_id": "LONDON_MACRO_0403_0430"
+    },
+    {
+      "end_hhmm": "09:10",
+      "half_open_boundary_verified": true,
+      "session_group": "NY_AM",
+      "start_hhmm": "08:50",
+      "window_id": "NY_AM_MACRO_0850_0910"
+    },
+    {
+      "end_hhmm": "10:10",
+      "half_open_boundary_verified": true,
+      "session_group": "NY_AM",
+      "start_hhmm": "09:50",
+      "window_id": "NY_AM_MACRO_0950_1010"
+    },
+    {
+      "end_hhmm": "11:10",
+      "half_open_boundary_verified": true,
+      "session_group": "NY_AM",
+      "start_hhmm": "10:50",
+      "window_id": "NY_AM_MACRO_1050_1110"
+    },
+    {
+      "end_hhmm": "12:10",
+      "half_open_boundary_verified": true,
+      "session_group": "NY_LUNCH_PM",
+      "start_hhmm": "11:50",
+      "window_id": "NY_LUNCH_PM_MACRO_1150_1210"
+    },
+    {
+      "end_hhmm": "13:40",
+      "half_open_boundary_verified": true,
+      "session_group": "NY_PM",
+      "start_hhmm": "13:10",
+      "window_id": "NY_PM_MACRO_1310_1340"
+    }
+  ],
+  "dst_transitions_verified": {
+    "post_fall_2026_11_02_est": {
+      "is_dst": false,
+      "utc_offset_minutes": -300,
+      "window": "NY_AM_MACRO_0950_1010"
+    },
+    "post_spring_2026_03_09_edt": {
+      "is_dst": true,
+      "utc_offset_minutes": -240,
+      "window": "NY_AM_MACRO_0950_1010"
+    },
+    "pre_spring_2026_03_06_est": {
+      "is_dst": false,
+      "utc_offset_minutes": -300,
+      "window": "NY_AM_MACRO_0950_1010"
+    },
+    "weekend_2026_10_17_sat": {
+      "eligible": false,
+      "session_group": "WEEKEND_CLOSED"
+    }
+  },
+  "exchange_calendar_verification_status": "CALENDAR_NOT_VERIFIED",
+  "invalid_and_unverified_input_probes": [
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "REVERSED_ARGS",
+      "violations": [
+        "MACRO_STATE_SYMBOL_MISMATCH:'1773064500000'!=XAUUSDT",
+        "MACRO_STATE_TIMESTAMP_INVALID:False",
+        "MACRO_STATE_TS_MISMATCH:-1!=1773064500000",
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'INVALID'",
+        "MACRO_NY_DST_CONVERSION_INVALID:tz='America/New_York',hhmm=None,dst=None,off=None"
+      ]
+    },
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "SECONDS_SCALE_TS",
+      "violations": [
+        "MACRO_STATE_TIMESTAMP_INVALID:False",
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'INVALID'",
+        "MACRO_NY_DST_CONVERSION_INVALID:tz='America/New_York',hhmm=None,dst=None,off=None"
+      ]
+    },
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "NEGATIVE_TS",
+      "violations": [
+        "EXPECTED_DECISION_TS_INVALID:-60000",
+        "MACRO_STATE_TIMESTAMP_INVALID:False",
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'INVALID'",
+        "MACRO_NY_DST_CONVERSION_INVALID:tz='America/New_York',hhmm=None,dst=None,off=None"
+      ]
+    },
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "BOOL_TS",
+      "violations": [
+        "EXPECTED_DECISION_TS_INVALID:True",
+        "MACRO_STATE_TIMESTAMP_INVALID:False",
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'INVALID'",
+        "MACRO_NY_DST_CONVERSION_INVALID:tz='America/New_York',hhmm=None,dst=None,off=None"
+      ]
+    },
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "INVALID_EMPTY_SCHEDULE",
+      "violations": [
+        "MACRO_SCHEDULE_INVALID:False",
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'INVALID_SCHEDULE'",
+        "MACRO_NY_DST_CONVERSION_INVALID:tz='America/New_York',hhmm=None,dst=None,off=None"
+      ]
+    },
+    {
+      "cell_state": "MISSING",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "UNVERIFIED_REQUIRED_HOLIDAY_CALENDAR",
+      "violations": [
+        "MACRO_SESSION_GROUP_NOT_RESOLVED:'CALENDAR_UNVERIFIED'"
+      ]
+    },
+    {
+      "cell_state": "INVALID",
+      "in_ict_macro_window_value": null,
+      "macro_state_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+      "never_falsely_proven_false": true,
+      "ny_session_group_value": null,
+      "probe_id": "WRONG_SYMBOL_BTCUSDT",
+      "violations": [
+        "EXPECTED_SYMBOL_INVALID:'BTCUSDT'",
+        "MACRO_STATE_SYMBOL_MISMATCH:'BTCUSDT'!=XAUUSDT"
+      ]
+    }
+  ],
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schedule_sha256": "785ad088ea46615d2b083aaf9c72eaba303d7d29bc910b5b94b81198bbb89304",
+  "schedule_source": "RESEARCH_HYPOTHESIS_CONFIG",
+  "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "status": "PASS",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+}

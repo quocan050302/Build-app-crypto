@@ -1,0 +1,351 @@
+{
+  "cohort_rows_evaluated": 170,
+  "confirmed_bug_location": "aurum-desk/backend/services/kh_01a_foundation_service.py:_build_single_casebook_row",
+  "exemplar_row_transitions": [
+    {
+      "decision_timestamp_ms": 1791439740000,
+      "decision_utc": "2026-10-08T06:09:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "OUTSIDE_MACRO"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-08T02:09:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx30_ts1791439740000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1791438660000_c2e6d1bcca",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791593340000,
+      "decision_utc": "2026-10-10T00:49:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "OUTSIDE_MACRO"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-09T20:49:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx574_ts1791593340000_ep_cont_LONG_1791593280000_94c74d621c",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791595320000,
+      "decision_utc": "2026-10-10T01:22:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "OUTSIDE_MACRO"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-09T21:22:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_LONG_idx607_ts1791595320000_ep_SMC_M1_REVERSAL_LONG_1791595140000_b8fc6fe63d",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791595800000,
+      "decision_utc": "2026-10-10T01:30:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "OUTSIDE_MACRO"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-09T21:30:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_SHORT_idx615_ts1791595800000_ep_cont_SHORT_1791595740000_01a0968564",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791614280000,
+      "decision_utc": "2026-10-10T06:38:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "WEEKEND_CLOSED"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-10T02:38:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx923_ts1791614280000_ep_SMC_M1_REVERSAL_SHORT_1791613980000_a76c3bbe1d",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791615540000,
+      "decision_utc": "2026-10-10T06:59:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "WEEKEND_CLOSED"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-10T02:59:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx944_ts1791615540000_ep_SMC_M1_REVERSAL_SHORT_1791615240000_a0918cce96",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791633000000,
+      "decision_utc": "2026-10-10T11:50:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "WEEKEND_CLOSED"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-10T07:50:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx1235_ts1791633000000_ep_SMC_M1_REVERSAL_SHORT_1791632760000_dfa565e34a",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791641640000,
+      "decision_utc": "2026-10-10T14:14:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": true,
+        "primary_window_id": "OUTSIDE_MACRO_WINDOW",
+        "r1_3way_category": "VALID_OUTSIDE_WINDOW",
+        "session_group": "WEEKEND_CLOSED"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-10T10:14:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_CONTINUATION_LONG_idx1379_ts1791641640000_ep_cont_LONG_1791641580000_86b65838fd",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791998880000,
+      "decision_utc": "2026-10-14T17:28:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "NY_PM_MACRO_1310_1340",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "NY_PM"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-14T13:28:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx6133_ts1791998880000_ep_SMC_M1_REVERSAL_SHORT_1791998700000_a88602ad47",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1791999240000,
+      "decision_utc": "2026-10-14T17:34:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "NY_PM_MACRO_1310_1340",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "NY_PM"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-14T13:34:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx6139_ts1791999240000_ep_SMC_M1_REVERSAL_SHORT_1791999060000_7c3dbb3996",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1792052400000,
+      "decision_utc": "2026-10-15T08:20:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "LONDON_MACRO_0403_0430",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "LONDON"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-15T04:20:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx7025_ts1792052400000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1792052280000_6022399983",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1793002140000,
+      "decision_utc": "2026-10-26T08:09:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "LONDON_MACRO_0403_0430",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "LONDON"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-26T04:09:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx19147_ts1793002140000_ep_SMC_M1_REVERSAL_SHORT_1793001960000_94aeeaa92c",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1793002380000,
+      "decision_utc": "2026-10-26T08:13:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "LONDON_MACRO_0403_0430",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "LONDON"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-26T04:13:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_REVERSAL_SHORT_idx19151_ts1793002380000_ep_SMC_M1_REVERSAL_SHORT_1793002320000_1bdcad1f7b",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1793019600000,
+      "decision_utc": "2026-10-26T13:00:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "NY_AM_MACRO_0850_0910",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "NY_AM"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-26T09:00:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_idx19438_ts1793019600000_ep_SMC_M1_FVG_CONTINUATION_LONG_1793014740000_5a1ae8bea0",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    },
+    {
+      "decision_timestamp_ms": 1793083440000,
+      "decision_utc": "2026-10-27T06:44:00Z",
+      "green_keyword_call": {
+        "eligible_for_macro_gate": true,
+        "is_valid_timestamp": true,
+        "primary_window_id": "LONDON_OPEN_MACRO_0233_0300",
+        "r1_3way_category": "ELIGIBLE_IN_VERIFIED_WINDOW",
+        "session_group": "LONDON_OPEN"
+      },
+      "is_dst": true,
+      "ny_local_iso": "2026-10-27T02:44:00-04:00",
+      "opportunity_id": "opp_9f301fee2e62_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_idx20502_ts1793083440000_ep_SMC_M1_FVG_CONTINUATION_SHORT_1793082600000_fb21bce5d5",
+      "population_role": "SI0_CLOSED_LOSS",
+      "red_reversed_call": {
+        "eligible_for_macro_gate": false,
+        "is_valid_timestamp": false,
+        "r1_3way_category": "UNKNOWN_OR_INVALID_MACRO_STATE",
+        "session_group": "INVALID"
+      }
+    }
+  ],
+  "green_after_3way_macro_counts": {
+    "ELIGIBLE_IN_VERIFIED_WINDOW": 7,
+    "VALID_OUTSIDE_WINDOW": 163
+  },
+  "green_after_primary_window_counts": {
+    "LONDON_MACRO_0403_0430": 3,
+    "LONDON_OPEN_MACRO_0233_0300": 1,
+    "NY_AM_MACRO_0850_0910": 1,
+    "NY_PM_MACRO_1310_1340": 2,
+    "OUTSIDE_MACRO_WINDOW": 163
+  },
+  "green_after_session_group_counts": {
+    "LONDON": 3,
+    "LONDON_OPEN": 1,
+    "NY_AM": 1,
+    "NY_PM": 2,
+    "OUTSIDE_MACRO": 128,
+    "WEEKEND_CLOSED": 35
+  },
+  "green_zero_invalid_confirmed": true,
+  "prior_buggy_expression": "resolve_causal_macro_time_window(\"XAUUSDT\", dec_ts)",
+  "red_before_session_group_counts": {
+    "INVALID": 170
+  },
+  "red_reproduction_confirmed": true,
+  "repaired_expression": "resolve_causal_macro_time_window(decision_timestamp_ms=dec_ts, symbol=\"XAUUSDT\")",
+  "run_id": "20261119T021545Z_c1ba40df7ed9",
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "spec_version": "KH-01A.R1",
+  "tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01"
+}
