@@ -2770,10 +2770,46 @@ def validate_kh01b_r1_data_provenance_and_escrow(
         known_dev_shas.append(ext_sha)
 
     acq_verdict = str(collection_report.get("DATA_ACQUISITION_VERDICT") or "BLOCKED_UNAVAILABLE")
-    if acq_verdict not in ("PASS_VERIFIED_WITH_ORIGIN_RECEIPTS", "BLOCKED_UNAVAILABLE", "FAIL_CONTAMINATED"):
-        acq_verdict = "FAIL_CONTAMINATED"
+    allowed_acq_verdicts = (
+        "VERIFIED_COMPLETE",
+        "VERIFIED_PARTIAL",
+        "BLOCKED_UNAVAILABLE",
+        "BLOCKED_LOW_DISK",
+        "FAIL_INTEGRITY",
+        "FAIL_CONTAMINATED",
+    )
+    if acq_verdict not in allowed_acq_verdicts:
+        acq_verdict = "FAIL_INTEGRITY"
     if bool(collection_report.get("synthetic_substitution_performed", False)):
         acq_verdict = "FAIL_CONTAMINATED"
+
+    if acq_verdict in ("VERIFIED_COMPLETE", "VERIFIED_PARTIAL"):
+        gap_sum = collection_report.get("gap_classification_summary")
+        per_tf_val = collection_report.get("per_timeframe_validation")
+        req_tfs = ("1m", "5m", "15m", "1H", "4H", "1D")
+        if not isinstance(gap_sum, Mapping) or not isinstance(per_tf_val, Mapping):
+            acq_verdict = "FAIL_INTEGRITY"
+        else:
+            for tf_k in req_tfs:
+                g_e = gap_sum.get(tf_k)
+                v_e = per_tf_val.get(tf_k)
+                if (
+                    not isinstance(g_e, Mapping)
+                    or not isinstance(v_e, Mapping)
+                    or g_e.get("actual_bars") is None
+                    or g_e.get("total_missing_bars") is None
+                    or not isinstance(g_e.get("gap_events_by_category"), Mapping)
+                    or not isinstance(g_e.get("missing_bars_by_category"), Mapping)
+                    or v_e.get("status") != "PASS"
+                ):
+                    acq_verdict = "FAIL_INTEGRITY"
+                    break
+                if acq_verdict == "VERIFIED_COMPLETE" and (
+                    v_e.get("coverage_verdict") != "VERIFIED_COMPLETE"
+                    or int(v_e.get("missing_slots", 1)) != 0
+                ):
+                    acq_verdict = "FAIL_INTEGRITY"
+                    break
 
     doc_06 = {
         "spec_version": SPEC_VERSION_KH01B_R1,
@@ -3259,11 +3295,23 @@ def evaluate_kh01b_r1_engineering_and_economic_gates_from_disk(
         v12.append("ASYNC_WORKER_DETERMINISM_OR_TELEMETRY_FAILED")
     _add_gate("G12", "ASYNC_W1_W2_W4_REPEAT_DETERMINISM_AND_SPEED_TELEMETRY", "13_async_workers_w1_w2_w4_repeat_speed_determinism.json", {"pytest_w4_speedup": f13.get("measured_speedup_w4_vs_w1"), "speedup_label": f13.get("speedup_truth_label")}, "PASS" if not v12 else "FAIL", v12)
 
-    # G13: Disk reserve, RAM backoff, max 4 children, temp sentinel cleanup, 0 orphans
+    # G13: Strict 20 GiB disk reserve, RAM backoff, max 4 children, temp sentinel cleanup, 0 orphans
     v13: List[str] = []
-    if not (1 <= int(f14.get("max_children_observed") or 0) <= 4) or int(f14.get("orphan_pids_at_cleanup_count", 1)) != 0 or f14.get("effective_disk_reserve_breached") is not False or f14.get("temp_dirs_cleaned_with_sentinel_check") is not True:
+    if (
+        not (1 <= int(f14.get("max_children_observed") or 0) <= 4)
+        or int(f14.get("orphan_pids_at_cleanup_count", 1)) != 0
+        or f14.get("effective_disk_reserve_breached") is not False
+        or f14.get("temp_dirs_cleaned_with_sentinel_check") is not True
+    ):
         v13.append("RESOURCE_GUARD_OR_CLEANUP_FAILED")
-    _add_gate("G13", "DISK_RAM_MAX4_CHILDREN_AND_TEMP_CLEANUP", "14_disk_ram_cpu_pid_atomic_write_cleanup.json", {"max_children": f14.get("max_children_observed"), "min_free_disk_gib": f14.get("min_free_disk_gb_observed"), "orphans": f14.get("orphan_pids_at_cleanup_count")}, "PASS" if not v13 else "FAIL", v13)
+    if (
+        bool(f14.get("baseline_already_below_20gib", False))
+        or float(f14.get("preflight_baseline_free_gib") or 0.0) < 20.5
+        or float(f14.get("min_free_disk_gb_observed") or 0.0) < 20.0
+        or float(f14.get("effective_enforced_reserve_gib", 20.0)) < 20.0
+    ):
+        v13.append("STRICT_20GIB_DISK_RESERVE_VIOLATED_OR_SILENTLY_LOWERED")
+    _add_gate("G13", "STRICT_20GIB_DISK_RAM_MAX4_CHILDREN_AND_TEMP_CLEANUP", "14_disk_ram_cpu_pid_atomic_write_cleanup.json", {"max_children": f14.get("max_children_observed"), "min_free_disk_gib": f14.get("min_free_disk_gb_observed"), "orphans": f14.get("orphan_pids_at_cleanup_count")}, "PASS" if not v13 else "FAIL", v13)
 
     # G14: Independent verifier receipts & cross-view integrity
     v14: List[str] = []
@@ -3271,18 +3319,41 @@ def evaluate_kh01b_r1_engineering_and_economic_gates_from_disk(
         v14.append(f"INCOMPLETE_DYNAMIC_GATE_RECEIPTS:{len(receipts_map)}")
     _add_gate("G14", "INDEPENDENT_VERIFIER_AND_RECEIPT_INTEGRITY", "00_preflight_branch_source_dataset_invariants.json", {"receipts_count": len(receipts_map)}, "PASS" if not v14 else "FAIL", v14)
 
-    # G15: Data acquisition verdict (PASS_VERIFIED_WITH_ORIGIN_RECEIPTS or BLOCKED_UNAVAILABLE; FAIL on contamination)
-    acq_st = str(f06.get("DATA_ACQUISITION_VERDICT") or "FAIL_CONTAMINATED")
-    if acq_st == "PASS_VERIFIED_WITH_ORIGIN_RECEIPTS":
+    # G15: Data acquisition verdict (VERIFIED_COMPLETE / VERIFIED_PARTIAL / BLOCKED_UNAVAILABLE / BLOCKED_LOW_DISK; FAIL on null gap schema or fake complete)
+    acq_st = str(f06.get("DATA_ACQUISITION_VERDICT") or "FAIL_INTEGRITY")
+    if acq_st in ("VERIFIED_COMPLETE", "VERIFIED_PARTIAL"):
         v15: List[str] = []
         if (f06.get("canonical_reused_dataset") or {}).get("untouched_bytes_verified") is not True:
             v15.append("CANONICAL_DATASET_MUTATED")
+        ext_06 = f06.get("bitget_source_capability_and_extended_dev") or {}
+        gap_06 = ext_06.get("gap_classification_summary")
+        tf_06 = ext_06.get("per_timeframe_validation")
+        if not isinstance(gap_06, Mapping) or not isinstance(tf_06, Mapping):
+            v15.append("MISSING_GAP_CLASSIFICATION_OR_PER_TF_VALIDATION")
+        else:
+            for req_tf in ("1m", "5m", "15m", "1H", "4H", "1D"):
+                ge = gap_06.get(req_tf)
+                ve = tf_06.get(req_tf)
+                if (
+                    not isinstance(ge, Mapping)
+                    or not isinstance(ve, Mapping)
+                    or ge.get("actual_bars") is None
+                    or ge.get("total_missing_bars") is None
+                    or not isinstance(ge.get("gap_events_by_category"), Mapping)
+                    or not isinstance(ge.get("missing_bars_by_category"), Mapping)
+                ):
+                    v15.append(f"NULL_OR_INVALID_GAP_SCHEMA:{req_tf}")
+                elif acq_st == "VERIFIED_COMPLETE" and (
+                    ve.get("coverage_verdict") != "VERIFIED_COMPLETE"
+                    or int(ve.get("missing_slots", 1)) != 0
+                ):
+                    v15.append(f"PARTIAL_COVERAGE_MISLABELED_COMPLETE:{req_tf}")
         g15_st = "PASS" if not v15 else "FAIL"
         _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, g15_st, v15)
-    elif acq_st == "BLOCKED_UNAVAILABLE":
-        _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, "BLOCKED_UNAVAILABLE", ["NETWORK_OR_PUBLIC_ENDPOINT_UNAVAILABLE_OPTIONAL_ACQUISITION"], require_pass_receipt=False)
+    elif acq_st in ("BLOCKED_UNAVAILABLE", "BLOCKED_LOW_DISK"):
+        _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, acq_st, [f"OPTIONAL_ACQUISITION_{acq_st}"], require_pass_receipt=False)
     else:
-        _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, "FAIL", [f"CONTAMINATED_DATA_ACQUISITION:{acq_st}"])
+        _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, "FAIL", [f"INVALID_OR_LEGACY_UNVERIFIED_DATA_ACQUISITION:{acq_st}"])
 
     # G16: OOS escrow integrity (evaluation count == 0, reused data rejected, never PASS_FINANCIAL_EDGE)
     v16: List[str] = []

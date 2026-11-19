@@ -144,14 +144,18 @@ from tools.run_v17_9_3_1_2_2_verification import (
 from tools.run_v17_9_3_1_2_7_verification import _active_heavy_worker_children, git, source_manifest
 from tools.run_v17_9_3_1_2_full_universe_backtest import load_canonical_xauusdt_datasets
 
+import tempfile
+
 ARTIFACTS_KH01B_R1_ROOT = APP_ROOT / "docs/artifacts/kh_01b_r1"
-STANDARD_TARGET_DISK_RESERVE_BYTES = 20 * 1024**3   # 20.0 GiB standard target reserve
-HARD_MINIMUM_HOST_FLOOR_BYTES = 10 * 1024**3        # 10.0 GiB hard abort floor when host baseline < 20 GiB
-MAX_ALLOWED_RUN_DISK_DRAWDOWN_BYTES = 4 * 1024**3   # Max 4.0 GiB transient host/OS drawdown below baseline (still >= 10.0 GiB hard floor)
-STAGE_PEAK_ALLOWANCE_BYTES = 512 * 1024**2          # 512 MiB conservative stage peak
+STANDARD_TARGET_DISK_RESERVE_BYTES = 20 * 1024**3   # 20.0 GiB strict mandatory acceptance reserve on ALL writing volumes
+STAGE_PEAK_ALLOWANCE_BYTES = 512 * 1024**2          # 512 MiB conservative stage write + atomic rename + JUnit/log peak
+MIN_ACCEPTANCE_PREFLIGHT_BYTES = STANDARD_TARGET_DISK_RESERVE_BYTES + STAGE_PEAK_ALLOWANCE_BYTES  # 20.5 GiB strict preflight
+DIAGNOSTIC_ONLY_HARD_FLOOR_BYTES = 10 * 1024**3     # 10.0 GiB floor ONLY for explicit UNVERIFIED_DIAGNOSTIC_ONLY mode
+DIAGNOSTIC_ONLY_MAX_DRAWDOWN_BYTES = 2 * 1024**3    # 2.0 GiB max drawdown ONLY in UNVERIFIED_DIAGNOSTIC_ONLY mode
 
 SINGLE_CHILD_SPAWNING_FILES_R1: Set[str] = SINGLE_CHILD_SPAWNING_TEST_FILES | {
     "test_kh_01b_r1_verifier_and_resources.py",
+    "test_kh_01b_r1_data_safety_closure.py",
 }
 
 CONTROLLED_R1_BENCHMARK_TEST_FILES: Tuple[str, ...] = (
@@ -169,58 +173,160 @@ CONTROLLED_R1_BENCHMARK_TEST_FILES: Tuple[str, ...] = (
 
 
 # ==============================================================================
-# DISK RESERVE POLICY & PROCESS-TREE SAFE TERMINATION (§B6 & §H)
+# DISK RESERVE POLICY & PROCESS-TREE SAFE TERMINATION (KH-01B.R1.DSC §3B & §6)
 # ==============================================================================
 
-def compute_kh01b_r1_disk_reserve_policy(preflight_free_bytes: int) -> Dict[str, Any]:
+def measure_writing_volumes_free_bytes_r1(
+    *,
+    repo_root: Path = REPO_ROOT,
+    output_root: Optional[Path] = None,
+    temp_root: Optional[Path] = None,
+) -> Dict[str, int]:
+    out_p = output_root if output_root is not None else ARTIFACTS_KH01B_R1_ROOT
+    while not out_p.exists() and out_p.parent != out_p:
+        out_p = out_p.parent
+    tmp_p = temp_root if temp_root is not None else Path(tempfile.gettempdir())
+    while not tmp_p.exists() and tmp_p.parent != tmp_p:
+        tmp_p = tmp_p.parent
+    return {
+        "repo": int(shutil.disk_usage(repo_root).free),
+        "output": int(shutil.disk_usage(out_p).free),
+        "temp": int(shutil.disk_usage(tmp_p).free),
+    }
+
+
+def compute_kh01b_r1_disk_reserve_policy(
+    preflight_free_bytes: int,
+    *,
+    volume_free_bytes_by_label: Optional[Mapping[str, int]] = None,
+    stage_allowance_bytes: int = STAGE_PEAK_ALLOWANCE_BYTES,
+    mode: str = "STRICT_ACCEPTANCE_20GIB",
+) -> Dict[str, Any]:
     """
-    Implements §B6 strictly and transparently:
-      "preserve >=20 GiB free unless system baseline is already below; if below abort large tests."
-    - If `preflight_free_bytes < HARD_MINIMUM_HOST_FLOOR_BYTES` (10.0 GiB): `can_proceed=False`
-      (`BLOCKED_LOW_DISK_BELOW_HARD_10GIB_FLOOR`, aborts large tests immediately).
-    - If `preflight_free_bytes >= STANDARD_TARGET_DISK_RESERVE_BYTES + STAGE_PEAK_ALLOWANCE_BYTES` (20.5 GiB):
-      enforces strict `20.0 GiB` reserve (`baseline_already_below_20gib=False`).
-    - If `10.0 GiB <= preflight_free_bytes < 20.5 GiB` (system baseline already below 20.5 GiB):
-      records `baseline_already_below_20gib=True` and enforces
-      `effective_reserve_bytes = max(10.0 GiB, preflight_free_bytes - 2.0 GiB)`.
+    Implements KH-01B.R1.DSC §3B.1 & §6.R1 strictly fail-closed:
+      - Default `STRICT_ACCEPTANCE_20GIB` requires `>= 20.0 GiB` reserve + conservative stage
+        allowance (`>= 0.50 GiB`, i.e. `>= 20.50 GiB` preflight) on EVERY actual writing volume
+        (`repo`, `output`, `temp`).
+      - NEVER automatically lowers the acceptance gate to 10 GiB (`lowered_reserve_without_approval=False`,
+        `enforced_reserve_gib=20.0`). If any writing volume is `< 20.50 GiB`, returns `can_proceed=False`
+        and `disk_safety_verdict="BLOCKED_LOW_DISK"` with exact `shortfall_bytes` / `shortfall_gib`.
+      - Explicit `mode="UNVERIFIED_DIAGNOSTIC_ONLY"` may be invoked ONLY for small bounded checks,
+        never sets `acceptance_eligible=True`, and can never produce an accepted `PASS`.
     """
-    free_gib = round(preflight_free_bytes / (1024**3), 4)
-    free_gb_dec = round(preflight_free_bytes / (1000**3), 4)
-    if preflight_free_bytes < HARD_MINIMUM_HOST_FLOOR_BYTES + STAGE_PEAK_ALLOWANCE_BYTES:
+    vols: Dict[str, int] = {"primary": int(preflight_free_bytes)}
+    if volume_free_bytes_by_label is not None:
+        vols = {str(k): int(v) for k, v in volume_free_bytes_by_label.items()}
+        if not vols:
+            vols = {"primary": int(preflight_free_bytes)}
+
+    min_label, min_free_b = min(vols.items(), key=lambda kv: kv[1])
+    free_gib = round(min_free_b / (1024**3), 4)
+    free_gb_dec = round(min_free_b / (1000**3), 4)
+    req_stage_b = max(int(STAGE_PEAK_ALLOWANCE_BYTES), int(stage_allowance_bytes))
+    strict_req_b = int(STANDARD_TARGET_DISK_RESERVE_BYTES) + req_stage_b
+    strict_req_gib = round(strict_req_b / (1024**3), 4)
+    already_below_20 = min_free_b < strict_req_b
+
+    vols_detail = {
+        lbl: {
+            "free_bytes": int(vb),
+            "free_gib": round(vb / (1024**3), 4),
+            "free_gb_decimal": round(vb / (1000**3), 4),
+            "meets_strict_20gib_plus_stage": int(vb) >= strict_req_b,
+        }
+        for lbl, vb in sorted(vols.items())
+    }
+
+    if mode == "UNVERIFIED_DIAGNOSTIC_ONLY":
+        diag_req_b = DIAGNOSTIC_ONLY_HARD_FLOOR_BYTES + req_stage_b
+        can_diag = min_free_b >= diag_req_b
+        eff_diag_b = max(
+            DIAGNOSTIC_ONLY_HARD_FLOOR_BYTES,
+            min_free_b - DIAGNOSTIC_ONLY_MAX_DRAWDOWN_BYTES,
+        )
         return {
-            "can_proceed": False,
-            "abort_reason": f"BLOCKED_LOW_DISK_BELOW_HARD_FLOOR:free_gib={free_gib}<10.5",
-            "preflight_baseline_free_bytes": int(preflight_free_bytes),
+            "policy_mode": "UNVERIFIED_DIAGNOSTIC_ONLY",
+            "acceptance_eligible": False,
+            "can_proceed": can_diag,
+            "disk_safety_verdict": "UNVERIFIED_DIAGNOSTIC_ONLY_NEVER_PASS" if can_diag else "BLOCKED_LOW_DISK",
+            "abort_reason": None if can_diag else f"BLOCKED_LOW_DISK_DIAGNOSTIC:volume={min_label}:free_gib={free_gib}<10.5",
+            "constraining_volume": min_label,
+            "preflight_baseline_free_bytes": int(min_free_b),
             "preflight_baseline_free_gib": free_gib,
             "preflight_baseline_free_gb_decimal": free_gb_dec,
-            "baseline_already_below_20gib": True,
+            "baseline_already_below_20gib": already_below_20,
             "standard_target_reserve_gib": 20.0,
+            "stage_allowance_bytes": req_stage_b,
+            "stage_allowance_gib": round(req_stage_b / (1024**3), 4),
+            "min_acceptance_preflight_gib": strict_req_gib,
+            "enforced_reserve_gib": round(eff_diag_b / (1024**3), 4),
             "hard_abort_floor_gib": 10.0,
-            "effective_enforced_reserve_bytes": HARD_MINIMUM_HOST_FLOOR_BYTES,
-            "effective_enforced_reserve_gib": 10.0,
+            "max_diagnostic_drawdown_gib": 2.0,
+            "lowered_reserve_without_approval": False,
+            "effective_enforced_reserve_bytes": int(eff_diag_b),
+            "effective_enforced_reserve_gib": round(eff_diag_b / (1024**3), 4),
+            "shortfall_vs_strict_20gib_bytes": max(0, strict_req_b - min_free_b),
+            "shortfall_vs_strict_20gib_gib": round(max(0, strict_req_b - min_free_b) / (1024**3), 4),
+            "volumes": vols_detail,
         }
 
-    already_below = preflight_free_bytes < (STANDARD_TARGET_DISK_RESERVE_BYTES + STAGE_PEAK_ALLOWANCE_BYTES)
-    if not already_below:
-        eff_bytes = STANDARD_TARGET_DISK_RESERVE_BYTES
-    else:
-        eff_bytes = max(
-            HARD_MINIMUM_HOST_FLOOR_BYTES,
-            int(preflight_free_bytes) - MAX_ALLOWED_RUN_DISK_DRAWDOWN_BYTES,
-        )
+    if mode != "STRICT_ACCEPTANCE_20GIB":
+        raise ValueError(f"UNKNOWN_DISK_RESERVE_POLICY_MODE:{mode}")
 
+    shortfall_b = max(0, strict_req_b - min_free_b)
+    shortfall_gib = round(shortfall_b / (1024**3), 4)
+    can_go = not already_below_20
     return {
-        "can_proceed": True,
-        "abort_reason": None,
-        "preflight_baseline_free_bytes": int(preflight_free_bytes),
+        "policy_mode": "STRICT_ACCEPTANCE_20GIB",
+        "acceptance_eligible": can_go,
+        "can_proceed": can_go,
+        "disk_safety_verdict": "PASS_STRICT_20GIB" if can_go else "BLOCKED_LOW_DISK",
+        "abort_reason": (
+            None
+            if can_go
+            else (
+                f"BLOCKED_LOW_DISK:volume={min_label}:free_gib={free_gib}<required_gib={strict_req_gib}:"
+                f"shortfall_gib={shortfall_gib}"
+            )
+        ),
+        "constraining_volume": min_label,
+        "preflight_baseline_free_bytes": int(min_free_b),
         "preflight_baseline_free_gib": free_gib,
         "preflight_baseline_free_gb_decimal": free_gb_dec,
-        "baseline_already_below_20gib": already_below,
+        "baseline_already_below_20gib": already_below_20,
         "standard_target_reserve_gib": 20.0,
-        "hard_abort_floor_gib": 10.0,
-        "effective_enforced_reserve_bytes": int(eff_bytes),
-        "effective_enforced_reserve_gib": round(eff_bytes / (1024**3), 4),
+        "stage_allowance_bytes": req_stage_b,
+        "stage_allowance_gib": round(req_stage_b / (1024**3), 4),
+        "min_acceptance_preflight_gib": strict_req_gib,
+        "enforced_reserve_gib": 20.0,
+        "hard_abort_floor_gib": 20.0,
+        "lowered_reserve_without_approval": False,
+        "effective_enforced_reserve_bytes": int(STANDARD_TARGET_DISK_RESERVE_BYTES),
+        "effective_enforced_reserve_gib": 20.0,
+        "shortfall_bytes": int(shortfall_b),
+        "shortfall_gib": shortfall_gib,
+        "volumes": vols_detail,
     }
+
+
+def safe_cleanup_owned_temp_root_r1(owned: Path, expected_run_id: str) -> Dict[str, Any]:
+    """
+    Wraps `cleanup_owned_temp_root` with explicit symlink-root & symlink-escape rejection (§6.R2 & §6.R5).
+    Never follows symlinks outside `tempfile.gettempdir()`.
+    """
+    base_tmp = Path(tempfile.gettempdir()).resolve()
+    if owned.is_symlink():
+        raise RuntimeError(f"REFUSING_TEMP_DELETE_SYMLINK_ROOT:{owned}")
+    if owned.exists():
+        resolved = owned.resolve()
+        if not resolved.is_relative_to(base_tmp) or resolved == base_tmp:
+            raise RuntimeError(f"REFUSING_TEMP_DELETE_OUTSIDE_CONTAINMENT:{resolved}")
+        for child in owned.rglob("*"):
+            if child.is_symlink():
+                target = Path(os.path.realpath(child))
+                if not target.is_relative_to(resolved):
+                    raise RuntimeError(f"REFUSING_TEMP_DELETE_CHILD_SYMLINK_ESCAPE:{child}->{target}")
+    return cleanup_owned_temp_root(owned, expected_run_id)
 
 
 def verify_kh01b_r1_resource_cleanup(
@@ -236,30 +342,57 @@ def verify_kh01b_r1_resource_cleanup(
     live_orphans = [p.pid for p in _active_heavy_worker_children(psutil.Process(orchestrator_pid))]
     min_disk_b = int(monitor_report.get("minimum_free_disk_bytes") or 0)
     min_disk_gib = round(min_disk_b / (1024**3), 3)
-    eff_res_b = int(disk_policy["effective_enforced_reserve_bytes"])
-    hard_floor_b = int(disk_policy["hard_abort_floor_gib"] * (1024**3))
+    eff_res_b = int(disk_policy.get("effective_enforced_reserve_bytes") or 0)
+    acceptance_mode_ok = (
+        bool(disk_policy.get("acceptance_eligible", False))
+        and disk_policy.get("policy_mode") == "STRICT_ACCEPTANCE_20GIB"
+        and not bool(disk_policy.get("lowered_reserve_without_approval", False))
+        and eff_res_b >= STANDARD_TARGET_DISK_RESERVE_BYTES
+    )
     max_ch = int(monitor_report.get("max_children_observed") or 0)
     temp_ok = bool(temp_cleanup_receipt.get("cleaned") and temp_cleanup_receipt.get("sentinel_verified"))
-    eff_breached = bool(monitor_report.get("disk_reserve_breached", False)) or min_disk_b < eff_res_b or min_disk_b < hard_floor_b
+    enospc_seen = bool(monitor_report.get("enospc_encountered", False))
+    eff_breached = (
+        bool(monitor_report.get("disk_reserve_breached", False))
+        or enospc_seen
+        or not acceptance_mode_ok
+        or min_disk_b < STANDARD_TARGET_DISK_RESERVE_BYTES
+        or min_disk_b < eff_res_b
+    )
     total_orphans = int(monitor_report.get("orphan_pids_at_cleanup_count") or 0) + len(live_orphans)
     post_b = int(post_cleanup_free_bytes if post_cleanup_free_bytes is not None else shutil.disk_usage(REPO_ROOT).free)
+    post_breached = post_b < STANDARD_TARGET_DISK_RESERVE_BYTES
+
+    status_ok = (
+        acceptance_mode_ok
+        and (1 <= max_ch <= 4)
+        and total_orphans == 0
+        and not eff_breached
+        and not post_breached
+        and temp_ok
+    )
 
     return {
         **monitor_report,
+        "policy_mode": disk_policy.get("policy_mode", "STRICT_ACCEPTANCE_20GIB"),
+        "acceptance_eligible": acceptance_mode_ok,
+        "disk_safety_verdict": "PASS_STRICT_20GIB" if status_ok else ("BLOCKED_LOW_DISK" if not acceptance_mode_ok else "FAIL"),
         "preflight_baseline_free_gib": disk_policy["preflight_baseline_free_gib"],
         "preflight_baseline_free_gb_decimal": disk_policy["preflight_baseline_free_gb_decimal"],
         "baseline_already_below_20gib": disk_policy["baseline_already_below_20gib"],
         "standard_target_reserve_gib": disk_policy["standard_target_reserve_gib"],
         "effective_enforced_reserve_gib": disk_policy["effective_enforced_reserve_gib"],
         "hard_abort_floor_gib": disk_policy["hard_abort_floor_gib"],
+        "lowered_reserve_without_approval": bool(disk_policy.get("lowered_reserve_without_approval", False)),
         "min_free_disk_gb_observed": min_disk_gib,
         "post_cleanup_free_gib": round(post_b / (1024**3), 3),
-        "effective_disk_reserve_breached": eff_breached,
+        "enospc_encountered": enospc_seen,
+        "effective_disk_reserve_breached": eff_breached or post_breached,
         "live_post_stop_orphan_pids": live_orphans,
         "orphan_pids_at_cleanup_count": total_orphans,
         "temp_dirs_cleaned_with_sentinel_check": temp_ok,
         "temp_cleanup_receipt": dict(temp_cleanup_receipt),
-        "status": "PASS" if (1 <= max_ch <= 4 and total_orphans == 0 and not eff_breached and temp_ok) else "FAIL",
+        "status": "PASS" if status_ok else "FAIL",
     }
 
 
@@ -1051,6 +1184,10 @@ async def _run_r1_variant_slice_w1_w2_w4_determinism(
     modes: Tuple[Tuple[str, int], ...] = (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1))
     runs: List[Dict[str, Any]] = []
 
+    input_ids_sorted = sorted(str(c["opportunity_id"]) for c in sample_candidates)
+    input_ids_sha = canonical_hash(input_ids_sorted)
+    merged_rows_by_mode: Dict[str, List[Any]] = {}
+
     for lbl, n_parts in modes:
         sem = asyncio.Semaphore(n_parts)
         pids: List[int] = []
@@ -1089,21 +1226,40 @@ async def _run_r1_variant_slice_w1_w2_w4_determinism(
         p_outs = await asyncio.gather(*(_exec_p(i) for i in range(n_parts)))
         wall_s = round(time.perf_counter() - t0, 3)
         merged = sorted((r for po in p_outs for r in po["rows"]), key=lambda x: (x[0], x[1]))
+        merged_rows_by_mode[lbl] = merged
         runs.append({
             "mode_label": lbl,
             "worker_partitions": n_parts,
             "worker_pids": pids,
             "wall_clock_seconds": wall_s,
             "evaluated_pairs_count": len(merged),
+            "input_candidate_ids_sha256": input_ids_sha,
             "canonical_sorted_sha256": canonical_hash(merged),
         })
 
+    base_rows = merged_rows_by_mode["w=1"]
+    exact_rows_equal = all(merged_rows_by_mode[m] == base_rows for m, _ in modes)
+    exact_counts_equal = len({r["evaluated_pairs_count"] for r in runs}) == 1
     shas = {r["canonical_sorted_sha256"] for r in runs}
+    w1_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=1")
+    w2_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=2")
+    w4_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=4")
+    best_mode = min(
+        (("w=1", 1, w1_s), ("w=2", 2, w2_s), ("w=4", 4, w4_s)),
+        key=lambda item: (item[2], item[1]),
+    )
     return {
         "sample_candidates_count": len(sample_candidates),
+        "input_candidate_ids_sha256": input_ids_sha,
         "runs": runs,
-        "all_4_runs_identical": len(shas) == 1,
-        "canonical_r1_slice_sha256": next(iter(shas)) if len(shas) == 1 else None,
+        "exact_full_rows_equal_all_4_runs": exact_rows_equal,
+        "exact_counts_equal_all_4_runs": exact_counts_equal,
+        "all_4_runs_identical": (len(shas) == 1 and exact_rows_equal and exact_counts_equal),
+        "w4_slower_than_w1_on_small_slice": bool(w4_s > w1_s),
+        "measured_speedup_w2_vs_w1": round(w1_s / max(0.001, w2_s), 3),
+        "measured_speedup_w4_vs_w1": round(w1_s / max(0.001, w4_s), 3),
+        "measured_optimal_worker_count_for_slice": int(best_mode[1]),
+        "canonical_r1_slice_sha256": next(iter(shas)) if (len(shas) == 1 and exact_rows_equal) else None,
     }
 
 
@@ -1119,6 +1275,7 @@ def run_kh01b_r1_bounded_async_orchestrator(
     max_workers: int = 4,
     output_root_override: str = "",
     enable_online_bitget_audit: bool = True,
+    preflight_only: bool = False,
 ) -> int:
     import psutil
 
@@ -1126,23 +1283,47 @@ def run_kh01b_r1_bounded_async_orchestrator(
     sha = git("rev-parse", "HEAD")
     dirty_all = git("status", "--porcelain=v1").splitlines()
     if branch != MANDATORY_BRANCH_KH01B_R1:
-        raise SystemExit(f"BLOCKED_WRONG_BRANCH:{branch}!={MANDATORY_BRANCH_KH01B_R1}")
+        print(json.dumps({"status": "BLOCKED_WRONG_BRANCH", "branch": branch, "expected": MANDATORY_BRANCH_KH01B_R1}, indent=2), flush=True)
+        return 2
     if dirty_all:
-        raise SystemExit(f"BLOCKED_DIRTY_WORKTREE:{dirty_all}")
+        print(json.dumps({"status": "BLOCKED_DIRTY_WORKTREE", "dirty_files": dirty_all}, indent=2), flush=True)
+        return 2
     if sha != tested_code_sha:
-        raise SystemExit(f"BLOCKED_MISMATCHED_SHA:head={sha}!=expected={tested_code_sha}")
+        print(json.dumps({"status": "BLOCKED_MISMATCHED_SHA", "head": sha, "expected": tested_code_sha}, indent=2), flush=True)
+        return 2
 
-    preflight_free_b = int(shutil.disk_usage(REPO_ROOT).free)
-    disk_policy = compute_kh01b_r1_disk_reserve_policy(preflight_free_b)
-    if not disk_policy["can_proceed"]:
-        raise SystemExit(disk_policy["abort_reason"])
-
-    actual_ds_sha = file_sha256(DATASET_PATH)
+    out_root = Path(output_root_override).resolve() if output_root_override else ARTIFACTS_KH01B_R1_ROOT
+    vol_free = measure_writing_volumes_free_bytes_r1(repo_root=REPO_ROOT, output_root=out_root)
+    disk_policy = compute_kh01b_r1_disk_reserve_policy(
+        vol_free["repo"], volume_free_bytes_by_label=vol_free
+    )
+    actual_ds_sha = file_sha256(DATASET_PATH) if DATASET_PATH.is_file() else "MISSING"
     if actual_ds_sha != CANONICAL_DATASET_SHA256_KH01B_R1:
-        raise SystemExit(f"BLOCKED_DATASET_SHA_MISMATCH:{actual_ds_sha}")
+        print(json.dumps({"status": "BLOCKED_DATASET_SHA_MISMATCH", "observed": actual_ds_sha}, indent=2), flush=True)
+        return 2
+
+    if not disk_policy["can_proceed"] or preflight_only:
+        diag = {
+            "status": disk_policy["disk_safety_verdict"] if not disk_policy["can_proceed"] else "PREFLIGHT_OK",
+            "can_proceed_heavy_execution": bool(disk_policy["can_proceed"]),
+            "branch": branch,
+            "tested_executable_sha": sha,
+            "canonical_dataset_sha256": actual_ds_sha,
+            "disk_reserve_policy": disk_policy,
+            "remediation": (
+                None
+                if disk_policy["can_proceed"]
+                else (
+                    f"Free at least {disk_policy['shortfall_gib']} GiB manually on volume "
+                    f"'{disk_policy['constraining_volume']}' (so free space >= {disk_policy['min_acceptance_preflight_gib']} GiB) "
+                    "or mount a verified >=20.5 GiB volume and configure both --output-root and TMPDIR on it."
+                )
+            ),
+        }
+        print(json.dumps(diag, indent=2, sort_keys=True), flush=True)
+        return 0 if (preflight_only and disk_policy["can_proceed"]) else 2
 
     eff_workers = max(1, min(4, int(max_workers)))
-    out_root = Path(output_root_override).resolve() if output_root_override else ARTIFACTS_KH01B_R1_ROOT
     base_ts_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_id = run_id_override or f"{base_ts_id}_{sha[:12]}"
     if (out_root / run_id).exists():
@@ -1711,7 +1892,7 @@ def run_kh01b_r1_bounded_async_orchestrator(
 
     finally:
         mon_rep = monitor.stop()
-        temp_rcpt = cleanup_owned_temp_root(owned_temp_root, f"br1_{run_id}")
+        temp_rcpt = safe_cleanup_owned_temp_root_r1(owned_temp_root, f"br1_{run_id}")
         signal.signal(signal.SIGINT, prev_sigint)
         signal.signal(signal.SIGTERM, prev_sigterm)
 
@@ -1839,6 +2020,8 @@ def main() -> int:
     ap.add_argument("--max-workers", type=int, default=4)
     ap.add_argument("--output-root", default="")
     ap.add_argument("--offline-data-only", action="store_true")
+    ap.add_argument("--offline-validate", action="store_true", help="Run non-destructive preflight & offline collector self-audit only")
+    ap.add_argument("--preflight-only", action="store_true", help="Check branch, dataset SHA, and strict 20 GiB disk policy without running heavy tests")
     ap.add_argument("--parity-a1-slice-input", default="")
     ap.add_argument("--parity-a1-slice-output", default="")
     ap.add_argument("--r1-slice-input", default="")
@@ -1850,6 +2033,19 @@ def main() -> int:
     if args.r1_slice_input and args.r1_slice_output:
         return _run_r1_slice_worker_cli(Path(args.r1_slice_input), Path(args.r1_slice_output))
 
+    if args.offline_validate:
+        col_audit = run_offline_collector_self_audit()
+        out_root = Path(args.output_root).resolve() if args.output_root else ARTIFACTS_KH01B_R1_ROOT
+        vols = measure_writing_volumes_free_bytes_r1(repo_root=REPO_ROOT, output_root=out_root)
+        d_pol = compute_kh01b_r1_disk_reserve_policy(vols["repo"], volume_free_bytes_by_label=vols)
+        print(json.dumps({
+            "mode": "OFFLINE_VALIDATE",
+            "offline_collector_self_audit": col_audit,
+            "strict_20gib_disk_policy": d_pol,
+            "heavy_execution_allowed": bool(d_pol["can_proceed"]),
+        }, indent=2, sort_keys=True), flush=True)
+        return 0 if d_pol["can_proceed"] else 2
+
     sha = args.tested_sha or git("rev-parse", "HEAD")
     return run_kh01b_r1_bounded_async_orchestrator(
         tested_code_sha=sha,
@@ -1858,6 +2054,7 @@ def main() -> int:
         max_workers=args.max_workers,
         output_root_override=args.output_root,
         enable_online_bitget_audit=not args.offline_data_only,
+        preflight_only=args.preflight_only,
     )
 
 

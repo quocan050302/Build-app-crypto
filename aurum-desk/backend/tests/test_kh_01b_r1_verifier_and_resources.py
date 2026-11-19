@@ -56,8 +56,11 @@ def test_kh01b_r1_disk_reserve_policy_standard_and_below_20gib_baseline() -> Non
     # 1. Host starting >= 20.5 GiB enforces strict 20.0 GiB reserve
     pol_high = compute_kh01b_r1_disk_reserve_policy(int(35.0 * 1024**3))
     assert pol_high["can_proceed"] is True
+    assert pol_high["acceptance_eligible"] is True
+    assert pol_high["disk_safety_verdict"] == "PASS_STRICT_20GIB"
     assert pol_high["baseline_already_below_20gib"] is False
     assert pol_high["effective_enforced_reserve_gib"] == 20.0
+    assert pol_high["lowered_reserve_without_approval"] is False
 
     # Dropping below 20.0 GiB on a 35 GiB baseline host MUST FAIL
     res_breach = verify_kh01b_r1_resource_cleanup(
@@ -70,35 +73,46 @@ def test_kh01b_r1_disk_reserve_policy_standard_and_below_20gib_baseline() -> Non
     assert res_breach["status"] == "FAIL"
     assert res_breach["effective_disk_reserve_breached"] is True
 
-    # 2. Host starting at 18.5 GiB (already below 20 GiB) enforces max(10 GiB, baseline - 4 GiB) = 14.5 GiB
-    pol_mid = compute_kh01b_r1_disk_reserve_policy(int(18.5 * 1024**3))
-    assert pol_mid["can_proceed"] is True
-    assert pol_mid["baseline_already_below_20gib"] is True
-    assert pol_mid["effective_enforced_reserve_gib"] == 14.5
+    # 2. Strict fail-closed: 20.49 GiB, 18.5 GiB, 13.4667 GiB, and 8.0 GiB ALL block heavy execution!
+    for low_gib in (20.49, 18.5, 13.4667, 8.0):
+        pol_blocked = compute_kh01b_r1_disk_reserve_policy(int(low_gib * 1024**3))
+        assert pol_blocked["can_proceed"] is False
+        assert pol_blocked["acceptance_eligible"] is False
+        assert pol_blocked["disk_safety_verdict"] == "BLOCKED_LOW_DISK"
+        assert pol_blocked["enforced_reserve_gib"] == 20.0
+        assert pol_blocked["lowered_reserve_without_approval"] is False
+        assert "BLOCKED_LOW_DISK" in str(pol_blocked["abort_reason"])
 
-    res_mid_ok = verify_kh01b_r1_resource_cleanup(
-        {"max_children_observed": 3, "minimum_free_disk_bytes": int(18.1 * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False},
-        {"cleaned": True, "sentinel_verified": True},
-        pol_mid,
-        orchestrator_pid=os.getpid(),
-        post_cleanup_free_bytes=int(18.45 * 1024**3),
+        res_blocked = verify_kh01b_r1_resource_cleanup(
+            {"max_children_observed": 2, "minimum_free_disk_bytes": int(low_gib * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False},
+            {"cleaned": True, "sentinel_verified": True},
+            pol_blocked,
+            orchestrator_pid=os.getpid(),
+            post_cleanup_free_bytes=int(low_gib * 1024**3),
+        )
+        assert res_blocked["status"] == "FAIL"
+
+    # 3. Separate volumes: repo=35 GiB but temp=15 GiB MUST block heavy execution
+    pol_sep = compute_kh01b_r1_disk_reserve_policy(
+        int(35.0 * 1024**3),
+        volume_free_bytes_by_label={"repo": int(35.0 * 1024**3), "output": int(35.0 * 1024**3), "temp": int(15.0 * 1024**3)},
     )
-    assert res_mid_ok["status"] == "PASS"
+    assert pol_sep["can_proceed"] is False
+    assert pol_sep["constraining_volume"] == "temp"
+    assert pol_sep["disk_safety_verdict"] == "BLOCKED_LOW_DISK"
 
-    # Dropping > 4 GiB below baseline (to 13.8 GiB < 14.5 GiB) MUST FAIL
-    res_mid_fail = verify_kh01b_r1_resource_cleanup(
-        {"max_children_observed": 3, "minimum_free_disk_bytes": int(13.8 * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False},
+    # 4. Explicit UNVERIFIED_DIAGNOSTIC_ONLY mode is never acceptance-eligible and never passes resource gate
+    pol_diag = compute_kh01b_r1_disk_reserve_policy(int(16.0 * 1024**3), mode="UNVERIFIED_DIAGNOSTIC_ONLY")
+    assert pol_diag["acceptance_eligible"] is False
+    assert pol_diag["disk_safety_verdict"] == "UNVERIFIED_DIAGNOSTIC_ONLY_NEVER_PASS"
+    res_diag = verify_kh01b_r1_resource_cleanup(
+        {"max_children_observed": 1, "minimum_free_disk_bytes": int(15.5 * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False},
         {"cleaned": True, "sentinel_verified": True},
-        pol_mid,
+        pol_diag,
         orchestrator_pid=os.getpid(),
-        post_cleanup_free_bytes=int(13.8 * 1024**3),
+        post_cleanup_free_bytes=int(15.8 * 1024**3),
     )
-    assert res_mid_fail["status"] == "FAIL"
-
-    # 3. Host starting < 10.5 GiB aborts large tests immediately
-    pol_low = compute_kh01b_r1_disk_reserve_policy(int(8.0 * 1024**3))
-    assert pol_low["can_proceed"] is False
-    assert "BLOCKED_LOW_DISK_BELOW_HARD_FLOOR" in str(pol_low["abort_reason"])
+    assert res_diag["status"] == "FAIL"
 
 
 def _build_valid_minimal_r1_bundle(base_dir: Path) -> Path:
@@ -247,8 +261,9 @@ def _build_valid_minimal_r1_bundle(base_dir: Path) -> Path:
         "measured_speedup_w4_vs_w1": 2.4, "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
     })
     write_json_durable_atomic(r / "14_disk_ram_cpu_pid_atomic_write_cleanup.json", {
-        "max_children_observed": 2, "orphan_pids_at_cleanup_count": 0, "preflight_baseline_free_gib": 18.5,
-        "baseline_already_below_20gib": True, "hard_abort_floor_gib": 10.0, "min_free_disk_gb_observed": 18.2,
+        "max_children_observed": 2, "orphan_pids_at_cleanup_count": 0, "preflight_baseline_free_gib": 35.0,
+        "baseline_already_below_20gib": False, "effective_enforced_reserve_gib": 20.0,
+        "hard_abort_floor_gib": 20.0, "min_free_disk_gb_observed": 34.5,
         "effective_disk_reserve_breached": False, "temp_dirs_cleaned_with_sentinel_check": True,
     })
     write_json_durable_atomic(r / "15_real_fault_injection_red_green_mutations.json", {
