@@ -1,0 +1,372 @@
+{
+  "a1_population_denominator": 56710,
+  "arms_conservation": {
+    "E00": {
+      "eligible_candidates_count": 56710,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "BASELINE_CONTROL",
+      "plausible_eligibility_bounds": [
+        56710,
+        56710
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 0,
+      "rejected_candidates_count": 0,
+      "rejection_reasons_counts": {},
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 6375,
+        "si8_rejection_counts": {},
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E00-UNCHANGED-B00-CONTROL"
+    },
+    "E01": {
+      "eligible_candidates_count": 17898,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "MODEL_FAMILY_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        17898,
+        17898
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 38812,
+      "rejected_candidates_count": 38812,
+      "rejection_reasons_counts": {
+        "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 17898,
+        "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 4044,
+        "MODEL_EXCLUDED:SMC_M1_REVERSAL": 8879,
+        "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 7991
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 76,
+        "si8_rejection_counts": {
+          "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 40,
+          "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 322,
+          "MODEL_EXCLUDED:SMC_M1_REVERSAL": 2889,
+          "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 3048
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E01-MODEL-FAMILY-ISOLATION"
+    },
+    "E01_C1": {
+      "eligible_candidates_count": 8879,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "MODEL_FAMILY_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        8879,
+        8879
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 47831,
+      "rejected_candidates_count": 47831,
+      "rejection_reasons_counts": {
+        "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 17898,
+        "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 4044,
+        "MODEL_EXCLUDED:SMC_M1_FVG_CONTINUATION": 17898,
+        "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 7991
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 2889,
+        "si8_rejection_counts": {
+          "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 40,
+          "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 322,
+          "MODEL_EXCLUDED:SMC_M1_FVG_CONTINUATION": 76,
+          "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 3048
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E01_C1-MODEL-REVERSAL-ONLY"
+    },
+    "E01_C2": {
+      "eligible_candidates_count": 4044,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "MODEL_FAMILY_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        4044,
+        4044
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 52666,
+      "rejected_candidates_count": 52666,
+      "rejection_reasons_counts": {
+        "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 17898,
+        "MODEL_EXCLUDED:SMC_M1_FVG_CONTINUATION": 17898,
+        "MODEL_EXCLUDED:SMC_M1_REVERSAL": 8879,
+        "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 7991
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 322,
+        "si8_rejection_counts": {
+          "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 40,
+          "MODEL_EXCLUDED:SMC_M1_FVG_CONTINUATION": 76,
+          "MODEL_EXCLUDED:SMC_M1_REVERSAL": 2889,
+          "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 3048
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E01_C2-MODEL-CONTINUATION-ONLY"
+    },
+    "E01_C3": {
+      "eligible_candidates_count": 17898,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "MODEL_FAMILY_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        17898,
+        17898
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 38812,
+      "rejected_candidates_count": 38812,
+      "rejection_reasons_counts": {
+        "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 17898,
+        "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 4044,
+        "MODEL_EXCLUDED:SMC_M1_REVERSAL": 8879,
+        "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 7991
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 76,
+        "si8_rejection_counts": {
+          "MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 40,
+          "MODEL_EXCLUDED:SMC_M1_CONTINUATION": 322,
+          "MODEL_EXCLUDED:SMC_M1_REVERSAL": 2889,
+          "MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 3048
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E01_C3-MODEL-FVG-CONTINUATION-ONLY"
+    },
+    "E02": {
+      "eligible_candidates_count": 34265,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "DIRECTIONAL_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        34265,
+        34265
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 22445,
+      "rejected_candidates_count": 22445,
+      "rejection_reasons_counts": {
+        "DIRECTION_EXCLUDED:LONG": 22445
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 3269,
+        "si8_rejection_counts": {
+          "DIRECTION_EXCLUDED:LONG": 3106
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E02-DIRECTIONAL-MISMATCH"
+    },
+    "E02_C1": {
+      "eligible_candidates_count": 22445,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "DIRECTIONAL_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        22445,
+        22445
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 34265,
+      "rejected_candidates_count": 34265,
+      "rejection_reasons_counts": {
+        "DIRECTION_EXCLUDED:SHORT": 34265
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 3106,
+        "si8_rejection_counts": {
+          "DIRECTION_EXCLUDED:SHORT": 3269
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E02_C1-LONG-ONLY"
+    },
+    "E02_C2": {
+      "eligible_candidates_count": 34265,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "DIRECTIONAL_ISOLATION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        34265,
+        34265
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 22445,
+      "rejected_candidates_count": 22445,
+      "rejection_reasons_counts": {
+        "DIRECTION_EXCLUDED:LONG": 22445
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 3269,
+        "si8_rejection_counts": {
+          "DIRECTION_EXCLUDED:LONG": 3106
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E02_C2-SHORT-ONLY"
+    },
+    "E03": {
+      "eligible_candidates_count": 22875,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "CAUSAL_REGIME_RESEARCH",
+      "plausible_eligibility_bounds": [
+        22875,
+        22875
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 33835,
+      "rejected_candidates_count": 33835,
+      "rejection_reasons_counts": {
+        "REGIME_MISMATCH:CHOP_OR_COUNTER_REGIME": 33835
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 1457,
+        "si8_rejection_counts": {
+          "REGIME_MISMATCH:CHOP_OR_COUNTER_REGIME": 4918
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E03-CAUSAL-REGIME-MATCHING"
+    },
+    "E03_CHOP": {
+      "eligible_candidates_count": 33835,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "CAUSAL_REGIME_RESEARCH",
+      "plausible_eligibility_bounds": [
+        33835,
+        33835
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 22875,
+      "rejected_candidates_count": 22875,
+      "rejection_reasons_counts": {
+        "REGIME_MISMATCH:TREND_EXPANSION_ALIGNED": 22875
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 4918,
+        "si8_rejection_counts": {
+          "REGIME_MISMATCH:TREND_EXPANSION_ALIGNED": 1457
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E03_CHOP-COMPLEMENT-DIAGNOSTIC"
+    },
+    "E04": {
+      "eligible_candidates_count": 24126,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "DATA_AND_QUOTE_QUALITY_RESEARCH",
+      "plausible_eligibility_bounds": [
+        24126,
+        24126
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 32584,
+      "rejected_candidates_count": 32584,
+      "rejection_reasons_counts": {
+        "QUALITY_RECENT_180M_M1_DATA_GAP": 4743,
+        "QUALITY_SPREAD_TO_M1_ATR_ABOVE_0_35": 16602,
+        "QUALITY_STALE_HTF_OR_M1_CLOSED_BAR": 11239
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 3967,
+        "si8_rejection_counts": {
+          "QUALITY_RECENT_180M_M1_DATA_GAP": 170,
+          "QUALITY_SPREAD_TO_M1_ATR_ABOVE_0_35": 550,
+          "QUALITY_STALE_HTF_OR_M1_CLOSED_BAR": 1688
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E04-PREENTRY-GAP-QUOTE-QUALITY-COHORT"
+    },
+    "E05": {
+      "eligible_candidates_count": 27809,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 109,
+      "ontology": "CAUSAL_TIME_SHIFTED_TRIGGER_RESEARCH",
+      "plausible_eligibility_bounds": [
+        27809,
+        27918
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 28792,
+      "rejected_candidates_count": 28901,
+      "rejection_reasons_counts": {
+        "DELAYED_CANCELLED_GAP:INTRASESSION_TIMESTAMP_GAP_EXCEEDED_180S": 105,
+        "DELAYED_CONFIRMATION_NO_SUBSEQUENT_BARS": 4,
+        "DELAYED_EXPIRED:PENDING_CONFIRMATION_TTL_EXPIRED": 16103,
+        "DELAYED_INVALIDATED:LATE_CONFIRMATION_NET_RR_OR_RISK_INVALID": 6409,
+        "DELAYED_INVALIDATED:PRICE_BREACHED_INVALIDATION_BEFORE_CONFIRMATION": 6280
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 1539,
+        "si8_rejection_counts": {
+          "DELAYED_CANCELLED_GAP:INTRASESSION_TIMESTAMP_GAP_EXCEEDED_180S": 4,
+          "DELAYED_EXPIRED:PENDING_CONFIRMATION_TTL_EXPIRED": 1927,
+          "DELAYED_INVALIDATED:LATE_CONFIRMATION_NET_RR_OR_RISK_INVALID": 1972,
+          "DELAYED_INVALIDATED:PRICE_BREACHED_INVALIDATION_BEFORE_CONFIRMATION": 933
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E05-CAUSAL-DELAYED-CONFIRMATION-TRIGGER"
+    },
+    "E06": {
+      "eligible_candidates_count": 7054,
+      "invalid_evidence_rejected_count": 0,
+      "missing_evidence_rejected_count": 0,
+      "ontology": "REGIME_X_MODEL_INTERACTION_RESEARCH",
+      "plausible_eligibility_bounds": [
+        7054,
+        7054
+      ],
+      "population_total": 56710,
+      "proven_false_rejected_count": 49656,
+      "rejected_candidates_count": 49656,
+      "rejection_reasons_counts": {
+        "INTERACTION_MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 17898,
+        "INTERACTION_MODEL_EXCLUDED:SMC_M1_CONTINUATION": 4044,
+        "INTERACTION_MODEL_EXCLUDED:SMC_M1_REVERSAL": 8879,
+        "INTERACTION_MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 7991,
+        "INTERACTION_REGIME_MISMATCH:CHOP_OR_COUNTER_REGIME": 10844
+      },
+      "si8_separate_diagnostic": {
+        "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+        "si8_eligible_count": 38,
+        "si8_rejection_counts": {
+          "INTERACTION_MODEL_EXCLUDED:CG01_SWEEP_MSS_FVG": 40,
+          "INTERACTION_MODEL_EXCLUDED:SMC_M1_CONTINUATION": 322,
+          "INTERACTION_MODEL_EXCLUDED:SMC_M1_REVERSAL": 2889,
+          "INTERACTION_MODEL_EXCLUDED:SMC_M1_SWEEP_RECLAIM": 3048,
+          "INTERACTION_REGIME_MISMATCH:CHOP_OR_COUNTER_REGIME": 38
+        },
+        "si8_total": 6375
+      },
+      "variant_id": "KH01B_R1-E06-REGIME-X-FVG-CONTINUATION-INTERACTION"
+    }
+  },
+  "manifest_sha256": "d5605ccec9b86394af403684fbe3141b8b771ff2e2402eec2aa7f343c102cd15",
+  "si8_population_denominator": 6375,
+  "spec_version": "KH-01B.R1-v1.0"
+}

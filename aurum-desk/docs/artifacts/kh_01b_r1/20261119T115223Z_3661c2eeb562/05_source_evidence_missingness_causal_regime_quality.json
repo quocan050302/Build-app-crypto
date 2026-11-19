@@ -1,0 +1,23 @@
+{
+  "a1_frames_evaluated_count": 56710,
+  "e03_causal_regime_completeness_ratio": 1.0,
+  "e03_causal_regime_distribution_a1": {
+    "CHOP_OR_COUNTER_REGIME": 33835,
+    "TREND_EXPANSION_ALIGNED": 22875
+  },
+  "e04_quality_cohort_tri_state_a1": {
+    "PROVEN_FALSE": 32584,
+    "PROVEN_TRUE": 24126
+  },
+  "e04_quality_rejection_reasons_a1": {
+    "ELIGIBLE": 24126,
+    "QUALITY_RECENT_180M_M1_DATA_GAP": 4743,
+    "QUALITY_SPREAD_TO_M1_ATR_ABOVE_0_35": 16602,
+    "QUALITY_STALE_HTF_OR_M1_CLOSED_BAR": 11239
+  },
+  "future_known_at_or_bar_close_violations_count": 0,
+  "invalid_frames_count": 0,
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "si8_frames_evaluated_count": 6375,
+  "spec_version": "KH-01B.R1-v1.0"
+}

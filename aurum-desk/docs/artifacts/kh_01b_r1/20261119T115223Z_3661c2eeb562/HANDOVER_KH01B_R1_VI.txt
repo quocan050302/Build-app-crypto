@@ -1,0 +1,50 @@
+BÀN GIAO NGHIỆM THU KỸ THUẬT & NGHIÊN CỨU ĐỊNH LƯỢNG — AURUM DESK KH-01B.R1-v1.0
+Run ID: 20261119T115223Z_3661c2eeb562
+Nhánh bắt buộc: feature/v17-9-2-structural-sl-tp-from-qa
+Starting HEAD trước khi chạy: fe19e6b5b4b08425553ce5d2431b3a8c4aac4198
+Tested Executable SHA (Phase A): 3661c2eeb562d326c3065bd71c89df7878203736
+Canonical Dataset SHA256 (REUSED_RESEARCH / MODELED_BID_ASK): 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+Frozen Pre-Registered Manifest SHA256: d5605ccec9b86394af403684fbe3141b8b771ff2e2402eec2aa7f343c102cd15
+
+1. MA TRẬN PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS):
+- ENGINEERING_VERDICT: PASS (16/16 cổng kỹ thuật bắt buộc PASS)
+- BASELINE_PARITY_VERDICT: PASS (A1 56710/56710 khớp 100%, 3-adapter 246 khớp 100%)
+- RESEARCH_HYPOTHESIS_VERDICT: NO_DEFENSIBLE_EDGE
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA (strategy_evaluation_count=0)
+- DATA_ACQUISITION_VERDICT: PASS_VERIFIED_WITH_ORIGIN_RECEIPTS
+- KH01C_ADVANCEMENT_VERDICT: NO_ECONOMIC_ADVANCEMENT_CANDIDATE (Ứng viên đủ chuẩn KH-01C: [])
+- ACTIVATION_READY: NO (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trước Phase C readback): PENDING_REMOTE_PUSH
+
+2. KẾT LUẬN KIỂM ĐỊNH LUẬN ĐIỂM GỐC (BASELINE THESIS AUDIT):
+- SI0 (242 lệnh đặt / 166 lệnh đóng = 9 Thắng + 157 Thua) lỗ gộp TRƯỚC PHÍ: Gross PnL = -142.7836 USD (-0.3497R), cộng thêm phí taker 203.1135 USD (0.4975R) thành Net PnL = -345.8971 USD (-0.8474R).
+- Cả 170 dòng hồ sơ pháp y từ KH-01A.R1 và 242 dòng SI0 được giữ nguyên nhãn PARTIAL (không nâng khống thành snapshot gốc; không bao giờ đồng nhất MISSING với FALSE).
+- Strict True Unicorn D4 (B09): 0 lệnh lịch sử (expectancy = None / NO_VALID_SETUPS), tách biệt tuyệt đối với B10 Adjacent (6874 ứng viên A1, counts_toward_d4=0); 25/25 unit fixtures PASS (0 giao dịch giả lập tính vào PnL lịch sử).
+
+3. BẢNG KẾT QUẢ THỰC NGHIỆM TIỀN ĐĂNG KÝ E00–E06 (+ ĐỐI CHỨNG PHỤ):
+| Mã | Variant ID | Eligible / 56,710 | Sched / Closed (NB) | Gross 1x (USD) | Fees 1x (USD) | Net 1x (USD) | Exp 1x (R) | Net 2x All-Cost | Net 3x All-Cost | 95% Cluster CI (R) | Kết luận |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
+| `E00` | `KH01B_R1-E00-UNCHANGED-B00-CONTROL` | `56710` | `242 / 166` | `-142.7836` | `203.1135` | `-345.8971` | `-0.8474` | `-594.6226` | `-803.8121` | `[-0.9625, -0.7073]` | `NO_CANDIDATE` |
+| `E01` | `KH01B_R1-E01-MODEL-FAMILY-ISOLATION` | `17898` | `237 / 161` | `-164.0692` | `195.9198` | `-359.989` | `-0.9092` | `-585.0327` | `-802.2358` | `[-1.0051, -0.8031]` | `NO_CANDIDATE` |
+| `E01_C1` | `KH01B_R1-E01_C1-MODEL-REVERSAL-ONLY` | `8879` | `233 / 158` | `-132.6679` | `197.9669` | `-330.6348` | `-0.8502` | `-567.2354` | `-793.0758` | `[-0.9755, -0.7029]` | `NO_CANDIDATE` |
+| `E01_C2` | `KH01B_R1-E01_C2-MODEL-CONTINUATION-ONLY` | `4044` | `184 / 119` | `-140.1599` | `135.9768` | `-276.1367` | `-0.9425` | `-438.6173` | `-572.9043` | `[-1.0635, -0.8241]` | `NO_CANDIDATE` |
+| `E01_C3` | `KH01B_R1-E01_C3-MODEL-FVG-CONTINUATION-ONLY` | `17898` | `237 / 161` | `-164.0692` | `195.9198` | `-359.989` | `-0.9092` | `-585.0327` | `-802.2358` | `[-1.0051, -0.8031]` | `NO_CANDIDATE` |
+| `E02` | `KH01B_R1-E02-DIRECTIONAL-MISMATCH` | `34265` | `184 / 132` | `-95.1727` | `164.8751` | `-260.0478` | `-0.8017` | `-455.4541` | `-634.676` | `[-0.9753, -0.5895]` | `NO_CANDIDATE` |
+| `E02_C1` | `KH01B_R1-E02_C1-LONG-ONLY` | `22445` | `116 / 72` | `-74.5082` | `94.1068` | `-168.615` | `-0.9507` | `-298.4259` | `-373.9726` | `[-1.0002, -0.8459]` | `NO_CANDIDATE` |
+| `E02_C2` | `KH01B_R1-E02_C2-SHORT-ONLY` | `34265` | `184 / 132` | `-95.1727` | `164.8751` | `-260.0478` | `-0.8017` | `-455.4541` | `-634.676` | `[-0.9753, -0.5895]` | `NO_CANDIDATE` |
+| `E03` | `KH01B_R1-E03-CAUSAL-REGIME-MATCHING` | `22875` | `144 / 103` | `-103.9203` | `116.9169` | `-220.8372` | `-0.8711` | `-356.0219` | `-490.919` | `[-0.9666, -0.7663]` | `NO_CANDIDATE` |
+| `E03_CHOP` | `KH01B_R1-E03_CHOP-COMPLEMENT-DIAGNOSTIC` | `33835` | `173 / 115` | `-129.3328` | `144.8589` | `-274.1917` | `-0.9674` | `-465.6778` | `-590.5435` | `[-1.0901, -0.8497]` | `NO_CANDIDATE` |
+| `E04` | `KH01B_R1-E04-PREENTRY-GAP-QUOTE-QUALITY-COHORT` | `24126` | `129 / 93` | `-91.5853` | `101.3859` | `-192.9712` | `-0.8452` | `-306.873` | `-414.077` | `[-1.0146, -0.6782]` | `NO_CANDIDATE` |
+| `E05` | `KH01B_R1-E05-CAUSAL-DELAYED-CONFIRMATION-TRIGGER` | `27809` | `200 / 127` | `-135.9067` | `147.1265` | `-283.0332` | `-0.9043` | `-448.9364` | `-604.0242` | `[-1.0396, -0.7376]` | `NO_CANDIDATE` |
+| `E06` | `KH01B_R1-E06-REGIME-X-FVG-CONTINUATION-INTERACTION` | `7054` | `137 / 96` | `-97.0075` | `106.5182` | `-203.5257` | `-0.8621` | `-327.0623` | `-450.7493` | `[-0.9637, -0.7503]` | `NO_CANDIDATE` |
+
+4. HỒI QUY TOÀN BỘ, ĐỐI CHỨNG ĐỎ/XANH, ĐA LUỒNG BẤT ĐỒNG BỘ & AN TOÀN ĐĨA:
+- Pytest toàn kho: collected=5504, executed=5504, passed=5502, skipped=2, failed=0, errors=0.
+- Đột biến đối chứng âm/dương (Fault Injections): 24/24 PASS.
+- Bất đồng bộ w=1/w=2/w=4/w=1_repeat: speedup w=4 so với w=1 = 2.038x (MEANINGFUL_PARALLEL_SPEEDUP), mã băm đầu ra đồng nhất tuyệt đối = True & True.
+- Tài nguyên & ổ đĩa: max_children_observed=4 (<=4), preflight_baseline_free_gib=13.4667 (baseline_already_below_20gib=True), min_free_disk_gib=12.102, orphan_pids=0.
+
+5. BA HÀNH ĐỘNG ƯU TIÊN TIẾP THEO & KHUYẾN NGHỊ VỀ KH-01C:
+1) KHÔNG chuyển tiếp sang KH-01C để tối ưu ngưỡng trên bộ tín hiệu M1 hiện tại nếu KH01C_ADVANCEMENT_VERDICT = NO_ECONOMIC_ADVANCEMENT_CANDIDATE; cần thiết kế lại luận điểm Entry cấu trúc khung lớn hơn (M15/H1) ở một pha nghiên cứu mới độc lập để giảm ma sát spread + phí.
+2) Thu thập dữ liệu tương lai sau thời điểm đóng băng mã nguồn (closed bars M1..D1 kèm báo giá thực CAPTURED_REAL_BBO từ Bitget) vào kho escrow KH-01D (>=180 phút sau freeze_timestamp_ms, strategy_evaluation_count=0).
+3) Ghi nhận trực tiếp trạng thái phiên/bảo trì sàn Bitget theo thời gian thực song song với luồng BBO vì REST công khai không cung cấp lịch nghỉ lịch sử.

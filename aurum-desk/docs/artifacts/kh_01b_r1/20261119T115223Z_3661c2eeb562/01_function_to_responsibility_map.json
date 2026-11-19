@@ -1,0 +1,521 @@
+{
+  "changed_files_in_kh01b_r1": [
+    "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+    "aurum-desk/backend/tests/test_kh_01b_r1_causal_and_forensics.py",
+    "aurum-desk/backend/tests/test_kh_01b_r1_replay_economics_and_data.py",
+    "aurum-desk/backend/tests/test_kh_01b_r1_verifier_and_resources.py",
+    "aurum-desk/docs/artifacts/kh_01b_r1/README_INDEX.md",
+    "aurum-desk/tools/kh_01b_r1_collect_market_data.py",
+    "aurum-desk/tools/kh_01b_r1_independent_verifier.py",
+    "aurum-desk/tools/run_kh_01b_r1_verification.py"
+  ],
+  "existing_production_or_prior_kh_files_modified": [],
+  "existing_production_or_prior_kh_files_modified_count": 0,
+  "keep_as_is_functions": [
+    {
+      "callers": [
+        "ScalpWatcherOrchestrator",
+        "MarketShadowService",
+        "V17_8_BacktestRunner",
+        "run_kh_01b_r1_verification"
+      ],
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function_source_sha256": "85d7ca0bc55f6ea4fb7303d4cdadcedf92151aaf291a13035de9f446b0f259e7",
+      "input_fields": [
+        "context: MarketDecisionContext",
+        "model_id: str",
+        "direction: str"
+      ],
+      "line_end": 4336,
+      "line_start": 2705,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Production strategy source of truth; decision_fingerprint & trade_action_fingerprint kept 100% unchanged.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(context: 'MarketDecisionContext', model_id: 'str', direction: 'str', *, adapter_origin: 'str' = 'SHARED_EVALUATOR', target_resolver: 'Optional[Callable[..., Any]]' = None, causal_setup_override: 'Optional[Mapping[str, Any]]' = None, production_eval_spec: 'Optional[Mapping[str, Any]]' = None) -> 'StrategyDecisionSnapshot'",
+      "symbol": "SharedStrategyEvaluator.evaluate_model_direction"
+    },
+    {
+      "callers": [
+        "load_and_verify_kh01b_r1_sources",
+        "run_kh_01b_verification"
+      ],
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function_source_sha256": "797e3ebfde2f3d3b9db0dfa867b43ae201c14e0ea8e1cf4ce33a8373f45af848",
+      "input_fields": [
+        "repo_root",
+        "run_registry"
+      ],
+      "line_end": 806,
+      "line_start": 678,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Authoritative reference baseline & 63,085 candidate membership verifier; reused directly.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(repo_root: 'Path', run_registry: 'Optional[Mapping[str, Any]]' = None) -> 'BaselineTruth'",
+      "symbol": "load_and_verify_kh01b_reference_baseline"
+    },
+    {
+      "callers": [
+        "run_kh_01b_verification"
+      ],
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function_source_sha256": "f54ed0f8a27c19a3bbd0cb812a542fdbc96151f765aec890da786e6918aead20",
+      "input_fields": [
+        "dataset_sha",
+        "config_sha",
+        "code_sha",
+        "variant_manifest"
+      ],
+      "line_end": 1007,
+      "line_start": 947,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Frozen historical B00..B12 manifest generator; untouched in R1.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(dataset_sha: 'str', config_sha: 'str', code_sha: 'str', variant_manifest: 'Optional[Sequence[Mapping[str, Any]]]' = None, *, amendments: 'Sequence[Mapping[str, Any]]' = ()) -> 'FrozenResearchManifest'",
+      "symbol": "pre_register_kh01b_hypotheses"
+    },
+    {
+      "callers": [
+        "extract_kh01b_r1_causal_regime_features",
+        "run_kh01b_orthogonal_ablation_matrix"
+      ],
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function_source_sha256": "71f373c10c2ee3cf2dcee16d94bc46197133cf60c1c7c1580ed769d1a89cb242",
+      "input_fields": [
+        "candidate",
+        "verified_feature_ledger",
+        "closed_bar_index",
+        "asof_ts"
+      ],
+      "line_end": 1362,
+      "line_start": 1014,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Point-in-time feature frame & tri-state evidence extractor; reused directly.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(candidate: 'Mapping[str, Any]', verified_feature_ledger: 'Mapping[str, Mapping[str, Any]]', closed_bar_index: 'Mapping[Tuple[str, int], int]', asof_ts: 'int', *, pools_by_id: 'Optional[Mapping[str, Mapping[str, Any]]]' = None, datasets: 'Optional[Mapping[str, Sequence[Mapping[str, Any]]]]' = None, close_ts_index: 'Optional[Mapping[str, Sequence[int]]]' = None, macro_schedule_config: 'Optional[Mapping[str, Any]]' = None, macro_cache: 'Optional[Dict[int, Dict[str, Any]]]' = None, atr_cache: 'Optional[Dict[Tuple[str, int], Optional[float]]]' = None, gap_180m_cache: 'Optional[Dict[int, bool]]' = None, pre_verified_opp_ids: 'Optional[Set[str]]' = None) -> 'FeatureEvidenceFrame'",
+      "symbol": "extract_kh01b_causal_feature_frame"
+    },
+    {
+      "callers": [
+        "replay_kh01b_r1_frozen_variants",
+        "_evaluate_single_candidate_for_variant"
+      ],
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function_source_sha256": "c97e6982c07c7b08fea6daac1ca9dc7136b99d063bb599e72bd772d2aaafabd3",
+      "input_fields": [
+        "frame",
+        "context",
+        "setup_episode"
+      ],
+      "line_end": 2020,
+      "line_start": 1847,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Strict D4 True Unicorn detector (>=1 tick Breaker+FVG overlap + episode + retest); kept strictly distinct.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(frame: 'FeatureEvidenceFrame', context: 'Optional[Any]' = None, setup_episode: 'Optional[Mapping[str, Any]]' = None) -> 'StrictUnicornResearchDecision'",
+      "symbol": "evaluate_strict_true_unicorn_hypothesis"
+    },
+    {
+      "callers": [
+        "replay_kh01b_r1_frozen_variants",
+        "_evaluate_single_candidate_for_variant"
+      ],
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function_source_sha256": "886d0ea9b5107d5c4fda8df3f39c20853c8ea9eff6bb83baa32aed824f329127",
+      "input_fields": [
+        "frame",
+        "variant_id"
+      ],
+      "line_end": 2109,
+      "line_start": 2023,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Unicorn-adjacent comparator with counts_toward_d4_true_unicorn=False; kept isolated from D4.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(frame: 'FeatureEvidenceFrame', variant_id: 'str' = 'KH01B-B10-UNICORN-ADJACENT-FVG-SWEEP-MSS') -> 'AdjacentResearchDecision'",
+      "symbol": "evaluate_unicorn_adjacent_research_hypothesis"
+    },
+    {
+      "callers": [
+        "SharedStrategyEvaluator",
+        "kh_01a_foundation_service"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function_source_sha256": "dbd407614cf90f1cb18cb1fa12eeb9062de430a6547f45befef0dade3463216b",
+      "input_fields": [
+        "context",
+        "snapshot",
+        "policy"
+      ],
+      "line_end": 2130,
+      "line_start": 1421,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Point-in-time pre-entry signal quality evidence supplier; non-rescue & known_at preserved.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(*, context: 'Any', model_id: 'str', direction: 'str', setup_descriptors: 'Optional[Mapping[str, Any]]' = None, sh_1m: 'Sequence[Mapping[str, Any]]' = (), sl_1m: 'Sequence[Mapping[str, Any]]' = (), entry_price: 'float' = 0.0, selected_sl: 'Optional[float]' = None, take_profit: 'Optional[float]' = None, selected_target_id: 'Optional[str]' = None, atr_m1: 'Optional[float]' = None, atr_m5: 'Optional[float]' = None, prospective_net_rr: 'float' = 2.0, planned_risk_usd: 'float' = 2.0, unicorn_evidence: 'Optional[Any]' = None) -> 'SignalQualityEvidenceV1793122'",
+      "symbol": "build_signal_quality_evidence_v1793122"
+    },
+    {
+      "callers": [
+        "SharedStrategyEvaluator"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function_source_sha256": "701c99504dfeca1e9e3231c397c0e9b5feb6798486ee5d4ab272647a5493982b",
+      "input_fields": [
+        "context",
+        "snapshot",
+        "mode",
+        "policy_id"
+      ],
+      "line_end": 2864,
+      "line_start": 2133,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Observe-only / OFF production gate; RESEARCH_APPLY stays OFF for LIVE/PAPER.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(*, context: 'Any', model_id: 'str', direction: 'str', candidate_key: 'str' = 'cand', setup_episode_id: 'Optional[str]' = None, setup_descriptors: 'Optional[Mapping[str, Any]]' = None, sh_1m: 'Sequence[Mapping[str, Any]]' = (), sl_1m: 'Sequence[Mapping[str, Any]]' = (), baseline_status: 'str' = 'ELIGIBLE', baseline_rejection_reasons: 'Sequence[str]' = (), baseline_entry: 'Optional[float]' = None, baseline_sl: 'Optional[float]' = None, baseline_tp: 'Optional[float]' = None, baseline_qty: 'Optional[float]' = None, baseline_gross_rr: 'Optional[float]' = None, baseline_net_rr: 'Optional[float]' = None, baseline_anchor_id: 'Optional[str]' = None, baseline_anchor_kind: 'Optional[str]' = None, baseline_invalidation_price: 'Optional[float]' = None, baseline_target_id: 'Optional[str]' = None, atr_m1: 'float' = 1.0, atr_m5: 'Optional[float]' = None, unicorn_evidence: 'Optional[Any]' = None, policy_settings: 'Optional[Mapping[str, Any]]' = None, raw_mode: 'Any' = 'OFF', raw_policy_id: 'Any' = 'SI0_OFF_BASELINE', mode: 'Any' = None, policy_id: 'Any' = None, adapter_origin: 'str' = 'SHARED_EVALUATOR') -> 'SignalIntelligencePlanV1793122'",
+      "symbol": "evaluate_signal_intelligence_gate_v1793122"
+    },
+    {
+      "callers": [
+        "evaluate_kh01b_r1_entry_variant (E05)"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function_source_sha256": "99f7686cafa87226f68b53f446da5f9820448cd403d2c77420b14d0d01caab7f",
+      "input_fields": [
+        "pending",
+        "bars_1m",
+        "start_bar_index",
+        "atr_m1"
+      ],
+      "line_end": 3080,
+      "line_start": 2867,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Advances pending setup strictly forward (c_ms > created_at_ms) and recomputes entry/SL/TP/qty/risk at confirmation close.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(pending: 'PendingConfirmationV1793122', bars_1m: 'Sequence[Mapping[str, Any]]' = (), start_bar_index: 'int' = 0, atr_m1: 'float' = 0.65, min_displacement_body_atr_ratio: 'float' = 0.55, capital_usdt: 'float' = 1000.0, risk_pct: 'float' = 0.25, min_net_rr: 'float' = 2.0, max_planned_risk_usd: 'float' = 2.5, spread_usd: 'float' = 0.2, slippage_usd: 'float' = 0.1, taker_fee_rate: 'float' = 0.0004) -> 'Tuple[PendingConfirmationV1793122, Optional[int]]'",
+      "symbol": "advance_pending_confirmation_state_v1793122"
+    },
+    {
+      "callers": [
+        "replay_kh01b_r1_frozen_variants"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function_source_sha256": "ef69402bd25808380bed24ffdb9a9412f3e54881bff8262bcade2b496bcf464b",
+      "input_fields": [
+        "candidates_at_ts",
+        "arbitration_mode",
+        "feature_ledger_by_opp_id"
+      ],
+      "line_end": 3196,
+      "line_start": 3120,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Deterministic STATIC_PRODUCTION_PRIORITY multi-model arbitration; tracks winner substitutions vs B00.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(candidates_at_ts: 'Sequence[Mapping[str, Any]]', *, arbitration_mode: 'str' = 'STATIC_PRODUCTION_PRIORITY', feature_ledger_by_opp_id: 'Optional[Mapping[str, Mapping[str, Any]]]' = None) -> 'Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]'",
+      "symbol": "arbitrate_competing_model_intents_v1793122"
+    },
+    {
+      "callers": [
+        "extract_kh01b_causal_feature_frame"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function_source_sha256": "cf8c2c52d3bb2c3b0ea7b31e81acb2d165c58d8ffcfaff645651b9acfad3a431",
+      "input_fields": [
+        "decision_timestamp_ms",
+        "symbol",
+        "schedule_config"
+      ],
+      "line_end": 1063,
+      "line_start": 748,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Keyword-bound NY ICT macro window resolver; research schedule disclosed as unverified exchange calendar.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(decision_timestamp_ms: 'int', symbol: 'str' = 'XAUUSDT', *, schedule_config: 'Optional[Mapping[str, Any]]' = None) -> 'MacroTimeWindowState'",
+      "symbol": "resolve_causal_macro_time_window"
+    },
+    {
+      "callers": [
+        "evaluate_strict_true_unicorn_hypothesis"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function_source_sha256": "044fab060df4b538cd19ee5a1797c76d8a3c8d7f1c3866155dcb8893806f0ab3",
+      "input_fields": [
+        "context",
+        "direction",
+        "decision_timestamp_ms"
+      ],
+      "line_end": 1829,
+      "line_start": 1475,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Strict Breaker+FVG confluence authority; kept 100% unchanged.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(context: 'Any', direction: 'str', decision_timestamp_ms: 'int', *, setup_descriptors: 'Optional[Mapping[str, Any]]' = None, strict: 'bool' = True, require_confirmed_retest: 'bool' = True, require_htf_alignment: 'bool' = True, require_sweep_provenance: 'bool' = False) -> 'UnicornConfluenceAssessment'",
+      "symbol": "evaluate_causal_unicorn_confluence"
+    },
+    {
+      "callers": [
+        "extract_kh01b_causal_feature_frame",
+        "extract_kh01b_r1_causal_regime_features"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function_source_sha256": "d35ae073df8e27aa82dc06987f671a318343704d8ee861e3334b95be5a7f72d5",
+      "input_fields": [
+        "datasets",
+        "close_ts_index",
+        "timeframe",
+        "asof_ts_ms"
+      ],
+      "line_end": 941,
+      "line_start": 909,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Causal source-timeframe ATR calculator on closed bars (close_time <= asof_ts_ms).",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(datasets: 'Mapping[str, Sequence[Mapping[str, Any]]]', close_ts_index: 'Mapping[str, Sequence[int]]', timeframe: 'str', decision_ts_ms: 'int', period: 'int' = 14) -> 'Optional[float]'",
+      "symbol": "compute_causal_tf_atr_v17931214"
+    },
+    {
+      "callers": [
+        "replay_kh01b_r1_frozen_variants"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function_source_sha256": "eca132a6f8c34980de9fac2cea570ad75d719c6f3d3ac2f49887cc6d13c6ff75",
+      "input_fields": [
+        "run_id",
+        "tested_sha",
+        "dataset_sha",
+        "baseline_decisions",
+        "si8_decisions"
+      ],
+      "line_end": 1875,
+      "line_start": 1508,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Authoritative 63,085 -> 7,562 -> 184 -> 14 -> 0 strict D4 funnel.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(*, run_id: 'str', tested_sha: 'str', dataset_sha: 'str', baseline_decisions: 'Sequence[Mapping[str, Any]]', si8_decisions: 'Sequence[Mapping[str, Any]]', feature_ledger_by_opp_id: 'Mapping[str, Mapping[str, Any]]', datasets: 'Mapping[str, Any]', matched_242_d4_rows_by_mode: 'Mapping[str, Sequence[Mapping[str, Any]]]') -> 'Dict[str, Any]'",
+      "symbol": "build_d4_full_63085_and_matched_funnel_v17931214"
+    },
+    {
+      "callers": [
+        "replay_kh01b_r1_frozen_variants"
+      ],
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "function_source_sha256": "dba472d02fa00f6f080270dd4f6ec9dcba70c00de773d5e618631a9a14f1a029",
+      "input_fields": [
+        "materialized_intent",
+        "bars_1m",
+        "mode",
+        "base_record"
+      ],
+      "line_end": 4247,
+      "line_start": 4149,
+      "modification_decision": "KEEP_AS_IS",
+      "modified_in_kh01b_r1": false,
+      "responsibility": "Source-aware bid/ask 3-fill execution simulator with conservative stop-first tie-breaking.",
+      "side_effects": "NONE_PURE_READ_ONLY",
+      "signature": "(materialized_plan: 'Mapping[str, Any]', canonical_bars: 'Sequence[Mapping[str, Any]]', mode: 'str' = 'NEXT_BAR_OPEN_BID_ASK', *, base_record: 'Optional[Mapping[str, Any]]' = None) -> 'Dict[str, Any]'",
+      "symbol": "replay_intervention_outcome_v179312"
+    }
+  ],
+  "macro_call_site_ast_audit": {
+    "call_sites": [],
+    "inspected_function": "services.v17_9_3_macro_unicorn_intelligence.resolve_causal_macro_time_window",
+    "inspected_signature": "(decision_timestamp_ms: 'int', symbol: 'str' = 'XAUUSDT', *, schedule_config: 'Optional[Mapping[str, Any]]' = None) -> 'MacroTimeWindowState'",
+    "invalid_production_call_sites": [],
+    "invalid_production_call_sites_count": 0,
+    "prior_buggy_call_site_repaired": {
+      "file": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+      "prior_call": "resolve_causal_macro_time_window(\"XAUUSDT\", dec_ts)",
+      "prior_head": "4b8e24fc2c6a6bfbd6a45a3d1cff0e912afe85a7",
+      "repaired_call": "resolve_causal_macro_time_window(decision_timestamp_ms=dec_ts, symbol=\"XAUUSDT\")"
+    },
+    "production_call_sites_count": 0,
+    "signature_parameters": [
+      {
+        "default": null,
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "name": "decision_timestamp_ms"
+      },
+      {
+        "default": "'XAUUSDT'",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "name": "symbol"
+      },
+      {
+        "default": "None",
+        "kind": "KEYWORD_ONLY",
+        "name": "schedule_config"
+      }
+    ],
+    "test_call_sites_count": 0,
+    "total_call_sites_found": 0
+  },
+  "new_kh01b_r1_functions": [
+    {
+      "contract_id": "R1-F01",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "cd713c80836338f5d5c90a97c277de81efb322d73e5af781b0b3cc55cfb4bd24",
+      "line_end": 348,
+      "line_start": 236,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(repo_root: 'Path', expected_sha: 'str', existing_latest_ptr: 'Optional[Path]' = None, *, branch_override: 'Optional[str]' = None, kh01b_dir_override: 'Optional[Path]' = None) -> 'KH01BR1SourceTruth'",
+      "symbol": "load_and_verify_kh01b_r1_sources"
+    },
+    {
+      "contract_id": "R1-F02",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "26d04c9c37df3f52f62dca645290775941b02a9ee28a0be4817f3f8dda0491ec",
+      "line_end": 1214,
+      "line_start": 1041,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(*, si0_episodes: 'Sequence[Mapping[str, Any]]', a1_by_oid: 'Mapping[str, Mapping[str, Any]]', r1_frames_by_oid: 'Mapping[str, CausalRegimeFeatureFrameR1]', datasets: 'Mapping[str, Sequence[Mapping[str, Any]]]', close_ts_index: 'Mapping[str, Sequence[int]]', kh01a_r1_forensics_count: 'int' = 170) -> 'Tuple[Dict[str, Any], List[Dict[str, Any]]]'",
+      "symbol": "build_kh01b_r1_preentry_outcome_attribution"
+    },
+    {
+      "contract_id": "R1-F03",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "31c1a7547c5eff50ef37f123653772bbdf440c5223581abb591eae17370e0e2d",
+      "line_end": 1403,
+      "line_start": 1254,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(*, casebook_rows: 'Sequence[Mapping[str, Any]]', a1_decisions: 'Sequence[Mapping[str, Any]]', r1_frames_by_oid: 'Mapping[str, CausalRegimeFeatureFrameR1]', datasets: 'Mapping[str, Sequence[Mapping[str, Any]]]', feature_ledger: 'Mapping[str, Mapping[str, Any]]') -> 'Dict[str, Any]'",
+      "symbol": "audit_kh01b_r1_strategy_mechanism_by_model_direction_regime"
+    },
+    {
+      "contract_id": "R1-F04",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "414af67be2edc58e1530791a4b07b77d7fcff868857ef235d6188cfef551d134",
+      "line_end": 1628,
+      "line_start": 1540,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(dataset_sha: 'str', config_sha: 'str', code_sha: 'str', thesis_specs: 'Optional[Sequence[Mapping[str, Any]]]' = None, *, e03_completeness_ratio: 'float' = 1.0, amendments: 'Sequence[Mapping[str, Any]]' = ()) -> 'FrozenKH01BR1Manifest'",
+      "symbol": "pre_register_kh01b_r1_theses"
+    },
+    {
+      "contract_id": "R1-F05",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "dae1b75600dbc9f470f2eb290e790858b36a9e13e74610d214f22481af74b930",
+      "line_end": 1034,
+      "line_start": 776,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(candidate: 'Mapping[str, Any]', verified_feature_ledger: 'Mapping[str, Mapping[str, Any]]', closed_bar_index: 'Mapping[Tuple[str, int], int]', asof_ts: 'int', *, datasets: 'Optional[Mapping[str, Sequence[Mapping[str, Any]]]]' = None, close_ts_index: 'Optional[Mapping[str, Sequence[int]]]' = None, pools_by_id: 'Optional[Mapping[str, Mapping[str, Any]]]' = None, macro_cache: 'Optional[Dict[int, Dict[str, Any]]]' = None, atr_cache: 'Optional[Dict[Tuple[str, int], Optional[float]]]' = None, gap_180m_cache: 'Optional[Dict[int, bool]]' = None, regime_ts_cache: 'Optional[Dict[Tuple[int, str], Dict[str, Any]]]' = None, pre_verified_opp_ids: 'Optional[Set[str]]' = None, base_frame_precomputed: 'Optional[FeatureEvidenceFrame]' = None) -> 'CausalRegimeFeatureFrameR1'",
+      "symbol": "extract_kh01b_r1_causal_regime_features"
+    },
+    {
+      "contract_id": "R1-F06",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "22a9c7c908de88973d8d6d56f3db04c5eb3ed0da1f0bc90ca56da8eb840800dc",
+      "line_end": 2024,
+      "line_start": 1704,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(rule_spec: 'Mapping[str, Any]', short_code: 'str', variant_id: 'str', cand: 'Mapping[str, Any]', r1_frame: 'CausalRegimeFeatureFrameR1', *, bars_1m: 'Optional[Sequence[Mapping[str, Any]]]' = None, runtime_modes: 'Optional[Mapping[str, Any]]' = None) -> 'R1CandidateDecision'",
+      "symbol": "evaluate_kh01b_r1_entry_variant"
+    },
+    {
+      "contract_id": "R1-F07",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "5348d8139cf684e2cd2e83b88417e14a4a93978826a6582abc0f88dd3f7a5796",
+      "line_end": 2747,
+      "line_start": 2532,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(frozen_manifest: 'FrozenKH01BR1Manifest', *, a1_decisions: 'Sequence[Mapping[str, Any]]', si8_decisions: 'Sequence[Mapping[str, Any]]', r1_frames_a1: 'Mapping[str, CausalRegimeFeatureFrameR1]', r1_frames_si8: 'Mapping[str, CausalRegimeFeatureFrameR1]', feature_ledger: 'Mapping[str, Mapping[str, Any]]', candidate_index: 'Mapping[str, Any]', datasets: 'Mapping[str, Any]', run_id: 'str', tested_sha: 'str') -> 'Dict[str, Any]'",
+      "symbol": "replay_kh01b_r1_frozen_variants"
+    },
+    {
+      "contract_id": "R1-F08",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "5ba5afe57206981d03af56ad8a6237e8b7b3e0145167c31128190f4787d3d853",
+      "line_end": 2529,
+      "line_start": 2303,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(bundle: 'VariantReplayBundle', folds: 'Sequence[Tuple[int, int, int, int]]', *, baseline_e00_bundle: 'Optional[VariantReplayBundle]' = None, multiplicity_m: 'int' = 10, is_sub_contrast: 'bool' = False, parent_hypothesis_code: 'str' = '', not_run_justified: 'bool' = False) -> 'KH01BR1EconomicVerdict'",
+      "symbol": "compute_kh01b_r1_edge_uncertainty_and_research_verdict"
+    },
+    {
+      "contract_id": "R1-F09",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "aab6708a8ea15b540f1755dea72fd4c6d1435fe5baebaf005ba4ff4c40b78e02",
+      "line_end": 2801,
+      "line_start": 2754,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(*, collection_report: 'Mapping[str, Any]', freeze_timestamp_ms: 'int', tested_sha: 'str', config_sha256: 'str') -> 'Tuple[Dict[str, Any], Dict[str, Any]]'",
+      "symbol": "validate_kh01b_r1_data_provenance_and_escrow"
+    },
+    {
+      "contract_id": "R1-F10",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "63914a8c4ded21564346219ccbe232942aeaf77d6c02e21f5fbc55cc234b53cd",
+      "line_end": 3372,
+      "line_start": 3097,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(run_dir: 'Path', run_id: 'str', tested_sha: 'str', *, publication_status: 'str' = 'PENDING_REMOTE_PUSH') -> 'Dict[str, Any]'",
+      "symbol": "evaluate_kh01b_r1_engineering_and_economic_gates_from_disk"
+    },
+    {
+      "contract_id": "R1-F11",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "382e4ee33a025ec0f4201180683c90de1e0a785143d27016a7776f3412590c5e",
+      "line_end": 3090,
+      "line_start": 2808,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(repo_root: 'Path') -> 'Dict[str, Any]'",
+      "symbol": "run_kh01b_r1_real_fault_injections"
+    },
+    {
+      "contract_id": "R1-F12",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "1c26dd66607f2c210d20996292ba6ea9c3250ef1dd684373920abdc0178b15d2",
+      "line_end": 3498,
+      "line_start": 3379,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(*, run_id: 'str', branch: 'str', starting_head_sha: 'str', tested_sha: 'str', dataset_sha: 'str', manifest_02: 'Mapping[str, Any]', decomp_04: 'Mapping[str, Any]', data_06: 'Mapping[str, Any]', escrow_07: 'Mapping[str, Any]', conservation_08: 'Mapping[str, Any]', economics_10: 'Mapping[str, Any]', d4_11: 'Mapping[str, Any]', junit_12: 'Mapping[str, Any]', workers_13: 'Mapping[str, Any]', resource_14: 'Mapping[str, Any]', faults_15: 'Mapping[str, Any]', parity_16: 'Mapping[str, Any]', verdicts_18: 'Mapping[str, Any]') -> 'Tuple[str, str]'",
+      "symbol": "render_kh01b_r1_readme_and_handover_vi"
+    },
+    {
+      "contract_id": "R1-F13",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function_source_sha256": "fe47a7e25dc6ff3702b045757d08f77679d70b18a159781bb5d721cbc798f16e",
+      "line_end": 3539,
+      "line_start": 3501,
+      "modification_decision": "NEW_ADDITIVE_RESEARCH_ONLY",
+      "side_effects": "NONE_RESEARCH_ONLY_IN_MEMORY_OR_OWNED_ARTIFACT_DIR",
+      "signature": "(*, readme_text: 'str', handover_text: 'str', verdicts_18: 'Mapping[str, Any]', economics_10: 'Mapping[str, Any]', junit_12: 'Mapping[str, Any]') -> 'Dict[str, Any]'",
+      "symbol": "verify_kh01b_r1_cross_view_consistency"
+    }
+  ],
+  "runtime_safety_lock": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "policy_namespace": "KH01B_R1_RESEARCH_ONLY_DEFAULT_OFF",
+    "research_only": true
+  },
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "spec_version": "KH-01B.R1-v1.0",
+  "starting_head_sha": "fe19e6b5b4b08425553ce5d2431b3a8c4aac4198",
+  "tested_executable_sha": "3661c2eeb562d326c3065bd71c89df7878203736"
+}

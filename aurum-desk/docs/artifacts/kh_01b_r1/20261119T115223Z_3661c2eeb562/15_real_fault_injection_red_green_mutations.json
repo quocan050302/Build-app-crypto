@@ -1,0 +1,228 @@
+{
+  "failed_mutations": 0,
+  "fault_suite_sha256": "ebcce76c5e8518075d9448219538eb777607fd0c5a646a6864dde444af5fc1d9",
+  "mutations": [
+    {
+      "anchored_function": "load_and_verify_kh01b_r1_sources",
+      "diagnostic": "('WRONG_MANDATORY_BRANCH:main!=feature/v17-9-2-structural-sl-tp-from-qa',)",
+      "green_accepted": true,
+      "mutation_id": "M01",
+      "name": "WRONG_MANDATORY_BRANCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "pre_register_kh01b_r1_theses",
+      "diagnostic": "max_new_hypotheses=6",
+      "green_accepted": true,
+      "mutation_id": "M02",
+      "name": "OVER_BUDGET_7TH_HYPOTHESIS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "pre_register_kh01b_r1_theses",
+      "diagnostic": "duplicate rule hash rejected",
+      "green_accepted": true,
+      "mutation_id": "M03",
+      "name": "NON_DISJOINT_DUPLICATE_RULE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "pre_register_kh01b_r1_theses",
+      "diagnostic": "modifies_tp_geometry=True blocked",
+      "green_accepted": true,
+      "mutation_id": "M04",
+      "name": "TP_MUTATION_IN_ENTRY_ARM_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('PLANTED_EXPOST_LEAKAGE_KEY_CANDIDATE:_planted_future_mfe',)",
+      "green_accepted": true,
+      "mutation_id": "M05",
+      "name": "PLANTED_FUTURE_MFE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('PLANTED_EXPOST_LEAKAGE_KEY_FEATURE_ROW:post_stop_tp_hit',)",
+      "green_accepted": true,
+      "mutation_id": "M06",
+      "name": "POST_STOP_TP_LEAKAGE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('FEATURE_ROW_FUTURE_DECISION_TS:1792000140000>1792000080000',)",
+      "green_accepted": true,
+      "mutation_id": "M07",
+      "name": "FUTURE_HTF_FEATURE_TIMESTAMP_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('UNCLOSED_BAR_IN_TRAILING_1H',)",
+      "green_accepted": true,
+      "mutation_id": "M08",
+      "name": "REOPENED_UNCLOSED_CANDLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('MISSING_REGIME_SOURCE_BAR_ID:XAUUSDT:1H:1791993600000',)",
+      "green_accepted": true,
+      "mutation_id": "M09",
+      "name": "MISSING_SOURCE_BAR_ID_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_kh01b_r1_causal_regime_features",
+      "diagnostic": "('TAMPERED_OR_INVALID_FEATURE_SNAPSHOT_PROOF_HASH',)",
+      "green_accepted": true,
+      "mutation_id": "M10",
+      "name": "TAMPERED_PERSISTED_SNAPSHOT_PROOF_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_kh01b_r1_entry_variant",
+      "diagnostic": "UNKNOWN_MISSING rejected in both trend & chop",
+      "green_accepted": true,
+      "mutation_id": "M11",
+      "name": "UNKNOWN_REGIME_BLOCKED_IN_BOTH_SPLITS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_kh01b_r1_entry_variant",
+      "diagnostic": "NON_RESCUE_BASELINE_NOT_ELIGIBLE",
+      "green_accepted": true,
+      "mutation_id": "M12",
+      "name": "NON_RESCUE_OF_REJECTED_BASELINE_CANDIDATE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "assert_research_only_runtime_modes_off",
+      "diagnostic": "LIVE=ON raises PermissionError",
+      "green_accepted": true,
+      "mutation_id": "M13",
+      "name": "LIVE_RUNTIME_ACTIVATION_FLAG_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "compute_kh01b_r1_edge_uncertainty_and_research_verdict",
+      "diagnostic": "exp=None",
+      "green_accepted": true,
+      "mutation_id": "M14",
+      "name": "ZERO_TRADES_EXPECTANCY_IS_NONE_NOT_ZERO_EDGE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "compute_kh01b_r1_edge_uncertainty_and_research_verdict",
+      "diagnostic": "UNDERPOWERED_N=10_LT_30_CANNOT_QUALIFY",
+      "green_accepted": true,
+      "mutation_id": "M15",
+      "name": "SMALL_SAMPLE_LT_30_CHERRY_PICK_CANNOT_ADVANCE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "compute_kh01b_r1_edge_uncertainty_and_research_verdict",
+      "diagnostic": "2x_net=-14.0",
+      "green_accepted": true,
+      "mutation_id": "M16",
+      "name": "COST_FRAGILE_2X_FLIP_DISQUALIFIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "compute_kh01b_r1_edge_uncertainty_and_research_verdict",
+      "diagnostic": "FATAL_FOLD_EMBARGO_OR_EPISODE_LEAKAGE",
+      "green_accepted": true,
+      "mutation_id": "M17",
+      "name": "PURGED_FOLD_EMBARGO_LT_180M_FAIL_LEAKAGE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_unicorn_adjacent_research_hypothesis",
+      "diagnostic": "counts_toward_d4=False",
+      "green_accepted": true,
+      "mutation_id": "M18",
+      "name": "ADJACENT_RELABELED_AS_D4_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_and_normalize_paginated_candles",
+      "diagnostic": "['REVERSED_OR_NON_ASCENDING_PAGINATION_ORDER:page=0']",
+      "green_accepted": true,
+      "mutation_id": "M19",
+      "name": "REVERSED_PAGINATION_ORDER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_and_normalize_paginated_candles",
+      "diagnostic": "['DUPLICATE_BAR_TIMESTAMP_BOUNDARY:1m:1792000080000']",
+      "green_accepted": true,
+      "mutation_id": "M20",
+      "name": "DUPLICATE_BOUNDARY_CANDLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_and_normalize_paginated_candles",
+      "diagnostic": "['MISSING_OR_INVALID_ORIGIN_HTTP_SHA256:page=0']",
+      "green_accepted": true,
+      "mutation_id": "M21",
+      "name": "MISSING_HTTP_ORIGIN_SHA_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_bbo_snapshot",
+      "diagnostic": "['CROSSED_BOOK_BID_GT_ASK:bid=3742.5>ask=3742.2', 'SYNTHETIC_BBO_SUBSTITUTED_FOR_REAL_EXCHANGE_L1']",
+      "green_accepted": true,
+      "mutation_id": "M22",
+      "name": "CROSSED_OR_SYNTHETIC_BBO_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_and_validate_future_oos_escrow_registry",
+      "diagnostic": "['REUSED_OR_DEV_DATASET_REJECTED_FROM_OOS_ESCROW:fake_oos:9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18']",
+      "green_accepted": true,
+      "mutation_id": "M23",
+      "name": "REUSED_DATASET_REJECTED_FROM_FRESH_OOS_ESCROW",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_and_validate_future_oos_escrow_registry",
+      "diagnostic": "['ILLEGAL_FRESH_OOS_VERDICT_IN_KH01B_R1:PASS_FINANCIAL_EDGE']",
+      "green_accepted": true,
+      "mutation_id": "M24",
+      "name": "FORCED_FRESH_OOS_PASS_FAILS_CLOSED",
+      "red_rejected": true,
+      "status": "PASS"
+    }
+  ],
+  "passed_mutations": 24,
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "spec_version": "KH-01B.R1-v1.0",
+  "status": "PASS",
+  "synthetic_fixtures_counted_in_historical_pnl": 0,
+  "total_mutations": 24
+}

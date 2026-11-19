@@ -1,0 +1,175 @@
+{
+  "captured_at_utc": "2026-11-19T12:07:00Z",
+  "credentials_used": false,
+  "receipts": [
+    {
+      "byte_length": 842,
+      "endpoint": "contracts",
+      "http_status": 200,
+      "raw_http_sha256": "6346466a16c4608c2edc5cd3a86d3fe180ae67ff13e1d9e9ebadb180cfcad591",
+      "receive_ts_ms": 1795090015722,
+      "request_ts_ms": 1795090015500,
+      "symbol": "XAUUSDT"
+    },
+    {
+      "byte_length": 593,
+      "endpoint": "ticker",
+      "http_status": 200,
+      "raw_http_sha256": "59caec14e7fdedb6f7528e148cdbd8d96d111e3f419d70550e1bec730eec4095",
+      "receive_ts_ms": 1795090016013,
+      "request_ts_ms": 1795090015722,
+      "symbol": "XAUUSDT"
+    },
+    {
+      "byte_length": 15417,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "d5145f80a6efc8b87fa46e975a224f9c2176e8df490fc65e67322a17fc04182d",
+      "receive_ts_ms": 1795090016309,
+      "request_ts_ms": 1795090016013
+    },
+    {
+      "byte_length": 15613,
+      "cursor_end_ms": 1794948000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "6cbefd22e5c7907850fb6082b9b66a7eb6e39ef2c924dd72bc55c5fcba8d05d2",
+      "receive_ts_ms": 1795090016684,
+      "request_ts_ms": 1795090016379
+    },
+    {
+      "byte_length": 15913,
+      "cursor_end_ms": 1794936000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "04922fdef88c9c1ab3a28f27303e810b90f8964730a25e137d9b26bbf0ffe3bb",
+      "receive_ts_ms": 1795090016879,
+      "request_ts_ms": 1795090016751
+    },
+    {
+      "byte_length": 15730,
+      "cursor_end_ms": 1794924000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "46fe429f44f731794f8dcba3ca99a08d287fc6bcc17a248db775bbc7a2df81b1",
+      "receive_ts_ms": 1795090017070,
+      "request_ts_ms": 1795090016949
+    },
+    {
+      "byte_length": 15700,
+      "cursor_end_ms": 1794912000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "1bea72ee7943cda239eaf307e13fb92a233602223e0e7a8bb70ed4ee8e10c80d",
+      "receive_ts_ms": 1795090017434,
+      "request_ts_ms": 1795090017141
+    },
+    {
+      "byte_length": 15659,
+      "cursor_end_ms": 1794900000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "4fb6d31fedbafa7cd8616c993464c5da42b655d7d72edb5391eaea4477680a80",
+      "receive_ts_ms": 1795090017624,
+      "request_ts_ms": 1795090017499
+    },
+    {
+      "byte_length": 15854,
+      "cursor_end_ms": 1794888000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "06dbe08294dedaab4322ad50338a0f8f942b5dec5537b16b590e3d521d3e96f7",
+      "receive_ts_ms": 1795090017833,
+      "request_ts_ms": 1795090017695
+    },
+    {
+      "byte_length": 15492,
+      "cursor_end_ms": 1794876000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "raw_http_sha256": "c4ca88886e44683199fb28748289baf22366d5b1755dc104d1d7481bd592770d",
+      "receive_ts_ms": 1795090018093,
+      "request_ts_ms": 1795090017905
+    },
+    {
+      "byte_length": 15996,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "raw_http_sha256": "9903ec6dda8feb5022c925f87c9bdda652ff8c7f6c85ca38fb30e2c5c29c433e",
+      "receive_ts_ms": 1795090018281,
+      "request_ts_ms": 1795090018167
+    },
+    {
+      "byte_length": 16012,
+      "cursor_end_ms": 1794900000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "raw_http_sha256": "ff0f07b71ef7024a6d568ddcb08552099361d68c09511221b39c864125729866",
+      "receive_ts_ms": 1795090018488,
+      "request_ts_ms": 1795090018354
+    },
+    {
+      "byte_length": 16085,
+      "cursor_end_ms": 1794840000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "raw_http_sha256": "e6cee4418dde55c5581645c3a61c0a1636926a2f7cb634c9832b7147970ceb33",
+      "receive_ts_ms": 1795090018684,
+      "request_ts_ms": 1795090018558
+    },
+    {
+      "byte_length": 16250,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "15m",
+      "http_status": 200,
+      "raw_http_sha256": "6d3ed7672002da05a2a8ee84b955be8a4e594b637e08381d1da78768f2bb7b4e",
+      "receive_ts_ms": 1795090019016,
+      "request_ts_ms": 1795090018712
+    },
+    {
+      "byte_length": 16485,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1H",
+      "http_status": 200,
+      "raw_http_sha256": "4b50b810df4b285826f0b7531badb15121b71869fca6bd58bde61a6e9e5aeb2a",
+      "receive_ts_ms": 1795090019588,
+      "request_ts_ms": 1795090019019
+    },
+    {
+      "byte_length": 16626,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "4H",
+      "http_status": 200,
+      "raw_http_sha256": "6cfc1afbf007c9f57e1d630baffccfa31d175d7feb7680ce9fcd5e853b106c9f",
+      "receive_ts_ms": 1795090019703,
+      "request_ts_ms": 1795090019589
+    },
+    {
+      "byte_length": 7677,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1D",
+      "http_status": 200,
+      "raw_http_sha256": "c8890ed24b43f03b09ac4c3ef470e73e4bef5d514179fcf587f23d0ede19ab82",
+      "receive_ts_ms": 1795090020253,
+      "request_ts_ms": 1795090019704
+    }
+  ],
+  "requests_count": 17
+}

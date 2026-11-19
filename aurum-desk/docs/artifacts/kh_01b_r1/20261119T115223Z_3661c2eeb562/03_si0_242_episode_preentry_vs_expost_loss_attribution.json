@@ -1,0 +1,51 @@
+{
+  "all_rows_partial_reconstructed_honesty": {
+    "missing_never_equated_with_false": true,
+    "prior_kh01a_r1_partial_rows_count": 170,
+    "si0_casebook_partial_rows_count": 242,
+    "upgraded_to_fake_persisted_context_count": 0
+  },
+  "casebook_ledger_rel_path": "ledgers/kh01b_r1_si0_242_casebook.jsonl.gz",
+  "casebook_rows_sha256": "e964d95593910a23c1daf10685f1861ddd45053bf2871e4a1d0a7dee7d5fd76d",
+  "closed_total": 166,
+  "descriptive_expost_sl_tp_race_summary": {
+    "disclosure": "EX_POST_OUTCOME_DIAGNOSTIC_ONLY_NEVER_USED_AS_ENTRY_SIGNAL",
+    "gross_positive_flipped_to_net_loss_by_fees_count": 0,
+    "losses_reaching_1r_mfe_before_reversing_to_sl_count": 38,
+    "losses_reaching_1r_mfe_rate": 0.242,
+    "losses_stopped_within_3_m1_bars_count": 22,
+    "losses_stopped_within_3_m1_bars_rate": 0.1401,
+    "trajectory_counts": {
+      "LOSS_GRADUAL_ADVERSE_SL_WITHOUT_1R_MFE": 97,
+      "LOSS_IMMEDIATE_ADVERSE_SL_LE_3_BARS": 22,
+      "LOSS_REACHED_1R_MFE_THEN_REVERSED_TO_SL": 38,
+      "NON_CLOSED_DATA_GAP_UNRESOLVED": 1,
+      "NON_CLOSED_NO_FORWARD_BARS": 1,
+      "NON_CLOSED_OPEN_AT_HORIZON": 74,
+      "WIN_REACHED_TP": 9
+    }
+  },
+  "loss_157_preentry_missingness_census": {
+    "denominator_losses": 157,
+    "h1_bias_missing": 61,
+    "h4_bias_missing": 56,
+    "m15_bias_missing": 110,
+    "mss_confirmed_missing": 142,
+    "sweep_confirmed_missing": 155
+  },
+  "losses_count": 157,
+  "non_closed_count": 76,
+  "population_evaluated": "SI0_B00_SCHEDULED_242_EPISODES",
+  "scheduled_total": 242,
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "spec_version": "KH-01B.R1-v1.0",
+  "win_9_control_preentry_missingness_census": {
+    "denominator_wins": 9,
+    "h1_bias_missing": 5,
+    "h4_bias_missing": 5,
+    "m15_bias_missing": 7,
+    "mss_confirmed_missing": 8,
+    "sweep_confirmed_missing": 9
+  },
+  "wins_control_count": 9
+}

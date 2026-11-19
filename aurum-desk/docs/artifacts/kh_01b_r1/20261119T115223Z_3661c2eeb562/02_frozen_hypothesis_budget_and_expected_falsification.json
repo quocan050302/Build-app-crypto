@@ -1,0 +1,213 @@
+{
+  "amendments": [],
+  "code_sha256": "3661c2eeb562d326c3065bd71c89df7878203736",
+  "config_sha256": "73c736e8fb701b26ead42946d4d1292427a0c904ecd87489d83459c53e58ceea",
+  "cost_multipliers_evaluated": [
+    1.0,
+    2.0,
+    3.0
+  ],
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "e03_pre_outcome_completeness_ratio": 1.0,
+  "e06_execution_status": "EXECUTABLE_PRECONDITIONS_MET",
+  "frozen_before_outcome_evaluation": true,
+  "manifest_id": "KH01B_R1_PREREG_V1_INITIAL",
+  "manifest_sha256": "d5605ccec9b86394af403684fbe3141b8b771ff2e2402eec2aa7f343c102cd15",
+  "max_new_hypotheses_budget": 6,
+  "max_planned_risk_usd": 2.5,
+  "min_net_rr": 2.0,
+  "min_powered_closed_trades": 30,
+  "multiplicity_family_size_m": 9,
+  "prior_kh01b_manifest_sha256": "82049cc36152a062285f49dbe2598aafc7754a64da2135a9d50250912007e253",
+  "purged_embargo_minutes": 180,
+  "registered_new_hypotheses_count": 6,
+  "run_id": "20261119T115223Z_3661c2eeb562",
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "spec_version": "KH-01B.R1-v1.0",
+  "tested_executable_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+  "theses": [
+    {
+      "causal_mechanism": "Unchanged A1/SI0 multi-model candidate stream under STATIC_PRODUCTION_PRIORITY.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "Exact unchanged SI0/B00 baseline control for parity & paired counterfactuals.",
+      "falsification_criterion": "Parity fails if scheduled != 242, closed != 166, or net_pnl != -345.8971 USD.",
+      "is_baseline_control": true,
+      "modifies_tp_geometry": false,
+      "ontology": "BASELINE_CONTROL",
+      "predeclared_sub_contrasts": [],
+      "rule": {
+        "type": "UNCHANGED_B00_CONTROL"
+      },
+      "short_code": "E00",
+      "variant_id": "KH01B_R1-E00-UNCHANGED-B00-CONTROL"
+    },
+    {
+      "causal_mechanism": "Test whether isolating structural FVG continuation (primary E01) and the 3-model contrast group (Reversal / Continuation / FVG-Continuation) uncovers positive model-specific expectancy masked by Reversal priority #1.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "B01..B12 pooled all model_ids under Reversal-first static priority; E01 isolates individual model families known at decision time.",
+      "falsification_criterion": "Disproved if every isolated model family has net_expectancy_r <= 0 or fails 2x all-cost stress.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "MODEL_FAMILY_ISOLATION_RESEARCH",
+      "predeclared_sub_contrasts": [
+        {
+          "rule": {
+            "allowed_model_ids": [
+              "SMC_M1_REVERSAL"
+            ],
+            "type": "MODEL_FAMILY_ONLY"
+          },
+          "short_code": "E01_C1",
+          "variant_id": "KH01B_R1-E01_C1-MODEL-REVERSAL-ONLY"
+        },
+        {
+          "rule": {
+            "allowed_model_ids": [
+              "SMC_M1_CONTINUATION"
+            ],
+            "type": "MODEL_FAMILY_ONLY"
+          },
+          "short_code": "E01_C2",
+          "variant_id": "KH01B_R1-E01_C2-MODEL-CONTINUATION-ONLY"
+        },
+        {
+          "rule": {
+            "allowed_model_ids": [
+              "SMC_M1_FVG_CONTINUATION"
+            ],
+            "type": "MODEL_FAMILY_ONLY"
+          },
+          "short_code": "E01_C3",
+          "variant_id": "KH01B_R1-E01_C3-MODEL-FVG-CONTINUATION-ONLY"
+        }
+      ],
+      "rule": {
+        "allowed_model_ids": [
+          "SMC_M1_FVG_CONTINUATION"
+        ],
+        "type": "MODEL_FAMILY_ONLY"
+      },
+      "short_code": "E01",
+      "variant_id": "KH01B_R1-E01-MODEL-FAMILY-ISOLATION"
+    },
+    {
+      "causal_mechanism": "Test whether M1 losses are driven by one-sided directional mismatch against the 20-day XAUUSDT drift or fail symmetrically on both LONG and SHORT.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "B01..B12 pooled LONG and SHORT trades; E02 tests fixed LONG-only vs SHORT-only contrasts on the identical 56,710 universe.",
+      "falsification_criterion": "Disproved if both LONG-only and SHORT-only remain net negative after 1x/2x costs.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "DIRECTIONAL_ISOLATION_RESEARCH",
+      "predeclared_sub_contrasts": [
+        {
+          "rule": {
+            "allowed_direction": "LONG",
+            "type": "DIRECTION_ONLY"
+          },
+          "short_code": "E02_C1",
+          "variant_id": "KH01B_R1-E02_C1-LONG-ONLY"
+        },
+        {
+          "rule": {
+            "allowed_direction": "SHORT",
+            "type": "DIRECTION_ONLY"
+          },
+          "short_code": "E02_C2",
+          "variant_id": "KH01B_R1-E02_C2-SHORT-ONLY"
+        }
+      ],
+      "rule": {
+        "allowed_direction": "SHORT",
+        "type": "DIRECTION_ONLY"
+      },
+      "short_code": "E02",
+      "variant_id": "KH01B_R1-E02-DIRECTIONAL-MISMATCH"
+    },
+    {
+      "causal_mechanism": "Test whether M1 entries require active H1 volatility expansion + aligned M15 directional impulse rather than compressed chop; explicitly contrasted against CHOP_OR_COUNTER_REGIME.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "B01..B03 used sparse discrete swing bias labels (38% missing); E03 computes continuous trailing closed H1 ATR(14) expansion (>=50th trailing-48bar pct) + M15 8-bar directional efficiency (>=0.25) directly from closed bars.",
+      "falsification_criterion": "Disproved if TREND_EXPANSION_ALIGNED fails to achieve positive net expectancy & 2x cost survival.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "CAUSAL_REGIME_RESEARCH",
+      "predeclared_sub_contrasts": [
+        {
+          "rule": {
+            "target_regime": "CHOP_OR_COUNTER_REGIME",
+            "type": "CAUSAL_REGIME_RULE"
+          },
+          "short_code": "E03_CHOP",
+          "variant_id": "KH01B_R1-E03_CHOP-COMPLEMENT-DIAGNOSTIC"
+        }
+      ],
+      "rule": {
+        "h1_atr_pct_min": 0.5,
+        "m15_signed_eff_min": 0.25,
+        "target_regime": "TREND_EXPANSION_ALIGNED",
+        "type": "CAUSAL_REGIME_RULE"
+      },
+      "short_code": "E03",
+      "variant_id": "KH01B_R1-E03-CAUSAL-REGIME-MATCHING"
+    },
+    {
+      "causal_mechanism": "Test whether SI0's negative edge is an artifact of post-gap distorted indicators or low-ATR ticks where $0.20 spread exceeds 35% of 1-minute range.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "Never tested in B01..B12; isolates pure decision-time bar continuity, closed-bar freshness, and modeled spread-to-M1-ATR friction <= 0.35.",
+      "falsification_criterion": "Disproved if clean, fresh, low-spread-to-ATR cohort still exhibits negative net expectancy.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "DATA_AND_QUOTE_QUALITY_RESEARCH",
+      "predeclared_sub_contrasts": [],
+      "rule": {
+        "forbid_180m_gap": true,
+        "max_spread_to_m1_atr": 0.35,
+        "require_fresh_tf_bars": true,
+        "type": "PREENTRY_QUALITY_COHORT"
+      },
+      "short_code": "E04",
+      "variant_id": "KH01B_R1-E04-PREENTRY-GAP-QUOTE-QUALITY-COHORT"
+    },
+    {
+      "causal_mechanism": "Test whether waiting for a subsequent closed confirmation bar filters immediate t0 stop-outs without destroying net R:R (>=2.0) at the shifted entry price.",
+      "delayed_entry_time_shift": true,
+      "distinct_from_prior_kh01b": "All B00..B12 arms entered immediately at t0; E05 uses advance_pending_confirmation_state_v1793122 to wait 1..6 subsequent closed M1 bars for displacement/retest confirmation and recomputes entry/SL/TP/qty/risk at confirmed_at_ms > t0.",
+      "falsification_criterion": "Disproved if time-shifted confirmed entries still produce negative net expectancy or fail 2x all-cost stress.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "CAUSAL_TIME_SHIFTED_TRIGGER_RESEARCH",
+      "predeclared_sub_contrasts": [],
+      "rule": {
+        "max_planned_risk_usd": 2.5,
+        "max_wait_bars_m1": 6,
+        "min_displacement_body_atr_ratio": 0.55,
+        "min_net_rr": 2.0,
+        "type": "DELAYED_CLOSED_BAR_CONFIRMATION"
+      },
+      "short_code": "E05",
+      "variant_id": "KH01B_R1-E05-CAUSAL-DELAYED-CONFIRMATION-TRIGGER"
+    },
+    {
+      "causal_mechanism": "Test whether M1 FVG continuation succeeds specifically when H1 ATR is expanding and M15 momentum is directionally aligned, without Reversal priority #1 interference.",
+      "delayed_entry_time_shift": false,
+      "distinct_from_prior_kh01b": "Single predeclared Regime x Model interaction (SMC_M1_FVG_CONTINUATION inside E03 TREND_EXPANSION_ALIGNED), gated BEFORE outcome computation on E03 completeness >= 0.95.",
+      "falsification_criterion": "Disproved if net expectancy <= 0, closed trades < 30 (UNDERPOWERED), or 2x all-cost net PnL <= 0.",
+      "is_baseline_control": false,
+      "modifies_tp_geometry": false,
+      "ontology": "REGIME_X_MODEL_INTERACTION_RESEARCH",
+      "pre_outcome_gate_status": "EXECUTABLE_PRECONDITIONS_MET",
+      "predeclared_sub_contrasts": [],
+      "rule": {
+        "allowed_model_ids": [
+          "SMC_M1_FVG_CONTINUATION"
+        ],
+        "min_required_e03_completeness": 0.95,
+        "target_regime": "TREND_EXPANSION_ALIGNED",
+        "type": "REGIME_X_MODEL_INTERACTION"
+      },
+      "short_code": "E06",
+      "variant_id": "KH01B_R1-E06-REGIME-X-FVG-CONTINUATION-INTERACTION"
+    }
+  ],
+  "total_arms_including_control": 7
+}

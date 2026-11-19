@@ -1,0 +1,77 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "completed_at_utc": "2026-11-19T12:20:58Z",
+  "config_hashes": {
+    "cost_assumptions_sha256": "0fbd26c552566e0a35536f8bbc972eb5548f84723d268c897fb12d6ff9fe7afd",
+    "kh01b_r1_runtime_lock_sha256": "47c2298825d120104ddb77d3d92f1ce00bb2abd4a307e3c23f84b48c070363f6",
+    "research_policy_registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913",
+    "scalp_config_sha256": "7c929fe49cb906a8780d304dd267f159abd62767fcaebbd12fd569ca4d162dc3",
+    "signal_intelligence_registry_hash": "9fd87faffa9a0ed2f29c4680673122e03e3670f7c4c98ea1ed90d00cd3f9fba2"
+  },
+  "disk_reserve_policy": {
+    "abort_reason": null,
+    "baseline_already_below_20gib": true,
+    "can_proceed": true,
+    "effective_enforced_reserve_bytes": 10737418240,
+    "effective_enforced_reserve_gib": 10.0,
+    "hard_abort_floor_gib": 10.0,
+    "preflight_baseline_free_bytes": 14459752448,
+    "preflight_baseline_free_gb_decimal": 14.4598,
+    "preflight_baseline_free_gib": 13.4667,
+    "standard_target_reserve_gib": 20.0
+  },
+  "freeze_timestamp_ms": 1795089143021,
+  "orchestrator_pid": 57634,
+  "preflight_host_resources": {
+    "available_ram_gb": 2.78,
+    "cpu_count": 8,
+    "free_disk_gib": 13.4667
+  },
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_immutable_bundles_before": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "v10_to_v19_files_count": 1364,
+    "v10_to_v19_sha256": "63667c755941267aa991d1d954f98b91d21316a4c5fdb3e3541909cae911bfe5"
+  },
+  "prior_use_status": "REUSED_RESEARCH",
+  "run_id": "20261119T115223Z_3661c2eeb562",
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "source_manifest_before": {
+    "files_count": 812,
+    "sha256": "edb52fce4bfd01259fdd8c3b5f58b5b9320e4060122c41d2b1c5f710796dff13"
+  },
+  "source_tree_unchanged_during_run": true,
+  "source_truth": {
+    "a1_candidate_count": 56710,
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "expected_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+    "forensics_170_partial_count": 170,
+    "prior_kh01a_r1_run_id": "20261119T021545Z_c1ba40df7ed9",
+    "prior_kh01b_b00_expectancy_r": -0.8474,
+    "prior_kh01b_b00_net_pnl_usd": -345.8971,
+    "prior_kh01b_b09_closed_trades": 0,
+    "prior_kh01b_b12_closed_trades": 20,
+    "prior_kh01b_manifest_sha256": "82049cc36152a062285f49dbe2598aafc7754a64da2135a9d50250912007e253",
+    "prior_kh01b_run_id": "20261119T090052Z_a7f0f4367888",
+    "prior_kh01b_tested_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+    "prior_use_status": "REUSED_RESEARCH",
+    "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+    "si0_closed_count": 166,
+    "si0_losses_count": 157,
+    "si0_scheduled_count": 242,
+    "si0_wins_count": 9,
+    "si8_discovery_count": 6375,
+    "source_truth_sha256": "839fc2ca6d87210ba2446d6828a25cf9149d365a4d1c9e155ed8ce25e2200f26",
+    "spec_version": "KH-01B.R1-v1.0",
+    "total_candidate_universe_count": 63085,
+    "verification_passed": true,
+    "violations": []
+  },
+  "spec_version": "KH-01B.R1-v1.0",
+  "started_at_utc": "2026-11-19T11:52:24Z",
+  "starting_head_sha": "fe19e6b5b4b08425553ce5d2431b3a8c4aac4198",
+  "tested_executable_sha": "3661c2eeb562d326c3065bd71c89df7878203736"
+}

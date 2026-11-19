@@ -1,0 +1,23 @@
+{
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "canonical_reused_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_reused_sample_end_ms": 1793195940000,
+  "earliest_permissible_future_oos_open_ms": 1795099943021,
+  "earliest_permissible_future_oos_utc": "2026-11-19T14:52:23Z",
+  "embargo_minutes_required": 180,
+  "escrow_registry_sha256": "0deef63fccbca2c79c984b7eb2de81446532ea15edf62f96f39bd19fdd1e7960",
+  "escrow_schema_version": "kh_01b_r1.future_oos_escrow.v1",
+  "freeze_timestamp_ms": 1795089143021,
+  "frozen_candidate_code_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+  "frozen_config_sha256": "73c736e8fb701b26ead42946d4d1292427a0c904ecd87489d83459c53e58ceea",
+  "known_excluded_dev_shas": [
+    "1ea5b4e071c97a872b1ff606610e004396e18715d54c60e4ba24475e78371f3e",
+    "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+  ],
+  "sealed_entries": [],
+  "sealed_future_oos_datasets_count": 0,
+  "status": "PASS",
+  "strategy_evaluation_count_total": 0,
+  "violations": [],
+  "write_once_policy": "APPEND_ONLY_NO_EVALUATION_IN_KH01B_R1"
+}

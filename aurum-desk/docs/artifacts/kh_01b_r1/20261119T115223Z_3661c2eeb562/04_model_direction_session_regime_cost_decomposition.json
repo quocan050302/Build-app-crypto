@@ -1,0 +1,530 @@
+{
+  "a1_to_si0_model_arbitration_and_blocking_funnel": {
+    "CG01_SWEEP_MSS_FVG": {
+      "a1_candidates_count": 17898,
+      "blocked_by_active_1pos_open_trade_count": 0,
+      "scheduled_in_si0_b00_count": 0,
+      "static_priority_rank": 5,
+      "stratum_outcome_in_si0": {
+        "closed_count": 0,
+        "fee_drag_r": null,
+        "gross_expectancy_r": null,
+        "gross_pnl_usd": 0,
+        "losses_count": 0,
+        "net_expectancy_r": null,
+        "net_pnl_usd": 0,
+        "sample_power_flag": "NOT_ESTIMABLE_ZERO_TRADES",
+        "scheduled_count": 0,
+        "share_of_parent_closed": 0.0,
+        "total_fees_usd": 0,
+        "win_rate": null,
+        "win_rate_wilson_95ci": null,
+        "wins_count": 0
+      },
+      "suppressed_at_same_timestamp_tie_count": 17898,
+      "won_timestamp_arbitration_count": 0
+    },
+    "SMC_M1_CONTINUATION": {
+      "a1_candidates_count": 4044,
+      "blocked_by_active_1pos_open_trade_count": 2183,
+      "scheduled_in_si0_b00_count": 44,
+      "static_priority_rank": 2,
+      "stratum_outcome_in_si0": {
+        "closed_count": 24,
+        "fee_drag_r": 0.3815,
+        "gross_expectancy_r": -0.6769,
+        "gross_pnl_usd": -39.7933,
+        "losses_count": 24,
+        "net_expectancy_r": -1.0574,
+        "net_pnl_usd": -62.2227,
+        "sample_power_flag": "UNDERPOWERED_N_LT_30",
+        "scheduled_count": 44,
+        "share_of_parent_closed": 0.1446,
+        "total_fees_usd": 22.4294,
+        "win_rate": 0.0,
+        "win_rate_wilson_95ci": [
+          0.0,
+          0.137976
+        ],
+        "wins_count": 0
+      },
+      "suppressed_at_same_timestamp_tie_count": 1817,
+      "won_timestamp_arbitration_count": 2227
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "a1_candidates_count": 17898,
+      "blocked_by_active_1pos_open_trade_count": 7570,
+      "scheduled_in_si0_b00_count": 66,
+      "static_priority_rank": 3,
+      "stratum_outcome_in_si0": {
+        "closed_count": 52,
+        "fee_drag_r": 0.4923,
+        "gross_expectancy_r": -0.3953,
+        "gross_pnl_usd": -50.5151,
+        "losses_count": 49,
+        "net_expectancy_r": -0.8874,
+        "net_pnl_usd": -113.4202,
+        "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+        "scheduled_count": 66,
+        "share_of_parent_closed": 0.3133,
+        "total_fees_usd": 62.9051,
+        "win_rate": 0.057692,
+        "win_rate_wilson_95ci": [
+          0.019814,
+          0.156425
+        ],
+        "wins_count": 3
+      },
+      "suppressed_at_same_timestamp_tie_count": 10262,
+      "won_timestamp_arbitration_count": 7636
+    },
+    "SMC_M1_REVERSAL": {
+      "a1_candidates_count": 8879,
+      "blocked_by_active_1pos_open_trade_count": 8747,
+      "scheduled_in_si0_b00_count": 132,
+      "static_priority_rank": 1,
+      "stratum_outcome_in_si0": {
+        "closed_count": 90,
+        "fee_drag_r": 0.5312,
+        "gross_expectancy_r": -0.2367,
+        "gross_pnl_usd": -52.4752,
+        "losses_count": 84,
+        "net_expectancy_r": -0.7682,
+        "net_pnl_usd": -170.2542,
+        "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+        "scheduled_count": 132,
+        "share_of_parent_closed": 0.5422,
+        "total_fees_usd": 117.779,
+        "win_rate": 0.066667,
+        "win_rate_wilson_95ci": [
+          0.03091,
+          0.137901
+        ],
+        "wins_count": 6
+      },
+      "suppressed_at_same_timestamp_tie_count": 0,
+      "won_timestamp_arbitration_count": 8879
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "a1_candidates_count": 7991,
+      "blocked_by_active_1pos_open_trade_count": 2,
+      "scheduled_in_si0_b00_count": 0,
+      "static_priority_rank": 4,
+      "stratum_outcome_in_si0": {
+        "closed_count": 0,
+        "fee_drag_r": null,
+        "gross_expectancy_r": null,
+        "gross_pnl_usd": 0,
+        "losses_count": 0,
+        "net_expectancy_r": null,
+        "net_pnl_usd": 0,
+        "sample_power_flag": "NOT_ESTIMABLE_ZERO_TRADES",
+        "scheduled_count": 0,
+        "share_of_parent_closed": 0.0,
+        "total_fees_usd": 0,
+        "win_rate": null,
+        "win_rate_wilson_95ci": null,
+        "wins_count": 0
+      },
+      "suppressed_at_same_timestamp_tie_count": 7989,
+      "won_timestamp_arbitration_count": 2
+    }
+  },
+  "market_regime_confounding_context": {
+    "directional_confounding_note": "Single 20.35-day XAUUSDT window exhibits directional drift; LONG vs SHORT differences cannot be asserted as permanent directional alpha without multi-regime OOS validation.",
+    "xauusdt_net_price_change_usd": -75.62,
+    "xauusdt_net_return_pct": -1.8297,
+    "xauusdt_period_high": 4222.7,
+    "xauusdt_period_low": 3979.01,
+    "xauusdt_sample_end_price": 4057.2,
+    "xauusdt_sample_start_price": 4132.82
+  },
+  "overall_gross_vs_fee_decomposition": {
+    "closed_count": 166,
+    "fee_drag_r": 0.4975,
+    "fee_drag_share_of_net_loss": 0.5872,
+    "gross_expectancy_r": -0.3497,
+    "gross_loss_share_of_net_loss": 0.4128,
+    "gross_pnl_usd": -142.7836,
+    "losses_count": 157,
+    "net_expectancy_r": -0.8474,
+    "net_pnl_usd": -345.8971,
+    "primary_thesis_finding": "SI0 baseline has NEGATIVE GROSS ALPHA BEFORE TAKER FEES (gross_pnl=-142.7836 USD, gross_expectancy_r=-0.3497R) compounded by high M1 turnover fee drag (fees=203.1135 USD, fee_drag_r=0.4975R). Fee reduction alone cannot rescue a negative-gross-expectancy entry thesis.",
+    "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+    "scheduled_count": 242,
+    "share_of_parent_closed": 1.0,
+    "total_fees_usd": 203.1135,
+    "win_rate": 0.054217,
+    "win_rate_wilson_95ci": [
+      0.028783,
+      0.099816
+    ],
+    "wins_count": 9
+  },
+  "parent_population_conservation": {
+    "a1_candidates_total": 56710,
+    "si0_closed_total": 166,
+    "si0_scheduled_total": 242,
+    "stratum_closed_sum_direction": 166,
+    "stratum_closed_sum_model": 166,
+    "stratum_closed_sum_regime": 166
+  },
+  "schema_version": "kh_01b_r1.entry_edge_discovery.v1",
+  "spec_version": "KH-01B.R1-v1.0",
+  "strata_by_causal_regime": {
+    "CHOP_OR_COUNTER_REGIME": {
+      "closed_count": 94,
+      "fee_drag_r": 0.5108,
+      "gross_expectancy_r": -0.3249,
+      "gross_pnl_usd": -75.1131,
+      "losses_count": 88,
+      "net_expectancy_r": -0.8358,
+      "net_pnl_usd": -193.1844,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 140,
+      "share_of_parent_closed": 0.5663,
+      "total_fees_usd": 118.0713,
+      "win_rate": 0.06383,
+      "win_rate_wilson_95ci": [
+        0.02958,
+        0.13233
+      ],
+      "wins_count": 6
+    },
+    "TREND_EXPANSION_ALIGNED": {
+      "closed_count": 72,
+      "fee_drag_r": 0.4801,
+      "gross_expectancy_r": -0.382,
+      "gross_pnl_usd": -67.6705,
+      "losses_count": 69,
+      "net_expectancy_r": -0.8625,
+      "net_pnl_usd": -152.7127,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 102,
+      "share_of_parent_closed": 0.4337,
+      "total_fees_usd": 85.0422,
+      "win_rate": 0.041667,
+      "win_rate_wilson_95ci": [
+        0.014271,
+        0.115493
+      ],
+      "wins_count": 3
+    }
+  },
+  "strata_by_direction": {
+    "LONG": {
+      "closed_count": 58,
+      "fee_drag_r": 0.521,
+      "gross_expectancy_r": -0.4248,
+      "gross_pnl_usd": -60.7417,
+      "losses_count": 57,
+      "net_expectancy_r": -0.9455,
+      "net_pnl_usd": -135.2395,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 89,
+      "share_of_parent_closed": 0.3494,
+      "total_fees_usd": 74.4978,
+      "win_rate": 0.017241,
+      "win_rate_wilson_95ci": [
+        0.00305,
+        0.091409
+      ],
+      "wins_count": 1
+    },
+    "SHORT": {
+      "closed_count": 108,
+      "fee_drag_r": 0.4848,
+      "gross_expectancy_r": -0.3092,
+      "gross_pnl_usd": -82.0419,
+      "losses_count": 100,
+      "net_expectancy_r": -0.7946,
+      "net_pnl_usd": -210.6576,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 153,
+      "share_of_parent_closed": 0.6506,
+      "total_fees_usd": 128.6157,
+      "win_rate": 0.074074,
+      "win_rate_wilson_95ci": [
+        0.03801,
+        0.139397
+      ],
+      "wins_count": 8
+    }
+  },
+  "strata_by_model_family": {
+    "SMC_M1_CONTINUATION": {
+      "closed_count": 24,
+      "fee_drag_r": 0.3815,
+      "gross_expectancy_r": -0.6769,
+      "gross_pnl_usd": -39.7933,
+      "losses_count": 24,
+      "net_expectancy_r": -1.0574,
+      "net_pnl_usd": -62.2227,
+      "sample_power_flag": "UNDERPOWERED_N_LT_30",
+      "scheduled_count": 44,
+      "share_of_parent_closed": 0.1446,
+      "total_fees_usd": 22.4294,
+      "win_rate": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.137976
+      ],
+      "wins_count": 0
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "closed_count": 52,
+      "fee_drag_r": 0.4923,
+      "gross_expectancy_r": -0.3953,
+      "gross_pnl_usd": -50.5151,
+      "losses_count": 49,
+      "net_expectancy_r": -0.8874,
+      "net_pnl_usd": -113.4202,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 66,
+      "share_of_parent_closed": 0.3133,
+      "total_fees_usd": 62.9051,
+      "win_rate": 0.057692,
+      "win_rate_wilson_95ci": [
+        0.019814,
+        0.156425
+      ],
+      "wins_count": 3
+    },
+    "SMC_M1_REVERSAL": {
+      "closed_count": 90,
+      "fee_drag_r": 0.5312,
+      "gross_expectancy_r": -0.2367,
+      "gross_pnl_usd": -52.4752,
+      "losses_count": 84,
+      "net_expectancy_r": -0.7682,
+      "net_pnl_usd": -170.2542,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 132,
+      "share_of_parent_closed": 0.5422,
+      "total_fees_usd": 117.779,
+      "win_rate": 0.066667,
+      "win_rate_wilson_95ci": [
+        0.03091,
+        0.137901
+      ],
+      "wins_count": 6
+    }
+  },
+  "strata_by_ny_session_bucket": {
+    "ASIA_OR_ROLLOVER_SESSION": {
+      "closed_count": 57,
+      "fee_drag_r": 0.4758,
+      "gross_expectancy_r": -0.3666,
+      "gross_pnl_usd": -51.3662,
+      "losses_count": 54,
+      "net_expectancy_r": -0.8419,
+      "net_pnl_usd": -118.0375,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 82,
+      "share_of_parent_closed": 0.3434,
+      "total_fees_usd": 66.6713,
+      "win_rate": 0.052632,
+      "win_rate_wilson_95ci": [
+        0.01806,
+        0.143696
+      ],
+      "wins_count": 3
+    },
+    "LONDON_SESSION": {
+      "closed_count": 28,
+      "fee_drag_r": 0.3919,
+      "gross_expectancy_r": -0.4429,
+      "gross_pnl_usd": -30.4213,
+      "losses_count": 26,
+      "net_expectancy_r": -0.8418,
+      "net_pnl_usd": -57.3353,
+      "sample_power_flag": "UNDERPOWERED_N_LT_30",
+      "scheduled_count": 42,
+      "share_of_parent_closed": 0.1687,
+      "total_fees_usd": 26.914,
+      "win_rate": 0.071429,
+      "win_rate_wilson_95ci": [
+        0.019812,
+        0.226454
+      ],
+      "wins_count": 2
+    },
+    "NY_AM_SESSION": {
+      "closed_count": 12,
+      "fee_drag_r": 0.339,
+      "gross_expectancy_r": 0.1339,
+      "gross_pnl_usd": 3.9046,
+      "losses_count": 9,
+      "net_expectancy_r": -0.2053,
+      "net_pnl_usd": -5.9786,
+      "sample_power_flag": "UNDERPOWERED_N_LT_30",
+      "scheduled_count": 23,
+      "share_of_parent_closed": 0.0723,
+      "total_fees_usd": 9.8832,
+      "win_rate": 0.25,
+      "win_rate_wilson_95ci": [
+        0.088942,
+        0.532305
+      ],
+      "wins_count": 3
+    },
+    "NY_PM_SESSION": {
+      "closed_count": 34,
+      "fee_drag_r": 0.5257,
+      "gross_expectancy_r": -0.474,
+      "gross_pnl_usd": -39.7533,
+      "losses_count": 34,
+      "net_expectancy_r": -0.9998,
+      "net_pnl_usd": -83.8426,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 43,
+      "share_of_parent_closed": 0.2048,
+      "total_fees_usd": 44.0893,
+      "win_rate": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.101515
+      ],
+      "wins_count": 0
+    },
+    "WEEKEND_WINDOW": {
+      "closed_count": 35,
+      "fee_drag_r": 0.6423,
+      "gross_expectancy_r": -0.2908,
+      "gross_pnl_usd": -25.1474,
+      "losses_count": 34,
+      "net_expectancy_r": -0.9328,
+      "net_pnl_usd": -80.7031,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 52,
+      "share_of_parent_closed": 0.2108,
+      "total_fees_usd": 55.5557,
+      "win_rate": 0.028571,
+      "win_rate_wilson_95ci": [
+        0.005061,
+        0.145331
+      ],
+      "wins_count": 1
+    }
+  },
+  "strata_by_recent_180m_gap": {
+    "NO_RECENT_180M_GAP": {
+      "closed_count": 149,
+      "fee_drag_r": 0.4871,
+      "gross_expectancy_r": -0.3331,
+      "gross_pnl_usd": -122.0134,
+      "losses_count": 140,
+      "net_expectancy_r": -0.8207,
+      "net_pnl_usd": -300.4406,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 217,
+      "share_of_parent_closed": 0.8976,
+      "total_fees_usd": 178.4272,
+      "win_rate": 0.060403,
+      "win_rate_wilson_95ci": [
+        0.0321,
+        0.110802
+      ],
+      "wins_count": 9
+    },
+    "RECENT_180M_GAP_TRUE": {
+      "closed_count": 17,
+      "fee_drag_r": 0.5873,
+      "gross_expectancy_r": -0.4942,
+      "gross_pnl_usd": -20.7702,
+      "losses_count": 17,
+      "net_expectancy_r": -1.0809,
+      "net_pnl_usd": -45.4565,
+      "sample_power_flag": "UNDERPOWERED_N_LT_30",
+      "scheduled_count": 25,
+      "share_of_parent_closed": 0.1024,
+      "total_fees_usd": 24.6863,
+      "win_rate": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.184318
+      ],
+      "wins_count": 0
+    }
+  },
+  "strata_by_spread_to_m1_atr_ratio": {
+    "HIGH_FRICTION_GT_0_35_M1_ATR": {
+      "closed_count": 42,
+      "fee_drag_r": 0.6413,
+      "gross_expectancy_r": -0.2532,
+      "gross_pnl_usd": -26.322,
+      "losses_count": 40,
+      "net_expectancy_r": -0.893,
+      "net_pnl_usd": -92.9816,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 66,
+      "share_of_parent_closed": 0.253,
+      "total_fees_usd": 66.6596,
+      "win_rate": 0.047619,
+      "win_rate_wilson_95ci": [
+        0.013158,
+        0.157899
+      ],
+      "wins_count": 2
+    },
+    "LOW_FRICTION_LE_0_20_M1_ATR": {
+      "closed_count": 90,
+      "fee_drag_r": 0.4257,
+      "gross_expectancy_r": -0.4132,
+      "gross_pnl_usd": -91.0794,
+      "losses_count": 85,
+      "net_expectancy_r": -0.84,
+      "net_pnl_usd": -184.9358,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 129,
+      "share_of_parent_closed": 0.5422,
+      "total_fees_usd": 93.8564,
+      "win_rate": 0.055556,
+      "win_rate_wilson_95ci": [
+        0.023961,
+        0.123537
+      ],
+      "wins_count": 5
+    },
+    "MODERATE_FRICTION_0_20_TO_0_35_M1_ATR": {
+      "closed_count": 34,
+      "fee_drag_r": 0.5077,
+      "gross_expectancy_r": -0.3025,
+      "gross_pnl_usd": -25.3822,
+      "losses_count": 32,
+      "net_expectancy_r": -0.8104,
+      "net_pnl_usd": -67.9797,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 47,
+      "share_of_parent_closed": 0.2048,
+      "total_fees_usd": 42.5975,
+      "win_rate": 0.058824,
+      "win_rate_wilson_95ci": [
+        0.016283,
+        0.190936
+      ],
+      "wins_count": 2
+    }
+  },
+  "strata_by_target_source_tf_atr_distance": {
+    "UNKNOWN_SOURCE_TF_ATR_DISTANCE": {
+      "closed_count": 166,
+      "fee_drag_r": 0.4975,
+      "gross_expectancy_r": -0.3497,
+      "gross_pnl_usd": -142.7836,
+      "losses_count": 157,
+      "net_expectancy_r": -0.8474,
+      "net_pnl_usd": -345.8971,
+      "sample_power_flag": "DESCRIPTIVE_N_GE_30",
+      "scheduled_count": 242,
+      "share_of_parent_closed": 1.0,
+      "total_fees_usd": 203.1135,
+      "win_rate": 0.054217,
+      "win_rate_wilson_95ci": [
+        0.028783,
+        0.099816
+      ],
+      "wins_count": 9
+    }
+  }
+}

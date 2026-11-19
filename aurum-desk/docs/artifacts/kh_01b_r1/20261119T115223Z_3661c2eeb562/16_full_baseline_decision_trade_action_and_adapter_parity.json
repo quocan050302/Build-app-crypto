@@ -1,0 +1,39 @@
+{
+  "a1_evaluated_count": 56710,
+  "a1_mismatches_count": 0,
+  "a1_population_denominator": 56710,
+  "a1_streaming_telemetry": {
+    "evaluated_count": 56710,
+    "mismatches_count": 0,
+    "mismatches_sample": [],
+    "population_denominator": 56710,
+    "population_name": "CANONICAL_A1_V1792_SL_TP_BASELINE_ELIGIBLE_OPPORTUNITIES",
+    "status": "PASS",
+    "unique_timestamps_evaluated": 18744,
+    "wall_clock_seconds": 91.862,
+    "worker_partitions": 4
+  },
+  "b00_vs_si0_exact_match": true,
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "e00_vs_si0_exact_match": true,
+  "fake_activation_config_rejected": true,
+  "parity_sha256": "af4d2962a495e11423f9b75ed0998eac6146c61ba61042b9747b344cfb10a00e",
+  "risk_cap_violations_count": 0,
+  "runtime_modes_all_off": true,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "si8_mismatches_count": 0,
+  "si8_population_denominator": 6375,
+  "si8_verified_count": 6375,
+  "spec_version": "KH-01B-v1.0",
+  "status": "PASS",
+  "tampered_fingerprint_negative_control_detected": true,
+  "tested_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+  "three_adapter_episodes_denominator": 246,
+  "three_adapter_mismatches_count": 0,
+  "violations": []
+}

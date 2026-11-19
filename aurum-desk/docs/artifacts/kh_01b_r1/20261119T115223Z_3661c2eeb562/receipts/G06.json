@@ -1,0 +1,26 @@
+{
+  "gate_id": "G06",
+  "receipt": {
+    "content_sha256": "e07e0a7248b925fc38576cd008c7c7912a1fc89d845c0e344e797aa54652804f",
+    "gate_id": "G06",
+    "input_sha256": "e07e0a7248b925fc38576cd008c7c7912a1fc89d845c0e344e797aa54652804f",
+    "metadata": {
+      "executable_git_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+      "validator_python_source_sha256": "3d48e698a7a5e09730725508e18f502447a62a824cccf421b55f6799c988bedd",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "04_model_direction_session_regime_cost_decomposition.json",
+    "run_id": "20261119T115223Z_3661c2eeb562",
+    "status": "PASS",
+    "tested_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+    "validator_code_sha": "3d48e698a7a5e09730725508e18f502447a62a824cccf421b55f6799c988bedd",
+    "validator_name": "_vfn",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}
