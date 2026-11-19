@@ -102,7 +102,6 @@ from tools.fresh_junit_io import (
 from tools.run_kh_01a_r1_verification import (
     _run_parity_a1_slice_cli,
     prior_all_immutable_bundles_hash,
-    run_streaming_full_56710_a1_parity_r1,
 )
 from tools.run_kh_01a_verification import (
     ESTIMATED_STAGE_PEAK_DISK_BYTES,
@@ -241,13 +240,14 @@ async def _run_ablation_slice_w1_w2_w4_determinism(
                     f"--ablation-slice-output={out_j}",
                     cwd=str(REPO_ROOT),
                     env=env,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
                 )
                 pids.append(int(proc.pid))
-                _, err_b = await proc.communicate()
+                await asyncio.wait_for(proc.wait(), timeout=300.0)
                 if proc.returncode != 0:
-                    raise RuntimeError(f"ABLATION_SLICE_WORKER_FAILED:{tag}:{err_b.decode('utf-8', errors='replace')[-500:]}")
+                    raise RuntimeError(f"ABLATION_SLICE_WORKER_FAILED:{tag}:rc={proc.returncode}")
                 return json.loads(out_j.read_text(encoding="utf-8"))
 
         p_outs = await asyncio.gather(*(_exec_p(i) for i in range(n_parts)))
@@ -272,6 +272,99 @@ async def _run_ablation_slice_w1_w2_w4_determinism(
         "runs": runs,
         "all_4_runs_identical": len(shas) == 1,
         "canonical_ablation_slice_sha256": next(iter(shas)) if len(shas) == 1 else None,
+    }
+
+
+async def _run_streaming_full_56710_a1_parity_kh01b(
+    owned_temp_root: Path,
+    baseline_decisions: Sequence[Mapping[str, Any]],
+    *,
+    num_workers: int = 4,
+) -> Dict[str, Any]:
+    py_exe = sys.executable
+    script_path = str(Path(__file__).resolve())
+    p_dir = owned_temp_root / "pa1"
+    p_dir.mkdir(parents=True, exist_ok=True)
+
+    unique_ts = sorted({int(r["decision_timestamp_ms"]) for r in baseline_decisions})
+    eff_w = max(1, min(4, int(num_workers)))
+    chunk_len = (len(unique_ts) + eff_w - 1) // eff_w
+    ts_ranges: List[Tuple[int, int]] = []
+    for i in range(0, len(unique_ts), chunk_len):
+        sub = unique_ts[i : i + chunk_len]
+        ts_ranges.append((sub[0], sub[-1]))
+
+    compact_by_part: List[List[Dict[str, Any]]] = [[] for _ in range(len(ts_ranges))]
+    for r in baseline_decisions:
+        ts_r = int(r["decision_timestamp_ms"])
+        for p_idx, (lo_b, hi_b) in enumerate(ts_ranges):
+            if lo_b <= ts_r <= hi_b:
+                compact_by_part[p_idx].append({
+                    "opportunity_id": str(r["opportunity_id"]),
+                    "decision_timestamp_ms": ts_r,
+                    "model_id": str(r["model_id"]),
+                    "direction": str(r["direction"]),
+                    "decision_fingerprint": r.get("decision_fingerprint"),
+                    "trade_action_fingerprint": r.get("trade_action_fingerprint"),
+                    "decision_status": str(r["decision_status"]),
+                    "hypothetical_quantity": float(r.get("hypothetical_quantity") or 0.0),
+                })
+                break
+
+    sem = asyncio.Semaphore(eff_w)
+    t0 = time.perf_counter()
+
+    async def _run_part(idx: int, lo_ts: int, hi_ts: int) -> Dict[str, Any]:
+        async with sem:
+            in_p = p_dir / f"p{idx}_in.json.gz"
+            out_p = p_dir / f"p{idx}_out.json"
+            with gzip.open(in_p, "wt", encoding="utf-8") as gz_fh:
+                json.dump(
+                    {
+                        "min_ts_inclusive": lo_ts,
+                        "max_ts_inclusive": hi_ts,
+                        "records": compact_by_part[idx],
+                    },
+                    gz_fh,
+                )
+            env = dict(os.environ)
+            env["PYTHONHASHSEED"] = "0"
+            proc = await asyncio.create_subprocess_exec(
+                py_exe,
+                script_path,
+                f"--parity-a1-slice-input={in_p}",
+                f"--parity-a1-slice-output={out_p}",
+                cwd=str(REPO_ROOT),
+                env=env,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(proc.wait(), timeout=600.0)
+            if proc.returncode != 0:
+                raise RuntimeError(f"PARITY_A1_SLICE_FAILED:idx={idx}:rc={proc.returncode}")
+            return json.loads(out_p.read_text(encoding="utf-8"))
+
+    parts_res = await asyncio.gather(*(_run_part(i, lo, hi) for i, (lo, hi) in enumerate(ts_ranges)))
+    elapsed = round(time.perf_counter() - t0, 3)
+
+    tot_eval = sum(int(p["evaluated_opportunities_count"]) for p in parts_res)
+    tot_ts = sum(int(p["unique_timestamps_evaluated"]) for p in parts_res)
+    tot_mismatches = sum(int(p["mismatches_count"]) for p in parts_res)
+    mismatch_samples: List[Dict[str, Any]] = []
+    for p in parts_res:
+        mismatch_samples.extend(p.get("mismatches_sample") or [])
+
+    return {
+        "population_name": "CANONICAL_A1_V1792_SL_TP_BASELINE_ELIGIBLE_OPPORTUNITIES",
+        "population_denominator": len(baseline_decisions),
+        "evaluated_count": tot_eval,
+        "unique_timestamps_evaluated": tot_ts,
+        "mismatches_count": tot_mismatches,
+        "mismatches_sample": mismatch_samples[:25],
+        "worker_partitions": len(parts_res),
+        "wall_clock_seconds": elapsed,
+        "status": "PASS" if (tot_eval == len(baseline_decisions) and tot_mismatches == 0) else "FAIL",
     }
 
 
@@ -505,10 +598,12 @@ def run_kh01b_bounded_async_test_and_replay_orchestrator(
 
         feat_a1 = CompressedFeatureLedger()
         feat_si8 = CompressedFeatureLedger()
+        pre_verified_oids: Set[str] = set()
         for idx_f, f_row in enumerate(iter_jsonl_gz(V130_RUN / "07_verified_causal_features.jsonl.gz")):
             if not verify_feature_snapshot_v1793127(f_row):
                 raise RuntimeError(f"INVALID_FEATURE_SNAPSHOT_PROOF:{f_row.get('opportunity_id')}")
             oid_s = str(f_row["opportunity_id"])
+            pre_verified_oids.add(oid_s)
             if oid_s in si8_id_set or f_row.get("discovered_by_si8"):
                 feat_si8[oid_s] = f_row
             else:
@@ -569,6 +664,7 @@ def run_kh01b_bounded_async_test_and_replay_orchestrator(
             si9_policy_result=si9_pol_res,
             run_id=run_id,
             tested_sha=sha,
+            pre_verified_opp_ids=pre_verified_oids,
         )
         monitor.check()
 
@@ -836,7 +932,7 @@ def run_kh01b_bounded_async_test_and_replay_orchestrator(
         _check_disk_20gb_guard("FULL_PARITY")
         print("[KH-01B Stage 6] Running bounded 4-worker streaming 56,710 A1 evaluator parity + 246 3-adapter parity...", flush=True)
         a1_parity_res = asyncio.run(
-            run_streaming_full_56710_a1_parity_r1(owned_temp_root, a1_decisions, num_workers=eff_workers)
+            _run_streaming_full_56710_a1_parity_kh01b(owned_temp_root, a1_decisions, num_workers=eff_workers)
         )
 
         bars_1m = list(datasets["1m"])

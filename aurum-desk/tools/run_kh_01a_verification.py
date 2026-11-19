@@ -597,11 +597,11 @@ def _build_deterministic_shards_kh01a(
                     "files": sorted(sc_files),
                     "exclusive": False,
                     "slot_cost": 2,
-                    "priority_weight": 420_000 + sc_weights[sc_idx - 1],
+                    "priority_weight": 15_000 + sc_idx,
                     "needs_venv": False,
                 })
 
-    num_buckets = 16
+    num_buckets = 20
     buckets: List[List[str]] = [[] for _ in range(num_buckets)]
     weights = [0 for _ in range(num_buckets)]
 
@@ -699,24 +699,40 @@ async def run_async_pytest_shards_kh01a(
         if p.is_file()
     )
 
-    # 1. Collect-only inventory (NOT execution)
+    # 1. Collect-only inventory (NOT execution) — zero OS pipes (writes directly to owned_temp_root)
+    col_out_file = owned_temp_root / "collect_stdout.log"
+    col_err_file = owned_temp_root / "collect_stderr.log"
+    col_snippet = (
+        "import os, sys, pytest; "
+        "fo = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+        "fe = open(sys.argv[2], 'w', encoding='utf-8', errors='replace'); "
+        "sys.stdout = fo; sys.stderr = fe; "
+        "rc = pytest.main(sys.argv[3:]); "
+        "fo.flush(); fe.flush(); fo.close(); fe.close(); "
+        "os._exit(int(rc))"
+    )
     col_env = dict(os.environ)
     col_env["PYTHONHASHSEED"] = "0"
     col_proc = await asyncio.create_subprocess_exec(
         py_exe,
-        "-m",
-        "pytest",
+        "-c",
+        col_snippet,
+        str(col_out_file),
+        str(col_err_file),
         str(BACKEND_ROOT / "tests"),
         "--collect-only",
         "-q",
         cwd=str(APP_ROOT),
         env=col_env,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
     col_pid = int(col_proc.pid)
-    col_out_b, col_err_b = await col_proc.communicate()
+    await asyncio.wait_for(col_proc.wait(), timeout=300.0)
     col_rc = int(col_proc.returncode if col_proc.returncode is not None else -1)
+    col_out_b = col_out_file.read_bytes() if col_out_file.is_file() else b""
+    col_err_b = col_err_file.read_bytes() if col_err_file.is_file() else b""
     if col_rc != 0:
         raise RuntimeError(
             f"PYTEST_COLLECT_ONLY_FAILED:rc={col_rc}:stderr={col_err_b.decode('utf-8', errors='replace')[-800:]}"
@@ -825,7 +841,17 @@ async def run_async_pytest_shards_kh01a(
                 if needs_venv and os.environ.get("AURUM_VERIFY_VENV_PYTHON")
                 else py_exe
             )
-            cmd_argv = [exe_bin, "-m", "pytest", *abs_paths, f"--junitxml={xml_path}", "-q"]
+            shard_runner_snippet = (
+                "import os, sys, pytest; "
+                "log_f = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+                "sys.stdout = log_f; sys.stderr = log_f; "
+                "rc = pytest.main(sys.argv[2:]); "
+                "log_f.flush(); log_f.close(); "
+                "os._exit(int(rc))"
+            )
+            pytest_cli_args = [*abs_paths, f"--junitxml={xml_path}", "-q"]
+            cmd_argv = [exe_bin, "-c", shard_runner_snippet, str(raw_log_tmp), *pytest_cli_args]
+            recorded_cmd_argv = [exe_bin, "-m", "pytest", *pytest_cli_args]
             child_env = dict(os.environ)
             child_budget = 1 if needs_venv else (2 if exclusive else 1)
             child_env["AURUM_GLOBAL_PROCESS_BUDGET"] = str(child_budget)
@@ -843,8 +869,9 @@ async def run_async_pytest_shards_kh01a(
                 *cmd_argv,
                 cwd=str(APP_ROOT),
                 env=child_env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
             )
             shard_pid = int(proc.pid)
             active_procs[shard_pid] = proc
@@ -864,7 +891,7 @@ async def run_async_pytest_shards_kh01a(
 
             rss_task = asyncio.create_task(_sample_rss())
             try:
-                out_bytes, _ = await asyncio.wait_for(proc.communicate(), timeout=1800.0)
+                await asyncio.wait_for(proc.wait(), timeout=900.0)
             except asyncio.TimeoutError as exc:
                 proc.kill()
                 await proc.wait()
@@ -877,7 +904,8 @@ async def run_async_pytest_shards_kh01a(
                     pass
                 active_procs.pop(shard_pid, None)
 
-            raw_log_tmp.write_bytes(out_bytes)
+            out_bytes = raw_log_tmp.read_bytes() if raw_log_tmp.is_file() else b""
+            cmd_argv = recorded_cmd_argv
             rc = int(proc.returncode if proc.returncode is not None else -1)
             elapsed = round(time.perf_counter() - t_s, 3)
             et_ms = max(st_ms + 1, int(time.time() * 1000))
@@ -1005,13 +1033,23 @@ async def run_async_pytest_shards_kh01a(
             res = await _exec_one_shard(nxt)
             inproc_out.append(res)
 
+    consumer_tasks: List[asyncio.Task[None]] = []
     try:
         n_consumers = max(1, min(4, int(max_parallel_workers)))
-        await asyncio.gather(*(_queue_consumer() for _ in range(n_consumers)))
+        consumer_tasks = [asyncio.create_task(_queue_consumer()) for _ in range(n_consumers)]
+        done_t, pending_t = await asyncio.wait(consumer_tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for dt in done_t:
+            if dt.exception() is not None:
+                for pt in pending_t:
+                    pt.cancel()
+                raise dt.exception()  # type: ignore[misc]
         excl_out: List[Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]] = []
         for es in excl_specs:
             excl_out.append(await _exec_one_shard(es))
     except BaseException:
+        for ct in consumer_tasks:
+            if not ct.done():
+                ct.cancel()
         for p_kill in list(active_procs.values()):
             try:
                 p_kill.kill()
@@ -1134,23 +1172,34 @@ async def run_controlled_worker_1_2_4_subset_benchmark_kh01a(
                 sub_tmp = bench_root / f"{mode_label.replace('=', '')}_f{f_idx}"
                 sub_tmp.mkdir(parents=True, exist_ok=True)
                 xml_p = sub_tmp / "junit.xml"
+                err_p = sub_tmp / "bench.log"
                 env = dict(os.environ)
                 env["PYTHONHASHSEED"] = "0"
                 env["AURUM_GLOBAL_PROCESS_BUDGET"] = "1"
                 env["TMP"] = str(sub_tmp)
                 env["TEMP"] = str(sub_tmp)
-                cmd = [py_exe, "-m", "pytest", str(APP_ROOT / rel_f), f"--junitxml={xml_p}", "-q"]
+                b_snippet = (
+                    "import os, sys, pytest; "
+                    "lf = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+                    "sys.stdout = lf; sys.stderr = lf; "
+                    "rc = pytest.main(sys.argv[2:]); "
+                    "lf.flush(); lf.close(); "
+                    "os._exit(int(rc))"
+                )
+                cmd = [py_exe, "-c", b_snippet, str(err_p), str(APP_ROOT / rel_f), f"--junitxml={xml_p}", "-q"]
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
                     cwd=str(APP_ROOT),
                     env=env,
+                    stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,
                 )
                 pids_seen.append(int(proc.pid))
-                _, err_b = await proc.communicate()
+                await asyncio.wait_for(proc.wait(), timeout=600.0)
                 rc = int(proc.returncode if proc.returncode is not None else -1)
                 if rc != 0:
+                    err_b = err_p.read_bytes() if err_p.is_file() else b""
                     raise RuntimeError(
                         f"SUBSET_BENCHMARK_FAILED:{mode_label}:{rel_f}:rc={rc}:{err_b.decode('utf-8', errors='replace')[-500:]}"
                     )

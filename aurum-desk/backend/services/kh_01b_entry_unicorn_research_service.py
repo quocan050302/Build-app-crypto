@@ -1024,6 +1024,7 @@ def extract_kh01b_causal_feature_frame(
     macro_cache: Optional[Dict[int, Dict[str, Any]]] = None,
     atr_cache: Optional[Dict[Tuple[str, int], Optional[float]]] = None,
     gap_180m_cache: Optional[Dict[int, bool]] = None,
+    pre_verified_opp_ids: Optional[Set[str]] = None,
 ) -> FeatureEvidenceFrame:
     """
     F03: Joins candidate with verified causal feature ledger on `opportunity_id`,
@@ -1081,7 +1082,8 @@ def extract_kh01b_causal_feature_frame(
         if f_ts > asof_ts:
             invalidation_reasons.append(f"FEATURE_ROW_FUTURE_DECISION_TS:{f_ts}>{asof_ts}")
         elif "causal_snapshot" in feat_row:
-            if verify_feature_snapshot_v1793127(feat_row):
+            is_snap_ok = (oid in pre_verified_opp_ids) if pre_verified_opp_ids is not None and oid in pre_verified_opp_ids else verify_feature_snapshot_v1793127(feat_row)
+            if is_snap_ok:
                 persisted_verified = (f_ts == asof_ts)
                 for item in (feat_row.get("causal_snapshot") or {}).get("features", ()):
                     if isinstance(item, Mapping) and item.get("evidence_type"):
@@ -2861,6 +2863,7 @@ def run_kh01b_orthogonal_ablation_matrix(
     si9_policy_result: Mapping[str, Any],
     run_id: str,
     tested_sha: str,
+    pre_verified_opp_ids: Optional[Set[str]] = None,
 ) -> AblationSet:
     """
     F11: Executes the complete frozen B00..B12 ablation matrix on the invariant 56,710 A1
@@ -2904,6 +2907,7 @@ def run_kh01b_orthogonal_ablation_matrix(
             macro_cache=macro_cache,
             atr_cache=atr_cache,
             gap_180m_cache=gap_cache,
+            pre_verified_opp_ids=pre_verified_opp_ids,
         )
 
     frames_si8: Dict[str, FeatureEvidenceFrame] = {}
@@ -2920,6 +2924,7 @@ def run_kh01b_orthogonal_ablation_matrix(
             macro_cache=macro_cache,
             atr_cache=atr_cache,
             gap_180m_cache=gap_cache,
+            pre_verified_opp_ids=pre_verified_opp_ids,
         )
 
     # Deduplicated pool objects for B11 causal re-selection
