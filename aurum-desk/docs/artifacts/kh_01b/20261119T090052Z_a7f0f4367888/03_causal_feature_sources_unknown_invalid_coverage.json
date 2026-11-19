@@ -1,0 +1,67 @@
+{
+  "a1_frames_evaluated_count": 56710,
+  "full_original_runtime_context_status": "NOT_PROVABLE_FROM_AVAILABLE_ARTIFACTS",
+  "future_bar_or_known_at_violations_count": 0,
+  "invalid_evidence_frames_count": 0,
+  "missing_vs_proven_false_by_single_axis": {
+    "B01": {
+      "eligible": 14231,
+      "missing_rejected": 27392,
+      "plausible_bounds": [
+        14231,
+        41623
+      ],
+      "proven_false_rejected": 15087
+    },
+    "B02": {
+      "eligible": 13742,
+      "missing_rejected": 26109,
+      "plausible_bounds": [
+        13742,
+        39851
+      ],
+      "proven_false_rejected": 16859
+    },
+    "B04": {
+      "eligible": 40937,
+      "missing_rejected": 29,
+      "plausible_bounds": [
+        40937,
+        40966
+      ],
+      "proven_false_rejected": 15744
+    },
+    "B05": {
+      "eligible": 4442,
+      "missing_rejected": 0,
+      "plausible_bounds": [
+        4442,
+        4442
+      ],
+      "proven_false_rejected": 52268
+    },
+    "B06": {
+      "eligible": 2945,
+      "missing_rejected": 53106,
+      "plausible_bounds": [
+        2945,
+        56051
+      ],
+      "proven_false_rejected": 659
+    },
+    "B07": {
+      "eligible": 9042,
+      "missing_rejected": 46722,
+      "plausible_bounds": [
+        9042,
+        55764
+      ],
+      "proven_false_rejected": 946
+    }
+  },
+  "quote_provenance_mode": "MODELED_SYNTHETIC_BAR_HALF_SPREAD_NOT_CAPTURED_L1",
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "si8_frames_evaluated_count": 6375,
+  "spec_version": "KH-01B-v1.0",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3"
+}

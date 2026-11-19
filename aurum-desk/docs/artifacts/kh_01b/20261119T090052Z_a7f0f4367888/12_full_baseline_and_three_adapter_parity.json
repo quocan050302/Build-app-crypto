@@ -1,0 +1,30 @@
+{
+  "a1_evaluated_count": 56710,
+  "a1_mismatches_count": 0,
+  "a1_population_denominator": 56710,
+  "a1_streaming_details": {
+    "evaluated_count": 56710,
+    "mismatches_count": 0,
+    "mismatches_sample": [],
+    "population_denominator": 56710,
+    "population_name": "CANONICAL_A1_V1792_SL_TP_BASELINE_ELIGIBLE_OPPORTUNITIES",
+    "status": "PASS",
+    "unique_timestamps_evaluated": 18744,
+    "wall_clock_seconds": 133.743,
+    "worker_partitions": 4
+  },
+  "b00_vs_si0_exact_match": true,
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "parity_sha256": "c87edd523b3a8b5eef8f1eb0a8f5d6c1205ad5137465b7952dbd4e0b857314d9",
+  "risk_cap_violations_count": 0,
+  "runtime_modes_all_off": true,
+  "si8_mismatches_count": 0,
+  "si8_population_denominator": 6375,
+  "si8_verified_count": 6375,
+  "spec_version": "KH-01B-v1.0",
+  "status": "PASS",
+  "tested_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+  "three_adapter_episodes_denominator": 246,
+  "three_adapter_mismatches_count": 0,
+  "violations": []
+}

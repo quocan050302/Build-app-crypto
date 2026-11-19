@@ -1,0 +1,46 @@
+# AURUM DESK — KH-01B: ENTRY INTELLIGENCE & CAUSAL UNICORN RESEARCH (`KH-01B-v1.0`)
+
+- **Run ID**: `20261119T090052Z_a7f0f4367888`
+- **Mandatory Branch**: `feature/v17-9-2-structural-sl-tp-from-qa`
+- **Tested Executable SHA**: `a7f0f4367888a672cdff7af1bc9f5d2027d167d3`
+- **Pre-Registered Manifest SHA256**: `82049cc36152a062285f49dbe2598aafc7754a64da2135a9d50250912007e253`
+- **Canonical Dataset SHA256 (`REUSED_RESEARCH`)**: `9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18`
+
+## 1. Orthogonal Verdicts
+- `ENGINEERING_VERDICT`: **PASS** (`14/14` technical gates PASS)
+- `DETECTOR_VALIDITY_VERDICT`: **PASS** (`25/25` real positive/negative cases PASS; `0` synthetic trades counted in historical PnL)
+- `REPLAY_VALIDITY_VERDICT`: **PASS**
+- `TRADING_PARITY_VERDICT`: **PASS** (`56710/56710` A1 + `246` 3-adapter episodes matched with `0` mismatches)
+- `REGRESSION_VERDICT`: **PASS** (`5496` collected == `5496` executed; `5488` passed, `8` skipped, `0` failed, `0` errors)
+- `FRESH_OOS_VERDICT`: **BLOCKED_NO_UNTOUCHED_DATA**
+- `ECONOMIC_EDGE_VERDICT`: **NO_PROVEN_ECONOMIC_EDGE**
+- `KH01C_ADVANCEMENT_VERDICT`: **NO_ECONOMIC_ADVANCEMENT_CANDIDATE** (Qualified: `[]`)
+- `ACTIVATION_READY`: **NO** (`PRODUCTION=OFF`, `LIVE=OFF`, `PAPER=OFF`, `AUTO=OFF`)
+- `PUBLICATION_VERDICT` (pre-push immutable bundle): **PENDING_REMOTE_PUSH**
+
+## 2. Pre-Registered Orthogonal Experiment Matrix (`B00`–`B12`)
+| Mã | Variant ID | Ontology | Eligible / 56,710 | Scheduled / Closed (NB) | Net PnL 1x (USD) | Exp 1x (R) | Net PnL 2x All-Cost (USD) | Kết luận Nghiên cứu | Cảnh báo Cỡ mẫu |
+|---|---|---|---:|---:|---:|---:|---:|---|---|
+| `B00` | `KH01B-B00-UNCHANGED-A1-SI0` | `BASELINE_CONTROL` | `56710` | `242 / 166` | `-345.8971` | `-0.8474` | `-594.6226` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=166_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B01` | `KH01B-B01-H4-VERIFIED-ALIGNED-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `14231` | `111 / 85` | `-158.2316` | `-0.7549` | `-282.4677` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=85_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B02` | `KH01B-B02-H1-VERIFIED-ALIGNED-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `13742` | `106 / 77` | `-153.5152` | `-0.8086` | `-289.0201` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=77_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B03` | `KH01B-B03-H4-AND-H1-BOTH-VERIFIED-ALIGNED` | `OTHER_CAUSAL_FILTER_VARIANTS` | `6865` | `70 / 55` | `-99.3191` | `-0.7319` | `-184.6548` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=55_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B04` | `KH01B-B04-SOURCE-TF-TARGET-REACHABILITY-FILTER-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `40937` | `232 / 160` | `-328.2744` | `-0.8345` | `-570.3713` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=160_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B05` | `KH01B-B05-ICT-CONFIGURED-MACRO-WINDOW-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `4442` | `62 / 42` | `-93.333` | `-0.9053` | `-143.9289` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=42_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B06` | `KH01B-B06-PROVEN-SWEEP-AND-RECLAIM-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `2945` | `110 / 79` | `-189.0114` | `-0.9749` | `-298.1582` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=79_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B07` | `KH01B-B07-PROVEN-MSS-AND-DISPLACEMENT-ONLY` | `OTHER_CAUSAL_FILTER_VARIANTS` | `9042` | `178 / 114` | `-251.7623` | `-0.8968` | `-423.6115` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=114_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B08` | `KH01B-B08-SWEEP-RECLAIM-PLUS-MSS-DISPLACEMENT` | `OTHER_CAUSAL_FILTER_VARIANTS` | `368` | `42 / 31` | `-79.5036` | `-1.0416` | `-122.7538` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=31_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B09` | `KH01B-B09-STRICT-TRUE-UNICORN-D4` | `STRICT_D4_TRUE_UNICORN` | `0` | `0 / 0` | `0.0` | `0.0` | `0` | `NO_VALID_SETUPS` | `ZERO_CLOSED_TRADES_INSUFFICIENT_SAMPLE_NO_CONFIDENCE_INTERVAL` |
+| `B10` | `KH01B-B10-UNICORN-ADJACENT-FVG-SWEEP-MSS` | `ADJACENT_FVG_SWEEP_MSS` | `6874` | `186 / 134` | `-299.5711` | `-0.9086` | `-494.8056` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=134_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B11` | `KH01B-B11-TP-ONLY-SOURCE-BACKED-ALTERNATIVE-TARGET` | `TP_ONLY_RESEARCH` | `46028` | `242 / 170` | `-352.9368` | `-0.8442` | `-612.0073` | `RESEARCH_NEGATIVE_EDGE` | `POWERED_N=170_NEGATIVE_NET_OR_2X_COST_EDGE` |
+| `B12` | `KH01B-B12-PREREGISTERED-MULTI-AXIS-HTF-MSS-TARGET` | `MULTI_AXIS_COMBINATION` | `649` | `29 / 20` | `-16.1408` | `-0.3282` | `-43.8414` | `RESEARCH_NEGATIVE_EDGE` | `UNDERPOWERED_N=20<30_AND_NEGATIVE_NET_EDGE` |
+
+## 3. Strict True Unicorn (`B09`) vs Unicorn-Adjacent (`B10`) Isolation
+- `B09` (`STRICT_D4_TRUE_UNICORN`): Historical A1 closed trades = `0`, Full 63,085 D4 accepted = `0` (`NO_VALID_SETUPS`).
+- `B10` (`ADJACENT_FVG_SWEEP_MSS`, strictly NOT True Unicorn, `counts_toward_d4=False`): Historical A1 closed trades = `134`.
+- Real Production Detector Unit Fixtures (`SYNTHETIC_UNIT_FIXTURE_ONLY`): `25/25` PASS.
+
+## 4. Async Determinism & Resource Telemetry
+- Pytest subset `w=4` vs `w=1` speedup: `2.759x` (`w=1, w=2, w=4, w=1_repeat` canonical outcome hash identical = `True`).
+- Ablation slice `w=1, w=2, w=4, w=1_repeat` canonical hash identical = `True`.
+- Resource guards: `max_children_observed = 4` (`<= 4`), `min_free_disk_gb = 45.131` (`>= 20.0 GiB` reserve), `min_available_ram_gb = 3.314`, `orphan_pids = 0`.

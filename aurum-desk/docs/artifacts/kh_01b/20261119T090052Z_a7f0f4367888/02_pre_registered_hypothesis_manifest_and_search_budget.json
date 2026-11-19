@@ -1,0 +1,202 @@
+{
+  "amendments": [],
+  "code_sha256": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+  "config_sha256": "5f7e1fc1a6ce9d254c31f0b5d11d4fdb998e27f7a31753800d854e3c8ec3f7d8",
+  "cost_multipliers_evaluated": [
+    1.0,
+    2.0,
+    3.0
+  ],
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "frozen_before_backtest_execution": true,
+  "manifest_id": "KH01B_PREREG_V1_INITIAL",
+  "manifest_sha256": "82049cc36152a062285f49dbe2598aafc7754a64da2135a9d50250912007e253",
+  "max_planned_risk_usd": 2.5,
+  "min_net_rr": 2.0,
+  "min_powered_closed_trades": 30,
+  "prior_use_status": "REUSED_RESEARCH",
+  "purged_embargo_minutes": 180,
+  "registered_variants_count": 13,
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "schema_version": "kh_01b.entry_unicorn_research.v1",
+  "search_space_budget_max_variants": 13,
+  "spec_version": "KH-01B-v1.0",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+  "variants": [
+    {
+      "axis_type": "BASELINE_CONTROL",
+      "hypothesis_rationale": "Exact unchanged A1/SI0 baseline control ledger across 56,710 candidates.",
+      "modifies_tp_geometry": false,
+      "ontology": "BASELINE_CONTROL",
+      "rule": {
+        "type": "BASELINE_UNCHANGED"
+      },
+      "short_code": "B00",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B00-UNCHANGED-A1-SI0"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Test whether requiring proven H4 structural bias aligned with trade direction isolates counter-H4 losses.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "htf_rule": "H4_ONLY",
+        "type": "HTF_ALIGNED"
+      },
+      "short_code": "B01",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B01-H4-VERIFIED-ALIGNED-ONLY"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Test whether requiring proven H1 structural bias aligned with trade direction isolates counter-H1 losses.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "htf_rule": "H1_ONLY",
+        "type": "HTF_ALIGNED"
+      },
+      "short_code": "B02",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B02-H1-VERIFIED-ALIGNED-ONLY"
+    },
+    {
+      "axis_type": "COMBINED_HTF_TWO_AXIS_FILTER",
+      "hypothesis_rationale": "Combined H4+H1 alignment (explicitly NOT single-axis): both H4 and H1 must be proven aligned.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "htf_rule": "H4_AND_H1",
+        "type": "HTF_ALIGNED"
+      },
+      "short_code": "B03",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B03-H4-AND-H1-BOTH-VERIFIED-ALIGNED"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Pure entry filter requiring verified unswept source pool within <= 12.0 source-TF ATRs; entry/SL/TP unchanged.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "max_source_tf_atr_horizon": 12.0,
+        "min_net_rr": 2.0,
+        "type": "SOURCE_TF_TARGET_FILTER"
+      },
+      "short_code": "B04",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B04-SOURCE-TF-TARGET-REACHABILITY-FILTER-ONLY"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Test configured NY ICT macro windows (RESEARCH_HYPOTHESIS_CONFIG; R1 showed 7 losses / 0 wins in window).",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "schedule_version": "V17_9_3_NY_ICT_MACRO_SCHEDULE_V1",
+        "type": "MACRO_WINDOW_ONLY"
+      },
+      "short_code": "B05",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B05-ICT-CONFIGURED-MACRO-WINDOW-ONLY"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Require proven causal liquidity sweep + reclaim; missing proof tallied separately from proven false.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "mode": "SWEEP_RECLAIM_ONLY",
+        "type": "SWEEP_MSS"
+      },
+      "short_code": "B06",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B06-PROVEN-SWEEP-AND-RECLAIM-ONLY"
+    },
+    {
+      "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+      "hypothesis_rationale": "Require proven causal MSS/BOS break + displacement body >= threshold; selected_break_id alone insufficient.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "mode": "MSS_DISPLACEMENT_ONLY",
+        "type": "SWEEP_MSS"
+      },
+      "short_code": "B07",
+      "single_axis_vs_b00": true,
+      "variant_id": "KH01B-B07-PROVEN-MSS-AND-DISPLACEMENT-ONLY"
+    },
+    {
+      "axis_type": "INTERACTION_TWO_MECHANISM_FILTER",
+      "hypothesis_rationale": "Interaction filter requiring ordered causal sweep+reclaim AND MSS+displacement in same episode.",
+      "modifies_tp_geometry": false,
+      "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+      "rule": {
+        "mode": "SWEEP_AND_MSS",
+        "type": "SWEEP_MSS"
+      },
+      "short_code": "B08",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B08-SWEEP-RECLAIM-PLUS-MSS-DISPLACEMENT"
+    },
+    {
+      "axis_type": "STRICT_CAUSAL_CONFLUENCE_MODEL",
+      "hypothesis_rationale": "Authoritative D4 True Unicorn (HTF + sweep/reclaim + MSS/displacement + genuine Breaker+FVG overlap >= 1 tick + retest).",
+      "modifies_tp_geometry": false,
+      "ontology": "STRICT_D4_TRUE_UNICORN",
+      "rule": {
+        "min_overlap_ticks": 1.0,
+        "tick_size": 0.01,
+        "type": "STRICT_D4_TRUE_UNICORN"
+      },
+      "short_code": "B09",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B09-STRICT-TRUE-UNICORN-D4"
+    },
+    {
+      "axis_type": "ADJACENT_CONFLUENCE_RESEARCH_MODEL",
+      "hypothesis_rationale": "Unicorn-adjacent (strictly NOT True Unicorn): unmitigated retested FVG + proven sweep/reclaim or MSS/displacement without Breaker overlap.",
+      "modifies_tp_geometry": false,
+      "ontology": "ADJACENT_FVG_SWEEP_MSS",
+      "rule": {
+        "counts_toward_d4": false,
+        "type": "UNICORN_ADJACENT_FVG_SWEEP_OR_MSS"
+      },
+      "short_code": "B10",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B10-UNICORN-ADJACENT-FVG-SWEEP-MSS"
+    },
+    {
+      "axis_type": "TP_COUNTERFACTUAL_RESEARCH_ONLY",
+      "hypothesis_rationale": "TP_ONLY_RESEARCH counterfactual: re-select nearest causal unswept pool <= 12 source-TF ATRs with net_rr >= 2.0 & risk <= $2.50; entry/SL unchanged.",
+      "modifies_tp_geometry": true,
+      "ontology": "TP_ONLY_RESEARCH",
+      "rule": {
+        "max_source_tf_atr_horizon": 12.0,
+        "min_net_rr": 2.0,
+        "type": "TP_ONLY_SOURCE_BACKED_RESELECTION"
+      },
+      "short_code": "B11",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B11-TP-ONLY-SOURCE-BACKED-ALTERNATIVE-TARGET"
+    },
+    {
+      "axis_type": "MULTI_AXIS_COMBINATION",
+      "hypothesis_rationale": "Pre-registered staged combination from KH-01A.R1 descriptive findings: H4+H1 aligned (B03) + proven MSS/displacement (B07) + source-TF target reachability (B04).",
+      "modifies_tp_geometry": false,
+      "ontology": "MULTI_AXIS_COMBINATION",
+      "rule": {
+        "components": [
+          "B03",
+          "B07",
+          "B04"
+        ],
+        "type": "MULTI_AXIS_B03_B07_B04"
+      },
+      "short_code": "B12",
+      "single_axis_vs_b00": false,
+      "variant_id": "KH01B-B12-PREREGISTERED-MULTI-AXIS-HTF-MSS-TARGET"
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "ablation_slice_w1_w2_w4_repeat": {
+    "all_4_runs_identical": true,
+    "canonical_ablation_slice_sha256": "202dc8892b6ddd493cd2bb5af5a6333e2148737440dddef2da8d5777742fb975",
+    "runs": [
+      {
+        "canonical_sorted_sha256": "202dc8892b6ddd493cd2bb5af5a6333e2148737440dddef2da8d5777742fb975",
+        "evaluated_pairs_count": 4000,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 2.298,
+        "worker_partitions": 1,
+        "worker_pids": [
+          22432
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "202dc8892b6ddd493cd2bb5af5a6333e2148737440dddef2da8d5777742fb975",
+        "evaluated_pairs_count": 4000,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 1.968,
+        "worker_partitions": 2,
+        "worker_pids": [
+          1092,
+          14388
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "202dc8892b6ddd493cd2bb5af5a6333e2148737440dddef2da8d5777742fb975",
+        "evaluated_pairs_count": 4000,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 2.489,
+        "worker_partitions": 4,
+        "worker_pids": [
+          31656,
+          37904,
+          15816,
+          7104
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "202dc8892b6ddd493cd2bb5af5a6333e2148737440dddef2da8d5777742fb975",
+        "evaluated_pairs_count": 4000,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 2.042,
+        "worker_partitions": 1,
+        "worker_pids": [
+          36988
+        ]
+      }
+    ],
+    "sample_candidates_count": 400
+  },
+  "ablation_slice_w1_w2_w4_repeat_identical": true,
+  "measured_speedup_w2_vs_w1": 1.622,
+  "measured_speedup_w4_vs_w1": 2.759,
+  "pytest_controlled_subset_w1_w2_w4_repeat": {
+    "all_4_runs_outcome_sha256_identical": true,
+    "best_parallel_speedup_vs_w1": 2.759,
+    "canonical_outcome_sha256": "49c9de923c4c848ab6f5373ee1bac5d2750aecf8e3ebaabbf211340741684ab5",
+    "controlled_subset_files": [
+      "backend/tests/test_kh_01a_data_and_verification_foundation.py",
+      "backend/tests/test_kh_01a_r1_forensics_truth_closure.py",
+      "backend/tests/test_kh_01b_entry_unicorn_research.py",
+      "backend/tests/test_kh_01b_causal_antileakage.py",
+      "backend/tests/test_v14_3_ny_quota.py",
+      "backend/tests/test_v17_9_1_mtf_structure_liquidity.py",
+      "backend/tests/test_v17_9_2_structural_stop.py",
+      "backend/tests/test_v17_9_2_1_validation_closure.py",
+      "backend/tests/test_v17_9_3_macro_unicorn_intelligence.py",
+      "backend/tests/test_v17_7_atr_provenance.py",
+      "backend/tests/test_v15_9_quote_source_rejection.py"
+    ],
+    "determinism_vs_nondeterminism_disclosure": {
+      "deterministic_canonical_fields": [
+        "sorted_test_node_ids",
+        "per_node_test_outcomes (PASSED/SKIPPED/FAILED/ERROR)",
+        "executed_tests_count",
+        "canonical_sorted_outcomes_sha256"
+      ],
+      "volatile_excluded_metadata": [
+        "OS child PIDs",
+        "wall-clock testcase durations",
+        "JUnit XML testsuite timestamp attribute"
+      ]
+    },
+    "runs": [
+      {
+        "canonical_sorted_outcomes_sha256": "49c9de923c4c848ab6f5373ee1bac5d2750aecf8e3ebaabbf211340741684ab5",
+        "distinct_pids_count": 11,
+        "executed_tests_count": 350,
+        "mode_label": "w=1",
+        "passed_count": 350,
+        "pids": [
+          18196,
+          33608,
+          29056,
+          29996,
+          31388,
+          12716,
+          30920,
+          15552,
+          29788,
+          16356,
+          22396
+        ],
+        "wall_clock_seconds": 165.689,
+        "worker_slots": 1
+      },
+      {
+        "canonical_sorted_outcomes_sha256": "49c9de923c4c848ab6f5373ee1bac5d2750aecf8e3ebaabbf211340741684ab5",
+        "distinct_pids_count": 11,
+        "executed_tests_count": 350,
+        "mode_label": "w=2",
+        "passed_count": 350,
+        "pids": [
+          36288,
+          6644,
+          37252,
+          39812,
+          36432,
+          37268,
+          15068,
+          31236,
+          37380,
+          36416,
+          31916
+        ],
+        "wall_clock_seconds": 99.599,
+        "worker_slots": 2
+      },
+      {
+        "canonical_sorted_outcomes_sha256": "49c9de923c4c848ab6f5373ee1bac5d2750aecf8e3ebaabbf211340741684ab5",
+        "distinct_pids_count": 11,
+        "executed_tests_count": 350,
+        "mode_label": "w=4",
+        "passed_count": 350,
+        "pids": [
+          13464,
+          27400,
+          2760,
+          28568,
+          15780,
+          39928,
+          32436,
+          20120,
+          5052,
+          39224,
+          18088
+        ],
+        "wall_clock_seconds": 58.564,
+        "worker_slots": 4
+      },
+      {
+        "canonical_sorted_outcomes_sha256": "49c9de923c4c848ab6f5373ee1bac5d2750aecf8e3ebaabbf211340741684ab5",
+        "distinct_pids_count": 11,
+        "executed_tests_count": 350,
+        "mode_label": "w=1_repeat",
+        "passed_count": 350,
+        "pids": [
+          6556,
+          29840,
+          29392,
+          37064,
+          35300,
+          6220,
+          17144,
+          35296,
+          15908,
+          3236,
+          25712
+        ],
+        "wall_clock_seconds": 157.491,
+        "worker_slots": 1
+      }
+    ],
+    "w1_single_worker_mean_seconds": 161.59,
+    "w2_speedup_vs_w1": 1.622,
+    "w2_wall_seconds": 99.599,
+    "w4_speedup_vs_w1": 2.759,
+    "w4_wall_seconds": 58.564
+  },
+  "pytest_subset_w1_w2_w4_repeat_identical": true,
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "spec_version": "KH-01B-v1.0",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3"
+}

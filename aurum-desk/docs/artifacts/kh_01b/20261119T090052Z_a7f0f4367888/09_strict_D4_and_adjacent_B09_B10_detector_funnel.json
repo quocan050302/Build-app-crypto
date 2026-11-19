@@ -1,0 +1,421 @@
+{
+  "b09_si8_separate_diagnostic": {
+    "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+    "si8_pre_entry_eligible_count": 0,
+    "si8_rejection_counts": {
+      "02_HTF_NOT_ALIGNED:HTF_H1_OPPOSITE": 888,
+      "02_HTF_NOT_ALIGNED:HTF_H1_UNKNOWN_MISSING": 1203,
+      "02_HTF_NOT_ALIGNED:HTF_H4_OPPOSITE": 1748,
+      "02_HTF_NOT_ALIGNED:HTF_H4_UNKNOWN_MISSING": 1839,
+      "03_SWEEP_RECLAIM_NOT_PROVEN:SWEEP_CONFIRMED_UNKNOWN_MISSING": 693,
+      "04_MSS_DISPLACEMENT_NOT_PROVEN:MSS_CONFIRMED_UNKNOWN_MISSING": 4
+    },
+    "si8_total": 6375
+  },
+  "b09_strict_d4_closed_trades": 0,
+  "b10_adjacent_closed_trades": 134,
+  "b10_adjacent_economics": {
+    "activation_ready": "NO",
+    "axis_type": "ADJACENT_CONFLUENCE_RESEARCH_MODEL",
+    "closed_trades_nb": 134,
+    "cluster_bootstrap_95ci_expectancy_r": [
+      -1.009,
+      -0.8118
+    ],
+    "cluster_bootstrap_95ci_net_pnl_usd": [
+      -357.4868,
+      -247.3049
+    ],
+    "expectancy_1x_nb_r": -0.9086,
+    "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+    "holm_bonferroni_caution": "Tested m=12 non-baseline hypotheses on reused 20-day M1 XAUUSDT sample; family-wise alpha=0.05/12=0.0042 required and Fresh OOS remains mandatory.",
+    "legacy_close_fill_net_pnl_usd": -275.3458,
+    "longest_losing_streak_1x_nb": 49,
+    "losses_nb": 129,
+    "max_drawdown_1x_nb_usd": 299.5711,
+    "multiplicity_hypotheses_tested_m": 12,
+    "net_pnl_1x_nb_usd": -299.5711,
+    "ontology": "ADJACENT_FVG_SWEEP_MSS",
+    "paired_vs_b00_matched_242_net_pnl_diff_usd": 326.1832,
+    "paired_vs_b00_portfolio_net_pnl_diff_usd": 46.326,
+    "profit_factor_1x_nb": 0.0838,
+    "purged_reused_walkforward_folds": [
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_1",
+        "purged_boundary_episodes": 1,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 51,
+        "train_net_pnl_usd": -117.1973,
+        "train_window_ms": [
+          1791437880000,
+          1792229034000
+        ],
+        "val_closed_n": 15,
+        "val_expectancy_r": -0.7909,
+        "val_net_pnl_usd": -29.203,
+        "validation_window_ms": [
+          1792239834000,
+          1792492752000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_2",
+        "purged_boundary_episodes": 1,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 66,
+        "train_net_pnl_usd": -148.8818,
+        "train_window_ms": [
+          1791437880000,
+          1792492752000
+        ],
+        "val_closed_n": 24,
+        "val_expectancy_r": -0.8466,
+        "val_net_pnl_usd": -49.8388,
+        "validation_window_ms": [
+          1792503552000,
+          1792756470000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_3",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 92,
+        "train_net_pnl_usd": -195.8534,
+        "train_window_ms": [
+          1791437880000,
+          1792756470000
+        ],
+        "val_closed_n": 42,
+        "val_expectancy_r": -1.0001,
+        "val_net_pnl_usd": -103.7177,
+        "validation_window_ms": [
+          1792767270000,
+          1793196000000
+        ]
+      }
+    ],
+    "qualifies_for_kh01c_advancement": false,
+    "sample_power_warning": "POWERED_N=134_NEGATIVE_NET_OR_2X_COST_EDGE",
+    "scheduled_nb": 186,
+    "selection_outcome": "RESEARCH_NEGATIVE_EDGE",
+    "short_code": "B10",
+    "stress_2x_all_cost_expectancy_r": -1.4661,
+    "stress_2x_all_cost_net_pnl_usd": -494.8056,
+    "stress_2x_spread_slippage_net_pnl_usd": -322.6982,
+    "stress_3x_all_cost_net_pnl_usd": -662.9827,
+    "total_fees_1x_nb_usd": 166.5908,
+    "trade_frequency_retention_vs_b00": 0.7686,
+    "variant_id": "KH01B-B10-UNICORN-ADJACENT-FVG-SWEEP-MSS",
+    "win_rate_nb": 0.037313,
+    "wins_nb": 5
+  },
+  "b10_counted_toward_d4": false,
+  "b10_si8_separate_diagnostic": {
+    "population_name": "SEPARATE_SI8_DISCOVERY_6375_UNMIXED",
+    "si8_pre_entry_eligible_count": 43,
+    "si8_rejection_counts": {
+      "ADJ_FVG_UNMITIGATED_RETEST_NOT_PROVEN": 5438,
+      "ADJ_NEITHER_SWEEP_RECLAIM_NOR_MSS_DISPLACEMENT_PROVEN": 894
+    },
+    "si8_total": 6375
+  },
+  "d4_63085_accepted_count": 0,
+  "d4_63085_rejection_breakdown": {
+    "02_HTF_NOT_ALIGNED:COUNTERTREND": 9202,
+    "02_HTF_NOT_ALIGNED:MIXED": 46321,
+    "03_SWEEP_OR_RECLAIM_NOT_PROVEN": 7378,
+    "04_MSS_OR_DISPLACEMENT_NOT_PROVEN": 170,
+    "05_NOT_TRUE_UNICORN_BREAKER_FVG:FVG_ONLY": 14
+  },
+  "d4_63085_stage_pass_counts": {
+    "01_CANDIDATE_REGISTERED": 63085,
+    "02_H4_H1_CAUSAL_STRUCTURAL_ALIGNED": 7562,
+    "03_LIQUIDITY_SWEEP_AND_RECLAIM_PROVEN": 184,
+    "04_MSS_BOS_DISPLACEMENT_PROVEN": 14,
+    "05_TRUE_UNICORN_BREAKER_BOUND_TO_FVG": 0,
+    "06_VALID_FRESH_UNCONSUMED_RETEST": 0,
+    "07_POST_SIGNAL_DELAYED_CONFIRMATION": 0,
+    "08_INDEPENDENT_STRUCTURAL_STOP_ANCHOR": 0,
+    "09_UNSWEPT_STRUCTURAL_LIQUIDITY_TARGET": 0,
+    "10_FEE_SPREAD_ADJUSTED_NET_RR_GTE_2_0": 0,
+    "11_FIXED_RISK_SIZING_LTE_2_50_USD": 0,
+    "12_MATERIALIZED_INTENT_1POS_ELIGIBLE": 0,
+    "13_POST_CONFIRMATION_ENTRY_FILLED": 0,
+    "14_TERMINAL_CLOSED_OUTCOME": 0
+  },
+  "d4_stage_counts_monotonically_non_increasing": true,
+  "detector_fixture_validation": {
+    "cases": [
+      {
+        "authoritative_callable": "evaluate_causal_unicorn_confluence",
+        "case_id": "CASE-01",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "LONG=VALID(ov=1.5),SHORT=VALID(ov=1.5)",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Strict True Unicorn valid LONG+SHORT with >=1 tick overlap, episode binding, retest & HTF",
+        "validator_code_sha256": "044fab060df4b538cd19ee5a1797c76d8a3c8d7f1c3866155dcb8893806f0ab3"
+      },
+      {
+        "authoritative_callable": "evaluate_strict_true_unicorn_hypothesis",
+        "case_id": "CASE-02",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "D4=05_NOT_TRUE_UNICORN_BREAKER_FVG:FVG_ONLY_NO_BREAKER,ADJ=True,counts_d4=False",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "FVG-only with no breaker rejected by D4 and accepted only under ADJACENT_FVG_SWEEP_MSS",
+        "validator_code_sha256": "c97e6982c07c7b08fea6daac1ca9dc7136b99d063bb599e72bd772d2aaafabd3"
+      },
+      {
+        "authoritative_callable": "detect_unicorn_evidence",
+        "case_id": "CASE-03",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "NO_GEOMETRIC_OVERLAP:('BREAKER_FVG_NO_OVERLAP',)",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "FVG + Breaker with zero geometric overlap rejected",
+        "validator_code_sha256": "d7f171e041cea22399f7ac75cbed5d32081e19ce8b1a7f368ae78d848d97158c"
+      },
+      {
+        "authoritative_callable": "detect_unicorn_evidence",
+        "case_id": "CASE-04",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "NO_GEOMETRIC_OVERLAP:('BREAKER_FVG_NO_OVERLAP',)",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Overlap < 1 XAUUSDT tick ($0.004 < $0.01) rejected",
+        "validator_code_sha256": "d7f171e041cea22399f7ac75cbed5d32081e19ce8b1a7f368ae78d848d97158c"
+      },
+      {
+        "authoritative_callable": "evaluate_causal_unicorn_confluence",
+        "case_id": "CASE-05",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "('UNICORN_FUTURE_DATA_REJECTED',)",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Future FVG/breaker confirmation timestamp > decision_ts rejected",
+        "validator_code_sha256": "044fab060df4b538cd19ee5a1797c76d8a3c8d7f1c3866155dcb8893806f0ab3"
+      },
+      {
+        "authoritative_callable": "detect_unicorn_evidence",
+        "case_id": "CASE-06",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "WRONG_DIRECTION_OVERLAP:('WRONG_DIRECTION_FVG_OVERLAP',)",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Wrong-direction FVG / episode mismatch rejected without FVG substitution",
+        "validator_code_sha256": "d7f171e041cea22399f7ac75cbed5d32081e19ce8b1a7f368ae78d848d97158c"
+      },
+      {
+        "authoritative_callable": "evaluate_sweep_mss_displacement_hypothesis",
+        "case_id": "CASE-07",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "false=PROVEN_FALSE,missing=UNKNOWN_MISSING",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Sweep PROVEN_FALSE vs UNKNOWN_MISSING (even with selected_sweep_id) produce distinct tri-states",
+        "validator_code_sha256": "09ed2d20ce3bb87ec16827301c71f8876172ca1228acd08ff003303d7a82e64e"
+      },
+      {
+        "authoritative_callable": "evaluate_sweep_mss_displacement_hypothesis",
+        "case_id": "CASE-08",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "confirmed=PROVEN_TRUE,id_only=UNKNOWN_MISSING",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Confirmed MSS+displacement passes while selected_break_id without proof is UNKNOWN_MISSING",
+        "validator_code_sha256": "09ed2d20ce3bb87ec16827301c71f8876172ca1228acd08ff003303d7a82e64e"
+      },
+      {
+        "authoritative_callable": "evaluate_htf_alignment_hypothesis",
+        "case_id": "CASE-09",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "PROVEN_TRUE/PROVEN_FALSE/UNKNOWN_MISSING",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "HTF aligned (PROVEN_TRUE) vs opposite (PROVEN_FALSE) vs unknown (UNKNOWN_MISSING) distinct",
+        "validator_code_sha256": "c1a31b111319b0ded951733bce4b852f23bc313133986f8922818c9aa01f4668"
+      },
+      {
+        "authoritative_callable": "evaluate_macro_window_hypothesis",
+        "case_id": "CASE-10",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "INVALID:MACRO_STATE_UNKNOWN_OR_INVALID",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Invalid macro schedule yields INVALID tri-state, never VALID_OUTSIDE_WINDOW",
+        "validator_code_sha256": "529e84c7551788ab387ab4618c1e106f47a89a40ec96f830bed91afcf1cf4583"
+      },
+      {
+        "authoritative_callable": "resolve_causal_macro_time_window",
+        "case_id": "CASE-11",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "start=True,end=False,est_off=-300",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "NY DST EST(-300)/EDT(-240) and half-open [08:50, 09:10) endpoints exact",
+        "validator_code_sha256": "cf8c2c52d3bb2c3b0ea7b31e81acb2d165c58d8ffcfaff645651b9acfad3a431"
+      },
+      {
+        "authoritative_callable": "audit_target_reachability_row_v17931214",
+        "case_id": "CASE-12",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "UNKNOWN_MISSING:UNKNOWN",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Missing target source pool yields UNKNOWN_MISSING (resolved_source_tf='UNKNOWN', never forced 1M)",
+        "validator_code_sha256": "c044e3740811b3ef81ac6e3ade32f6dce3ca3bbc8123f84b0ac99aaf38658c75"
+      },
+      {
+        "authoritative_callable": "audit_target_reachability_row_v17931214",
+        "case_id": "CASE-13",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "INVALID_INCONSISTENT:ATR_UNDERFLOW_NONFINITE_OR_UNIT_MIX_INVALID",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "NaN/zero source-TF ATR fails closed as INVALID_INCONSISTENT",
+        "validator_code_sha256": "c044e3740811b3ef81ac6e3ade32f6dce3ca3bbc8123f84b0ac99aaf38658c75"
+      },
+      {
+        "authoritative_callable": "validate_fresh_oos_escrow_claim_kh01a",
+        "case_id": "CASE-14",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "['DATASET_SHA256_MATCHES_PRIOR_REUSED_RESEARCH_DATA', 'TEMPORAL_OVERLAP_WITH_PRIOR_RESEARCH_WINDOW:[1774356900000,1774443300000]_OVERLAPS_[1773579300000,1774529700000]', 'ACQUIRED_BEFORE_OR_WITHOUT_POLICY_FREEZE:acq=1774443300000,freeze=1774446900000', 'MISSING_IMMUTABLE_ORIGIN_RECEIPT_SHA256', 'MULTIPLE_STRATEGY_PASSES_CONTAMINATE_FRESH_OOS:2']",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Reused historical dataset relabeled as Fresh OOS rejected fail-closed",
+        "validator_code_sha256": "7a2dca3cee55961df757725ee12cbac8f382ce224ac4b4a2bb4894e4c597ee65"
+      },
+      {
+        "authoritative_callable": "evaluate_model_direction",
+        "case_id": "CASE-15",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "fp_match=True",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Appending future crash bar after decision_time leaves pre-entry decision_fingerprint 100% invariant",
+        "validator_code_sha256": "85d7ca0bc55f6ea4fb7303d4cdadcedf92151aaf291a13035de9f446b0f259e7"
+      },
+      {
+        "authoritative_callable": "extract_kh01b_causal_feature_frame",
+        "case_id": "CASE-16",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "['FEATURE_ROW_FUTURE_DECISION_TS:1774443360000>1774443300000']",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Leaked future feature timestamp > asof_ts flagged INVALID and rejected",
+        "validator_code_sha256": "71f373c10c2ee3cf2dcee16d94bc46197133cf60c1c7c1580ed769d1a89cb242"
+      },
+      {
+        "authoritative_callable": "extract_kh01b_causal_feature_frame",
+        "case_id": "CASE-17",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "['FALSE_CAPTURED_L1_QUOTE_CLAIM_WITHOUT_EXCHANGE_RECEIPT:CAPTURED_L1_EXCHANGE_BBO']",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Modeled quote falsely labeled CAPTURED_L1 rejected as INVALID provenance",
+        "validator_code_sha256": "71f373c10c2ee3cf2dcee16d94bc46197133cf60c1c7c1580ed769d1a89cb242"
+      },
+      {
+        "authoritative_callable": "compute_kh01b_research_economics_and_uncertainty",
+        "case_id": "CASE-18",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "1x=5.25,2x=-14.0,out=RESEARCH_NEGATIVE_EDGE",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "2x cost stress turning borderline 1x positive (+$5.25) negative (-$14.00) forces RESEARCH_NEGATIVE_EDGE",
+        "validator_code_sha256": "a7f3664f10707717c21cae6f8cc596bc179812dd0ecca41acd69371d29f80a67"
+      },
+      {
+        "authoritative_callable": "compute_kh01b_research_economics_and_uncertainty",
+        "case_id": "CASE-19",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "out=NO_VALID_SETUPS,ci=None",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Zero closed trades returns NO_VALID_SETUPS and None CI without fake economic PASS",
+        "validator_code_sha256": "a7f3664f10707717c21cae6f8cc596bc179812dd0ecca41acd69371d29f80a67"
+      },
+      {
+        "authoritative_callable": "verify_fresh_junit_bijection_v17931211",
+        "case_id": "CASE-20",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "['MALFORMED_COLLECTED_NODE_ID:t1', 'MALFORMED_COLLECTED_NODE_ID:t2']",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Shard nonzero exit + missing JUnit node rejected by JUnit bijection verifier",
+        "validator_code_sha256": "79c5ef2ad50d4a7ff1d95c0ec61b1fe9747dca9bbc1a5ff526cb1eddc8011852"
+      },
+      {
+        "authoritative_callable": "evaluate_sweep_mss_displacement_hypothesis",
+        "case_id": "CASE-21",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "ok=False,rc=B12_STAGE2_MSS_CONFIRMED_UNKNOWN_MISSING",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Missing MSS proof after positive H4+H1 filter rejected as UNKNOWN_MISSING in B12",
+        "validator_code_sha256": "09ed2d20ce3bb87ec16827301c71f8876172ca1228acd08ff003303d7a82e64e"
+      },
+      {
+        "authoritative_callable": "evaluate_shared_delayed_entry_adapter_v17931213",
+        "case_id": "CASE-22",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "rejected=True",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "LIVE/PAPER/AUTO activation attempt blocked fail-closed",
+        "validator_code_sha256": "6d8360379e979db399b06b0f757c876d5abd372ce68f674a56588790e5ed7836"
+      },
+      {
+        "authoritative_callable": "canonical_hash",
+        "case_id": "CASE-23",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "3c438bfb360d136390a7051cbe548a22fa4e6a53d67e15e59e6e6a9bcea663fc",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Shuffled worker partition completion order produces identical canonical hash",
+        "validator_code_sha256": "e5dafcad558daaa39bc3e3353aa4dcf599de60c6bf1969d98e1c24a6937b77f1"
+      },
+      {
+        "authoritative_callable": "compute_kh01b_research_economics_and_uncertainty",
+        "case_id": "CASE-24",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "FAIL_CAUSAL_OR_ACCOUNTING",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Fold embargo < 180m horizon detected as FAIL_CAUSAL_OR_ACCOUNTING",
+        "validator_code_sha256": "a7f3664f10707717c21cae6f8cc596bc179812dd0ecca41acd69371d29f80a67"
+      },
+      {
+        "authoritative_callable": "calculate_risk_reward",
+        "case_id": "CASE-25",
+        "counted_in_historical_trades": false,
+        "observed_outcome": "can_execute=False,net_rr=0.8633",
+        "provenance": "SYNTHETIC_UNIT_FIXTURE_ONLY",
+        "status": "PASS",
+        "title": "Borderline gross R:R=2.05 with fees/spread yields net_rr < 2.0 deterministically rejected",
+        "validator_code_sha256": "d9737c71fc7a6911fa628d37c586d41b67b1b60c4a18ae685bfb2b39de5be7c9"
+      }
+    ],
+    "failed_cases": 0,
+    "negative_controls_passed": 24,
+    "passed_cases": 25,
+    "positive_strict_unicorn_fixtures_passed": 1,
+    "spec_version": "KH-01B-v1.0",
+    "status": "PASS",
+    "synthetic_counted_as_historical_trades": 0,
+    "total_cases": 25,
+    "validation_sha256": "cebc22e17b245498eea0960b75ba63681e1ac6ba0e1c6ed2f0d65a0d6f95af85"
+  },
+  "ontology_isolation_verified": true,
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "spec_version": "KH-01B-v1.0",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3"
+}

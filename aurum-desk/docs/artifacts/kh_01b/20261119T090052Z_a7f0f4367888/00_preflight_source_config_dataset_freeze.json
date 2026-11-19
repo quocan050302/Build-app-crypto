@@ -1,0 +1,37 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "completed_at_utc": "2026-11-19T09:35:17Z",
+  "config_hashes": {
+    "cost_assumptions_sha256": "0fbd26c552566e0a35536f8bbc972eb5548f84723d268c897fb12d6ff9fe7afd",
+    "research_policy_registry_hash": "5bc06ca8262314cf093e81cf9c8c8501d02343afc472e4c7e787613eb4187913",
+    "scalp_config_sha256": "7c929fe49cb906a8780d304dd267f159abd62767fcaebbd12fd569ca4d162dc3",
+    "signal_intelligence_registry_hash": "9fd87faffa9a0ed2f29c4680673122e03e3670f7c4c98ea1ed90d00cd3f9fba2"
+  },
+  "orchestrator_pid": 36852,
+  "preflight_host_resources": {
+    "available_ram_gb": 6.508,
+    "cpu_count": 12,
+    "free_disk_gb": 45.211
+  },
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_immutable_artifacts_snapshot": {
+    "kh01a_and_r1_files_count": 111,
+    "kh01a_and_r1_sha256": "eca9c7d331a4bc00b06aa4f2d75b1b7446fab4d5517c65ad5c68da097f52daed",
+    "legacy_plus_kh01a_sha256": "1d4c443761a9282306feba0e8babd6a5578efe0bc18b69467da1123fcc929863"
+  },
+  "prior_r1_run_id": "20261119T021545Z_c1ba40df7ed9",
+  "prior_r1_tested_executable_sha": "c1ba40df7ed95c44b9d9cfa473b77a3682a8ef01",
+  "prior_use_status": "REUSED_RESEARCH",
+  "reference_r1_starting_head_sha": "d05f0fd74b65e2d0ef870e2bac259e81799c34cc",
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "schema_version": "kh_01b.entry_unicorn_research.v1",
+  "source_manifest": {
+    "files_count": 805,
+    "sha256": "bd51264b794d367fdce7d90071650dcd03a01b8c9a9fa3c3c4265a0a6bd39092"
+  },
+  "source_tree_unchanged_during_run": true,
+  "spec_version": "KH-01B-v1.0",
+  "started_at_utc": "2026-11-19T09:00:53Z",
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3"
+}

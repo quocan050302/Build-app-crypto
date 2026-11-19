@@ -1,0 +1,33 @@
+{
+  "configured_disk_reserve_gb": 20.0,
+  "disk_reserve_20gb_breached": false,
+  "disk_reserve_breached": false,
+  "error": null,
+  "global_worker_cap": 4,
+  "live_post_stop_orphan_pids": [],
+  "max_children_observed": 4,
+  "min_available_ram_gb_observed": 3.314,
+  "min_free_disk_gb_observed": 45.131,
+  "minimum_available_ram_bytes": 3558649856,
+  "minimum_free_disk_bytes": 48458760192,
+  "orchestrator_pid": 36852,
+  "orphan_pids_at_cleanup_count": 0,
+  "orphan_pids_observed_at_cleanup": [],
+  "peak_system_cpu_percent_observed": 100.0,
+  "peak_total_rss_bytes": 2756636672,
+  "peak_total_rss_mb_observed": 2628.93,
+  "run_id": "20261119T090052Z_a7f0f4367888",
+  "samples_count": 3698,
+  "sampling_interval_seconds": 0.5,
+  "soft_downshift_events": 0,
+  "spec_version": "KH-01B-v1.0",
+  "status": "PASS",
+  "temp_cleanup_receipt": {
+    "cleaned": true,
+    "containment_verified": true,
+    "path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp\\ak1_f3abc87151",
+    "sentinel_verified": true
+  },
+  "temp_dirs_cleaned_with_sentinel_check": true,
+  "tested_executable_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3"
+}

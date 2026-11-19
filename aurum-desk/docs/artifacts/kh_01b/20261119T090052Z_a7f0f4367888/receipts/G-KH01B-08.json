@@ -1,0 +1,26 @@
+{
+  "gate_id": "G-KH01B-08",
+  "receipt": {
+    "content_sha256": "5590f067794b40d0bea2103d52a529fdb8e5722c6fada903f23e981f9a243c8f",
+    "gate_id": "G-KH01B-08",
+    "input_sha256": "5590f067794b40d0bea2103d52a529fdb8e5722c6fada903f23e981f9a243c8f",
+    "metadata": {
+      "executable_git_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+      "validator_python_source_sha256": "090ccb16da3ce15f257721ca4cbacbb8b6d9bedd114bff22e0cd4d574c08ce3f",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "10_all_variant_comparable_replays_3fill_1pos_ledgers.json",
+    "run_id": "20261119T090052Z_a7f0f4367888",
+    "status": "PASS",
+    "tested_sha": "a7f0f4367888a672cdff7af1bc9f5d2027d167d3",
+    "validator_code_sha": "090ccb16da3ce15f257721ca4cbacbb8b6d9bedd114bff22e0cd4d574c08ce3f",
+    "validator_name": "_g08",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}

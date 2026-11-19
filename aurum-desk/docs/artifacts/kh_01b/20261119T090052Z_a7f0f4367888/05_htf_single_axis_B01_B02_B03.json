@@ -1,0 +1,324 @@
+{
+  "B01_H4_ONLY": {
+    "activation_ready": "NO",
+    "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+    "closed_trades_nb": 85,
+    "cluster_bootstrap_95ci_expectancy_r": [
+      -0.9653,
+      -0.4278
+    ],
+    "cluster_bootstrap_95ci_net_pnl_usd": [
+      -252.1024,
+      -78.8687
+    ],
+    "expectancy_1x_nb_r": -0.7549,
+    "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+    "holm_bonferroni_caution": "Tested m=12 non-baseline hypotheses on reused 20-day M1 XAUUSDT sample; family-wise alpha=0.05/12=0.0042 required and Fresh OOS remains mandatory.",
+    "legacy_close_fill_net_pnl_usd": -150.8751,
+    "longest_losing_streak_1x_nb": 24,
+    "losses_nb": 79,
+    "max_drawdown_1x_nb_usd": 158.2316,
+    "multiplicity_hypotheses_tested_m": 12,
+    "net_pnl_1x_nb_usd": -158.2316,
+    "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+    "paired_vs_b00_matched_242_net_pnl_diff_usd": 207.5465,
+    "paired_vs_b00_portfolio_net_pnl_diff_usd": 187.6655,
+    "profit_factor_1x_nb": 0.1873,
+    "purged_reused_walkforward_folds": [
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_1",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 27,
+        "train_net_pnl_usd": -59.1221,
+        "train_window_ms": [
+          1791437880000,
+          1792229034000
+        ],
+        "val_closed_n": 0,
+        "val_expectancy_r": 0.0,
+        "val_net_pnl_usd": 0,
+        "validation_window_ms": [
+          1792239834000,
+          1792492752000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_2",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 27,
+        "train_net_pnl_usd": -59.1221,
+        "train_window_ms": [
+          1791437880000,
+          1792492752000
+        ],
+        "val_closed_n": 20,
+        "val_expectancy_r": -0.4526,
+        "val_net_pnl_usd": -22.0035,
+        "validation_window_ms": [
+          1792503552000,
+          1792756470000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_3",
+        "purged_boundary_episodes": 1,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 46,
+        "train_net_pnl_usd": -78.6408,
+        "train_window_ms": [
+          1791437880000,
+          1792756470000
+        ],
+        "val_closed_n": 37,
+        "val_expectancy_r": -0.9176,
+        "val_net_pnl_usd": -83.9096,
+        "validation_window_ms": [
+          1792767270000,
+          1793196000000
+        ]
+      }
+    ],
+    "qualifies_for_kh01c_advancement": false,
+    "rejection_counts": {
+      "HTF_H4_OPPOSITE": 15087,
+      "HTF_H4_UNKNOWN_MISSING": 27392
+    },
+    "sample_power_warning": "POWERED_N=85_NEGATIVE_NET_OR_2X_COST_EDGE",
+    "scheduled_nb": 111,
+    "selection_outcome": "RESEARCH_NEGATIVE_EDGE",
+    "short_code": "B01",
+    "stress_2x_all_cost_expectancy_r": -1.3309,
+    "stress_2x_all_cost_net_pnl_usd": -282.4677,
+    "stress_2x_spread_slippage_net_pnl_usd": -170.128,
+    "stress_3x_all_cost_net_pnl_usd": -414.7426,
+    "total_fees_1x_nb_usd": 110.6865,
+    "trade_frequency_retention_vs_b00": 0.4587,
+    "variant_id": "KH01B-B01-H4-VERIFIED-ALIGNED-ONLY",
+    "win_rate_nb": 0.070588,
+    "wins_nb": 6
+  },
+  "B02_H1_ONLY": {
+    "activation_ready": "NO",
+    "axis_type": "SINGLE_AXIS_ENTRY_FILTER",
+    "closed_trades_nb": 77,
+    "cluster_bootstrap_95ci_expectancy_r": [
+      -1.0002,
+      -0.4689
+    ],
+    "cluster_bootstrap_95ci_net_pnl_usd": [
+      -239.9491,
+      -79.5955
+    ],
+    "expectancy_1x_nb_r": -0.8086,
+    "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+    "holm_bonferroni_caution": "Tested m=12 non-baseline hypotheses on reused 20-day M1 XAUUSDT sample; family-wise alpha=0.05/12=0.0042 required and Fresh OOS remains mandatory.",
+    "legacy_close_fill_net_pnl_usd": -129.6215,
+    "longest_losing_streak_1x_nb": 46,
+    "losses_nb": 73,
+    "max_drawdown_1x_nb_usd": 153.5152,
+    "multiplicity_hypotheses_tested_m": 12,
+    "net_pnl_1x_nb_usd": -153.5152,
+    "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+    "paired_vs_b00_matched_242_net_pnl_diff_usd": 224.4409,
+    "paired_vs_b00_portfolio_net_pnl_diff_usd": 192.3819,
+    "profit_factor_1x_nb": 0.1467,
+    "purged_reused_walkforward_folds": [
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_1",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 29,
+        "train_net_pnl_usd": -71.7373,
+        "train_window_ms": [
+          1791437880000,
+          1792229034000
+        ],
+        "val_closed_n": 4,
+        "val_expectancy_r": -1.0006,
+        "val_net_pnl_usd": -9.8956,
+        "validation_window_ms": [
+          1792239834000,
+          1792492752000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_2",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 33,
+        "train_net_pnl_usd": -81.6329,
+        "train_window_ms": [
+          1791437880000,
+          1792492752000
+        ],
+        "val_closed_n": 24,
+        "val_expectancy_r": -0.5438,
+        "val_net_pnl_usd": -31.868,
+        "validation_window_ms": [
+          1792503552000,
+          1792756470000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_3",
+        "purged_boundary_episodes": 1,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 57,
+        "train_net_pnl_usd": -113.3616,
+        "train_window_ms": [
+          1791437880000,
+          1792756470000
+        ],
+        "val_closed_n": 18,
+        "val_expectancy_r": -1.0005,
+        "val_net_pnl_usd": -44.4724,
+        "validation_window_ms": [
+          1792767270000,
+          1793196000000
+        ]
+      }
+    ],
+    "qualifies_for_kh01c_advancement": false,
+    "rejection_counts": {
+      "HTF_H1_OPPOSITE": 16859,
+      "HTF_H1_UNKNOWN_MISSING": 26109
+    },
+    "sample_power_warning": "POWERED_N=77_NEGATIVE_NET_OR_2X_COST_EDGE",
+    "scheduled_nb": 106,
+    "selection_outcome": "RESEARCH_NEGATIVE_EDGE",
+    "short_code": "B02",
+    "stress_2x_all_cost_expectancy_r": -1.4457,
+    "stress_2x_all_cost_net_pnl_usd": -289.0201,
+    "stress_2x_spread_slippage_net_pnl_usd": -173.8463,
+    "stress_3x_all_cost_net_pnl_usd": -390.8282,
+    "total_fees_1x_nb_usd": 108.8165,
+    "trade_frequency_retention_vs_b00": 0.438,
+    "variant_id": "KH01B-B02-H1-VERIFIED-ALIGNED-ONLY",
+    "win_rate_nb": 0.051948,
+    "wins_nb": 4
+  },
+  "B03_H4_AND_H1_COMBINED": {
+    "activation_ready": "NO",
+    "axis_type": "COMBINED_HTF_TWO_AXIS_FILTER",
+    "closed_trades_nb": 55,
+    "cluster_bootstrap_95ci_expectancy_r": [
+      -1.0003,
+      -0.2433
+    ],
+    "cluster_bootstrap_95ci_net_pnl_usd": [
+      -190.9854,
+      -26.7174
+    ],
+    "expectancy_1x_nb_r": -0.7319,
+    "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+    "holm_bonferroni_caution": "Tested m=12 non-baseline hypotheses on reused 20-day M1 XAUUSDT sample; family-wise alpha=0.05/12=0.0042 required and Fresh OOS remains mandatory.",
+    "legacy_close_fill_net_pnl_usd": -89.4407,
+    "longest_losing_streak_1x_nb": 30,
+    "losses_nb": 51,
+    "max_drawdown_1x_nb_usd": 99.3191,
+    "multiplicity_hypotheses_tested_m": 12,
+    "net_pnl_1x_nb_usd": -99.3191,
+    "ontology": "OTHER_CAUSAL_FILTER_VARIANTS",
+    "paired_vs_b00_matched_242_net_pnl_diff_usd": 258.9215,
+    "paired_vs_b00_portfolio_net_pnl_diff_usd": 246.578,
+    "profit_factor_1x_nb": 0.2099,
+    "purged_reused_walkforward_folds": [
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_1",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 22,
+        "train_net_pnl_usd": -54.3867,
+        "train_window_ms": [
+          1791437880000,
+          1792229034000
+        ],
+        "val_closed_n": 0,
+        "val_expectancy_r": 0.0,
+        "val_net_pnl_usd": 0,
+        "validation_window_ms": [
+          1792239834000,
+          1792492752000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_2",
+        "purged_boundary_episodes": 0,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 22,
+        "train_net_pnl_usd": -54.3867,
+        "train_window_ms": [
+          1791437880000,
+          1792492752000
+        ],
+        "val_closed_n": 20,
+        "val_expectancy_r": -0.4526,
+        "val_net_pnl_usd": -22.0035,
+        "validation_window_ms": [
+          1792503552000,
+          1792756470000
+        ]
+      },
+      {
+        "embargo_minutes": 180.0,
+        "fold_id": "REUSED_PURGED_FOLD_3",
+        "purged_boundary_episodes": 1,
+        "role_disclosure": "REUSED_DEVELOPMENT_DIAGNOSTIC_NOT_FRESH_OOS",
+        "shared_episode_ids_count": 0,
+        "train_closed_n": 41,
+        "train_net_pnl_usd": -73.9054,
+        "train_window_ms": [
+          1791437880000,
+          1792756470000
+        ],
+        "val_closed_n": 12,
+        "val_expectancy_r": -1.0004,
+        "val_net_pnl_usd": -29.7325,
+        "validation_window_ms": [
+          1792767270000,
+          1793196000000
+        ]
+      }
+    ],
+    "qualifies_for_kh01c_advancement": false,
+    "rejection_counts": {
+      "HTF_H1_OPPOSITE": 8896,
+      "HTF_H1_UNKNOWN_MISSING": 6115,
+      "HTF_H4_OPPOSITE": 15087,
+      "HTF_H4_UNKNOWN_MISSING": 19747
+    },
+    "sample_power_warning": "POWERED_N=55_NEGATIVE_NET_OR_2X_COST_EDGE",
+    "scheduled_nb": 70,
+    "selection_outcome": "RESEARCH_NEGATIVE_EDGE",
+    "short_code": "B03",
+    "stress_2x_all_cost_expectancy_r": -1.3602,
+    "stress_2x_all_cost_net_pnl_usd": -184.6548,
+    "stress_2x_spread_slippage_net_pnl_usd": -106.4073,
+    "stress_3x_all_cost_net_pnl_usd": -269.3925,
+    "total_fees_1x_nb_usd": 77.9927,
+    "trade_frequency_retention_vs_b00": 0.2893,
+    "variant_id": "KH01B-B03-H4-AND-H1-BOTH-VERIFIED-ALIGNED",
+    "win_rate_nb": 0.072727,
+    "wins_nb": 4
+  },
+  "module_id": "HTF_B01_B02_B03",
+  "status": "PASS"
+}
