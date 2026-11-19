@@ -238,10 +238,12 @@ SINGLE_CHILD_SPAWNING_TEST_FILES: Set[str] = {
     "test_r332_raw_regression_retry_integrity.py",
     "test_v14_4_2_chart_export_robustness.py",
     "test_v16_39_10_snapshot_api_cli.py",
+    "test_v17_6_4_3a_acceptance_integrity.py",
     "test_v17_6_4_3a_discovery_integrity.py",
     "test_v17_6_4_3b_acceptance_integrity.py",
     "test_v17_7_adaptive_stop_loss.py",
     "test_v17_8_0_4_parity_and_integrity.py",
+    "test_v17_9_1_positive_path_replay.py",
     "test_v17_9_3_macro_unicorn_backtest.py",
     "test_v17_9_3_1_2_1_root_cause_evidence.py",
     "test_v17_9_3_1_2_9_liquidity_provenance.py",
@@ -773,9 +775,8 @@ async def run_async_pytest_shards_kh01a(
         if avail_ram < int(2.0 * 1024**3):
             downshift_count += 1
             return min(2, max_parallel_workers)
-        if avail_ram < int(2.3 * 1024**3):
-            return min(3, max_parallel_workers)
-        return min(4, max_parallel_workers)
+        # Reserve 1 slot out of the 4-process global cap for transient OS children spawned inside legacy tests
+        return min(3, max_parallel_workers)
 
     async def _acquire_slot(exclusive: bool, slot_cost: int) -> int:
         nonlocal active_slots, active_shards_count, exclusive_running, peak_parallel_shards
