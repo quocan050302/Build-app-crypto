@@ -1001,11 +1001,11 @@ def run_kh01b_r1_dsc_r2_orchestrator(
     orchestrator_pid = os.getpid()
     freeze_ts_ms = int(time.time() * 1000)
     vm0 = psutil.virtual_memory()
-    req_workers = max(1, min(4, int(max_workers)))
-    eff_workers = 1 if vm0.available < 512 * 1024**2 else req_workers
+    eff_workers = max(1, min(4, int(max_workers)))
     owned_temp_root = create_owned_temp_root(f"dscr2_{run_id}")
 
-    # Configure child environment & oversubscription locks (§6)
+    # Configure child environment & oversubscription locks (§4 Phase 3 & §6):
+    # <512 MiB triggers dynamic downshift to 1 worker, while 64 MiB guards hard physical exhaustion
     py_paths = [str(BACKEND_ROOT), str(APP_ROOT)]
     existing_pyp = os.environ.get("PYTHONPATH", "")
     if existing_pyp:
@@ -1014,7 +1014,7 @@ def run_kh01b_r1_dsc_r2_orchestrator(
     os.environ["PYTHONHASHSEED"] = "0"
     os.environ["AURUM_VERIFICATION_ARTIFACT_ROOT"] = str(owned_temp_root)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
-    os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
+    os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(64 * 1024**2)
     if os.name != "nt":
         venv_py = BACKEND_ROOT / "venv/bin/python"
         if venv_py.exists():
@@ -1037,6 +1037,8 @@ def run_kh01b_r1_dsc_r2_orchestrator(
     )
     monitor = ResourceMonitorKH01A(
         abort_path=run_dir / "resource_abort.json",
+        minimum_ram_bytes=64 * 1024**2,
+        soft_downshift_ram_bytes=512 * 1024**2,
         minimum_disk_bytes=mon_floor_bytes,
         max_children_cap=4,
     )
