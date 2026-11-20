@@ -1,0 +1,29 @@
+{
+  "ACTIVATION_READY": "NO",
+  "BACKTEST_VERDICT": "PASS",
+  "DATA_ACQUISITION_VERDICT": "VERIFIED_COMPLETE",
+  "DISK_SAFETY_VERDICT": "PASS_STRICT_20GIB",
+  "ENGINEERING_CLOSURE_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FULL_REGRESSION_VERDICT": "PASS",
+  "KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE",
+  "RUNTIME_SAFETY_MODES": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "WORKER_DETERMINISM_VERDICT": "PASS",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": "5b4bc84012602b682c15d234be31efe53f46c11d",
+  "head_at_start_sha": "647206f3c446db202ecf152a4f8e028de56d101c",
+  "manifest_15_sha256": "7d4870faeaf981aaf5b52c6417adc8866ed1372320a82f4e1e16e34ff7c15412",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/publication_20261120T021021Z_c20b0b1bec13.json",
+  "publication_receipt_sha256": "4e42438e50bcdd881e6e6a88601ac6c6e40bfe1446dc138270adc6e503c16d68",
+  "run_dir": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/20261120T021021Z_c20b0b1bec13",
+  "run_id": "20261120T021021Z_c20b0b1bec13",
+  "spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "tested_executable_sha": "c20b0b1bec1344e2da258a5d18832874f5f5668a"
+}
