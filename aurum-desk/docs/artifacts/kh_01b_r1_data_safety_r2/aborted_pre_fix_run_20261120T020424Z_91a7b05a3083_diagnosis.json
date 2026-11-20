@@ -1,0 +1,13 @@
+{
+  "aborted_run_id": "20261120T020424Z_91a7b05a3083",
+  "aborted_tested_executable_sha": "91a7b05a3083dacdeb6c946dccf1a0db7b2354d7",
+  "aborted_at_stage": "STAGE_2_FULL_PYTEST_SHARDS",
+  "status": "ABORTED_EXTERNAL_HOST_RAM_PRESSURE_CLEARED_AND_SLOT_COST_FIXED",
+  "resource_abort_reason": "BLOCKED_LOW_RAM",
+  "observed_available_ram_bytes_at_abort": 61857792,
+  "own_child_rss_bytes_at_abort": 122617856,
+  "verified_root_cause": "An unrelated external TTS batch job on the host momentarily consumed ~30 GiB RAM (reducing host available RAM to 58.9 MiB while our own worker RSS was only 116.9 MiB), triggering ResourceMonitorKH01A emergency kill (rc=15 on R332-32 subprocess inside SHARD_INPROC_00_V17_9_0_1_RUNTIME). External job has now completed (10.28 GiB RAM available).",
+  "remediation_committed_before_new_run": [
+    "Assigned slot_cost=2 to SHARD_INPROC_00_V17_9_0_1_RUNTIME in aurum-desk/tools/run_kh_01b_r1_verification.py because R332-32 spawns a child pytest subprocess, guaranteeing <=4 global OS children under 3-slot parallel execution."
+  ]
+}

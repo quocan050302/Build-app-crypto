@@ -683,7 +683,7 @@ def _build_lpt_shards_kh01b_r1(
             "shard_name": "SHARD_INPROC_00_V17_9_0_1_RUNTIME",
             "files": v17_9_0_1_heavy,
             "exclusive": False,
-            "slot_cost": 1,
+            "slot_cost": 2,
             "priority_weight": 9_999_999,
             "needs_venv": False,
         })
