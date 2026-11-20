@@ -29,6 +29,8 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
+import sys
 import tempfile
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
@@ -46,9 +48,40 @@ from services.v17_9_3_1_2_19_truth_and_core_repair_service import EvidenceReceip
 SPEC_VERSION_KH01B_R1_DSC = "KH-01B.R1.DSC-v1.0"
 SCHEMA_VERSION_KH01B_R1_DSC = "kh_01b_r1_data_safety.v1"
 
+SPEC_VERSION_KH01B_R1_DSC_R2 = "KH-01B.R1.DSC.R2-v1.0"
+SCHEMA_VERSION_KH01B_R1_DSC_R2 = "kh_01b_r1_data_safety_r2.v1"
+
 PRIOR_KH01B_R1_PUBLICATION_HEAD_SHA = "1ee4a8747e7a1205e64a5fbfacfde1da0aa72782"
 PRIOR_KH01B_R1_TESTED_SHA = "3661c2eeb562d326c3065bd71c89df7878203736"
 PRIOR_KH01B_R1_RUN_REL_DIR = "aurum-desk/docs/artifacts/kh_01b_r1/20261119T115223Z_3661c2eeb562"
+
+PRIOR_DSC_V1_BLOCKED_RUN_ID = "20261119T150709Z_0c247bdc466a"
+PRIOR_DSC_V1_TESTED_SHA = "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e"
+PRIOR_DSC_V1_EVIDENCE_SHA = "070a7e4ab0bddd741f4dc9c7cb511fcf20b2300e"
+PRIOR_DSC_V1_PUBLICATION_HEAD_SHA = "647206f3c446db202ecf152a4f8e028de56d101c"
+PRIOR_DSC_V1_RUN_REL_DIR = "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a"
+PRIOR_DSC_V1_BLOCKED_RECEIPT_REL = "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/blocked_publication_receipt_20261119T150709Z_0c247bdc466a.json"
+
+REQUIRED_ARTIFACTS_KH01B_R1_DSC_R2: Tuple[str, ...] = (
+    "00_preflight_branch_head_code_sha_disk_mounts_dataset.json",
+    "01_function_callgraph_and_immutability_manifest.json",
+    "02_gap_schema_six_tf_and_actual_missingness.json",
+    "03_pagination_decimal_dedupe_cursor_and_red_green.json",
+    "04_requested_window_coverage_origin_and_online_capture_status.json",
+    "05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json",
+    "06_strict_disk_recovery_actions_and_resource_monitor.json",
+    "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json",
+    "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json",
+    "09_full_regression_junit_collected_executed_bijection.json",
+    "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json",
+    "11_negative_controls_fault_injection_independent_verifier.json",
+    "12_OOS_untouched_and_activation_off_receipt.json",
+    "13_prior_artifact_and_code_immutability_diffs.json",
+    "14_final_orthogonal_verdicts_gate_matrix_blockers.json",
+    "15_independent_verifier_manifest_and_content_sha256.json",
+    "README_KH01B_R1_DSC_R2.md",
+    "HANDOVER_KH01B_R1_DSC_R2_VI.txt",
+)
 
 REQUIRED_ARTIFACTS_KH01B_R1_DSC: Tuple[str, ...] = (
     "00_preflight_branch_head_dataset_disk_volumes.json",
@@ -121,6 +154,43 @@ def _q4(val: Decimal) -> Decimal:
     return val.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
 
+def _create_reparse_link_for_test(target_dir: Path, link_path: Path) -> str:
+    """
+    Creates a real OS-level directory symlink where permitted, or falls back to a real
+    Windows NTFS directory junction (`_winapi.CreateJunction`) when `SeCreateSymbolicLinkPrivilege`
+    is unavailable (`WinError 1314`). Never mocks filesystem behavior.
+    """
+    try:
+        os.symlink(target_dir, link_path, target_is_directory=True)
+        return "SYMLINK"
+    except OSError:
+        if os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(str(target_dir), str(link_path))
+            return "NTFS_JUNCTION"
+        raise
+
+
+def _remove_reparse_link_for_test(link_path: Path) -> None:
+    """Safely unlinks a symlink or removes a Windows NTFS junction without touching its target."""
+    try:
+        if link_path.is_symlink():
+            link_path.unlink(missing_ok=True)
+            return
+    except OSError:
+        pass
+    is_junc = getattr(link_path, "is_junction", None)
+    if callable(is_junc):
+        try:
+            if bool(is_junc()):
+                os.rmdir(link_path)
+                return
+        except OSError:
+            pass
+    if link_path.exists():
+        link_path.unlink(missing_ok=True)
+
+
 # ==============================================================================
 # 1. IMMUTABLE BASELINE, HISTORICAL DEFECT AUDIT & MUST-KEEP CALLGRAPH (01)
 # ==============================================================================
@@ -187,11 +257,66 @@ def build_kh01b_r1_dsc_immutable_baseline_and_callgraph(
     prior_18 = json.loads((prior_dir / "18_final_orthogonal_engineering_economics_data_oos_verdicts.json").read_text("utf-8"))
     prior_ext = prior_06.get("bitget_source_capability_and_extended_dev") or {}
 
+    prior_dsc_v1_00: Dict[str, Any] = {}
+    prior_dsc_v1_14: Dict[str, Any] = {}
+    dsc_v1_dir = repo_root / PRIOR_DSC_V1_RUN_REL_DIR
+    if (dsc_v1_dir / "00_preflight_branch_head_dataset_disk_volumes.json").is_file():
+        prior_dsc_v1_00 = json.loads((dsc_v1_dir / "00_preflight_branch_head_dataset_disk_volumes.json").read_text("utf-8"))
+    if (dsc_v1_dir / "14_final_orthogonal_verdicts_and_blockers.json").is_file():
+        prior_dsc_v1_14 = json.loads((dsc_v1_dir / "14_final_orthogonal_verdicts_and_blockers.json").read_text("utf-8"))
+
+    modified_dsc_functions = [
+        {
+            "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+            "symbols": ["_is_reparse_or_symlink", "measure_writing_volumes_free_bytes_r1", "inspect_writing_volumes_and_mounts_r2", "safe_cleanup_owned_temp_root_r1"],
+            "reason": "Inspect actual OS st_dev/mountpoints across repo/output/temp/venv, verify atomic rename probes, and reject Windows NTFS junctions alongside symlinks.",
+            "production_impact": "NONE_RESEARCH_VERIFICATION_TOOLING_ONLY",
+        },
+        {
+            "file": "aurum-desk/tools/kh_01b_r1_collect_market_data.py",
+            "symbols": ["collect_online_bitget_audit_and_extended_dev"],
+            "reason": "Record explicit prior_use_status=INSPECTED_REUSED_DEV alongside DEV_EXTENDED_RESEARCH so audited captures can never be promoted to Fresh OOS.",
+            "production_impact": "NONE_READ_ONLY_RESEARCH_DATA_AUDITOR_ONLY",
+        },
+        {
+            "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+            "symbols": ["evaluate_kh01b_r1_engineering_and_economic_gates_from_disk"],
+            "reason": "Reject per-TF missing_slots > 0 mislabeled VERIFIED_COMPLETE even when overall verdict is VERIFIED_PARTIAL; strategy evaluation untouched.",
+            "production_impact": "NONE_DISK_GATE_AUDITOR_ONLY",
+        },
+        {
+            "file": "aurum-desk/backend/services/kh_01b_r1_data_safety_closure_service.py",
+            "symbols": [
+                "build_kh01b_r1_dsc_immutable_baseline_and_callgraph",
+                "compute_kh01b_r1_fee_sensitivity",
+                "run_kh01b_r1_dsc_red_green_fault_suite",
+                "evaluate_kh01b_r1_dsc_r2_gates_from_disk",
+                "render_kh01b_r1_dsc_r2_readme_and_handover_vi",
+                "verify_kh01b_r1_dsc_r2_cross_view_consistency",
+            ],
+            "reason": "Cross-platform Windows NTFS junction fault test (DSC-M20), 31 RED/GREEN controls (DSC-M01..M31), R2 00..15 gate & SHA-graph verification, platform-safe rerun commands.",
+            "production_impact": "NONE_RESEARCH_CLOSURE_AUDIT_SERVICE_ONLY",
+        },
+        {
+            "file": "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+            "symbols": ["verify_kh_01b_r1_dsc_r2_run_dir_from_disk"],
+            "reason": "Separate-OS-process R2 independent verifier sealing 15_independent_verifier_manifest_and_content_sha256.json and rechecking G-DS-01..15 + R2-A..G.",
+            "production_impact": "NONE_INDEPENDENT_DISK_VERIFIER_ONLY",
+        },
+        {
+            "file": "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+            "symbols": ["reclaim_inactive_sentinel_owned_temp_dirs", "snapshot_all_prior_artifacts_for_r2", "run_kh01b_r1_dsc_r2_orchestrator"],
+            "reason": "Isolated kh_01b_r1_data_safety_r2/<RUN_ID> orchestrator with pre-stage multi-mount disk guards, bounded thread/worker env, and full regression/backtest/benchmark execution.",
+            "production_impact": "NONE_RESEARCH_ORCHESTRATOR_ONLY",
+        },
+    ]
+
     cost_default = CostAssumptions()
     cost_dump = cost_default.model_dump() if hasattr(cost_default, "model_dump") else vars(cost_default)
 
     return {
         "spec_version": SPEC_VERSION_KH01B_R1_DSC,
+        "r2_spec_version": SPEC_VERSION_KH01B_R1_DSC_R2,
         "schema_version": SCHEMA_VERSION_KH01B_R1_DSC,
         "starting_head_sha": starting_head_sha,
         "tested_executable_sha": tested_sha,
@@ -206,6 +331,17 @@ def build_kh01b_r1_dsc_immutable_baseline_and_callgraph(
         },
         "runtime_safety_modes": {"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"},
         "research_only_lock": dict(RESEARCH_ONLY_FEATURE_FLAG_KH01B_R1),
+        "prior_dsc_v1_blocked_run_audit": {
+            "prior_blocked_run_id": PRIOR_DSC_V1_BLOCKED_RUN_ID,
+            "prior_blocked_run_dir": PRIOR_DSC_V1_RUN_REL_DIR,
+            "prior_dsc_tested_sha": PRIOR_DSC_V1_TESTED_SHA,
+            "prior_dsc_evidence_sha": PRIOR_DSC_V1_EVIDENCE_SHA,
+            "prior_dsc_publication_sha": PRIOR_DSC_V1_PUBLICATION_HEAD_SHA,
+            "prior_engineering_verdict": (prior_dsc_v1_14.get("orthogonal_verdicts") or {}).get("ENGINEERING_CLOSURE_VERDICT"),
+            "prior_free_disk_gib": (prior_dsc_v1_00.get("disk_reserve_policy") or {}).get("preflight_baseline_free_gib"),
+            "prior_shortfall_gib": (prior_dsc_v1_00.get("disk_reserve_policy") or {}).get("shortfall_gib"),
+            "status_classification": "HISTORICAL_BLOCKED_LOW_DISK_EVIDENCE_NOT_REUSED_AS_PASS",
+        },
         "prior_kh01b_r1_historical_claim_audit": {
             "prior_run_dir": PRIOR_KH01B_R1_RUN_REL_DIR,
             "prior_tested_sha": PRIOR_KH01B_R1_TESTED_SHA,
@@ -228,6 +364,7 @@ def build_kh01b_r1_dsc_immutable_baseline_and_callgraph(
             },
         },
         "must_keep_unchanged_functions": keep_rows,
+        "modified_dsc_orchestration_and_audit_functions": modified_dsc_functions,
     }
 
 
@@ -480,6 +617,7 @@ def compute_kh01b_r1_fee_sensitivity(
     apply_both_entry_and_exit_legs: bool = True,
     scenario_label_map: Optional[Mapping[str, str]] = None,
     require_exact_e00_baseline_parity: bool = True,
+    claim_242_rerisk_is_full_56710_rerun: bool = False,
 ) -> Dict[str, Any]:
     """
     Pure Decimal research fee diagnostic (§3.D & §5.F1-F4):
@@ -502,6 +640,9 @@ def compute_kh01b_r1_fee_sensitivity(
 
     if not apply_both_entry_and_exit_legs:
         violations.append("ONE_SIDED_FEE_APPLICATION_FORBIDDEN")
+
+    if claim_242_rerisk_is_full_56710_rerun:
+        violations.append("SI0_242_COHORT_RERISK_CANNOT_BE_CLAIMED_AS_FULL_56710_OPPORTUNITY_RERUN")
 
     parsed_rates: List[Tuple[str, Decimal]] = []
     for r_str in scenario_taker_rates:
@@ -785,6 +926,7 @@ def compute_kh01b_r1_fee_sensitivity(
 
         re_risked_scenarios[r_key] = {
             "mode": "FULL_RE_RISKED_REPLAY_ON_SI0_242_COHORT",
+            "scope_is_full_56710_opportunity_rerun": False,
             "taker_fee_rate": float(r_dec),
             "evaluated_si0_episodes": len(sorted_sched),
             "rejected_by_fee_aware_min_rr_or_risk_cap_count": rejected_min_rr,
@@ -880,6 +1022,7 @@ def run_kh01b_r1_dsc_red_green_fault_suite(repo_root: Path) -> Dict[str, Any]:
         build_and_validate_future_oos_escrow_registry,
         collect_online_bitget_audit_and_extended_dev,
         compute_required_page_budget,
+        derive_window_coverage_by_timeframe,
         map_gap_truth_to_acquisition_summary,
         validate_and_normalize_paginated_candles,
         validate_prospective_bbo_snapshot,
@@ -1063,28 +1206,37 @@ def run_kh01b_r1_dsc_red_green_fault_suite(repo_root: Path) -> Dict[str, Any]:
     r_ok = verify_kh01b_r1_resource_cleanup({"max_children_observed": 2, "minimum_free_disk_bytes": int(32.0 * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False, "enospc_encountered": False}, {"cleaned": True, "sentinel_verified": True}, p_35, orchestrator_pid=os.getpid(), post_cleanup_free_bytes=int(34.0 * 1024**3))
     _rec("DSC-M19", "DISK_SAFETY", "RUNTIME_DISK_DROP_AND_ENOSPC_REJECTED", "verify_kh01b_r1_resource_cleanup", r_drop["status"] == "FAIL", r_ok["status"] == "PASS", f"breached={r_drop['effective_disk_reserve_breached']}")
 
-    # DSC-M20: Sentinel mismatch and child symlink escaping owned temp dir refused without deleting target
+    # DSC-M20: Sentinel mismatch and child symlink/NTFS-junction escaping owned temp dir refused without deleting target
     test_run_tag = f"dsc_m20_{os.getpid()}"
     tmp_owned = create_owned_temp_root(test_run_tag)
-    outside_victim = Path(tempfile.gettempdir()).resolve() / f"dsc_victim_{os.getpid()}.txt"
+    outside_victim_dir = Path(tempfile.gettempdir()).resolve() / f"dsc_victim_dir_{os.getpid()}"
+    outside_victim_dir.mkdir(parents=True, exist_ok=True)
+    outside_victim = outside_victim_dir / "do_not_delete.txt"
     outside_victim.write_text("DO_NOT_DELETE", encoding="utf-8")
     escape_link = tmp_owned / "escape_sym"
-    os.symlink(outside_victim, escape_link)
     m20_sym_blocked = False
     m20_sent_blocked = False
+    clean_rcpt: Dict[str, Any] = {"cleaned": False}
+    link_kind = "NONE"
     try:
-        safe_cleanup_owned_temp_root_r1(tmp_owned, test_run_tag)
-    except RuntimeError:
-        m20_sym_blocked = True
-    escape_link.unlink()
-    try:
-        safe_cleanup_owned_temp_root_r1(tmp_owned, "WRONG_RUN_ID")
-    except RuntimeError:
-        m20_sent_blocked = True
-    clean_rcpt = safe_cleanup_owned_temp_root_r1(tmp_owned, test_run_tag)
-    victim_intact = outside_victim.is_file() and outside_victim.read_text("utf-8") == "DO_NOT_DELETE"
-    outside_victim.unlink(missing_ok=True)
-    _rec("DSC-M20", "TEMP_SAFETY", "SYMLINK_ESCAPE_AND_SENTINEL_MISMATCH_REFUSED_VICTIM_INTACT", "safe_cleanup_owned_temp_root_r1", (m20_sym_blocked and m20_sent_blocked and victim_intact), bool(clean_rcpt["cleaned"]), f"victim_intact={victim_intact}")
+        link_kind = _create_reparse_link_for_test(outside_victim_dir, escape_link)
+        try:
+            safe_cleanup_owned_temp_root_r1(tmp_owned, test_run_tag)
+        except RuntimeError:
+            m20_sym_blocked = True
+        _remove_reparse_link_for_test(escape_link)
+        try:
+            safe_cleanup_owned_temp_root_r1(tmp_owned, "WRONG_RUN_ID")
+        except RuntimeError:
+            m20_sent_blocked = True
+        clean_rcpt = safe_cleanup_owned_temp_root_r1(tmp_owned, test_run_tag)
+        victim_intact = outside_victim.is_file() and outside_victim.read_text("utf-8") == "DO_NOT_DELETE"
+    finally:
+        if escape_link.exists() or escape_link.is_symlink():
+            _remove_reparse_link_for_test(escape_link)
+        shutil.rmtree(tmp_owned, ignore_errors=True)
+        shutil.rmtree(outside_victim_dir, ignore_errors=True)
+    _rec("DSC-M20", "TEMP_SAFETY", "SYMLINK_OR_JUNCTION_ESCAPE_AND_SENTINEL_MISMATCH_REFUSED_VICTIM_INTACT", "safe_cleanup_owned_temp_root_r1", (m20_sym_blocked and m20_sent_blocked and victim_intact), bool(clean_rcpt.get("cleaned")), f"link_kind={link_kind},victim_intact={victim_intact}")
 
     # DSC-M21: One-off BBO snapshot, previously inspected data, and DEV_EXTENDED rejected from Fresh OOS Escrow
     esc_bad = build_and_validate_future_oos_escrow_registry(
@@ -1118,14 +1270,188 @@ def run_kh01b_r1_dsc_red_green_fault_suite(repo_root: Path) -> Dict[str, Any]:
     assert_research_only_runtime_modes_off({"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"})
     _rec("DSC-M22", "RUNTIME_ISOLATION", "ALL_FOUR_RUNTIME_ACTIVATION_MODES_HARD_LOCKED_OFF", "assert_research_only_runtime_modes_off", m22_red, m22_green, "PRODUCTION/LIVE/PAPER/AUTO=OFF")
 
+    # DSC-M23 (R2-B): Exact prior blocked 17.1503 GiB + 20.49/18.5/13.4667/8.0 GiB + low temp mount blocked; 35 & 45 GiB GO
+    p_17 = compute_kh01b_r1_disk_reserve_policy(
+        int(17.1503 * 1024**3),
+        volume_free_bytes_by_label={
+            "repo": int(45.0 * 1024**3),
+            "output": int(45.0 * 1024**3),
+            "temp": int(17.1503 * 1024**3),
+        },
+    )
+    p_45 = compute_kh01b_r1_disk_reserve_policy(
+        int(45.0 * 1024**3),
+        volume_free_bytes_by_label={
+            "repo": int(45.0 * 1024**3),
+            "output": int(45.0 * 1024**3),
+            "temp": int(188.0 * 1024**3),
+        },
+    )
+    _rec(
+        "DSC-M23",
+        "DISK_SAFETY",
+        "R2_PRIOR_17P1503_GIB_AND_LOW_TEMP_MOUNT_BLOCKED_VS_45GIB_GO",
+        "compute_kh01b_r1_disk_reserve_policy",
+        (not p_17["can_proceed"] and p_17["disk_safety_verdict"] == "BLOCKED_LOW_DISK" and p_17["constraining_volume"] == "temp"),
+        (p_45["can_proceed"] and p_45["disk_safety_verdict"] == "PASS_STRICT_20GIB"),
+        f"17p1503_shortfall_gib={p_17['shortfall_gib']}",
+    )
+
+    # DSC-M24 (R2-C, R2-F): Focused 15-test smoke run or collect-only substituted for full repo regression rejected
+    r2_tmp = Path(tempfile.mkdtemp(prefix=f"dsc_r2_ctrl_{os.getpid()}_"))
+    try:
+        fake_pass_dir = r2_tmp / "forged_reg"
+        (fake_pass_dir / "receipts").mkdir(parents=True, exist_ok=True)
+        (fake_pass_dir / "00_preflight_branch_head_dataset_disk_volumes.json").write_text(
+            json.dumps({
+                "branch": MANDATORY_BRANCH_KH01B_R1,
+                "tested_executable_sha": "a" * 40,
+                "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH01B_R1,
+                "disk_reserve_policy": p_45,
+                "source_tree_unchanged_during_run": True,
+                "prior_artifacts_unchanged_during_run": True,
+            }),
+            encoding="utf-8",
+        )
+        (fake_pass_dir / "09_full_regression_collected_executed_junit_exit_bijection.json").write_text(
+            json.dumps({
+                "execution_status": "FOCUSED_15_TESTS_ONLY",
+                "focused_in_memory_unit_tests": {"status": "PASS", "executed_count": 15, "passed_count": 15},
+            }),
+            encoding="utf-8",
+        )
+        ev_forged = evaluate_kh01b_r1_dsc_gates_from_disk(fake_pass_dir, "RUN_FAKE", "a" * 40)
+        g09_forged = next(g for g in ev_forged["gates"] if g["gate_id"] == "G-DS-09")
+        m24_red = (ev_forged["orthogonal_verdicts"]["ENGINEERING_CLOSURE_VERDICT"] == "FAIL" and g09_forged["status"] == "FAIL")
+
+        # DSC-M25 (R2-C, R2-F): Fake JUnit XML planted when regression is NOT_RUN_BLOCKED_LOW_DISK rejected
+        blk_xml_dir = r2_tmp / "blk_fake_xml"
+        (blk_xml_dir / "junit").mkdir(parents=True, exist_ok=True)
+        (blk_xml_dir / "junit/FAKE.xml").write_text("<testsuite tests='1'/>", encoding="utf-8")
+        (blk_xml_dir / "00_preflight_branch_head_dataset_disk_volumes.json").write_text(
+            json.dumps({"branch": MANDATORY_BRANCH_KH01B_R1, "tested_executable_sha": "b" * 40, "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH01B_R1, "disk_reserve_policy": p_17, "source_tree_unchanged_during_run": True, "prior_artifacts_unchanged_during_run": True}),
+            encoding="utf-8",
+        )
+        (blk_xml_dir / "09_full_regression_collected_executed_junit_exit_bijection.json").write_text(
+            json.dumps({"execution_status": "NOT_RUN_BLOCKED_LOW_DISK"}), encoding="utf-8"
+        )
+        ev_blk_xml = evaluate_kh01b_r1_dsc_gates_from_disk(blk_xml_dir, "RUN_BLK_XML", "b" * 40)
+        g09_blk_xml = next(g for g in ev_blk_xml["gates"] if g["gate_id"] == "G-DS-09")
+        m25_red = (g09_blk_xml["status"] == "FAIL" and "FAKE_JUNIT_XML_PRESENT_WHEN_NOT_RUN" in g09_blk_xml["violations"])
+
+        # DSC-M26 (R2-A, R2-F): Stale wrong tested_executable_sha (0c247bdc vs current code SHA) rejected on gate & receipt
+        from services.kh_01a_r1_forensics_closure_service import build_dynamic_validated_gate_receipt_r1
+        from tools.fresh_junit_io import write_json_durable_atomic as _w_json_m26
+
+        (blk_xml_dir / "receipts").mkdir(parents=True, exist_ok=True)
+        build_dynamic_validated_gate_receipt_r1(
+            gate_id="G-DS-01",
+            run_dir=blk_xml_dir,
+            run_id="RUN_NEW",
+            tested_sha=PRIOR_DSC_V1_TESTED_SHA,
+            target_rel_path="00_preflight_branch_head_dataset_disk_volumes.json",
+            validator_fn=lambda: {"status": "PASS", "violations": []},
+            write_json_fn=_w_json_m26,
+        )
+        rcpt_stale = EvidenceReceiptV17931219(
+            **json.loads((blk_xml_dir / "receipts/G-DS-01.json").read_text("utf-8"))["receipt"]
+        )
+        m26_red = not rcpt_stale.is_valid_pass(
+            expected_run_id="RUN_NEW",
+            expected_tested_sha="c" * 40,
+            run_dir=blk_xml_dir,
+            reject_uniform_placeholder_hash=True,
+        )
+        build_dynamic_validated_gate_receipt_r1(
+            gate_id="G-DS-02",
+            run_dir=blk_xml_dir,
+            run_id="RUN_NEW",
+            tested_sha="b" * 40,
+            target_rel_path="00_preflight_branch_head_dataset_disk_volumes.json",
+            validator_fn=lambda: {"status": "PASS", "violations": []},
+            write_json_fn=_w_json_m26,
+        )
+        rcpt_fresh = EvidenceReceiptV17931219(
+            **json.loads((blk_xml_dir / "receipts/G-DS-02.json").read_text("utf-8"))["receipt"]
+        )
+        m26_green = rcpt_fresh.is_valid_pass(
+            expected_run_id="RUN_NEW",
+            expected_tested_sha="b" * 40,
+            run_dir=blk_xml_dir,
+            reject_uniform_placeholder_hash=True,
+        )
+
+        # DSC-M27 (G-DS-09/11): Missing worker shard or non-identical w1/w2/w4/w1_repeat canonical hash rejected
+        bad_w_dir = r2_tmp / "bad_workers"
+        bad_w_dir.mkdir(parents=True, exist_ok=True)
+        (bad_w_dir / "00_preflight_branch_head_dataset_disk_volumes.json").write_text(
+            json.dumps({"branch": MANDATORY_BRANCH_KH01B_R1, "tested_executable_sha": "d" * 40, "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH01B_R1, "disk_reserve_policy": p_45}),
+            encoding="utf-8",
+        )
+        (bad_w_dir / "08_async_w1_w2_w4_repeat_determinism_and_speed.json").write_text(
+            json.dumps({"execution_status": "EXECUTED", "pytest_subset_w1_w2_w4_repeat_identical": False, "r1_variant_slice_w1_w2_w4_repeat_identical": True}),
+            encoding="utf-8",
+        )
+        ev_bad_w = evaluate_kh01b_r1_dsc_gates_from_disk(bad_w_dir, "RUN_W", "d" * 40)
+        g11_bad_w = next(g for g in ev_bad_w["gates"] if g["gate_id"] == "G-DS-11")
+        m27_red = (g11_bad_w["status"] == "FAIL")
+    finally:
+        shutil.rmtree(r2_tmp, ignore_errors=True)
+
+    _rec("DSC-M24", "REGRESSION_INTEGRITY", "FOCUSED_15_TESTS_SUBSTITUTED_FOR_FULL_REGRESSION_REJECTED", "evaluate_kh01b_r1_dsc_gates_from_disk", m24_red, True, "focused-only status rejected")
+    _rec("DSC-M25", "JUNIT_INTEGRITY", "FAKE_JUNIT_XML_UNDER_BLOCKED_LOW_DISK_REJECTED", "evaluate_kh01b_r1_dsc_gates_from_disk", m25_red, True, "FAKE_JUNIT_XML_PRESENT_WHEN_NOT_RUN")
+    _rec("DSC-M26", "SHA_LOCK", "STALE_TESTED_EXECUTABLE_SHA_MISMATCH_REJECTED", "EvidenceReceiptV17931219.is_valid_pass", m26_red, m26_green, f"stale={PRIOR_DSC_V1_TESTED_SHA[:12]} rejected")
+    _rec("DSC-M27", "WORKER_DETERMINISM", "NON_IDENTICAL_W1_W2_W4_REPEAT_HASH_REJECTED", "evaluate_kh01b_r1_dsc_gates_from_disk", m27_red, True, "hash mismatch fails G-DS")
+
+    # DSC-M28 (R2-A, R2-G): Writing accepted latest_run.json pointer for a BLOCKED_LOW_DISK run rejected
+    m28_red = validate_latest_run_pointer_not_blocked(
+        {"run_id": PRIOR_DSC_V1_BLOCKED_RUN_ID, "engineering_closure_verdict": "BLOCKED_LOW_DISK"}
+    )["status"] == "FAIL"
+    m28_green = validate_latest_run_pointer_not_blocked(
+        {"run_id": "20261120T000000Z_accepted", "engineering_closure_verdict": "PASS", "disk_safety_verdict": "PASS_STRICT_20GIB"}
+    )["status"] == "PASS"
+    _rec("DSC-M28", "PUBLICATION_SAFETY", "BLOCKED_RUN_PROMOTED_TO_ACCEPTED_LATEST_POINTER_REJECTED", "validate_latest_run_pointer_not_blocked", m28_red, m28_green, "blocked run forbidden in latest_run.json")
+
+    # DSC-M29 (R2-E, R2-F): Fake 2880/2880 VERIFIED_COMPLETE claim on 1600-bar M1 snapshot rejected
+    m29_cov = derive_window_coverage_by_timeframe(
+        [tail_st + i * 60_000 for i in range(1600)],
+        requested_start_ms=DEFAULT_DEV_EXTENDED_START_MS,
+        requested_end_ms=DEFAULT_DEV_EXTENDED_END_MS,
+        granularity="1m",
+        duration_ms=60_000,
+        calendar_verified=True,
+    )
+    m29_red = (m29_cov["coverage_verdict"] != "VERIFIED_COMPLETE" and m29_cov["missing_slots"] == 1280)
+    _rec("DSC-M29", "WINDOW_COVERAGE", "FAKE_2880_COMPLETE_CLAIM_ON_1600_M1_SNAPSHOT_REJECTED", "derive_window_coverage_by_timeframe", m29_red, v_2880["coverage_verdict"] == "VERIFIED_COMPLETE", f"verdict={m29_cov['coverage_verdict']}")
+
+    # DSC-M30 (R2-B, R2-F): Lowered 10 GiB diagnostic mode rejected from acceptance PASS
+    p_diag = compute_kh01b_r1_disk_reserve_policy(int(17.1503 * 1024**3), mode="UNVERIFIED_DIAGNOSTIC_ONLY")
+    r_diag_chk = verify_kh01b_r1_resource_cleanup(
+        {"max_children_observed": 1, "minimum_free_disk_bytes": int(17.0 * 1024**3), "orphan_pids_at_cleanup_count": 0, "disk_reserve_breached": False},
+        {"cleaned": True, "sentinel_verified": True},
+        p_diag,
+        orchestrator_pid=os.getpid(),
+        post_cleanup_free_bytes=int(17.0 * 1024**3),
+    )
+    _rec("DSC-M30", "DISK_SAFETY", "DIAGNOSTIC_10GIB_DOWNGRADE_REJECTED_FROM_ENGINEERING_ACCEPTANCE", "verify_kh01b_r1_resource_cleanup", (not p_diag["acceptance_eligible"] and r_diag_chk["status"] == "FAIL"), r_ok["status"] == "PASS", p_diag["disk_safety_verdict"])
+
+    # DSC-M31 (R2-D, R2-F): Unbacked HTTP origin SHA on bars AND 242-SI0 rerisked study claimed as full 56,710 rerun rejected
+    f_fake_56k = compute_kh01b_r1_fee_sensitivity(sample_ep, require_exact_e00_baseline_parity=False, claim_242_rerisk_is_full_56710_rerun=True)
+    v_bad_origin = validate_and_normalize_paginated_candles(
+        [{"raw_http_sha256": "NOT_A_VALID_SHA256", "server_time_ms": ts0 + 600_000, "rows": pg_a["rows"]}],
+        symbol="XAUUSDT", granularity="1m", duration_ms=60_000, require_origin_sha=True,
+    )
+    _rec("DSC-M31", "PROVENANCE_AND_SCOPE", "BAD_ORIGIN_SHA_AND_242_RERISK_CLAIMED_AS_56710_RERUN_REJECTED", "compute_kh01b_r1_fee_sensitivity", (f_fake_56k["status"] == "FAIL_PROVENANCE" and v_bad_origin["status"] == "FAIL"), f_ok_ctrl["status"] == "PASS", str(f_fake_56k["violations"] + v_bad_origin["violations"]))
+
     passed_n = sum(1 for c in cases if c["status"] == "PASS")
     return {
         "spec_version": SPEC_VERSION_KH01B_R1_DSC,
+        "r2_spec_version": SPEC_VERSION_KH01B_R1_DSC_R2,
         "schema_version": SCHEMA_VERSION_KH01B_R1_DSC,
         "total_mutations": len(cases),
         "passed_mutations": passed_n,
         "failed_mutations": len(cases) - passed_n,
-        "status": "PASS" if (passed_n == len(cases) and len(cases) >= 20) else "FAIL",
+        "status": "PASS" if (passed_n == len(cases) and len(cases) >= 22) else "FAIL",
         "mutations": cases,
         "fault_suite_sha256": canonical_hash(cases),
     }
@@ -1602,8 +1928,8 @@ D. PHẠM VI THỰC THI TEST & HƯỚNG DẪN KHẮC PHỤC DUNG LƯỢNG ĐĨA 
 - Đột biến đối chứng ĐỎ/XANH (DSC-M01..DSC-M22): {f12.get('passed_mutations')}/{f12.get('total_mutations')} PASS.
 - Unit test tập trung trong bộ nhớ (Focused Pytest): status={foc_tests.get('status')}, executed={foc_tests.get('executed_count')}, passed={foc_tests.get('passed_count')}, failed={foc_tests.get('failed_count')}.
 - Hồi quy toàn kho (~5500+ test), Backtest lịch sử đầy đủ & Benchmark đa luồng w1/w2/w4: {ov['FULL_REGRESSION_VERDICT']} / {ov['BACKTEST_VERDICT']} / {ov['WORKER_DETERMINISM_VERDICT']}.
-- Lệnh chạy lại toàn diện sau khi người vận hành tự giải phóng thêm >= {d_pol.get('shortfall_gib')} GiB (để dung lượng trống >= 20.5 GiB trên mọi phân vùng ghi) hoặc gắn ổ ngoài >= 20.5 GiB:
-  cd /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk && backend/venv/bin/python tools/run_kh_01b_r1_data_safety_closure.py --tested-sha {tested_sha}
+- Lệnh chạy lại toàn diện trên bất kỳ máy chủ macOS/Linux/Windows nào sau khi người vận hành giải phóng an toàn thêm >= {d_pol.get('shortfall_gib')} GiB (để dung lượng trống >= 20.5 GiB trên mọi phân vùng ghi, không xoá dữ liệu lịch sử):
+  python aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py --r2
 """
     return readme, handover
 
@@ -1642,6 +1968,866 @@ def verify_kh01b_r1_dsc_cross_view_consistency(
             violations.append(f"HANDOVER_DSC_VI_MISSING_TOKEN:{tok}")
 
     # Anti-fabrication check: if ENGINEERING_CLOSURE_VERDICT != "PASS", neither doc may claim "ENGINEERING_CLOSURE_VERDICT: PASS"
+    if ov.get("ENGINEERING_CLOSURE_VERDICT") != "PASS":
+        for bad_claim in ("`ENGINEERING_CLOSURE_VERDICT`: **PASS**", "ENGINEERING_CLOSURE_VERDICT: PASS\n"):
+            if bad_claim in readme_text or bad_claim in handover_text:
+                violations.append(f"FALSE_ENGINEERING_PASS_CLAIM_IN_TEXT:{bad_claim.strip()}")
+
+    return {
+        "status": "PASS" if not violations else "FAIL",
+        "checked_tokens_count": len(req_tokens),
+        "violations": violations,
+    }
+
+
+# ==============================================================================
+# 7. KH-01B.R1.DSC.R2 GATE EVALUATION (G-DS-01..15 + R2-A..G) & REPORTING (§5, §7, §9)
+# ==============================================================================
+
+def validate_latest_run_pointer_not_blocked(ptr_doc: Mapping[str, Any]) -> Dict[str, Any]:
+    """
+    R2-A & R2-G guard: An accepted `latest_run.json` pointer MUST NEVER reference a
+    `BLOCKED_LOW_DISK`, `FAIL`, or `NOT_RUN` closure run.
+    """
+    violations: List[str] = []
+    eng_v = str(ptr_doc.get("engineering_closure_verdict") or ptr_doc.get("ENGINEERING_CLOSURE_VERDICT") or "")
+    disk_v = str(ptr_doc.get("disk_safety_verdict") or ptr_doc.get("DISK_SAFETY_VERDICT") or "PASS_STRICT_20GIB")
+    rid = str(ptr_doc.get("run_id") or "")
+    if not rid or rid == PRIOR_DSC_V1_BLOCKED_RUN_ID:
+        violations.append(f"ILLEGAL_OR_BLOCKED_RUN_ID_IN_LATEST_POINTER:{rid}")
+    if eng_v != "PASS":
+        violations.append(f"NON_PASS_ENGINEERING_VERDICT_IN_LATEST_POINTER:{eng_v}")
+    if disk_v != "PASS_STRICT_20GIB":
+        violations.append(f"NON_STRICT_DISK_VERDICT_IN_LATEST_POINTER:{disk_v}")
+    return {"status": "PASS" if not violations else "FAIL", "violations": violations}
+
+
+def evaluate_kh01b_r1_dsc_r2_gates_from_disk(
+    run_dir: Path,
+    run_id: str,
+    tested_sha: str,
+    *,
+    publication_status: str = "PENDING_REMOTE_PUSH",
+) -> Dict[str, Any]:
+    """
+    Evaluates KH-01B.R1.DSC.R2 gates `G-DS-01`..`G-DS-15` (exact §5 numbering) PLUS
+    `R2-A`..`R2-G` independently from closed R2 disk artifacts (`00`..`13`) and dynamic
+    cryptographic receipts in `receipts/`.
+    """
+    def _rd(name: str) -> Dict[str, Any]:
+        p = run_dir / name
+        if not p.is_file():
+            return {}
+        return json.loads(p.read_text(encoding="utf-8"))
+
+    f00 = _rd("00_preflight_branch_head_code_sha_disk_mounts_dataset.json")
+    f01 = _rd("01_function_callgraph_and_immutability_manifest.json")
+    f02 = _rd("02_gap_schema_six_tf_and_actual_missingness.json")
+    f03 = _rd("03_pagination_decimal_dedupe_cursor_and_red_green.json")
+    f04 = _rd("04_requested_window_coverage_origin_and_online_capture_status.json")
+    f05 = _rd("05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json")
+    f06 = _rd("06_strict_disk_recovery_actions_and_resource_monitor.json")
+    f07 = _rd("07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json")
+    f08 = _rd("08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json")
+    f09 = _rd("09_full_regression_junit_collected_executed_bijection.json")
+    f10 = _rd("10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json")
+    f11 = _rd("11_negative_controls_fault_injection_independent_verifier.json")
+    f12 = _rd("12_OOS_untouched_and_activation_off_receipt.json")
+    f13 = _rd("13_prior_artifact_and_code_immutability_diffs.json")
+
+    receipts_map: Dict[str, EvidenceReceiptV17931219] = {}
+    rcpt_dir = run_dir / "receipts"
+    if rcpt_dir.is_dir():
+        for rp in sorted(rcpt_dir.glob("*.json")):
+            if not (rp.stem.startswith("G-DS-") or rp.stem.startswith("R2-")):
+                continue
+            doc = json.loads(rp.read_text(encoding="utf-8"))
+            r_in = doc.get("receipt")
+            if isinstance(r_in, Mapping):
+                receipts_map[rp.stem] = EvidenceReceiptV17931219(**r_in)
+
+    gates: List[Dict[str, Any]] = []
+
+    def _add_gate(
+        gid: str,
+        name: str,
+        rel_art: str,
+        obs: Any,
+        status: str,
+        viols: Sequence[str],
+        *,
+        require_pass_receipt: bool = True,
+    ) -> None:
+        v_list = list(viols)
+        rcpt = receipts_map.get(gid)
+        if status == "PASS" and require_pass_receipt:
+            if rcpt is None:
+                status = "FAIL"
+                v_list.append(f"MISSING_GATE_RECEIPT:{gid}")
+            elif not rcpt.is_valid_pass(
+                expected_run_id=run_id,
+                expected_tested_sha=tested_sha,
+                run_dir=run_dir,
+                reject_uniform_placeholder_hash=True,
+            ):
+                status = "FAIL"
+                v_list.append(f"INVALID_GATE_RECEIPT:{gid}")
+                v_list.extend(rcpt.violations)
+        gates.append({
+            "gate_id": gid,
+            "name": name,
+            "artifact_path": rel_art,
+            "tested_run_id": run_id,
+            "executable_sha": tested_sha,
+            "observed_values": obs,
+            "status": status,
+            "violations": v_list,
+            "independent_receipt": asdict(rcpt) if rcpt is not None else None,
+        })
+
+    disk_pol = f00.get("disk_reserve_policy") or {}
+    disk_verdict = str(disk_pol.get("disk_safety_verdict") or "FAIL")
+
+    # G-DS-01: Exact current branch + source SHA + immutable baseline/source + OFF flags
+    v01: List[str] = []
+    if f00.get("branch") != MANDATORY_BRANCH_KH01B_R1 or f00.get("tested_executable_sha") != tested_sha:
+        v01.append("BRANCH_OR_TESTED_SHA_MISMATCH")
+    if f00.get("canonical_dataset_sha256") != CANONICAL_DATASET_SHA256_KH01B_R1:
+        v01.append("CANONICAL_DATASET_SHA_MISMATCH")
+    if f00.get("source_tree_unchanged_during_run") is not True or f00.get("prior_artifacts_unchanged_during_run") is not True:
+        v01.append("SOURCE_OR_PRIOR_ARTIFACTS_MUTATED")
+    if int(f01.get("locked_files_modified_count", 1)) != 0:
+        v01.append("LOCKED_PRODUCTION_OR_PRIOR_RESEARCH_FILES_MODIFIED")
+    modes_01 = f01.get("runtime_safety_modes") or {}
+    if any(modes_01.get(k) != "OFF" for k in ("PRODUCTION", "LIVE", "PAPER", "AUTO")):
+        v01.append("RUNTIME_FLAGS_NOT_OFF_IN_01")
+    _add_gate(
+        "G-DS-01",
+        "BRANCH_SOURCE_SHA_IMMUTABLE_BASELINE_AND_OFF_FLAGS",
+        "00_preflight_branch_head_code_sha_disk_mounts_dataset.json",
+        {"branch": f00.get("branch"), "tested_sha": tested_sha, "locked_modified": f01.get("locked_files_modified_count")},
+        "PASS" if not v01 else "FAIL",
+        v01,
+    )
+
+    # G-DS-02: Six TF gap truth map with all non-null counts & real provenance; old per_timeframe schema negative control FAILS
+    v02: List[str] = []
+    if f02.get("status") != "PASS":
+        v02.append("GAP_SCHEMA_AUDIT_NOT_PASS")
+    if not (f02.get("red_control_old_per_timeframe_null_schema") or {}).get("rejected_as_required", False):
+        v02.append("NULL_GAP_SCHEMA_NEGATIVE_CONTROL_NOT_REJECTED")
+    for sec_k in ("canonical_dataset_six_tf_gap_summary", "extended_dev_snapshot_six_tf_gap_summary"):
+        tfs_sec = (f02.get(sec_k) or {}).get("timeframes") or {}
+        for req_tf in ("1m", "5m", "15m", "1H", "4H", "1D"):
+            ge = tfs_sec.get(req_tf)
+            if (
+                not isinstance(ge, Mapping)
+                or ge.get("actual_bars") is None
+                or ge.get("total_missing_bars") is None
+                or not isinstance(ge.get("gap_events_by_category"), Mapping)
+                or not isinstance(ge.get("missing_bars_by_category"), Mapping)
+            ):
+                v02.append(f"MISSING_OR_NULL_6TF_GAP_ENTRY:{sec_k}:{req_tf}")
+    _add_gate(
+        "G-DS-02",
+        "SIX_TF_GAP_TRUTH_MAP_NON_NULL_AND_OLD_SCHEMA_RED_CONTROL",
+        "02_gap_schema_six_tf_and_actual_missingness.json",
+        {"canonical_status": (f02.get("canonical_dataset_six_tf_gap_summary") or {}).get("mapper_status"), "extended_dev_status": (f02.get("extended_dev_snapshot_six_tf_gap_summary") or {}).get("mapper_status")},
+        "PASS" if not v02 else "FAIL",
+        v02,
+    )
+
+    # G-DS-03: Page budget 17 for 48h M1, cursor integrity, exact Decimal cross-page dedup, negative controls
+    v03: List[str] = []
+    m1_bud = int((f03.get("m1_48h_dynamic_page_budget") or {}).get("effective_page_budget") or 0)
+    if f03.get("status") != "PASS" or int(f03.get("failed_controls_count", 1)) != 0:
+        v03.append("PAGINATION_OR_DECIMAL_DEDUPE_CONTROLS_FAILED")
+    if m1_bud != 17:
+        v03.append(f"M1_48H_PAGE_BUDGET_NOT_17:{m1_bud}")
+    _add_gate(
+        "G-DS-03",
+        "PAGE_BUDGET_17_CURSOR_INTEGRITY_AND_DECIMAL_CROSS_PAGE_DEDUP",
+        "03_pagination_decimal_dedupe_cursor_and_red_green.json",
+        {"m1_48h_page_budget": m1_bud, "passed_controls": f03.get("passed_controls_count")},
+        "PASS" if not v03 else "FAIL",
+        v03,
+    )
+
+    # G-DS-04: Requested-window conservation & honest old M1 1600/2880 VERIFIED_PARTIAL + online capture verification
+    v04: List[str] = []
+    cov_map = f04.get("coverage_by_timeframe") or {}
+    if f04.get("status") != "PASS" or int(f04.get("unbacked_bars_without_origin_receipt_count", 1)) != 0:
+        v04.append("WINDOW_COVERAGE_OR_ORIGIN_RECEIPT_VERIFICATION_FAILED")
+    m1_old = cov_map.get("1m") or {}
+    if (
+        int(m1_old.get("expected_closed_slots") or 0) != 2880
+        or int(m1_old.get("observed_unique_closed_slots") or 0) != 1600
+        or int(m1_old.get("leading_missing_slots") or 0) != 1280
+        or m1_old.get("coverage_verdict") == "VERIFIED_COMPLETE"
+        or f04.get("reclassified_DATA_ACQUISITION_VERDICT") != "VERIFIED_PARTIAL"
+    ):
+        v04.append("OLD_1600_M1_SNAPSHOT_NOT_HONESTLY_CLASSIFIED_PARTIAL")
+    for tf_k in ("1m", "5m", "15m", "1H", "4H", "1D"):
+        c_tf = cov_map.get(tf_k)
+        if not isinstance(c_tf, Mapping):
+            v04.append(f"MISSING_COVERAGE_TF:{tf_k}")
+            continue
+        if int(c_tf.get("leading_missing_slots", -1)) + int(c_tf.get("internal_missing_slots", -1)) + int(c_tf.get("trailing_missing_slots", -1)) != int(c_tf.get("missing_slots", -99)):
+            v04.append(f"MISSING_SLOTS_DECOMPOSITION_MISMATCH:{tf_k}")
+        if int(c_tf.get("observed_unique_closed_slots", -1)) + int(c_tf.get("missing_slots", -1)) != int(c_tf.get("expected_closed_slots", -99)):
+            v04.append(f"EXPECTED_VS_OBSERVED_SLOT_CONSERVATION_MISMATCH:{tf_k}")
+    if bool(f04.get("online_capture_executed", False)):
+        on_sum = f04.get("online_capture_summary") or {}
+        on_v = str(on_sum.get("DATA_ACQUISITION_VERDICT") or "")
+        if on_v in ("VERIFIED_COMPLETE", "VERIFIED_PARTIAL"):
+            per_tf_on = on_sum.get("per_timeframe_validation") or {}
+            for tf_k in ("1m", "5m", "15m", "1H", "4H", "1D"):
+                vo = per_tf_on.get(tf_k) or {}
+                if int(vo.get("observed_unique_closed_slots", -1)) + int(vo.get("missing_slots", -2)) != int(vo.get("expected_closed_slots", -9)):
+                    v04.append(f"ONLINE_SLOT_CONSERVATION_MISMATCH:{tf_k}")
+                if int(vo.get("missing_slots", 0)) > 0 and vo.get("coverage_verdict") == "VERIFIED_COMPLETE":
+                    v04.append(f"ONLINE_PARTIAL_MISLABELED_COMPLETE:{tf_k}")
+            if on_v == "VERIFIED_COMPLETE" and any(int((per_tf_on.get(t) or {}).get("missing_slots", 1)) > 0 for t in ("1m", "5m", "15m", "1H", "4H", "1D")):
+                v04.append("ONLINE_OVERALL_MISLABELED_VERIFIED_COMPLETE")
+            if on_sum.get("partition_role") != "DEV_EXTENDED_RESEARCH" or on_sum.get("eligible_for_future_fresh_oos") is not False:
+                v04.append("ONLINE_CAPTURE_MISLABELED_AS_FRESH_OOS")
+        elif on_v not in ("BLOCKED_UNAVAILABLE", "BLOCKED_LOW_DISK"):
+            v04.append(f"ONLINE_CAPTURE_INTEGRITY_FAILURE:{on_v}")
+    _add_gate(
+        "G-DS-04",
+        "REQUESTED_WINDOW_CONSERVATION_AND_HONEST_M1_PARTIAL_OR_VERIFIED_CAPTURE",
+        "04_requested_window_coverage_origin_and_online_capture_status.json",
+        {
+            "old_m1_slots": f"{m1_old.get('observed_unique_closed_slots')}/{m1_old.get('expected_closed_slots')}",
+            "old_verdict": f04.get("reclassified_DATA_ACQUISITION_VERDICT"),
+            "online_capture_executed": f04.get("online_capture_executed"),
+            "online_capture_verdict": f04.get("online_capture_verdict"),
+        },
+        "PASS" if not v04 else "FAIL",
+        v04,
+    )
+
+    # G-DS-05: Bitget contract metadata vs actual account VIP UNKNOWN; live quote is point-in-time sample not historical feed
+    v05: List[str] = []
+    prov_05 = f04.get("provenance_audit") or {}
+    ct_05 = prov_05.get("public_contract_fee_snapshot_audit") or {}
+    bbo_05 = prov_05.get("prospective_single_bbo_snapshot_audit") or {}
+    if prov_05.get("status") != "PASS":
+        v05.append("PROVENANCE_AUDIT_NOT_PASS")
+    if ct_05.get("actual_account_effective_fee_tier") != "UNKNOWN_NOT_LOCALLY_VERIFIED":
+        v05.append("UNVERIFIED_ACCOUNT_FEE_TIER_PRESENTED_AS_KNOWN")
+    if bbo_05.get("historical_backtest_usable") is not False or bbo_05.get("continuous_historical_series_coverage") is not False:
+        v05.append("SINGLE_BBO_MISREPRESENTED_AS_HISTORICAL_SERIES")
+    _add_gate(
+        "G-DS-05",
+        "CONTRACT_METADATA_ACCOUNT_VIP_UNKNOWN_AND_POINT_BBO_PROVENANCE",
+        "04_requested_window_coverage_origin_and_online_capture_status.json",
+        {"account_fee_tier": ct_05.get("actual_account_effective_fee_tier"), "public_taker_fee": ct_05.get("observed_public_taker_fee_rate")},
+        "PASS" if not v05 else "FAIL",
+        v05,
+    )
+
+    # G-DS-06: Decimal fee sensitivity reproducible in fixed-fill & SI0-242 rerisked modes; production defaults preserved
+    v06: List[str] = []
+    par_05 = f05.get("original_e00_b00_reference_parity") or {}
+    fo_05 = f05.get("FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS") or {}
+    rr_05 = f05.get("FULL_RE_RISKED_REPLAY") or {}
+    if f05.get("status") != "PASS":
+        v06.append("FEE_SENSITIVITY_05_NOT_PASS")
+    if (
+        int(par_05.get("closed_count") or 0) != 166
+        or float(par_05.get("gross_pnl_usd") or 0.0) != -142.7836
+        or float(par_05.get("total_fees_usd") or 0.0) != 203.1135
+        or float(par_05.get("net_pnl_usd") or 0.0) != -345.8971
+    ):
+        v06.append("ORIGINAL_E00_FEE_PARITY_BROKEN")
+    if (
+        float((fo_05.get("0.0006") or {}).get("total_fees_1x_usd") or 0.0) != 304.6696
+        or float((fo_05.get("0.0006") or {}).get("net_pnl_1x_usd") or 0.0) != -447.4532
+        or int((rr_05.get("0.0006") or {}).get("closed_trades_count") or 0) != 87
+        or float((rr_05.get("0.0006") or {}).get("net_pnl_1x_usd") or 0.0) != -210.6112
+        or (rr_05.get("0.0006") or {}).get("scope_is_full_56710_opportunity_rerun") is not False
+    ):
+        v06.append("FEE_0P06_FIXED_OR_SI0_242_RERISKED_MISMATCH_OR_SCOPE_MISLABEL")
+    if (f05.get("domain_calculator_defaults_preserved") or {}).get("unchanged_verified") is not True:
+        v06.append("DOMAIN_CALCULATOR_DEFAULTS_MUTATED")
+    _add_gate(
+        "G-DS-06",
+        "DECIMAL_FEE_SENSITIVITY_FIXED_FILL_VS_SI0_242_RERISKED_DEFAULTS_INTACT",
+        "05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json",
+        {
+            "fixed_0p04_net": (fo_05.get("0.0004") or {}).get("net_pnl_1x_usd"),
+            "fixed_0p06_net": (fo_05.get("0.0006") or {}).get("net_pnl_1x_usd"),
+            "rerisked_0p06_closed_net": f"{(rr_05.get('0.0006') or {}).get('closed_trades_count')}/{(rr_05.get('0.0006') or {}).get('net_pnl_1x_usd')}",
+        },
+        "PASS" if not v06 else "FAIL",
+        v06,
+    )
+
+    # G-DS-07: Strict disk preflight: PASS_STRICT_20GIB only if ALL writing volumes >=20.5 GiB at preflight & >=20.0 GiB runtime
+    v07: List[str] = []
+    tel_06 = f06.get("runtime_telemetry") or {}
+    vols_pol = disk_pol.get("volumes") or {}
+    if f06.get("policy_injections_status") != "PASS":
+        v07.append("DISK_POLICY_INJECTIONS_FAILED")
+    if bool(disk_pol.get("lowered_reserve_without_approval", True)) or float(disk_pol.get("enforced_reserve_gib") or 0.0) < 20.0:
+        v07.append("DISK_RESERVE_LOWERED_BELOW_20GIB")
+    if disk_verdict == "PASS_STRICT_20GIB":
+        if float(disk_pol.get("preflight_baseline_free_gib") or 0.0) < 20.5:
+            v07.append("FALSE_PASS_STRICT_20GIB_WHEN_FREE_SPACE_LT_20P5")
+        for v_lbl in ("repo", "output", "temp"):
+            if float((vols_pol.get(v_lbl) or {}).get("free_gib") or 0.0) < 20.5:
+                v07.append(f"WRITING_VOLUME_BELOW_20P5_GIB:{v_lbl}")
+        if float(tel_06.get("min_free_disk_gib") or 0.0) < 20.0 or float(tel_06.get("post_cleanup_free_gib") or 0.0) < 20.0:
+            v07.append("RUNTIME_OR_POST_CLEANUP_DISK_FELL_BELOW_20GIB")
+        g07_st = "PASS" if not v07 else "FAIL"
+    elif disk_verdict == "BLOCKED_LOW_DISK":
+        if bool(disk_pol.get("can_proceed", True)):
+            v07.append("LOW_DISK_ALLOWED_CAN_PROCEED_TRUE")
+        g07_st = "BLOCKED_LOW_DISK" if not v07 else "FAIL"
+    else:
+        v07.append(f"INVALID_DISK_SAFETY_VERDICT:{disk_verdict}")
+        g07_st = "FAIL"
+    _add_gate(
+        "G-DS-07",
+        "STRICT_20P5_GIB_PREFLIGHT_AND_20GIB_RESERVE_ALL_WRITING_VOLUMES",
+        "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        {"disk_safety_verdict": disk_verdict, "preflight_min_free_gib": disk_pol.get("preflight_baseline_free_gib"), "min_runtime_free_gib": tel_06.get("min_free_disk_gib")},
+        g07_st,
+        v07 if v07 else ([] if g07_st == "PASS" else [str(disk_pol.get("abort_reason") or "BLOCKED_LOW_DISK")]),
+        require_pass_receipt=(g07_st == "PASS"),
+    )
+
+    # G-DS-08: Resource tests, safe temp cleanup, <=4 children, zero orphan descendants, safe signal behavior
+    v08: List[str] = []
+    if int(tel_06.get("max_children_observed") or 0) > 4 or int(tel_06.get("max_children_observed") or 0) < 1:
+        v08.append(f"INVALID_MAX_CHILDREN:{tel_06.get('max_children_observed')}")
+    if int(tel_06.get("orphan_pids_at_cleanup_count", 1)) != 0:
+        v08.append("ORPHAN_PIDS_AT_CLEANUP")
+    if tel_06.get("temp_dirs_cleaned_with_sentinel_check") is not True:
+        v08.append("TEMP_SENTINEL_CLEANUP_NOT_VERIFIED")
+    if int(tel_06.get("unowned_paths_deleted_count", 1)) != 0:
+        v08.append("UNOWNED_PATHS_DELETED")
+    _add_gate(
+        "G-DS-08",
+        "RESOURCE_MONITOR_MAX4_DESCENDANTS_ZERO_ORPHANS_AND_SAFE_TEMP_CLEANUP",
+        "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        {"max_children": tel_06.get("max_children_observed"), "orphans": tel_06.get("orphan_pids_at_cleanup_count"), "sentinel_cleaned": tel_06.get("temp_dirs_cleaned_with_sentinel_check")},
+        "PASS" if not v08 else "FAIL",
+        v08,
+    )
+
+    # G-DS-09 (§5): Async deterministic w1/w2/w4/w1-repeat ACTUALLY EXECUTED and equal normalized hashes
+    st_08 = str(f08.get("execution_status") or "MISSING")
+    if st_08 == "EXECUTED" and disk_verdict == "PASS_STRICT_20GIB":
+        v09: List[str] = []
+        py_runs = (f08.get("pytest_controlled_subset_w1_w2_w4_repeat") or {}).get("runs") or []
+        sl_runs = (f08.get("r1_variant_slice_w1_w2_w4_repeat") or {}).get("runs") or []
+        if (
+            f08.get("completed") is not True
+            or f08.get("pytest_subset_w1_w2_w4_repeat_identical") is not True
+            or f08.get("r1_variant_slice_w1_w2_w4_repeat_identical") is not True
+            or len(py_runs) != 4
+            or len(sl_runs) != 4
+        ):
+            v09.append("WORKER_W1_W2_W4_REPEAT_DETERMINISM_OR_SHARD_MANIFEST_FAILED")
+        _add_gate(
+            "G-DS-09",
+            "ASYNC_DETERMINISTIC_W1_W2_W4_W1REPEAT_HASHES_AND_TIMINGS",
+            "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json",
+            {"pytest_w4_speedup": f08.get("measured_speedup_w4_vs_w1"), "speedup_label": f08.get("speedup_truth_label")},
+            "PASS" if not v09 else "FAIL",
+            v09,
+        )
+    elif st_08 == "NOT_RUN_BLOCKED_LOW_DISK" and disk_verdict == "BLOCKED_LOW_DISK" and f08.get("completed") is False:
+        _add_gate(
+            "G-DS-09",
+            "ASYNC_DETERMINISTIC_W1_W2_W4_W1REPEAT_HASHES_AND_TIMINGS",
+            "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json",
+            {"execution_status": st_08, "completed": False},
+            "NOT_RUN_BLOCKED_LOW_DISK",
+            ["NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"],
+            require_pass_receipt=False,
+        )
+    else:
+        _add_gate(
+            "G-DS-09",
+            "ASYNC_DETERMINISTIC_W1_W2_W4_W1REPEAT_HASHES_AND_TIMINGS",
+            "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json",
+            {"execution_status": st_08},
+            "FAIL",
+            [f"INVALID_OR_UNEXECUTED_WORKER_DETERMINISM:{st_08}"],
+        )
+
+    # G-DS-10 (§5): Full pytest collected/executed, real closed JUnit shards, all exit=0, 100% node bijection
+    st_09 = str(f09.get("execution_status") or "MISSING")
+    if st_09 == "EXECUTED" and disk_verdict == "PASS_STRICT_20GIB":
+        v10: List[str] = []
+        bij_09 = f09.get("independent_bijection_verification") or {}
+        cnt_09 = bij_09.get("counters") or {}
+        if (
+            f09.get("completed") is not True
+            or bij_09.get("status") != "PASS"
+            or int((f09.get("shard_manifest") or {}).get("nonzero_exit_shards_count", 1)) != 0
+            or int(cnt_09.get("collected") or 0) <= 20
+            or int(cnt_09.get("collected") or -1) != int(cnt_09.get("executed") or -2)
+            or int(cnt_09.get("failed") or 0) != 0
+            or int(cnt_09.get("errors") or 0) != 0
+        ):
+            v10.append("FULL_PYTEST_OR_JUNIT_BIJECTION_FAILED_OR_FOCUSED_SUBSTITUTE")
+        _add_gate(
+            "G-DS-10",
+            "FULL_PYTEST_COLLECTED_EXECUTED_CLOSED_JUNIT_BIJECTION",
+            "09_full_regression_junit_collected_executed_bijection.json",
+            cnt_09,
+            "PASS" if not v10 else "FAIL",
+            v10,
+        )
+    elif st_09 == "NOT_RUN_BLOCKED_LOW_DISK" and disk_verdict == "BLOCKED_LOW_DISK" and f09.get("completed") is False:
+        junit_xmls = list((run_dir / "junit").glob("*.xml")) if (run_dir / "junit").is_dir() else []
+        if junit_xmls:
+            _add_gate("G-DS-10", "FULL_PYTEST_COLLECTED_EXECUTED_CLOSED_JUNIT_BIJECTION", "09_full_regression_junit_collected_executed_bijection.json", {"fake_xml_count": len(junit_xmls)}, "FAIL", ["FAKE_JUNIT_XML_PRESENT_WHEN_NOT_RUN"])
+        else:
+            _add_gate("G-DS-10", "FULL_PYTEST_COLLECTED_EXECUTED_CLOSED_JUNIT_BIJECTION", "09_full_regression_junit_collected_executed_bijection.json", {"execution_status": st_09, "completed": False}, "NOT_RUN_BLOCKED_LOW_DISK", ["NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"], require_pass_receipt=False)
+    else:
+        _add_gate("G-DS-10", "FULL_PYTEST_COLLECTED_EXECUTED_CLOSED_JUNIT_BIJECTION", "09_full_regression_junit_collected_executed_bijection.json", {"execution_status": st_09}, "FAIL", [f"INVALID_REGRESSION_STATUS:{st_09}"])
+
+    # G-DS-11 (§5): Full backtest/parity with 242/166, 56,710/6,375 full cohorts, 3 fill modes/adapters/fingerprints
+    st_10 = str(f10.get("execution_status") or "MISSING")
+    if st_10 == "EXECUTED" and disk_verdict == "PASS_STRICT_20GIB":
+        v11: List[str] = []
+        nb_10 = f10.get("si0_e00_primary_nb_summary") or {}
+        fm_10 = f10.get("si0_e00_fill_mode_summaries") or {}
+        d4_10 = f10.get("d4_strict_and_adjacent_isolation") or {}
+        if (
+            f10.get("completed") is not True
+            or f10.get("status") != "PASS"
+            or int(f10.get("a1_evaluated_count") or 0) != 56710
+            or int(f10.get("a1_mismatches_count", 1)) != 0
+            or int(f10.get("si8_separate_population_count") or 0) != 6375
+            or int(f10.get("total_unmixed_universe_count") or 0) != 63085
+            or int(f10.get("three_adapter_episodes_denominator") or 0) != 246
+            or int(f10.get("three_adapter_mismatches_count", 1)) != 0
+            or int(nb_10.get("total_scheduled_episodes") or 0) != 242
+            or int(nb_10.get("closed_trades_count") or 0) != 166
+            or int(nb_10.get("wins_count") or 0) != 9
+            or int(nb_10.get("losses_count") or 0) != 157
+            or float(nb_10.get("total_realized_gross_usd") or 0.0) != -142.7836
+            or float(nb_10.get("total_fees_usd") or 0.0) != 203.1135
+            or float(nb_10.get("total_realized_net_usd") or 0.0) != -345.8971
+            or float(nb_10.get("expectancy_net_r") or 0.0) != -0.8474
+            or any(m not in fm_10 for m in ("NEXT_BAR_OPEN_BID_ASK", "LEGACY_CLOSE_FILL", "STRESS_WIDER_SPREAD_SLIPPAGE_2X"))
+            or int(d4_10.get("d4_historical_closed_trades", 1)) != 0
+            or d4_10.get("d4_historical_expectancy_r") is not None
+        ):
+            v11.append("FULL_BACKTEST_COHORT_3FILL_ADAPTER_OR_D4_PARITY_FAILED")
+        _add_gate(
+            "G-DS-11",
+            "FULL_BACKTEST_56710_6375_SI0_242_166_THREE_FILL_AND_ADAPTER_PARITY",
+            "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json",
+            {
+                "a1_evaluated": f10.get("a1_evaluated_count"),
+                "si8_count": f10.get("si8_separate_population_count"),
+                "si0_closed": f"{nb_10.get('closed_trades_count')} ({nb_10.get('wins_count')}W/{nb_10.get('losses_count')}L)",
+                "adapters_matched": f10.get("three_adapter_episodes_denominator"),
+            },
+            "PASS" if not v11 else "FAIL",
+            v11,
+        )
+    elif st_10 == "NOT_RUN_BLOCKED_LOW_DISK" and disk_verdict == "BLOCKED_LOW_DISK" and f10.get("completed") is False:
+        _add_gate(
+            "G-DS-11",
+            "FULL_BACKTEST_56710_6375_SI0_242_166_THREE_FILL_AND_ADAPTER_PARITY",
+            "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json",
+            {"execution_status": st_10, "completed": False},
+            "NOT_RUN_BLOCKED_LOW_DISK",
+            ["NOT_RUN_DUE_TO_STRICT_20GIB_DISK_RESERVE"],
+            require_pass_receipt=False,
+        )
+    else:
+        _add_gate("G-DS-11", "FULL_BACKTEST_56710_6375_SI0_242_166_THREE_FILL_AND_ADAPTER_PARITY", "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json", {"execution_status": st_10}, "FAIL", [f"INVALID_BACKTEST_STATUS:{st_10}"])
+
+    # G-DS-12 (§5): Original dataset/OOS escrow partition untouched and no false OOS
+    v12: List[str] = []
+    esc_12 = f12.get("future_oos_escrow") or {}
+    modes_12 = f12.get("runtime_safety_modes") or {}
+    oos_verdict = str(esc_12.get("FRESH_OOS_VERDICT") or "FAIL")
+    if esc_12.get("status") != "PASS" or int(esc_12.get("strategy_evaluation_count_total", 1)) != 0 or oos_verdict not in ("BLOCKED_NO_UNTOUCHED_DATA", "SEALED_UNTOUCHED_NOT_EVALUATED"):
+        v12.append(f"OOS_ESCROW_VIOLATION:{oos_verdict}")
+    if any(modes_12.get(k) != "OFF" for k in ("PRODUCTION", "LIVE", "PAPER", "AUTO")) or f12.get("ACTIVATION_READY") != "NO":
+        v12.append("RUNTIME_ACTIVATION_NOT_OFF")
+    _add_gate(
+        "G-DS-12",
+        "ORIGINAL_DATASET_AND_OOS_ESCROW_UNTOUCHED_ZERO_EVALUATIONS",
+        "12_OOS_untouched_and_activation_off_receipt.json",
+        {"FRESH_OOS_VERDICT": oos_verdict, "evaluation_count": esc_12.get("strategy_evaluation_count_total")},
+        "PASS" if not v12 else "FAIL",
+        v12,
+    )
+
+    # G-DS-13 (§5): Independent verifier separate PID & 22+ fault injections including fake PASS and low disk
+    v13: List[str] = []
+    if f11.get("status") != "PASS" or int(f11.get("passed_mutations") or 0) < 22 or int(f11.get("failed_mutations", 1)) != 0:
+        v13.append("FAULT_INJECTION_SUITE_BELOW_22_OR_FAILED")
+    _add_gate(
+        "G-DS-13",
+        "INDEPENDENT_VERIFIER_AND_22PLUS_ADVERSARIAL_FAULT_INJECTIONS",
+        "11_negative_controls_fault_injection_independent_verifier.json",
+        {"passed_mutations": f"{f11.get('passed_mutations')}/{f11.get('total_mutations')}"},
+        "PASS" if not v13 else "FAIL",
+        v13,
+    )
+
+    # G-DS-14 (§5): SHA256 manifests, dynamic receipts, immutable prior artifacts
+    v14: List[str] = []
+    if (
+        f13.get("status") != "PASS"
+        or f13.get("source_tree_unchanged_during_run") is not True
+        or f13.get("prior_artifacts_unchanged_during_run") is not True
+        or f13.get("prior_dsc_v1_blocked_run_intact") is not True
+        or f13.get("all_prior_latest_run_pointers_intact") is not True
+        or int(f13.get("modified_prior_files_count", 1)) != 0
+    ):
+        v14.append("PRIOR_ARTIFACTS_OR_SOURCE_IMMUTABILITY_DIFF_FAILED")
+    expected_gds_rcpts = 10 if disk_verdict == "BLOCKED_LOW_DISK" else 14
+    gds_rcpt_cnt = sum(1 for k in receipts_map if k.startswith("G-DS-"))
+    if gds_rcpt_cnt < expected_gds_rcpts:
+        v14.append(f"INCOMPLETE_GDS_DYNAMIC_RECEIPTS:{gds_rcpt_cnt}<{expected_gds_rcpts}")
+    _add_gate(
+        "G-DS-14",
+        "SHA256_MANIFESTS_CROSS_VIEW_AND_IMMUTABLE_PRIOR_ARTIFACTS",
+        "13_prior_artifact_and_code_immutability_diffs.json",
+        {"gds_receipts_count": gds_rcpt_cnt, "modified_prior_files_count": f13.get("modified_prior_files_count")},
+        "PASS" if not v14 else "FAIL",
+        v14,
+    )
+
+    # G-DS-15 (§5): Publication remote readback & exact code/evidence/receipt SHA graph
+    _add_gate(
+        "G-DS-15",
+        "SAME_BRANCH_PUBLICATION_AND_REMOTE_SHA_GRAPH_READBACK",
+        "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json",
+        {"publication_status": publication_status, "tested_executable_sha": tested_sha},
+        publication_status,
+        [] if publication_status == "PASS_REMOTE_VERIFIED" else ["AWAITING_REMOTE_PUSH_AND_READBACK"],
+        require_pass_receipt=False,
+    )
+
+    by_gid_base = {g["gate_id"]: g for g in gates}
+
+    # R2-A..R2-G Addenda Gates (§5 lines 150-158)
+    v_r2a: List[str] = []
+    if (
+        f07.get("status") != "PASS"
+        or f07.get("tested_executable_sha") != tested_sha
+        or f07.get("run_id_embeds_tested_sha12") is not True
+        or f07.get("stale_tested_sha_reused") is not False
+        or f07.get("run_id") == PRIOR_DSC_V1_BLOCKED_RUN_ID
+    ):
+        v_r2a.append("R2A_SHA_EXECUTION_GRAPH_OR_STALE_SHA_VIOLATION")
+    _add_gate("R2-A", "TESTED_SHA_SEPARATED_FROM_PUBLICATION_HEAD_AND_UNIQUE_RUN_ID", "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json", {"head_at_start_sha": f07.get("head_at_start_sha"), "tested_executable_sha": tested_sha}, "PASS" if not v_r2a else "FAIL", v_r2a)
+
+    _add_gate(
+        "R2-B",
+        "MULTI_MOUNT_STRICT_20P5_GIB_DISK_GUARD_NO_AUTO_DOWNGRADE",
+        "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        {"disk_verdict": disk_verdict, "distinct_filesystems": (f00.get("disk_mounts_audit") or {}).get("distinct_underlying_filesystems_count")},
+        by_gid_base["G-DS-07"]["status"] if by_gid_base["G-DS-07"]["status"] in ("PASS", "BLOCKED_LOW_DISK") else "FAIL",
+        [] if by_gid_base["G-DS-07"]["status"] == "PASS" else by_gid_base["G-DS-07"]["violations"],
+        require_pass_receipt=(by_gid_base["G-DS-07"]["status"] == "PASS"),
+    )
+
+    _add_gate(
+        "R2-C",
+        "ACTUAL_FULL_SUITE_EXECUTION_NOT_SUBSTITUTED_BY_FOCUSED_TESTS",
+        "09_full_regression_junit_collected_executed_bijection.json",
+        by_gid_base["G-DS-10"]["observed_values"],
+        by_gid_base["G-DS-10"]["status"],
+        by_gid_base["G-DS-10"]["violations"],
+        require_pass_receipt=(by_gid_base["G-DS-10"]["status"] == "PASS"),
+    )
+
+    v_r2d = list(by_gid_base["G-DS-11"]["violations"]) + list(by_gid_base["G-DS-06"]["violations"])
+    r2d_st = (
+        "PASS"
+        if (by_gid_base["G-DS-11"]["status"] == "PASS" and by_gid_base["G-DS-06"]["status"] == "PASS")
+        else ("NOT_RUN_BLOCKED_LOW_DISK" if (by_gid_base["G-DS-11"]["status"] == "NOT_RUN_BLOCKED_LOW_DISK" and by_gid_base["G-DS-06"]["status"] == "PASS") else "FAIL")
+    )
+    _add_gate("R2-D", "ACTUAL_FULL_BACKTEST_FINGERPRINTS_AND_NO_FALSE_56710_CLAIM_FROM_242_RERISK", "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json", {"backtest_status": by_gid_base["G-DS-11"]["status"], "fee_status": by_gid_base["G-DS-06"]["status"]}, r2d_st, v_r2d if r2d_st != "PASS" else [], require_pass_receipt=(r2d_st == "PASS"))
+
+    r2e_ok = by_gid_base["G-DS-04"]["status"] == "PASS" and by_gid_base["G-DS-12"]["status"] == "PASS"
+    _add_gate("R2-E", "PARTIAL_BITGET_COVERAGE_NEVER_PROMOTED_TO_COMPLETE_AND_ZERO_OOS_CONTAMINATION", "04_requested_window_coverage_origin_and_online_capture_status.json", {"g04": by_gid_base["G-DS-04"]["status"], "g12": by_gid_base["G-DS-12"]["status"]}, "PASS" if r2e_ok else "FAIL", [] if r2e_ok else (by_gid_base["G-DS-04"]["violations"] + by_gid_base["G-DS-12"]["violations"]))
+
+    _add_gate("R2-F", "INDEPENDENT_VERIFIER_DETECTS_FORGED_PASS_FAKE_JUNIT_2880_M1_AND_STALE_MANIFEST", "11_negative_controls_fault_injection_independent_verifier.json", {"passed_mutations": f11.get("passed_mutations")}, "PASS" if by_gid_base["G-DS-13"]["status"] == "PASS" else "FAIL", by_gid_base["G-DS-13"]["violations"])
+
+    r2g_ok = by_gid_base["G-DS-01"]["status"] == "PASS" and by_gid_base["G-DS-14"]["status"] == "PASS"
+    _add_gate("R2-G", "SAME_MANDATORY_BRANCH_PRIOR_BLOCKED_RUN_AND_LATEST_POINTERS_INTACT", "13_prior_artifact_and_code_immutability_diffs.json", {"prior_dsc_v1_intact": f13.get("prior_dsc_v1_blocked_run_intact"), "prior_latest_ptrs_intact": f13.get("all_prior_latest_run_pointers_intact")}, "PASS" if r2g_ok else "FAIL", [] if r2g_ok else (by_gid_base["G-DS-01"]["violations"] + by_gid_base["G-DS-14"]["violations"]))
+
+    by_gid = {g["gate_id"]: g for g in gates}
+    any_hard_fail = any(g["status"] == "FAIL" for g in gates)
+    offline_core_ok = all(
+        by_gid[gid]["status"] == "PASS"
+        for gid in ("G-DS-01", "G-DS-02", "G-DS-03", "G-DS-04", "G-DS-05", "G-DS-06", "G-DS-08", "G-DS-12", "G-DS-13", "G-DS-14", "R2-A", "R2-E", "R2-F", "R2-G")
+    )
+    heavy_all_pass = all(
+        by_gid[gid]["status"] == "PASS"
+        for gid in ("G-DS-09", "G-DS-10", "G-DS-11", "R2-C", "R2-D")
+    )
+
+    if any_hard_fail:
+        eng_verdict = "FAIL"
+    elif disk_verdict == "BLOCKED_LOW_DISK" and offline_core_ok and by_gid["G-DS-07"]["status"] == "BLOCKED_LOW_DISK":
+        eng_verdict = "BLOCKED_LOW_DISK"
+    elif disk_verdict == "PASS_STRICT_20GIB" and offline_core_ok and by_gid["G-DS-07"]["status"] == "PASS" and by_gid["R2-B"]["status"] == "PASS" and heavy_all_pass:
+        eng_verdict = "PASS"
+    else:
+        eng_verdict = "FAIL"
+
+    if bool(f04.get("online_capture_executed", False)) and f04.get("online_capture_verdict") in ("VERIFIED_COMPLETE", "VERIFIED_PARTIAL"):
+        data_acq_verdict = str(f04.get("online_capture_verdict"))
+    else:
+        data_acq_verdict = str(f04.get("reclassified_DATA_ACQUISITION_VERDICT") or "VERIFIED_PARTIAL")
+
+    return {
+        "spec_version": SPEC_VERSION_KH01B_R1_DSC_R2,
+        "schema_version": SCHEMA_VERSION_KH01B_R1_DSC_R2,
+        "run_id": run_id,
+        "branch": f00.get("branch"),
+        "head_at_start_sha": f00.get("head_at_start_sha"),
+        "tested_executable_sha": tested_sha,
+        "canonical_dataset_sha256": f00.get("canonical_dataset_sha256"),
+        "orthogonal_verdicts": {
+            "ENGINEERING_CLOSURE_VERDICT": eng_verdict,
+            "DISK_SAFETY_VERDICT": disk_verdict,
+            "FULL_REGRESSION_VERDICT": by_gid["G-DS-10"]["status"],
+            "BACKTEST_VERDICT": by_gid["G-DS-11"]["status"],
+            "WORKER_DETERMINISM_VERDICT": by_gid["G-DS-09"]["status"],
+            "DATA_ACQUISITION_VERDICT": data_acq_verdict,
+            "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE",
+            "KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+            "FRESH_OOS_VERDICT": oos_verdict if by_gid["G-DS-12"]["status"] == "PASS" else "FAIL_CONTAMINATED",
+            "ACTIVATION_READY": "NO",
+            "RUNTIME_SAFETY_MODES": {"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"},
+            "PUBLICATION_VERDICT": publication_status,
+        },
+        "explicit_blockers": (
+            [str(disk_pol.get("abort_reason"))]
+            if disk_verdict == "BLOCKED_LOW_DISK"
+            else ([g["gate_id"] for g in gates if g["status"] == "FAIL"])
+        ),
+        "gates_summary": {
+            "pass_count": sum(1 for g in gates if g["status"] == "PASS"),
+            "blocked_or_not_run_count": sum(1 for g in gates if g["status"] in ("BLOCKED_LOW_DISK", "NOT_RUN_BLOCKED_LOW_DISK", "PENDING_REMOTE_PUSH")),
+            "fail_count": sum(1 for g in gates if g["status"] == "FAIL"),
+            "total_gates": len(gates),
+        },
+        "gates": gates,
+    }
+
+
+def render_kh01b_r1_dsc_r2_readme_and_handover_vi(
+    *,
+    run_id: str,
+    branch: str,
+    head_at_start_sha: str,
+    tested_sha: str,
+    dataset_sha: str,
+    f00: Mapping[str, Any],
+    f01: Mapping[str, Any],
+    f02: Mapping[str, Any],
+    f03: Mapping[str, Any],
+    f04: Mapping[str, Any],
+    f05: Mapping[str, Any],
+    f06: Mapping[str, Any],
+    f07: Mapping[str, Any],
+    f08: Mapping[str, Any],
+    f09: Mapping[str, Any],
+    f10: Mapping[str, Any],
+    f11: Mapping[str, Any],
+    f12: Mapping[str, Any],
+    f13: Mapping[str, Any],
+    f14: Mapping[str, Any],
+) -> Tuple[str, str]:
+    ov = f14["orthogonal_verdicts"]
+    d_pol = f00.get("disk_reserve_policy") or {}
+    mounts = (f00.get("disk_mounts_audit") or {}).get("mounts_by_label") or {}
+    tel = f06.get("runtime_telemetry") or {}
+    recl = f06.get("stale_owned_temp_reclamation") or {}
+    par_05 = f05.get("original_e00_b00_reference_parity") or {}
+    fo_04 = (f05.get("FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS") or {}).get("0.0004") or {}
+    fo_06 = (f05.get("FEE_ONLY_COUNTERFACTUAL_FIXED_FILLS") or {}).get("0.0006") or {}
+    rr_04 = (f05.get("FULL_RE_RISKED_REPLAY") or {}).get("0.0004") or {}
+    rr_06 = (f05.get("FULL_RE_RISKED_REPLAY") or {}).get("0.0006") or {}
+    cnts_09 = ((f09.get("independent_bijection_verification") or {}).get("counters") or {})
+    nb_10 = f10.get("si0_e00_primary_nb_summary") or {}
+    fm_10 = f10.get("si0_e00_fill_mode_summaries") or {}
+
+    gate_rows = [
+        "| Gate ID | Gate Name | Status | Observed Summary |",
+        "|---|---|---|---|",
+    ]
+    for g in f14["gates"]:
+        gate_rows.append(
+            f"| `{g['gate_id']}` | `{g['name']}` | **{g['status']}** | `{json.dumps(g.get('observed_values'), sort_keys=True)}` |"
+        )
+    gate_table = "\n".join(gate_rows)
+
+    mount_rows = [
+        "| Label | Mountpoint / Probe | st_dev | FS Type | Free Bytes | Free GiB | Free GB (dec) | >=20.5 GiB |",
+        "|---|---|---:|---|---:|---:|---:|---|",
+    ]
+    for m_lbl in ("repo", "output", "temp", "venv_or_python"):
+        m = mounts.get(m_lbl) or {}
+        mount_rows.append(
+            f"| `{m_lbl}` | `{m.get('mountpoint')}` | `{m.get('st_dev')}` | `{m.get('fstype')}` | "
+            f"`{m.get('free_bytes')}` | `{m.get('free_gib')}` | `{m.get('free_gb_decimal')}` | `{m.get('meets_strict_20p5_gib_preflight')}` |"
+        )
+    mount_table = "\n".join(mount_rows)
+
+    cov_map = f04.get("coverage_by_timeframe") or {}
+    cov_rows = [
+        "| Timeframe | Old Snapshot Expected | Old Snapshot Observed | Old Missing | Old Verdict | New R2 Online Observed/Expected | New R2 Online Verdict |",
+        "|---|---:|---:|---:|---|---|---|",
+    ]
+    on_per_tf = ((f04.get("online_capture_summary") or {}).get("per_timeframe_validation") or {})
+    for tf_k in ("1m", "5m", "15m", "1H", "4H", "1D"):
+        c_old = cov_map.get(tf_k) or {}
+        c_new = on_per_tf.get(tf_k) or {}
+        new_obs_str = (
+            f"{c_new.get('observed_unique_closed_slots')}/{c_new.get('expected_closed_slots')}"
+            if c_new else "NOT_RUN"
+        )
+        cov_rows.append(
+            f"| `{tf_k}` | `{c_old.get('expected_closed_slots')}` | `{c_old.get('observed_unique_closed_slots')}` | "
+            f"`{c_old.get('missing_slots')}` | `{c_old.get('coverage_verdict')}` | `{new_obs_str}` | `{c_new.get('coverage_verdict', 'NOT_RUN')}` |"
+        )
+    cov_table = "\n".join(cov_rows)
+
+    readme = f"""# AURUM DESK — KH-01B.R1.DSC.R2: STRICT DISK RECOVERY, FULL RE-VERIFICATION & EVIDENCE CLOSURE (`{SPEC_VERSION_KH01B_R1_DSC_R2}`)
+
+- **Run ID**: `{run_id}`
+- **Mandatory Branch**: `{branch}`
+- **HEAD at Start (Prior DSC Blocked Publication Commit)**: `{head_at_start_sha}`
+- **Prior Blocked DSC Run Preserved Untouched**: `{PRIOR_DSC_V1_BLOCKED_RUN_ID}` (`tested_sha = {PRIOR_DSC_V1_TESTED_SHA}`)
+- **Tested Executable Source SHA (`CODE_COMMIT_SHA`)**: `{tested_sha}`
+- **Canonical Dataset SHA256 (`REUSED_RESEARCH`, `MODELED_BID_ASK`)**: `{dataset_sha}`
+
+## 1. Orthogonal Verdicts
+- `ENGINEERING_CLOSURE_VERDICT`: **{ov['ENGINEERING_CLOSURE_VERDICT']}**
+- `DISK_SAFETY_VERDICT`: **{ov['DISK_SAFETY_VERDICT']}** (Preflight floor: `>= {d_pol.get('min_acceptance_preflight_gib')} GiB`; Constraining preflight free: `{d_pol.get('preflight_baseline_free_gib')} GiB`; Min runtime free: `{tel.get('min_free_disk_gib')} GiB`; Post-cleanup free: `{tel.get('post_cleanup_free_gib')} GiB`)
+- `FULL_REGRESSION_VERDICT`: **{ov['FULL_REGRESSION_VERDICT']}** (`collected = {cnts_09.get('collected')}`, `executed = {cnts_09.get('executed')}`, `passed = {cnts_09.get('passed')}`, `skipped = {cnts_09.get('skipped')}`, `failed = {cnts_09.get('failed')}`, `errors = {cnts_09.get('errors')}`)
+- `BACKTEST_VERDICT`: **{ov['BACKTEST_VERDICT']}** (`56710` A1 + `6375` SI8 = `63085` cohorts; `SI0` `242` scheduled / `166` closed = `9W/157L`, `net = {par_05.get('net_pnl_usd')} USD`, `expectancy = {nb_10.get('expectancy_net_r')}R`; `246` 3-adapter episodes `0` mismatches)
+- `WORKER_DETERMINISM_VERDICT`: **{ov['WORKER_DETERMINISM_VERDICT']}** (`pytest w4 vs w1 speedup = {f08.get('measured_speedup_w4_vs_w1')}x`, `all_4_identical = {f08.get('pytest_subset_w1_w2_w4_repeat_identical')} / {f08.get('r1_variant_slice_w1_w2_w4_repeat_identical')}`)
+- `DATA_ACQUISITION_VERDICT`: **{ov['DATA_ACQUISITION_VERDICT']}** (Old M1 snapshot preserved as `1600/2880` `VERIFIED_PARTIAL`; New R2 online capture: `{f04.get('online_capture_verdict', 'NOT_RUN')}`)
+- `RESEARCH_ECONOMIC_VERDICT`: **{ov['RESEARCH_ECONOMIC_VERDICT']}**
+- `KH01C_ADVANCEMENT_VERDICT`: **{ov['KH01C_ADVANCEMENT_VERDICT']}**
+- `FRESH_OOS_VERDICT`: **{ov['FRESH_OOS_VERDICT']}** (`strategy_evaluation_count = {(f12.get('future_oos_escrow') or {}).get('strategy_evaluation_count_total')}`)
+- `ACTIVATION_READY`: **{ov['ACTIVATION_READY']}** (`PRODUCTION=OFF`, `LIVE=OFF`, `PAPER=OFF`, `AUTO=OFF`)
+- `PUBLICATION_VERDICT` (pre-push bundle): **{ov['PUBLICATION_VERDICT']}**
+
+## 2. Multi-Mount Disk Audit & Safe Sentinel Reclamation (`00`, `06`)
+{mount_table}
+
+- **Stale Sentinel-Owned Temp Reclamation**: `{recl.get('reclaimed_owned_dirs_count')}` dead-PID dirs reclaimed (`{recl.get('reclaimed_total_bytes')}` bytes / `{recl.get('reclaimed_total_mib')}` MiB); `unowned_paths_deleted_count = {recl.get('unowned_paths_deleted_count')}`.
+- **Process & Memory Telemetry**: `max_children_observed = {tel.get('max_children_observed')}` (`<= 4`), `orphan_pids_at_cleanup_count = {tel.get('orphan_pids_at_cleanup_count')}`, `parent_rss_mib = {tel.get('parent_rss_mib')}`, `peak_child_tree_rss_mib = {tel.get('peak_child_tree_rss_mib')}`.
+
+## 3. Window Coverage & Fee Sensitivity Summary (`04`, `05`, `10`)
+{cov_table}
+
+- **Fixed-Fill Counterfactual (`166` closed)**: `0.0004` (`gross = {fo_04.get('gross_pnl_1x_usd')}`, `fees = {fo_04.get('total_fees_1x_usd')}`, `net = {fo_04.get('net_pnl_1x_usd')} USD`) vs `0.0006` (`fees = {fo_06.get('total_fees_1x_usd')}`, `net = {fo_06.get('net_pnl_1x_usd')} USD`).
+- **Separate `SI0-242` Cohort Rerisked Study (NOT a full `56,710` opportunity rerun)**: `0.0004` (`{rr_04.get('closed_trades_count')}` closed, `net = {rr_04.get('net_pnl_1x_usd')} USD`) vs `0.0006` (`{rr_06.get('closed_trades_count')}` closed, `net = {rr_06.get('net_pnl_1x_usd')} USD`). `CostAssumptions` defaults unchanged (`0.0002 / 0.0004 / 0.10`).
+- **Three Fill Modes (`SI0/E00`)**: `NEXT_BAR_OPEN_BID_ASK` net = `{(fm_10.get('NEXT_BAR_OPEN_BID_ASK') or {}).get('total_realized_net_usd')}`, `LEGACY_CLOSE_FILL` net = `{(fm_10.get('LEGACY_CLOSE_FILL') or {}).get('total_realized_net_usd')}`, `STRESS_WIDER_SPREAD_SLIPPAGE_2X` net = `{(fm_10.get('STRESS_WIDER_SPREAD_SLIPPAGE_2X') or {}).get('total_realized_net_usd')}`.
+- **Adversarial RED/GREEN Fault Suite (`11`)**: `{f11.get('passed_mutations')}/{f11.get('total_mutations')}` PASS.
+
+## 4. Gate Matrix (`G-DS-01..G-DS-15` & `R2-A..R2-G`)
+{gate_table}
+
+## 5. Platform-Safe Replay Instructions (Current Committed Code SHA)
+```bash
+# Always derive current committed executable SHA (never pass a stale historical --tested-sha after evidence commits):
+python aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py --r2 --max-workers 4
+```
+"""
+
+    handover = f"""BÀN GIAO NGHIỆM THU TOÀN DIỆN KH-01B.R1.DSC.R2 — AURUM DESK ({SPEC_VERSION_KH01B_R1_DSC_R2})
+Run ID: {run_id}
+Nhánh bắt buộc: {branch}
+HEAD tại thời điểm bắt đầu (commit công bố bản chạy bị chặn trước đó): {head_at_start_sha}
+Bản chạy bị chặn trước đó được bảo toàn nguyên vẹn: {PRIOR_DSC_V1_BLOCKED_RUN_ID} (tested_sha={PRIOR_DSC_V1_TESTED_SHA})
+CODE_COMMIT_SHA được kiểm định thực tế (tested_executable_sha): {tested_sha}
+Canonical Dataset SHA256 (bất biến, REUSED_RESEARCH / MODELED_BID_ASK): {dataset_sha}
+
+1. MA TRẬN PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS):
+- ENGINEERING_CLOSURE_VERDICT: {ov['ENGINEERING_CLOSURE_VERDICT']}
+- DISK_SAFETY_VERDICT: {ov['DISK_SAFETY_VERDICT']} (Sàn preflight >= {d_pol.get('min_acceptance_preflight_gib')} GiB; Thực tế trống nhỏ nhất lúc preflight: {d_pol.get('preflight_baseline_free_gib')} GiB [{d_pol.get('preflight_baseline_free_gb_decimal')} GB thập phân]; Đáy runtime: {tel.get('min_free_disk_gib')} GiB; Sau thu dẹp: {tel.get('post_cleanup_free_gib')} GiB)
+- FULL_REGRESSION_VERDICT: {ov['FULL_REGRESSION_VERDICT']} (collected={cnts_09.get('collected')}, executed={cnts_09.get('executed')}, passed={cnts_09.get('passed')}, skipped={cnts_09.get('skipped')}, failed={cnts_09.get('failed')}, errors={cnts_09.get('errors')})
+- BACKTEST_VERDICT: {ov['BACKTEST_VERDICT']} (56710 A1 + 6375 SI8 = 63085 cơ hội tách biệt; SI0/E00 242 đặt lệnh / 166 đóng lệnh = 9W/157L, Gross={par_05.get('gross_pnl_usd')} USD, Fees={par_05.get('total_fees_usd')} USD, Net={par_05.get('net_pnl_usd')} USD, Expectancy={nb_10.get('expectancy_net_r')}R; 246 tập 3-adapter khớp 100%)
+- WORKER_DETERMINISM_VERDICT: {ov['WORKER_DETERMINISM_VERDICT']} (speedup w=4 so với w=1 = {f08.get('measured_speedup_w4_vs_w1')}x, đồng nhất mã băm 4 lượt = {f08.get('pytest_subset_w1_w2_w4_repeat_identical')} / {f08.get('r1_variant_slice_w1_w2_w4_repeat_identical')})
+- DATA_ACQUISITION_VERDICT: {ov['DATA_ACQUISITION_VERDICT']} (Snapshot M1 cũ giữ nguyên phân loại trung thực 1600/2880 VERIFIED_PARTIAL; Thu thập trực tuyến R2 mới: {f04.get('online_capture_verdict', 'NOT_RUN')})
+- RESEARCH_ECONOMIC_VERDICT: {ov['RESEARCH_ECONOMIC_VERDICT']}
+- KH01C_ADVANCEMENT_VERDICT: {ov['KH01C_ADVANCEMENT_VERDICT']}
+- FRESH_OOS_VERDICT: {ov['FRESH_OOS_VERDICT']} (strategy_evaluation_count={(f12.get('future_oos_escrow') or {}).get('strategy_evaluation_count_total')})
+- ACTIVATION_READY: {ov['ACTIVATION_READY']} (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trước khi đối chiếu blob từ xa): {ov['PUBLICATION_VERDICT']}
+
+2. KIỂM ĐỊNH ĐA PHÂN VÙNG GHI & THU HỒI TEMP AN TOÀN:
+{mount_table}
+- Thu hồi thư mục tạm mồ côi có sentinel hợp lệ: {recl.get('reclaimed_owned_dirs_count')} thư mục ({recl.get('reclaimed_total_bytes')} bytes), số đường dẫn không thuộc sở hữu bị xoá = {recl.get('unowned_paths_deleted_count')}.
+- Tiến trình con tối đa quan sát được: {tel.get('max_children_observed')} (<=4), orphan_pids={tel.get('orphan_pids_at_cleanup_count')}.
+
+3. ĐỘ NHẠY PHÍ 0.0004 SO VỚI 0.0006 & CÁC CHẾ ĐỘ KHỚP LỆNH:
+- Fixed-fill (166 lệnh đóng giữ nguyên): tại 0.0004 Gross={fo_04.get('gross_pnl_1x_usd')} USD, Fees={fo_04.get('total_fees_1x_usd')} USD, Net={fo_04.get('net_pnl_1x_usd')} USD; tại 0.0006 Fees={fo_06.get('total_fees_1x_usd')} USD, Net={fo_06.get('net_pnl_1x_usd')} USD.
+- Phân tích định cỡ lại trên tập con SI0-242 (KHÔNG phải chạy lại toàn bộ phễu 56,710 cơ hội): tại 0.0006 còn {rr_06.get('closed_trades_count')} lệnh đóng, Net={rr_06.get('net_pnl_1x_usd')} USD (ít giao dịch hơn do bị loại bởi net_rr >= 2.0, hoàn toàn không phải lợi thế dương). Mặc định CostAssumptions giữ nguyên bất biến (0.0002 / 0.0004 / 0.10).
+- Đột biến đối chứng ĐỎ/XANH (DSC-M01..DSC-M31): {f11.get('passed_mutations')}/{f11.get('total_mutations')} PASS.
+
+4. MA TRẬN CỔNG NGHIỆM THU G-DS-01..15 & R2-A..G:
+{gate_table}
+
+5. LỆNH CHẠY LẠI AN TOÀN ĐA NỀN TẢNG (KHÔNG DÙNG --tested-sha LỊCH SỬ CŨ SAU KHI ĐÃ CÓ COMMIT BẰNG CHỨNG):
+  python aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py --r2 --max-workers 4
+"""
+    return readme, handover
+
+
+def verify_kh01b_r1_dsc_r2_cross_view_consistency(
+    *,
+    readme_text: str,
+    handover_text: str,
+    f00: Mapping[str, Any],
+    f05: Mapping[str, Any],
+    f11: Mapping[str, Any],
+    f14: Mapping[str, Any],
+) -> Dict[str, Any]:
+    violations: List[str] = []
+    ov = f14["orthogonal_verdicts"]
+    d_pol = f00.get("disk_reserve_policy") or {}
+    par_05 = f05.get("original_e00_b00_reference_parity") or {}
+
+    req_tokens = [
+        str(f14.get("run_id") or ""),
+        str(f14.get("tested_executable_sha") or ""),
+        str(ov.get("ENGINEERING_CLOSURE_VERDICT") or ""),
+        str(ov.get("DISK_SAFETY_VERDICT") or ""),
+        str(ov.get("FULL_REGRESSION_VERDICT") or ""),
+        str(ov.get("BACKTEST_VERDICT") or ""),
+        str(ov.get("WORKER_DETERMINISM_VERDICT") or ""),
+        str(ov.get("DATA_ACQUISITION_VERDICT") or ""),
+        str(ov.get("KH01C_ADVANCEMENT_VERDICT") or ""),
+        str(ov.get("FRESH_OOS_VERDICT") or ""),
+        str(d_pol.get("preflight_baseline_free_gib") or ""),
+        str(par_05.get("net_pnl_usd") or ""),
+        f"{f11.get('passed_mutations')}/{f11.get('total_mutations')}",
+    ]
+    for tok in req_tokens:
+        if tok not in readme_text:
+            violations.append(f"README_R2_MISSING_TOKEN:{tok}")
+        if tok not in handover_text:
+            violations.append(f"HANDOVER_R2_VI_MISSING_TOKEN:{tok}")
+
+    for forbidden_path in ("/Users/macbook",):
+        if forbidden_path in readme_text or forbidden_path in handover_text:
+            violations.append(f"HARDCODED_HOST_PATH_FORBIDDEN:{forbidden_path}")
+
     if ov.get("ENGINEERING_CLOSURE_VERDICT") != "PASS":
         for bad_claim in ("`ENGINEERING_CLOSURE_VERDICT`: **PASS**", "ENGINEERING_CLOSURE_VERDICT: PASS\n"):
             if bad_claim in readme_text or bad_claim in handover_text:

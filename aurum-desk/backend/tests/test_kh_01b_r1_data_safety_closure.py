@@ -24,13 +24,23 @@ from services.kh_01a_r1_forensics_closure_service import build_dynamic_validated
 from services.kh_01b_r1_data_safety_closure_service import (
     CANONICAL_DATASET_SHA256_KH01B_R1,
     MANDATORY_BRANCH_KH01B_R1,
+    PRIOR_DSC_V1_BLOCKED_RUN_ID,
+    PRIOR_DSC_V1_PUBLICATION_HEAD_SHA,
+    PRIOR_DSC_V1_TESTED_SHA,
     SCHEMA_VERSION_KH01B_R1_DSC,
+    SCHEMA_VERSION_KH01B_R1_DSC_R2,
     SPEC_VERSION_KH01B_R1_DSC,
+    SPEC_VERSION_KH01B_R1_DSC_R2,
+    _create_reparse_link_for_test,
+    _remove_reparse_link_for_test,
     audit_gap_schema_coverage_and_provenance_from_disk,
     compute_kh01b_r1_fee_sensitivity,
     evaluate_kh01b_r1_dsc_gates_from_disk,
+    evaluate_kh01b_r1_dsc_r2_gates_from_disk,
+    render_kh01b_r1_dsc_r2_readme_and_handover_vi,
     render_kh01b_r1_dsc_readme_and_handover_vi,
     run_kh01b_r1_dsc_red_green_fault_suite,
+    validate_latest_run_pointer_not_blocked,
 )
 from services.v17_9_1_decision_funnel import classify_historical_dataset_gaps
 from tools.fresh_junit_io import write_json_durable_atomic, write_text_durable_atomic
@@ -61,6 +71,7 @@ from tools.run_kh_01a_verification import (
 from tools.run_kh_01b_r1_data_safety_closure import reclaim_inactive_sentinel_owned_temp_dirs
 from tools.run_kh_01b_r1_verification import (
     compute_kh01b_r1_disk_reserve_policy,
+    inspect_writing_volumes_and_mounts_r2,
     safe_cleanup_owned_temp_root_r1,
     verify_kh01b_r1_resource_cleanup,
 )
@@ -318,11 +329,17 @@ def test_dsc_f1_f2_f3_f4_decimal_fee_sensitivity_and_negative_controls() -> None
 
 def test_dsc_r1_to_r5_strict_20gib_disk_policy_and_owned_temp_reclamation() -> None:
     assert compute_kh01b_r1_disk_reserve_policy(int(35.0 * 1024**3))["disk_safety_verdict"] == "PASS_STRICT_20GIB"
-    for g in (20.49, 18.5, 13.4667, 8.0):
+    for g in (20.49, 18.5, 17.1503, 13.4667, 8.0):
         p = compute_kh01b_r1_disk_reserve_policy(int(g * 1024**3))
         assert p["can_proceed"] is False
         assert p["disk_safety_verdict"] == "BLOCKED_LOW_DISK"
         assert p["lowered_reserve_without_approval"] is False
+
+    mounts_info = inspect_writing_volumes_and_mounts_r2(repo_root=REPO_ROOT, verify_atomic_write=True)
+    assert set(mounts_info["writing_volumes_free_bytes"].keys()) == {"repo", "output", "temp"}
+    assert mounts_info["distinct_underlying_filesystems_count"] >= 1
+    assert mounts_info["atomic_write_probes"]["output"]["atomic_write_rename_verified"] is True
+    assert mounts_info["atomic_write_probes"]["temp"]["atomic_write_rename_verified"] is True
 
     # Dead-PID sentinel-owned temp dir reclaimed safely; active-PID & unowned dirs preserved!
     base_tmp = Path(tempfile.gettempdir()).resolve()
@@ -346,17 +363,19 @@ def test_dsc_r1_to_r5_strict_20gib_disk_policy_and_owned_temp_reclamation() -> N
         shutil.rmtree(unowned_dir, ignore_errors=True)
         shutil.rmtree(dead_dir, ignore_errors=True)
 
-    # Symlink root refused
+    # Symlink / NTFS-junction root refused without deleting target
     sym_root = base_tmp / f"ak1_symroot_{os.getpid()}"
     target_keep = base_tmp / f"keep_target_{os.getpid()}"
     target_keep.mkdir(parents=True, exist_ok=True)
-    os.symlink(target_keep, sym_root)
+    (target_keep / "sentinel_payload.txt").write_text("KEEP_ME", encoding="utf-8")
     try:
+        _create_reparse_link_for_test(target_keep, sym_root)
         with pytest.raises(RuntimeError, match="REFUSING_TEMP_DELETE_SYMLINK_ROOT"):
             safe_cleanup_owned_temp_root_r1(sym_root, "any")
         assert target_keep.exists()
+        assert (target_keep / "sentinel_payload.txt").read_text("utf-8") == "KEEP_ME"
     finally:
-        sym_root.unlink(missing_ok=True)
+        _remove_reparse_link_for_test(sym_root)
         shutil.rmtree(target_keep, ignore_errors=True)
 
 
@@ -583,3 +602,353 @@ def test_dsc_subproc_independent_verifier_green_and_9_adversarial_tampers(tmp_pa
     (t9 / "receipts/G-DS-06.json").unlink()
     rc9, out9 = _run_v(t9)
     assert rc9 != 0 and any("INDEPENDENT_GATE_REEVALUATION_FAILED" in v for v in out9["violations"])
+
+
+def _build_valid_dsc_r2_bundle(base_dir: Path, *, blocked_low_disk: bool = False) -> Path:
+    sha = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+    run_id = f"{'20261120T010000Z' if blocked_low_disk else '20261120T020000Z'}_{sha[:12]}"
+    r = base_dir / ("r2_blocked" if blocked_low_disk else "r2_pass")
+    (r / "receipts").mkdir(parents=True, exist_ok=True)
+
+    free_gib = 17.1503 if blocked_low_disk else 45.0
+    fb = int(free_gib * 1024**3)
+    d_pol = compute_kh01b_r1_disk_reserve_policy(fb, volume_free_bytes_by_label={"repo": fb, "output": fb, "temp": fb})
+
+    gap_cov_prov = audit_gap_schema_coverage_and_provenance_from_disk(REPO_ROOT)
+    nb_rows = list(iter_jsonl_gz(V130_RUN / "SI0_OFF_BASELINE_NEXT_BAR_OPEN_BID_ASK_trades.jsonl.gz"))
+    sp2_rows = list(iter_jsonl_gz(V130_RUN / "SI0_OFF_BASELINE_STRESS_WIDER_SPREAD_SLIPPAGE_2X_trades.jsonl.gz"))
+    f05 = compute_kh01b_r1_fee_sensitivity(nb_rows, sp2_rows)
+    f11 = run_kh01b_r1_dsc_red_green_fault_suite(REPO_ROOT)
+
+    f00 = {
+        "spec_version": SPEC_VERSION_KH01B_R1_DSC_R2,
+        "schema_version": SCHEMA_VERSION_KH01B_R1_DSC_R2,
+        "run_id": run_id,
+        "branch": MANDATORY_BRANCH_KH01B_R1,
+        "head_at_start_sha": PRIOR_DSC_V1_PUBLICATION_HEAD_SHA,
+        "tested_executable_sha": sha,
+        "orchestrator_pid": -888,
+        "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH01B_R1,
+        "disk_mounts_audit": {
+            "distinct_underlying_filesystems_count": 2,
+            "mounts_by_label": {
+                k: {"mountpoint": "D:\\", "st_dev": 1, "fstype": "NTFS", "free_bytes": fb, "free_gib": round(fb / (1024**3), 4), "free_gb_decimal": round(fb / (1000**3), 4), "meets_strict_20p5_gib_preflight": not blocked_low_disk}
+                for k in ("repo", "output", "temp", "venv_or_python")
+            },
+        },
+        "disk_reserve_policy": d_pol,
+        "source_tree_unchanged_during_run": True,
+        "prior_artifacts_unchanged_during_run": True,
+    }
+    f01 = {"locked_files_modified_count": 0, "runtime_safety_modes": {"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"}}
+    f02 = gap_cov_prov["doc_02"]
+    f03 = {
+        "status": "PASS",
+        "failed_controls_count": 0,
+        "passed_controls_count": 9,
+        "m1_48h_dynamic_page_budget": compute_required_page_budget(DEFAULT_DEV_EXTENDED_START_MS, DEFAULT_DEV_EXTENDED_END_MS, 60_000),
+    }
+    f04 = {**gap_cov_prov["doc_04"], "provenance_audit": gap_cov_prov["doc_05"], "online_capture_executed": False, "online_capture_verdict": "NOT_RUN"}
+    f06 = {
+        "disk_reserve_policy": d_pol,
+        "policy_injections_status": "PASS",
+        "stale_owned_temp_reclamation": {"reclaimed_owned_dirs_count": 0, "reclaimed_total_bytes": 0, "reclaimed_total_mib": 0.0, "unowned_paths_deleted_count": 0},
+        "runtime_telemetry": {
+            "max_children_observed": 2,
+            "orphan_pids_at_cleanup_count": 0,
+            "min_free_disk_gib": round(fb / (1024**3), 4),
+            "post_cleanup_free_gib": round(fb / (1024**3), 4),
+            "parent_rss_mib": 120.0,
+            "peak_child_tree_rss_mib": 210.0,
+            "temp_dirs_cleaned_with_sentinel_check": True,
+            "unowned_paths_deleted_count": 0,
+        },
+    }
+    f07 = {
+        "status": "PASS",
+        "branch": MANDATORY_BRANCH_KH01B_R1,
+        "head_at_start_sha": PRIOR_DSC_V1_PUBLICATION_HEAD_SHA,
+        "prior_dsc_v1_tested_sha": PRIOR_DSC_V1_TESTED_SHA,
+        "tested_executable_sha": sha,
+        "run_id": run_id,
+        "run_id_embeds_tested_sha12": True,
+        "stale_tested_sha_reused": False,
+    }
+
+    if blocked_low_disk:
+        f08 = {"execution_status": "NOT_RUN_BLOCKED_LOW_DISK", "completed": False}
+        f09 = {"execution_status": "NOT_RUN_BLOCKED_LOW_DISK", "completed": False}
+        f10 = {"execution_status": "NOT_RUN_BLOCKED_LOW_DISK", "completed": False}
+    else:
+        (r / "junit").mkdir(parents=True, exist_ok=True)
+        nodes = [
+            f"backend/tests/test_kh_01b_r1_data_safety_closure.py::test_case_{i:02d}"
+            for i in range(22)
+        ] + [
+            "backend/tests/test_kh_01b_entry_unicorn_research.py::test_b",
+            "backend/tests/test_kh_01a_data_and_verification_foundation.py::test_c",
+            "backend/tests/test_v17_9_3_1_2_7_causal_truth.py::test_d",
+        ]
+        tcs_xml = "".join(
+            f'<testcase classname="{n.split("::")[0].replace("/", ".").removesuffix(".py")}" name="{n.split("::")[1]}" time="0.01"/>'
+            for n in nodes
+        )
+        xml_p = r / "junit/SHARD_01.xml"
+        xml_p.write_text(f'<?xml version="1.0" encoding="utf-8"?><testsuite name="pytest" tests="{len(nodes)}" errors="0" failures="0" skipped="0">{tcs_xml}</testsuite>', encoding="utf-8")
+        xml_sha = hashlib.sha256(xml_p.read_bytes()).hexdigest()
+        xml_mt = int(xml_p.stat().st_mtime_ns)
+
+        w_runs_py = [{"mode_label": m, "workers": w, "worker_pids": [100 + w], "wall_clock_seconds": 1.5, "canonical_sorted_outcome_sha256": "c" * 64} for m, w in (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1))]
+        w_runs_sl = [{"mode_label": m, "worker_partitions": w, "worker_pids": [200 + w], "wall_clock_seconds": 2.0, "canonical_sorted_sha256": "d" * 64} for m, w in (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1))]
+        f08 = {
+            "execution_status": "EXECUTED",
+            "completed": True,
+            "pytest_controlled_subset_w1_w2_w4_repeat": {"runs": w_runs_py, "all_4_runs_identical": True},
+            "pytest_subset_w1_w2_w4_repeat_identical": True,
+            "measured_speedup_w4_vs_w1": 2.2,
+            "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+            "r1_variant_slice_w1_w2_w4_repeat": {"runs": w_runs_sl, "all_4_runs_identical": True},
+            "r1_variant_slice_w1_w2_w4_repeat_identical": True,
+        }
+        f09 = {
+            "execution_status": "EXECUTED",
+            "completed": True,
+            "collection_manifest": {"run_id": run_id, "tested_executable_sha": sha, "collect_exit_code": 0, "collected_node_ids": nodes},
+            "shard_manifest": {
+                "run_id": run_id, "tested_executable_sha": sha, "run_start_epoch_ns": xml_mt - 1000, "nonzero_exit_shards_count": 0,
+                "shards": [{"shard_id": "SHARD_01", "shard_name": "SHARD_01", "run_id": run_id, "tested_executable_sha": sha, "pid": 1234, "reused": False, "reused_from_prior_run": False, "exit_code": 0, "timed_out": False, "scheduled_node_ids": nodes, "junit_xml_path": "junit/SHARD_01.xml", "xml_sha256": xml_sha, "xml_mtime_ns": xml_mt, "junit_sha256": xml_sha, "junit_mtime_ns": xml_mt}],
+            },
+            "independent_bijection_verification": {"status": "PASS", "counters": {"collected": len(nodes), "executed": len(nodes), "passed": len(nodes), "skipped": 0, "failed": 0, "errors": 0}},
+        }
+        f10 = {
+            "execution_status": "EXECUTED",
+            "completed": True,
+            "status": "PASS",
+            "a1_population_denominator": 56710,
+            "a1_evaluated_count": 56710,
+            "a1_mismatches_count": 0,
+            "si8_separate_population_count": 6375,
+            "total_unmixed_universe_count": 63085,
+            "three_adapter_episodes_denominator": 246,
+            "three_adapter_mismatches_count": 0,
+            "si0_e00_primary_nb_summary": {
+                "total_scheduled_episodes": 242,
+                "closed_trades_count": 166,
+                "wins_count": 9,
+                "losses_count": 157,
+                "total_realized_gross_usd": -142.7836,
+                "total_fees_usd": 203.1135,
+                "total_realized_net_usd": -345.8971,
+                "expectancy_net_r": -0.8474,
+            },
+            "si0_e00_fill_mode_summaries": {
+                "NEXT_BAR_OPEN_BID_ASK": {"total_realized_net_usd": -345.8971},
+                "LEGACY_CLOSE_FILL": {"total_realized_net_usd": -312.0},
+                "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {"total_realized_net_usd": -410.0},
+            },
+            "d4_strict_and_adjacent_isolation": {"d4_historical_closed_trades": 0, "d4_historical_expectancy_r": None, "adjacent_counted_toward_d4_count": 0},
+        }
+
+    esc = build_and_validate_future_oos_escrow_registry(freeze_timestamp_ms=DEFAULT_DEV_EXTENDED_START_MS, frozen_candidate_code_sha=sha, frozen_config_sha256="cfg")
+    f12 = {"future_oos_escrow": esc, "ACTIVATION_READY": "NO", "runtime_safety_modes": {"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"}}
+    f13 = {
+        "status": "PASS",
+        "source_tree_unchanged_during_run": True,
+        "prior_artifacts_unchanged_during_run": True,
+        "prior_dsc_v1_blocked_run_intact": True,
+        "all_prior_latest_run_pointers_intact": True,
+        "modified_prior_files_count": 0,
+    }
+
+    for fname, doc in (
+        ("00_preflight_branch_head_code_sha_disk_mounts_dataset.json", f00),
+        ("01_function_callgraph_and_immutability_manifest.json", f01),
+        ("02_gap_schema_six_tf_and_actual_missingness.json", f02),
+        ("03_pagination_decimal_dedupe_cursor_and_red_green.json", f03),
+        ("04_requested_window_coverage_origin_and_online_capture_status.json", f04),
+        ("05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json", f05),
+        ("06_strict_disk_recovery_actions_and_resource_monitor.json", f06),
+        ("07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json", f07),
+        ("08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json", f08),
+        ("09_full_regression_junit_collected_executed_bijection.json", f09),
+        ("10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json", f10),
+        ("11_negative_controls_fault_injection_independent_verifier.json", f11),
+        ("12_OOS_untouched_and_activation_off_receipt.json", f12),
+        ("13_prior_artifact_and_code_immutability_diffs.json", f13),
+    ):
+        write_json_durable_atomic(r / fname, doc)
+
+    target_map = {
+        "G-DS-01": "00_preflight_branch_head_code_sha_disk_mounts_dataset.json",
+        "G-DS-02": "02_gap_schema_six_tf_and_actual_missingness.json",
+        "G-DS-03": "03_pagination_decimal_dedupe_cursor_and_red_green.json",
+        "G-DS-04": "04_requested_window_coverage_origin_and_online_capture_status.json",
+        "G-DS-05": "04_requested_window_coverage_origin_and_online_capture_status.json",
+        "G-DS-06": "05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json",
+        "G-DS-07": "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        "G-DS-08": "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        "G-DS-09": "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json",
+        "G-DS-10": "09_full_regression_junit_collected_executed_bijection.json",
+        "G-DS-11": "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json",
+        "G-DS-12": "12_OOS_untouched_and_activation_off_receipt.json",
+        "G-DS-13": "11_negative_controls_fault_injection_independent_verifier.json",
+        "G-DS-14": "13_prior_artifact_and_code_immutability_diffs.json",
+        "R2-A": "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json",
+        "R2-B": "06_strict_disk_recovery_actions_and_resource_monitor.json",
+        "R2-C": "09_full_regression_junit_collected_executed_bijection.json",
+        "R2-D": "10_full_baseline_backtest_three_fill_1pos_adapter_and_fingerprint_parity.json",
+        "R2-E": "04_requested_window_coverage_origin_and_online_capture_status.json",
+        "R2-F": "11_negative_controls_fault_injection_independent_verifier.json",
+        "R2-G": "13_prior_artifact_and_code_immutability_diffs.json",
+    }
+    skip_rcpts = {"G-DS-07", "G-DS-09", "G-DS-10", "G-DS-11", "R2-B", "R2-C", "R2-D"} if blocked_low_disk else set()
+    for gid, rel_p in target_map.items():
+        if gid not in skip_rcpts:
+            build_dynamic_validated_gate_receipt_r1(
+                gate_id=gid, run_dir=r, run_id=run_id, tested_sha=sha,
+                target_rel_path=rel_p, validator_fn=_pass_v, write_json_fn=write_json_durable_atomic,
+            )
+
+    f14 = evaluate_kh01b_r1_dsc_r2_gates_from_disk(r, run_id, sha)
+    write_json_durable_atomic(r / "14_final_orthogonal_verdicts_gate_matrix_blockers.json", f14)
+    rm, ho = render_kh01b_r1_dsc_r2_readme_and_handover_vi(
+        run_id=run_id, branch=MANDATORY_BRANCH_KH01B_R1, head_at_start_sha=PRIOR_DSC_V1_PUBLICATION_HEAD_SHA,
+        tested_sha=sha, dataset_sha=CANONICAL_DATASET_SHA256_KH01B_R1,
+        f00=f00, f01=f01, f02=f02, f03=f03, f04=f04, f05=f05, f06=f06, f07=f07,
+        f08=f08, f09=f09, f10=f10, f11=f11, f12=f12, f13=f13, f14=f14,
+    )
+    write_text_durable_atomic(r / "README_KH01B_R1_DSC_R2.md", rm)
+    write_text_durable_atomic(r / "HANDOVER_KH01B_R1_DSC_R2_VI.txt", ho)
+    return r
+
+
+def test_dsc_r2_sha_graph_latest_pointer_and_31_fault_controls() -> None:
+    suite = run_kh01b_r1_dsc_red_green_fault_suite(REPO_ROOT)
+    assert suite["status"] == "PASS"
+    assert suite["total_mutations"] >= 31
+    assert suite["failed_mutations"] == 0
+    assert validate_latest_run_pointer_not_blocked({"run_id": PRIOR_DSC_V1_BLOCKED_RUN_ID, "engineering_closure_verdict": "BLOCKED_LOW_DISK"})["status"] == "FAIL"
+    assert validate_latest_run_pointer_not_blocked({"run_id": "20261120T090000Z_ok", "engineering_closure_verdict": "PASS", "disk_safety_verdict": "PASS_STRICT_20GIB"})["status"] == "PASS"
+
+
+def test_dsc_r2_subproc_independent_verifier_green_and_10_adversarial_tampers(tmp_path: Path) -> None:
+    r2_blocked = _build_valid_dsc_r2_bundle(tmp_path, blocked_low_disk=True)
+    r2_pass = _build_valid_dsc_r2_bundle(tmp_path, blocked_low_disk=False)
+
+    def _run_v(d: Path) -> tuple[int, dict]:
+        p = subprocess.run(
+            [sys.executable, str(VERIFIER_DSC), "--r2", "--run-dir", str(d), "--skip-git-freeze-check"],
+            capture_output=True, text=True,
+        )
+        return p.returncode, json.loads(p.stdout)
+
+    # GREEN 1: Honest 17.1503 GiB BLOCKED_LOW_DISK R2 bundle passes integrity check as BLOCKED_LOW_DISK
+    rc_b, out_b = _run_v(r2_blocked)
+    assert rc_b == 0 and out_b["independent_verifier_status"] == "PASS", f"R2 Blocked GREEN failed: {out_b}"
+    assert out_b["recomputed_engineering_closure_verdict"] == "BLOCKED_LOW_DISK"
+
+    # GREEN 2: Complete >=20.5 GiB R2 bundle passes integrity check as PASS
+    rc_p, out_p = _run_v(r2_pass)
+    assert rc_p == 0 and out_p["independent_verifier_status"] == "PASS", f"R2 Pass GREEN failed: {out_p}"
+    assert out_p["recomputed_engineering_closure_verdict"] == "PASS"
+    assert (r2_pass / "15_independent_verifier_manifest_and_content_sha256.json").is_file()
+
+    # R2 Tamper 1: Forged ENGINEERING_CLOSURE_VERDICT="PASS" in 14 while 06/00 disk BLOCKED -> FAIL
+    rt1 = tmp_path / "rt1"
+    shutil.copytree(r2_blocked, rt1)
+    d14 = json.loads((rt1 / "14_final_orthogonal_verdicts_gate_matrix_blockers.json").read_text("utf-8"))
+    d14["orthogonal_verdicts"]["ENGINEERING_CLOSURE_VERDICT"] = "PASS"
+    write_json_durable_atomic(rt1 / "14_final_orthogonal_verdicts_gate_matrix_blockers.json", d14)
+    rc, out = _run_v(rt1)
+    assert rc != 0 and any("FORGED" in v for v in out["violations"])
+
+    # R2 Tamper 2: Fabricated JUnit XML under BLOCKED_LOW_DISK -> FAIL
+    rt2 = tmp_path / "rt2"
+    shutil.copytree(r2_blocked, rt2)
+    (rt2 / "junit").mkdir(parents=True, exist_ok=True)
+    (rt2 / "junit/FAKE.xml").write_text("<testsuite tests='15'/>", encoding="utf-8")
+    rc, out = _run_v(rt2)
+    assert rc != 0 and any("FAKE_JUNIT_XML" in v for v in out["violations"])
+
+    # R2 Tamper 3: Substituting <=20 focused tests for full repository regression in 09 -> FAIL
+    rt3 = tmp_path / "rt3"
+    shutil.copytree(r2_pass, rt3)
+    d09 = json.loads((rt3 / "09_full_regression_junit_collected_executed_bijection.json").read_text("utf-8"))
+    d09["independent_bijection_verification"]["counters"]["collected"] = 15
+    d09["independent_bijection_verification"]["counters"]["executed"] = 15
+    write_json_durable_atomic(rt3 / "09_full_regression_junit_collected_executed_bijection.json", d09)
+    rc, out = _run_v(rt3)
+    assert rc != 0 and any("JUNIT_BIJECTION" in v or "INDEPENDENT_GATE_REEVALUATION_FAILED" in v for v in out["violations"])
+
+    # R2 Tamper 4: Missing w=4 worker shard in 08 -> FAIL
+    rt4 = tmp_path / "rt4"
+    shutil.copytree(r2_pass, rt4)
+    d08 = json.loads((rt4 / "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json").read_text("utf-8"))
+    d08["pytest_controlled_subset_w1_w2_w4_repeat"]["runs"] = d08["pytest_controlled_subset_w1_w2_w4_repeat"]["runs"][:3]
+    write_json_durable_atomic(rt4 / "08_async_w1_w2_w4_w1repeat_hashes_timing_and_worker_manifest.json", d08)
+    rc, out = _run_v(rt4)
+    assert rc != 0 and any("WORKER_08" in v or "INDEPENDENT_GATE_REEVALUATION_FAILED" in v for v in out["violations"])
+
+    # R2 Tamper 5: Stale tested_executable_sha in 07 -> FAIL
+    rt5 = tmp_path / "rt5"
+    shutil.copytree(r2_pass, rt5)
+    d07 = json.loads((rt5 / "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json").read_text("utf-8"))
+    d07["tested_executable_sha"] = PRIOR_DSC_V1_TESTED_SHA
+    write_json_durable_atomic(rt5 / "07_sha_lock_current_HEAD_vs_tested_executable_execution_graph.json", d07)
+    rc, out = _run_v(rt5)
+    assert rc != 0 and any("TESTED_EXECUTABLE_SHA_MISMATCH" in v for v in out["violations"])
+
+    # R2 Tamper 6: Fake completed 2880/2880 M1 on 1600-bar snapshot in 04 -> FAIL
+    rt6 = tmp_path / "rt6"
+    shutil.copytree(r2_pass, rt6)
+    d04 = json.loads((rt6 / "04_requested_window_coverage_origin_and_online_capture_status.json").read_text("utf-8"))
+    d04["coverage_by_timeframe"]["1m"]["coverage_verdict"] = "VERIFIED_COMPLETE"
+    write_json_durable_atomic(rt6 / "04_requested_window_coverage_origin_and_online_capture_status.json", d04)
+    rc, out = _run_v(rt6)
+    assert rc != 0 and any("PARTIAL_MISLABELED_COMPLETE" in v for v in out["violations"])
+
+    # R2 Tamper 7: SI0-242 rerisked fee study claimed as full 56,710 opportunity rerun in 05 -> FAIL
+    rt7 = tmp_path / "rt7"
+    shutil.copytree(r2_pass, rt7)
+    d05 = json.loads((rt7 / "05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json").read_text("utf-8"))
+    d05["FULL_RE_RISKED_REPLAY"]["0.0006"]["scope_is_full_56710_opportunity_rerun"] = True
+    write_json_durable_atomic(rt7 / "05_fee_0p04_0p06_fixed_fill_and_rerisked_truth.json", d05)
+    rc, out = _run_v(rt7)
+    assert rc != 0 and any("242_RERISK_CLAIMED_AS_FULL_56710_RERUN" in v for v in out["violations"])
+
+    # R2 Tamper 8: Tampered raw HTTP receipt SHA on online capture in 04 -> FAIL
+    rt8 = tmp_path / "rt8"
+    shutil.copytree(r2_pass, rt8)
+    d04_8 = json.loads((rt8 / "04_requested_window_coverage_origin_and_online_capture_status.json").read_text("utf-8"))
+    d04_8["online_capture_executed"] = True
+    d04_8["online_capture_verdict"] = "VERIFIED_PARTIAL"
+    d04_8["online_capture_summary"] = {
+        "DATA_ACQUISITION_VERDICT": "VERIFIED_PARTIAL",
+        "partition_role": "DEV_EXTENDED_RESEARCH",
+        "eligible_for_future_fresh_oos": False,
+        "dev_extended_snapshot_rel_path": "ledgers/missing.jsonl.gz",
+        "dev_extended_snapshot_sha256": "0" * 64,
+        "origin_http_receipts_rel_path": "receipts/missing_http.json",
+        "origin_http_receipts_sha256": "0" * 64,
+    }
+    write_json_durable_atomic(rt8 / "04_requested_window_coverage_origin_and_online_capture_status.json", d04_8)
+    rc, out = _run_v(rt8)
+    assert rc != 0 and any("ONLINE_SNAPSHOT_SHA256_TAMPERED_OR_MISSING" in v for v in out["violations"])
+
+    # R2 Tamper 9: Promoting BLOCKED_LOW_DISK run into parent latest_run.json -> FAIL
+    rt9_parent = tmp_path / "rt9_ns"
+    rt9 = rt9_parent / r2_blocked.name
+    shutil.copytree(r2_blocked, rt9)
+    d00_9 = json.loads((rt9 / "00_preflight_branch_head_code_sha_disk_mounts_dataset.json").read_text("utf-8"))
+    write_json_durable_atomic(rt9_parent / "latest_run.json", {"run_id": d00_9["run_id"], "engineering_closure_verdict": "BLOCKED_LOW_DISK"})
+    rc, out = _run_v(rt9)
+    assert rc != 0 and any("BLOCKED_RUN_ILLEGALLY_PROMOTED_TO_LATEST_RUN_JSON" in v for v in out["violations"])
+
+    # R2 Tamper 10: Wrong branch ("main") in 00 -> FAIL
+    rt10 = tmp_path / "rt10"
+    shutil.copytree(r2_pass, rt10)
+    d00_10 = json.loads((rt10 / "00_preflight_branch_head_code_sha_disk_mounts_dataset.json").read_text("utf-8"))
+    d00_10["branch"] = "main"
+    write_json_durable_atomic(rt10 / "00_preflight_branch_head_code_sha_disk_mounts_dataset.json", d00_10)
+    rc, out = _run_v(rt10)
+    assert rc != 0 and any("WRONG_BRANCH" in v for v in out["violations"])

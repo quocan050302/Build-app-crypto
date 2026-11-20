@@ -3348,6 +3348,8 @@ def evaluate_kh01b_r1_engineering_and_economic_gates_from_disk(
                     or int(ve.get("missing_slots", 1)) != 0
                 ):
                     v15.append(f"PARTIAL_COVERAGE_MISLABELED_COMPLETE:{req_tf}")
+                elif int(ve.get("missing_slots", 0)) > 0 and ve.get("coverage_verdict") == "VERIFIED_COMPLETE":
+                    v15.append(f"MISSING_SLOTS_MISLABELED_VERIFIED_COMPLETE:{req_tf}")
         g15_st = "PASS" if not v15 else "FAIL"
         _add_gate("G15", "PROSPECTIVE_DATA_ACQUISITION_AND_ORIGIN_RECEIPTS", "06_extended_dev_dataset_provenance_gap_and_quote_capability.json", {"DATA_ACQUISITION_VERDICT": acq_st}, g15_st, v15)
     elif acq_st in ("BLOCKED_UNAVAILABLE", "BLOCKED_LOW_DISK"):

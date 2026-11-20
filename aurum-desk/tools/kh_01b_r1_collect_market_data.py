@@ -1468,6 +1468,7 @@ def collect_online_bitget_audit_and_extended_dev(
         "parser_version": PARSER_VERSION,
         "extended_dev_status": ext_status,
         "partition_role": "DEV_EXTENDED_RESEARCH",
+        "prior_use_status": "INSPECTED_REUSED_DEV",
         "prior_use_status_after_inspection": "REUSED_DEV",
         "eligible_for_future_fresh_oos": False,
         "quote_provenance_for_historical_bars": "MODELED_BID_ASK",

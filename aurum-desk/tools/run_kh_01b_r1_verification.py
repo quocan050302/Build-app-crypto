@@ -176,22 +176,172 @@ CONTROLLED_R1_BENCHMARK_TEST_FILES: Tuple[str, ...] = (
 # DISK RESERVE POLICY & PROCESS-TREE SAFE TERMINATION (KH-01B.R1.DSC §3B & §6)
 # ==============================================================================
 
+def _is_reparse_or_symlink(path: Path) -> bool:
+    """Detects both POSIX/Windows symlinks and Windows NTFS directory junctions."""
+    try:
+        if path.is_symlink():
+            return True
+    except OSError:
+        return True
+    is_junc_fn = getattr(path, "is_junction", None)
+    if callable(is_junc_fn):
+        try:
+            if bool(is_junc_fn()):
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def _resolve_existing_mount_probe(target: Path) -> Path:
+    probe = target
+    while not probe.exists() and probe.parent != probe:
+        probe = probe.parent
+    if not probe.exists():
+        raise RuntimeError(f"VOLUME_MOUNT_INACCESSIBLE:{target}")
+    return probe
+
+
 def measure_writing_volumes_free_bytes_r1(
     *,
     repo_root: Path = REPO_ROOT,
     output_root: Optional[Path] = None,
     temp_root: Optional[Path] = None,
 ) -> Dict[str, int]:
-    out_p = output_root if output_root is not None else ARTIFACTS_KH01B_R1_ROOT
-    while not out_p.exists() and out_p.parent != out_p:
-        out_p = out_p.parent
-    tmp_p = temp_root if temp_root is not None else Path(tempfile.gettempdir())
-    while not tmp_p.exists() and tmp_p.parent != tmp_p:
-        tmp_p = tmp_p.parent
+    repo_p = _resolve_existing_mount_probe(repo_root)
+    out_p = _resolve_existing_mount_probe(output_root if output_root is not None else ARTIFACTS_KH01B_R1_ROOT)
+    tmp_p = _resolve_existing_mount_probe(temp_root if temp_root is not None else Path(tempfile.gettempdir()))
     return {
-        "repo": int(shutil.disk_usage(repo_root).free),
+        "repo": int(shutil.disk_usage(repo_p).free),
         "output": int(shutil.disk_usage(out_p).free),
         "temp": int(shutil.disk_usage(tmp_p).free),
+    }
+
+
+def inspect_writing_volumes_and_mounts_r2(
+    *,
+    repo_root: Path = REPO_ROOT,
+    output_root: Optional[Path] = None,
+    temp_root: Optional[Path] = None,
+    venv_root: Optional[Path] = None,
+    verify_atomic_write: bool = True,
+) -> Dict[str, Any]:
+    """
+    KH-01B.R1.DSC.R2 (§2B, §2D, §6): Detailed multi-mount filesystem & device-ID audit.
+    Inspects `repo`, `output`, `temp`, and `venv_or_python` writing paths, resolves underlying
+    OS device IDs (`st_dev`) and mountpoints (`psutil.disk_partitions()`), groups paths sharing
+    the same underlying filesystem, reports exact bytes + binary GiB + decimal GB, notes the
+    25.0 GiB preferred operational headroom advisory alongside the strict 20.5 GiB acceptance
+    floor, and optionally verifies atomic fsync+rename writability on `output` and `temp`.
+    """
+    import psutil
+
+    out_target = output_root if output_root is not None else ARTIFACTS_KH01B_R1_ROOT
+    tmp_target = temp_root if temp_root is not None else Path(tempfile.gettempdir())
+    venv_target = venv_root if venv_root is not None else Path(sys.executable).resolve().parent
+
+    targets = {
+        "repo": repo_root,
+        "output": out_target,
+        "temp": tmp_target,
+        "venv_or_python": venv_target,
+    }
+    partitions = []
+    try:
+        partitions = list(psutil.disk_partitions(all=False))
+    except Exception:
+        partitions = []
+
+    mounts_by_label: Dict[str, Dict[str, Any]] = {}
+    groups_by_dev: Dict[str, List[str]] = {}
+
+    for lbl, raw_path in targets.items():
+        probe_p = _resolve_existing_mount_probe(raw_path)
+        st = os.stat(probe_p)
+        usage = shutil.disk_usage(probe_p)
+        dev_id = str(int(st.st_dev))
+        groups_by_dev.setdefault(dev_id, []).append(lbl)
+
+        matched_mount = None
+        matched_fstype = None
+        matched_device = None
+        best_len = -1
+        probe_norm = str(probe_p.resolve()).lower()
+        for part in partitions:
+            mp_norm = str(Path(part.mountpoint).resolve()).lower()
+            if probe_norm.startswith(mp_norm) and len(mp_norm) > best_len:
+                best_len = len(mp_norm)
+                matched_mount = part.mountpoint
+                matched_fstype = part.fstype
+                matched_device = part.device
+
+        free_b = int(usage.free)
+        tot_b = int(usage.total)
+        used_b = int(usage.used)
+        mounts_by_label[lbl] = {
+            "requested_path": str(raw_path),
+            "existing_probe_path": str(probe_p.resolve()),
+            "st_dev": int(st.st_dev),
+            "mountpoint": matched_mount or str(probe_p.anchor or probe_p),
+            "device": matched_device,
+            "fstype": matched_fstype,
+            "total_bytes": tot_b,
+            "used_bytes": used_b,
+            "free_bytes": free_b,
+            "total_gib": round(tot_b / (1024**3), 4),
+            "free_gib": round(free_b / (1024**3), 4),
+            "free_gb_decimal": round(free_b / (1000**3), 4),
+            "meets_strict_20p5_gib_preflight": free_b >= MIN_ACCEPTANCE_PREFLIGHT_BYTES,
+            "meets_preferred_25p0_gib_advisory": free_b >= int(25 * 1024**3),
+        }
+
+    atomic_probes: Dict[str, Any] = {}
+    if verify_atomic_write:
+        for probe_lbl in ("output", "temp"):
+            p_dir = Path(mounts_by_label[probe_lbl]["existing_probe_path"])
+            tmp_file = p_dir / f".kh01b_r2_atomic_probe_{os.getpid()}_{probe_lbl}.tmp"
+            dst_file = p_dir / f".kh01b_r2_atomic_probe_{os.getpid()}_{probe_lbl}.ok"
+            try:
+                with tmp_file.open("wb") as fh:
+                    fh.write(b"KH01B_R1_DSC_R2_ATOMIC_PROBE")
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp_file, dst_file)
+                ok_read = dst_file.read_bytes() == b"KH01B_R1_DSC_R2_ATOMIC_PROBE"
+                atomic_probes[probe_lbl] = {"atomic_write_rename_verified": bool(ok_read), "probe_dir": str(p_dir)}
+            finally:
+                tmp_file.unlink(missing_ok=True)
+                dst_file.unlink(missing_ok=True)
+
+    writing_vols_free = {
+        k: int(mounts_by_label[k]["free_bytes"])
+        for k in ("repo", "output", "temp")
+    }
+    return {
+        "captured_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "platform": sys.platform,
+        "os_name": os.name,
+        "macos_purgeable_vs_available_note": (
+            "shutil.disk_usage().free reports non-purgeable POSIX f_bavail/GetDiskFreeSpaceEx available bytes; "
+            "purgeable cache space is never counted as guaranteed free space."
+        ),
+        "strict_preflight_floor_bytes": int(MIN_ACCEPTANCE_PREFLIGHT_BYTES),
+        "strict_preflight_floor_gib": round(MIN_ACCEPTANCE_PREFLIGHT_BYTES / (1024**3), 4),
+        "preferred_advisory_headroom_gib": 25.0,
+        "all_writing_volumes_meet_25gib_advisory": all(
+            mounts_by_label[k]["meets_preferred_25p0_gib_advisory"] for k in ("repo", "output", "temp")
+        ),
+        "same_underlying_filesystem_groups": [
+            {"st_dev": int(dev_k), "labels": sorted(lbls)}
+            for dev_k, lbls in sorted(groups_by_dev.items())
+        ],
+        "distinct_underlying_filesystems_count": len(groups_by_dev),
+        "repo_output_temp_all_same_filesystem": (
+            len({mounts_by_label[k]["st_dev"] for k in ("repo", "output", "temp")}) == 1
+        ),
+        "writing_volumes_free_bytes": writing_vols_free,
+        "mounts_by_label": mounts_by_label,
+        "atomic_write_probes": atomic_probes,
     }
 
 
@@ -311,21 +461,24 @@ def compute_kh01b_r1_disk_reserve_policy(
 
 def safe_cleanup_owned_temp_root_r1(owned: Path, expected_run_id: str) -> Dict[str, Any]:
     """
-    Wraps `cleanup_owned_temp_root` with explicit symlink-root & symlink-escape rejection (§6.R2 & §6.R5).
-    Never follows symlinks outside `tempfile.gettempdir()`.
+    Wraps `cleanup_owned_temp_root` with explicit symlink/junction-root & escape rejection (§6.R2 & §6.R5).
+    Never follows symlinks or Windows NTFS junctions outside `tempfile.gettempdir()`.
     """
     base_tmp = Path(tempfile.gettempdir()).resolve()
-    if owned.is_symlink():
+    if _is_reparse_or_symlink(owned):
         raise RuntimeError(f"REFUSING_TEMP_DELETE_SYMLINK_ROOT:{owned}")
     if owned.exists():
         resolved = owned.resolve()
         if not resolved.is_relative_to(base_tmp) or resolved == base_tmp:
             raise RuntimeError(f"REFUSING_TEMP_DELETE_OUTSIDE_CONTAINMENT:{resolved}")
-        for child in owned.rglob("*"):
-            if child.is_symlink():
-                target = Path(os.path.realpath(child))
-                if not target.is_relative_to(resolved):
-                    raise RuntimeError(f"REFUSING_TEMP_DELETE_CHILD_SYMLINK_ESCAPE:{child}->{target}")
+        for walk_root, dirnames, filenames in os.walk(owned, followlinks=False):
+            w_p = Path(walk_root)
+            for entry_name in [*dirnames, *filenames]:
+                child = w_p / entry_name
+                if _is_reparse_or_symlink(child):
+                    target = Path(os.path.realpath(child))
+                    if not target.is_relative_to(resolved):
+                        raise RuntimeError(f"REFUSING_TEMP_DELETE_CHILD_SYMLINK_ESCAPE:{child}->{target}")
     return cleanup_owned_temp_root(owned, expected_run_id)
 
 
@@ -1339,7 +1492,7 @@ def run_kh01b_r1_bounded_async_orchestrator(
     os.environ["AURUM_VERIFICATION_ARTIFACT_ROOT"] = str(owned_temp_root)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
     os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
-    venv_py = BACKEND_ROOT / "venv/bin/python"
+    venv_py = BACKEND_ROOT / ("venv/Scripts/python.exe" if os.name == "nt" else "venv/bin/python")
     if venv_py.exists():
         os.environ["AURUM_VERIFY_VENV_PYTHON"] = str(venv_py)
 
