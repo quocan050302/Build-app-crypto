@@ -1,0 +1,505 @@
+{
+  "captured_at_utc": "2026-11-20T02:10:30Z",
+  "credentials_used": false,
+  "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+  "receipts": [
+    {
+      "attempt": 1,
+      "byte_length": 842,
+      "endpoint": "contracts",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:25Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "63269c107692cf2253d3d133368f14408a3cb016b5f4736ada77b71c6c0a300d",
+      "receive_ts_ms": 1795140625954,
+      "request_ts_ms": 1795140625605,
+      "symbol": "XAUUSDT",
+      "url": "https://api.bitget.com/api/v2/mix/market/contracts"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 593,
+      "endpoint": "ticker",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "d3c5ed23fafb879f52207a65e9deaaad5274758e17f484151a3ae0724c760b29",
+      "receive_ts_ms": 1795140626066,
+      "request_ts_ms": 1795140625954,
+      "symbol": "XAUUSDT",
+      "url": "https://api.bitget.com/api/v2/mix/market/ticker"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15417,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "f701acb9a1c993bd4fb458f91118b4ba422137b50e23c3405b24a40701a11cb6",
+      "receive_ts_ms": 1795140626184,
+      "request_ts_ms": 1795140626066,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15613,
+      "cursor_end_ms": 1794948000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794948000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "869805b38369c519c0b0765b867f69b090285e253e08172e2b62e895c783b82d",
+      "receive_ts_ms": 1795140626367,
+      "request_ts_ms": 1795140626236,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15913,
+      "cursor_end_ms": 1794936000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794936000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "1bbee479989ba4bee095632cef92f88e7163a1cde6eeaa9503c96faf0d356ff9",
+      "receive_ts_ms": 1795140626539,
+      "request_ts_ms": 1795140626420,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15730,
+      "cursor_end_ms": 1794924000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794924000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "d1dadf561424ff8b042d83613580f0fb9dbe4d568884ab53e91922d7be05a18a",
+      "receive_ts_ms": 1795140626719,
+      "request_ts_ms": 1795140626590,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15700,
+      "cursor_end_ms": 1794912000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:26Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794912000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "a7226d7dd870e04f9573534b71bb6da9d6afcfd2fb53cfbbc85fe670cd60f8cd",
+      "receive_ts_ms": 1795140626913,
+      "request_ts_ms": 1795140626770,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15659,
+      "cursor_end_ms": 1794900000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:27Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794900000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "8531e4c0638ed09a3da84d9a13e9311169cdd68a17d2fd4d4822fd453fdf5100",
+      "receive_ts_ms": 1795140627081,
+      "request_ts_ms": 1795140626965,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15854,
+      "cursor_end_ms": 1794888000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:27Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794888000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "7c70cc6be42a17ba57203942b29857d82ca8ff5b3d1a7258d857b743b669f2d2",
+      "receive_ts_ms": 1795140627256,
+      "request_ts_ms": 1795140627132,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15492,
+      "cursor_end_ms": 1794876000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:27Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794876000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "0b50735ca64939156317d56c95b1f59908a2bc75f527b69783aeb016f25dc1b9",
+      "receive_ts_ms": 1795140627529,
+      "request_ts_ms": 1795140627307,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15689,
+      "cursor_end_ms": 1794864000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:27Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794864000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "50495d1b0a8735e513f7782b61af8453b6033cd809e20911088d8328205d1f6b",
+      "receive_ts_ms": 1795140627717,
+      "request_ts_ms": 1795140627580,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15834,
+      "cursor_end_ms": 1794852000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:27Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794852000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "fafc304a8344bec06504d8052a2e3b03a4584107454d848c91e3ac824a76e639",
+      "receive_ts_ms": 1795140627899,
+      "request_ts_ms": 1795140627768,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15805,
+      "cursor_end_ms": 1794840000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:28Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794840000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "4a2c8321aeda84be42be3951bc696a9d2d293eb916ed2659ac64c2b985ce8df4",
+      "receive_ts_ms": 1795140628085,
+      "request_ts_ms": 1795140627949,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15789,
+      "cursor_end_ms": 1794828000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:28Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794828000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "586e1a511bc84d63d723e4a2cc65699b8a9932be881fcd55bca39ebe1c662083",
+      "receive_ts_ms": 1795140628253,
+      "request_ts_ms": 1795140628136,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15900,
+      "cursor_end_ms": 1794816000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:28Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794816000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "8f627f231905dea13273d42fa782973d7ef2ef07e51c9e89db8cf0c94d23062b",
+      "receive_ts_ms": 1795140628429,
+      "request_ts_ms": 1795140628304,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15837,
+      "cursor_end_ms": 1794804000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:28Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794804000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "fd2d7b3b794d4a9ae42f2c3fadcbcc7f84ba7b38bef5bde7752b167910875e5a",
+      "receive_ts_ms": 1795140628646,
+      "request_ts_ms": 1795140628480,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15718,
+      "cursor_end_ms": 1794792000000,
+      "endpoint": "history-candles",
+      "granularity": "1m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:28Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794792000000",
+        "granularity": "1m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "99da082164e3d45180feedb6ca597ba11b975a7e5a72e412dfb0ce556f2a1d6e",
+      "receive_ts_ms": 1795140628816,
+      "request_ts_ms": 1795140628697,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 15996,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "5m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "4e3ae56076e1f7346eb3a4e37ee22924046f8a424c5c0d34018564b95a76eaa1",
+      "receive_ts_ms": 1795140629038,
+      "request_ts_ms": 1795140628870,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 16012,
+      "cursor_end_ms": 1794900000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794900000000",
+        "granularity": "5m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "7338cc3daa6c4630356dd64bf6469cd7b95b140476854869b5c08d1f3fbcfa83",
+      "receive_ts_ms": 1795140629299,
+      "request_ts_ms": 1795140629090,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 16085,
+      "cursor_end_ms": 1794840000000,
+      "endpoint": "history-candles",
+      "granularity": "5m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794840000000",
+        "granularity": "5m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "9a7166a754f97e842d3cd577179c0aa968ce026f42860810af571291bfa459f5",
+      "receive_ts_ms": 1795140629477,
+      "request_ts_ms": 1795140629350,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 16250,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "15m",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "15m",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "1f4736d07d68c3f2da245e572c02fe50fcea0319cc74492c42c599838b81513d",
+      "receive_ts_ms": 1795140629614,
+      "request_ts_ms": 1795140629490,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 16485,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1H",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "1H",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "593a1d1c3389984ac1140f8b307224e39d9d9242572905c3303a019c5f6f0139",
+      "receive_ts_ms": 1795140629761,
+      "request_ts_ms": 1795140629624,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 16626,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "4H",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:29Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "4H",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "5de1f680ad7109ecec90dd22b18896fb2784ab03d0551526933a90c9caf24f88",
+      "receive_ts_ms": 1795140629900,
+      "request_ts_ms": 1795140629763,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    },
+    {
+      "attempt": 1,
+      "byte_length": 7677,
+      "cursor_end_ms": 1794960000000,
+      "endpoint": "history-candles",
+      "granularity": "1D",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-20T02:10:30Z",
+      "parser_version": "kh_01b_r1_dsc.market_data_collector.v2",
+      "query_params": {
+        "endTime": "1794960000000",
+        "granularity": "1D",
+        "limit": "200",
+        "productType": "USDT-FUTURES",
+        "symbol": "XAUUSDT"
+      },
+      "raw_http_sha256": "0a546a8000aabab69c15b03c110dbd6a1fbad4b48a40f860be9b690af8efd288",
+      "receive_ts_ms": 1795140630021,
+      "request_ts_ms": 1795140629902,
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+    }
+  ],
+  "requests_count": 24,
+  "total_bytes_received": 342516
+}

@@ -1,0 +1,20 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": "PENDING_PHASE_7_COMMIT",
+  "head_at_start_role": "PRIOR_BLOCKED_DSC_PUBLICATION_COMMIT_NOT_TESTED_EXECUTABLE",
+  "head_at_start_sha": "647206f3c446db202ecf152a4f8e028de56d101c",
+  "head_matches_tested_sha_at_execution": true,
+  "prior_dsc_v1_blocked_run_id": "20261119T150709Z_0c247bdc466a",
+  "prior_dsc_v1_evidence_sha": "070a7e4ab0bddd741f4dc9c7cb511fcf20b2300e",
+  "prior_dsc_v1_publication_sha": "647206f3c446db202ecf152a4f8e028de56d101c",
+  "prior_dsc_v1_tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+  "publication_commit_sha": "PENDING_PHASE_7_COMMIT",
+  "remote_head_sha": "PENDING_PHASE_7_PUSH_READBACK",
+  "run_id": "20261120T021021Z_c20b0b1bec13",
+  "run_id_embeds_tested_sha12": true,
+  "schema_version": "kh_01b_r1_data_safety_r2.v1",
+  "spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "stale_tested_sha_reused": false,
+  "status": "PASS",
+  "tested_executable_sha": "c20b0b1bec1344e2da258a5d18832874f5f5668a"
+}

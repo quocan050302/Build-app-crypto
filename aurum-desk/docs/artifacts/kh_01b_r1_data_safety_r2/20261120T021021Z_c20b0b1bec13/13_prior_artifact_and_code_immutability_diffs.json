@@ -1,0 +1,57 @@
+{
+  "all_prior_latest_run_pointers_intact": true,
+  "modified_prior_files": [],
+  "modified_prior_files_count": 0,
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_bundles_after": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "kh01b_r1_latest_run_ptr_sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+    "kh01b_r1_published_files_count": 77,
+    "kh01b_r1_published_sha256": "f700f1c69897087c77344abe5069342bdc87f1bf7b7e340b6c1bdee571984780",
+    "prior_dsc_v1_bundle_sha256": "005cb4f3783dd0a3f6ab270eaffd16f5e464575b7058b7417266ca559b9c5ca8",
+    "prior_dsc_v1_files_count": 28,
+    "prior_latest_run_pointers": {
+      "aurum-desk/docs/artifacts/kh_01a/latest_run.json": "fceffebecb87af5b3daf3dbcb15bf6acaf2574c215afbb8f4a8a58feece730fb",
+      "aurum-desk/docs/artifacts/kh_01a_r1/latest_run.json": "b15faab1c7b21878484c7736ab8a952989e05fbfedf24e3d7e9e0f0dd20ca400",
+      "aurum-desk/docs/artifacts/kh_01b/latest_run.json": "0ed0344440be21c4e6c286faf8a812c08e096b1a486029c8c6c69c602f4574c3",
+      "aurum-desk/docs/artifacts/kh_01b_r1/latest_run.json": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+      "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/latest_run.json": "ABSENT_AS_EXPECTED"
+    },
+    "prior_latest_run_pointers_sha256": "7f8db48e46e5c67324667dc31b673fd0883571c4c60866f3fb2ef9dc08ff7814",
+    "v10_to_v19_files_count": 1117,
+    "v10_to_v19_sha256": "318126a5e7174e37e97170a28d4ab3d3a998e6799d0a946e92b852770d83cf90"
+  },
+  "prior_bundles_before": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "kh01b_r1_latest_run_ptr_sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+    "kh01b_r1_published_files_count": 77,
+    "kh01b_r1_published_sha256": "f700f1c69897087c77344abe5069342bdc87f1bf7b7e340b6c1bdee571984780",
+    "prior_dsc_v1_bundle_sha256": "005cb4f3783dd0a3f6ab270eaffd16f5e464575b7058b7417266ca559b9c5ca8",
+    "prior_dsc_v1_files_count": 28,
+    "prior_latest_run_pointers": {
+      "aurum-desk/docs/artifacts/kh_01a/latest_run.json": "fceffebecb87af5b3daf3dbcb15bf6acaf2574c215afbb8f4a8a58feece730fb",
+      "aurum-desk/docs/artifacts/kh_01a_r1/latest_run.json": "b15faab1c7b21878484c7736ab8a952989e05fbfedf24e3d7e9e0f0dd20ca400",
+      "aurum-desk/docs/artifacts/kh_01b/latest_run.json": "0ed0344440be21c4e6c286faf8a812c08e096b1a486029c8c6c69c602f4574c3",
+      "aurum-desk/docs/artifacts/kh_01b_r1/latest_run.json": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+      "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/latest_run.json": "ABSENT_AS_EXPECTED"
+    },
+    "prior_latest_run_pointers_sha256": "7f8db48e46e5c67324667dc31b673fd0883571c4c60866f3fb2ef9dc08ff7814",
+    "v10_to_v19_files_count": 1117,
+    "v10_to_v19_sha256": "318126a5e7174e37e97170a28d4ab3d3a998e6799d0a946e92b852770d83cf90"
+  },
+  "prior_dsc_v1_blocked_run_intact": true,
+  "schema_version": "kh_01b_r1_data_safety_r2.v1",
+  "source_manifest_after": {
+    "files_count": 816,
+    "sha256": "58d291dcd99d6158335293785151c6a8cca4d438ff655ff152b25767a711edba"
+  },
+  "source_manifest_before": {
+    "files_count": 816,
+    "sha256": "58d291dcd99d6158335293785151c6a8cca4d438ff655ff152b25767a711edba"
+  },
+  "source_tree_unchanged_during_run": true,
+  "spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "status": "PASS"
+}

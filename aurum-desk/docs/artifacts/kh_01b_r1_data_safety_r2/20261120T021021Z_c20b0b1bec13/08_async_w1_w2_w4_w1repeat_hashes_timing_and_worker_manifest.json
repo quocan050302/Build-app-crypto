@@ -1,0 +1,126 @@
+{
+  "completed": true,
+  "execution_status": "EXECUTED",
+  "measured_speedup_w2_vs_w1": 1.218,
+  "measured_speedup_w4_vs_w1": 1.386,
+  "pytest_controlled_subset_w1_w2_w4_repeat": {
+    "all_4_runs_identical": true,
+    "files_count": 10,
+    "measured_speedup_w2_vs_w1": 1.218,
+    "measured_speedup_w4_vs_w1": 1.386,
+    "runs": [
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 59.733,
+        "worker_pids": [
+          36728
+        ],
+        "workers": 1
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 49.024,
+        "worker_pids": [
+          17720,
+          19660
+        ],
+        "workers": 2
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 43.088,
+        "worker_pids": [
+          2732,
+          33044,
+          15064,
+          6996
+        ],
+        "workers": 4
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 58.891,
+        "worker_pids": [
+          31688
+        ],
+        "workers": 1
+      }
+    ],
+    "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP"
+  },
+  "pytest_subset_w1_w2_w4_repeat_identical": true,
+  "r1_variant_slice_w1_w2_w4_repeat": {
+    "all_4_runs_identical": true,
+    "canonical_r1_slice_sha256": "b97cc19e47bc51f9ae54028704b17f541f8669a08d582b8a5f0c894f0bb1c175",
+    "exact_counts_equal_all_4_runs": true,
+    "exact_full_rows_equal_all_4_runs": true,
+    "input_candidate_ids_sha256": "9d7bc4e96efb724df2c918c11f3e179b5a2c4d359ee4bc5839d92e315b58365c",
+    "measured_optimal_worker_count_for_slice": 1,
+    "measured_speedup_w2_vs_w1": 0.628,
+    "measured_speedup_w4_vs_w1": 0.457,
+    "runs": [
+      {
+        "canonical_sorted_sha256": "b97cc19e47bc51f9ae54028704b17f541f8669a08d582b8a5f0c894f0bb1c175",
+        "evaluated_pairs_count": 2800,
+        "input_candidate_ids_sha256": "9d7bc4e96efb724df2c918c11f3e179b5a2c4d359ee4bc5839d92e315b58365c",
+        "mode_label": "w=1",
+        "wall_clock_seconds": 3.67,
+        "worker_partitions": 1,
+        "worker_pids": [
+          14572
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "b97cc19e47bc51f9ae54028704b17f541f8669a08d582b8a5f0c894f0bb1c175",
+        "evaluated_pairs_count": 2800,
+        "input_candidate_ids_sha256": "9d7bc4e96efb724df2c918c11f3e179b5a2c4d359ee4bc5839d92e315b58365c",
+        "mode_label": "w=2",
+        "wall_clock_seconds": 5.847,
+        "worker_partitions": 2,
+        "worker_pids": [
+          22708,
+          2924
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "b97cc19e47bc51f9ae54028704b17f541f8669a08d582b8a5f0c894f0bb1c175",
+        "evaluated_pairs_count": 2800,
+        "input_candidate_ids_sha256": "9d7bc4e96efb724df2c918c11f3e179b5a2c4d359ee4bc5839d92e315b58365c",
+        "mode_label": "w=4",
+        "wall_clock_seconds": 8.039,
+        "worker_partitions": 4,
+        "worker_pids": [
+          29984,
+          36936,
+          22228,
+          33208
+        ]
+      },
+      {
+        "canonical_sorted_sha256": "b97cc19e47bc51f9ae54028704b17f541f8669a08d582b8a5f0c894f0bb1c175",
+        "evaluated_pairs_count": 2800,
+        "input_candidate_ids_sha256": "9d7bc4e96efb724df2c918c11f3e179b5a2c4d359ee4bc5839d92e315b58365c",
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 3.644,
+        "worker_partitions": 1,
+        "worker_pids": [
+          31132
+        ]
+      }
+    ],
+    "sample_candidates_count": 400,
+    "w4_slower_than_w1_on_small_slice": true
+  },
+  "r1_variant_slice_w1_w2_w4_repeat_identical": true,
+  "schema_version": "kh_01b_r1_data_safety_r2.v1",
+  "spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP"
+}

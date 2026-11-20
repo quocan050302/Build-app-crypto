@@ -1,0 +1,322 @@
+{
+  "failed_mutations": 0,
+  "fault_suite_sha256": "0ceb121074a147251b9441e79c871e4109db68c4e1f1b6b0420fa4e0833c39ca",
+  "mutations": [
+    {
+      "category": "GAP_SCHEMA",
+      "diagnostic": "['MISSING_AUTHORITATIVE_TIMEFRAMES_KEY_IN_GAP_AUDIT']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M01",
+      "name": "LEGACY_PER_TIMEFRAME_NULL_SCHEMA_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "map_gap_truth_to_acquisition_summary"
+    },
+    {
+      "category": "GAP_SCHEMA",
+      "diagnostic": "['VALIDATOR_VS_GAP_AUDIT_BAR_COUNT_MISMATCH:1m:gap=(1,1)!=val=99']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M02",
+      "name": "GAP_AUDIT_VS_VALIDATOR_COUNT_MISMATCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "map_gap_truth_to_acquisition_summary"
+    },
+    {
+      "category": "WINDOW_COVERAGE",
+      "diagnostic": "1600_verdict=PARTIAL_COVERAGE_WITH_UNVERIFIED_SESSION,budget=17",
+      "green_accepted": true,
+      "mutation_id": "DSC-M03",
+      "name": "M1_48H_1600_TAIL_BARS_MARKED_PARTIAL_NOT_COMPLETE",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "dedup=PASS_WITH_DEDUP_RECEIPT,replay=['DUPLICATE_PAGE_HTTP_SHA256_REPLAY:page=1:sha=aaaaaaaaaaaaaaaa']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M04",
+      "name": "EXACT_CROSS_PAGE_BOUNDARY_DEDUPED_VS_FULL_PAGE_REPLAY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['WITHIN_PAGE_DUPLICATE_BAR_TIMESTAMP:page=0:1m', 'DUPLICATE_BAR_TIMESTAMP_NON_BOUNDARY_OR_REPLAY:1m:1794787200000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M05",
+      "name": "WITHIN_PAGE_DUPLICATE_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['CONFLICTING_DUPLICATE_BAR_TIMESTAMP:1m:1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M06",
+      "name": "CONFLICTING_CROSS_PAGE_BOUNDARY_OHLCV_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "PAGINATION_DEDUPE",
+      "diagnostic": "['CONFLICTING_DUPLICATE_BAR_TIMESTAMP:1m:1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M07",
+      "name": "PRECISION_COLLIDING_NEAR_EQUAL_DECIMALS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compare_boundary_candles_exactly"
+    },
+    {
+      "category": "PAGE_ORDERING",
+      "diagnostic": "['INTRA_PAGE_NON_MONOTONIC_DISORDER:page=0']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M08",
+      "name": "INTRA_PAGE_SCRAMBLED_ORDER_REJECTED_VS_DOCUMENTED_DESCENDING_AUDITED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "CURSOR_PROGRESS",
+      "diagnostic": "['REPEATED_HTTP_PAGE_PAYLOAD_SHA256:aaaaaaaaaaaaaaaa', 'NON_DESCENDING_PAGINATION_CURSOR:next=1794787800000>=prev=1794787800000', 'STALLED_OR_ADVANCING_PAGE_EARLIEST_BAR:curr=1794787260000>=prev=1794787260000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M09",
+      "name": "STALLED_CURSOR_AND_REPEATED_PAGE_SHA_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_http_page_cursor_progress"
+    },
+    {
+      "category": "HTTP_RESILIENCE",
+      "diagnostic": "calls=4,reason=RuntimeError:HTTP_RATE_LIMIT_OR_TRANSIENT_EXHAUSTED:status=429:endpoint=contracts",
+      "green_accepted": true,
+      "mutation_id": "DSC-M10",
+      "name": "HTTP_429_BOUNDED_BACKOFF_NO_INFINITE_LOOP",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "collect_online_bitget_audit_and_extended_dev"
+    },
+    {
+      "category": "TIMEFRAME_ALIGNMENT",
+      "diagnostic": "5m=['INVALID_BAR_OPEN_ALIGNMENT:5m:open_ms=1794787260000_not_divisible_by_300000'],1D=['INVALID_1D_EXCHANGE_SESSION_ALIGNMENT:open_ms=1794787200000_expected_offset_ms=57600000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M11",
+      "name": "NON_GRID_5M_AND_WRONG_1D_SESSION_BOUNDARY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_bar_open_alignment_for_granularity"
+    },
+    {
+      "category": "CANDLE_INTEGRITY",
+      "diagnostic": "['INVALID_OHLC_GEOMETRY:1m:1794787200000', 'NON_NUMERIC_OR_NONFINITE_CANDLE_FIELD:page=0:row=0']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M12",
+      "name": "NEGATIVE_VOLUME_AND_NAN_CANDLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_and_normalize_paginated_candles"
+    },
+    {
+      "category": "QUOTE_PROVENANCE",
+      "diagnostic": "['SINGLE_POINT_BBO_CANNOT_CLAIM_HISTORICAL_SERIES_COVERAGE', 'CONTRADICTORY_UNVERIFIED_CALENDAR_CLAIM_ON_BBO']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M13",
+      "name": "SINGLE_BBO_AS_48H_SERIES_AND_FAKE_CALENDAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_prospective_bbo_snapshot"
+    },
+    {
+      "category": "FEE_PROVENANCE",
+      "diagnostic": "['UNVERIFIED_ACTUAL_ACCOUNT_FEE_TIER_CLAIMED:VIP3_0.0002']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M14",
+      "name": "UNVERIFIED_VIP_ACCOUNT_FEE_TIER_CLAIM_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_fee_sensitivity"
+    },
+    {
+      "category": "FEE_SENSITIVITY",
+      "diagnostic": "MISSING_OR_INVALID_FILL_NOTIONAL_FIELDS",
+      "green_accepted": true,
+      "mutation_id": "DSC-M15",
+      "name": "MISSING_FILL_NOTIONALS_RETURNS_NOT_IDENTIFIABLE",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_fee_sensitivity"
+    },
+    {
+      "category": "FEE_SENSITIVITY",
+      "diagnostic": "['ONE_SIDED_FEE_APPLICATION_FORBIDDEN', 'MISLABELED_FEE_SCENARIO:rate=0.0006!=label=0.0004']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M16",
+      "name": "ONE_SIDED_FEE_AND_MISLABELED_0P06_AS_0P04_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_fee_sensitivity"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "13.4667_shortfall_gib=7.0333",
+      "green_accepted": true,
+      "mutation_id": "DSC-M17",
+      "name": "PREFLIGHT_20P49_18P5_13P47_8P0_GIB_ALL_BLOCKED_STRICT_20GIB",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_disk_reserve_policy"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "BLOCKED_LOW_DISK:volume=temp:free_gib=14.0<required_gib=20.5:shortfall_gib=6.5",
+      "green_accepted": true,
+      "mutation_id": "DSC-M18",
+      "name": "MULTI_VOLUME_LOW_TEMP_AND_COLLECTOR_LOW_DISK_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_disk_reserve_policy"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "breached=True",
+      "green_accepted": true,
+      "mutation_id": "DSC-M19",
+      "name": "RUNTIME_DISK_DROP_AND_ENOSPC_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_kh01b_r1_resource_cleanup"
+    },
+    {
+      "category": "TEMP_SAFETY",
+      "diagnostic": "link_kind=NTFS_JUNCTION,victim_intact=True",
+      "green_accepted": true,
+      "mutation_id": "DSC-M20",
+      "name": "SYMLINK_OR_JUNCTION_ESCAPE_AND_SENTINEL_MISMATCH_REFUSED_VICTIM_INTACT",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "safe_cleanup_owned_temp_root_r1"
+    },
+    {
+      "category": "OOS_ESCROW",
+      "diagnostic": "['PREVIOUSLY_INSPECTED_DATA_REJECTED_FROM_FRESH_OOS:bbo_renamed_oos', 'ONE_OFF_BBO_SNAPSHOT_CANNOT_BE_RENAMED_TO_FRESH_OOS:bbo_renamed_oos', 'OOS_EMBARGO_VIOLATION:bbo_renamed_oos:start=1794095940000<min_required=1794798000000']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M21",
+      "name": "SINGLE_BBO_AND_INSPECTED_DATA_REJECTED_FROM_FRESH_OOS",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "build_and_validate_future_oos_escrow_registry"
+    },
+    {
+      "category": "RUNTIME_ISOLATION",
+      "diagnostic": "PRODUCTION/LIVE/PAPER/AUTO=OFF",
+      "green_accepted": true,
+      "mutation_id": "DSC-M22",
+      "name": "ALL_FOUR_RUNTIME_ACTIVATION_MODES_HARD_LOCKED_OFF",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "assert_research_only_runtime_modes_off"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "17p1503_shortfall_gib=3.3497",
+      "green_accepted": true,
+      "mutation_id": "DSC-M23",
+      "name": "R2_PRIOR_17P1503_GIB_AND_LOW_TEMP_MOUNT_BLOCKED_VS_45GIB_GO",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_disk_reserve_policy"
+    },
+    {
+      "category": "REGRESSION_INTEGRITY",
+      "diagnostic": "focused-only status rejected",
+      "green_accepted": true,
+      "mutation_id": "DSC-M24",
+      "name": "FOCUSED_15_TESTS_SUBSTITUTED_FOR_FULL_REGRESSION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_kh01b_r1_dsc_gates_from_disk"
+    },
+    {
+      "category": "JUNIT_INTEGRITY",
+      "diagnostic": "FAKE_JUNIT_XML_PRESENT_WHEN_NOT_RUN",
+      "green_accepted": true,
+      "mutation_id": "DSC-M25",
+      "name": "FAKE_JUNIT_XML_UNDER_BLOCKED_LOW_DISK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_kh01b_r1_dsc_gates_from_disk"
+    },
+    {
+      "category": "SHA_LOCK",
+      "diagnostic": "stale=0c247bdc466a rejected",
+      "green_accepted": true,
+      "mutation_id": "DSC-M26",
+      "name": "STALE_TESTED_EXECUTABLE_SHA_MISMATCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "EvidenceReceiptV17931219.is_valid_pass"
+    },
+    {
+      "category": "WORKER_DETERMINISM",
+      "diagnostic": "hash mismatch fails G-DS",
+      "green_accepted": true,
+      "mutation_id": "DSC-M27",
+      "name": "NON_IDENTICAL_W1_W2_W4_REPEAT_HASH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_kh01b_r1_dsc_gates_from_disk"
+    },
+    {
+      "category": "PUBLICATION_SAFETY",
+      "diagnostic": "blocked run forbidden in latest_run.json",
+      "green_accepted": true,
+      "mutation_id": "DSC-M28",
+      "name": "BLOCKED_RUN_PROMOTED_TO_ACCEPTED_LATEST_POINTER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_latest_run_pointer_not_blocked"
+    },
+    {
+      "category": "WINDOW_COVERAGE",
+      "diagnostic": "verdict=VERIFIED_PARTIAL",
+      "green_accepted": true,
+      "mutation_id": "DSC-M29",
+      "name": "FAKE_2880_COMPLETE_CLAIM_ON_1600_M1_SNAPSHOT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "derive_window_coverage_by_timeframe"
+    },
+    {
+      "category": "DISK_SAFETY",
+      "diagnostic": "UNVERIFIED_DIAGNOSTIC_ONLY_NEVER_PASS",
+      "green_accepted": true,
+      "mutation_id": "DSC-M30",
+      "name": "DIAGNOSTIC_10GIB_DOWNGRADE_REJECTED_FROM_ENGINEERING_ACCEPTANCE",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_kh01b_r1_resource_cleanup"
+    },
+    {
+      "category": "PROVENANCE_AND_SCOPE",
+      "diagnostic": "['SI0_242_COHORT_RERISK_CANNOT_BE_CLAIMED_AS_FULL_56710_OPPORTUNITY_RERUN', 'MISSING_OR_INVALID_ORIGIN_HTTP_SHA256:page=0']",
+      "green_accepted": true,
+      "mutation_id": "DSC-M31",
+      "name": "BAD_ORIGIN_SHA_AND_242_RERISK_CLAIMED_AS_56710_RERUN_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_kh01b_r1_fee_sensitivity"
+    }
+  ],
+  "passed_mutations": 31,
+  "r2_spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "status": "PASS",
+  "total_mutations": 31
+}

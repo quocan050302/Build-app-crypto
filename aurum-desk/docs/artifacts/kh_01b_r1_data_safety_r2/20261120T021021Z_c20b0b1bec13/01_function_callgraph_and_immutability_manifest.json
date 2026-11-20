@@ -1,0 +1,351 @@
+{
+  "changed_files_since_start": [
+    "aurum-desk/backend/services/kh_01b_r1_data_safety_closure_service.py",
+    "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+    "aurum-desk/backend/tests/test_kh_01b_r1_data_safety_closure.py",
+    "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/aborted_pre_fix_run_20261120T012459Z_33a56829670e_diagnosis.json",
+    "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/aborted_pre_fix_run_20261120T015238Z_db6da7b5f3cb_diagnosis.json",
+    "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/aborted_pre_fix_run_20261120T020424Z_91a7b05a3083_diagnosis.json",
+    "aurum-desk/tools/kh_01b_r1_collect_market_data.py",
+    "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+    "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+    "aurum-desk/tools/run_kh_01b_r1_verification.py"
+  ],
+  "cost_assumptions_unchanged": {
+    "maker_fee_rate": 0.0002,
+    "sha256": "0fbd26c552566e0a35536f8bbc972eb5548f84723d268c897fb12d6ff9fe7afd",
+    "slippage_usd": 0.1,
+    "taker_fee_rate": 0.0004
+  },
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "modified_dsc_orchestration_and_audit_functions": [
+    {
+      "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+      "production_impact": "NONE_RESEARCH_VERIFICATION_TOOLING_ONLY",
+      "reason": "Inspect actual OS st_dev/mountpoints across repo/output/temp/venv, verify atomic rename probes, and reject Windows NTFS junctions alongside symlinks.",
+      "symbols": [
+        "_is_reparse_or_symlink",
+        "measure_writing_volumes_free_bytes_r1",
+        "inspect_writing_volumes_and_mounts_r2",
+        "safe_cleanup_owned_temp_root_r1"
+      ]
+    },
+    {
+      "file": "aurum-desk/tools/kh_01b_r1_collect_market_data.py",
+      "production_impact": "NONE_READ_ONLY_RESEARCH_DATA_AUDITOR_ONLY",
+      "reason": "Record explicit prior_use_status=INSPECTED_REUSED_DEV alongside DEV_EXTENDED_RESEARCH so audited captures can never be promoted to Fresh OOS.",
+      "symbols": [
+        "collect_online_bitget_audit_and_extended_dev"
+      ]
+    },
+    {
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "production_impact": "NONE_DISK_GATE_AUDITOR_ONLY",
+      "reason": "Reject per-TF missing_slots > 0 mislabeled VERIFIED_COMPLETE even when overall verdict is VERIFIED_PARTIAL; strategy evaluation untouched.",
+      "symbols": [
+        "evaluate_kh01b_r1_engineering_and_economic_gates_from_disk"
+      ]
+    },
+    {
+      "file": "aurum-desk/backend/services/kh_01b_r1_data_safety_closure_service.py",
+      "production_impact": "NONE_RESEARCH_CLOSURE_AUDIT_SERVICE_ONLY",
+      "reason": "Cross-platform Windows NTFS junction fault test (DSC-M20), 31 RED/GREEN controls (DSC-M01..M31), R2 00..15 gate & SHA-graph verification, platform-safe rerun commands.",
+      "symbols": [
+        "build_kh01b_r1_dsc_immutable_baseline_and_callgraph",
+        "compute_kh01b_r1_fee_sensitivity",
+        "run_kh01b_r1_dsc_red_green_fault_suite",
+        "evaluate_kh01b_r1_dsc_r2_gates_from_disk",
+        "render_kh01b_r1_dsc_r2_readme_and_handover_vi",
+        "verify_kh01b_r1_dsc_r2_cross_view_consistency"
+      ]
+    },
+    {
+      "file": "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+      "production_impact": "NONE_INDEPENDENT_DISK_VERIFIER_ONLY",
+      "reason": "Separate-OS-process R2 independent verifier sealing 15_independent_verifier_manifest_and_content_sha256.json and rechecking G-DS-01..15 + R2-A..G.",
+      "symbols": [
+        "verify_kh_01b_r1_dsc_r2_run_dir_from_disk"
+      ]
+    },
+    {
+      "file": "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+      "production_impact": "NONE_RESEARCH_ORCHESTRATOR_ONLY",
+      "reason": "Isolated kh_01b_r1_data_safety_r2/<RUN_ID> orchestrator with pre-stage multi-mount disk guards, bounded thread/worker env, and full regression/backtest/benchmark execution.",
+      "symbols": [
+        "reclaim_inactive_sentinel_owned_temp_dirs",
+        "snapshot_all_prior_artifacts_for_r2",
+        "run_kh01b_r1_dsc_r2_orchestrator"
+      ]
+    }
+  ],
+  "must_keep_unchanged_functions": [
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "file_sha256": "22a4c52521657ceea6f3462bcda830250403092091f663c804eab6565c3472b2",
+      "line_end": 4336,
+      "line_start": 2705,
+      "modified_in_dsc": false,
+      "note": "Production model evaluation; untouched.",
+      "signature": "(context: 'MarketDecisionContext', model_id: 'str', direction: 'str', *, adapter_origin: 'str' = 'SHARED_EVALUATOR', target_resolver: 'Optional[Callable[..., Any]]' = None, causal_setup_override: 'Optional[Mapping[str, Any]]' = None, production_eval_spec: 'Optional[Mapping[str, Any]]' = None) -> 'StrategyDecisionSnapshot'",
+      "source_sha256": "85d7ca0bc55f6ea4fb7303d4cdadcedf92151aaf291a13035de9f446b0f259e7",
+      "symbol": "SharedStrategyEvaluator.evaluate_model_direction"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "file_sha256": "f17f4d0181c282321b30d65e9f6519d3b06ff9712b0bb918091df8513e4477a7",
+      "line_end": 41,
+      "line_start": 20,
+      "modified_in_dsc": false,
+      "note": "Authoritative default cost config (maker=0.0002, taker=0.0004, slip=0.10); read-only.",
+      "signature": "(*, maker_fee_rate: Annotated[float, Ge(ge=0.0), Lt(lt=0.05)] = 0.0002, taker_fee_rate: Annotated[float, Ge(ge=0.0), Lt(lt=0.05)] = 0.0004, slippage_usd: Annotated[float, Ge(ge=0.0)] = 0.1, multiplier: float = 1.0, tp_is_maker: bool = False, tp_slippage_usd: Annotated[float, Ge(ge=0.0)] = 0.0) -> None",
+      "source_sha256": "6ea98ad139790a7a9e710a9da11b3893dfd664c890fdf63d67a8e295eeca9176",
+      "symbol": "CostAssumptions"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "file_sha256": "f17f4d0181c282321b30d65e9f6519d3b06ff9712b0bb918091df8513e4477a7",
+      "line_end": 585,
+      "line_start": 197,
+      "modified_in_dsc": false,
+      "note": "Authoritative R:R, fee, sizing & liquidation domain calculator; read-only.",
+      "signature": "(direction: str, entry: Optional[float] = None, sl: Optional[float] = None, tp: Optional[float] = None, capital: float = 1000.0, risk_pct: float = 0.25, min_net_rr: float = 2.0, quantity_override: Optional[float] = None, costs: Optional[domain_calculator.CostAssumptions] = None, entry_has_slippage: bool = False, leverage: int = 5, margin_mode: str = 'ISOLATED', min_sl_lp_buffer_usdt: float = 1.0, planned_entry: Optional[float] = None, stop_loss: Optional[float] = None, take_profit: Optional[float] = None, capital_usdt: Optional[float] = None, quantity: Optional[float] = None, phase: str = 'PLAN_PREVIEW', setup_id: Optional[str] = None, setup_instance_id: Optional[str] = None, revision: int = 1, symbol: str = 'XAUUSDT', now_ms: Optional[int] = None) -> domain_calculator.CalculationResult",
+      "source_sha256": "d9737c71fc7a6911fa628d37c586d41b67b1b60c4a18ae685bfb2b39de5be7c9",
+      "symbol": "calculate_risk_reward"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "file_sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75",
+      "line_end": 3080,
+      "line_start": 2867,
+      "modified_in_dsc": false,
+      "note": "Causal forward confirmation state machine; untouched.",
+      "signature": "(pending: 'PendingConfirmationV1793122', bars_1m: 'Sequence[Mapping[str, Any]]' = (), start_bar_index: 'int' = 0, atr_m1: 'float' = 0.65, min_displacement_body_atr_ratio: 'float' = 0.55, capital_usdt: 'float' = 1000.0, risk_pct: 'float' = 0.25, min_net_rr: 'float' = 2.0, max_planned_risk_usd: 'float' = 2.5, spread_usd: 'float' = 0.2, slippage_usd: 'float' = 0.1, taker_fee_rate: 'float' = 0.0004) -> 'Tuple[PendingConfirmationV1793122, Optional[int]]'",
+      "source_sha256": "99f7686cafa87226f68b53f446da5f9820448cd403d2c77420b14d0d01caab7f",
+      "symbol": "advance_pending_confirmation_state_v1793122"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "file_sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75",
+      "line_end": 3196,
+      "line_start": 3120,
+      "modified_in_dsc": false,
+      "note": "Deterministic static model priority arbitration; untouched.",
+      "signature": "(candidates_at_ts: 'Sequence[Mapping[str, Any]]', *, arbitration_mode: 'str' = 'STATIC_PRODUCTION_PRIORITY', feature_ledger_by_opp_id: 'Optional[Mapping[str, Mapping[str, Any]]]' = None) -> 'Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]'",
+      "source_sha256": "ef69402bd25808380bed24ffdb9a9412f3e54881bff8262bcade2b496bcf464b",
+      "symbol": "arbitrate_competing_model_intents_v1793122"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "line_end": 1063,
+      "line_start": 748,
+      "modified_in_dsc": false,
+      "note": "ICT Macro NY schedule resolver; untouched.",
+      "signature": "(decision_timestamp_ms: 'int', symbol: 'str' = 'XAUUSDT', *, schedule_config: 'Optional[Mapping[str, Any]]' = None) -> 'MacroTimeWindowState'",
+      "source_sha256": "cf8c2c52d3bb2c3b0ea7b31e81acb2d165c58d8ffcfaff645651b9acfad3a431",
+      "symbol": "resolve_causal_macro_time_window"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "file_sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "line_end": 1829,
+      "line_start": 1475,
+      "modified_in_dsc": false,
+      "note": "Strict Breaker+FVG confluence authority; untouched.",
+      "signature": "(context: 'Any', direction: 'str', decision_timestamp_ms: 'int', *, setup_descriptors: 'Optional[Mapping[str, Any]]' = None, strict: 'bool' = True, require_confirmed_retest: 'bool' = True, require_htf_alignment: 'bool' = True, require_sweep_provenance: 'bool' = False) -> 'UnicornConfluenceAssessment'",
+      "source_sha256": "044fab060df4b538cd19ee5a1797c76d8a3c8d7f1c3866155dcb8893806f0ab3",
+      "symbol": "evaluate_causal_unicorn_confluence"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98",
+      "line_end": 941,
+      "line_start": 909,
+      "modified_in_dsc": false,
+      "note": "Causal closed-bar source-TF ATR calculator; untouched.",
+      "signature": "(datasets: 'Mapping[str, Sequence[Mapping[str, Any]]]', close_ts_index: 'Mapping[str, Sequence[int]]', timeframe: 'str', decision_ts_ms: 'int', period: 'int' = 14) -> 'Optional[float]'",
+      "source_sha256": "d35ae073df8e27aa82dc06987f671a318343704d8ee861e3334b95be5a7f72d5",
+      "symbol": "compute_causal_tf_atr_v17931214"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "file_sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98",
+      "line_end": 1875,
+      "line_start": 1508,
+      "modified_in_dsc": false,
+      "note": "Authoritative 63,085 -> 0 strict D4 funnel; untouched.",
+      "signature": "(*, run_id: 'str', tested_sha: 'str', dataset_sha: 'str', baseline_decisions: 'Sequence[Mapping[str, Any]]', si8_decisions: 'Sequence[Mapping[str, Any]]', feature_ledger_by_opp_id: 'Mapping[str, Mapping[str, Any]]', datasets: 'Mapping[str, Any]', matched_242_d4_rows_by_mode: 'Mapping[str, Sequence[Mapping[str, Any]]]') -> 'Dict[str, Any]'",
+      "source_sha256": "eca132a6f8c34980de9fac2cea570ad75d719c6f3d3ac2f49887cc6d13c6ff75",
+      "symbol": "build_d4_full_63085_and_matched_funnel_v17931214"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "file_sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794",
+      "line_end": 2020,
+      "line_start": 1847,
+      "modified_in_dsc": false,
+      "note": "Historical B09 strict D4 detector; untouched.",
+      "signature": "(frame: 'FeatureEvidenceFrame', context: 'Optional[Any]' = None, setup_episode: 'Optional[Mapping[str, Any]]' = None) -> 'StrictUnicornResearchDecision'",
+      "source_sha256": "c97e6982c07c7b08fea6daac1ca9dc7136b99d063bb599e72bd772d2aaafabd3",
+      "symbol": "evaluate_strict_true_unicorn_hypothesis"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "file_sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794",
+      "line_end": 2109,
+      "line_start": 2023,
+      "modified_in_dsc": false,
+      "note": "Historical B10 adjacent detector isolated from D4; untouched.",
+      "signature": "(frame: 'FeatureEvidenceFrame', variant_id: 'str' = 'KH01B-B10-UNICORN-ADJACENT-FVG-SWEEP-MSS') -> 'AdjacentResearchDecision'",
+      "source_sha256": "886d0ea9b5107d5c4fda8df3f39c20853c8ea9eff6bb83baa32aed824f329127",
+      "symbol": "evaluate_unicorn_adjacent_research_hypothesis"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "file_sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf",
+      "line_end": 2024,
+      "line_start": 1704,
+      "modified_in_dsc": false,
+      "note": "R1 E00..E06 candidate evaluator; strategy logic untouched.",
+      "signature": "(rule_spec: 'Mapping[str, Any]', short_code: 'str', variant_id: 'str', cand: 'Mapping[str, Any]', r1_frame: 'CausalRegimeFeatureFrameR1', *, bars_1m: 'Optional[Sequence[Mapping[str, Any]]]' = None, runtime_modes: 'Optional[Mapping[str, Any]]' = None) -> 'R1CandidateDecision'",
+      "source_sha256": "22a9c7c908de88973d8d6d56f3db04c5eb3ed0da1f0bc90ca56da8eb840800dc",
+      "symbol": "evaluate_kh01b_r1_entry_variant"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "file_sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf",
+      "line_end": 2747,
+      "line_start": 2532,
+      "modified_in_dsc": false,
+      "note": "R1 1-position 3-fill replay engine; untouched.",
+      "signature": "(frozen_manifest: 'FrozenKH01BR1Manifest', *, a1_decisions: 'Sequence[Mapping[str, Any]]', si8_decisions: 'Sequence[Mapping[str, Any]]', r1_frames_a1: 'Mapping[str, CausalRegimeFeatureFrameR1]', r1_frames_si8: 'Mapping[str, CausalRegimeFeatureFrameR1]', feature_ledger: 'Mapping[str, Mapping[str, Any]]', candidate_index: 'Mapping[str, Any]', datasets: 'Mapping[str, Any]', run_id: 'str', tested_sha: 'str') -> 'Dict[str, Any]'",
+      "source_sha256": "5348d8139cf684e2cd2e83b88417e14a4a93978826a6582abc0f88dd3f7a5796",
+      "symbol": "replay_kh01b_r1_frozen_variants"
+    },
+    {
+      "decision": "KEEP_AS_IS",
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "file_sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf",
+      "line_end": 2529,
+      "line_start": 2303,
+      "modified_in_dsc": false,
+      "note": "R1 E00..E06 cost stress & uncertainty calculator; untouched.",
+      "signature": "(bundle: 'VariantReplayBundle', folds: 'Sequence[Tuple[int, int, int, int]]', *, baseline_e00_bundle: 'Optional[VariantReplayBundle]' = None, multiplicity_m: 'int' = 10, is_sub_contrast: 'bool' = False, parent_hypothesis_code: 'str' = '', not_run_justified: 'bool' = False) -> 'KH01BR1EconomicVerdict'",
+      "source_sha256": "5ba5afe57206981d03af56ad8a6237e8b7b3e0145167c31128190f4787d3d853",
+      "symbol": "compute_kh01b_r1_edge_uncertainty_and_research_verdict"
+    }
+  ],
+  "prior_dsc_v1_blocked_run_audit": {
+    "prior_blocked_run_dir": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/20261119T150709Z_0c247bdc466a",
+    "prior_blocked_run_id": "20261119T150709Z_0c247bdc466a",
+    "prior_dsc_evidence_sha": "070a7e4ab0bddd741f4dc9c7cb511fcf20b2300e",
+    "prior_dsc_publication_sha": "647206f3c446db202ecf152a4f8e028de56d101c",
+    "prior_dsc_tested_sha": "0c247bdc466a76da2d17b2c9ccfd9a0431dcc73e",
+    "prior_engineering_verdict": "BLOCKED_LOW_DISK",
+    "prior_free_disk_gib": 17.1503,
+    "prior_shortfall_gib": 3.3497,
+    "status_classification": "HISTORICAL_BLOCKED_LOW_DISK_EVIDENCE_NOT_REUSED_AS_PASS"
+  },
+  "prior_kh01b_r1_historical_claim_audit": {
+    "confirmed_historical_defects": {
+      "defect_A_null_gap_summary": {
+        "15m": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        },
+        "1D": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        },
+        "1H": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        },
+        "1m": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        },
+        "4H": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        },
+        "5m": {
+          "actual_bars": null,
+          "gap_class_counts": null,
+          "total_missing_bars": null
+        }
+      },
+      "defect_B_1600_bar_m1_cap_in_48h_window": {
+        "accepted_closed_bars_count": 1600,
+        "bars_sha256": "8b64fd33b78fd45cb4c53dc6a7771fd8e9cf91fef43d7d472ad493a3851d3469",
+        "conflicting_duplicates_count": 0,
+        "duration_ms": 60000,
+        "earliest_open_ms": 1794864000000,
+        "exact_boundary_duplicates_count": 0,
+        "granularity": "1m",
+        "invalid_ohlc_count": 0,
+        "latest_close_ms": 1794960000000,
+        "missing_bar_intervals_count": 0,
+        "raw_rows_total": 1600,
+        "reversed_pagination_pages_count": 0,
+        "status": "PASS",
+        "symbol": "XAUUSDT",
+        "unclosed_bars_excluded_count": 0,
+        "violations": []
+      },
+      "defect_D_lowered_disk_reserve_gib": {
+        "effective_enforced_reserve_gib": 10.0,
+        "hard_abort_floor_gib": 10.0,
+        "min_free_disk_gb_observed": 12.102,
+        "preflight_baseline_free_gib": 13.4667
+      },
+      "defect_E_public_contract_taker_fee_vs_default": {
+        "captured_public_contract_taker_fee": "0.0006",
+        "domain_calculator_default_taker_fee": 0.0004
+      }
+    },
+    "prior_claimed_engineering_verdict": "PASS",
+    "prior_publication_head_sha": "1ee4a8747e7a1205e64a5fbfacfde1da0aa72782",
+    "prior_run_dir": "aurum-desk/docs/artifacts/kh_01b_r1/20261119T115223Z_3661c2eeb562",
+    "prior_tested_sha": "3661c2eeb562d326c3065bd71c89df7878203736",
+    "status_classification": "HISTORICAL_IMMUTABLE_ARTIFACT_CLAIM_NOT_PROOF_OF_DSC_CLOSURE"
+  },
+  "r2_spec_version": "KH-01B.R1.DSC.R2-v1.0",
+  "research_only_lock": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "policy_namespace": "KH01B_R1_RESEARCH_ONLY_DEFAULT_OFF",
+    "research_only": true
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_01b_r1_data_safety.v1",
+  "spec_version": "KH-01B.R1.DSC-v1.0",
+  "starting_head_sha": "647206f3c446db202ecf152a4f8e028de56d101c",
+  "tested_executable_sha": "c20b0b1bec1344e2da258a5d18832874f5f5668a"
+}
