@@ -631,9 +631,17 @@ def _build_lpt_shards_kh01b_r1(
     single_child_spawn: List[str] = []
     v17_9_0_1_heavy: List[str] = []
     cg01_iso_by_name: Dict[str, List[str]] = {
+        "test_v16_20_red_reproductions.py": [],
+        "test_v16_20_production_flow.py": [],
+        "test_v16_21_red_reproductions.py": [],
+        "test_v16_21_production_flow.py": [],
+        "test_v16_22_red_reproductions.py": [],
+        "test_v16_22_production_flow.py": [],
         "test_v16_23_red_reproductions.py": [],
         "test_v16_23_production_flow.py": [],
+        "test_v16_24_red_reproductions.py": [],
         "test_v16_24_production_flow.py": [],
+        "test_v16_25_red_reproductions.py": [],
         "test_v16_25_production_flow.py": [],
     }
     db_serial: List[str] = []
@@ -727,9 +735,17 @@ def _build_lpt_shards_kh01b_r1(
             })
 
     for iso_tag, iso_fname in (
+        ("02E_V16_20_RED", "test_v16_20_red_reproductions.py"),
+        ("02F_V16_20_FLOW", "test_v16_20_production_flow.py"),
+        ("02G_V16_21_RED", "test_v16_21_red_reproductions.py"),
+        ("02H_V16_21_FLOW", "test_v16_21_production_flow.py"),
+        ("02I_V16_22_RED", "test_v16_22_red_reproductions.py"),
+        ("02J_V16_22_FLOW", "test_v16_22_production_flow.py"),
         ("02A_V16_23_RED", "test_v16_23_red_reproductions.py"),
         ("02B_V16_23_FLOW", "test_v16_23_production_flow.py"),
+        ("02K_V16_24_RED", "test_v16_24_red_reproductions.py"),
         ("02C_V16_24_FLOW", "test_v16_24_production_flow.py"),
+        ("02L_V16_25_RED", "test_v16_25_red_reproductions.py"),
         ("02D_V16_25_FLOW", "test_v16_25_production_flow.py"),
     ):
         if cg01_iso_by_name[iso_fname]:

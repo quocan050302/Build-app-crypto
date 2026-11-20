@@ -1196,7 +1196,14 @@ def collect_online_bitget_audit_and_extended_dev(
                 raise TimeoutError(f"COLLECTOR_MAX_WALL_SECONDS_EXCEEDED:{max_wall_seconds}")
 
             t_req_ms = int(time.time() * 1000)
-            resp = cli.get(url, params=params)
+            try:
+                resp = cli.get(url, params=params)
+            except (httpx.TimeoutException, httpx.TransportError) as net_exc:
+                if attempt < max_attempts:
+                    backoff_s = min(2.0, (0.25 * (2 ** (attempt - 1))) + rng_jitter.uniform(0.01, 0.05))
+                    sleep_fn(backoff_s)
+                    continue
+                raise net_exc
             t_recv_ms = int(time.time() * 1000)
             status_code = int(resp.status_code)
             raw_b = bytes(resp.content or b"")
@@ -1233,7 +1240,7 @@ def collect_online_bitget_audit_and_extended_dev(
         raise RuntimeError(f"UNREACHABLE_RETRY_EXIT:{endpoint_tag}")
 
     owns_client = http_client is None
-    client = http_client if http_client is not None else httpx.Client(timeout=8.0, headers={"Accept": "application/json"})
+    client = http_client if http_client is not None else httpx.Client(timeout=15.0, headers={"Accept": "application/json"})
 
     try:
         # 1. Public contract specification audit (observed snapshot ONLY — never treated as user's VIP tier)

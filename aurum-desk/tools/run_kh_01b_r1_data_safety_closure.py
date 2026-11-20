@@ -1185,6 +1185,12 @@ def run_kh01b_r1_dsc_r2_orchestrator(
             f04["online_capture_verdict"] = online_rep.get("DATA_ACQUISITION_VERDICT")
             f04["online_capture_summary"] = online_rep
             new_online_dev_sha = str(online_rep.get("dev_extended_snapshot_sha256") or "")
+            if online_rep.get("gap_classification_summary"):
+                f02["new_r2_online_capture_six_tf_gap_summary"] = {
+                    "snapshot_sha256": new_online_dev_sha,
+                    "mapper_status": (online_rep.get("gap_mapping_verification") or {}).get("status"),
+                    "timeframes": online_rep.get("gap_classification_summary"),
+                }
         else:
             f04["online_capture_executed"] = False
             f04["online_capture_verdict"] = "NOT_RUN"

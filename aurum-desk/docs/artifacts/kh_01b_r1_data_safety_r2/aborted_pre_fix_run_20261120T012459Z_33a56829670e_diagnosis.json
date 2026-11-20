@@ -1,0 +1,18 @@
+{
+  "aborted_run_id": "20261120T012459Z_33a56829670e",
+  "aborted_tested_executable_sha": "33a56829670e2e2fab6501b68bdff0b95f0675d6",
+  "aborted_at_stage": "STAGE_2_FULL_PYTEST_SHARDS",
+  "status": "ABORTED_PRE_FIX_DIAGNOSIS_RECORDED",
+  "shards_passed_count": 32,
+  "shards_failed_count": 1,
+  "failed_shard_id": "SHARD_INPROC_11_BALANCED",
+  "failed_test_node_id": "backend/tests/test_v16_22_red_reproductions.py::test_red_022_real_scheduler_execution_arms_order_without_direct_evaluate_cycle",
+  "verified_root_causes": [
+    "In-process candle_cache_service singleton cross-pollution when test_v16_20_red_reproductions.py executed before test_v16_22_red_reproductions.py inside SHARD_INPROC_11_BALANCED (verified 10/10 PASS in isolated process vs 1 FAIL when paired).",
+    "Transient single-request httpx.ReadTimeout on Bitget public REST request #7 during --online DEV probe because _bounded_get retried HTTP 429/5xx status codes without catching transient httpx.TimeoutException/TransportError."
+  ],
+  "remediation_committed_before_new_run": [
+    "Isolated test_v16_20..25_{red_reproductions,production_flow}.py into dedicated cg01_iso_by_name shards in aurum-desk/tools/run_kh_01b_r1_verification.py (matching existing 02A..02D v16_23..25 isolation).",
+    "Added bounded 4-attempt httpx.TimeoutException/TransportError backoff retry (timeout=15.0s, max_wall_seconds=90.0s) in aurum-desk/tools/kh_01b_r1_collect_market_data.py."
+  ]
+}
