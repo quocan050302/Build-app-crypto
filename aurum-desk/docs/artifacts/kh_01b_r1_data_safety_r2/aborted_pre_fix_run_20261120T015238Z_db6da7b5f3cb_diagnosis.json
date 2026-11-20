@@ -1,0 +1,19 @@
+{
+  "aborted_run_id": "20261120T015238Z_db6da7b5f3cb",
+  "aborted_tested_executable_sha": "db6da7b5f3cbb857164d397e2d011ba6058fdc6f",
+  "aborted_at_stage": "STAGE_2_FULL_PYTEST_SHARDS",
+  "status": "ABORTED_LOW_RAM_GUARD_TRIGGERED_ADAPTIVE_DOWNSHIFT_COMMITTED",
+  "online_bitget_capture_verified_before_abort": {
+    "DATA_ACQUISITION_VERDICT": "VERIFIED_COMPLETE",
+    "dev_extended_total_bars_count": 3709,
+    "m1_observed_vs_expected": "2880/2880"
+  },
+  "resource_abort_reason": "BLOCKED_LOW_RAM",
+  "observed_available_ram_bytes_at_abort": 342732800,
+  "verified_root_cause": "Host background memory usage left ~2.007 GiB available RAM at Stage 2 start (> 2.00 GiB old threshold by 7 MiB), allowing 3 heavy pytest shards (~1.7 GiB combined RSS) simultaneously and dipping available RAM to 326.8 MiB (< 512 MiB ResourceMonitorKH01A safety floor). Also invoking venv/Scripts/python.exe on Windows added launcher stub processes.",
+  "remediation_committed_before_new_run": [
+    "Raised adaptive RAM downshift thresholds in _effective_slot_limit() (1 worker below 2.40 GiB available RAM, 2 workers below 3.30 GiB, 3 workers above 3.30 GiB).",
+    "Staged multi-worker benchmarks and 56,710 A1 streaming parity BEFORE loading heavy cand_index/datasets into parent RSS and added explicit gc.collect() barriers.",
+    "Used native Python 3.12 interpreter directly on Windows to avoid duplicate pyvenv.cfg launcher stub processes."
+  ]
+}

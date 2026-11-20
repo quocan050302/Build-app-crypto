@@ -1015,9 +1015,10 @@ def run_kh01b_r1_dsc_r2_orchestrator(
     os.environ["AURUM_VERIFICATION_ARTIFACT_ROOT"] = str(owned_temp_root)
     os.environ["AURUM_TESTED_EXECUTABLE_SHA"] = sha
     os.environ["AURUM_MINIMUM_RAM_BYTES"] = str(512 * 1024**2)
-    venv_py = BACKEND_ROOT / ("venv/Scripts/python.exe" if os.name == "nt" else "venv/bin/python")
-    if venv_py.exists():
-        os.environ["AURUM_VERIFY_VENV_PYTHON"] = str(venv_py)
+    if os.name != "nt":
+        venv_py = BACKEND_ROOT / "venv/bin/python"
+        if venv_py.exists():
+            os.environ["AURUM_VERIFY_VENV_PYTHON"] = str(venv_py)
 
     thread_env_locks = {
         "OMP_NUM_THREADS": "1",
@@ -1255,6 +1256,9 @@ def run_kh01b_r1_dsc_r2_orchestrator(
 
         # Heavy mandatory stages (09, 08, 10) ONLY when ALL writing volumes satisfy >= 20.5 GiB!
         if disk_policy["can_proceed"]:
+            del gap_cov_prov, nb_trades, sp2_trades
+            gc.collect()
+
             _record_stage_guard("pre_full_pytest_regression")
             print(f"[KH-01B.R1.DSC.R2] Strict 20.5 GiB disk preflight PASSED — running full sharded pytest regression (max_workers={eff_workers})...", flush=True)
             junit_res = asyncio.run(
@@ -1271,25 +1275,11 @@ def run_kh01b_r1_dsc_r2_orchestrator(
             write_json_durable_atomic(run_dir / "09_full_regression_junit_collected_executed_bijection.json", f09)
             if int(junit_res["shard_manifest"]["nonzero_exit_shards_count"]) > 0:
                 raise RuntimeError("FULL_PYTEST_SHARDS_NONZERO_EXIT")
+            gc.collect()
 
             _record_stage_guard("pre_w1_w2_w4_worker_benchmarks")
             print("[KH-01B.R1.DSC.R2] Running controlled w=1, w=2, w=4, w=1_repeat determinism & speed benchmarks (08)...", flush=True)
             pytest_bench = asyncio.run(_run_controlled_pytest_w1_w2_w4_benchmark_r1(owned_temp_root))
-
-            datasets, _ = load_canonical_xauusdt_datasets()
-            close_ts = build_close_ts_index_v179312(datasets)
-            pol_hash = compute_research_policy_registry_hash_v179312()
-            all_decisions_raw, _ = _load_verified_decision_stream_chunks(PRIOR_V179312_RUN_DIR / "decision_stream_chunks")
-            a1_stream_eligible = [
-                r for r in all_decisions_raw
-                if r.get("variant") == "A1_V1792_SL_TP_BASELINE" and r.get("decision_status") == "ELIGIBLE"
-            ]
-            del all_decisions_raw
-            gc.collect()
-            cand_index = build_full_intervention_candidate_index_v1793121(
-                a1_stream_eligible, datasets, pol_hash, close_ts_index=close_ts
-            )
-            del a1_stream_eligible
             gc.collect()
 
             v130_inputs = list(iter_jsonl_gz(V130_RUN / "10_canonical_decision_inputs.jsonl.gz"))
@@ -1301,6 +1291,16 @@ def run_kh01b_r1_dsc_r2_orchestrator(
                 si8_by_idx.setdefault(int(rec["checkpoint_index_1m"]), []).append(rec)
             del v130_inputs
             gc.collect()
+
+            # Run multi-worker 56,710 A1 streaming parity BEFORE loading full datasets/cand_index to minimize combined RSS
+            avail_for_a1 = int(psutil.virtual_memory().available)
+            a1_workers = 1 if avail_for_a1 < int(1.8 * 1024**3) else (min(2, eff_workers) if avail_for_a1 < int(2.8 * 1024**3) else eff_workers)
+            a1_parity = asyncio.run(_run_streaming_full_56710_a1_parity_kh01b(owned_temp_root, a1_decisions, num_workers=a1_workers))
+            gc.collect()
+
+            datasets, _ = load_canonical_xauusdt_datasets()
+            close_ts = build_close_ts_index_v179312(datasets)
+            pol_hash = compute_research_policy_registry_hash_v179312()
 
             feat_a1 = CompressedFeatureLedger()
             feat_si8 = CompressedFeatureLedger()
@@ -1317,14 +1317,15 @@ def run_kh01b_r1_dsc_r2_orchestrator(
             enrich_si8_aligned_decisions_and_features_v17931213(
                 datasets, close_ts, si8_decisions, feat_si8, fallback_feat_by_opp_id=feat_a1, dataset_sha256=actual_ds_sha
             )
-            cand_index["si8_discovered_decisions_by_checkpoint_index"] = si8_by_idx
-            cand_index["si8_discovered_feature_ledger_by_opp_id"] = feat_si8
-            cand_index["v1793127_causal_truth_required"] = True
             all_features_map = ChainMap(feat_si8, feat_a1)
+            gc.collect()
 
+            # Run w=1/2/4/1_repeat slice benchmark BEFORE building heavy cand_index
             r1_slice_bench = asyncio.run(
                 _run_r1_variant_slice_w1_w2_w4_determinism(owned_temp_root, a1_decisions[::100][:400], all_features_map, datasets)
             )
+            gc.collect()
+
             f08 = {
                 "spec_version": SPEC_VERSION_KH01B_R1_DSC_R2,
                 "schema_version": SCHEMA_VERSION_KH01B_R1_DSC_R2,
@@ -1342,6 +1343,22 @@ def run_kh01b_r1_dsc_r2_orchestrator(
 
             _record_stage_guard("pre_full_baseline_backtest_and_adapter_parity")
             print("[KH-01B.R1.DSC.R2] Running full 56,710 A1 + 6,375 SI8 + SI0 3-fill + 246 3-adapter backtest parity (10)...", flush=True)
+            all_decisions_raw, _ = _load_verified_decision_stream_chunks(PRIOR_V179312_RUN_DIR / "decision_stream_chunks")
+            a1_stream_eligible = [
+                r for r in all_decisions_raw
+                if r.get("variant") == "A1_V1792_SL_TP_BASELINE" and r.get("decision_status") == "ELIGIBLE"
+            ]
+            del all_decisions_raw
+            gc.collect()
+            cand_index = build_full_intervention_candidate_index_v1793121(
+                a1_stream_eligible, datasets, pol_hash, close_ts_index=close_ts
+            )
+            del a1_stream_eligible
+            gc.collect()
+            cand_index["si8_discovered_decisions_by_checkpoint_index"] = si8_by_idx
+            cand_index["si8_discovered_feature_ledger_by_opp_id"] = feat_si8
+            cand_index["v1793127_causal_truth_required"] = True
+
             closed_bar_idx = {}
             for tf_u, tf_k, span_ms in (
                 ("1M", "1m", 60_000), ("5M", "5m", 300_000), ("15M", "15m", 900_000),
@@ -1379,7 +1396,6 @@ def run_kh01b_r1_dsc_r2_orchestrator(
                 run_id=run_id,
                 tested_sha=sha,
             )
-            a1_parity = asyncio.run(_run_streaming_full_56710_a1_parity_kh01b(owned_temp_root, a1_decisions, num_workers=eff_workers))
             si8_pol_res = replay_single_si_policy_v1793122("SI8_RESEARCH_DISCOVERY_REPAIRED", cand_index, datasets, all_features_map, fill_modes=FILL_MODES_KH01B)
             si9_pol_res = replay_single_si_policy_v1793122("SI9_CAUSAL_SIGNAL_PROVENANCE_AND_EDGE_DIAGNOSIS", cand_index, datasets, all_features_map, fill_modes=FILL_MODES_KH01B)
             all_246_eps: List[Mapping[str, Any]] = []

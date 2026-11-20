@@ -873,10 +873,11 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
         free_disk = int(shutil.disk_usage(REPO_ROOT).free)
         if free_disk < effective_disk_reserve_bytes:
             raise RuntimeError(f"BLOCKED_LOW_DISK_IN_R1_PYTEST:free={free_disk}<reserve={effective_disk_reserve_bytes}")
-        if avail_ram < int(1.65 * 1024**3):
+        # Each heavy pytest shard peaks around ~550-650 MiB RSS; keep >=1.2 GiB headroom above the 512 MiB hard floor
+        if avail_ram < int(2.40 * 1024**3):
             downshift_count += 1
             return 1
-        if avail_ram < int(2.0 * 1024**3):
+        if avail_ram < int(3.30 * 1024**3):
             downshift_count += 1
             return min(2, max_parallel_workers)
         # Reserve 1 slot out of the 4-process global cap for transient OS children spawned inside legacy tests
