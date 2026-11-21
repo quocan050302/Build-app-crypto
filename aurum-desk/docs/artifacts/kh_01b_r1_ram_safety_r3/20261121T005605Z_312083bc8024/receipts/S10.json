@@ -1,0 +1,26 @@
+{
+  "gate_id": "S10",
+  "receipt": {
+    "content_sha256": "2bfe3d6efb6a96102b44b561ad523e1cf428ca4646fe393dd2a5b7505e388574",
+    "gate_id": "S10",
+    "input_sha256": "2bfe3d6efb6a96102b44b561ad523e1cf428ca4646fe393dd2a5b7505e388574",
+    "metadata": {
+      "executable_git_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+      "validator_python_source_sha256": "cd6771c3ec6b2764694ea1abaa1eab3b6b4c608ab91a5488f3ddbabc30d07776",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "11_independent_verifier_red_controls_and_receipts.json",
+    "run_id": "20261121T005605Z_312083bc8024",
+    "status": "PASS",
+    "tested_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+    "validator_code_sha": "cd6771c3ec6b2764694ea1abaa1eab3b6b4c608ab91a5488f3ddbabc30d07776",
+    "validator_name": "<lambda>",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}

@@ -1,0 +1,342 @@
+{
+  "changed_files_since_r2_publication": [
+    "aurum-desk/backend/services/kh_01b_r1_data_safety_closure_service.py",
+    "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+    "aurum-desk/backend/tests/test_kh_01b_r1_ram_safety_r3.py",
+    "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+    "aurum-desk/tools/run_kh_01a_verification.py",
+    "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+    "aurum-desk/tools/run_kh_01b_r1_verification.py"
+  ],
+  "cost_assumptions_unchanged": {
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "taker_fee_rate": 0.0004,
+    "unchanged_verified": true
+  },
+  "head_at_start_sha": "64fbc433e2bffb378c649624961b7c69ee532172",
+  "keep_as_is_functions": [
+    {
+      "after_sha": "b7f05dcd49cef51e7a6b3de1fd5fdb758f9a0cfb074ad5aaf766400cf74af467",
+      "before_sha": "b7f05dcd49cef51e7a6b3de1fd5fdb758f9a0cfb074ad5aaf766400cf74af467",
+      "decision": "KEEP_AS_IS",
+      "end_line": 4336,
+      "file": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "function": "SharedStrategyEvaluator.evaluate_model_direction",
+      "purpose": "Production model evaluation; untouched.",
+      "start_line": 2706,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "db36e52440ced9c1a2bdbd0004924080bbe27ab22ecd39839f066e41c834a8a9",
+      "before_sha": "db36e52440ced9c1a2bdbd0004924080bbe27ab22ecd39839f066e41c834a8a9",
+      "decision": "KEEP_AS_IS",
+      "end_line": 41,
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "function": "CostAssumptions",
+      "purpose": "Authoritative default cost config (maker=0.0002, taker=0.0004, slip=0.10); read-only.",
+      "start_line": 20,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "359a22f60075436063665317efc2452c68c13a4395b82356c7186604211a1d7a",
+      "before_sha": "359a22f60075436063665317efc2452c68c13a4395b82356c7186604211a1d7a",
+      "decision": "KEEP_AS_IS",
+      "end_line": 585,
+      "file": "aurum-desk/backend/domain_calculator.py",
+      "function": "calculate_risk_reward",
+      "purpose": "Authoritative R:R, fee, sizing & liquidation domain calculator; read-only.",
+      "start_line": 197,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "ba22eecb5797c5d17114f9ffa5c277a62488d788e80ad79a3c2a5278267c6677",
+      "before_sha": "ba22eecb5797c5d17114f9ffa5c277a62488d788e80ad79a3c2a5278267c6677",
+      "decision": "KEEP_AS_IS",
+      "end_line": 3080,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "advance_pending_confirmation_state_v1793122",
+      "purpose": "Causal forward confirmation state machine; untouched.",
+      "start_line": 2867,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "b718d6bddbd7f52e5e5886c28a44bcb42a2bb8d5084e49ac0be61baa39afee6c",
+      "before_sha": "b718d6bddbd7f52e5e5886c28a44bcb42a2bb8d5084e49ac0be61baa39afee6c",
+      "decision": "KEEP_AS_IS",
+      "end_line": 3196,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "function": "arbitrate_competing_model_intents_v1793122",
+      "purpose": "Deterministic static model priority arbitration; untouched.",
+      "start_line": 3120,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "124c7ecff8cd17a0b219599ac0a1059203e24d1be9586d39fd3ecdbcf292cc8a",
+      "before_sha": "124c7ecff8cd17a0b219599ac0a1059203e24d1be9586d39fd3ecdbcf292cc8a",
+      "decision": "KEEP_AS_IS",
+      "end_line": 1063,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function": "resolve_causal_macro_time_window",
+      "purpose": "ICT Macro NY schedule resolver; untouched.",
+      "start_line": 748,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "f7e2e40a5c063db8c27672ee1052893a33f36b2a3c9e81df98c9daf0a6342860",
+      "before_sha": "f7e2e40a5c063db8c27672ee1052893a33f36b2a3c9e81df98c9daf0a6342860",
+      "decision": "KEEP_AS_IS",
+      "end_line": 1829,
+      "file": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "function": "evaluate_causal_unicorn_confluence",
+      "purpose": "Strict Breaker+FVG confluence authority; untouched.",
+      "start_line": 1475,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "532eedaaaa8f527858967426f85e1d04070bc4c317d3b8f00e0652b1c60e7e44",
+      "before_sha": "532eedaaaa8f527858967426f85e1d04070bc4c317d3b8f00e0652b1c60e7e44",
+      "decision": "KEEP_AS_IS",
+      "end_line": 941,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function": "compute_causal_tf_atr_v17931214",
+      "purpose": "Causal closed-bar source-TF ATR calculator; untouched.",
+      "start_line": 909,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "9e86d99c2c4f356d25c3c0b4ce4db7d5a928650f93e651bd900dff321e84d572",
+      "before_sha": "9e86d99c2c4f356d25c3c0b4ce4db7d5a928650f93e651bd900dff321e84d572",
+      "decision": "KEEP_AS_IS",
+      "end_line": 1875,
+      "file": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "function": "build_d4_full_63085_and_matched_funnel_v17931214",
+      "purpose": "Authoritative 63,085 -> 0 strict D4 funnel; untouched.",
+      "start_line": 1508,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "9f9cb42e98e94a8601bde39ab2eaa869a3f8d9adcee4ab0d6d998a12a8d28424",
+      "before_sha": "9f9cb42e98e94a8601bde39ab2eaa869a3f8d9adcee4ab0d6d998a12a8d28424",
+      "decision": "KEEP_AS_IS",
+      "end_line": 2020,
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function": "evaluate_strict_true_unicorn_hypothesis",
+      "purpose": "Historical B09 strict D4 detector; untouched.",
+      "start_line": 1847,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "bcf74cdf5559ef9a255bc8281d1217a47d1e18c38af266955b544eca5bd9d52c",
+      "before_sha": "bcf74cdf5559ef9a255bc8281d1217a47d1e18c38af266955b544eca5bd9d52c",
+      "decision": "KEEP_AS_IS",
+      "end_line": 2109,
+      "file": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "function": "evaluate_unicorn_adjacent_research_hypothesis",
+      "purpose": "Historical B10 adjacent detector isolated from D4; untouched.",
+      "start_line": 2023,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "4ef71a8c830d28f4df3cdfd46252f6c59f2acb5fb76c027401890c1836a09a3e",
+      "before_sha": "4ef71a8c830d28f4df3cdfd46252f6c59f2acb5fb76c027401890c1836a09a3e",
+      "decision": "KEEP_AS_IS",
+      "end_line": 2024,
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function": "evaluate_kh01b_r1_entry_variant",
+      "purpose": "R1 E00..E06 candidate evaluator; strategy logic untouched.",
+      "start_line": 1704,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "4e3cb4695d70aac443290c7c94d8fe0a8adc4a60c61dd57ffee2c1d9de12bef5",
+      "before_sha": "4e3cb4695d70aac443290c7c94d8fe0a8adc4a60c61dd57ffee2c1d9de12bef5",
+      "decision": "KEEP_AS_IS",
+      "end_line": 2747,
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function": "replay_kh01b_r1_frozen_variants",
+      "purpose": "R1 1-position 3-fill replay engine; untouched.",
+      "start_line": 2532,
+      "unchanged_verified": true
+    },
+    {
+      "after_sha": "839afc34b48bd535cf34513f2e82f469b6d1070b91dbbb19800b2b5cd72d0e24",
+      "before_sha": "839afc34b48bd535cf34513f2e82f469b6d1070b91dbbb19800b2b5cd72d0e24",
+      "decision": "KEEP_AS_IS",
+      "end_line": 2529,
+      "file": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "function": "compute_kh01b_r1_edge_uncertainty_and_research_verdict",
+      "purpose": "R1 E00..E06 cost stress & uncertainty calculator; untouched.",
+      "start_line": 2303,
+      "unchanged_verified": true
+    }
+  ],
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "prior_r2_accepted_reference": {
+    "r2_evidence_sha": "5b4bc84012602b682c15d234be31efe53f46c11d",
+    "r2_observed_min_available_ram_bytes": 72261632,
+    "r2_observed_min_available_ram_mib": 68.91,
+    "r2_publication_head_sha": "64fbc433e2bffb378c649624961b7c69ee532172",
+    "r2_run_id": "20261120T021021Z_c20b0b1bec13",
+    "r2_status": "HISTORICAL_ACCEPTED_R2_PRESERVED_UNMODIFIED",
+    "r2_tested_sha": "c20b0b1bec1344e2da258a5d18832874f5f5668a"
+  },
+  "r3_modified_and_added_functions": [
+    {
+      "action": "MODIFIED",
+      "after_sha": "7a0ae94dd235a8a994716b3c115b72e0e7cc4a3298ec53cde86b663cc0bf761d",
+      "before_sha": "3f2c101b0ca40edf87814ef0ac7449be7cd5f56e17db92f634f0f088a404358e",
+      "end_line": 646,
+      "file": "aurum-desk/tools/run_kh_01a_verification.py",
+      "function": "ResourceMonitorKH01A",
+      "purpose": "Shared 0.5s process-tree/RAM/disk watchdog with >=512 MiB hard floor latch, active-shard context & full descendant RSS.",
+      "start_line": 378
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "f2b300f7b68c69c02ff632294d921504b2587adbea7dc1ed5e036d23a59949c4",
+      "before_sha": "e762219e08609fa3bdf6576433809374b227dc7eca1b48b6677d581dedfafbb5",
+      "end_line": 549,
+      "file": "aurum-desk/tools/run_kh_01a_verification.py",
+      "function": "ResourceMonitorKH01A.check",
+      "purpose": "Race-proof RAM/disk/descendant sampler latching first hard breach and writing durable resource_abort.json.",
+      "start_line": 444
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "a259329d2f8c788e8eba6d31d83ffdfc9514c7b1ef6c9096075279e02cd7b849",
+      "before_sha": "4efcd32f83aa0b959398936650cfca68ec864fe178fc33dbc3aeb8538e59d536",
+      "end_line": 646,
+      "file": "aurum-desk/tools/run_kh_01a_verification.py",
+      "function": "ResourceMonitorKH01A.stop",
+      "purpose": "Reaps owned descendants and reports separate parent RSS, full child-tree RSS, min RAM headroom & latched error.",
+      "start_line": 591
+    },
+    {
+      "action": "VERIFIED_COMPATIBLE",
+      "after_sha": "e68335bc7d7a019bdcdcab1ffc6b6595ec4989d1f8c731071f64cc88854e5896",
+      "before_sha": "e68335bc7d7a019bdcdcab1ffc6b6595ec4989d1f8c731071f64cc88854e5896",
+      "end_line": 790,
+      "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+      "function": "_build_lpt_shards_kh01b_r1",
+      "purpose": "Deterministic LPT shard builder preserving slot_cost=2 for child-spawning/runtime shards and slot_cost=4 for exclusives.",
+      "start_line": 624
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "b2394df0eb3f7a084ec04582ca13f4b685d5368221bfff41c0c5103baa080254",
+      "before_sha": "b5a91f1ecd184fed2f3df7308ab8b0fbeaca5a58bf424605249557d2541946c4",
+      "end_line": 1492,
+      "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+      "function": "run_async_lpt_pytest_shards_kh01b_r1",
+      "purpose": "Bounded async pytest scheduler with R3 predictive RAM admission, validated singleton budget, 0.2s child-tree RSS & OOM detection.",
+      "start_line": 793
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "fde10c3f186e86d6d822e60f4b722bee6d9d5b63dc8c300ffc4d30285d3b119e",
+      "before_sha": "8e4ab9691fa4b8ed93e954ceadf1821e970d58844eae45e633b263ca606968ac",
+      "end_line": 1614,
+      "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+      "function": "_run_controlled_pytest_w1_w2_w4_benchmark_r1",
+      "purpose": "Controlled 155-test w=1/2/4/1_repeat determinism & speed benchmark with R3 RAM capacity check.",
+      "start_line": 1495
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "5cdf3b0d53ce7cf1213438810c57edd2a34845dde81eecffa21fdac38fae3b4c",
+      "before_sha": "c4e4ef208b928a3f8166eb676b5d9415a4ca4dcd737ee2af21241ad5bca18500",
+      "end_line": 1773,
+      "file": "aurum-desk/tools/run_kh_01b_r1_verification.py",
+      "function": "_run_r1_variant_slice_w1_w2_w4_determinism",
+      "purpose": "2,800-pair R1 slice w=1/2/4/1_repeat determinism benchmark selecting optimal worker count truthfully.",
+      "start_line": 1651
+    },
+    {
+      "action": "MODIFIED",
+      "after_sha": "b445ed8367764890e4d72f0aad8d1246bcbf8483b035f8d914cf5f0e889e5a7a",
+      "before_sha": "9ca507f853de9b2dde290ed694494883bdba4ab18bd7281da1d4a23674175fb9",
+      "end_line": 1718,
+      "file": "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+      "function": "run_kh01b_r1_dsc_r2_orchestrator",
+      "purpose": "Replay-compatible R2 orchestrator upgraded to >=512 MiB monitor floor with zero 64 MiB override.",
+      "start_line": 946
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "35030495aca76c9bb92a4a0c0bd8da3e2bf1d4ef5d442577770767aa6776da5e",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 2661,
+      "file": "aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py",
+      "function": "run_kh01b_r1_ram_safety_closure_orchestrator_r3",
+      "purpose": "New R3 orchestrator enforcing >=512 MiB hard floor, stage memory leak telemetry, bounded GC & R3 artifact generation.",
+      "start_line": 1766
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "ed5f5b7048dcec6508fab5531c6c40dfaf049ba4e4768d8bca82f97f2aa7beb2",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 417,
+      "file": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "function": "evaluate_r3_shard_admission",
+      "purpose": "Pure R3 hysteresis & projected-footprint admission gate blocking active_slots==0 low-RAM bypass.",
+      "start_line": 248
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "7adc2c790cde99bdede6bf2effb04fcea7347d2ebc0ba7e5cb9cf92c42941536",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 499,
+      "file": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "function": "compute_r3_ram_preflight_and_policy",
+      "purpose": "Freezes KH-01B.R1.DSC.R3.RAM.v1 thresholds, empirical shard projections & preflight verdict.",
+      "start_line": 420
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "0f5f4c0d83e01b9f9832668369965f1dbe4bc4520a7f2825f4f06b7e25af1071",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 1202,
+      "file": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "function": "run_kh01b_r1_r3_ram_fault_suite",
+      "purpose": "43-mutation RED/GREEN adversarial fault suite (31 prior DSC + 12 R3 RAM/scheduler/OOM faults).",
+      "start_line": 828
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "7233877a661327bc6402c6e35f756fa52fc573fb1c798248359aa0ce4644e618",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 1855,
+      "file": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "function": "evaluate_kh01b_r1_ram_safety_r3_gates_from_disk",
+      "purpose": "Independent disk-based evaluator for orthogonal R3 gates S01..S14.",
+      "start_line": 1387
+    },
+    {
+      "action": "ADDED",
+      "after_sha": "deaef4143d2fa50b164468cf49c6eaa3f6e55c835e907b0ebc1c0c553b95fe1f",
+      "before_sha": "NEW_IN_R3",
+      "end_line": 1153,
+      "file": "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+      "function": "verify_kh_01b_r1_ram_safety_r3_run_dir_from_disk",
+      "purpose": "Separate-OS-process R3 verifier recomputing min RAM from 08 jsonl.gz, JUnit bijection & backtest fingerprints.",
+      "start_line": 808
+    }
+  ],
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_01b_r1_ram_safety_r3.v1",
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "static_no_active_64mib_floor_check": {
+    "checked_files_count": 5,
+    "status": "PASS",
+    "violations": [],
+    "violations_count": 0
+  },
+  "tested_executable_sha": "312083bc80247c4931e3b7ab059a346d360d465f"
+}

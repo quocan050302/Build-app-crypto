@@ -1,0 +1,418 @@
+{
+  "active_slots_zero_unvalidated_bypass_allowed": false,
+  "admission_events_sample": [
+    {
+      "acquired_cost": 2,
+      "available_ram_mib": 8939.03,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 820.0,
+      "projected_remaining_mib": 8119.03,
+      "shard_name": "SHARD_INPROC_00_V17_9_0_1_RUNTIME",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8938.08,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7438.08,
+      "shard_name": "SHARD_INPROC_01_SHARED_DB_SERIAL",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8956.12,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 227.31,
+      "projected_remaining_mib": 8728.81,
+      "shard_name": "SHARD_INPROC_03_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 2,
+      "available_ram_mib": 8327.91,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 855.66,
+      "projected_remaining_mib": 7472.24,
+      "shard_name": "SHARD_SINGLE_CHILD_02_BUDGET2",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8156.41,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6826.22,
+      "shard_name": "SHARD_INPROC_06_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7707.62,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7027.62,
+      "shard_name": "SHARD_INPROC_20_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7715.45,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7035.45,
+      "shard_name": "SHARD_INPROC_19_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7964.69,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6743.68,
+      "shard_name": "SHARD_INPROC_12_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7665.98,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6985.98,
+      "shard_name": "SHARD_INPROC_07_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8074.95,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7394.95,
+      "shard_name": "SHARD_INPROC_21_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7914.4,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7234.4,
+      "shard_name": "SHARD_INPROC_14_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7471.36,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6791.36,
+      "shard_name": "SHARD_INPROC_17_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7842.95,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7162.95,
+      "shard_name": "SHARD_INPROC_10_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7712.43,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7032.43,
+      "shard_name": "SHARD_INPROC_16_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7814.62,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7134.62,
+      "shard_name": "SHARD_INPROC_18_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7811.44,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7131.44,
+      "shard_name": "SHARD_INPROC_11_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7241.2,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6561.2,
+      "shard_name": "SHARD_INPROC_04_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7061.6,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6381.6,
+      "shard_name": "SHARD_INPROC_09_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 6870.82,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 744.41,
+      "projected_remaining_mib": 6126.41,
+      "shard_name": "SHARD_INPROC_08_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7105.56,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 5816.87,
+      "shard_name": "SHARD_INPROC_15_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7348.44,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 6668.44,
+      "shard_name": "SHARD_INPROC_22_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7713.55,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 680.0,
+      "projected_remaining_mib": 7033.55,
+      "shard_name": "SHARD_INPROC_05_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7639.7,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 764.51,
+      "projected_remaining_mib": 6875.19,
+      "shard_name": "SHARD_INPROC_13_BALANCED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7582.17,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7362.17,
+      "shard_name": "SHARD_INPROC_02D_V16_25_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7576.92,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7356.92,
+      "shard_name": "SHARD_INPROC_02C_V16_24_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7232.04,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7012.04,
+      "shard_name": "SHARD_INPROC_02A_V16_23_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7185.77,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 6965.77,
+      "shard_name": "SHARD_INPROC_02B_V16_23_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7658.12,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7344.64,
+      "shard_name": "SHARD_INPROC_02L_V16_25_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7688.8,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7364.57,
+      "shard_name": "SHARD_INPROC_02K_V16_24_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7940.3,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7632.9,
+      "shard_name": "SHARD_INPROC_02F_V16_20_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 7927.54,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7604.48,
+      "shard_name": "SHARD_INPROC_02J_V16_22_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8070.85,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7762.34,
+      "shard_name": "SHARD_INPROC_02H_V16_21_FLOW_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8078.02,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7754.76,
+      "shard_name": "SHARD_INPROC_02I_V16_22_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8165.13,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7853.88,
+      "shard_name": "SHARD_INPROC_02G_V16_21_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 1,
+      "available_ram_mib": 8165.93,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 220.0,
+      "projected_remaining_mib": 7842.3,
+      "shard_name": "SHARD_INPROC_02E_V16_20_RED_ISOLATED",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 2,
+      "available_ram_mib": 8262.38,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 820.0,
+      "projected_remaining_mib": 7343.72,
+      "shard_name": "SHARD_SINGLE_CHILD_01_BUDGET2",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 2,
+      "available_ram_mib": 8278.54,
+      "decision": "ADMIT_NORMAL",
+      "estimated_shard_mib": 820.0,
+      "projected_remaining_mib": 7458.54,
+      "shard_name": "SHARD_SINGLE_CHILD_03_BUDGET2",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 4,
+      "available_ram_mib": 8336.72,
+      "decision": "ADMIT_VALIDATED_SINGLETON",
+      "estimated_shard_mib": 948.22,
+      "projected_remaining_mib": 7388.5,
+      "shard_name": "SHARD_EXCL_01_MULTI_CHILD",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 4,
+      "available_ram_mib": 8529.41,
+      "decision": "ADMIT_VALIDATED_SINGLETON",
+      "estimated_shard_mib": 601.21,
+      "projected_remaining_mib": 7928.2,
+      "shard_name": "SHARD_EXCL_00_REALTIME_30MS",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    },
+    {
+      "acquired_cost": 4,
+      "available_ram_mib": 8673.86,
+      "decision": "ADMIT_VALIDATED_SINGLETON",
+      "estimated_shard_mib": 560.92,
+      "projected_remaining_mib": 8112.93,
+      "shard_name": "SHARD_EXCL_03_DB_OWNERSHIP",
+      "slot_limit": 3,
+      "tier_label": "FULL_SAFE_3_SLOTS_PLUS_1_NESTED_RESERVE"
+    }
+  ],
+  "backpressure_pause_events_count": 0,
+  "blocked_admissions_count": 0,
+  "global_os_descendant_cap": 4,
+  "max_schedulable_shard_slots": 3,
+  "peak_parallel_shards_observed": 2,
+  "ram_policy_mode": "R3_STRICT_512MIB",
+  "scheduler_terminal_status": "COMPLETED_CLEANLY",
+  "schema_version": "kh_01b_r1_ram_safety_r3.v1",
+  "singleton_validated_admissions_count": 3,
+  "slot_downshift_events_count": 0,
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "status": "PASS",
+  "total_backpressure_pause_seconds": 0.0
+}

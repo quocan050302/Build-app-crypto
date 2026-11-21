@@ -1,0 +1,38 @@
+{
+  "ACTIVATION_READY": "NO",
+  "DATA_ACQUISITION_VERDICT": "REUSED_VERIFIED_R2_EXTENDED_DEV_SNAPSHOT",
+  "KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE",
+  "future_oos_escrow": {
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "canonical_reused_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_reused_sample_end_ms": 1793195940000,
+    "earliest_permissible_future_oos_open_ms": 1795233365943,
+    "earliest_permissible_future_oos_utc": "2026-11-21T03:56:05Z",
+    "embargo_minutes_required": 180,
+    "escrow_registry_sha256": "bafa17a6340cd3cdac1e17df0b776696172b1c604574de40e89ec0afa07ebc87",
+    "escrow_schema_version": "kh_01b_r1_dsc.future_oos_escrow.v2",
+    "freeze_timestamp_ms": 1795222565943,
+    "frozen_candidate_code_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+    "frozen_config_sha256": "73c736e8fb701b26ead42946d4d1292427a0c904ecd87489d83459c53e58ceea",
+    "known_excluded_dev_shas": [
+      "2bfeae81c454a5d9d39b66358c30db014db2133a79eb091dc5e2501ff12bc38c",
+      "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    ],
+    "sealed_entries": [],
+    "sealed_future_oos_datasets_count": 0,
+    "status": "PASS",
+    "strategy_evaluation_count_total": 0,
+    "violations": [],
+    "write_once_policy": "APPEND_ONLY_NO_EVALUATION_IN_KH01B_R1_OR_DSC"
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_01b_r1_ram_safety_r3.v1",
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "status": "PASS"
+}

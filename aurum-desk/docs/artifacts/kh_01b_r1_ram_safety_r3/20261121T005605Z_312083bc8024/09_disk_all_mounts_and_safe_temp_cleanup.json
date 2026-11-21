@@ -1,0 +1,470 @@
+{
+  "disk_mounts_after": {
+    "all_writing_volumes_meet_25gib_advisory": true,
+    "atomic_write_probes": {},
+    "captured_at_utc": "2026-11-21T01:28:36Z",
+    "distinct_underlying_filesystems_count": 2,
+    "macos_purgeable_vs_available_note": "shutil.disk_usage().free reports non-purgeable POSIX f_bavail/GetDiskFreeSpaceEx available bytes; purgeable cache space is never counted as guaranteed free space.",
+    "mounts_by_label": {
+      "output": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_01b_r1_ram_safety_r3",
+        "free_bytes": 48228798464,
+        "free_gb_decimal": 48.2288,
+        "free_gib": 44.9166,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_01b_r1_ram_safety_r3",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106412040192
+      },
+      "repo": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto",
+        "free_bytes": 48228798464,
+        "free_gb_decimal": 48.2288,
+        "free_gib": 44.9166,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106412040192
+      },
+      "temp": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "free_bytes": 190431903744,
+        "free_gb_decimal": 190.4319,
+        "free_gib": 177.3535,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 153276624896
+      },
+      "venv_or_python": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "free_bytes": 190431903744,
+        "free_gb_decimal": 190.4319,
+        "free_gib": 177.3535,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 153276624896
+      }
+    },
+    "os_name": "nt",
+    "platform": "win32",
+    "preferred_advisory_headroom_gib": 25.0,
+    "repo_output_temp_all_same_filesystem": false,
+    "same_underlying_filesystem_groups": [
+      {
+        "labels": [
+          "output",
+          "repo"
+        ],
+        "st_dev": 134018765441740000
+      },
+      {
+        "labels": [
+          "temp",
+          "venv_or_python"
+        ],
+        "st_dev": 5779928256407799542
+      }
+    ],
+    "strict_preflight_floor_bytes": 22011707392,
+    "strict_preflight_floor_gib": 20.5,
+    "writing_volumes_free_bytes": {
+      "output": 48228798464,
+      "repo": 48228798464,
+      "temp": 190431903744
+    }
+  },
+  "disk_mounts_before": {
+    "all_writing_volumes_meet_25gib_advisory": true,
+    "atomic_write_probes": {
+      "output": {
+        "atomic_write_rename_verified": true,
+        "probe_dir": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts"
+      },
+      "temp": {
+        "atomic_write_rename_verified": true,
+        "probe_dir": "C:\\Users\\QuocAn\\AppData\\Local\\Temp"
+      }
+    },
+    "captured_at_utc": "2026-11-21T00:56:05Z",
+    "distinct_underlying_filesystems_count": 2,
+    "macos_purgeable_vs_available_note": "shutil.disk_usage().free reports non-purgeable POSIX f_bavail/GetDiskFreeSpaceEx available bytes; purgeable cache space is never counted as guaranteed free space.",
+    "mounts_by_label": {
+      "output": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts",
+        "free_bytes": 48275869696,
+        "free_gb_decimal": 48.2759,
+        "free_gib": 44.9604,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_01b_r1_ram_safety_r3",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106364968960
+      },
+      "repo": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto",
+        "free_bytes": 48275869696,
+        "free_gb_decimal": 48.2759,
+        "free_gib": 44.9604,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106364968960
+      },
+      "temp": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "free_bytes": 189774684160,
+        "free_gb_decimal": 189.7747,
+        "free_gib": 176.7414,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 153933844480
+      },
+      "venv_or_python": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "free_bytes": 189774684160,
+        "free_gb_decimal": 189.7747,
+        "free_gib": 176.7414,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 153933844480
+      }
+    },
+    "os_name": "nt",
+    "platform": "win32",
+    "preferred_advisory_headroom_gib": 25.0,
+    "repo_output_temp_all_same_filesystem": false,
+    "same_underlying_filesystem_groups": [
+      {
+        "labels": [
+          "output",
+          "repo"
+        ],
+        "st_dev": 134018765441740000
+      },
+      {
+        "labels": [
+          "temp",
+          "venv_or_python"
+        ],
+        "st_dev": 5779928256407799542
+      }
+    ],
+    "strict_preflight_floor_bytes": 22011707392,
+    "strict_preflight_floor_gib": 20.5,
+    "writing_volumes_free_bytes": {
+      "output": 48275869696,
+      "repo": 48275869696,
+      "temp": 189774684160
+    }
+  },
+  "disk_reserve_policy": {
+    "abort_reason": null,
+    "acceptance_eligible": true,
+    "baseline_already_below_20gib": false,
+    "can_proceed": true,
+    "constraining_volume": "repo",
+    "disk_safety_verdict": "PASS_STRICT_20GIB",
+    "effective_enforced_reserve_bytes": 21474836480,
+    "effective_enforced_reserve_gib": 20.0,
+    "enforced_reserve_gib": 20.0,
+    "hard_abort_floor_gib": 20.0,
+    "lowered_reserve_without_approval": false,
+    "min_acceptance_preflight_gib": 20.5,
+    "policy_mode": "STRICT_ACCEPTANCE_20GIB",
+    "preflight_baseline_free_bytes": 48275869696,
+    "preflight_baseline_free_gb_decimal": 48.2759,
+    "preflight_baseline_free_gib": 44.9604,
+    "shortfall_bytes": 0,
+    "shortfall_gib": 0.0,
+    "stage_allowance_bytes": 536870912,
+    "stage_allowance_gib": 0.5,
+    "standard_target_reserve_gib": 20.0,
+    "volumes": {
+      "output": {
+        "free_bytes": 48275869696,
+        "free_gb_decimal": 48.2759,
+        "free_gib": 44.9604,
+        "meets_strict_20gib_plus_stage": true
+      },
+      "repo": {
+        "free_bytes": 48275869696,
+        "free_gb_decimal": 48.2759,
+        "free_gib": 44.9604,
+        "meets_strict_20gib_plus_stage": true
+      },
+      "temp": {
+        "free_bytes": 189774684160,
+        "free_gb_decimal": 189.7747,
+        "free_gib": 176.7414,
+        "meets_strict_20gib_plus_stage": true
+      }
+    }
+  },
+  "memory_accounting_methodology_note": "08_runtime_memory_samples_and_peak_rss.jsonl.gz samples parent + owned recursive descendant RSS and OS system virtual_memory().available every 0.5s; per-shard RSS is additionally sampled every 0.2s inside _exec_one_shard. Unattributed host RAM belongs to external OS/user processes.",
+  "memory_samples_08_sha256": "a794479a1e4359e9e43aac0a71288fb2c6c48f74bf995539718ecee6a03eb4f5",
+  "runtime_telemetry": {
+    "active_shards_at_breach": [],
+    "disk_reserve_breached": false,
+    "error": null,
+    "first_breach_sample": null,
+    "global_worker_cap": 4,
+    "hard_ram_breached": false,
+    "latched_error": null,
+    "live_post_stop_orphan_pids": [],
+    "max_children_observed": 4,
+    "max_descendants_observed": 4,
+    "max_single_shard_peak_rss_mib": 655.41,
+    "min_available_ram_gb_observed": 5.393,
+    "min_available_ram_mib_observed": 5522.32,
+    "min_free_disk_gb_decimal": 48.2288,
+    "min_free_disk_gb_observed": 44.947,
+    "min_free_disk_gib": 44.9166,
+    "min_ram_headroom_above_floor_bytes": 5253705728,
+    "min_ram_headroom_above_floor_mib": 5010.32,
+    "minimum_available_ram_bytes": 5790576640,
+    "minimum_free_disk_bytes": 48228798464,
+    "minimum_ram_floor_bytes": 536870912,
+    "minimum_ram_floor_mib": 512.0,
+    "near_hard_floor_warning": false,
+    "orchestrator_pid": 10624,
+    "orphan_pids_at_cleanup_count": 0,
+    "orphan_pids_observed_at_cleanup": [],
+    "peak_child_tree_rss_bytes": 920178688,
+    "peak_child_tree_rss_mib": 877.551,
+    "peak_parent_rss_bytes": 2561736704,
+    "peak_parent_rss_mib": 2443.062,
+    "peak_system_cpu_percent_observed": 99.6,
+    "peak_total_rss_bytes": 2561736704,
+    "peak_total_rss_mb_observed": 2443.06,
+    "post_cleanup_free_bytes": 48228798464,
+    "post_cleanup_free_gb_decimal": 48.2288,
+    "post_cleanup_free_gib": 44.9166,
+    "raw_max_worker_children_observed": 4,
+    "samples_count": 3378,
+    "sampling_interval_seconds": 0.5,
+    "soft_downshift_events": 0,
+    "temp_cleanup_receipt": {
+      "cleaned": true,
+      "containment_verified": true,
+      "path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp\\ak1_0144309f36",
+      "sentinel_verified": true
+    },
+    "temp_dirs_cleaned_with_sentinel_check": true,
+    "total_samples_taken": 3378,
+    "unowned_paths_deleted_count": 0,
+    "warning_near_floor_bytes": 1073741824
+  },
+  "schema_version": "kh_01b_r1_ram_safety_r3.v1",
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "stage_memory_and_backpressure_ledger": [
+    {
+      "active_shards": [],
+      "available_ram_bytes": 9360502784,
+      "available_ram_gib": 8.7176,
+      "available_ram_mib": 8926.87,
+      "captured_at_utc": "2026-11-21T00:56:11Z",
+      "min_free_bytes": 48275804160,
+      "min_free_gib": 44.9603,
+      "min_volume": "repo",
+      "stage": "preflight_passed_ready_for_heavy_stages",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 121.0,
+      "volumes_free_bytes": {
+        "output": 48275804160,
+        "repo": 48275804160,
+        "temp": 189772615680
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 9360502784,
+      "available_ram_gib": 8.7176,
+      "available_ram_mib": 8926.87,
+      "captured_at_utc": "2026-11-21T00:56:11Z",
+      "min_free_bytes": 48275804160,
+      "min_free_gib": 44.9603,
+      "min_volume": "repo",
+      "stage": "pre_full_pytest_regression",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 121.0,
+      "volumes_free_bytes": {
+        "output": 48275804160,
+        "repo": 48275804160,
+        "temp": 189772615680
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 9149067264,
+      "available_ram_gib": 8.5207,
+      "available_ram_mib": 8725.23,
+      "backpressure_pauses": 0,
+      "captured_at_utc": "2026-11-21T01:19:03Z",
+      "min_free_bytes": 48261545984,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "pause_seconds": 0.0,
+      "slot_downshifts": 0,
+      "stage": "post_full_pytest_regression",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 124.293,
+      "volumes_free_bytes": {
+        "output": 48261545984,
+        "repo": 48261545984,
+        "temp": 190073065472
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 9150083072,
+      "available_ram_gib": 8.5217,
+      "available_ram_mib": 8726.2,
+      "captured_at_utc": "2026-11-21T01:19:03Z",
+      "min_free_bytes": 48261545984,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "stage": "pre_w1_w2_w4_worker_benchmarks",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 124.293,
+      "volumes_free_bytes": {
+        "output": 48261545984,
+        "repo": 48261545984,
+        "temp": 190073065472
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 8824463360,
+      "available_ram_gib": 8.2184,
+      "available_ram_mib": 8415.66,
+      "captured_at_utc": "2026-11-21T01:21:14Z",
+      "min_free_bytes": 48261545984,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "selected_a1_workers": 3,
+      "stage": "pre_streaming_56710_a1_parity",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 417.434,
+      "volumes_free_bytes": {
+        "output": 48261545984,
+        "repo": 48261545984,
+        "temp": 190096879616
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 7444955136,
+      "available_ram_gib": 6.9337,
+      "available_ram_mib": 7100.06,
+      "captured_at_utc": "2026-11-21T01:25:02Z",
+      "min_free_bytes": 48261537792,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "stage": "post_w1_w2_w4_worker_benchmarks",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 824.641,
+      "volumes_free_bytes": {
+        "output": 48261537792,
+        "repo": 48261537792,
+        "temp": 190083579904
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 7446462464,
+      "available_ram_gib": 6.9351,
+      "available_ram_mib": 7101.5,
+      "captured_at_utc": "2026-11-21T01:25:02Z",
+      "min_free_bytes": 48261537792,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "stage": "pre_full_baseline_backtest_and_adapter_parity",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 824.641,
+      "volumes_free_bytes": {
+        "output": 48261537792,
+        "repo": 48261537792,
+        "temp": 190083579904
+      }
+    },
+    {
+      "active_shards": [],
+      "available_ram_bytes": 6761877504,
+      "available_ram_gib": 6.2975,
+      "available_ram_mib": 6448.63,
+      "captured_at_utc": "2026-11-21T01:28:34Z",
+      "min_free_bytes": 48261537792,
+      "min_free_gib": 44.9471,
+      "min_volume": "repo",
+      "stage": "post_full_baseline_backtest",
+      "stage_snapshot_child_tree_rss_mib": 0.0,
+      "stage_snapshot_parent_rss_mib": 1507.703,
+      "volumes_free_bytes": {
+        "output": 48261537792,
+        "repo": 48261537792,
+        "temp": 190069145600
+      }
+    }
+  ],
+  "stale_owned_temp_reclamation": {
+    "reclaimed_entries": [],
+    "reclaimed_owned_dirs_count": 0,
+    "reclaimed_total_bytes": 0,
+    "reclaimed_total_mib": 0.0,
+    "skipped_active_owner_count": 0,
+    "skipped_unowned_or_unsentineled_count": 0,
+    "temp_root_scanned": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+    "unowned_paths_deleted_count": 0
+  }
+}

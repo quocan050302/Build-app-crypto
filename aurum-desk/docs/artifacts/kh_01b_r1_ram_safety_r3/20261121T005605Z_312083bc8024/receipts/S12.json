@@ -1,0 +1,26 @@
+{
+  "gate_id": "S12",
+  "receipt": {
+    "content_sha256": "c0d5cb9dcfbf5d73215d0047eca28ac382109a9ce19b506dd65b4d8d5f30d736",
+    "gate_id": "S12",
+    "input_sha256": "c0d5cb9dcfbf5d73215d0047eca28ac382109a9ce19b506dd65b4d8d5f30d736",
+    "metadata": {
+      "executable_git_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+      "validator_python_source_sha256": "cd6771c3ec6b2764694ea1abaa1eab3b6b4c608ab91a5488f3ddbabc30d07776",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "12_oos_zero_evaluations_and_activation_off.json",
+    "run_id": "20261121T005605Z_312083bc8024",
+    "status": "PASS",
+    "tested_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+    "validator_code_sha": "cd6771c3ec6b2764694ea1abaa1eab3b6b4c608ab91a5488f3ddbabc30d07776",
+    "validator_name": "<lambda>",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}

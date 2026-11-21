@@ -1,0 +1,47 @@
+BÀN GIAO NGHIỆM THU KH-01B.R1.DSC.R3 — RAM SAFETY & ADAPTIVE TEST SCHEDULING CLOSURE (KH-01B.R1.DSC.R3-v1.0)
+Run ID: 20261121T005605Z_312083bc8024
+Nhánh bắt buộc: feature/v17-9-2-structural-sl-tp-from-qa
+HEAD tại thời điểm bắt đầu (commit công bố R2 đã nghiệm thu): 64fbc433e2bffb378c649624961b7c69ee532172
+Bản chạy R2 đã nghiệm thu được bảo toàn nguyên vẹn: 20261120T021021Z_c20b0b1bec13 (tested_sha=c20b0b1bec1344e2da258a5d18832874f5f5668a)
+CODE_COMMIT_SHA được kiểm định thực tế (tested_executable_sha): 312083bc80247c4931e3b7ab059a346d360d465f
+Canonical Dataset SHA256 (bất biến, REUSED_RESEARCH / MODELED_BID_ASK): 9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18
+Phiên bản chính sách RAM: KH-01B.R1.DSC.R3.RAM.v1
+
+1. MA TRẬN PHÁN QUYẾT ĐỘC LẬP (ORTHOGONAL VERDICTS):
+- ENGINEERING_CLOSURE_VERDICT: PASS
+- RAM_SAFETY_VERDICT: PASS_STRICT_512MIB_FLOOR (Sàn cứng >= 512.0 MiB; Đáy RAM ở R2 cũ: 68.91 MiB; Đáy RAM thực đo ở R3: 5522.32 MiB; Dư địa trên 512 MiB: 5010.32 MiB)
+- DISK_SAFETY_VERDICT: PASS_STRICT_20GIB (Preflight trống nhỏ nhất: 44.9604 GiB; Đáy runtime: 44.9166 GiB; Sau thu dẹp: 44.9166 GiB)
+- FULL_REGRESSION_VERDICT: PASS (collected=5518, executed=5518, passed=5510, skipped=8, failed=0, errors=0)
+- WORKER_DETERMINISM_VERDICT: PASS (speedup tập pytest w=4 so với w=1 = 1.445x)
+- BACKTEST_VERDICT: PASS (56710 A1 + 6375 SI8 = 63085 cơ hội tách biệt; SI0/E00 242 đặt lệnh / 166 đóng lệnh = 9W/157L, Net=-345.8971 USD; 246 tập 3-adapter khớp 100%)
+- RESEARCH_ECONOMIC_VERDICT: NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE
+- KH01C_ADVANCEMENT_VERDICT: NO_ECONOMIC_ADVANCEMENT_CANDIDATE
+- FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA (strategy_evaluation_count=0)
+- ACTIVATION_READY: NO (PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF)
+- PUBLICATION_VERDICT (trước khi đối chiếu blob từ xa): PENDING_REMOTE_PUSH
+
+2. THÔNG SỐ GIÁM SÁT RAM, CÂY TIẾN TRÌNH & LẬP LỊCH THÍCH ỨNG:
+- Mẫu đo 0.5s: 3378 mẫu; peak_parent_rss_mib=2443.062, peak_child_tree_rss_mib=877.551, peak_total_rss_mib=2443.062.
+- Tiến trình con tối đa: 4 (<=4), orphan_pids=0, downshifts=0, backpressure_pauses=0.
+- Đột biến đối chứng ĐỎ/XANH (DSC-M01..31 + R3-M32..43): 43/43 PASS.
+
+3. MA TRẬN 14 CỔNG NGHIỆM THU S01..S14:
+| Gate ID | Gate Name | Status | Observed Summary |
+|---|---|---|---|
+| `S01` | `SOURCE_BRANCH_TESTED_SHA_AND_R2_IMMUTABILITY` | **PASS** | `{"branch": "feature/v17-9-2-structural-sl-tp-from-qa", "modified_prior_files": 0, "tested_sha": "312083bc80247c4931e3b7ab059a346d360d465f"}` |
+| `S02` | `RAM_HARD_FLOOR_512MIB_ENFORCED_NO_64MIB_OVERRIDE` | **PASS** | `{"hard_floor_mib": 512.0, "headroom_above_512mib_mib": 5010.32, "min_sampled_ram_mib": 5522.32, "ram_safety_verdict": "PASS_STRICT_512MIB_FLOOR"}` |
+| `S03` | `PREDICTIVE_RAM_ADMISSION_HYSTERESIS_SINGLETON_AND_DESCENDANT_CAP` | **PASS** | `{"backpressure_pauses": 0, "max_children_observed": 4, "singleton_validated_admissions": 3}` |
+| `S04` | `PRESSURE_FAIL_CLOSED_511MIB_BLOCKED_NO_POST_ABORT_LAUNDERING` | **PASS** | `{"passed_ram_controls": 12}` |
+| `S05` | `AUTHENTIC_PROCESS_TREE_AND_SHARD_MEMORY_TELEMETRY` | **PASS** | `{"peak_child_tree_rss_mib": 877.551, "peak_parent_rss_mib": 2443.062, "samples_count": 3378}` |
+| `S06` | `STRICT_20P5_GIB_ALL_MOUNTS_SENTINEL_CLEANUP_ZERO_ORPHANS` | **PASS** | `{"disk_safety_verdict": "PASS_STRICT_20GIB", "min_free_disk_gib": 44.9166, "orphans": 0}` |
+| `S07` | `FULL_PYTEST_COLLECTED_SCHEDULED_EXECUTED_JUNIT_BIJECTION` | **PASS** | `{"collected": 5518, "deselected": 0, "errors": 0, "executed": 5518, "failed": 0, "mandatory_skipped": 0, "passed": 5510, "scheduled": 5518, "skipped": 8, "unknown": 0, "xfailed": 0, "xpassed": 0}` |
+| `S08` | `CONTROLLED_W1_W2_W4_REPEAT_DETERMINISM_AND_TRUTHFUL_TIMINGS` | **PASS** | `{"pytest_w4_speedup": 1.445, "slice_optimal_workers": 1}` |
+| `S09` | `FULL_BACKTEST_56710_A1_6375_SI8_SI0_242_166_PARITY` | **PASS** | `{"a1": 56710, "net_usd": -345.8971, "si0": "242/166 (9W/157L)", "si8": 6375}` |
+| `S10` | `ANTI_FAKE_PASS_31_PRIOR_PLUS_R3_ADVERSARIAL_FAULTS` | **PASS** | `{"passed_mutations": "43/43"}` |
+| `S11` | `SEPARATE_OS_PROCESS_INDEPENDENT_DISK_VERIFIER` | **PASS** | `{"s_receipts_count": 13}` |
+| `S12` | `OOS_ESCROW_UNTOUCHED_AND_RUNTIME_ACTIVATION_OFF` | **PASS** | `{"FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA", "evaluation_count": 0}` |
+| `S13` | `SAME_BRANCH_PUBLICATION_AND_REMOTE_SHA_READBACK` | **PENDING_REMOTE_PUSH** | `{"publication_status": "PENDING_REMOTE_PUSH", "tested_executable_sha": "312083bc80247c4931e3b7ab059a346d360d465f"}` |
+| `S14` | `ORTHOGONAL_ECONOMIC_TRUTH_NO_PROVEN_EDGE` | **PASS** | `{"KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE", "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE"}` |
+
+4. LỆNH CHẠY LẠI AN TOÀN TRÊN CÙNG NHÁNH:
+  python aurum-desk/tools/run_kh_01b_r1_data_safety_closure.py --r3 --max-workers 4 --offline

@@ -1,0 +1,131 @@
+{
+  "controls": [
+    {
+      "category": "RAM_BOUNDARY",
+      "diagnostic": "512MiB=536870912,511.99MiB=536860426",
+      "green_accepted": true,
+      "mutation_id": "R3-M32",
+      "name": "EXACT_512P00_MIB_PASSES_VS_511P99_MIB_FAILS_CLOSED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "ResourceMonitorKH01A.check"
+    },
+    {
+      "category": "RAM_HARD_FLOOR",
+      "diagnostic": "450/300/69 MiB all rejected",
+      "green_accepted": true,
+      "mutation_id": "R3-M33",
+      "name": "INJECTED_450_300_69_MIB_ALL_ABORT_WITH_BLOCKED_LOW_RAM",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "ResourceMonitorKH01A.check"
+    },
+    {
+      "category": "RAM_LATCH",
+      "diagnostic": "latched=BLOCKED_LOW_RAM:avail_bytes=314572800<floor_bytes=536870912",
+      "green_accepted": true,
+      "mutation_id": "R3-M34",
+      "name": "POST_BREACH_RAM_RECOVERY_NEVER_CLEARS_LATCHED_ABORT",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "ResourceMonitorKH01A.stop"
+    },
+    {
+      "category": "ADMISSION_SINGLETON",
+      "diagnostic": "1.5GiB=WAIT_BACKPRESSURE,2.4GiB=ADMIT_VALIDATED_SINGLETON",
+      "green_accepted": true,
+      "mutation_id": "R3-M35",
+      "name": "ACTIVE_SLOTS_ZERO_BYPASS_BLOCKED_AT_1P5GIB_VALIDATED_AT_2P4GIB",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_r3_shard_admission"
+    },
+    {
+      "category": "ADMISSION_HYSTERESIS",
+      "diagnostic": "limits=(0,0,1,2,3)",
+      "green_accepted": true,
+      "mutation_id": "R3-M36",
+      "name": "TIERS_1P5_2P4_3P3_5P6_GIB_AND_HYSTERESIS_VERIFIED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "compute_adaptive_slot_limit_r3"
+    },
+    {
+      "category": "DESCENDANT_CAP",
+      "diagnostic": "SHARD_SLOT_COST_EXCEEDS_GLOBAL_CAP:shard=SHARD_BAD_OVERCAP:cost=5>4",
+      "green_accepted": true,
+      "mutation_id": "R3-M37",
+      "name": "SHARD_SLOT_COST_EXCEEDING_4_DESCENDANTS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_r3_shard_admission"
+    },
+    {
+      "category": "OOM_AND_JUNIT_TRUTH",
+      "diagnostic": "137=OOM_OR_OS_KILLED:rc=137,no_xml=FAIL_MISSING_JUNIT",
+      "green_accepted": true,
+      "mutation_id": "R3-M38",
+      "name": "EXIT_137_OOM_AND_MISSING_JUNIT_XML_REJECTED_NO_GHOST_PASS",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "classify_shard_exit_and_oom_r3"
+    },
+    {
+      "category": "SAMPLE_INTEGRITY",
+      "diagnostic": "bad_min_mib=300.0",
+      "green_accepted": true,
+      "mutation_id": "R3-M39",
+      "name": "FORGED_PASS_WITH_300MIB_SAMPLE_IN_08_JSONL_GZ_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "audit_r3_memory_samples_jsonl_gz"
+    },
+    {
+      "category": "STATIC_SOURCE_GUARD",
+      "diagnostic": "repo_violations=0",
+      "green_accepted": true,
+      "mutation_id": "R3-M40",
+      "name": "ACTIVE_64MIB_RAM_FLOOR_OVERRIDE_IN_SOURCE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "detect_active_64mib_ram_floor_in_source"
+    },
+    {
+      "category": "WORKER_DETERMINISM",
+      "diagnostic": "violations=['NON_IDENTICAL_OUTCOME_HASHES:pytest_controlled_subset_w1_w2_w4_repeat:distinct=2', 'INCONSISTENT_OR_PARTIAL_ROW_COUNT:r1_variant_slice_w1_w2_w4_repeat:counts=[2799, 2800]']",
+      "green_accepted": true,
+      "mutation_id": "R3-M41",
+      "name": "W4_OUTCOME_HASH_MISMATCH_AND_PARTIAL_SLICE_ROW_COUNT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "verify_r3_worker_determinism_artifact"
+    },
+    {
+      "category": "SHA_AND_POINTER_GUARD",
+      "diagnostic": "stale=['STALE_OR_MISSING_TESTED_SHA:c20b0b1bec1344e2da258a5d18832874f5f5668a'],blk=['NON_PASS_ENGINEERING_VERDICT:BLOCKED_LOW_RAM', 'NON_PASS_RAM_VERDICT:BLOCKED_LOW_RAM']",
+      "green_accepted": true,
+      "mutation_id": "R3-M42",
+      "name": "STALE_R2_SHA_AND_BLOCKED_LOW_RAM_LATEST_POINTER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "validate_r3_latest_run_pointer"
+    },
+    {
+      "category": "INFLIGHT_BACKPRESSURE",
+      "diagnostic": "red=WAIT_BACKPRESSURE,green=ADMIT_NORMAL",
+      "green_accepted": true,
+      "mutation_id": "R3-M43",
+      "name": "UNCOMMITTED_INFLIGHT_RAMP_UP_FOOTPRINT_PREVENTS_CONCURRENT_SPIKE",
+      "red_rejected": true,
+      "status": "PASS",
+      "target_function": "evaluate_r3_shard_admission"
+    }
+  ],
+  "failed_ram_controls_count": 0,
+  "hard_abort_floor_bytes": 536870912,
+  "hard_abort_floor_mib": 512.0,
+  "passed_ram_controls_count": 12,
+  "schema_version": "kh_01b_r1_ram_safety_r3.v1",
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "status": "PASS"
+}
