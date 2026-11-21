@@ -150,6 +150,7 @@ from tools.run_v17_9_3_1_2_1_full_opportunity_replay import (
 )
 from tools.run_v17_9_3_1_2_2_entry_signal_backtest import replay_single_si_policy_v1793122
 from tools.run_v17_9_3_1_2_2_verification import canonicalize_collect_node_id_v1793122
+from tools.run_v17_9_3_1_2_7_verification import _active_heavy_worker_children
 
 R2_SUBPROCESS_TEST_FILES: Set[str] = {
     "test_kh_02_asof_mtf_and_fault_controls.py",
@@ -192,14 +193,17 @@ class _BoundedResourceSampler:
     def _sample_once(self) -> Dict[str, Any]:
         vm = psutil.virtual_memory()
         try:
-            children = self._proc.children(recursive=True)
-            child_pids = [int(c.pid) for c in children if c.is_running()]
+            heavy_children = _active_heavy_worker_children(self._proc)
+            raw_children = self._proc.children(recursive=True)
+            child_pids = [int(c.pid) for c in heavy_children if c.is_running()]
             parent_rss = int(self._proc.memory_info().rss)
-            child_rss = sum((int(c.memory_info().rss) for c in children if c.is_running()), 0)
+            child_rss = sum((int(c.memory_info().rss) for c in raw_children if c.is_running()), 0)
+            raw_desc_cnt = len(raw_children)
         except Exception:
             child_pids = []
             parent_rss = int(self._proc.memory_info().rss)
             child_rss = 0
+            raw_desc_cnt = 0
         return {
             "ts_ms": int(time.time() * 1000),
             "available_ram_bytes": int(vm.available),
@@ -209,6 +213,7 @@ class _BoundedResourceSampler:
             "tree_rss_mib": round((parent_rss + child_rss) / (1024.0 ** 2), 2),
             "worker_pids": child_pids,
             "child_count": len(child_pids),
+            "raw_descendant_count": raw_desc_cnt,
             "disk_free_gib": _free_gib(self.watch_path),
         }
 
@@ -423,13 +428,17 @@ def _collect_and_build_r2_lpt_shards(
     non_sub = [f for f in all_test_files if Path(f).name not in R2_SUBPROCESS_TEST_FILES]
     sub_files = [f for f in all_test_files if Path(f).name in R2_SUBPROCESS_TEST_FILES]
     shards = _build_lpt_shards_kh01b_r1(non_sub, collected_by_file, empirical_ms)
+    for sh in shards:
+        if sh.get("shard_name") == "SHARD_SINGLE_CHILD_02_BUDGET2":
+            sh["exclusive"] = True
+            sh["slot_cost"] = 4
     for idx_s, sf in enumerate(sorted(sub_files), 1):
         shards.append(
             {
                 "shard_name": f"SHARD_SINGLE_CHILD_R2_SUBPROC_{idx_s:02d}",
                 "files": [sf],
-                "exclusive": False,
-                "slot_cost": 2,
+                "exclusive": True,
+                "slot_cost": 4,
                 "priority_weight": 250_000,
                 "needs_venv": False,
             }
@@ -1084,8 +1093,9 @@ def run_kh02_r2_orchestrator(
             eff_reserve_bytes = int(
                 (STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2 if strict_disk_ok else 2.0) * (1024 ** 3)
             )
+            pytest_workers = min(3, eff_workers)
             print(
-                f"[KH-02.R2] Stage 8A: Running FULL repository LPT-sharded pytest regression (max_workers={eff_workers}) (16)...",
+                f"[KH-02.R2] Stage 8A: Running FULL repository LPT-sharded pytest regression (max_workers={pytest_workers}) (16)...",
                 flush=True,
             )
             f16 = _run_full_repo_pytest_sharded(
@@ -1094,7 +1104,7 @@ def run_kh02_r2_orchestrator(
                 run_id=run_id,
                 tested_sha=head_sha,
                 effective_disk_reserve_bytes=eff_reserve_bytes,
-                max_workers=eff_workers,
+                max_workers=pytest_workers,
             )
             f16["focused_r2_pytest_summary"] = {"included_in_full_repo_bijection": True, "status": f16["status"]}
             write_json_durable_atomic(run_dir / "16_full_pytest_collection_execution_junit_bijection.json", f16)
