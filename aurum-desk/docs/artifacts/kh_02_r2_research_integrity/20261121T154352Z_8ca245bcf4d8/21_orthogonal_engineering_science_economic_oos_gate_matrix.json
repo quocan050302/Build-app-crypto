@@ -1,0 +1,178 @@
+{
+  "OOS_EVALUATIONS": 0,
+  "artifact_canonical_sha256": "f2e9fdeb2dc8c37e62dd88cd3ba62a92e2159ce11eef018df21372a1377b2b0b",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "gates": [
+    {
+      "detail": "branch=feature/v17-9-2-structural-sl-tp-from-qa, sha=8ca245bcf4d8, clean=True",
+      "evidence_artifact": "00",
+      "gate_id": "Gate 01",
+      "name": "Branch, clean source, real HEAD and tested SHA",
+      "status": "PASS"
+    },
+    {
+      "detail": "locked_mod=0, existing_mod=0",
+      "evidence_artifact": "01",
+      "gate_id": "Gate 02",
+      "name": "Zero locked/production/R1 files modified & AST freeze",
+      "status": "PASS"
+    },
+    {
+      "detail": "modes={'AUTO': 'OFF', 'LIVE': 'OFF', 'PAPER': 'OFF', 'PRODUCTION': 'OFF'}, activation=NO",
+      "evidence_artifact": "01,14",
+      "gate_id": "Gate 03",
+      "name": "Zero LIVE/PAPER/AUTO/PRODUCTION side effects & ACTIVATION_READY=NO",
+      "status": "PASS"
+    },
+    {
+      "detail": "f02=PASS",
+      "evidence_artifact": "02,20",
+      "gate_id": "Gate 04",
+      "name": "R1 baseline hashes/manifests & strict D4 ontology preserved",
+      "status": "PASS"
+    },
+    {
+      "detail": "f04_exists=True, t01_t10_all_passed=True",
+      "evidence_artifact": "04,05",
+      "gate_id": "Gate 05",
+      "name": "Unswept target ledger causal/confirmed/sweep/latency tests",
+      "status": "PASS"
+    },
+    {
+      "detail": "classification=R1_SUSPECT_CONFIRMED_ON_RESEARCH_PATH_ONLY, raw_swept=584",
+      "evidence_artifact": "05",
+      "gate_id": "Gate 06",
+      "name": "R1 target eligibility bug fairly proven or NOT_REPRODUCED",
+      "status": "PASS"
+    },
+    {
+      "detail": "f06_exists=True",
+      "evidence_artifact": "06",
+      "gate_id": "Gate 07",
+      "name": "R2 strictly as-of unswept targets & zero TP stretching",
+      "status": "PASS"
+    },
+    {
+      "detail": "frozen=True, f07_exists=True",
+      "evidence_artifact": "03,07,09",
+      "gate_id": "Gate 08",
+      "name": "Paired E/G/X estimands frozen & denominators reconciled",
+      "status": "PASS"
+    },
+    {
+      "detail": "paired_verdict=IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+      "evidence_artifact": "08",
+      "gate_id": "Gate 09",
+      "name": "Common-support covariate balance & MATCHING_INADEQUATE honesty",
+      "status": "PASS"
+    },
+    {
+      "detail": "dec_v=0, fill_v=0",
+      "evidence_artifact": "10",
+      "gate_id": "Gate 10",
+      "name": "Fill-time planned net risk <= $2.50, net R:R >= 2.0 & tail disclosure",
+      "status": "PASS"
+    },
+    {
+      "detail": "overlaps=0",
+      "evidence_artifact": "09",
+      "gate_id": "Gate 11",
+      "name": "Chronological 1-position 3-fill replay, zero overlap/lookahead",
+      "status": "PASS"
+    },
+    {
+      "detail": "f11=PASS, f12=PASS",
+      "evidence_artifact": "11,12",
+      "gate_id": "Gate 12",
+      "name": "Fixed-fill SAME_IDS & full-universe RERISKED cost reconciliation",
+      "status": "PASS"
+    },
+    {
+      "detail": "span_days=20.3479",
+      "evidence_artifact": "13",
+      "gate_id": "Gate 13",
+      "name": "M1/HTF gaps, source latency, modeled BBO & unknown fee disclosure",
+      "status": "PASS"
+    },
+    {
+      "detail": "readiness=BLOCKED_NO_VERIFIED_NEW_DATA, evals=0",
+      "evidence_artifact": "14",
+      "gate_id": "Gate 14",
+      "name": "OOS escrow contract write-once & OOS_EVALUATIONS == 0",
+      "status": "PASS"
+    },
+    {
+      "detail": "status=PASS, collected=5538, executed=5538",
+      "evidence_artifact": "16",
+      "gate_id": "Gate 15",
+      "name": "Full repository pytest regression & 1:1 JUnit bijection",
+      "status": "PASS"
+    },
+    {
+      "detail": "status=PASS",
+      "evidence_artifact": "17",
+      "gate_id": "Gate 16",
+      "name": "Async W1/W2/W4/W1_repeat determinism & workload-specific speeds",
+      "status": "PASS"
+    },
+    {
+      "detail": "min_ram=2352.2 MiB, min_disk=5.6567 GiB, max_ch=4, orphans=0, owner_waived=True",
+      "evidence_artifact": "18",
+      "gate_id": "Gate 17",
+      "name": "RAM >= 512 MiB, children <= 4, orphans == 0, strict disk >= 20.5 GiB",
+      "status": "WAIVED_BY_OWNER_LOW_DISK"
+    },
+    {
+      "detail": "passed=42/42",
+      "evidence_artifact": "19",
+      "gate_id": "Gate 18",
+      "name": ">= 40 unique real RED/GREEN fault controls",
+      "status": "PASS"
+    },
+    {
+      "detail": "verifier=PENDING",
+      "evidence_artifact": "22",
+      "gate_id": "Gate 19",
+      "name": "Separate-OS-process independent disk verifier & SHA256 manifest",
+      "status": "PENDING_SEPARATE_OS_VERIFIER"
+    },
+    {
+      "detail": "publication_status=PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER",
+      "evidence_artifact": "23",
+      "gate_id": "Gate 20",
+      "name": "Safe commit, push & true remote SHA/blob readback",
+      "status": "PENDING_REMOTE_PUSH"
+    }
+  ],
+  "gates_blocked": 0,
+  "gates_failed": 0,
+  "gates_passed": 17,
+  "gates_pending": 2,
+  "gates_total": 20,
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "BASELINE_PARITY_VERDICT": "PASS",
+    "COST_RECONCILIATION_VERDICT": "PASS",
+    "DATA_PROVENANCE_VERDICT": "PASS",
+    "ENGINEERING_VERDICT": "PASS_WITH_OWNER_DISK_WAIVER",
+    "ENTRY_TARGET_INTEGRITY_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FULL_REGRESSION_VERDICT": "PASS",
+    "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+    "OFFLINE_RESEARCH_INTEGRITY_LOGIC_VERDICT": "PASS",
+    "PAIRED_COMPARISON_VERDICT": "IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+    "PUBLICATION_VERDICT": "PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY_VERDICT": "WAIVED_BY_OWNER_LOW_DISK"
+  },
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "spec_version": "KH-02.R2-v1.0",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

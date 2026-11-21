@@ -1,0 +1,101 @@
+{
+  "artifact_canonical_sha256": "5ff3547395ee8a08eb490338b6119a822bed397eefb83a9bcdff96e0a5bdcff4",
+  "kh02_r1_historical_reference_readonly": {
+    "inherited_reference_note": "R1 results are strictly historical read-only baselines; R2 re-executes and independently verifies its own artifacts.",
+    "r1_evidence_commit_sha": "382f7fe96bd8445954eaaa6f04e6b3f0e1637477",
+    "r1_f05_universe_summary": {
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_triggers_count": 3788,
+      "total_directional_bar_opportunities": 44692,
+      "total_post_warmup_m1_bars": 22346
+    },
+    "r1_f08_replay_summary": {
+      "b0_summary": null,
+      "b2_arm_summaries_nb": {
+        "ABL_H1_ONLY": null,
+        "ABL_M15_ONLY": null,
+        "ABL_NO_REGIME": null,
+        "ABL_NO_SESSION": null,
+        "ABL_STRUCT_ONLY": null,
+        "B2_H1": null,
+        "B2_H123": null,
+        "B2_H2": null,
+        "B2_H3": null,
+        "NC_NULL_TRIGGER": null,
+        "NC_RANDOM_DIR": null,
+        "NC_SHIFTED_REGIME": null
+      }
+    },
+    "r1_f17_verdicts_readonly": {
+      "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+      "verdicts": {
+        "ACTIVATION_READY": "NO",
+        "BASELINE_PARITY_VERDICT": "PASS",
+        "DATA_VERDICT": "PASS",
+        "ENGINEERING_VERDICT": "PASS",
+        "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+        "PUBLICATION_VERDICT": "PENDING_REMOTE_PUSH",
+        "REGRESSION_VERDICT": "PASS",
+        "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+        "RESOURCE_SAFETY_VERDICT": "PASS",
+        "RUNTIME_SAFETY_MODES": {
+          "AUTO": "OFF",
+          "LIVE": "OFF",
+          "PAPER": "OFF",
+          "PRODUCTION": "OFF"
+        }
+      }
+    },
+    "r1_latest_ptr_fields": {
+      "evidence_commit_sha": "382f7fe96bd8445954eaaa6f04e6b3f0e1637477",
+      "run_id": "20261121T033338Z_b99ad30313a6",
+      "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"
+    },
+    "r1_latest_ptr_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+    "r1_manifest_18_sha256": "ce3ebd63994829ba5beb13ab6c75f446ad76744a1080317ecca227f8dc49d3c8",
+    "r1_publication_head_sha": "6dec7a716141401b7194a10a82797b04b7557816",
+    "r1_run_id": "20261121T033338Z_b99ad30313a6",
+    "r1_tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"
+  },
+  "prior_pointers_immutability": {
+    "KH01B_R1_DSC_R2": {
+      "actual_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "expected_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/latest_run.json"
+    },
+    "KH01B_R1_RAM_R3": {
+      "actual_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "expected_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/latest_run.json"
+    },
+    "KH02_R1": {
+      "actual_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "expected_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json"
+    }
+  },
+  "reused_dataset_provenance": {
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "data_classification": "REUSED_RESEARCH_NOT_UNTOUCHED_OOS",
+    "expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "match": true,
+    "modeled_spread_usd": 0.2,
+    "observed_l1_bbo_available": false,
+    "path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+    "quote_mode": "MODELED_BID_ASK",
+    "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "sealed_r2_baseline_hashes": {
+    "A1_56710_IDS_SHA256": "dd8282ca484c5d38b2d94b6a0dd65669ad01fb1acbda2874b6ed808457da08f3",
+    "E00_BUNDLE_SHA256": "30f90659430d0607180e9834d11554d664f89438389d793e4f6384f0dde12b83",
+    "SI0_242_TUPLES_SHA256": "644addeb27aae5215079363564d6ba89a3a7d90c47a26499c595cbc501be964e",
+    "SI8_6375_IDS_SHA256": "8d3bc50b44f7da510c166ba468b6de03402739eaa2e4bcebac6b939770a0141b"
+  },
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PASS",
+  "violations": []
+}

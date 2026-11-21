@@ -1,0 +1,646 @@
+{
+  "ACTIVATION_READY": "NO",
+  "artifact_canonical_sha256": "6fbb6505763dc14b29037f08ac18682a3ff3867dedc1e8b730c004fdefb206c8",
+  "base_head_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+  "cost_assumptions_defaults_intact": true,
+  "forbidden_order_import_hits": [],
+  "live_cost_assumptions": {
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "taker_fee_rate": 0.0004
+  },
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "locked_keep_as_is_count": 15,
+  "locked_keep_as_is_inventory": [
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 83,
+      "path": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "sha256": "22a4c52521657ceea6f3462bcda830250403092091f663c804eab6565c3472b2",
+      "top_functions": [
+        "_canonical_hash",
+        "__getattr__",
+        "_normalize_candle_obj",
+        "_candle_open_ms",
+        "_candle_close_ms",
+        "_candle_is_closed",
+        "_canonical_candle_series",
+        "_candle_summary",
+        "validate_htf_candle_series",
+        "aggregate_closed_htf_candles",
+        "now_ms",
+        "candles_1m",
+        "candles_5m",
+        "candles_15m",
+        "candles_1h",
+        "candles_4h",
+        "validate_mtf_context_invariant",
+        "is_model_enabled",
+        "get_policy_dict",
+        "get_risk_dict"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 6,
+      "path": "aurum-desk/backend/domain_calculator.py",
+      "sha256": "1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f",
+      "top_functions": [
+        "get_tier_info",
+        "handle_legacy_fee_rate",
+        "to_snapshot",
+        "validate_price_geometry",
+        "calculate_isolated_liquidation",
+        "calculate_risk_reward"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 48,
+      "path": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75",
+      "top_functions": [
+        "_canonical_json_sha256",
+        "_bar_open_ms",
+        "_bar_close_ms",
+        "_bar_float",
+        "_closed_bars_as_of",
+        "normalize_signal_intelligence_mode_v1793122",
+        "normalize_signal_intelligence_policy_id_v1793122",
+        "is_research_apply_forbidden_in_adapter_v1793122",
+        "arbitration_mode",
+        "pending_confirmation_ttl_bars",
+        "require_causal_htf_alignment",
+        "require_true_unicorn_overlap",
+        "require_protected_structure_sl",
+        "require_reachable_pre_entry_target",
+        "_legacy_hash_dict",
+        "policy_hash",
+        "to_dict",
+        "compute_signal_intelligence_registry_hash_v1793122",
+        "compute_signal_intelligence_registry_hash_v1793123",
+        "compute_proof_hash"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 22,
+      "path": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd",
+      "top_functions": [
+        "normalize_v1793_mode",
+        "_parse_hhmm",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "to_dict",
+        "validate_macro_schedule_config",
+        "resolve_causal_macro_time_window",
+        "classify_macro_context_quality",
+        "bind_unicorn_to_causal_episode",
+        "_map_unicorn_status_to_v1793_reason",
+        "_detect_scan_unicorn_memoized",
+        "evaluate_causal_unicorn_confluence",
+        "validate_unicorn_invalidation_against_v1792",
+        "plan_v17_9_3_macro_unicorn_setup",
+        "serialize_v1793_decision_evidence"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 12,
+      "path": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249",
+      "top_functions": [
+        "_candle_open_ms",
+        "_candle_is_closed",
+        "_candle_ohlc",
+        "__getattr__",
+        "_tf_duration_ms",
+        "_swing_occurred_ms",
+        "_swing_confirmed_ms",
+        "detect_breaker_blocks",
+        "_is_same_causal_episode",
+        "_norm_swing_id",
+        "_build_rejected_evidence",
+        "detect_unicorn_evidence"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 24,
+      "path": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98",
+      "top_functions": [
+        "build_v17931214_callgraph_and_defect_matrix",
+        "_strict_int",
+        "_strict_float",
+        "validate_canonical_scope_accounting_v17931214",
+        "compare_accounting_scopes_strict_v17931214",
+        "build_p0a_accounting_causal_diff_and_reconciliation_v17931214",
+        "compute_causal_tf_atr_v17931214",
+        "audit_target_reachability_row_v17931214",
+        "build_267_target_failure_and_control_audit_v17931214",
+        "verify_267_target_audit_v17931214",
+        "build_d4_full_63085_and_matched_funnel_v17931214",
+        "verify_d4_funnel_and_execution_truth_v17931214",
+        "build_cost_stress_and_purged_walkforward_oos_v17931214",
+        "build_authoritative_metrics_v17931214",
+        "evaluate_v17931214_orthogonal_gate_matrix",
+        "_build_kv_lines_v17931214",
+        "render_v17931214_readme_and_handover",
+        "_parse_kv_from_text_v17931214",
+        "_parse_policy_3mode_md_table_v17931214",
+        "verify_v17931214_cross_view_numerical_consistency"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 51,
+      "path": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095",
+      "top_functions": [
+        "_canonical_json_sha256",
+        "_ms_to_utc_iso",
+        "_session_for_ms",
+        "to_dict",
+        "enumerate_full_replay_indices_v179312",
+        "build_close_ts_index_v179312",
+        "build_causal_context_at_v179312",
+        "extract_per_timeframe_causal_provenance_v179312",
+        "_build_composite_opportunity_id_internal_v179312",
+        "_snapshot_to_compact_decision_record_v179312",
+        "evaluate_full_universe_model_batch_v179312",
+        "write_append_only_decision_stream_v179312",
+        "to_dict",
+        "merge_and_validate_decision_stream_v179312",
+        "to_dict",
+        "build_order_intent_from_snapshot_v179312",
+        "arbitrate_competing_model_intents_v179312",
+        "advance_portfolio_to_next_event_v179312",
+        "simulate_executable_candidate_v179312",
+        "verify_no_trade_time_overlap_v179312"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 32,
+      "path": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794",
+      "top_functions": [
+        "_iter_jsonl_gz",
+        "_file_sha256",
+        "_strict_bool_tri_state",
+        "build_kh01b_callgraph_and_keep_as_is_matrix",
+        "load_and_verify_kh01b_reference_baseline",
+        "pre_register_kh01b_hypotheses",
+        "extract_kh01b_causal_feature_frame",
+        "_verify_bar_ids",
+        "_build_htf_cell",
+        "evaluate_htf_alignment_hypothesis",
+        "evaluate_macro_window_hypothesis",
+        "evaluate_sweep_mss_displacement_hypothesis",
+        "evaluate_source_tf_target_reachability_hypothesis",
+        "evaluate_strict_true_unicorn_hypothesis",
+        "evaluate_unicorn_adjacent_research_hypothesis",
+        "_evaluate_single_candidate_for_variant",
+        "_build_materialized_plan_for_kh01b",
+        "_summarize_episode_list_kh01b",
+        "evaluate_kh01b_variant_on_matched_candidate_universe",
+        "compute_kh01b_research_economics_and_uncertainty"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 30,
+      "path": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf",
+      "top_functions": [
+        "_file_sha256",
+        "_iter_jsonl_gz",
+        "_wilson_95ci",
+        "assert_research_only_runtime_modes_off",
+        "load_and_verify_kh01b_r1_sources",
+        "build_kh01b_r1_function_callgraph_and_keep_as_is_map",
+        "_compute_trailing_atr_and_percentile_asof",
+        "_compute_m15_directional_efficiency_asof",
+        "extract_kh01b_r1_causal_regime_features",
+        "build_kh01b_r1_preentry_outcome_attribution",
+        "_summarize_stratum_rows",
+        "audit_kh01b_r1_strategy_mechanism_by_model_direction_regime",
+        "_group_by",
+        "_spread_bucket",
+        "_target_atr_bucket",
+        "pre_register_kh01b_r1_theses",
+        "_build_r1_noop_materialized_plan",
+        "evaluate_kh01b_r1_entry_variant",
+        "_replay_one_r1_arm",
+        "compute_kh01b_r1_edge_uncertainty_and_research_verdict"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 21,
+      "path": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "sha256": "5ff22a0fa55e10f5ce4e5d1e99a96dfd619081f04cf24d3215d1492cbbf3e283",
+      "top_functions": [
+        "load_empirical_r2_shard_rss_bytes",
+        "estimate_shard_peak_ram_bytes_r3",
+        "compute_adaptive_slot_limit_r3",
+        "evaluate_r3_shard_admission",
+        "compute_r3_ram_preflight_and_policy",
+        "_eval_static_int_expr",
+        "detect_active_64mib_ram_floor_in_source",
+        "_extract_ast_function_spans",
+        "_git_show_file_at_ref",
+        "build_kh01b_r1_r3_callgraph_and_source_diff",
+        "run_kh01b_r1_r3_ram_fault_suite",
+        "_rec",
+        "classify_shard_exit_and_oom_r3",
+        "audit_r3_memory_samples_jsonl_gz",
+        "verify_r3_worker_determinism_artifact",
+        "validate_r3_latest_run_pointer",
+        "evaluate_kh01b_r1_ram_safety_r3_gates_from_disk",
+        "_rd",
+        "_add_gate",
+        "render_kh01b_r1_ram_safety_r3_readme_and_handover_vi"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 32,
+      "path": "aurum-desk/backend/services/kh_02_entry_foundation_research_service.py",
+      "sha256": "bcc26e0a6149fb33145ba97052eab6ad85b250ebdee93975f27eddf143db7034",
+      "top_functions": [
+        "_file_sha256",
+        "_wilson_95ci",
+        "assert_kh02_runtime_safety_modes_off",
+        "_git_safe",
+        "load_kh02_immutable_baseline_registry",
+        "build_kh02_ast_callgraph_and_immutability_map",
+        "audit_kh02_dataset_registry_and_quality",
+        "_validate_and_precompute_tf_series",
+        "build_kh02_asof_mtf_features",
+        "run_kh02_future_mutation_invariance_check",
+        "preregister_kh02_hypotheses",
+        "verify_kh02_plan_integrity_unchanged",
+        "_resolve_b2_structural_stop_and_target",
+        "evaluate_kh02_hypothesis_predicates_asof",
+        "generate_kh02_research_candidates",
+        "_make_kh02_materialized_plan",
+        "replay_kh02_chronological_one_position",
+        "verify_chronological_non_overlap",
+        "stress_kh02_execution_and_costs",
+        "_dec4"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 8,
+      "path": "aurum-desk/tools/run_kh_02_entry_foundation_research.py",
+      "sha256": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924",
+      "top_functions": [
+        "snapshot_all_prior_artifacts_for_kh02",
+        "_collect_and_build_kh02_lpt_shards",
+        "_run_kh02_science_slice_worker_cli",
+        "_run_kh02_science_slice_w1_w2_w4_determinism",
+        "_launch_chunk",
+        "run_kh02_entry_foundation_orchestrator",
+        "_on_sig",
+        "main"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 3,
+      "path": "aurum-desk/tools/kh_02_entry_foundation_independent_verifier.py",
+      "sha256": "b9f181801ffc55b77a64c8123e8d661b3cb1ed0e02a1d314692ab2fa2a50503a",
+      "top_functions": [
+        "_file_sha256",
+        "verify_kh02_run_dir_from_disk",
+        "main"
+      ]
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 0,
+      "path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json",
+      "sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "top_functions": []
+    },
+    {
+      "exists": true,
+      "freeze_status": "KEEP_AS_IS_LOCKED",
+      "function_count": 0,
+      "path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "top_functions": []
+    }
+  ],
+  "modified_existing_files": [],
+  "modified_existing_files_count": 0,
+  "r2_function_ownership_map": [
+    {
+      "artifact": "02_r1_source_integrity_and_snapshot_registry.json",
+      "function": "audit_r2_reference_inputs_and_invariants",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Verifies KH-02.R1 SHA, latest_run.json, manifest_18, dataset SHA, and 44,692 M1 directional universe read-only.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "04_asof_unswept_level_ledger_and_mutation_proof.jsonl.gz",
+      "function": "build_r2_causal_unswept_level_ledger",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Streaming causal M15/H1 confirmed pivot ledger tracking exact HTF + intervening M1 sweep timestamps and T10 future-mutation invariance.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "05_r1_target_eligibility_counterexamples_and_root_cause.json",
+      "function": "audit_r2_r1_target_eligibility_counterexamples",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Reproduces R1 _resolve_b2_structural_stop_and_target read-only across T01-T10 synthetic scenarios and full 44,692 directional M1 dataset.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "06_r2_target_repair_full_opportunity_conservation.jsonl.gz",
+      "function": "resolve_r2_research_only_structural_target",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Pure research-only structural target resolver choosing strictly verified as-of still-unswept confirmed M15/H1 targets with zero TP stretching.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "07_paired_entry_geometry_factorial_control_mapping.jsonl.gz",
+      "function": "build_r2_paired_factorial_entry_geometry_design",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Freezes E-only, G-only, E*G factorial, X_FIXED_FILL, X_FULL_RERISKED_UNIVERSE estimands and per-opportunity reconciliation preserving UNMATCHED.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "08_strata_common_support_balance_and_matching_quality.json",
+      "function": "compute_r2_stratified_common_support_balance",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Evaluates pre/post |SMD| <= 0.10 covariate balance, positivity overlap, MATCHING_INADEQUATE flag, and NY-day/episode block bootstrap CIs.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py"
+    },
+    {
+      "artifact": "09_chronological_1position_three_fill_paired_replays.json",
+      "function": "replay_r2_same_opportunity_paired_counterfactuals",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Chronological 1-position 3-fill paired counterfactual replay reusing authoritative replay_intervention_outcome_v179312 read-only.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_counterfactual_and_costs.py"
+    },
+    {
+      "artifact": "10_fill_time_net_risk_and_realized_tail_audit.json",
+      "function": "audit_r2_fill_time_net_risk_and_realized_tail",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Causal fill-time planned net risk (<= $2.50) & net R:R (>= 2.0) enforcement at open price only, separating planned risk from realized tail losses.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_counterfactual_and_costs.py"
+    },
+    {
+      "artifact": "11_fixed_fill_same_ids_fee_spread_slippage_1x2x3x.json",
+      "function": "reprice_r2_fixed_fills_cost_counterfactual",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Exact Decimal fixed-fill same-ID 1x/2x/3x and 0.0004/0.0006 cost repricing with zero dropped IDs and stable denominator.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_counterfactual_and_costs.py"
+    },
+    {
+      "artifact": "12_full_universe_rerisked_1x2x3x_and_fee_004_006.json",
+      "function": "rerun_r2_full_universe_by_cost_scenario",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Full raw 44,692 directional opportunity universe dynamic rerisked rerun across 1x/2x/3x and 0.0004/0.0006 with complete chronological replay.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_counterfactual_and_costs.py"
+    },
+    {
+      "artifact": "13_m1_m15_h1_gaps_source_latency_quote_fee_provenance.json",
+      "function": "audit_r2_data_lineage_and_gap_sensitivity",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Audits M1 (~20.35d)/M15/H1 coverage, weekend/intra-session gaps, 0ms vs +1s/+5s/+60s source latency sensitivity, modeled BBO, and unknown fee tier.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py"
+    },
+    {
+      "artifact": "14_prospective_oos_escrow_collection_readiness_no_peek.json",
+      "function": "prepare_r2_prospective_oos_ingestion_and_escrow",
+      "module": "aurum-desk/backend/services/kh_02_r2_prospective_data_service.py",
+      "purpose": "Read-only prior escrow audit, append-only prospective snapshot contract (240m embargo), strict OOS_EVALUATIONS == 0 readiness.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py"
+    },
+    {
+      "artifact": "19_real_red_green_fault_injections.json",
+      "function": "run_kh02_r2_42_red_green_fault_suite",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "42 unique real RED/GREEN negative controls covering T01-T10, target reuse, pairing, costs, OOS, JUnit, RAM/disk floors, and verifier tampering.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py"
+    },
+    {
+      "artifact": "21_orthogonal_engineering_science_economic_oos_gate_matrix.json",
+      "function": "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+      "module": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "purpose": "Evaluates all 20 orthogonal gates and 12 independent verdicts strictly from closed immutable disk artifacts.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py"
+    },
+    {
+      "artifact": "22_independent_os_disk_verifier_sha256_manifest.json",
+      "function": "verify_r2_artifacts_independently_from_disk",
+      "module": "aurum-desk/tools/kh_02_r2_independent_verifier.py",
+      "purpose": "Separate-OS-process disk verifier recomputing hashes, JUnit bijection, conservation, cost math, RAM/disk floors, and tampering checks.",
+      "test_file": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py"
+    }
+  ],
+  "r2_new_files_inventory": [
+    {
+      "exists": true,
+      "function_count": 50,
+      "functions": [
+        "load_r2_canonical_dataset_readonly",
+        "_mtf_records_list",
+        "_r2_frozen_plan_and_arms",
+        "_sha256_file",
+        "_utc_iso",
+        "_dec4",
+        "_write_jsonl_gz",
+        "_ast_function_inventory",
+        "audit_r2_function_ownership_and_keep_as_is",
+        "audit_r2_reference_inputs_and_invariants",
+        "freeze_r2_estimands_thresholds_and_falsification",
+        "_extract_htf_confirmed_pivots",
+        "build_r2_causal_unswept_level_ledger",
+        "_compact_level",
+        "_mutate_after",
+        "_prefix_snapshot",
+        "is_level_swept_as_of_r2",
+        "resolve_r2_research_only_structural_target",
+        "_make_synthetic_rec",
+        "run_r2_t01_to_t10_adversarial_target_scenarios",
+        "_mk_bars",
+        "_match_r1_selected_target_in_ledger",
+        "audit_r2_r1_target_eligibility_counterexamples",
+        "build_r2_target_repair_full_opportunity_conservation",
+        "_block_bootstrap_ci",
+        "_compute_smd",
+        "_summarize_episodes",
+        "build_r2_paired_factorial_entry_geometry_design",
+        "_sub",
+        "compute_r2_stratified_common_support_balance",
+        "_extract_covariates",
+        "replay_r2_same_opportunity_paired_counterfactuals",
+        "evaluate_causal_fill_time_policy_single_trade",
+        "audit_r2_fill_time_net_risk_and_realized_tail",
+        "reprice_r2_fixed_fills_cost_counterfactual",
+        "_replay_chronological_custom_cost_scenario",
+        "rerun_r2_full_universe_by_cost_scenario",
+        "audit_r2_data_lineage_and_gap_sensitivity",
+        "run_r2_purged_walkforward_and_multiplicity",
+        "evaluate_r2_disk_preflight_policy",
+        "validate_r2_cost_scope_honesty",
+        "run_kh02_r2_42_red_green_fault_suite",
+        "_rec",
+        "_mk_clean_ds",
+        "_gen",
+        "_eval_gate_sanity",
+        "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+        "_rd",
+        "_g",
+        "render_r2_readme_and_handover_vi"
+      ],
+      "imported_modules_count": 32,
+      "path": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "sha256": "3295cc07345a409c26079b77338eeb69a43e5193bca17e290510d70b035ba508"
+    },
+    {
+      "exists": true,
+      "function_count": 4,
+      "functions": [
+        "_sha256_file",
+        "_utc_iso",
+        "validate_prospective_snapshot_entry_r2",
+        "prepare_r2_prospective_oos_ingestion_and_escrow"
+      ],
+      "imported_modules_count": 9,
+      "path": "aurum-desk/backend/services/kh_02_r2_prospective_data_service.py",
+      "sha256": "dea3f2d375ee67a892c316911b1940ec8dd791c5030015b047443228bcb6f076"
+    },
+    {
+      "exists": true,
+      "function_count": 17,
+      "functions": [
+        "_git_cmd",
+        "_free_gib",
+        "__init__",
+        "_sample_once",
+        "_loop",
+        "start",
+        "stop_and_flush",
+        "_run_r2_science_slice_worker_cli",
+        "_run_r2_science_slice_w1_w2_w4_determinism",
+        "_launch",
+        "_collect_and_build_r2_lpt_shards",
+        "_run_focused_r2_pytest",
+        "_run_full_repo_pytest_sharded",
+        "_run_full_production_baseline_parity_20",
+        "_write_gate_receipts",
+        "run_kh02_r2_orchestrator",
+        "main"
+      ],
+      "imported_modules_count": 42,
+      "path": "aurum-desk/tools/run_kh_02_r2_verification.py",
+      "sha256": "16574de16ed4e8ba846d133b0da7ecc0d42eb6292d22fe12f3f8280fc972c808"
+    },
+    {
+      "exists": true,
+      "function_count": 4,
+      "functions": [
+        "_file_sha256",
+        "_count_jsonl_gz_rows",
+        "verify_r2_artifacts_independently_from_disk",
+        "main"
+      ],
+      "imported_modules_count": 18,
+      "path": "aurum-desk/tools/kh_02_r2_independent_verifier.py",
+      "sha256": "f6103b89ba763dc662adfc3e6aea8089cb2cf6159e457de43935743e76f3e7e4"
+    },
+    {
+      "exists": true,
+      "function_count": 10,
+      "functions": [
+        "_make_synth_dataset",
+        "_gen",
+        "test_r2_reference_invariants_and_frozen_estimands",
+        "test_r2_function_ownership_and_zero_locked_modifications",
+        "test_r2_t01_to_t10_adversarial_target_suite_all_pass",
+        "test_r2_causal_ledger_rejects_bad_inputs_and_proves_t10_invariance",
+        "test_r2_resolver_rejects_invalid_enum_missing_atr_and_enforces_latency_and_tiebreak",
+        "test_r2_paired_design_reconciles_unmatched_and_flags_matching_inadequate",
+        "_mk_cand",
+        "_mk_ep"
+      ],
+      "imported_modules_count": 6,
+      "path": "aurum-desk/backend/tests/test_kh_02_r2_research_integrity.py",
+      "sha256": "c7c9ddbfff4ac5ef5321de1627396265c332520b81cfff0aca410bdd2d1d7d0e"
+    },
+    {
+      "exists": true,
+      "function_count": 5,
+      "functions": [
+        "_synth_multi_tf",
+        "_mk",
+        "test_causal_fill_time_policy_all_edge_cases_and_no_future_high_low",
+        "test_paired_replay_rejects_future_known_at_and_enforces_no_overlap",
+        "test_fixed_fill_decimal_exactness_and_full_universe_rerisk_scope_separation"
+      ],
+      "imported_modules_count": 4,
+      "path": "aurum-desk/backend/tests/test_kh_02_r2_counterfactual_and_costs.py",
+      "sha256": "b0365f557bdc5a1f9842e89a5e3a845dd206aa6ef0b30491fd1c72e75235cf38"
+    },
+    {
+      "exists": true,
+      "function_count": 11,
+      "functions": [
+        "test_prospective_oos_readiness_non_peek_and_strict_escrow_contract",
+        "test_disk_preflight_strict_floor_policy",
+        "test_data_lineage_and_latency_sensitivity_on_synth_data",
+        "_mk",
+        "test_kh02_r2_42_unique_real_red_green_fault_suite",
+        "_build_minimal_valid_synthetic_r2_run_dir",
+        "_wj",
+        "_wgz",
+        "_run_verifier_subprocess",
+        "test_separate_os_independent_verifier_green_and_10_adversarial_tampers",
+        "_clone"
+      ],
+      "imported_modules_count": 12,
+      "path": "aurum-desk/backend/tests/test_kh_02_r2_oos_provenance_and_faults.py",
+      "sha256": "15c26c1612fc01726449483ccbbd87b069bd0366b3cbbeeec6ceacd2a105cb55"
+    }
+  ],
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PASS",
+  "untracked_files": [
+    "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/"
+  ]
+}

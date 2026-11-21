@@ -1,0 +1,229 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "arms": {
+    "B2_H1": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.9737,
+        "fees_usd": 102.2825,
+        "net_pnl_usd": -175.438
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6102,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -290.2165
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2466,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -404.995
+      },
+      "closed_trade_ids_sha256": "af5daf6884371c45feba370d8ba52153a7133fd67f772561c39eddeecb85c1cc",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 73,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -51.1413,
+        "expectancy_r": -1.2573,
+        "fees_usd": 153.4238,
+        "net_pnl_usd": -226.5793
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 204.565,
+        "net_pnl_usd": -277.7205
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 306.8475,
+        "net_pnl_usd": -380.003
+      },
+      "gross_pnl_1x_usd": -73.1555,
+      "losses": 72,
+      "open_at_horizon": 9,
+      "per_id_reconciled_count": 73,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 1
+    },
+    "B2_H123": {
+      "1x_base_0p0004": {
+        "expectancy_r": -1.0169,
+        "fees_usd": 31.4345,
+        "net_pnl_usd": -57.6807
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6384,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -92.9552
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2598,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -128.2297
+      },
+      "closed_trade_ids_sha256": "23d3eb8fb4b766ffb8f86a3ec0b0a2b7c6997612a1efe2e683cfcb90d17b43ee",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 23,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -15.7173,
+        "expectancy_r": -1.2938,
+        "fees_usd": 47.1518,
+        "net_pnl_usd": -73.398
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 62.869,
+        "net_pnl_usd": -89.1152
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 94.3035,
+        "net_pnl_usd": -120.5497
+      },
+      "gross_pnl_1x_usd": -26.2462,
+      "losses": 23,
+      "open_at_horizon": 8,
+      "per_id_reconciled_count": 23,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 0
+    },
+    "B2_H2": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    },
+    "B2_H3": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8504,
+        "fees_usd": 149.7653,
+        "net_pnl_usd": -239.6588
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4467,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -407.7001
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.0429,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -575.7414
+      },
+      "closed_trade_ids_sha256": "44eb3ac829c5cef674c767d475f221eb11ddb897aabbd14c29eb3348555fc7c1",
+      "data_gap_unresolved": 1,
+      "denominator_closed_trades": 114,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -74.8827,
+        "expectancy_r": -1.1161,
+        "fees_usd": 224.648,
+        "net_pnl_usd": -314.5415
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 299.5306,
+        "net_pnl_usd": -389.4241
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 449.2959,
+        "net_pnl_usd": -539.1894
+      },
+      "gross_pnl_1x_usd": -89.8935,
+      "losses": 109,
+      "open_at_horizon": 16,
+      "per_id_reconciled_count": 114,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 5
+    },
+    "NC_NULL_TRIGGER": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    }
+  },
+  "artifact_canonical_sha256": "ff556be22faa581394168a8e729abf56aa1af2d8e0ca71a9bf9157f8a41bce14",
+  "baseline_taker_fee_rate": 0.0004,
+  "caveat": "Fixed-fill repricing holds fills/exits/denominators strictly constant to audit accounting sensitivity; because higher spreads/slippage/fees can alter sizing, net R:R eligibility, and 1-position trade paths, artifact 12 (`FULL_RERISKED_DYNAMIC_POPULATION`) must be read alongside this report.",
+  "max_decimal_reconciliation_residual_usd": 0.0,
+  "modeled_spread_usd": 0.2,
+  "observed_l1_bbo_available": false,
+  "population_mode": "FIXED_FILL_SAME_IDS",
+  "public_ref_taker_fee_rate": 0.0006,
+  "quote_mode": "MODELED_BID_ASK",
+  "reconciliation_tolerance_usd": 0.001,
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PASS",
+  "zero_dropped_ids_verified": true
+}

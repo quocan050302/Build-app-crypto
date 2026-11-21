@@ -1,0 +1,10 @@
+{
+  "detail": "verifier=PENDING",
+  "evidence_artifact": "22",
+  "gate_id": "Gate 19",
+  "name": "Separate-OS-process independent disk verifier & SHA256 manifest",
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PENDING_SEPARATE_OS_VERIFIER",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

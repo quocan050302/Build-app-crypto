@@ -1,0 +1,10 @@
+{
+  "detail": "modes={'AUTO': 'OFF', 'LIVE': 'OFF', 'PAPER': 'OFF', 'PRODUCTION': 'OFF'}, activation=NO",
+  "evidence_artifact": "01,14",
+  "gate_id": "Gate 03",
+  "name": "Zero LIVE/PAPER/AUTO/PRODUCTION side effects & ACTIVATION_READY=NO",
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

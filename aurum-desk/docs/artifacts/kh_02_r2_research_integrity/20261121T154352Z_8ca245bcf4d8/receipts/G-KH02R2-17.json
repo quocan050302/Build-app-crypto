@@ -1,0 +1,10 @@
+{
+  "detail": "min_ram=2352.2 MiB, min_disk=5.6567 GiB, max_ch=4, orphans=0, owner_waived=True",
+  "evidence_artifact": "18",
+  "gate_id": "Gate 17",
+  "name": "RAM >= 512 MiB, children <= 4, orphans == 0, strict disk >= 20.5 GiB",
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "WAIVED_BY_OWNER_LOW_DISK",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

@@ -1,0 +1,129 @@
+{
+  "ACTIVATION_READY": "NO",
+  "artifact_canonical_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421",
+  "balance_thresholds": {
+    "max_abs_smd_key_covariates": 0.1,
+    "min_effective_n_per_group": 20,
+    "min_overlap_coverage_ratio": 0.5,
+    "on_failure_label": "MATCHING_INADEQUATE"
+  },
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "cost_scenarios_frozen": [
+    {
+      "id": "1X_BASE_0p0004",
+      "maker_fee_rate": 0.0002,
+      "slippage_usd": 0.1,
+      "spread_usd": 0.2,
+      "taker_fee_rate": 0.0004
+    },
+    {
+      "id": "FEE_ONLY_0p0006",
+      "maker_fee_rate": 0.0002,
+      "slippage_usd": 0.1,
+      "spread_usd": 0.2,
+      "taker_fee_rate": 0.0006
+    },
+    {
+      "id": "2X_ALL_COST_0p0004",
+      "maker_fee_rate": 0.0004,
+      "slippage_usd": 0.2,
+      "spread_usd": 0.4,
+      "taker_fee_rate": 0.0008
+    },
+    {
+      "id": "2X_ALL_COST_0p0006",
+      "maker_fee_rate": 0.0004,
+      "slippage_usd": 0.2,
+      "spread_usd": 0.4,
+      "taker_fee_rate": 0.0012
+    },
+    {
+      "id": "3X_ALL_COST_0p0004",
+      "maker_fee_rate": 0.0006,
+      "slippage_usd": 0.3,
+      "spread_usd": 0.6,
+      "taker_fee_rate": 0.0012
+    },
+    {
+      "id": "3X_ALL_COST_0p0006",
+      "maker_fee_rate": 0.0006,
+      "slippage_usd": 0.3,
+      "spread_usd": 0.6,
+      "taker_fee_rate": 0.0018
+    }
+  ],
+  "data_regime": "REUSED_RESEARCH_HISTORICAL_DIAGNOSTIC_ONLY",
+  "falsification_criteria": {
+    "economic_edge_requires": [
+      "Reused research NEVER yields PROVEN_EDGE on its own without untouched prospective OOS.",
+      "Positive 1x AND 2x all-cost net expectancy with NY-day block bootstrap 95% CI > 0 AND Holm-Bonferroni survival.",
+      "Non-negative paired lift over NC_NULL_TRIGGER under balanced common support (|SMD| <= 0.10)."
+    ],
+    "negative_result_validity": "A negative economic finding with passing engineering/causality/QA gates is a valid completed R2 outcome."
+  },
+  "fill_time_net_risk_policy": {
+    "causal_fill_time_info_only": "NEXT_BAR_OPEN_PRICE_PLUS_MODELED_SPREAD_SLIPPAGE_ONLY_NO_FUTURE_HIGH_LOW",
+    "min_net_rr": 2.0,
+    "planned_net_risk_cap_usd": 2.5,
+    "realized_tail_disclosure": "planned_net_risk_usd <= 2.50 is a planned stop estimate, NOT a physical cap on realized loss after adverse gaps/slippage.",
+    "rule_when_fill_time_planned_risk_exceeds_cap": "CAUSAL_RESIZE_DOWN_IF_VALID_QTY_GE_0p01_AND_NET_RR_GE_2p0_ELSE_REJECT_AT_FILL_TIME"
+  },
+  "fresh_oos_permitted_for_tuning": false,
+  "frozen_before_outcome_reads": true,
+  "frozen_estimands": {
+    "B0_VS_B2_CROSS_UNIVERSE": {
+      "reason": "SI0/B0 (production A1 56,710 universe + production SL/TP geometry) and B2 (44,692 M1 trigger universe + structural unswept M15/H1 SL/TP geometry) differ in both universe and geometry; reported descriptively only, never attributed solely to entry.",
+      "status": "COMPARISON_NOT_IDENTIFIABLE"
+    },
+    "E_ONLY_PAIRED_FIXED_GEOMETRY": {
+      "identification_method": "Exact common-support pairing on identical (opportunity_id, direction, decision_timestamp_ms, fill_mode) + stratified balance audit.",
+      "question": "Q-E: Holding R2 verified-unswept SL/TP geometry, opportunity timestamp, direction, and fill mode fixed, does entry filter (B2_H1/H2/H3/H123) improve expectancy vs NC_NULL_TRIGGER?",
+      "unit_of_analysis": "Opportunity-level paired delta & chronological 1-position trade-level comparison explicitly separating frequency reduction from per-trade quality."
+    },
+    "E_X_G_FACTORIAL": {
+      "cells": [
+        "(E=OFF,G=R1)",
+        "(E=ON,G=R1)",
+        "(E=OFF,G=R2)",
+        "(E=ON,G=R2)"
+      ],
+      "question": "2x2 factorial decomposition crossing Entry Filter (ON vs NC_NULL_TRIGGER) x Geometry (R1 vs R2 verified-unswept)."
+    },
+    "G_ONLY_PAIRED_SAME_ENTRY": {
+      "identification_method": "Exact same-entry opportunity pairing (R1 geometry vs R2 verified-unswept geometry) preserving ALL unmatched & newly rejected candidates.",
+      "question": "Q-G: Holding entry arm predicate fixed, how does replacing R1 target resolver with R2 verified-unswept target resolver change eligibility, selection, planned risk, exits, and expectancy?"
+    },
+    "X_FIXED_FILL": {
+      "population_rule": "ZERO_DROPPED_IDS_STABLE_DENOMINATOR",
+      "question": "Q-X (Fixed-Fill): Holding exact same trade IDs, fills, quantities, SL/TP, and exits fixed, what is exact Decimal net PnL under 1x/2x/3x costs and 0.0004 vs 0.0006 taker fee?"
+    },
+    "X_FULL_RERISKED_UNIVERSE": {
+      "population_rule": "FULL_RERISKED_DYNAMIC_POPULATION_NEVER_SUBSET_ONLY",
+      "question": "Q-X (Full-Universe Rerisked): Restarting from all 44,692 directional M1 opportunities under each cost scenario (1x/2x/3x and 0.0004/0.0006), what are the dynamically re-sized, re-filtered, 1-position chronological outcomes?"
+    }
+  },
+  "predeclared_balance_covariates": [
+    "direction_is_long",
+    "ny_session_is_core_am_pm",
+    "h1_atr_high_vol_regime",
+    "m1_atr_above_median",
+    "time_second_half"
+  ],
+  "r1_frozen_hypotheses_sha256": "5646e5c5cec9f3a4243b5d633943f252a28f29ffaeadd3d05fb6db43f0ee32df",
+  "random_seed": 20261121,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "source_latency_sensitivity_grid_ms": [
+    0,
+    1000,
+    5000,
+    60000
+  ],
+  "spec_version": "KH-02.R2-v1.0",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

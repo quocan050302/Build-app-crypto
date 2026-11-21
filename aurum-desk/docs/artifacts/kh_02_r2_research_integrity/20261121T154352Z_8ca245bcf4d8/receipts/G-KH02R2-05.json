@@ -1,0 +1,10 @@
+{
+  "detail": "f04_exists=True, t01_t10_all_passed=True",
+  "evidence_artifact": "04,05",
+  "gate_id": "Gate 05",
+  "name": "Unswept target ledger causal/confirmed/sweep/latency tests",
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}

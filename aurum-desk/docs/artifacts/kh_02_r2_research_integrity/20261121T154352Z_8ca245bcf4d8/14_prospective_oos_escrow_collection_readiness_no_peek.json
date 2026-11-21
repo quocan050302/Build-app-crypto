@@ -1,0 +1,132 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+  "OOS_EVALUATIONS": 0,
+  "accepted_prospective_snapshots_count": 0,
+  "append_only_snapshot_schema_contract": {
+    "allow_reused_dev_as_oos": false,
+    "allow_synthetic_as_observed": false,
+    "required_embargo_minutes_after_freeze": 240,
+    "required_fields": [
+      "snapshot_id",
+      "schema_version",
+      "exchange",
+      "exchange_contract_id",
+      "symbol",
+      "price_precision",
+      "qty_precision",
+      "timeframe",
+      "start_utc_ms",
+      "end_utc_ms",
+      "bar_count",
+      "utc_monotonic_strict",
+      "observed_bid_ask_present",
+      "quote_mode",
+      "raw_response_sha256",
+      "pagination_lineage",
+      "source_signature_or_checksum",
+      "capture_time_ms",
+      "known_at_ms",
+      "dataset_sha256"
+    ],
+    "secrets_or_api_keys_logged": false,
+    "write_once_immutable": true
+  },
+  "artifact_canonical_sha256": "0bf71680f58ba7c52c625fb89fafc1579a63f6d5133a731137399bd4186f0e5e",
+  "capture_block_reasons": [
+    "OFFLINE_READINESS_RUN_NO_LIVE_EXCHANGE_CAPTURE_REQUESTED",
+    "LOW_DISK_FREE_GIB:7.1373<20.50",
+    "NO_NEW_POST_FREEZE_VERIFIED_SNAPSHOTS_SUPPLIED"
+  ],
+  "embargo_cutoff_ms": 1795290232732,
+  "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+  "embargo_minutes": 240,
+  "escrow_contract_integrity_status": "PASS",
+  "freeze_timestamp_ms": 1795275832732,
+  "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+  "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+  "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421",
+  "future_oos_escrow_registry": {
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "canonical_reused_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_reused_sample_end_ms": 1793195940000,
+    "earliest_permissible_future_oos_open_ms": 1795286632732,
+    "earliest_permissible_future_oos_utc": "2026-11-21T18:43:52Z",
+    "embargo_minutes_required": 180,
+    "escrow_registry_sha256": "66550e950889b5aed164137b00b8021e299a3074e7d3de873545e6a65f0b1eba",
+    "escrow_schema_version": "kh_01b_r1_dsc.future_oos_escrow.v2",
+    "freeze_timestamp_ms": 1795275832732,
+    "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+    "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421",
+    "known_excluded_dev_shas": [
+      "2bfeae81c454a5d9d39b66358c30db014db2133a79eb091dc5e2501ff12bc38c",
+      "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    ],
+    "sealed_entries": [],
+    "sealed_future_oos_datasets_count": 0,
+    "status": "PASS",
+    "strategy_evaluation_count_total": 0,
+    "violations": [],
+    "write_once_policy": "APPEND_ONLY_NO_EVALUATION_IN_KH01B_R1_OR_DSC"
+  },
+  "known_reused_dev_shas": [
+    "2bfeae81c454a5d9d39b66358c30db014db2133a79eb091dc5e2501ff12bc38c",
+    "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+  ],
+  "mission_scope": "READINESS_AND_ESCROW_CONTRACT_ONLY_NO_OOS_EVALUATION",
+  "operator_next_steps_for_prospective_data": [
+    "1. Free disk space to >= 25.0 GiB (strict >= 20.5 GiB preflight floor) before starting prospective market-data capture.",
+    "2. Capture genuinely new post-freeze Bitget XAUUSDT M1/M15/H1 OHLCV AND real timestamped L1 BBO bid/ask quotes strictly starting >= freeze_timestamp + 240 minutes.",
+    "3. Record raw HTTP response SHA256, pagination lineage, UTC monotonicity, contract precision, capture_time_ms, and known_at_ms into an append-only escrow directory without modifying historical_dataset_XAUUSDT.json.gz.",
+    "4. Keep OOS_EVALUATIONS == 0 until a distinct owner-approved prospective validation protocol explicitly authorizes a single unsealing evaluation."
+  ],
+  "prior_escrow_mutated_count": 0,
+  "prior_escrow_readonly_audit": [
+    {
+      "exists": true,
+      "mutated_by_r2": false,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1/latest_run.json",
+      "run_id": "20261119T115223Z_3661c2eeb562",
+      "sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb"
+    },
+    {
+      "exists": false,
+      "mutated_by_r2": false,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/latest_run.json",
+      "sha256": null
+    },
+    {
+      "exists": true,
+      "mutated_by_r2": false,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/latest_run.json",
+      "run_id": "20261120T021021Z_c20b0b1bec13",
+      "sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013"
+    },
+    {
+      "exists": true,
+      "mutated_by_r2": false,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/latest_run.json",
+      "run_id": "20261121T005605Z_312083bc8024",
+      "sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283"
+    },
+    {
+      "exists": true,
+      "mutated_by_r2": false,
+      "path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json",
+      "run_id": "20261121T033338Z_b99ad30313a6",
+      "sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4"
+    }
+  ],
+  "proposed_snapshots_count": 0,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "snapshot_validations": [],
+  "spec_version": "KH-02.R2-v1.0",
+  "violations": []
+}

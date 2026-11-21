@@ -1,0 +1,63 @@
+================================================================================
+AURUM DESK — KH-02.R2 | BÁO CÁO BÀN GIAO CHỦ SỞ HỮU (TIẾNG VIỆT)
+================================================================================
+Spec Version            : KH-02.R2-v1.0
+Run ID                  : 20261121T154352Z_8ca245bcf4d8
+Branch                  : feature/v17-9-2-structural-sl-tp-from-qa
+Start HEAD              : 8ca245bcf4d849c44426d047dc025609259bc21d
+Tested Executable SHA   : 8ca245bcf4d849c44426d047dc025609259bc21d
+Publication Status      : PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER
+Run Directory           : /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8
+
+1. TRẠNG THÁI TRỰC GIAO (ORTHOGONAL VERDICTS — KHÔNG GỘP GIẢ):
+   - ENGINEERING_VERDICT: PASS_WITH_OWNER_DISK_WAIVER
+   - OFFLINE_RESEARCH_INTEGRITY_LOGIC_VERDICT: PASS
+   - FULL_REGRESSION_VERDICT: PASS
+   - RESOURCE_SAFETY_VERDICT: WAIVED_BY_OWNER_LOW_DISK
+   - BASELINE_PARITY_VERDICT: PASS
+   - ENTRY_TARGET_INTEGRITY_VERDICT: PASS
+   - PAIRED_COMPARISON_VERDICT: IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT
+   - COST_RECONCILIATION_VERDICT: PASS
+   - DATA_PROVENANCE_VERDICT: PASS
+   - FUTURE_OOS_READINESS_VERDICT: BLOCKED_NO_VERIFIED_NEW_DATA
+   - FRESH_OOS_VERDICT: BLOCKED_NO_UNTOUCHED_DATA
+   - RESEARCH_ECONOMIC_VERDICT: NO_PROVEN_EDGE
+   - ACTIVATION_READY: NO
+   - PUBLICATION_VERDICT: PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER
+
+2. KIỂM ĐỊNH LỖI MỤC TIÊU ĐÃ BỊ SWEEP TRONG KH-02.R1 (CHỈ ĐỌC, KHÔNG SỬA R1/PROD):
+   - Phân loại kết quả: R1_SUSPECT_CONFIRMED_ON_RESEARCH_PATH_ONLY (Production bị ảnh hưởng: False)
+   - Tổng cơ hội M1 có hướng kiểm định: 44692
+   - Tổng target R1 chọn bị sweep sẵn (raw): 584 / 3610 (16.18%)
+   - Tổng ứng viên R1 đạt risk-gate bị sweep sẵn: 162 / 1039 (15.59%)
+   - Chi tiết phân loại raw: {'CONFIRMED_SWING_ALREADY_SWEPT_ON_SOURCE_HTF': 294, 'GENUINELY_UNSWEPT_LABEL_COLLISION_ONLY': 2049, 'GENUINELY_UNSWEPT_VALID': 977, 'HTF_POOL_ALREADY_SWEPT_BY_INTERVENING_M1': 290}
+   - Bộ kịch bản T01..T10: 10/10 PASS
+
+3. SO SÁNH R1 vs R2 VERIFIED-UNSWEPT (NEXT_BAR_OPEN_BID_ASK, 1-POSITION):
+   - B2_H1: R1=58 lệnh (1W/57L, Net=-137.6058 USD, Exp=-0.9619R) -> R2=73 lệnh (1W/72L, Net=-175.438 USD, Exp=-0.9737R) | Balance=MATCHING_INADEQUATE
+   - B2_H2: R1=170 lệnh (8W/162L, Net=-357.2638 USD, Exp=-0.8522R) -> R2=203 lệnh (7W/196L, Net=-441.6118 USD, Exp=-0.8806R) | Balance=BALANCED_COMMON_SUPPORT
+   - B2_H3: R1=108 lệnh (7W/101L, Net=-211.7256 USD, Exp=-0.7951R) -> R2=114 lệnh (5W/109L, Net=-239.6588 USD, Exp=-0.8504R) | Balance=BALANCED_COMMON_SUPPORT
+   - B2_H123: R1=22 lệnh (0W/22L, Net=-55.0756 USD, Exp=-1.016R) -> R2=23 lệnh (0W/23L, Net=-57.6807 USD, Exp=-1.0169R) | Balance=BALANCED_COMMON_SUPPORT
+   - NC_NULL_TRIGGER: R1=170 lệnh (8W/162L, Net=-357.2638 USD, Exp=-0.8522R) -> R2=203 lệnh (7W/196L, Net=-441.6118 USD, Exp=-0.8806R) | Balance=CONTROL_BASELINE
+   - Lưu ý B0 vs B2: COMPARISON_NOT_IDENTIFIABLE (khác vũ trụ và khác hình học SL/TP).
+
+4. CHI PHÍ FIXED-FILL vs FULL-UNIVERSE RERISKED & RỦI RO FILL-TIME:
+   - Quote mode: MODELED_BID_ASK (spread mô phỏng 0.20 USD, KHÔNG có L1 BBO thực).
+   - Phí thực tài khoản: UNKNOWN_NOT_LOCALLY_VERIFIED (đối chiếu 0.0004 vs 0.0006).
+   - Vi phạm ngưỡng rủi ro kế hoạch <= 2.50 USD (decision/post-fill): 0/0.
+   - Khuyến cáo đuôi lỗ thực tế: planned_net_risk <= 2.50 USD KHÔNG đảm bảo vật lý lỗ thực tế không vượt 2.50 USD khi gap/trượt giá.
+   - Dữ liệu M1 hiệu dụng: ~20.3479 ngày lịch (REUSED_RESEARCH, KHÔNG phải Fresh OOS).
+
+5. QA, TÀI NGUYÊN & TRẠNG THÁI CHẶN (NẾU CÓ):
+   - Faults RED/GREEN: 42/42 (PASS)
+   - Full Repo Pytest: PASS (collected=5538, executed=5538)
+   - Min RAM khả dụng: 2352.2 MiB (ngưỡng cứng >= 512 MiB)
+   - Min Disk trống  : 5.6567 GiB (ngưỡng cứng preflight >= 20.5 GiB; thiếu 13.3627 GiB)
+   - Max tiến trình con / mồ côi: 4 / 0
+   - OOS_EVALUATIONS : 0 (BLOCKED_NO_VERIFIED_NEW_DATA)
+
+6. HÀNH ĐỘNG TIẾP THEO (P0/P1):
+   - P0 (Nếu đang BLOCKED_LOW_DISK): Giải phóng >= 11 GiB (khuyến nghị trống >= 25 GiB) trên phân vùng dữ liệu, commit mã nguồn KH-02.R2 trên nhánh feature/v17-9-2-structural-sl-tp-from-qa rồi chạy lại tools/run_kh_02_r2_verification.py để thực thi đủ 5,500+ pytest + W1/W2/W4 + 56,710 parity + push.
+   - P0 (Dữ liệu mới): Thu thập dữ liệu XAUUSDT tương lai (M1/M15/H1 + L1 BBO thực có dấu thời gian) sau mốc đóng băng + embargo 240 phút vào escrow append-only; giữ OOS_EVALUATIONS=0 cho đến khi có giao thức phê duyệt mở niêm phong.
+   - CAM KẾT AN TOÀN: PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO.
+================================================================================

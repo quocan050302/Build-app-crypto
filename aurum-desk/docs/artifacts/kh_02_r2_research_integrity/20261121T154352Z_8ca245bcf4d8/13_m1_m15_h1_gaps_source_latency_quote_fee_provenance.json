@@ -1,0 +1,292 @@
+{
+  "DATA_PROVENANCE_VERDICT": "PASS",
+  "artifact_canonical_sha256": "0328a7391a542b1f7c0524339f7c31c5a55c61b0b181a39135abd79541a05a7f",
+  "data_regime": "REUSED_RESEARCH_HISTORICAL_ONLY",
+  "dataset_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "headline_effective_m1_calendar_span_days": 20.3479,
+  "m1_post_warmup_partitions": {
+    "bars_excluded_by_recent_180m_gap_gate": 1268,
+    "by_ny_date": {
+      "2026-10-08": 214,
+      "2026-10-09": 521,
+      "2026-10-10": 1440,
+      "2026-10-11": 1038,
+      "2026-10-12": 1266,
+      "2026-10-13": 1440,
+      "2026-10-14": 816,
+      "2026-10-15": 1365,
+      "2026-10-16": 501,
+      "2026-10-18": 187,
+      "2026-10-19": 1440,
+      "2026-10-20": 1440,
+      "2026-10-21": 1440,
+      "2026-10-22": 1440,
+      "2026-10-23": 1440,
+      "2026-10-24": 1440,
+      "2026-10-25": 1440,
+      "2026-10-26": 1440,
+      "2026-10-27": 1439,
+      "2026-10-28": 599
+    },
+    "by_ny_session": {
+      "ASIA_OR_ROLLOVER_SESSION": 6806,
+      "LONDON_SESSION": 4177,
+      "NY_AM_SESSION": 2436,
+      "NY_PM_SESSION": 3382,
+      "WEEKEND_WINDOW": 5545
+    },
+    "total_post_warmup_m1_bars": 22346,
+    "unique_ny_trading_dates": 20
+  },
+  "quote_and_fee_provenance": {
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "domain_default_taker_fee": 0.0004,
+    "intrabar_unobserved_move_caveat": "1m OHLC bars do not capture tick-level intra-bar path ordering or live spread spikes; tie bars conservatively resolve against the trade (`LOSS_TIE_CONSERVATIVE`), and missing bars create gap censoring uncertainty.",
+    "modeled_spread_usd": 0.2,
+    "observed_l1_bbo_available": false,
+    "public_reference_taker_fee": 0.0006,
+    "quote_mode": "MODELED_BID_ASK"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "source_latency_sensitivity": [
+    {
+      "candidates_canonical_sha256": "e42173586864b2ca7fd9c7a2a078f20b2c42346cbb0a26fb08fbf4a6a02c5b90",
+      "delta_raw_eligible_vs_0ms": 0,
+      "primary_arm_eligible_counts": {
+        "B2_H1": 240,
+        "B2_H123": 104,
+        "B2_H2": 1310,
+        "B2_H3": 661,
+        "NC_NULL_TRIGGER": 1323
+      },
+      "raw_r2_geometry_risk_eligible_count": 1323,
+      "raw_r2_target_found_count": 3681,
+      "source_latency_ms": 0
+    },
+    {
+      "candidates_canonical_sha256": "18b5f1f770dc8988c349a5cb2453df7c70fbaf97958b38baf8f72efeb8ea265a",
+      "delta_raw_eligible_vs_0ms": 3,
+      "primary_arm_eligible_counts": {
+        "B2_H1": 240,
+        "B2_H123": 104,
+        "B2_H2": 1313,
+        "B2_H3": 662,
+        "NC_NULL_TRIGGER": 1326
+      },
+      "raw_r2_geometry_risk_eligible_count": 1326,
+      "raw_r2_target_found_count": 3681,
+      "source_latency_ms": 1000
+    },
+    {
+      "candidates_canonical_sha256": "18b5f1f770dc8988c349a5cb2453df7c70fbaf97958b38baf8f72efeb8ea265a",
+      "delta_raw_eligible_vs_0ms": 3,
+      "primary_arm_eligible_counts": {
+        "B2_H1": 240,
+        "B2_H123": 104,
+        "B2_H2": 1313,
+        "B2_H3": 662,
+        "NC_NULL_TRIGGER": 1326
+      },
+      "raw_r2_geometry_risk_eligible_count": 1326,
+      "raw_r2_target_found_count": 3681,
+      "source_latency_ms": 5000
+    },
+    {
+      "candidates_canonical_sha256": "18b5f1f770dc8988c349a5cb2453df7c70fbaf97958b38baf8f72efeb8ea265a",
+      "delta_raw_eligible_vs_0ms": 3,
+      "primary_arm_eligible_counts": {
+        "B2_H1": 240,
+        "B2_H123": 104,
+        "B2_H2": 1313,
+        "B2_H3": 662,
+        "NC_NULL_TRIGGER": 1326
+      },
+      "raw_r2_geometry_risk_eligible_count": 1326,
+      "raw_r2_target_found_count": 3681,
+      "source_latency_ms": 60000
+    }
+  ],
+  "span_disclosure": "Effective M1 execution sample is ~20.35 calendar days (22,376 bars); longer M15/H1 history serves strictly as causal higher-timeframe context and MUST NOT be misrepresented as M1 sample length.",
+  "spec_version": "KH-02.R2-v1.0",
+  "timeframe_coverage_and_gaps": {
+    "15m": {
+      "bar_count": 15090,
+      "calendar_span_days": 160.9479,
+      "first_close_ms": 1779290100000,
+      "first_close_utc": "2026-05-20T15:15:00Z",
+      "intra_session_gap_count": 3,
+      "last_close_ms": 1793196000000,
+      "last_close_utc": "2026-10-28T14:00:00Z",
+      "sample_gaps": [
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-05-22T08:15:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-05-22T08:45:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-05-24T10:30:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-05-24T11:00:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-10T06:00:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-10T06:30:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 5325.0,
+          "from_close_utc": "2026-10-12T08:15:00Z",
+          "missing_bars": 354,
+          "to_close_utc": "2026-10-16T01:00:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-18T02:45:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-18T03:15:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-20T05:00:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-20T05:30:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-22T07:15:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-22T07:45:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-24T09:30:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-24T10:00:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 30.0,
+          "from_close_utc": "2026-10-26T11:45:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-26T12:15:00Z"
+        }
+      ],
+      "total_missing_bars_across_gaps": 362,
+      "weekend_rollover_gap_count": 6
+    },
+    "1H": {
+      "bar_count": 3863,
+      "calendar_span_days": 160.9167,
+      "first_close_ms": 1779292800000,
+      "first_close_utc": "2026-05-20T16:00:00Z",
+      "intra_session_gap_count": 0,
+      "last_close_ms": 1793196000000,
+      "last_close_utc": "2026-10-28T14:00:00Z",
+      "sample_gaps": [],
+      "total_missing_bars_across_gaps": 0,
+      "weekend_rollover_gap_count": 0
+    },
+    "1m": {
+      "bar_count": 22376,
+      "calendar_span_days": 20.3479,
+      "first_close_ms": 1791437940000,
+      "first_close_utc": "2026-10-08T05:39:00Z",
+      "intra_session_gap_count": 6,
+      "last_close_ms": 1793196000000,
+      "last_close_utc": "2026-10-28T14:00:00Z",
+      "sample_gaps": [
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 1098.0,
+          "from_close_utc": "2026-10-08T08:58:00Z",
+          "missing_bars": 1097,
+          "to_close_utc": "2026-10-09T03:16:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 920.0,
+          "from_close_utc": "2026-10-09T04:38:00Z",
+          "missing_bars": 919,
+          "to_close_utc": "2026-10-09T19:58:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 49.0,
+          "from_close_utc": "2026-10-11T08:50:00Z",
+          "missing_bars": 48,
+          "to_close_utc": "2026-10-11T09:39:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 355.0,
+          "from_close_utc": "2026-10-11T11:17:00Z",
+          "missing_bars": 354,
+          "to_close_utc": "2026-10-11T17:12:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 175.0,
+          "from_close_utc": "2026-10-12T14:34:00Z",
+          "missing_bars": 174,
+          "to_close_utc": "2026-10-12T17:29:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 625.0,
+          "from_close_utc": "2026-10-14T06:48:00Z",
+          "missing_bars": 624,
+          "to_close_utc": "2026-10-14T17:13:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 914.0,
+          "from_close_utc": "2026-10-16T02:44:00Z",
+          "missing_bars": 913,
+          "to_close_utc": "2026-10-16T17:58:00Z"
+        },
+        {
+          "classification": "WEEKEND_ROLLOVER_GAP",
+          "delta_minutes": 2795.0,
+          "from_close_utc": "2026-10-17T02:18:00Z",
+          "missing_bars": 2794,
+          "to_close_utc": "2026-10-19T00:53:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 2.0,
+          "from_close_utc": "2026-10-28T03:57:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-28T03:59:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 2.0,
+          "from_close_utc": "2026-10-28T07:18:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-28T07:20:00Z"
+        },
+        {
+          "classification": "INTRA_SESSION_GAP",
+          "delta_minutes": 2.0,
+          "from_close_utc": "2026-10-28T10:39:00Z",
+          "missing_bars": 1,
+          "to_close_utc": "2026-10-28T10:41:00Z"
+        }
+      ],
+      "total_missing_bars_across_gaps": 6926,
+      "weekend_rollover_gap_count": 5
+    }
+  }
+}

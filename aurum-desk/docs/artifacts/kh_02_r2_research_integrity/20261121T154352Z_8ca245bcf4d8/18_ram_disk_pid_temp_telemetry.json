@@ -1,0 +1,67 @@
+{
+  "advisory_disk_gib": 25.0,
+  "disk_preflight_policy": {
+    "below_advisory_volumes": [],
+    "blocked_volumes": [
+      "output_volume",
+      "repo_volume",
+      "temp_volume"
+    ],
+    "can_run_heavy_stages": false,
+    "min_free_gib": 7.1373,
+    "shortfall_to_strict_20p5_gib": 13.3627,
+    "status": "BLOCKED_LOW_DISK",
+    "volumes": {
+      "output_volume": {
+        "advisory_gib": 25.0,
+        "free_gb_decimal": 7.6636,
+        "free_gib": 7.1373,
+        "passes_advisory_25_gib": false,
+        "passes_strict_20p5_gib": false,
+        "shortfall_to_20p5_gib": 13.3627,
+        "strict_preflight_min_gib": 20.5,
+        "strict_runtime_min_gib": 20.0
+      },
+      "repo_volume": {
+        "advisory_gib": 25.0,
+        "free_gb_decimal": 7.6636,
+        "free_gib": 7.1373,
+        "passes_advisory_25_gib": false,
+        "passes_strict_20p5_gib": false,
+        "shortfall_to_20p5_gib": 13.3627,
+        "strict_preflight_min_gib": 20.5,
+        "strict_runtime_min_gib": 20.0
+      },
+      "temp_volume": {
+        "advisory_gib": 25.0,
+        "free_gb_decimal": 7.6636,
+        "free_gib": 7.1373,
+        "passes_advisory_25_gib": false,
+        "passes_strict_20p5_gib": false,
+        "shortfall_to_20p5_gib": 13.3627,
+        "strict_preflight_min_gib": 20.5,
+        "strict_runtime_min_gib": 20.0
+      }
+    }
+  },
+  "max_descendant_children": 4,
+  "max_tree_rss_mib": 2195.22,
+  "memory_samples_log_rel": "logs/runtime_memory_samples_0p5s.jsonl.gz",
+  "min_available_ram_mib": 2352.2,
+  "min_disk_free_gib": 5.6567,
+  "never_breached_512mib_floor": true,
+  "orchestrator_pid": 64160,
+  "orphan_children_after_cleanup": 0,
+  "owner_disk_preflight_waiver": true,
+  "sample_count": 2554,
+  "sampling_interval_sec": 0.5,
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "sentinel_temp_cleaned_up": true,
+  "sentinel_temp_dir": "/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/kh02r2_20261121T154352Z_pdsyp7de",
+  "shortfall_to_strict_20p5_gib": 13.3627,
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "WAIVED_BY_OWNER_LOW_DISK",
+  "strict_preflight_disk_min_gib": 20.5,
+  "strict_runtime_disk_min_gib": 20.0,
+  "total_wall_clock_sec": 1329.847
+}

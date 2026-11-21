@@ -1,0 +1,10 @@
+{
+  "detail": "publication_status=PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER",
+  "evidence_artifact": "23",
+  "gate_id": "Gate 20",
+  "name": "Safe commit, push & true remote SHA/blob readback",
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "spec_version": "KH-02.R2-v1.0",
+  "status": "PENDING_REMOTE_PUSH",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}
