@@ -2843,7 +2843,16 @@ def estimate_kh02_edge_uncertainty(
     by_day: Dict[str, List[Tuple[float, float]]] = {}
     unique_episodes: Set[str] = set()
     for e in closed:
-        dk = str(e.get("ny_date") or "UNKNOWN")
+        raw_dk = str(e.get("ny_date") or "").strip()
+        if raw_dk and raw_dk != "UNKNOWN":
+            dk = raw_dk
+        else:
+            ts_ep = int(e.get("decision_timestamp_ms") or e.get("entry_ts_ms") or 0)
+            dk = (
+                datetime.fromtimestamp(ts_ep / 1000.0, tz=timezone.utc).astimezone(NY_TZ).strftime("%Y-%m-%d")
+                if ts_ep > 0
+                else "UNKNOWN"
+            )
         unique_episodes.add(str(e.get("setup_episode_id") or e["opportunity_id"]))
         by_day.setdefault(dk, []).append((
             float(e.get("realized_net_r") or 0.0),
@@ -3667,16 +3676,47 @@ def evaluate_kh02_independent_gates_from_disk(
     # G-KH02-11: Full regression JUnit collection/execution/result bijection
     v11: List[str] = []
     reg_exec = str(f12.get("execution_status") or "NOT_RUN")
-    jb12 = f12.get("bijection_verification") or {}
+    jb12 = f12.get("independent_bijection_verification") or f12.get("bijection_verification") or {}
+    c12 = jb12.get("counters") or {}
     sm12 = f12.get("shard_manifest") or {}
+    obs_col = c12.get("collected", jb12.get("collected_count"))
+    obs_exe = c12.get("executed", jb12.get("executed_count"))
+    obs_pas = c12.get("passed", jb12.get("passed_count"))
+    obs_skp = c12.get("skipped", jb12.get("skipped_count"))
+    obs_fai = c12.get("failed", jb12.get("failed_count"))
+    obs_err = c12.get("errors", jb12.get("error_count", jb12.get("errors_count")))
+    obs_msk = c12.get("mandatory_skipped", len(jb12.get("mandatory_skipped_nodes") or ()))
     if reg_exec != "EXECUTED":
         v11.append(f"REGRESSION_NOT_EXECUTED:{reg_exec}")
     else:
         if jb12.get("status") != "PASS" or int(sm12.get("nonzero_exit_shards_count", 1)) != 0:
             v11.append("JUNIT_BIJECTION_OR_SHARD_EXIT_FAIL")
-        if int(jb12.get("failed_count", 1)) != 0 or int(jb12.get("errors_count", 1)) != 0 or int(jb12.get("mandatory_skipped_count", 1)) != 0:
+        if (
+            obs_col is None
+            or obs_exe is None
+            or int(obs_col) != int(obs_exe)
+            or int(obs_fai if obs_fai is not None else 1) != 0
+            or int(obs_err if obs_err is not None else 1) != 0
+            or int(obs_msk if obs_msk is not None else 1) != 0
+        ):
             v11.append("PYTEST_FAILURES_OR_MANDATORY_SKIPS")
-    _add("G-KH02-11", "FULL_REGRESSION_JUNIT_COLLECTION_BIJECTION", "12_full_pytest_collection_junit_bijection_exit.json", not v11, v11, {"collected": jb12.get("collected_count"), "executed": jb12.get("executed_count"), "passed": jb12.get("passed_count"), "skipped": jb12.get("skipped_count"), "failed": jb12.get("failed_count")}, status_override=("BLOCKED" if reg_exec.startswith("NOT_RUN_BLOCKED") else None))
+    _add(
+        "G-KH02-11",
+        "FULL_REGRESSION_JUNIT_COLLECTION_BIJECTION",
+        "12_full_pytest_collection_junit_bijection_exit.json",
+        not v11,
+        v11,
+        {
+            "collected": obs_col,
+            "executed": obs_exe,
+            "passed": obs_pas,
+            "skipped": obs_skp,
+            "failed": obs_fai,
+            "errors": obs_err,
+            "mandatory_skipped": obs_msk,
+        },
+        status_override=("BLOCKED" if reg_exec.startswith("NOT_RUN_BLOCKED") else None),
+    )
 
     # G-KH02-12: Bounded async deterministic w1/w2/w4/w1_repeat
     v12: List[str] = []
@@ -3818,7 +3858,16 @@ def render_kh02_readme_handover_vi(
 ) -> Tuple[str, str]:
     """§6.K & §13: Renders `README_KH02_ENTRY_FOUNDATION.md` and `HANDOVER_KH02_ENTRY_FOUNDATION_VI.txt`."""
     ov = f17["orthogonal_verdicts"]
-    jb = f12.get("bijection_verification") or {}
+    jb_raw = f12.get("independent_bijection_verification") or f12.get("bijection_verification") or {}
+    jb_c = jb_raw.get("counters") or {}
+    jb = {
+        "collected_count": jb_c.get("collected", jb_raw.get("collected_count")),
+        "executed_count": jb_c.get("executed", jb_raw.get("executed_count")),
+        "passed_count": jb_c.get("passed", jb_raw.get("passed_count")),
+        "skipped_count": jb_c.get("skipped", jb_raw.get("skipped_count")),
+        "failed_count": jb_c.get("failed", jb_raw.get("failed_count")),
+        "errors_count": jb_c.get("errors", jb_raw.get("error_count", jb_raw.get("errors_count"))),
+    }
     tel = f14.get("runtime_telemetry") or {}
     ram_a = f14.get("memory_samples_audit") or {}
     b0_nb = (f16.get("si0_e00_primary_nb_summary") or {})

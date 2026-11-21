@@ -172,7 +172,17 @@ def _build_synthetic_valid_kh02_run_dir(run_dir: Path, run_id: str, tested_sha: 
                 "scheduled_node_ids": nid_list,
             }],
         },
-        "bijection_verification": {"status": "PASS", "collected_count": 1, "executed_count": 1, "passed_count": 1, "skipped_count": 0, "failed_count": 0, "errors_count": 0, "mandatory_skipped_count": 0},
+        "independent_bijection_verification": {
+            "status": "PASS",
+            "collected_count": 1,
+            "executed_count": 1,
+            "passed_count": 1,
+            "skipped_count": 0,
+            "failed_count": 0,
+            "error_count": 0,
+            "mandatory_skipped_nodes": [],
+            "counters": {"collected": 1, "executed": 1, "passed": 1, "skipped": 0, "failed": 0, "errors": 0, "mandatory_skipped": 0},
+        },
     })
     write_json_durable_atomic(run_dir / "13_async_w1_w2_w4_w1repeat_hashes_speedups.json", {
         "execution_status": "EXECUTED", "pytest_subset_w1_w2_w4_repeat_identical": True,
