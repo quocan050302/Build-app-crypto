@@ -446,7 +446,7 @@ def run_kh02_entry_foundation_orchestrator(
         soft_downshift_ram_bytes=1600 * 1024**2,
         minimum_disk_bytes=int(disk_policy["effective_enforced_reserve_bytes"]),
         max_children_cap=4,
-        poll_interval_seconds=0.5,
+        sampling_interval_seconds=0.5,
         active_context_fn=lambda: {
             "active_shards": list(active_shards_tracker.get("active_shards") or ()),
             "active_slots": int(active_shards_tracker.get("active_slots") or 0),
