@@ -1,0 +1,42 @@
+{
+  "ACTIVATION_READY": "NO",
+  "BACKTEST_VERDICT": "PASS",
+  "DATA_ACQUISITION_VERDICT": "REUSED_VERIFIED_R2_EXTENDED_DEV_SNAPSHOT",
+  "DISK_SAFETY_VERDICT": "PASS_STRICT_20GIB",
+  "ENGINEERING_CLOSURE_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FULL_REGRESSION_VERDICT": "PASS",
+  "KH01C_ADVANCEMENT_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "RAM_SAFETY_VERDICT": "PASS_STRICT_512MIB_FLOOR",
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE_BASELINE_UNCHANGED_FEE_SENSITIVITY_NEGATIVE",
+  "RUNTIME_SAFETY_MODES": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "WORKER_DETERMINISM_VERDICT": "PASS",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": "5e3c6a45dc4fa915f259039f6b10fe297485ccf2",
+  "head_at_start_sha": "64fbc433e2bffb378c649624961b7c69ee532172",
+  "manifest_14_sha256": "2c69e5f3f58dbb4b8099ed5223bcf6b44c1d432e6b6a4e240cb4ea80bcd89fcb",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/publication_20261121T005605Z_312083bc8024.json",
+  "publication_receipt_sha256": "7951d57dfc928eb39d7d23acc8172241e8bcb570d07f21245012089adacf3f76",
+  "ram_headroom_summary": {
+    "prior_r2_min_available_ram_mib": 68.91,
+    "r3_hard_abort_floor_mib": 512.0,
+    "r3_min_headroom_above_512mib_mib": 5010.32,
+    "r3_min_sampled_available_ram_bytes": 5790576640,
+    "r3_min_sampled_available_ram_mib": 5522.32,
+    "r3_peak_child_tree_rss_mib": 877.551,
+    "r3_peak_parent_rss_mib": 2443.062,
+    "r3_peak_total_rss_mib": 2443.062,
+    "r3_samples_count": 3378
+  },
+  "ram_policy_version": "KH-01B.R1.DSC.R3.RAM.v1",
+  "run_dir": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/20261121T005605Z_312083bc8024",
+  "run_id": "20261121T005605Z_312083bc8024",
+  "spec_version": "KH-01B.R1.DSC.R3-v1.0",
+  "tested_executable_sha": "312083bc80247c4931e3b7ab059a346d360d465f"
+}
