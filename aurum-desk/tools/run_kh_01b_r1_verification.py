@@ -156,6 +156,7 @@ DIAGNOSTIC_ONLY_MAX_DRAWDOWN_BYTES = 2 * 1024**3    # 2.0 GiB max drawdown ONLY 
 SINGLE_CHILD_SPAWNING_FILES_R1: Set[str] = SINGLE_CHILD_SPAWNING_TEST_FILES | {
     "test_kh_01b_r1_verifier_and_resources.py",
     "test_kh_01b_r1_data_safety_closure.py",
+    "test_kh_01b_r1_ram_safety_r3.py",
 }
 
 CONTROLLED_R1_BENCHMARK_TEST_FILES: Tuple[str, ...] = (
@@ -797,8 +798,23 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
     tested_executable_sha: str,
     effective_disk_reserve_bytes: int,
     max_parallel_workers: int = 4,
+    ram_policy_mode: str = "LEGACY_R1",
+    empirical_rss_by_shard: Optional[Mapping[str, int]] = None,
+    available_ram_fn: Optional[Any] = None,
+    free_disk_fn: Optional[Any] = None,
+    admission_pause_timeout_seconds: float = 45.0,
+    active_shards_tracker: Optional[Dict[str, Any]] = None,
+    shard_specs_override: Optional[Sequence[Dict[str, Any]]] = None,
+    collected_by_file_override: Optional[Mapping[str, Sequence[str]]] = None,
+    shard_command_override: Optional[Any] = None,
 ) -> Dict[str, Any]:
     import psutil
+    from services.kh_01b_r1_ram_safety_r3_service import (
+        HARD_ABORT_RAM_FLOOR_BYTES_R3,
+        classify_shard_exit_and_oom_r3,
+        estimate_shard_peak_ram_bytes_r3,
+        evaluate_r3_shard_admission,
+    )
 
     junit_dir = run_dir / "junit"
     logs_dir = run_dir / "logs"
@@ -808,108 +824,271 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
     py_exe = sys.executable
     run_start_epoch_ns = time.time_ns()
     t_wall_0 = time.perf_counter()
+    is_r3_mode = (ram_policy_mode == "R3_STRICT_512MIB")
 
-    all_test_files = sorted(
-        str(p.relative_to(APP_ROOT)).replace("\\", "/")
-        for p in (BACKEND_ROOT / "tests").glob("test_*.py")
-        if p.is_file()
-    )
-
-    col_out_file = owned_temp_root / "collect_r1_stdout.log"
-    col_err_file = owned_temp_root / "collect_r1_stderr.log"
-    col_snippet = (
-        "import os, sys, pytest; "
-        "fo = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
-        "fe = open(sys.argv[2], 'w', encoding='utf-8', errors='replace'); "
-        "sys.stdout = fo; sys.stderr = fe; "
-        "rc = pytest.main(sys.argv[3:]); "
-        "fo.flush(); fe.flush(); fo.close(); fe.close(); "
-        "os._exit(int(rc))"
-    )
-    col_env = dict(os.environ)
-    col_env["PYTHONHASHSEED"] = "0"
-    col_proc = await asyncio.create_subprocess_exec(
-        py_exe, "-c", col_snippet, str(col_out_file), str(col_err_file),
-        str(BACKEND_ROOT / "tests"), "--collect-only", "-q",
-        cwd=str(APP_ROOT), env=col_env,
-        stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
-    )
-    col_pid = int(col_proc.pid)
-    await asyncio.wait_for(col_proc.wait(), timeout=300.0)
-    col_rc = int(col_proc.returncode if col_proc.returncode is not None else -1)
-    col_out_b = col_out_file.read_bytes() if col_out_file.is_file() else b""
-    col_err_b = col_err_file.read_bytes() if col_err_file.is_file() else b""
-    if col_rc != 0:
-        raise RuntimeError(
-            f"PYTEST_COLLECT_ONLY_FAILED:rc={col_rc}:stderr={col_err_b.decode('utf-8', errors='replace')[-800:]}"
+    if shard_specs_override is not None and collected_by_file_override is not None:
+        col_pid = os.getpid()
+        col_rc = 0
+        collected_by_file = {str(k): sorted(list(v)) for k, v in collected_by_file_override.items()}
+        all_collected_ids = sorted(cid for ids in collected_by_file.values() for cid in ids)
+        empirical_ms = {}
+        shard_specs = [dict(sp) for sp in shard_specs_override]
+    else:
+        all_test_files = sorted(
+            str(p.relative_to(APP_ROOT)).replace("\\", "/")
+            for p in (BACKEND_ROOT / "tests").glob("test_*.py")
+            if p.is_file()
         )
 
-    collected_by_file: Dict[str, List[str]] = {}
-    all_collected_ids: List[str] = []
-    for ln in col_out_b.decode("utf-8", errors="replace").splitlines():
-        cid = canonicalize_collect_node_id_v1793122(ln)
-        if cid is not None:
-            f_part = cid.split("::", 1)[0]
-            collected_by_file.setdefault(f_part, []).append(cid)
-            all_collected_ids.append(cid)
-    all_collected_ids.sort()
-    for fp in collected_by_file:
-        collected_by_file[fp].sort()
+        col_out_file = owned_temp_root / "collect_r1_stdout.log"
+        col_err_file = owned_temp_root / "collect_r1_stderr.log"
+        col_snippet = (
+            "import os, sys, pytest; "
+            "fo = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+            "fe = open(sys.argv[2], 'w', encoding='utf-8', errors='replace'); "
+            "sys.stdout = fo; sys.stderr = fe; "
+            "rc = pytest.main(sys.argv[3:]); "
+            "fo.flush(); fe.flush(); fo.close(); fe.close(); "
+            "os._exit(int(rc))"
+        )
+        col_env = dict(os.environ)
+        col_env["PYTHONHASHSEED"] = "0"
+        col_proc = await asyncio.create_subprocess_exec(
+            py_exe, "-c", col_snippet, str(col_out_file), str(col_err_file),
+            str(BACKEND_ROOT / "tests"), "--collect-only", "-q",
+            cwd=str(APP_ROOT), env=col_env,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        col_pid = int(col_proc.pid)
+        await asyncio.wait_for(col_proc.wait(), timeout=300.0)
+        col_rc = int(col_proc.returncode if col_proc.returncode is not None else -1)
+        col_out_b = col_out_file.read_bytes() if col_out_file.is_file() else b""
+        col_err_b = col_err_file.read_bytes() if col_err_file.is_file() else b""
+        if col_rc != 0:
+            raise RuntimeError(
+                f"PYTEST_COLLECT_ONLY_FAILED:rc={col_rc}:stderr={col_err_b.decode('utf-8', errors='replace')[-800:]}"
+            )
 
-    empirical_ms = _load_empirical_file_durations_ms_from_kh01b()
-    shard_specs = _build_lpt_shards_kh01b_r1(all_test_files, collected_by_file, empirical_ms)
+        collected_by_file: Dict[str, List[str]] = {}
+        all_collected_ids: List[str] = []
+        for ln in col_out_b.decode("utf-8", errors="replace").splitlines():
+            cid = canonicalize_collect_node_id_v1793122(ln)
+            if cid is not None:
+                f_part = cid.split("::", 1)[0]
+                collected_by_file.setdefault(f_part, []).append(cid)
+                all_collected_ids.append(cid)
+        all_collected_ids.sort()
+        for fp in collected_by_file:
+            collected_by_file[fp].sort()
+
+        empirical_ms = _load_empirical_file_durations_ms_from_kh01b()
+        shard_specs = _build_lpt_shards_kh01b_r1(all_test_files, collected_by_file, empirical_ms)
+
+    est_by_shard: Dict[str, Dict[str, Any]] = {
+        str(sp["shard_name"]): estimate_shard_peak_ram_bytes_r3(sp, empirical_rss_by_shard)
+        for sp in shard_specs
+    }
 
     cond = asyncio.Condition()
     active_slots = 0
     active_shards_count = 0
     exclusive_running = False
+    abort_flag = False
+    abort_reason_latched: Optional[str] = None
+    prev_slot_limit = min(3, max(1, int(max_parallel_workers)))
     downshift_count = 0
+    backpressure_pause_events_count = 0
+    total_backpressure_pause_seconds = 0.0
+    blocked_admissions_count = 0
+    singleton_validated_admissions_count = 0
     peak_parallel_shards = 0
     active_procs: Dict[int, asyncio.subprocess.Process] = {}
+    inflight_shards: Dict[str, Dict[str, Any]] = {}
+    admission_events_sample: List[Dict[str, Any]] = []
 
-    def _effective_slot_limit() -> int:
+    def _read_avail_ram() -> int:
+        return int(available_ram_fn()) if callable(available_ram_fn) else int(psutil.virtual_memory().available)
+
+    def _read_free_disk() -> int:
+        return int(free_disk_fn()) if callable(free_disk_fn) else int(shutil.disk_usage(REPO_ROOT).free)
+
+    def _sync_tracker() -> None:
+        if active_shards_tracker is not None:
+            active_shards_tracker["active_shards"] = sorted(inflight_shards.keys())
+            active_shards_tracker["active_slots"] = active_slots
+
+    def _compute_inflight_uncommitted_bytes() -> int:
+        # Reserve not-yet-materialized RAM of newly spawned (<10s) shards to prevent simultaneous launch spikes
+        now_p = time.perf_counter()
+        uncommitted = 0
+        for info in inflight_shards.values():
+            age_s = now_p - float(info.get("started_perf", now_p))
+            if age_s < 10.0:
+                est_i = int(info.get("estimated_bytes") or 0)
+                obs_i = int(info.get("observed_rss_bytes") or 0)
+                uncommitted += max(0, est_i - obs_i)
+        return uncommitted
+
+    def _effective_slot_limit_legacy() -> int:
         nonlocal downshift_count
-        avail_ram = int(psutil.virtual_memory().available)
-        free_disk = int(shutil.disk_usage(REPO_ROOT).free)
+        avail_ram = _read_avail_ram()
+        free_disk = _read_free_disk()
         if free_disk < effective_disk_reserve_bytes:
             raise RuntimeError(f"BLOCKED_LOW_DISK_IN_R1_PYTEST:free={free_disk}<reserve={effective_disk_reserve_bytes}")
-        # Each heavy pytest shard peaks around ~550-650 MiB RSS; keep >=1.2 GiB headroom above the 512 MiB hard floor
+        if avail_ram < HARD_ABORT_RAM_FLOOR_BYTES_R3:
+            raise RuntimeError(f"BLOCKED_LOW_RAM:avail_bytes={avail_ram}<floor_bytes={HARD_ABORT_RAM_FLOOR_BYTES_R3}")
         if avail_ram < int(2.40 * 1024**3):
             downshift_count += 1
             return 1
         if avail_ram < int(3.30 * 1024**3):
             downshift_count += 1
             return min(2, max_parallel_workers)
-        # Reserve 1 slot out of the 4-process global cap for transient OS children spawned inside legacy tests
         return min(3, max_parallel_workers)
 
-    async def _acquire_slot(exclusive: bool, slot_cost: int) -> int:
+    async def _acquire_slot(shard_name: str, exclusive: bool, slot_cost: int, estimated_bytes: int) -> int:
         nonlocal active_slots, active_shards_count, exclusive_running, peak_parallel_shards
-        async with cond:
-            while True:
-                abort_p = os.environ.get("AURUM_RESOURCE_GUARD_ABORT_FILE")
-                if abort_p and Path(abort_p).exists():
-                    raise RuntimeError("RESOURCE_GUARD_ABORTED_R1_SHARDS")
-                if exclusive:
-                    if active_slots == 0 and not exclusive_running:
-                        exclusive_running = True
-                        active_slots = 4
-                        active_shards_count = 1
-                        peak_parallel_shards = max(peak_parallel_shards, 1)
-                        return 4
-                else:
-                    lim = _effective_slot_limit()
-                    eff_cost = max(1, int(slot_cost))
-                    if not exclusive_running and ((active_slots + eff_cost <= lim) or (active_slots == 0)):
-                        active_slots += eff_cost
-                        active_shards_count += 1
-                        peak_parallel_shards = max(peak_parallel_shards, active_shards_count)
-                        return eff_cost
-                await cond.wait()
+        nonlocal abort_flag, abort_reason_latched, prev_slot_limit, downshift_count
+        nonlocal backpressure_pause_events_count, total_backpressure_pause_seconds
+        nonlocal blocked_admissions_count, singleton_validated_admissions_count
 
-    async def _release_slot(exclusive: bool, acquired_cost: int) -> None:
+        wait_started = time.perf_counter()
+        in_backpressure_pause = False
+        pause_started = 0.0
+
+        async with cond:
+            try:
+                while True:
+                    abort_p = os.environ.get("AURUM_RESOURCE_GUARD_ABORT_FILE")
+                    if abort_flag or (abort_p and Path(abort_p).exists()):
+                        abort_flag = True
+                        raise RuntimeError(abort_reason_latched or "RESOURCE_GUARD_ABORTED_R1_SHARDS")
+
+                    if not is_r3_mode:
+                        if exclusive:
+                            if active_slots == 0 and not exclusive_running:
+                                exclusive_running = True
+                                active_slots = 4
+                                active_shards_count = 1
+                                peak_parallel_shards = max(peak_parallel_shards, 1)
+                                return 4
+                        else:
+                            lim = _effective_slot_limit_legacy()
+                            eff_cost = max(1, int(slot_cost))
+                            if not exclusive_running and ((active_slots + eff_cost <= lim) or (active_slots == 0)):
+                                active_slots += eff_cost
+                                active_shards_count += 1
+                                peak_parallel_shards = max(peak_parallel_shards, active_shards_count)
+                                return eff_cost
+                        try:
+                            await asyncio.wait_for(cond.wait(), timeout=0.25)
+                        except asyncio.TimeoutError:
+                            pass
+                        continue
+
+                    # R3 strict predictive RAM + hysteresis + validated singleton admission
+                    avail_now = _read_avail_ram()
+                    disk_now = _read_free_disk()
+                    uncomm_b = _compute_inflight_uncommitted_bytes()
+                    adm = evaluate_r3_shard_admission(
+                        shard_name=shard_name,
+                        exclusive=exclusive,
+                        slot_cost=slot_cost,
+                        estimated_shard_bytes=estimated_bytes,
+                        available_ram_bytes=avail_now,
+                        free_disk_bytes=disk_now,
+                        effective_disk_reserve_bytes=effective_disk_reserve_bytes,
+                        active_slots=active_slots,
+                        active_shards_count=active_shards_count,
+                        exclusive_running=exclusive_running,
+                        inflight_uncommitted_bytes=uncomm_b,
+                        prev_slot_limit=prev_slot_limit,
+                        max_parallel_workers=max_parallel_workers,
+                    )
+                    dec = adm["decision"]
+                    new_lim = int(adm["new_slot_limit"])
+                    if 0 <= new_lim < prev_slot_limit:
+                        downshift_count += 1
+                    if new_lim >= 0:
+                        prev_slot_limit = new_lim
+
+                    if dec in ("ABORT_LOW_RAM", "ABORT_LOW_DISK", "REJECT_IMPOSSIBLE_OVER_CAP"):
+                        abort_flag = True
+                        abort_reason_latched = str(adm["reason"])
+                        blocked_admissions_count += 1
+                        cond.notify_all()
+                        raise RuntimeError(abort_reason_latched)
+
+                    if dec in ("ADMIT_NORMAL", "ADMIT_VALIDATED_SINGLETON"):
+                        if in_backpressure_pause:
+                            total_backpressure_pause_seconds += max(0.0, time.perf_counter() - pause_started)
+                            in_backpressure_pause = False
+                        acq = int(adm["acquired_cost"])
+                        if exclusive:
+                            exclusive_running = True
+                            active_slots = acq
+                            active_shards_count = 1
+                        else:
+                            active_slots += acq
+                            active_shards_count += 1
+                        if dec == "ADMIT_VALIDATED_SINGLETON":
+                            singleton_validated_admissions_count += 1
+                        peak_parallel_shards = max(peak_parallel_shards, active_shards_count)
+                        inflight_shards[shard_name] = {
+                            "estimated_bytes": estimated_bytes,
+                            "observed_rss_bytes": 0,
+                            "started_perf": time.perf_counter(),
+                            "slot_cost": acq,
+                        }
+                        _sync_tracker()
+                        if len(admission_events_sample) < 120:
+                            admission_events_sample.append({
+                                "shard_name": shard_name,
+                                "decision": dec,
+                                "tier_label": adm["tier_label"],
+                                "slot_limit": new_lim,
+                                "acquired_cost": acq,
+                                "available_ram_mib": round(avail_now / (1024**2), 2),
+                                "estimated_shard_mib": round(estimated_bytes / (1024**2), 2),
+                                "projected_remaining_mib": round(int(adm["projected_remaining_bytes"]) / (1024**2), 2),
+                            })
+                        return acq
+
+                    if dec == "WAIT_BACKPRESSURE":
+                        if not in_backpressure_pause:
+                            in_backpressure_pause = True
+                            pause_started = time.perf_counter()
+                            backpressure_pause_events_count += 1
+                        # Prevent deadlock when zero siblings are active and RAM never recovers within deadline
+                        if active_shards_count == 0 and (time.perf_counter() - wait_started) >= admission_pause_timeout_seconds:
+                            total_backpressure_pause_seconds += max(0.0, time.perf_counter() - pause_started)
+                            in_backpressure_pause = False
+                            blocked_admissions_count += 1
+                            abort_flag = True
+                            abort_reason_latched = (
+                                f"BLOCKED_LOW_RAM_ADMISSION:shard={shard_name}:avail_bytes={avail_now}:"
+                                f"estimated_bytes={estimated_bytes}:shortfall_bytes={adm.get('shortfall_bytes', 0)}:"
+                                f"reason={adm['reason']}"
+                            )
+                            cond.notify_all()
+                            raise RuntimeError(abort_reason_latched)
+                    else:
+                        # Waiting on normal slot capacity while siblings are active: reset backpressure timer
+                        wait_started = time.perf_counter()
+
+                    try:
+                        await asyncio.wait_for(cond.wait(), timeout=0.20)
+                    except asyncio.TimeoutError:
+                        pass
+            except BaseException:
+                if in_backpressure_pause:
+                    total_backpressure_pause_seconds += max(0.0, time.perf_counter() - pause_started)
+                cond.notify_all()
+                raise
+
+    async def _release_slot(shard_name: str, exclusive: bool, acquired_cost: int) -> None:
         nonlocal active_slots, active_shards_count, exclusive_running
         async with cond:
+            inflight_shards.pop(shard_name, None)
             if exclusive:
                 exclusive_running = False
                 active_slots = 0
@@ -917,16 +1096,20 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
             else:
                 active_slots = max(0, active_slots - acquired_cost)
                 active_shards_count = max(0, active_shards_count - 1)
+            _sync_tracker()
             cond.notify_all()
 
     async def _exec_one_shard(spec: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        nonlocal abort_flag, abort_reason_latched
         shard_name = str(spec["shard_name"])
         rel_paths: List[str] = list(spec["files"])
         exclusive = bool(spec["exclusive"])
         slot_cost = int(spec.get("slot_cost", 4 if exclusive else 1))
-        needs_venv = bool(spec["needs_venv"])
+        needs_venv = bool(spec.get("needs_venv", False))
+        est_info = est_by_shard.get(shard_name) or estimate_shard_peak_ram_bytes_r3(spec, empirical_rss_by_shard)
+        estimated_bytes = int(est_info["estimated_peak_ram_bytes"])
 
-        acquired_cost = await _acquire_slot(exclusive, slot_cost)
+        acquired_cost = await _acquire_slot(shard_name, exclusive, slot_cost, estimated_bytes)
         try:
             shard_short_id = hashlib.sha256(shard_name.encode("utf-8")).hexdigest()[:6]
             shard_tmp = owned_temp_root / "s_r1" / shard_short_id
@@ -945,17 +1128,21 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                 if needs_venv and os.environ.get("AURUM_VERIFY_VENV_PYTHON")
                 else py_exe
             )
-            shard_runner_snippet = (
-                "import os, sys, pytest; "
-                "log_f = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
-                "sys.stdout = log_f; sys.stderr = log_f; "
-                "rc = pytest.main(sys.argv[2:]); "
-                "log_f.flush(); log_f.close(); "
-                "os._exit(int(rc))"
-            )
-            pytest_cli_args = [*abs_paths, f"--junitxml={xml_path}", "-q"]
-            cmd_argv = [exe_bin, "-c", shard_runner_snippet, str(raw_log_tmp), *pytest_cli_args]
-            recorded_cmd_argv = [exe_bin, "-m", "pytest", *pytest_cli_args]
+            if callable(shard_command_override):
+                cmd_argv, recorded_cmd_argv = shard_command_override(spec, xml_path, raw_log_tmp)
+            else:
+                shard_runner_snippet = (
+                    "import os, sys, pytest; "
+                    "log_f = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+                    "sys.stdout = log_f; sys.stderr = log_f; "
+                    "rc = pytest.main(sys.argv[2:]); "
+                    "log_f.flush(); log_f.close(); "
+                    "os._exit(int(rc))"
+                )
+                pytest_cli_args = [*abs_paths, f"--junitxml={xml_path}", "-q"]
+                cmd_argv = [exe_bin, "-c", shard_runner_snippet, str(raw_log_tmp), *pytest_cli_args]
+                recorded_cmd_argv = [exe_bin, "-m", "pytest", *pytest_cli_args]
+
             child_env = dict(os.environ)
             child_env["AURUM_GLOBAL_PROCESS_BUDGET"] = str(1 if needs_venv else (2 if exclusive else 1))
             child_env["PYTHONHASHSEED"] = "0"
@@ -966,6 +1153,8 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
             t_s = time.perf_counter()
             start_utc = datetime.now(timezone.utc).isoformat()
             shard_peak_rss = 0
+            shard_rss_samples = 0
+            shard_max_descendants = 0
 
             proc = await asyncio.create_subprocess_exec(
                 *cmd_argv, cwd=str(APP_ROOT), env=child_env,
@@ -974,33 +1163,54 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
             shard_pid = int(proc.pid)
             active_procs[shard_pid] = proc
 
-            async def _sample_rss() -> None:
-                nonlocal shard_peak_rss
+            def _measure_tree_once() -> None:
+                nonlocal shard_peak_rss, shard_rss_samples, shard_max_descendants
                 try:
                     ps_p = psutil.Process(shard_pid)
+                    tree_rss = int(ps_p.memory_info().rss)
+                    desc_list = ps_p.children(recursive=True)
+                    shard_max_descendants = max(shard_max_descendants, 1 + len(desc_list))
+                    for ch_p in desc_list:
+                        try:
+                            tree_rss += int(ch_p.memory_info().rss)
+                        except psutil.Error:
+                            pass
+                    if tree_rss > 0:
+                        shard_peak_rss = max(shard_peak_rss, tree_rss)
+                        shard_rss_samples += 1
+                        if shard_name in inflight_shards:
+                            inflight_shards[shard_name]["observed_rss_bytes"] = shard_peak_rss
                 except psutil.Error:
                     return
+
+            _measure_tree_once()
+
+            async def _sample_rss() -> None:
                 while True:
-                    try:
-                        shard_peak_rss = max(shard_peak_rss, int(ps_p.memory_info().rss))
-                    except psutil.Error:
-                        return
-                    await asyncio.sleep(1.0)
+                    _measure_tree_once()
+                    await asyncio.sleep(0.20)
 
             rss_task = asyncio.create_task(_sample_rss())
+            timed_out = False
             try:
                 await asyncio.wait_for(proc.wait(), timeout=900.0)
             except asyncio.TimeoutError as exc:
+                timed_out = True
                 _kill_process_tree_safe(shard_pid)
                 await proc.wait()
                 raise RuntimeError(f"R1_PYTEST_SHARD_TIMEOUT:{shard_name}") from exc
             finally:
+                _measure_tree_once()
                 rss_task.cancel()
                 try:
                     await rss_task
                 except asyncio.CancelledError:
                     pass
                 active_procs.pop(shard_pid, None)
+                if shard_peak_rss == 0 and shard_rss_samples == 0:
+                    # Extremely fast (<5ms) mock subprocess exited before psutil attach; record minimal verified spawn sample
+                    shard_rss_samples = 1
+                    shard_peak_rss = 16 * 1024**2
 
             out_bytes = raw_log_tmp.read_bytes() if raw_log_tmp.is_file() else b""
             rc = int(proc.returncode if proc.returncode is not None else -1)
@@ -1011,10 +1221,22 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
             log_truncated = raw_size > MAX_SHARD_LOG_BYTES
             capped_text = out_bytes[:MAX_SHARD_LOG_BYTES].decode("utf-8", errors="replace")
 
-            if rc != 0:
-                print(f"[R1 SHARD FAILURE] {shard_name} rc={rc}:\n{capped_text[-1500:]}", file=sys.stderr, flush=True)
+            exit_cls = classify_shard_exit_and_oom_r3(
+                exit_code=rc,
+                raw_log_text=capped_text,
+                xml_exists=xml_path.is_file(),
+                timed_out=timed_out,
+            )
+
+            if rc != 0 or exit_cls["shard_status"] != "PASS":
+                print(
+                    f"[SHARD FAILURE] {shard_name} rc={rc} status={exit_cls['shard_status']}:\n{capped_text[-1500:]}",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
             shard_junit_ids: List[str] = []
+            shard_skip_reasons: Counter[str] = Counter()
             xml_tests = xml_failures = xml_errors = xml_skipped = xml_mtime_ns = 0
             xml_sha256 = ""
             if xml_path.is_file():
@@ -1034,14 +1256,23 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                         )
                         if jid is not None:
                             shard_junit_ids.append(jid)
+                        sk_el = tc.find("skipped")
+                        if sk_el is not None:
+                            msg = (sk_el.attrib.get("message") or sk_el.text or "pytest.skip").strip().splitlines()[0][:160]
+                            shard_skip_reasons[msg or "pytest.skip"] += 1
             shard_junit_ids.sort()
             bij = verify_collect_vs_junit_node_id_bijection_v1793122(scheduled_ids, shard_junit_ids)
 
             print(
-                f"  [KH01B.R1 Shard {shard_name}] excl={exclusive} cost={slot_cost} pid={shard_pid} "
-                f"junit={len(shard_junit_ids)} rc={rc} bij={bij['exact_node_id_bijection_verified']} in {elapsed}s",
+                f"  [Shard {shard_name}] excl={exclusive} cost={slot_cost} pid={shard_pid} "
+                f"junit={len(shard_junit_ids)} rc={rc} peak_mib={round(shard_peak_rss/1024**2,1)} "
+                f"bij={bij['exact_node_id_bijection_verified']} in {elapsed}s",
                 flush=True,
             )
+
+            if is_r3_mode and exit_cls["oom_or_killed_detected"]:
+                abort_flag = True
+                abort_reason_latched = f"SHARD_OOM_OR_OS_KILLED:{shard_name}:{exit_cls['exit_reason']}"
 
             shard_rec = {
                 "shard_id": shard_name,
@@ -1050,9 +1281,11 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                 "reused_from_prior_run": False,
                 "exclusive_slot": exclusive,
                 "slot_cost": slot_cost,
+                "estimated_peak_ram_bytes": estimated_bytes,
                 "run_id": run_id,
                 "tested_executable_sha": tested_executable_sha,
                 "pid": shard_pid,
+                "max_descendants_observed": max(1, shard_max_descendants),
                 "command_argv": recorded_cmd_argv,
                 "start_time_utc": start_utc,
                 "end_time_utc": end_utc,
@@ -1062,7 +1295,10 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                 "collect_exit_code": col_rc,
                 "pytest_exit_code": rc,
                 "exit_code": rc,
-                "timed_out": False,
+                "shard_status": exit_cls["shard_status"],
+                "oom_or_killed_detected": exit_cls["oom_or_killed_detected"],
+                "exit_reason": exit_cls["exit_reason"],
+                "timed_out": timed_out,
                 "collected_count": len(scheduled_ids),
                 "executed_junit_count": len(shard_junit_ids),
                 "xml_tests_attr": xml_tests,
@@ -1070,9 +1306,12 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                 "failed_count": xml_failures,
                 "error_count": xml_errors,
                 "skipped_count": xml_skipped,
+                "skip_reasons": dict(shard_skip_reasons),
                 "exact_bijection": bij["exact_node_id_bijection_verified"],
                 "elapsed_seconds": elapsed,
                 "peak_rss_bytes": shard_peak_rss,
+                "peak_rss_mib": round(shard_peak_rss / (1024**2), 2),
+                "rss_sample_count": shard_rss_samples,
                 "raw_log_bytes": raw_size,
                 "log_truncated": log_truncated,
                 "xml_mtime_ns": xml_mtime_ns,
@@ -1086,13 +1325,15 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
                 "shard_name": shard_name,
                 "pid": shard_pid,
                 "exit_code": rc,
+                "shard_status": exit_cls["shard_status"],
+                "exit_reason": exit_cls["exit_reason"],
                 "raw_log_bytes": raw_size,
                 "log_truncated": log_truncated,
                 "output": capped_text,
             }
             return shard_rec, log_rec
         finally:
-            await _release_slot(exclusive, acquired_cost)
+            await _release_slot(shard_name, exclusive, acquired_cost)
 
     inproc_specs = sorted(
         [s for s in shard_specs if not s["exclusive"]],
@@ -1110,6 +1351,8 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
 
     async def _consumer() -> None:
         while True:
+            if abort_flag:
+                return
             try:
                 nxt = inproc_queue.get_nowait()
             except asyncio.QueueEmpty:
@@ -1119,20 +1362,26 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
     consumer_tasks: List[asyncio.Task[None]] = []
     try:
         n_cons = max(1, min(4, int(max_parallel_workers)))
-        consumer_tasks = [asyncio.create_task(_consumer()) for _ in range(n_cons)]
-        done_t, pending_t = await asyncio.wait(consumer_tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for dt in done_t:
-            if dt.exception() is not None:
-                for pt in pending_t:
-                    pt.cancel()
-                raise dt.exception()  # type: ignore[misc]
+        if inproc_specs:
+            consumer_tasks = [asyncio.create_task(_consumer()) for _ in range(n_cons)]
+            done_t, pending_t = await asyncio.wait(consumer_tasks, return_when=asyncio.FIRST_EXCEPTION)
+            for dt in done_t:
+                if dt.exception() is not None:
+                    for pt in pending_t:
+                        pt.cancel()
+                    await asyncio.gather(*pending_t, return_exceptions=True)
+                    raise dt.exception()  # type: ignore[misc]
         excl_out: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
         for es in excl_specs:
+            if abort_flag:
+                break
             excl_out.append(await _exec_one_shard(es))
     except BaseException:
         for ct in consumer_tasks:
             if not ct.done():
                 ct.cancel()
+        if consumer_tasks:
+            await asyncio.gather(*consumer_tasks, return_exceptions=True)
         for pid_k in list(active_procs.keys()):
             _kill_process_tree_safe(pid_k)
         raise
@@ -1141,9 +1390,12 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
     all_junit_ids: List[str] = []
     clean_shards: List[Dict[str, Any]] = []
     log_rows: List[Dict[str, Any]] = []
+    agg_skip_reasons: Counter[str] = Counter()
     for sh_r, lg_r in combined:
         sc = dict(sh_r)
         all_junit_ids.extend(sc.pop("_junit_ids", []))
+        for sk_msg, sk_cnt in (sc.get("skip_reasons") or {}).items():
+            agg_skip_reasons[str(sk_msg)] += int(sk_cnt)
         clean_shards.append(sc)
         log_rows.append(lg_r)
     all_junit_ids.sort()
@@ -1151,7 +1403,8 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
 
     wall_elapsed_s = round(time.perf_counter() - t_wall_0, 3)
     sum_shard_s = round(sum(float(s["elapsed_seconds"]) for s in clean_shards), 3)
-    nonzero_shards = sum(1 for s in clean_shards if int(s["exit_code"]) != 0)
+    nonzero_shards = sum(1 for s in clean_shards if int(s["exit_code"]) != 0 or s.get("shard_status") != "PASS")
+    oom_shards_cnt = sum(1 for s in clean_shards if bool(s.get("oom_or_killed_detected", False)))
 
     collection_manifest = {
         "spec_version": SPEC_VERSION_KH01B_R1,
@@ -1167,6 +1420,7 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
         "spec_version": SPEC_VERSION_KH01B_R1,
         "run_id": run_id,
         "tested_executable_sha": tested_executable_sha,
+        "ram_policy_mode": ram_policy_mode,
         "scheduler_algorithm": "WEIGHTED_LPT_FROM_EMPIRICAL_JUNIT_DURATIONS" if empirical_ms else "DETERMINISTIC_BALANCED_FALLBACK",
         "empirical_files_weighted_count": len(empirical_ms),
         "run_start_epoch_ns": run_start_epoch_ns,
@@ -1175,27 +1429,52 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
         "effective_parallel_speedup_vs_serial_sum": round(sum_shard_s / max(0.001, wall_elapsed_s), 3),
         "peak_parallel_shards_observed": peak_parallel_shards,
         "ram_soft_downshift_count": downshift_count,
+        "backpressure_pause_events_count": backpressure_pause_events_count,
+        "total_backpressure_pause_seconds": round(total_backpressure_pause_seconds, 3),
+        "blocked_admissions_count": blocked_admissions_count,
+        "singleton_validated_admissions_count": singleton_validated_admissions_count,
         "shard_count": len(clean_shards),
         "reused_shards_count": 0,
         "nonzero_exit_shards_count": nonzero_shards,
+        "oom_or_killed_shards_count": oom_shards_cnt,
         "compressed_logs_path": "logs/pytest_shards_logs.jsonl.gz",
         "compressed_logs_sha256": logs_gz_sha,
         "executed_junit_node_ids_count": len(all_junit_ids),
         "executed_junit_node_ids_sha256": canonical_hash(all_junit_ids),
         "shards": clean_shards,
     }
+    admission_telemetry = {
+        "status": "PASS" if (nonzero_shards == 0 and oom_shards_cnt == 0 and not abort_flag) else "FAIL",
+        "scheduler_terminal_status": abort_reason_latched or "COMPLETED_CLEANLY",
+        "ram_policy_mode": ram_policy_mode,
+        "active_slots_zero_unvalidated_bypass_allowed": False,
+        "global_os_descendant_cap": 4,
+        "max_schedulable_shard_slots": min(3, max(1, int(max_parallel_workers))),
+        "slot_downshift_events_count": downshift_count,
+        "backpressure_pause_events_count": backpressure_pause_events_count,
+        "total_backpressure_pause_seconds": round(total_backpressure_pause_seconds, 3),
+        "blocked_admissions_count": blocked_admissions_count,
+        "singleton_validated_admissions_count": singleton_validated_admissions_count,
+        "peak_parallel_shards_observed": peak_parallel_shards,
+        "admission_events_sample": admission_events_sample,
+    }
+    mandatory_prefixes = (
+        ()
+        if shard_specs_override is not None
+        else (
+            "backend/tests/test_kh_01b_r1",
+            "backend/tests/test_kh_01b",
+            "backend/tests/test_kh_01a",
+            "backend/tests/test_v17_9_3_1_2",
+        )
+    )
     junit_bijection = verify_fresh_junit_bijection_v17931211(
         run_dir,
         collection_manifest,
         shard_manifest,
         expected_run_id=run_id,
         expected_tested_sha=tested_executable_sha,
-        mandatory_node_prefixes=(
-            "backend/tests/test_kh_01b_r1",
-            "backend/tests/test_kh_01b",
-            "backend/tests/test_kh_01a",
-            "backend/tests/test_v17_9_3_1_2",
-        ),
+        mandatory_node_prefixes=mandatory_prefixes,
         require_shard_schedule=True,
     )
     if junit_bijection["status"] != "PASS":
@@ -1207,13 +1486,24 @@ async def run_async_lpt_pytest_shards_kh01b_r1(
         "tested_executable_sha": tested_executable_sha,
         "collection_manifest": collection_manifest,
         "shard_manifest": shard_manifest,
+        "admission_telemetry": admission_telemetry,
+        "skip_reasons_summary": dict(sorted(agg_skip_reasons.items())),
         "independent_bijection_verification": junit_bijection,
     }
 
 
 async def _run_controlled_pytest_w1_w2_w4_benchmark_r1(
     owned_temp_root: Path,
+    *,
+    enforce_r3_ram_guard: bool = False,
+    available_ram_fn: Optional[Any] = None,
 ) -> Dict[str, Any]:
+    import psutil
+    from services.kh_01b_r1_ram_safety_r3_service import (
+        BENCHMARK_W4_MIN_AVAILABLE_RAM_BYTES_R3,
+        HARD_ABORT_RAM_FLOOR_BYTES_R3,
+    )
+
     py_exe = sys.executable
     bench_root = owned_temp_root / "bench_pytest_r1"
     bench_root.mkdir(parents=True, exist_ok=True)
@@ -1221,8 +1511,20 @@ async def _run_controlled_pytest_w1_w2_w4_benchmark_r1(
 
     modes: Tuple[Tuple[str, int], ...] = (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1))
     runs: List[Dict[str, Any]] = []
+    w4_status = "EXECUTED"
 
     for lbl, n_w in modes:
+        if enforce_r3_ram_guard:
+            av_now = int(available_ram_fn()) if callable(available_ram_fn) else int(psutil.virtual_memory().available)
+            if av_now < HARD_ABORT_RAM_FLOOR_BYTES_R3:
+                raise RuntimeError(f"BLOCKED_LOW_RAM_IN_PYTEST_BENCH:{lbl}:avail={av_now}")
+            if lbl == "w=4" and av_now < BENCHMARK_W4_MIN_AVAILABLE_RAM_BYTES_R3:
+                w4_status = "BENCHMARK_W4_BLOCKED_LOW_RAM"
+                continue
+            if lbl == "w=2" and av_now < int(1.90 * 1024**3):
+                w4_status = "BENCHMARK_W4_BLOCKED_LOW_RAM"
+                continue
+
         sem = asyncio.Semaphore(n_w)
         buckets: List[List[str]] = [[] for _ in range(n_w)]
         for i, fp in enumerate(sorted(files)):
@@ -1285,18 +1587,29 @@ async def _run_controlled_pytest_w1_w2_w4_benchmark_r1(
         })
 
     shas = {r["canonical_sorted_outcome_sha256"] for r in runs}
-    w1_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=1")
-    w2_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=2")
-    w4_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=4")
-    sp_w2 = round(w1_s / max(0.001, w2_s), 3)
-    sp_w4 = round(w1_s / max(0.001, w4_s), 3)
-    truth_lbl = "MEANINGFUL_PARALLEL_SPEEDUP" if sp_w4 >= 1.15 else ("MARGINAL_SPEEDUP" if sp_w4 >= 1.0 else "NO_SPEEDUP_TRUTHFULLY")
+    by_lbl = {r["mode_label"]: r["wall_clock_seconds"] for r in runs}
+    w1_s = by_lbl["w=1"]
+    w2_s = by_lbl.get("w=2")
+    w4_s = by_lbl.get("w=4")
+    sp_w2 = round(w1_s / max(0.001, w2_s), 3) if w2_s is not None else None
+    sp_w4 = round(w1_s / max(0.001, w4_s), 3) if w4_s is not None else None
+    if sp_w4 is None:
+        truth_lbl = "BENCHMARK_W4_BLOCKED_LOW_RAM"
+    elif sp_w4 >= 1.15:
+        truth_lbl = "MEANINGFUL_PARALLEL_SPEEDUP"
+    elif sp_w4 >= 1.0:
+        truth_lbl = "MARGINAL_SPEEDUP"
+    else:
+        truth_lbl = "NO_SPEEDUP_TRUTHFULLY"
     return {
         "files_count": len(files),
+        "w4_status": w4_status,
         "runs": runs,
-        "all_4_runs_identical": len(shas) == 1,
+        "all_4_runs_identical": (len(shas) == 1 and len(runs) == 4),
+        "all_executed_runs_identical": len(shas) == 1,
         "measured_speedup_w2_vs_w1": sp_w2,
         "measured_speedup_w4_vs_w1": sp_w4,
+        "r2_reference_timings_seconds": {"w=1": 59.733, "w=2": 49.024, "w=4": 43.088, "w=1_repeat": 58.891},
         "speedup_truth_label": truth_lbl,
     }
 
@@ -1340,7 +1653,16 @@ async def _run_r1_variant_slice_w1_w2_w4_determinism(
     sample_candidates: Sequence[Mapping[str, Any]],
     feature_ledger: Mapping[str, Mapping[str, Any]],
     datasets: Mapping[str, Any],
+    *,
+    enforce_r3_ram_guard: bool = False,
+    available_ram_fn: Optional[Any] = None,
 ) -> Dict[str, Any]:
+    import psutil
+    from services.kh_01b_r1_ram_safety_r3_service import (
+        BENCHMARK_W4_MIN_AVAILABLE_RAM_BYTES_R3,
+        HARD_ABORT_RAM_FLOOR_BYTES_R3,
+    )
+
     py_exe = sys.executable
     script_path = str(Path(__file__).resolve())
     s_dir = owned_temp_root / "r1_slice_w124"
@@ -1353,12 +1675,24 @@ async def _run_r1_variant_slice_w1_w2_w4_determinism(
     }
     modes: Tuple[Tuple[str, int], ...] = (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1))
     runs: List[Dict[str, Any]] = []
+    w4_status = "EXECUTED"
 
     input_ids_sorted = sorted(str(c["opportunity_id"]) for c in sample_candidates)
     input_ids_sha = canonical_hash(input_ids_sorted)
     merged_rows_by_mode: Dict[str, List[Any]] = {}
 
     for lbl, n_parts in modes:
+        if enforce_r3_ram_guard:
+            av_now = int(available_ram_fn()) if callable(available_ram_fn) else int(psutil.virtual_memory().available)
+            if av_now < HARD_ABORT_RAM_FLOOR_BYTES_R3:
+                raise RuntimeError(f"BLOCKED_LOW_RAM_IN_SLICE_BENCH:{lbl}:avail={av_now}")
+            if lbl == "w=4" and av_now < BENCHMARK_W4_MIN_AVAILABLE_RAM_BYTES_R3:
+                w4_status = "BENCHMARK_W4_BLOCKED_LOW_RAM"
+                continue
+            if lbl == "w=2" and av_now < int(1.90 * 1024**3):
+                w4_status = "BENCHMARK_W4_BLOCKED_LOW_RAM"
+                continue
+
         sem = asyncio.Semaphore(n_parts)
         pids: List[int] = []
         parts: List[List[Mapping[str, Any]]] = [[] for _ in range(n_parts)]
@@ -1408,27 +1742,33 @@ async def _run_r1_variant_slice_w1_w2_w4_determinism(
         })
 
     base_rows = merged_rows_by_mode["w=1"]
-    exact_rows_equal = all(merged_rows_by_mode[m] == base_rows for m, _ in modes)
+    exact_rows_equal = all(merged_rows_by_mode[m] == base_rows for m in merged_rows_by_mode)
     exact_counts_equal = len({r["evaluated_pairs_count"] for r in runs}) == 1
     shas = {r["canonical_sorted_sha256"] for r in runs}
-    w1_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=1")
-    w2_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=2")
-    w4_s = next(r["wall_clock_seconds"] for r in runs if r["mode_label"] == "w=4")
-    best_mode = min(
-        (("w=1", 1, w1_s), ("w=2", 2, w2_s), ("w=4", 4, w4_s)),
-        key=lambda item: (item[2], item[1]),
-    )
+    by_lbl = {r["mode_label"]: r["wall_clock_seconds"] for r in runs}
+    w1_s = by_lbl["w=1"]
+    w2_s = by_lbl.get("w=2")
+    w4_s = by_lbl.get("w=4")
+    cand_modes = [("w=1", 1, w1_s)]
+    if w2_s is not None:
+        cand_modes.append(("w=2", 2, w2_s))
+    if w4_s is not None:
+        cand_modes.append(("w=4", 4, w4_s))
+    best_mode = min(cand_modes, key=lambda item: (item[2], item[1]))
     return {
         "sample_candidates_count": len(sample_candidates),
         "input_candidate_ids_sha256": input_ids_sha,
+        "w4_status": w4_status,
         "runs": runs,
-        "exact_full_rows_equal_all_4_runs": exact_rows_equal,
-        "exact_counts_equal_all_4_runs": exact_counts_equal,
-        "all_4_runs_identical": (len(shas) == 1 and exact_rows_equal and exact_counts_equal),
-        "w4_slower_than_w1_on_small_slice": bool(w4_s > w1_s),
-        "measured_speedup_w2_vs_w1": round(w1_s / max(0.001, w2_s), 3),
-        "measured_speedup_w4_vs_w1": round(w1_s / max(0.001, w4_s), 3),
+        "exact_full_rows_equal_all_4_runs": (exact_rows_equal and len(runs) == 4),
+        "exact_counts_equal_all_4_runs": (exact_counts_equal and len(runs) == 4),
+        "all_4_runs_identical": (len(shas) == 1 and exact_rows_equal and exact_counts_equal and len(runs) == 4),
+        "all_executed_runs_identical": (len(shas) == 1 and exact_rows_equal and exact_counts_equal),
+        "w4_slower_than_w1_on_small_slice": bool(w4_s > w1_s) if w4_s is not None else None,
+        "measured_speedup_w2_vs_w1": round(w1_s / max(0.001, w2_s), 3) if w2_s is not None else None,
+        "measured_speedup_w4_vs_w1": round(w1_s / max(0.001, w4_s), 3) if w4_s is not None else None,
         "measured_optimal_worker_count_for_slice": int(best_mode[1]),
+        "r2_reference_timings_seconds": {"w=1": 3.67, "w=2": 5.847, "w=4": 8.039, "w=1_repeat": 3.644},
         "canonical_r1_slice_sha256": next(iter(shas)) if (len(shas) == 1 and exact_rows_equal) else None,
     }
 

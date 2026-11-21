@@ -386,84 +386,180 @@ class ResourceMonitorKH01A:
         soft_downshift_ram_bytes: int = 2 * 1024**3,
         minimum_disk_bytes: int = MIN_FREE_DISK_RESERVE_BYTES,
         max_children_cap: int = 4,
+        warning_near_floor_bytes: int = 1024 * 1024**2,
+        sampling_interval_seconds: float = 0.5,
+        available_ram_fn: Optional[Any] = None,
+        free_disk_fn: Optional[Any] = None,
+        active_context_fn: Optional[Any] = None,
     ) -> None:
         self.abort_path = abort_path
-        self.minimum_ram_bytes = minimum_ram_bytes
-        self.soft_downshift_ram_bytes = soft_downshift_ram_bytes
-        self.minimum_disk_bytes = minimum_disk_bytes
-        self.max_children_cap = max_children_cap
+        self.minimum_ram_bytes = int(minimum_ram_bytes)
+        self.soft_downshift_ram_bytes = int(soft_downshift_ram_bytes)
+        self.minimum_disk_bytes = int(minimum_disk_bytes)
+        self.max_children_cap = int(max_children_cap)
+        self.warning_near_floor_bytes = int(warning_near_floor_bytes)
+        self.sampling_interval_seconds = max(0.05, min(0.5, float(sampling_interval_seconds)))
+        self._available_ram_fn = available_ram_fn
+        self._free_disk_fn = free_disk_fn
+        self._active_context_fn = active_context_fn
+        self._lock = threading.Lock()
         self.stop_event = threading.Event()
         self.samples: List[Dict[str, Any]] = []
         self.error: Optional[str] = None
-        self.soft_downshift_events = 0
+        self.latched_error: Optional[str] = None
+        self.first_breach_sample: Optional[Dict[str, Any]] = None
+        self.active_shards_at_breach: List[str] = []
+        self.hard_ram_breached = False
+        self.near_hard_floor_warning = False
         self.disk_reserve_breached = False
+        self.soft_downshift_events = 0
         self.orchestrator_pid = os.getpid()
+        self._total_samples_taken = 0
+        self._min_seen_ram_bytes: Optional[int] = None
+        self._min_seen_disk_bytes: Optional[int] = None
+        self._max_seen_parent_rss_bytes = 0
+        self._max_seen_child_tree_rss_bytes = 0
+        self._max_seen_total_rss_bytes = 0
+        self._max_seen_children = 0
+        self._max_seen_descendants = 0
+
+    def _persist_abort_receipt(self, reason: str, sample: Mapping[str, Any], active_shards: Sequence[str]) -> None:
+        try:
+            write_json_durable_atomic(
+                self.abort_path,
+                {
+                    "status": "BLOCKED",
+                    "reason": reason,
+                    "latched_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "minimum_ram_floor_bytes": self.minimum_ram_bytes,
+                    "minimum_disk_floor_bytes": self.minimum_disk_bytes,
+                    "max_children_cap": self.max_children_cap,
+                    "active_shard_ids": list(active_shards),
+                    "last_sample": dict(sample),
+                },
+            )
+        except Exception:
+            pass
 
     def check(self) -> Dict[str, Any]:
         import psutil
 
         proc = psutil.Process(self.orchestrator_pid)
         children = _active_heavy_worker_children(proc)
-        ram = int(psutil.virtual_memory().available)
-        free_disk = int(shutil.disk_usage(REPO_ROOT).free)
+        try:
+            raw_descendants = [
+                ch for ch in proc.children(recursive=True)
+                if ch.pid != self.orchestrator_pid
+            ]
+        except psutil.Error:
+            raw_descendants = list(children)
 
-        def _child_rss(ch: Any) -> int:
+        ram = int(self._available_ram_fn()) if callable(self._available_ram_fn) else int(psutil.virtual_memory().available)
+        free_disk = int(self._free_disk_fn()) if callable(self._free_disk_fn) else int(shutil.disk_usage(REPO_ROOT).free)
+
+        def _proc_rss(ch: Any) -> int:
             try:
+                if ch.status() == psutil.STATUS_ZOMBIE:
+                    return 0
                 return int(ch.memory_info().rss)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 return 0
 
-        if ram < self.soft_downshift_ram_bytes:
-            self.soft_downshift_events += 1
+        parent_rss = int(proc.memory_info().rss)
+        desc_rss_map: Dict[int, int] = {}
+        for d_proc in raw_descendants:
+            try:
+                name_l = (d_proc.name() or "").lower()
+                if name_l.startswith("git"):
+                    continue
+                r_val = _proc_rss(d_proc)
+                if r_val > 0:
+                    desc_rss_map[int(d_proc.pid)] = r_val
+            except psutil.Error:
+                continue
+
+        leaf_child_rss = sum(_proc_rss(p) for p in children)
+        full_tree_child_rss = max(leaf_child_rss, sum(desc_rss_map.values()))
+        active_shards_now: List[str] = []
+        if callable(self._active_context_fn):
+            try:
+                ctx_info = self._active_context_fn() or {}
+                if isinstance(ctx_info, Mapping):
+                    active_shards_now = sorted(str(x) for x in (ctx_info.get("active_shards") or ()))
+            except Exception:
+                active_shards_now = []
 
         row = {
             "epoch_ns": time.time_ns(),
+            "captured_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "free_disk_bytes": free_disk,
             "available_ram_bytes": ram,
             "system_cpu_percent": float(psutil.cpu_percent()),
             "worker_pids": [p.pid for p in children],
-            "rss_bytes": int(proc.memory_info().rss),
-            "child_rss_bytes": sum(_child_rss(p) for p in children),
+            "descendant_pids": sorted(desc_rss_map.keys()),
+            "active_shard_ids": active_shards_now,
+            "rss_bytes": parent_rss,
+            "child_rss_bytes": full_tree_child_rss,
+            "leaf_worker_rss_bytes": leaf_child_rss,
         }
-        self.samples.append(row)
-        if len(self.samples) > 12000:
-            self.samples = self.samples[::2]
 
-        if free_disk < self.minimum_disk_bytes:
-            self.disk_reserve_breached = True
-            self.error = "BLOCKED_LOW_DISK"
-        elif ram < self.minimum_ram_bytes:
-            self.error = "BLOCKED_LOW_RAM"
-        elif len(children) > self.max_children_cap:
-            self.error = f"BLOCKED_GLOBAL_WORKER_CAP:{len(children)}>{self.max_children_cap}"
-        if self.error:
-            raise RuntimeError(self.error)
+        breach_reason: Optional[str] = None
+        first_latch_triggered = False
+        with self._lock:
+            self._total_samples_taken += 1
+            if ram < self.soft_downshift_ram_bytes:
+                self.soft_downshift_events += 1
+            if self.minimum_ram_bytes <= ram < self.warning_near_floor_bytes:
+                self.near_hard_floor_warning = True
+
+            self._min_seen_ram_bytes = ram if self._min_seen_ram_bytes is None else min(self._min_seen_ram_bytes, ram)
+            self._min_seen_disk_bytes = free_disk if self._min_seen_disk_bytes is None else min(self._min_seen_disk_bytes, free_disk)
+            self._max_seen_parent_rss_bytes = max(self._max_seen_parent_rss_bytes, parent_rss)
+            self._max_seen_child_tree_rss_bytes = max(self._max_seen_child_tree_rss_bytes, full_tree_child_rss)
+            self._max_seen_total_rss_bytes = max(self._max_seen_total_rss_bytes, parent_rss + full_tree_child_rss)
+            self._max_seen_children = max(self._max_seen_children, len(children))
+            self._max_seen_descendants = max(self._max_seen_descendants, len(desc_rss_map))
+
+            self.samples.append(row)
+            if len(self.samples) > 12000:
+                self.samples = self.samples[::2]
+
+            if free_disk < self.minimum_disk_bytes:
+                self.disk_reserve_breached = True
+                breach_reason = f"BLOCKED_LOW_DISK:free_bytes={free_disk}<floor_bytes={self.minimum_disk_bytes}"
+            elif ram < self.minimum_ram_bytes:
+                self.hard_ram_breached = True
+                breach_reason = f"BLOCKED_LOW_RAM:avail_bytes={ram}<floor_bytes={self.minimum_ram_bytes}"
+            elif len(children) > self.max_children_cap:
+                breach_reason = f"BLOCKED_GLOBAL_WORKER_CAP:{len(children)}>{self.max_children_cap}"
+
+            if breach_reason and self.latched_error is None:
+                self.latched_error = breach_reason
+                self.error = breach_reason
+                self.first_breach_sample = dict(row)
+                self.active_shards_at_breach = list(active_shards_now)
+                first_latch_triggered = True
+            elif self.latched_error is not None:
+                self.error = self.latched_error
+
+        if first_latch_triggered and self.latched_error is not None:
+            self._persist_abort_receipt(self.latched_error, row, active_shards_now)
+        if self.latched_error:
+            raise RuntimeError(self.latched_error)
         return row
 
     def _loop(self) -> None:
-        import psutil
-
-        while not self.stop_event.wait(0.5):
+        while not self.stop_event.wait(self.sampling_interval_seconds):
             try:
                 self.check()
             except Exception as exc:
-                self.error = str(exc)
-                try:
-                    write_json_durable_atomic(
-                        self.abort_path,
-                        {
-                            "status": "BLOCKED",
-                            "reason": self.error,
-                            "last_sample": self.samples[-1] if self.samples else None,
-                        },
-                    )
-                except Exception:
-                    pass
-                for child in reversed(_active_heavy_worker_children(psutil.Process(self.orchestrator_pid))):
-                    try:
-                        child.kill()
-                    except psutil.Error:
-                        pass
+                with self._lock:
+                    if self.latched_error is None:
+                        self.latched_error = str(exc)
+                    self.error = self.latched_error
+                if not self.abort_path.exists() and self.samples:
+                    self._persist_abort_receipt(self.error or str(exc), self.samples[-1], self.active_shards_at_breach)
+                self.reap_all_descendants()
                 break
 
     def start(self) -> None:
@@ -474,15 +570,22 @@ class ResourceMonitorKH01A:
     def reap_all_descendants(self) -> List[int]:
         import psutil
 
-        proc = psutil.Process(self.orchestrator_pid)
+        try:
+            proc = psutil.Process(self.orchestrator_pid)
+        except psutil.Error:
+            return []
         reaped: List[int] = []
-        for ch in reversed(_active_heavy_worker_children(proc)):
+        try:
+            all_desc = [d for d in proc.children(recursive=True) if not (d.name() or "").lower().startswith("git")]
+        except psutil.Error:
+            all_desc = _active_heavy_worker_children(proc)
+        for ch in reversed(all_desc):
             try:
                 reaped.append(ch.pid)
                 ch.kill()
             except psutil.Error:
                 pass
-        psutil.wait_procs(_active_heavy_worker_children(proc), timeout=5.0)
+        psutil.wait_procs(all_desc, timeout=5.0)
         return reaped
 
     def stop(self) -> Dict[str, Any]:
@@ -495,21 +598,40 @@ class ResourceMonitorKH01A:
         remaining_pids = [p.pid for p in remaining]
         if remaining:
             self.reap_all_descendants()
-        max_ch = max((len(s["worker_pids"]) for s in self.samples), default=1)
-        min_ram = min((s["available_ram_bytes"] for s in self.samples), default=0)
-        min_disk = min((s["free_disk_bytes"] for s in self.samples), default=0)
-        peak_rss = max((s["rss_bytes"] + s["child_rss_bytes"] for s in self.samples), default=0)
+        min_ram = int(self._min_seen_ram_bytes if self._min_seen_ram_bytes is not None else min((s["available_ram_bytes"] for s in self.samples), default=0))
+        min_disk = int(self._min_seen_disk_bytes if self._min_seen_disk_bytes is not None else min((s["free_disk_bytes"] for s in self.samples), default=0))
+        peak_rss = max(self._max_seen_total_rss_bytes, max((s["rss_bytes"] + s["child_rss_bytes"] for s in self.samples), default=0))
+        peak_parent = max(self._max_seen_parent_rss_bytes, max((s["rss_bytes"] for s in self.samples), default=0))
+        peak_child = max(self._max_seen_child_tree_rss_bytes, max((s["child_rss_bytes"] for s in self.samples), default=0))
+        max_ch = max(self._max_seen_children, max((len(s["worker_pids"]) for s in self.samples), default=0))
         peak_cpu = max((s["system_cpu_percent"] for s in self.samples), default=0.0)
+        headroom_b = min_ram - self.minimum_ram_bytes if self.samples else 0
+        final_err = self.latched_error or self.error
         return {
             "orchestrator_pid": self.orchestrator_pid,
             "global_worker_cap": self.max_children_cap,
-            "sampling_interval_seconds": 0.5,
+            "sampling_interval_seconds": self.sampling_interval_seconds,
             "samples_count": len(self.samples),
+            "total_samples_taken": self._total_samples_taken,
             "max_children_observed": max(1, max_ch),
+            "raw_max_worker_children_observed": max_ch,
+            "max_descendants_observed": self._max_seen_descendants,
+            "minimum_ram_floor_bytes": self.minimum_ram_bytes,
+            "minimum_ram_floor_mib": round(self.minimum_ram_bytes / (1024**2), 2),
+            "warning_near_floor_bytes": self.warning_near_floor_bytes,
             "minimum_available_ram_bytes": min_ram,
+            "min_available_ram_mib_observed": round(min_ram / (1024**2), 2),
             "min_available_ram_gb_observed": round(min_ram / (1024**3), 3),
+            "min_ram_headroom_above_floor_bytes": headroom_b,
+            "min_ram_headroom_above_floor_mib": round(headroom_b / (1024**2), 2),
+            "hard_ram_breached": bool(self.hard_ram_breached or (self.samples and min_ram < self.minimum_ram_bytes)),
+            "near_hard_floor_warning": bool(self.near_hard_floor_warning),
             "minimum_free_disk_bytes": min_disk,
             "min_free_disk_gb_observed": round(min_disk / (1024**3), 3),
+            "peak_parent_rss_bytes": peak_parent,
+            "peak_parent_rss_mib": round(peak_parent / (1024**2), 3),
+            "peak_child_tree_rss_bytes": peak_child,
+            "peak_child_tree_rss_mib": round(peak_child / (1024**2), 3),
             "peak_total_rss_bytes": peak_rss,
             "peak_total_rss_mb_observed": round(peak_rss / (1024**2), 2),
             "peak_system_cpu_percent_observed": round(peak_cpu, 2),
@@ -517,7 +639,10 @@ class ResourceMonitorKH01A:
             "disk_reserve_breached": self.disk_reserve_breached,
             "orphan_pids_observed_at_cleanup": remaining_pids,
             "orphan_pids_at_cleanup_count": len(remaining_pids),
-            "error": self.error,
+            "first_breach_sample": self.first_breach_sample,
+            "active_shards_at_breach": list(self.active_shards_at_breach),
+            "latched_error": final_err,
+            "error": final_err,
         }
 
 

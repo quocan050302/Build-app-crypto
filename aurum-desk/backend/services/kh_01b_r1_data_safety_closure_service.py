@@ -1005,7 +1005,14 @@ def compute_kh01b_r1_fee_sensitivity(
 # 4. 22 REAL RED/GREEN CLOSURE FAULT INJECTIONS (03, 07, 12)
 # ==============================================================================
 
-def run_kh01b_r1_dsc_red_green_fault_suite(repo_root: Path) -> Dict[str, Any]:
+def run_kh01b_r1_dsc_red_green_fault_suite(
+    repo_root: Path,
+    *,
+    include_r3_controls: bool = False,
+) -> Dict[str, Any]:
+    if include_r3_controls:
+        from services.kh_01b_r1_ram_safety_r3_service import run_kh01b_r1_r3_ram_fault_suite
+        return run_kh01b_r1_r3_ram_fault_suite(repo_root)
     """
     Executes 22 real RED/GREEN negative & positive controls (`DSC-M01`..`DSC-M22`)
     directly exercising gap schema mapping, 48h/1600 M1 partial coverage, Decimal

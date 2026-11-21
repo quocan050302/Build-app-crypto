@@ -59,6 +59,7 @@ from tools.run_kh_01a_verification import V130_RUN, iter_jsonl_gz
 
 MANIFEST_13_NAME = "13_manifest_sha256_independent_os_readback.json"
 MANIFEST_15_R2_NAME = "15_independent_verifier_manifest_and_content_sha256.json"
+MANIFEST_14_R3_NAME = "14_sha256_manifest_independent_os_readback.json"
 
 
 def _file_sha256(path: Path) -> str:
@@ -804,26 +805,384 @@ def verify_kh_01b_r1_dsc_r2_run_dir_from_disk(
     }
 
 
+def verify_kh_01b_r1_ram_safety_r3_run_dir_from_disk(
+    run_dir: Path,
+    *,
+    expected_run_id: str = "",
+    expected_tested_sha: str = "",
+    check_git_source_freeze: bool = True,
+) -> Dict[str, Any]:
+    """
+    KH-01B.R1.DSC.R3 Separate-OS-Process Independent Disk Verifier (§3.E, §5 Phase 5, §7 S11).
+    Re-reads closed R3 artifacts (`00`..`13`), `08_runtime_memory_samples_and_peak_rss.jsonl.gz`,
+    JUnit XMLs (when executed), and dynamic cryptographic receipts (`S01..S14`) from disk;
+    independently recomputes min sampled available RAM, process-tree peak RSS, descendant caps,
+    OOM/exit status of every shard, JUnit bijection, `w=1/2/4/1_repeat` hashes, full `56,710 + 6,375`
+    & `SI0 242/166` 3-fill / 3-adapter fingerprints vs sealed R2, R2 artifact/pointer immutability,
+    and seals `14_sha256_manifest_independent_os_readback.json`.
+    """
+    from services.kh_01b_r1_ram_safety_r3_service import (
+        HARD_ABORT_RAM_FLOOR_BYTES_R3,
+        PRIOR_R2_ACCEPTED_RUN_ID,
+        PRIOR_R2_LATEST_PTR_REL,
+        PRIOR_R2_LATEST_PTR_SHA256,
+        PRIOR_R2_PUBLICATION_HEAD_SHA,
+        PRIOR_R2_TESTED_SHA,
+        REQUIRED_ARTIFACTS_KH01B_R1_RAM_SAFETY_R3,
+        SCHEMA_VERSION_KH01B_R1_DSC_R3,
+        SEALED_R2_A1_56710_IDS_SHA256,
+        SEALED_R2_E00_BUNDLE_SHA256,
+        SEALED_R2_SI0_242_TUPLES_SHA256,
+        SEALED_R2_SI8_6375_IDS_SHA256,
+        SPEC_VERSION_KH01B_R1_DSC_R3,
+        audit_r3_memory_samples_jsonl_gz,
+        detect_active_64mib_ram_floor_in_source,
+        evaluate_kh01b_r1_ram_safety_r3_gates_from_disk,
+        validate_r3_latest_run_pointer,
+        verify_kh01b_r1_ram_safety_r3_cross_view_consistency,
+        verify_r3_worker_determinism_artifact,
+    )
+
+    run_dir = run_dir.resolve()
+    verifier_pid = os.getpid()
+    violations: List[str] = []
+
+    if not run_dir.is_dir():
+        return {
+            "independent_verifier_status": "FAIL",
+            "verifier_pid": verifier_pid,
+            "violations": [f"RUN_DIR_NOT_FOUND:{run_dir}"],
+        }
+
+    for rel_req in REQUIRED_ARTIFACTS_KH01B_R1_RAM_SAFETY_R3:
+        if rel_req == MANIFEST_14_R3_NAME:
+            continue
+        fp = run_dir / rel_req
+        if not fp.is_file() or fp.stat().st_size == 0:
+            violations.append(f"MISSING_REQUIRED_R3_ARTIFACT:{rel_req}")
+
+    if violations:
+        return {
+            "independent_verifier_status": "FAIL",
+            "verifier_pid": verifier_pid,
+            "violations": violations,
+        }
+
+    try:
+        f00 = json.loads((run_dir / "00_preflight_branch_sha_mount_ram_disk_immutable.json").read_text("utf-8"))
+        f01 = json.loads((run_dir / "01_function_callgraph_keep_as_is_and_source_diff.json").read_text("utf-8"))
+        f02 = json.loads((run_dir / "02_ram_policy_version_thresholds_preflight_and_projections.json").read_text("utf-8"))
+        f03 = json.loads((run_dir / "03_admission_hysteresis_exclusive_nested_child_reservations.json").read_text("utf-8"))
+        f04 = json.loads((run_dir / "04_ram_pressure_red_green_512mib_boundary_faults.json").read_text("utf-8"))
+        f05 = json.loads((run_dir / "05_full_pytest_collected_scheduled_executed_junit_exit_bijection.json").read_text("utf-8"))
+        f06 = json.loads((run_dir / "06_async_w1_w2_w4_repeat_timings_hashes_and_capacity.json").read_text("utf-8"))
+        f07 = json.loads((run_dir / "07_full_a1_si8_si0_three_fill_adapter_backtest_parity.json").read_text("utf-8"))
+        f09 = json.loads((run_dir / "09_disk_all_mounts_and_safe_temp_cleanup.json").read_text("utf-8"))
+        f10 = json.loads((run_dir / "10_integrity_previous_artifacts_and_source_sha_diffs.json").read_text("utf-8"))
+        f11 = json.loads((run_dir / "11_independent_verifier_red_controls_and_receipts.json").read_text("utf-8"))
+        f12 = json.loads((run_dir / "12_oos_zero_evaluations_and_activation_off.json").read_text("utf-8"))
+        f13 = json.loads((run_dir / "13_final_orthogonal_ram_engineering_economic_verdicts.json").read_text("utf-8"))
+        readme_txt = (run_dir / "README_KH01B_R1_RAM_SAFETY_R3.md").read_text("utf-8")
+        handover_txt = (run_dir / "HANDOVER_KH01B_R1_RAM_SAFETY_R3_VI.txt").read_text("utf-8")
+    except Exception as exc:
+        return {
+            "independent_verifier_status": "FAIL",
+            "verifier_pid": verifier_pid,
+            "violations": [f"ARTIFACT_JSON_PARSE_ERROR:{type(exc).__name__}:{exc}"],
+        }
+
+    run_id = expected_run_id or str(f00.get("run_id") or "")
+    tested_sha = expected_tested_sha or str(f00.get("tested_executable_sha") or "")
+    orchestrator_pid = int(f00.get("orchestrator_pid") or -1)
+    if verifier_pid == orchestrator_pid:
+        violations.append(f"VERIFIER_NOT_SEPARATE_OS_PROCESS:{verifier_pid}")
+
+    # 1. Branch, new tested_sha, canonical dataset, CostAssumptions & R2 pointer immutability
+    if f00.get("branch") != MANDATORY_BRANCH_KH01B_R1:
+        violations.append(f"WRONG_BRANCH:{f00.get('branch')}")
+    if f00.get("tested_executable_sha") != tested_sha or f13.get("tested_executable_sha") != tested_sha:
+        violations.append("TESTED_EXECUTABLE_SHA_MISMATCH_ACROSS_00_13")
+    if tested_sha in (PRIOR_DSC_V1_TESTED_SHA, PRIOR_R2_TESTED_SHA, PRIOR_R2_PUBLICATION_HEAD_SHA):
+        violations.append(f"STALE_TESTED_SHA_REUSED:{tested_sha}")
+    if run_id in (PRIOR_DSC_V1_BLOCKED_RUN_ID, PRIOR_R2_ACCEPTED_RUN_ID):
+        violations.append(f"STALE_RUN_ID_REUSED:{run_id}")
+    if len(tested_sha) >= 12 and not run_id.endswith(f"_{tested_sha[:12]}"):
+        violations.append(f"RUN_ID_MISSING_TESTED_SHA12_SUFFIX:{run_id}:{tested_sha[:12]}")
+    if f00.get("canonical_dataset_sha256") != CANONICAL_DATASET_SHA256_KH01B_R1:
+        violations.append("CANONICAL_DATASET_SHA_MISMATCH_IN_00")
+    ds_disk = APP_ROOT / "backtest/historical_dataset_XAUUSDT.json.gz"
+    if ds_disk.is_file() and _file_sha256(ds_disk) != CANONICAL_DATASET_SHA256_KH01B_R1:
+        violations.append("CANONICAL_DATASET_MODIFIED_ON_DISK")
+    if int(f01.get("locked_files_modified_count", 1)) != 0:
+        violations.append("LOCKED_PRODUCTION_OR_STRATEGY_FILES_MODIFIED")
+
+    r2_ptr_disk = REPO_ROOT / PRIOR_R2_LATEST_PTR_REL
+    if r2_ptr_disk.is_file() and _file_sha256(r2_ptr_disk) != PRIOR_R2_LATEST_PTR_SHA256:
+        violations.append("PRIOR_R2_LATEST_RUN_POINTER_MODIFIED_ON_DISK")
+
+    live_costs = CostAssumptions()
+    if live_costs.maker_fee_rate != 0.0002 or live_costs.taker_fee_rate != 0.0004 or live_costs.slippage_usd != 0.10:
+        violations.append("LIVE_DOMAIN_CALCULATOR_COST_DEFAULTS_MUTATED")
+
+    st_64 = detect_active_64mib_ram_floor_in_source(REPO_ROOT)
+    if st_64["status"] != "PASS":
+        violations.append(f"ACTIVE_64MIB_FLOOR_IN_REPO_SOURCE:{st_64['violations']}")
+
+    if check_git_source_freeze:
+        sf = verify_source_freeze_v17931211(REPO_ROOT, tested_sha)
+        if sf.get("status") != "PASS":
+            violations.extend(f"SOURCE_FREEZE:{v}" for v in (sf.get("violations") or []))
+
+    # 2. Independent raw 08_runtime_memory_samples_and_peak_rss.jsonl.gz & abort check
+    cfg_floor = int(f02.get("hard_abort_floor_bytes") or 0)
+    env_floor = int(f02.get("configured_env_aurum_minimum_ram_bytes") or 0)
+    if cfg_floor < HARD_ABORT_RAM_FLOOR_BYTES_R3 or env_floor < HARD_ABORT_RAM_FLOOR_BYTES_R3:
+        violations.append(f"RAM_HARD_FLOOR_BELOW_512MIB:cfg={cfg_floor},env={env_floor}")
+
+    samples_aud = audit_r3_memory_samples_jsonl_gz(
+        run_dir / "08_runtime_memory_samples_and_peak_rss.jsonl.gz",
+        hard_floor_bytes=max(HARD_ABORT_RAM_FLOOR_BYTES_R3, cfg_floor),
+    )
+    abort_exists = (run_dir / "resource_abort.json").is_file()
+    ov_13 = f13.get("orthogonal_verdicts") or {}
+    d_pol = f00.get("disk_reserve_policy") or {}
+    disk_verdict = str(d_pol.get("disk_safety_verdict") or "FAIL")
+    tel_09 = f09.get("runtime_telemetry") or {}
+
+    if samples_aud["samples_count"] == 0:
+        violations.append("EMPTY_OR_MISSING_08_MEMORY_SAMPLES")
+    if samples_aud.get("over_worker_cap_samples_count", 0) > 0 or int(tel_09.get("max_children_observed") or 0) > 4:
+        violations.append("GLOBAL_DESCENDANT_CAP_EXCEEDED_4")
+    if int(tel_09.get("orphan_pids_at_cleanup_count", 1)) != 0:
+        violations.append("LIVE_ORPHAN_PIDS_AT_CLEANUP")
+
+    parent_latest_ptr = run_dir.parent / "latest_run.json"
+    if parent_latest_ptr.is_file():
+        ptr_doc = json.loads(parent_latest_ptr.read_text("utf-8"))
+        if ptr_doc.get("run_id") == run_id and validate_r3_latest_run_pointer(ptr_doc)["status"] != "PASS":
+            violations.append("BLOCKED_OR_INVALID_R3_RUN_PROMOTED_TO_LATEST_RUN_JSON")
+
+    # Anti-fake-PASS checks on RAM & Disk
+    ram_breached_any = (
+        not bool(f02.get("can_proceed", False))
+        or abort_exists
+        or bool(tel_09.get("hard_ram_breached", False))
+        or samples_aud["status"] == "FAIL_BELOW_HARD_FLOOR"
+        or str(tel_09.get("latched_error") or "").startswith("BLOCKED_LOW_RAM")
+        or str(f03.get("scheduler_terminal_status") or "").startswith("BLOCKED_LOW_RAM")
+    )
+    if ram_breached_any:
+        if ov_13.get("ENGINEERING_CLOSURE_VERDICT") == "PASS" or str(ov_13.get("RAM_SAFETY_VERDICT") or "").startswith("PASS"):
+            violations.append("FORGED_PASS_UNDER_LOW_RAM_OR_ABORT_BREACH")
+    if disk_verdict == "BLOCKED_LOW_DISK":
+        if ov_13.get("ENGINEERING_CLOSURE_VERDICT") == "PASS":
+            violations.append("FORGED_PASS_UNDER_BLOCKED_LOW_DISK")
+        if (run_dir / "junit").is_dir() and list((run_dir / "junit").glob("*.xml")):
+            violations.append("FAKE_JUNIT_XML_PRESENT_UNDER_BLOCKED_LOW_DISK")
+
+    # 3. When Engineering claims PASS, independently verify JUnit, OOM=0, Determinism & Full Backtest Parity
+    if not ram_breached_any and disk_verdict == "PASS_STRICT_20GIB":
+        shards_05 = ((f05.get("shard_manifest") or {}).get("shards") or [])
+        for sh_item in shards_05:
+            if int(sh_item.get("exit_code", -1)) != 0 or bool(sh_item.get("oom_or_killed_detected", False)) or sh_item.get("shard_status") != "PASS":
+                violations.append(f"SHARD_OOM_OR_NONZERO_EXIT:{sh_item.get('shard_name')}:rc={sh_item.get('exit_code')}")
+            if int(sh_item.get("peak_rss_bytes") or 0) <= 0 or int(sh_item.get("rss_sample_count") or 0) <= 0:
+                violations.append(f"SHARD_ZERO_RSS_SAMPLE:{sh_item.get('shard_name')}")
+
+        jb = verify_fresh_junit_bijection_v17931211(
+            run_dir,
+            f05.get("collection_manifest") or {},
+            f05.get("shard_manifest") or {},
+            expected_run_id=run_id,
+            expected_tested_sha=tested_sha,
+            mandatory_node_prefixes=(
+                "backend/tests/test_kh_01b_r1",
+                "backend/tests/test_kh_01b",
+                "backend/tests/test_kh_01a",
+                "backend/tests/test_v17_9_3_1_2",
+            ),
+            require_shard_schedule=True,
+        )
+        if jb.get("status") != "PASS":
+            violations.extend(f"JUNIT_BIJECTION:{v}" for v in (jb.get("violations") or []))
+
+        det_chk = verify_r3_worker_determinism_artifact(f06)
+        if det_chk["status"] == "FAIL":
+            violations.extend(f"WORKER_06:{v}" for v in det_chk["violations"])
+
+        nb_07 = f07.get("si0_e00_primary_nb_summary") or {}
+        fp_07 = f07.get("per_decision_and_episode_fingerprints") or {}
+        if (
+            int(f07.get("a1_evaluated_count") or 0) != 56710
+            or int(f07.get("a1_mismatches_count", 1)) != 0
+            or int(f07.get("si8_separate_population_count") or 0) != 6375
+            or int(f07.get("three_adapter_episodes_denominator") or 0) != 246
+            or int(f07.get("three_adapter_mismatches_count", 1)) != 0
+            or int(nb_07.get("total_scheduled_episodes") or 0) != 242
+            or int(nb_07.get("closed_trades_count") or 0) != 166
+            or int(nb_07.get("wins_count") or 0) != 9
+            or int(nb_07.get("losses_count") or 0) != 157
+            or float(nb_07.get("total_realized_net_usd") or 0.0) != -345.8971
+            or fp_07.get("a1_56710_ids_sha256") != SEALED_R2_A1_56710_IDS_SHA256
+            or fp_07.get("si8_6375_ids_sha256") != SEALED_R2_SI8_6375_IDS_SHA256
+            or fp_07.get("si0_242_episode_matched_tuples_sha256") != SEALED_R2_SI0_242_TUPLES_SHA256
+            or fp_07.get("e00_bundle_sha256") != SEALED_R2_E00_BUNDLE_SHA256
+        ):
+            violations.append("BACKTEST_07_PARITY_OR_SEALED_R2_FINGERPRINT_TAMPERED")
+
+    # 4. OOS, runtime OFF, prior artifacts & S01..S14 receipts + recomputed verdicts
+    if ov_13.get("ACTIVATION_READY") != "NO":
+        violations.append("ACTIVATION_READY_NOT_NO")
+    if ov_13.get("KH01C_ADVANCEMENT_VERDICT") != "NO_ECONOMIC_ADVANCEMENT_CANDIDATE":
+        violations.append("ILLEGAL_KH01C_PROMOTION_IN_R3")
+    modes_13 = ov_13.get("RUNTIME_SAFETY_MODES") or {}
+    if any(modes_13.get(k) != "OFF" for k in ("PRODUCTION", "LIVE", "PAPER", "AUTO")):
+        violations.append(f"UNSAFE_RUNTIME_MODES_IN_13:{modes_13}")
+
+    if f10.get("status") != "PASS" or int(f10.get("modified_prior_files_count", 1)) != 0:
+        violations.append("PRIOR_ARTIFACTS_MUTATED_IN_10")
+
+    rcpt_dir = run_dir / "receipts"
+    receipts_read: Dict[str, EvidenceReceiptV17931219] = {}
+    if rcpt_dir.is_dir():
+        for rp in sorted(rcpt_dir.glob("S*.json")):
+            r_doc = json.loads(rp.read_text("utf-8")).get("receipt") or {}
+            r_obj = EvidenceReceiptV17931219(**r_doc)
+            receipts_read[rp.stem] = r_obj
+            if r_obj.status == "PASS" and not r_obj.is_valid_pass(
+                expected_run_id=run_id,
+                expected_tested_sha=tested_sha,
+                run_dir=run_dir,
+                reject_uniform_placeholder_hash=True,
+            ):
+                violations.append(f"INVALID_GATE_RECEIPT:{rp.stem}:{r_obj.violations}")
+
+    re_eval_13 = evaluate_kh01b_r1_ram_safety_r3_gates_from_disk(
+        run_dir,
+        run_id,
+        tested_sha,
+        publication_status=str(ov_13.get("PUBLICATION_VERDICT") or "PENDING_REMOTE_PUSH"),
+    )
+    re_ov = re_eval_13["orthogonal_verdicts"]
+    if re_ov["ENGINEERING_CLOSURE_VERDICT"] in ("FAIL_INTEGRITY", "FAIL_RUNTIME_SAFETY"):
+        failed_s = [g["gate_id"] for g in re_eval_13["gates"] if g["status"] == "FAIL"]
+        violations.append(f"INDEPENDENT_R3_GATE_REEVALUATION_FAILED:{failed_s}")
+
+    for vk in (
+        "ENGINEERING_CLOSURE_VERDICT",
+        "RAM_SAFETY_VERDICT",
+        "DISK_SAFETY_VERDICT",
+        "FULL_REGRESSION_VERDICT",
+        "WORKER_DETERMINISM_VERDICT",
+        "BACKTEST_VERDICT",
+        "RESEARCH_ECONOMIC_VERDICT",
+        "KH01C_ADVANCEMENT_VERDICT",
+        "FRESH_OOS_VERDICT",
+        "ACTIVATION_READY",
+    ):
+        if ov_13.get(vk) != re_ov.get(vk):
+            violations.append(f"FORGED_VERDICT_IN_13:{vk}:claimed={ov_13.get(vk)}!=recomputed={re_ov.get(vk)}")
+
+    cv = verify_kh01b_r1_ram_safety_r3_cross_view_consistency(
+        readme_text=readme_txt,
+        handover_text=handover_txt,
+        f00=f00,
+        f11=f11,
+        f13=f13,
+    )
+    if cv["status"] != "PASS":
+        violations.extend(f"CROSS_VIEW:{v}" for v in cv["violations"])
+
+    # 5. Seal 14_sha256_manifest_independent_os_readback.json (circular-exclusion policy)
+    delivered_files: Dict[str, Dict[str, Any]] = {}
+    for p in sorted(run_dir.rglob("*")):
+        if not p.is_file() or p.name == MANIFEST_14_R3_NAME:
+            continue
+        rel = str(p.relative_to(run_dir)).replace("\\", "/")
+        delivered_files[rel] = {
+            "byte_size": int(p.stat().st_size),
+            "sha256": _file_sha256(p),
+        }
+
+    manifest_14_doc = {
+        "spec_version": SPEC_VERSION_KH01B_R1_DSC_R3,
+        "schema_version": SCHEMA_VERSION_KH01B_R1_DSC_R3,
+        "run_id": run_id,
+        "branch": f00.get("branch"),
+        "head_at_start_sha": f00.get("head_at_start_sha"),
+        "tested_executable_sha": tested_sha,
+        "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH01B_R1,
+        "independent_verifier": {
+            "verifier_script": "aurum-desk/tools/kh_01b_r1_data_safety_independent_verifier.py",
+            "verifier_pid": verifier_pid,
+            "orchestrator_pid": orchestrator_pid,
+            "separate_os_process_verified": verifier_pid != orchestrator_pid,
+            "verified_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "status": "PASS" if not violations else "FAIL",
+            "recomputed_engineering_closure_verdict": re_ov["ENGINEERING_CLOSURE_VERDICT"],
+            "recomputed_ram_safety_verdict": re_ov["RAM_SAFETY_VERDICT"],
+            "recomputed_disk_safety_verdict": re_ov["DISK_SAFETY_VERDICT"],
+            "recomputed_samples_audit": samples_aud,
+            "violations_count": len(violations),
+            "violations": violations,
+        },
+        "gate_receipts_readback": {k: asdict(v) for k, v in sorted(receipts_read.items())},
+        "circular_hash_exclusion_policy": (
+            f"{MANIFEST_14_R3_NAME} hashes every other file in {run_dir.name} and excludes only itself."
+        ),
+        "delivered_files_count": len(delivered_files),
+        "delivered_files_aggregate_sha256": canonical_hash(delivered_files),
+        "delivered_files": delivered_files,
+    }
+    manifest_sha = write_json_durable_atomic(run_dir / MANIFEST_14_R3_NAME, manifest_14_doc)
+
+    return {
+        "spec_version": SPEC_VERSION_KH01B_R1_DSC_R3,
+        "run_id": run_id,
+        "tested_executable_sha": tested_sha,
+        "verifier_pid": verifier_pid,
+        "orchestrator_pid": orchestrator_pid,
+        "separate_os_process_verified": verifier_pid != orchestrator_pid,
+        "independent_verifier_status": "PASS" if not violations else "FAIL",
+        "recomputed_engineering_closure_verdict": re_ov["ENGINEERING_CLOSURE_VERDICT"],
+        "recomputed_ram_safety_verdict": re_ov["RAM_SAFETY_VERDICT"],
+        "recomputed_disk_safety_verdict": re_ov["DISK_SAFETY_VERDICT"],
+        "delivered_files_count": len(delivered_files),
+        "manifest_14_sha256": manifest_sha,
+        "violations": violations,
+    }
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="KH-01B.R1.DSC / R2 Separate-OS-Process Independent Disk Verifier")
+    ap = argparse.ArgumentParser(description="KH-01B.R1.DSC / R2 / R3 Separate-OS-Process Independent Disk Verifier")
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--expected-run-id", default="")
     ap.add_argument("--expected-tested-sha", default="")
     ap.add_argument("--r2", action="store_true", help="Force KH-01B.R1.DSC.R2 schema verification")
+    ap.add_argument("--r3", action="store_true", help="Force KH-01B.R1.DSC.R3 RAM-safety schema verification")
     ap.add_argument("--skip-git-freeze-check", action="store_true")
     ap.add_argument("--skip-v130-recompute", action="store_true")
     args = ap.parse_args()
 
     r_dir = Path(args.run_dir)
-    is_r2 = bool(args.r2) or (r_dir / "00_preflight_branch_head_code_sha_disk_mounts_dataset.json").is_file()
-    fn = verify_kh_01b_r1_dsc_r2_run_dir_from_disk if is_r2 else verify_kh_01b_r1_dsc_run_dir_from_disk
-    res = fn(
-        r_dir,
-        expected_run_id=args.expected_run_id,
-        expected_tested_sha=args.expected_tested_sha,
-        check_git_source_freeze=not args.skip_git_freeze_check,
-        recompute_v130_fees=not args.skip_v130_recompute,
-    )
+    is_r3 = bool(args.r3) or (r_dir / "00_preflight_branch_sha_mount_ram_disk_immutable.json").is_file()
+    if is_r3:
+        res = verify_kh_01b_r1_ram_safety_r3_run_dir_from_disk(
+            r_dir,
+            expected_run_id=args.expected_run_id,
+            expected_tested_sha=args.expected_tested_sha,
+            check_git_source_freeze=not args.skip_git_freeze_check,
+        )
+    else:
+        is_r2 = bool(args.r2) or (r_dir / "00_preflight_branch_head_code_sha_disk_mounts_dataset.json").is_file()
+        fn = verify_kh_01b_r1_dsc_r2_run_dir_from_disk if is_r2 else verify_kh_01b_r1_dsc_run_dir_from_disk
+        res = fn(
+            r_dir,
+            expected_run_id=args.expected_run_id,
+            expected_tested_sha=args.expected_tested_sha,
+            check_git_source_freeze=not args.skip_git_freeze_check,
+            recompute_v130_fees=not args.skip_v130_recompute,
+        )
     print(json.dumps(res, indent=2, sort_keys=True))
     return 0 if res["independent_verifier_status"] == "PASS" else 1
 
