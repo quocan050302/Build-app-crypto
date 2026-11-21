@@ -1098,6 +1098,9 @@ def run_kh02_r2_orchestrator(
             )
             f16["focused_r2_pytest_summary"] = {"included_in_full_repo_bijection": True, "status": f16["status"]}
             write_json_durable_atomic(run_dir / "16_full_pytest_collection_execution_junit_bijection.json", f16)
+            if git_clean:
+                # Restore transient legacy test side-effect without touching any code or locked files
+                _git_cmd(["checkout", "--", "aurum-desk/backtest/trade_decision_lineage_reconciliation.json"])
             gc.collect()
 
             print("[KH-02.R2] Stage 8B: Running W1/W2/W4/W1_repeat pytest + R2 science slice benchmarks (17)...", flush=True)
