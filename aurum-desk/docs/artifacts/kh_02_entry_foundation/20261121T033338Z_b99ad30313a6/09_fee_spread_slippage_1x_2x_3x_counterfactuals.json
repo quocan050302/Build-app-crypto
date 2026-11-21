@@ -1,0 +1,568 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "arms_cost_stress": {
+    "ABL_H1_ONLY": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -236.1101,
+        "2x_all_cost_expectancy_r": -1.5092,
+        "2x_all_cost_net_pnl_usd": -417.3748,
+        "3x_all_cost_expectancy_r": -2.1778,
+        "3x_all_cost_net_pnl_usd": -575.4125
+      },
+      "arm_code": "ABL_H1_ONLY",
+      "closed_trades_nb": 107,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 148.4168,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -236.1101,
+        "FIXED_FILLS_0p0006_fees_usd": 222.6252,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -310.3185,
+        "RERISKED_SUBSET_0p0006_closed_trades": 48,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -110.6482,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 101,
+          "expectancy_r": -0.8694,
+          "net_pnl_usd": -216.7065
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 107,
+          "expectancy_r": -0.8939,
+          "gross_pnl_usd": -87.6933,
+          "net_pnl_usd": -236.1101,
+          "total_fees_usd": 148.4168
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 112,
+          "expectancy_r": -0.9451,
+          "net_pnl_usd": -261.3167
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "ABL_M15_ONLY": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -222.3156,
+        "2x_all_cost_expectancy_r": -1.4628,
+        "2x_all_cost_net_pnl_usd": -368.4486,
+        "3x_all_cost_expectancy_r": -2.0853,
+        "3x_all_cost_net_pnl_usd": -509.8632
+      },
+      "arm_code": "ABL_M15_ONLY",
+      "closed_trades_nb": 99,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 131.8388,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -222.3156,
+        "FIXED_FILLS_0p0006_fees_usd": 197.7582,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -288.235,
+        "RERISKED_SUBSET_0p0006_closed_trades": 48,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -111.0579,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 95,
+          "expectancy_r": -0.8889,
+          "net_pnl_usd": -208.4063
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 99,
+          "expectancy_r": -0.9098,
+          "gross_pnl_usd": -90.4768,
+          "net_pnl_usd": -222.3156,
+          "total_fees_usd": 131.8388
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 102,
+          "expectancy_r": -0.9246,
+          "net_pnl_usd": -232.8216
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "ABL_NO_REGIME": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -216.7543,
+        "2x_all_cost_expectancy_r": -1.4109,
+        "2x_all_cost_net_pnl_usd": -403.6548,
+        "3x_all_cost_expectancy_r": -1.9963,
+        "3x_all_cost_net_pnl_usd": -542.0633
+      },
+      "arm_code": "ABL_NO_REGIME",
+      "closed_trades_nb": 110,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 142.1431,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -216.7543,
+        "FIXED_FILLS_0p0006_fees_usd": 213.2147,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -287.8259,
+        "RERISKED_SUBSET_0p0006_closed_trades": 44,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -101.5404,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 110,
+          "expectancy_r": -0.7334,
+          "net_pnl_usd": -198.8327
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 110,
+          "expectancy_r": -0.7992,
+          "gross_pnl_usd": -74.6112,
+          "net_pnl_usd": -216.7543,
+          "total_fees_usd": 142.1431
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 116,
+          "expectancy_r": -0.8849,
+          "net_pnl_usd": -252.9781
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "ABL_NO_SESSION": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -102.1886,
+        "2x_all_cost_expectancy_r": -1.4068,
+        "2x_all_cost_net_pnl_usd": -162.9796,
+        "3x_all_cost_expectancy_r": -2.0195,
+        "3x_all_cost_net_pnl_usd": -219.0518
+      },
+      "arm_code": "ABL_NO_SESSION",
+      "closed_trades_nb": 44,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 53.5486,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -102.1886,
+        "FIXED_FILLS_0p0006_fees_usd": 80.3229,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -128.9629,
+        "RERISKED_SUBSET_0p0006_closed_trades": 25,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -62.0166,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 42,
+          "expectancy_r": -0.9241,
+          "net_pnl_usd": -95.5911
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 44,
+          "expectancy_r": -0.9427,
+          "gross_pnl_usd": -48.64,
+          "net_pnl_usd": -102.1886,
+          "total_fees_usd": 53.5486
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 47,
+          "expectancy_r": -0.9122,
+          "net_pnl_usd": -105.6427
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "ABL_STRUCT_ONLY": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -357.2638,
+        "2x_all_cost_expectancy_r": -1.4623,
+        "2x_all_cost_net_pnl_usd": -649.2293,
+        "3x_all_cost_expectancy_r": -2.0534,
+        "3x_all_cost_net_pnl_usd": -861.4224
+      },
+      "arm_code": "ABL_STRUCT_ONLY",
+      "closed_trades_nb": 170,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 224.0809,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -357.2638,
+        "FIXED_FILLS_0p0006_fees_usd": 336.1214,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -469.3043,
+        "RERISKED_SUBSET_0p0006_closed_trades": 69,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -147.6204,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 170,
+          "expectancy_r": -0.7785,
+          "net_pnl_usd": -326.3228
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 170,
+          "expectancy_r": -0.8522,
+          "gross_pnl_usd": -133.1829,
+          "net_pnl_usd": -357.2638,
+          "total_fees_usd": 224.0809
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 180,
+          "expectancy_r": -0.9272,
+          "net_pnl_usd": -411.4558
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "B2_H1": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -137.6058,
+        "2x_all_cost_expectancy_r": -1.4983,
+        "2x_all_cost_net_pnl_usd": -225.5363,
+        "3x_all_cost_expectancy_r": -2.1569,
+        "3x_all_cost_net_pnl_usd": -308.7476
+      },
+      "arm_code": "B2_H1",
+      "closed_trades_nb": 58,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 78.3959,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -137.6058,
+        "FIXED_FILLS_0p0006_fees_usd": 117.5939,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -176.8038,
+        "RERISKED_SUBSET_0p0006_closed_trades": 29,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -71.9445,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 56,
+          "expectancy_r": -0.9432,
+          "net_pnl_usd": -130.2447
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 58,
+          "expectancy_r": -0.9619,
+          "gross_pnl_usd": -59.2099,
+          "net_pnl_usd": -137.6058,
+          "total_fees_usd": 78.3959
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 61,
+          "expectancy_r": -0.9527,
+          "net_pnl_usd": -143.352
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "B2_H123": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -55.0756,
+        "2x_all_cost_expectancy_r": -1.4334,
+        "2x_all_cost_net_pnl_usd": -88.3334,
+        "3x_all_cost_expectancy_r": -2.155,
+        "3x_all_cost_net_pnl_usd": -116.8716
+      },
+      "arm_code": "B2_H123",
+      "closed_trades_nb": 22,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 28.297,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -55.0756,
+        "FIXED_FILLS_0p0006_fees_usd": 42.4455,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -69.2241,
+        "RERISKED_SUBSET_0p0006_closed_trades": 9,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -22.3922,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 20,
+          "expectancy_r": -0.9999,
+          "net_pnl_usd": -49.2451
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 22,
+          "expectancy_r": -1.016,
+          "gross_pnl_usd": -26.7786,
+          "net_pnl_usd": -55.0756,
+          "total_fees_usd": 28.297
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 25,
+          "expectancy_r": -0.9128,
+          "net_pnl_usd": -56.2479
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "B2_H2": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -357.2638,
+        "2x_all_cost_expectancy_r": -1.4623,
+        "2x_all_cost_net_pnl_usd": -649.2293,
+        "3x_all_cost_expectancy_r": -2.0534,
+        "3x_all_cost_net_pnl_usd": -861.4224
+      },
+      "arm_code": "B2_H2",
+      "closed_trades_nb": 170,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 224.0809,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -357.2638,
+        "FIXED_FILLS_0p0006_fees_usd": 336.1214,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -469.3043,
+        "RERISKED_SUBSET_0p0006_closed_trades": 69,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -147.6204,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 170,
+          "expectancy_r": -0.7785,
+          "net_pnl_usd": -326.3228
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 170,
+          "expectancy_r": -0.8522,
+          "gross_pnl_usd": -133.1829,
+          "net_pnl_usd": -357.2638,
+          "total_fees_usd": 224.0809
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 180,
+          "expectancy_r": -0.9272,
+          "net_pnl_usd": -411.4558
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "B2_H3": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -211.7256,
+        "2x_all_cost_expectancy_r": -1.4014,
+        "2x_all_cost_net_pnl_usd": -390.6126,
+        "3x_all_cost_expectancy_r": -1.9843,
+        "3x_all_cost_net_pnl_usd": -529.0248
+      },
+      "arm_code": "B2_H3",
+      "closed_trades_nb": 108,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 138.4742,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -211.7256,
+        "FIXED_FILLS_0p0006_fees_usd": 207.7113,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -280.9627,
+        "RERISKED_SUBSET_0p0006_closed_trades": 44,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -101.5404,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 108,
+          "expectancy_r": -0.7284,
+          "net_pnl_usd": -193.9013
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 108,
+          "expectancy_r": -0.7951,
+          "gross_pnl_usd": -73.2514,
+          "net_pnl_usd": -211.7256,
+          "total_fees_usd": 138.4742
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 113,
+          "expectancy_r": -0.8797,
+          "net_pnl_usd": -245.0001
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "CONTROL_B0": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -345.8971,
+        "2x_all_cost_expectancy_r": -1.3954,
+        "2x_all_cost_net_pnl_usd": -594.6226,
+        "3x_all_cost_expectancy_r": -1.9655,
+        "3x_all_cost_net_pnl_usd": -803.8121
+      },
+      "arm_code": "CONTROL_B0",
+      "closed_trades_nb": 166,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 203.1135,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -345.8971,
+        "FIXED_FILLS_0p0006_fees_usd": 304.6703,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -447.4539,
+        "RERISKED_SUBSET_0p0006_closed_trades": 87,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -210.6118,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 164,
+          "expectancy_r": -0.777,
+          "net_pnl_usd": -313.6541
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 166,
+          "expectancy_r": -0.8474,
+          "gross_pnl_usd": -142.7836,
+          "net_pnl_usd": -345.8971,
+          "total_fees_usd": 203.1135
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 173,
+          "expectancy_r": -0.8968,
+          "net_pnl_usd": -381.7661
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "NC_NULL_TRIGGER": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -357.2638,
+        "2x_all_cost_expectancy_r": -1.4623,
+        "2x_all_cost_net_pnl_usd": -649.2293,
+        "3x_all_cost_expectancy_r": -2.0534,
+        "3x_all_cost_net_pnl_usd": -861.4224
+      },
+      "arm_code": "NC_NULL_TRIGGER",
+      "closed_trades_nb": 170,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 224.0809,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -357.2638,
+        "FIXED_FILLS_0p0006_fees_usd": 336.1214,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -469.3043,
+        "RERISKED_SUBSET_0p0006_closed_trades": 69,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -147.6204,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 170,
+          "expectancy_r": -0.7785,
+          "net_pnl_usd": -326.3082
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 170,
+          "expectancy_r": -0.8522,
+          "gross_pnl_usd": -133.1829,
+          "net_pnl_usd": -357.2638,
+          "total_fees_usd": 224.0809
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 180,
+          "expectancy_r": -0.9272,
+          "net_pnl_usd": -411.4558
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "NC_RANDOM_DIR": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -252.8719,
+        "2x_all_cost_expectancy_r": -1.4068,
+        "2x_all_cost_net_pnl_usd": -458.5091,
+        "3x_all_cost_expectancy_r": -2.0228,
+        "3x_all_cost_net_pnl_usd": -624.4001
+      },
+      "arm_code": "NC_RANDOM_DIR",
+      "closed_trades_nb": 125,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 163.3177,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -252.8719,
+        "FIXED_FILLS_0p0006_fees_usd": 244.9766,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -334.5308,
+        "RERISKED_SUBSET_0p0006_closed_trades": 54,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -117.5849,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 126,
+          "expectancy_r": -0.7586,
+          "net_pnl_usd": -236.1004
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 125,
+          "expectancy_r": -0.8194,
+          "gross_pnl_usd": -89.5542,
+          "net_pnl_usd": -252.8719,
+          "total_fees_usd": 163.3177
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 132,
+          "expectancy_r": -0.8733,
+          "net_pnl_usd": -284.5604
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    },
+    "NC_SHIFTED_REGIME": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "all_in_cost_scenarios": {
+        "1x_all_cost_net_pnl_usd": -57.9935,
+        "2x_all_cost_expectancy_r": -1.6815,
+        "2x_all_cost_net_pnl_usd": -104.0463,
+        "3x_all_cost_expectancy_r": -2.3306,
+        "3x_all_cost_net_pnl_usd": -132.7019
+      },
+      "arm_code": "NC_SHIFTED_REGIME",
+      "closed_trades_nb": 23,
+      "fee_sensitivity_0p04_vs_0p06": {
+        "FIXED_FILLS_0p0004_fees_usd": 34.1982,
+        "FIXED_FILLS_0p0004_net_pnl_usd": -57.9935,
+        "FIXED_FILLS_0p0006_fees_usd": 51.2973,
+        "FIXED_FILLS_0p0006_net_pnl_usd": -75.0926,
+        "RERISKED_SUBSET_0p0006_closed_trades": 12,
+        "RERISKED_SUBSET_0p0006_net_pnl_usd": -29.8074,
+        "scope_caveat": "RERISKED_SUBSET_ONLY_NOT_FULL_OPPORTUNITY_RERUN"
+      },
+      "fill_modes": {
+        "LEGACY_CLOSE_FILL": {
+          "closed_trades": 21,
+          "expectancy_r": -1.0001,
+          "net_pnl_usd": -51.9754
+        },
+        "NEXT_BAR_OPEN_BID_ASK": {
+          "closed_trades": 23,
+          "expectancy_r": -1.0187,
+          "gross_pnl_usd": -23.7953,
+          "net_pnl_usd": -57.9935,
+          "total_fees_usd": 34.1982
+        },
+        "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+          "closed_trades": 25,
+          "expectancy_r": -1.0747,
+          "net_pnl_usd": -66.4961
+        }
+      },
+      "observed_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK"
+    }
+  },
+  "domain_calculator_defaults_unchanged": {
+    "maker_fee_rate": 0.0002,
+    "slippage_usd": 0.1,
+    "taker_fee_rate": 0.0004,
+    "unchanged_verified": true
+  },
+  "observed_l1_bbo_available": false,
+  "quote_mode": "MODELED_BID_ASK",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "status": "PASS",
+  "v130_si0_authoritative_fee_sensitivity": {
+    "fixed_fill_0p0004_net_usd": -345.8971,
+    "fixed_fill_0p0006_net_usd": -447.4532,
+    "rerisked_si0_242_0p0006_closed_trades": 87,
+    "rerisked_si0_242_0p0006_net_usd": -210.6112
+  }
+}

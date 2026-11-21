@@ -1,0 +1,291 @@
+{
+  "ACTIVATION_READY": "NO",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "completed_at_utc": "2026-11-21T04:10:46Z",
+  "disk_mounts_audit": {
+    "all_writing_volumes_meet_25gib_advisory": true,
+    "atomic_write_probes": {
+      "output": {
+        "atomic_write_rename_verified": true,
+        "probe_dir": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_02_entry_foundation"
+      },
+      "temp": {
+        "atomic_write_rename_verified": true,
+        "probe_dir": "C:\\Users\\QuocAn\\AppData\\Local\\Temp"
+      }
+    },
+    "captured_at_utc": "2026-11-21T03:33:38Z",
+    "distinct_underlying_filesystems_count": 2,
+    "macos_purgeable_vs_available_note": "shutil.disk_usage().free reports non-purgeable POSIX f_bavail/GetDiskFreeSpaceEx available bytes; purgeable cache space is never counted as guaranteed free space.",
+    "mounts_by_label": {
+      "output": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_02_entry_foundation",
+        "free_bytes": 48212979712,
+        "free_gb_decimal": 48.213,
+        "free_gib": 44.9018,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto\\aurum-desk\\docs\\artifacts\\kh_02_entry_foundation",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106427858944
+      },
+      "repo": {
+        "device": "D:\\",
+        "existing_probe_path": "D:\\build app-crypto",
+        "free_bytes": 48212979712,
+        "free_gb_decimal": 48.213,
+        "free_gib": 44.9018,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "D:\\",
+        "requested_path": "D:\\build app-crypto",
+        "st_dev": 134018765441740000,
+        "total_bytes": 154640838656,
+        "total_gib": 144.0205,
+        "used_bytes": 106427858944
+      },
+      "temp": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "free_bytes": 191099301888,
+        "free_gb_decimal": 191.0993,
+        "free_gib": 177.9751,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Temp",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 152609226752
+      },
+      "venv_or_python": {
+        "device": "C:\\",
+        "existing_probe_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "free_bytes": 191099301888,
+        "free_gb_decimal": 191.0993,
+        "free_gib": 177.9751,
+        "fstype": "NTFS",
+        "meets_preferred_25p0_gib_advisory": true,
+        "meets_strict_20p5_gib_preflight": true,
+        "mountpoint": "C:\\",
+        "requested_path": "C:\\Users\\QuocAn\\AppData\\Local\\Programs\\Python\\Python312",
+        "st_dev": 5779928256407799542,
+        "total_bytes": 343708528640,
+        "total_gib": 320.1035,
+        "used_bytes": 152609226752
+      }
+    },
+    "os_name": "nt",
+    "platform": "win32",
+    "preferred_advisory_headroom_gib": 25.0,
+    "repo_output_temp_all_same_filesystem": false,
+    "same_underlying_filesystem_groups": [
+      {
+        "labels": [
+          "output",
+          "repo"
+        ],
+        "st_dev": 134018765441740000
+      },
+      {
+        "labels": [
+          "temp",
+          "venv_or_python"
+        ],
+        "st_dev": 5779928256407799542
+      }
+    ],
+    "strict_preflight_floor_bytes": 22011707392,
+    "strict_preflight_floor_gib": 20.5,
+    "writing_volumes_free_bytes": {
+      "output": 48212979712,
+      "repo": 48212979712,
+      "temp": 191099301888
+    }
+  },
+  "disk_reserve_policy": {
+    "abort_reason": null,
+    "acceptance_eligible": true,
+    "baseline_already_below_20gib": false,
+    "can_proceed": true,
+    "constraining_volume": "repo",
+    "disk_safety_verdict": "PASS_STRICT_20GIB",
+    "effective_enforced_reserve_bytes": 21474836480,
+    "effective_enforced_reserve_gib": 20.0,
+    "enforced_reserve_gib": 20.0,
+    "hard_abort_floor_gib": 20.0,
+    "lowered_reserve_without_approval": false,
+    "min_acceptance_preflight_gib": 20.5,
+    "policy_mode": "STRICT_ACCEPTANCE_20GIB",
+    "preflight_baseline_free_bytes": 48212979712,
+    "preflight_baseline_free_gb_decimal": 48.213,
+    "preflight_baseline_free_gib": 44.9018,
+    "shortfall_bytes": 0,
+    "shortfall_gib": 0.0,
+    "stage_allowance_bytes": 536870912,
+    "stage_allowance_gib": 0.5,
+    "standard_target_reserve_gib": 20.0,
+    "volumes": {
+      "output": {
+        "free_bytes": 48212979712,
+        "free_gb_decimal": 48.213,
+        "free_gib": 44.9018,
+        "meets_strict_20gib_plus_stage": true
+      },
+      "repo": {
+        "free_bytes": 48212979712,
+        "free_gb_decimal": 48.213,
+        "free_gib": 44.9018,
+        "meets_strict_20gib_plus_stage": true
+      },
+      "temp": {
+        "free_bytes": 191099301888,
+        "free_gb_decimal": 191.0993,
+        "free_gib": 177.9751,
+        "meets_strict_20gib_plus_stage": true
+      }
+    }
+  },
+  "freeze_timestamp_ms": 1795232018517,
+  "head_at_start_sha": "98a6d25da94b07572decb531cd6207b91a78fdb0",
+  "immutable_baseline_registry": {
+    "a1_candidate_count": 56710,
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "expected_tested_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+    "prior_kh01b_manifest_sha256": "82049cc36152a062285f49dbe2598aafc7754a64da2135a9d50250912007e253",
+    "prior_r2_latest_ptr_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+    "prior_r3_latest_ptr_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+    "prior_r3_manifest_14_sha256": "2c69e5f3f58dbb4b8099ed5223bcf6b44c1d432e6b6a4e240cb4ea80bcd89fcb",
+    "prior_r3_publication_head_sha": "98a6d25da94b07572decb531cd6207b91a78fdb0",
+    "prior_r3_run_id": "20261121T005605Z_312083bc8024",
+    "prior_r3_tested_sha": "312083bc80247c4931e3b7ab059a346d360d465f",
+    "prior_use_status": "REUSED_RESEARCH",
+    "registry_sha256": "a34f885cb551006590ec5867207a6b767c87a38e1efed7c305faa1b12fc7731d",
+    "schema_version": "kh_02.entry_foundation_research.v1",
+    "sealed_a1_56710_ids_sha256": "dd8282ca484c5d38b2d94b6a0dd65669ad01fb1acbda2874b6ed808457da08f3",
+    "sealed_e00_bundle_sha256": "30f90659430d0607180e9834d11554d664f89438389d793e4f6384f0dde12b83",
+    "sealed_si0_242_tuples_sha256": "644addeb27aae5215079363564d6ba89a3a7d90c47a26499c595cbc501be964e",
+    "sealed_si8_6375_ids_sha256": "8d3bc50b44f7da510c166ba468b6de03402739eaa2e4bcebac6b939770a0141b",
+    "si0_reference_closed": 166,
+    "si0_reference_expectancy_r": -0.8474,
+    "si0_reference_losses": 157,
+    "si0_reference_net_pnl_usd": -345.8971,
+    "si0_reference_scheduled": 242,
+    "si0_reference_wins": 9,
+    "si8_discovery_count": 6375,
+    "spec_version": "KH-02.R1",
+    "total_candidate_universe_count": 63085,
+    "verification_passed": true,
+    "violations": []
+  },
+  "modified_prior_files": [],
+  "modified_prior_files_count": 0,
+  "orchestrator_pid": 36856,
+  "prior_artifacts_unchanged_during_run": true,
+  "prior_immutable_bundles_after": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "kh01b_r1_latest_run_ptr_sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+    "kh01b_r1_published_files_count": 77,
+    "kh01b_r1_published_sha256": "f700f1c69897087c77344abe5069342bdc87f1bf7b7e340b6c1bdee571984780",
+    "prior_dsc_v1_bundle_sha256": "005cb4f3783dd0a3f6ab270eaffd16f5e464575b7058b7417266ca559b9c5ca8",
+    "prior_dsc_v1_files_count": 28,
+    "prior_latest_run_pointers": {
+      "aurum-desk/docs/artifacts/kh_01a/latest_run.json": "fceffebecb87af5b3daf3dbcb15bf6acaf2574c215afbb8f4a8a58feece730fb",
+      "aurum-desk/docs/artifacts/kh_01a_r1/latest_run.json": "b15faab1c7b21878484c7736ab8a952989e05fbfedf24e3d7e9e0f0dd20ca400",
+      "aurum-desk/docs/artifacts/kh_01b/latest_run.json": "0ed0344440be21c4e6c286faf8a812c08e096b1a486029c8c6c69c602f4574c3",
+      "aurum-desk/docs/artifacts/kh_01b_r1/latest_run.json": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+      "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/latest_run.json": "ABSENT_AS_EXPECTED"
+    },
+    "prior_latest_run_pointers_sha256": "7f8db48e46e5c67324667dc31b673fd0883571c4c60866f3fb2ef9dc08ff7814",
+    "prior_r2_accepted_bundle_sha256": "63fb066f7c018afb61098a5539c08ffead6d0ff59cbb4b4ab1c08ca127152633",
+    "prior_r2_accepted_files_count": 84,
+    "prior_r2_latest_run_ptr_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+    "prior_r3_bundle_files_count": 73,
+    "prior_r3_bundle_sha256": "6fe994d71269101a61c31f6b72e2c53c188dcf8d77e2818f34420bc09f612f81",
+    "prior_r3_latest_run_ptr_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+    "v10_to_v19_files_count": 1117,
+    "v10_to_v19_sha256": "318126a5e7174e37e97170a28d4ab3d3a998e6799d0a946e92b852770d83cf90"
+  },
+  "prior_immutable_bundles_before": {
+    "kh01a_r1_b_files_count": 186,
+    "kh01a_r1_b_sha256": "5a3fd03d01d849ec9c55fb31b5f3983ce5d53ef119d32a0483af049efbc93c03",
+    "kh01b_r1_latest_run_ptr_sha256": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+    "kh01b_r1_published_files_count": 77,
+    "kh01b_r1_published_sha256": "f700f1c69897087c77344abe5069342bdc87f1bf7b7e340b6c1bdee571984780",
+    "prior_dsc_v1_bundle_sha256": "005cb4f3783dd0a3f6ab270eaffd16f5e464575b7058b7417266ca559b9c5ca8",
+    "prior_dsc_v1_files_count": 28,
+    "prior_latest_run_pointers": {
+      "aurum-desk/docs/artifacts/kh_01a/latest_run.json": "fceffebecb87af5b3daf3dbcb15bf6acaf2574c215afbb8f4a8a58feece730fb",
+      "aurum-desk/docs/artifacts/kh_01a_r1/latest_run.json": "b15faab1c7b21878484c7736ab8a952989e05fbfedf24e3d7e9e0f0dd20ca400",
+      "aurum-desk/docs/artifacts/kh_01b/latest_run.json": "0ed0344440be21c4e6c286faf8a812c08e096b1a486029c8c6c69c602f4574c3",
+      "aurum-desk/docs/artifacts/kh_01b_r1/latest_run.json": "6e0fd97c0f70f4ab7acbfeb4574386451e5edfb743f023d2e9bfc733cacb4bbb",
+      "aurum-desk/docs/artifacts/kh_01b_r1_data_safety/latest_run.json": "ABSENT_AS_EXPECTED"
+    },
+    "prior_latest_run_pointers_sha256": "7f8db48e46e5c67324667dc31b673fd0883571c4c60866f3fb2ef9dc08ff7814",
+    "prior_r2_accepted_bundle_sha256": "63fb066f7c018afb61098a5539c08ffead6d0ff59cbb4b4ab1c08ca127152633",
+    "prior_r2_accepted_files_count": 84,
+    "prior_r2_latest_run_ptr_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+    "prior_r3_bundle_files_count": 73,
+    "prior_r3_bundle_sha256": "6fe994d71269101a61c31f6b72e2c53c188dcf8d77e2818f34420bc09f612f81",
+    "prior_r3_latest_run_ptr_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+    "v10_to_v19_files_count": 1117,
+    "v10_to_v19_sha256": "318126a5e7174e37e97170a28d4ab3d3a998e6799d0a946e92b852770d83cf90"
+  },
+  "prior_use_status": "REUSED_RESEARCH",
+  "ram_policy_version": "KH-01B.R1.DSC.R3.RAM.v1",
+  "ram_preflight": {
+    "available_ram_mib": 7005.54,
+    "hard_abort_floor_mib": 512.0,
+    "preflight_ram_verdict": "PASS_RAM_PREFLIGHT",
+    "total_ram_gib": 31.7475
+  },
+  "remote_url": "https://github.com/quocan050302/Build-app-crypto.git",
+  "run_id": "20261121T033338Z_b99ad30313a6",
+  "runtime_safety_verification": {
+    "ACTIVATION_READY": "NO",
+    "cost_assumptions_verified": {
+      "maker_fee_rate": 0.0002,
+      "slippage_usd": 0.1,
+      "taker_fee_rate": 0.0004
+    },
+    "live_scalp_config_verified": {
+      "cg01_profile_mode": "OFF",
+      "execution_mode": null,
+      "max_risk_usd": 2.5,
+      "min_net_rr": 2.0,
+      "scalp_m1_mode": "OFF",
+      "signal_intelligence_mode": "OFF"
+    },
+    "runtime_safety_modes": {
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF"
+    },
+    "status": "PASS"
+  },
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "source_manifest_after": {
+    "files_count": 823,
+    "sha256": "37d838ede29855d0f692af2b60ed470aaa248337b81a89b63d4adb8569b85cd3"
+  },
+  "source_manifest_before": {
+    "files_count": 823,
+    "sha256": "37d838ede29855d0f692af2b60ed470aaa248337b81a89b63d4adb8569b85cd3"
+  },
+  "source_tree_unchanged_during_run": true,
+  "spec_version": "KH-02.R1",
+  "started_at_utc": "2026-11-21T03:33:40Z",
+  "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"
+}

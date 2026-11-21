@@ -1,0 +1,515 @@
+{
+  "control_b0_reference": {
+    "a1_universe_denominator": 56710,
+    "closed_166": 166,
+    "net_pnl_usd": -345.8971,
+    "opportunity_conditional_net_usd_per_a1": -0.006099,
+    "scheduled_242": 242,
+    "trade_conditional_expectancy_r": -0.8474
+  },
+  "diag_b1_a1_56710_causal_strata_counts": {
+    "A1_H123_ALL_PASS": 1319,
+    "A1_H1_MTF_ALIGNED": 18911,
+    "A1_H2_STRUCT_CONFIRMED": 8919,
+    "A1_H3_VOL_SESSION_OK": 21040
+  },
+  "diag_b1_matched_b0_242_attribution": {
+    "H1_MTF_ALIGNED_FAIL": {
+      "closed_count": 110,
+      "expectancy_r": -0.832,
+      "losses": 103,
+      "net_pnl_usd": -225.0084,
+      "sample_status": "N_GE_30",
+      "scheduled_count": 163,
+      "win_rate": 0.063636,
+      "win_rate_wilson_95ci": [
+        0.031165,
+        0.125557
+      ],
+      "wins": 7
+    },
+    "H1_MTF_ALIGNED_PASS": {
+      "closed_count": 56,
+      "expectancy_r": -0.8775,
+      "losses": 54,
+      "net_pnl_usd": -120.8887,
+      "sample_status": "N_GE_30",
+      "scheduled_count": 79,
+      "win_rate": 0.035714,
+      "win_rate_wilson_95ci": [
+        0.009849,
+        0.121188
+      ],
+      "wins": 2
+    },
+    "H2_STRUCTURE_FAIL": {
+      "closed_count": 150,
+      "expectancy_r": -0.8311,
+      "losses": 141,
+      "net_pnl_usd": -306.8029,
+      "sample_status": "N_GE_30",
+      "scheduled_count": 213,
+      "win_rate": 0.06,
+      "win_rate_wilson_95ci": [
+        0.031884,
+        0.11009
+      ],
+      "wins": 9
+    },
+    "H2_STRUCTURE_PASS": {
+      "closed_count": 16,
+      "expectancy_r": -0.9999,
+      "losses": 16,
+      "net_pnl_usd": -39.0942,
+      "sample_status": "UNDERPOWERED_N_LT_30",
+      "scheduled_count": 29,
+      "win_rate": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.193608
+      ],
+      "wins": 0
+    },
+    "H3_VOL_SESSION_FAIL": {
+      "closed_count": 112,
+      "expectancy_r": -0.8985,
+      "losses": 108,
+      "net_pnl_usd": -248.1367,
+      "sample_status": "N_GE_30",
+      "scheduled_count": 158,
+      "win_rate": 0.035714,
+      "win_rate_wilson_95ci": [
+        0.013975,
+        0.088247
+      ],
+      "wins": 4
+    },
+    "H3_VOL_SESSION_PASS": {
+      "closed_count": 54,
+      "expectancy_r": -0.7413,
+      "losses": 49,
+      "net_pnl_usd": -97.7604,
+      "sample_status": "N_GE_30",
+      "scheduled_count": 84,
+      "win_rate": 0.092593,
+      "win_rate_wilson_95ci": [
+        0.040201,
+        0.199099
+      ],
+      "wins": 5
+    },
+    "by_direction": {
+      "LONG": {
+        "closed_count": 58,
+        "expectancy_r": -0.9455,
+        "losses": 57,
+        "net_pnl_usd": -135.2395,
+        "sample_status": "N_GE_30",
+        "scheduled_count": 89,
+        "win_rate": 0.017241,
+        "win_rate_wilson_95ci": [
+          0.00305,
+          0.091409
+        ],
+        "wins": 1
+      },
+      "SHORT": {
+        "closed_count": 108,
+        "expectancy_r": -0.7946,
+        "losses": 100,
+        "net_pnl_usd": -210.6576,
+        "sample_status": "N_GE_30",
+        "scheduled_count": 153,
+        "win_rate": 0.074074,
+        "win_rate_wilson_95ci": [
+          0.03801,
+          0.139397
+        ],
+        "wins": 8
+      }
+    },
+    "by_session": {
+      "ASIA_OR_ROLLOVER_SESSION": {
+        "closed_count": 57,
+        "expectancy_r": -0.8419,
+        "losses": 54,
+        "net_pnl_usd": -118.0375,
+        "sample_status": "N_GE_30",
+        "scheduled_count": 82,
+        "win_rate": 0.052632,
+        "win_rate_wilson_95ci": [
+          0.01806,
+          0.143696
+        ],
+        "wins": 3
+      },
+      "LONDON_SESSION": {
+        "closed_count": 28,
+        "expectancy_r": -0.8418,
+        "losses": 26,
+        "net_pnl_usd": -57.3353,
+        "sample_status": "UNDERPOWERED_N_LT_30",
+        "scheduled_count": 42,
+        "win_rate": 0.071429,
+        "win_rate_wilson_95ci": [
+          0.019812,
+          0.226454
+        ],
+        "wins": 2
+      },
+      "NY_AM_SESSION": {
+        "closed_count": 12,
+        "expectancy_r": -0.2053,
+        "losses": 9,
+        "net_pnl_usd": -5.9786,
+        "sample_status": "UNDERPOWERED_N_LT_30",
+        "scheduled_count": 23,
+        "win_rate": 0.25,
+        "win_rate_wilson_95ci": [
+          0.088942,
+          0.532305
+        ],
+        "wins": 3
+      },
+      "NY_PM_SESSION": {
+        "closed_count": 34,
+        "expectancy_r": -0.9998,
+        "losses": 34,
+        "net_pnl_usd": -83.8426,
+        "sample_status": "N_GE_30",
+        "scheduled_count": 43,
+        "win_rate": 0.0,
+        "win_rate_wilson_95ci": [
+          0.0,
+          0.101515
+        ],
+        "wins": 0
+      },
+      "WEEKEND_WINDOW": {
+        "closed_count": 35,
+        "expectancy_r": -0.9328,
+        "losses": 34,
+        "net_pnl_usd": -80.7031,
+        "sample_status": "N_GE_30",
+        "scheduled_count": 52,
+        "win_rate": 0.028571,
+        "win_rate_wilson_95ci": [
+          0.005061,
+          0.145331
+        ],
+        "wins": 1
+      }
+    }
+  },
+  "foundation_b2_ablations_and_negative_controls": [
+    {
+      "arm_code": "ABL_H1_ONLY",
+      "arm_role": "ABLATION",
+      "closed_trades_nb": 107,
+      "confounder_direction_mix_closed": {
+        "LONG": 47,
+        "SHORT": 60
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 52,
+        "LONDON_SESSION": 14,
+        "NY_AM_SESSION": 11,
+        "NY_PM_SESSION": 14,
+        "WEEKEND_WINDOW": 16
+      },
+      "eligible_candidates": 402,
+      "incremental_exp_r_vs_b0": -0.0465,
+      "incremental_exp_r_vs_null_b2": -0.0417,
+      "net_pnl_1x_nb_usd": -236.1101,
+      "no_trade_selection_rate": 0.991005,
+      "opportunity_conditional_net_usd_per_opp": -0.005283,
+      "scheduled_episodes_nb": 123,
+      "trade_conditional_expectancy_r": -0.8939,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-ABL-H1-ONLY"
+    },
+    {
+      "arm_code": "ABL_M15_ONLY",
+      "arm_role": "ABLATION",
+      "closed_trades_nb": 99,
+      "confounder_direction_mix_closed": {
+        "LONG": 20,
+        "SHORT": 79
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 40,
+        "LONDON_SESSION": 23,
+        "NY_AM_SESSION": 10,
+        "NY_PM_SESSION": 17,
+        "WEEKEND_WINDOW": 9
+      },
+      "eligible_candidates": 372,
+      "incremental_exp_r_vs_b0": -0.0624,
+      "incremental_exp_r_vs_null_b2": -0.0576,
+      "net_pnl_1x_nb_usd": -222.3156,
+      "no_trade_selection_rate": 0.991676,
+      "opportunity_conditional_net_usd_per_opp": -0.004974,
+      "scheduled_episodes_nb": 112,
+      "trade_conditional_expectancy_r": -0.9098,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-ABL-M15-ONLY"
+    },
+    {
+      "arm_code": "ABL_NO_REGIME",
+      "arm_role": "ABLATION",
+      "closed_trades_nb": 110,
+      "confounder_direction_mix_closed": {
+        "LONG": 61,
+        "SHORT": 49
+      },
+      "confounder_session_mix_closed": {
+        "LONDON_SESSION": 57,
+        "NY_AM_SESSION": 25,
+        "NY_PM_SESSION": 28
+      },
+      "eligible_candidates": 578,
+      "incremental_exp_r_vs_b0": 0.0482,
+      "incremental_exp_r_vs_null_b2": 0.053,
+      "net_pnl_1x_nb_usd": -216.7543,
+      "no_trade_selection_rate": 0.987067,
+      "opportunity_conditional_net_usd_per_opp": -0.00485,
+      "scheduled_episodes_nb": 124,
+      "trade_conditional_expectancy_r": -0.7992,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-ABL-NO-VOL-REGIME"
+    },
+    {
+      "arm_code": "ABL_NO_SESSION",
+      "arm_role": "ABLATION",
+      "closed_trades_nb": 44,
+      "confounder_direction_mix_closed": {
+        "LONG": 10,
+        "SHORT": 34
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 21,
+        "LONDON_SESSION": 11,
+        "NY_AM_SESSION": 4,
+        "NY_PM_SESSION": 6,
+        "WEEKEND_WINDOW": 2
+      },
+      "eligible_candidates": 150,
+      "incremental_exp_r_vs_b0": -0.0953,
+      "incremental_exp_r_vs_null_b2": -0.0905,
+      "net_pnl_1x_nb_usd": -102.1886,
+      "no_trade_selection_rate": 0.996644,
+      "opportunity_conditional_net_usd_per_opp": -0.002287,
+      "scheduled_episodes_nb": 51,
+      "trade_conditional_expectancy_r": -0.9427,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-ABL-NO-SESSION"
+    },
+    {
+      "arm_code": "ABL_STRUCT_ONLY",
+      "arm_role": "ABLATION",
+      "closed_trades_nb": 170,
+      "confounder_direction_mix_closed": {
+        "LONG": 86,
+        "SHORT": 84
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 52,
+        "LONDON_SESSION": 47,
+        "NY_AM_SESSION": 24,
+        "NY_PM_SESSION": 28,
+        "WEEKEND_WINDOW": 19
+      },
+      "eligible_candidates": 1027,
+      "incremental_exp_r_vs_b0": -0.0048,
+      "incremental_exp_r_vs_null_b2": 0.0,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "no_trade_selection_rate": 0.97702,
+      "opportunity_conditional_net_usd_per_opp": -0.007994,
+      "scheduled_episodes_nb": 196,
+      "trade_conditional_expectancy_r": -0.8522,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-ABL-STRUCT-ONLY"
+    },
+    {
+      "arm_code": "B2_H1",
+      "arm_role": "PRIMARY",
+      "closed_trades_nb": 58,
+      "confounder_direction_mix_closed": {
+        "LONG": 13,
+        "SHORT": 45
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 29,
+        "LONDON_SESSION": 11,
+        "NY_AM_SESSION": 4,
+        "NY_PM_SESSION": 7,
+        "WEEKEND_WINDOW": 7
+      },
+      "eligible_candidates": 191,
+      "incremental_exp_r_vs_b0": -0.1145,
+      "incremental_exp_r_vs_null_b2": -0.1097,
+      "net_pnl_1x_nb_usd": -137.6058,
+      "no_trade_selection_rate": 0.995726,
+      "opportunity_conditional_net_usd_per_opp": -0.003079,
+      "scheduled_episodes_nb": 65,
+      "trade_conditional_expectancy_r": -0.9619,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME"
+    },
+    {
+      "arm_code": "B2_H123",
+      "arm_role": "COMPOSITE_PREDECLARED",
+      "closed_trades_nb": 22,
+      "confounder_direction_mix_closed": {
+        "LONG": 6,
+        "SHORT": 16
+      },
+      "confounder_session_mix_closed": {
+        "LONDON_SESSION": 12,
+        "NY_AM_SESSION": 4,
+        "NY_PM_SESSION": 6
+      },
+      "eligible_candidates": 83,
+      "incremental_exp_r_vs_b0": -0.1686,
+      "incremental_exp_r_vs_null_b2": -0.1638,
+      "net_pnl_1x_nb_usd": -55.0756,
+      "no_trade_selection_rate": 0.998143,
+      "opportunity_conditional_net_usd_per_opp": -0.001232,
+      "scheduled_episodes_nb": 28,
+      "trade_conditional_expectancy_r": -1.016,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3"
+    },
+    {
+      "arm_code": "B2_H2",
+      "arm_role": "PRIMARY",
+      "closed_trades_nb": 170,
+      "confounder_direction_mix_closed": {
+        "LONG": 86,
+        "SHORT": 84
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 52,
+        "LONDON_SESSION": 47,
+        "NY_AM_SESSION": 24,
+        "NY_PM_SESSION": 28,
+        "WEEKEND_WINDOW": 19
+      },
+      "eligible_candidates": 1027,
+      "incremental_exp_r_vs_b0": -0.0048,
+      "incremental_exp_r_vs_null_b2": 0.0,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "no_trade_selection_rate": 0.97702,
+      "opportunity_conditional_net_usd_per_opp": -0.007994,
+      "scheduled_episodes_nb": 196,
+      "trade_conditional_expectancy_r": -0.8522,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT"
+    },
+    {
+      "arm_code": "B2_H3",
+      "arm_role": "PRIMARY",
+      "closed_trades_nb": 108,
+      "confounder_direction_mix_closed": {
+        "LONG": 61,
+        "SHORT": 47
+      },
+      "confounder_session_mix_closed": {
+        "LONDON_SESSION": 57,
+        "NY_AM_SESSION": 25,
+        "NY_PM_SESSION": 26
+      },
+      "eligible_candidates": 511,
+      "incremental_exp_r_vs_b0": 0.0523,
+      "incremental_exp_r_vs_null_b2": 0.0571,
+      "net_pnl_1x_nb_usd": -211.7256,
+      "no_trade_selection_rate": 0.988566,
+      "opportunity_conditional_net_usd_per_opp": -0.004737,
+      "scheduled_episodes_nb": 122,
+      "trade_conditional_expectancy_r": -0.7951,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME"
+    },
+    {
+      "arm_code": "NC_NULL_TRIGGER",
+      "arm_role": "NEGATIVE_CONTROL",
+      "closed_trades_nb": 170,
+      "confounder_direction_mix_closed": {
+        "LONG": 86,
+        "SHORT": 84
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 52,
+        "LONDON_SESSION": 47,
+        "NY_AM_SESSION": 24,
+        "NY_PM_SESSION": 28,
+        "WEEKEND_WINDOW": 19
+      },
+      "eligible_candidates": 1039,
+      "incremental_exp_r_vs_b0": -0.0048,
+      "incremental_exp_r_vs_null_b2": 0.0,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "no_trade_selection_rate": 0.976752,
+      "opportunity_conditional_net_usd_per_opp": -0.007994,
+      "scheduled_episodes_nb": 196,
+      "trade_conditional_expectancy_r": -0.8522,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-NC-NULL-UNFILTERED-B2"
+    },
+    {
+      "arm_code": "NC_RANDOM_DIR",
+      "arm_role": "NEGATIVE_CONTROL",
+      "closed_trades_nb": 125,
+      "confounder_direction_mix_closed": {
+        "LONG": 63,
+        "SHORT": 62
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 34,
+        "LONDON_SESSION": 33,
+        "NY_AM_SESSION": 18,
+        "NY_PM_SESSION": 27,
+        "WEEKEND_WINDOW": 13
+      },
+      "eligible_candidates": 494,
+      "incremental_exp_r_vs_b0": 0.028,
+      "incremental_exp_r_vs_null_b2": 0.0328,
+      "net_pnl_1x_nb_usd": -252.8719,
+      "no_trade_selection_rate": 0.988947,
+      "opportunity_conditional_net_usd_per_opp": -0.005658,
+      "scheduled_episodes_nb": 152,
+      "trade_conditional_expectancy_r": -0.8194,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-NC-RANDOMIZED-DIRECTION"
+    },
+    {
+      "arm_code": "NC_SHIFTED_REGIME",
+      "arm_role": "NEGATIVE_CONTROL",
+      "closed_trades_nb": 23,
+      "confounder_direction_mix_closed": {
+        "LONG": 4,
+        "SHORT": 19
+      },
+      "confounder_session_mix_closed": {
+        "ASIA_OR_ROLLOVER_SESSION": 9,
+        "LONDON_SESSION": 6,
+        "NY_AM_SESSION": 1,
+        "NY_PM_SESSION": 1,
+        "WEEKEND_WINDOW": 6
+      },
+      "eligible_candidates": 68,
+      "incremental_exp_r_vs_b0": -0.1713,
+      "incremental_exp_r_vs_null_b2": -0.1665,
+      "net_pnl_1x_nb_usd": -57.9935,
+      "no_trade_selection_rate": 0.998478,
+      "opportunity_conditional_net_usd_per_opp": -0.001298,
+      "scheduled_episodes_nb": 25,
+      "trade_conditional_expectancy_r": -1.0187,
+      "universe_denominator": 44692,
+      "variant_id": "KH02-NC-PAST-SHIFTED-48H-REGIME"
+    }
+  ],
+  "matched_comparison_caveat": "Trade-conditional expectancy and opportunity-conditional USD/opportunity are both reported to prevent volume-reduction survivorship bias. Reused DEV data cannot establish OOS lift.",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1"
+}

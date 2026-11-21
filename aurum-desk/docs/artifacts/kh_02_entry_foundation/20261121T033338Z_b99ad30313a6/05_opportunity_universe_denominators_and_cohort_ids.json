@@ -1,0 +1,199 @@
+{
+  "arm_conservation": {
+    "ABL_H1_ONLY": {
+      "arm_code": "ABL_H1_ONLY",
+      "arm_eligible_count": 402,
+      "arm_rejected_from_raw_eligible_count": 637,
+      "arm_role": "ABLATION",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H1_TREND_NOT_ALIGNED": 637
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-ABL-H1-ONLY"
+    },
+    "ABL_M15_ONLY": {
+      "arm_code": "ABL_M15_ONLY",
+      "arm_eligible_count": 372,
+      "arm_rejected_from_raw_eligible_count": 667,
+      "arm_role": "ABLATION",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "M15_TREND_NOT_ALIGNED": 667
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-ABL-M15-ONLY"
+    },
+    "ABL_NO_REGIME": {
+      "arm_code": "ABL_NO_REGIME",
+      "arm_eligible_count": 578,
+      "arm_rejected_from_raw_eligible_count": 461,
+      "arm_role": "ABLATION",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H2_STRUCTURE_NOT_CONFIRMED": 9,
+        "H2_STRUCTURE_NOT_CONFIRMED|SESSION_EXCLUDED": 3,
+        "SESSION_EXCLUDED": 449
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-ABL-NO-VOL-REGIME"
+    },
+    "ABL_NO_SESSION": {
+      "arm_code": "ABL_NO_SESSION",
+      "arm_eligible_count": 150,
+      "arm_rejected_from_raw_eligible_count": 889,
+      "arm_role": "ABLATION",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H1_TREND_NOT_ALIGNED": 127,
+        "H1_TREND_NOT_ALIGNED|VOL_REGIME_EXCLUDED": 54,
+        "M15_TREND_NOT_ALIGNED": 165,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 393,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|VOL_REGIME_EXCLUDED": 63,
+        "M15_TREND_NOT_ALIGNED|VOL_REGIME_EXCLUDED": 46,
+        "VOL_REGIME_EXCLUDED": 41
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-ABL-NO-SESSION"
+    },
+    "ABL_STRUCT_ONLY": {
+      "arm_code": "ABL_STRUCT_ONLY",
+      "arm_eligible_count": 1027,
+      "arm_rejected_from_raw_eligible_count": 12,
+      "arm_role": "ABLATION",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H2_STRUCTURE_NOT_CONFIRMED": 12
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-ABL-STRUCT-ONLY"
+    },
+    "B2_H1": {
+      "arm_code": "B2_H1",
+      "arm_eligible_count": 191,
+      "arm_rejected_from_raw_eligible_count": 848,
+      "arm_role": "PRIMARY",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H1_TREND_NOT_ALIGNED": 181,
+        "M15_TREND_NOT_ALIGNED": 211,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 456
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME"
+    },
+    "B2_H123": {
+      "arm_code": "B2_H123",
+      "arm_eligible_count": 83,
+      "arm_rejected_from_raw_eligible_count": 956,
+      "arm_role": "COMPOSITE_PREDECLARED",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H1_TREND_NOT_ALIGNED": 65,
+        "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 2,
+        "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+        "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 112,
+        "H2_STRUCTURE_NOT_CONFIRMED": 2,
+        "H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 1,
+        "H3_VOL_OR_SESSION_EXCLUDED": 105,
+        "M15_TREND_NOT_ALIGNED": 86,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 268,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 5,
+        "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 183,
+        "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 125
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3"
+    },
+    "B2_H2": {
+      "arm_code": "B2_H2",
+      "arm_eligible_count": 1027,
+      "arm_rejected_from_raw_eligible_count": 12,
+      "arm_role": "PRIMARY",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H2_STRUCTURE_NOT_CONFIRMED": 12
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT"
+    },
+    "B2_H3": {
+      "arm_code": "B2_H3",
+      "arm_eligible_count": 511,
+      "arm_rejected_from_raw_eligible_count": 528,
+      "arm_role": "PRIMARY",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "H3_VOL_OR_SESSION_EXCLUDED": 528
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME"
+    },
+    "NC_NULL_TRIGGER": {
+      "arm_code": "NC_NULL_TRIGGER",
+      "arm_eligible_count": 1039,
+      "arm_rejected_from_raw_eligible_count": 0,
+      "arm_role": "NEGATIVE_CONTROL",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {},
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-NC-NULL-UNFILTERED-B2"
+    },
+    "NC_RANDOM_DIR": {
+      "arm_code": "NC_RANDOM_DIR",
+      "arm_eligible_count": 494,
+      "arm_rejected_from_raw_eligible_count": 545,
+      "arm_role": "NEGATIVE_CONTROL",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "NC_RANDOM_DIR_NOT_SELECTED": 545
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-NC-RANDOMIZED-DIRECTION"
+    },
+    "NC_SHIFTED_REGIME": {
+      "arm_code": "NC_SHIFTED_REGIME",
+      "arm_eligible_count": 68,
+      "arm_rejected_from_raw_eligible_count": 971,
+      "arm_role": "NEGATIVE_CONTROL",
+      "raw_geometry_risk_eligible_count": 1039,
+      "raw_m1_trigger_count": 3788,
+      "rejection_reasons": {
+        "NC_SHIFTED_INSUFFICIENT_48H_HISTORY": 6,
+        "NC_SHIFTED_REGIME_FALSE": 965
+      },
+      "total_directional_bar_universe": 44692,
+      "variant_id": "KH02-NC-PAST-SHIFTED-48H-REGIME"
+    }
+  },
+  "candidate_audit_jsonl_gz_sha256": "807880c1e2306d0ed75797d8d77258e53821f30c070024dbea9651987b4f76a4",
+  "candidates_canonical_sha256": "d458a161e77660b09ce7e67f0bbf0753add7279bd20724668b75e05bdc3ef58f",
+  "canonical_a1_opportunities_count": 56710,
+  "canonical_si8_discovery_count": 6375,
+  "canonical_unmixed_a1_si8_total": 63085,
+  "raw_geometry_risk_eligible_count": 1039,
+  "raw_m1_triggers_count": 3788,
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "total_directional_bar_opportunities": 44692,
+  "total_post_warmup_m1_bars": 22346,
+  "universe_reason_codes": {
+    "ELIGIBLE_B2_RAW_TRIGGER_AND_RISK_OK": 1039,
+    "NO_M1_CAUSAL_TRIGGER": 38368,
+    "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+    "REJECTED_NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET": 71,
+    "REJECTED_RECENT_180M_M1_GAP": 2536,
+    "REJECTED_RISK_GATE:RISK_CALC_REJECTED": 2571
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "OOS_EVALUATIONS": 0,
+  "future_oos_escrow": {
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "canonical_reused_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_reused_sample_end_ms": 1793195940000,
+    "earliest_permissible_future_oos_open_ms": 1795242818517,
+    "earliest_permissible_future_oos_utc": "2026-11-21T06:33:38Z",
+    "embargo_minutes_required": 180,
+    "escrow_registry_sha256": "898232c8559f0e82f40f48f78bf7a62aeff773b2a51154887889a5117a212d7b",
+    "escrow_schema_version": "kh_01b_r1_dsc.future_oos_escrow.v2",
+    "freeze_timestamp_ms": 1795232018517,
+    "frozen_candidate_code_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+    "frozen_config_sha256": "e88177147cef06847f56d6a21974146f48993e6b525b79c9571f1e8eae637669",
+    "known_excluded_dev_shas": [
+      "2bfeae81c454a5d9d39b66358c30db014db2133a79eb091dc5e2501ff12bc38c",
+      "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    ],
+    "sealed_entries": [],
+    "sealed_future_oos_datasets_count": 0,
+    "status": "PASS",
+    "strategy_evaluation_count_total": 0,
+    "violations": [],
+    "write_once_policy": "APPEND_ONLY_NO_EVALUATION_IN_KH01B_R1_OR_DSC"
+  },
+  "known_reused_dev_shas": [
+    "2bfeae81c454a5d9d39b66358c30db014db2133a79eb091dc5e2501ff12bc38c",
+    "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+  ],
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "status": "PASS",
+  "violations": []
+}

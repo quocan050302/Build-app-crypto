@@ -1,0 +1,21 @@
+{
+  "data_origin": "VERIFIED_SNAPSHOT",
+  "feature_frame_sha256": "c9def4637a1805a7aba27129b0ecc41deaa327b3e996d680f69f183e0993b397",
+  "future_mutation_invariance_test": {
+    "cutoff_decision_timestamp_ms": 1791648900000,
+    "cutoff_m1_index": 1500,
+    "future_bars_mutated_count": 3289,
+    "past_bars_checked_count": 1471,
+    "past_feature_hash_mismatches": 0,
+    "status": "PASS"
+  },
+  "h1_asof_valid_count": 22346,
+  "invalidation_violations_count": 0,
+  "m15_asof_valid_count": 22346,
+  "post_warmup_bar_count": 22346,
+  "quote_mode": "MODELED_BID_ASK",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "source_latency_ms": 0,
+  "spec_version": "KH-02.R1",
+  "status": "PASS"
+}

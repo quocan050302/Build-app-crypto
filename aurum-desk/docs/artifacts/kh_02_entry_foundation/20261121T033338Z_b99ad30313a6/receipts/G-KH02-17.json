@@ -1,0 +1,26 @@
+{
+  "gate_id": "G-KH02-17",
+  "receipt": {
+    "content_sha256": "482225c5c6a4c4e01e10a4f1c3ff098c864ed1d6e33c75893b31695b6f990cc0",
+    "gate_id": "G-KH02-17",
+    "input_sha256": "482225c5c6a4c4e01e10a4f1c3ff098c864ed1d6e33c75893b31695b6f990cc0",
+    "metadata": {
+      "executable_git_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+      "validator_python_source_sha256": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924",
+      "verified_dynamically_by_validator_before_sealing": true
+    },
+    "observed_status": "PASS",
+    "receipt_path": "11_oos_escrow_no_overlap_no_peek_status.json",
+    "run_id": "20261121T033338Z_b99ad30313a6",
+    "status": "PASS",
+    "tested_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+    "validator_code_sha": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924",
+    "validator_name": "<lambda>",
+    "violations": []
+  },
+  "schema_version": "kh_01a_r1.forensics_closure.v1",
+  "validator_summary": {
+    "status": "PASS",
+    "violations": []
+  }
+}

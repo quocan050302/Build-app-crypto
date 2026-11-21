@@ -1,0 +1,307 @@
+{
+  "failed_fault_controls": 0,
+  "mutations": [
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "ex-post key rejected",
+      "fault_id": "F01",
+      "green_accepted": true,
+      "name": "FUTURE_HIGH_INJECTED_INTO_FEATURE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "unclosed M15 blocked",
+      "fault_id": "F02",
+      "green_accepted": true,
+      "name": "PARTIALLY_OPEN_M15_CANDLE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "unclosed H1 blocked",
+      "fault_id": "F03",
+      "green_accepted": true,
+      "name": "PARTIALLY_OPEN_H1_CANDLE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "negative latency rejected",
+      "fault_id": "F04",
+      "green_accepted": true,
+      "name": "HIGH_TF_KNOWLEDGE_TIME_MOVED_BACKWARD",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_resolve_b2_structural_stop_and_target",
+      "diagnostic": "rej_fut=NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET",
+      "fault_id": "F05",
+      "green_accepted": true,
+      "name": "PIVOT_CONFIRMATION_SHIFTED_INTO_FUTURE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh02_future_mutation_invariance_check",
+      "diagnostic": "mismatches=0",
+      "fault_id": "F06",
+      "green_accepted": true,
+      "name": "FUTURE_BAR_MUTATED_PAST_INVARIANCE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "duplicate open_time rejected",
+      "fault_id": "F07",
+      "green_accepted": true,
+      "name": "DUPLICATE_OR_NON_MONOTONIC_CANDLES",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "strict reject + canonicalized hash exact match",
+      "fault_id": "F08",
+      "green_accepted": true,
+      "name": "ASYNC_REORDERED_MARKET_DATA_DETERMINISM",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "invalid timestamp rejected",
+      "fault_id": "F09",
+      "green_accepted": true,
+      "name": "SOURCE_TIMEZONE_OR_INVALID_EPOCH_MISMATCH",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_causal_macro_time_window",
+      "diagnostic": "edt=09:30,est=09:30",
+      "fault_id": "F10",
+      "green_accepted": true,
+      "name": "NY_DST_SESSION_BOUNDARY_ACCURACY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh02_asof_mtf_features",
+      "diagnostic": "OBSERVED relabel rejected",
+      "fault_id": "F11",
+      "green_accepted": true,
+      "name": "HIDDEN_SIMULATED_BBO_RELABELED_OBSERVED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "calculate_risk_reward",
+      "diagnostic": "def_fee=0.927,bad_fee=0.328",
+      "fault_id": "F12",
+      "green_accepted": true,
+      "name": "FEE_PRECISION_AND_RATE_DRIFT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "calculate_risk_reward",
+      "diagnostic": "def_slip=0.058,noslip=0.0",
+      "fault_id": "F13",
+      "green_accepted": true,
+      "name": "SLIPPAGE_UNDERREPORTED_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "calculate_risk_reward",
+      "diagnostic": "wide_can_exec=False,skip=MIN_QTY_EXCEEDS_BUDGET: Kh\u1ed1i l\u01b0\u1ee3ng t\u1ed1i thi\u1ec3u 0.01 oz c\u00f3 r\u1ee7i ro $3.03 v\u01b0\u1ee3t ng\u00e2n s\u00e1ch r\u1ee7i ro $2.50",
+      "fault_id": "F14",
+      "green_accepted": true,
+      "name": "RISK_CAP_2P50_BREACHED_BY_WIDE_STOP_OR_FEE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "calculate_risk_reward",
+      "diagnostic": "low_net_rr=0.8211",
+      "fault_id": "F15",
+      "green_accepted": true,
+      "name": "NET_RR_LT_2_0_REJECTED_NO_TP_STRETCH",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "verify_chronological_non_overlap",
+      "diagnostic": "bad_overlaps=1",
+      "fault_id": "F16",
+      "green_accepted": true,
+      "name": "SIMULTANEOUS_OVERLAPPING_POSITIONS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "load_kh02_immutable_baseline_registry",
+      "diagnostic": "bad_v=('WRONG_MANDATORY_BRANCH:master!=feature/v17-9-2-structural-sl-tp-from-qa',)",
+      "fault_id": "F17",
+      "green_accepted": true,
+      "name": "BASELINE_BRANCH_OR_FINGERPRINT_DRIFT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "KH02_D4_ISOLATION_INVARIANT",
+      "diagnostic": "adjacent never counts toward D4",
+      "fault_id": "F18",
+      "green_accepted": true,
+      "name": "D4_STRICT_ADJACENT_RELABELING_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "audit_kh02_oos_escrow_and_noncontamination",
+      "diagnostic": "peek_v=['REUSED_OR_DEV_DATASET_REJECTED_FROM_OOS_ESCROW:oos_0:9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18', 'DEV_OR_NON_ESCROW_ROLE_CANNOT_BE_PROMOTED_TO_FRESH_OOS:oos_0:']",
+      "fault_id": "F19",
+      "green_accepted": true,
+      "name": "OOS_OVERLAP_OR_PEEK_ATTEMPT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "verify_kh02_plan_integrity_unchanged",
+      "diagnostic": "post-freeze edit caught by manifest SHA256",
+      "fault_id": "F20",
+      "green_accepted": true,
+      "name": "HYPOTHESIS_EDITED_AFTER_FREEZE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "estimate_kh02_edge_uncertainty",
+      "diagnostic": "verdict=NOT_ESTIMABLE",
+      "fault_id": "F21",
+      "green_accepted": true,
+      "name": "UNDERPOWERED_SAMPLE_BLOCKED_FROM_PROVEN_EDGE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "estimate_kh02_edge_uncertainty",
+      "diagnostic": "exp=None,v=NOT_ESTIMABLE",
+      "fault_id": "F22",
+      "green_accepted": true,
+      "name": "ZERO_TRADES_NOT_CONVERTED_TO_ZERO_R",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "verify_fresh_junit_bijection_v17931211",
+      "diagnostic": "red_v=['SHARD_SCHEDULED_VS_EXECUTED_MISMATCH:s1'],grn_v=[]",
+      "fault_id": "F23",
+      "green_accepted": true,
+      "name": "JUNIT_DUPLICATE_OR_MISSING_BIJECTION",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "EvidenceReceiptV17931219.is_valid_pass",
+      "diagnostic": "stale run/sha/placeholder hash rejected",
+      "fault_id": "F24",
+      "green_accepted": true,
+      "name": "CONTAMINATED_OLD_RECEIPT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "ResourceMonitorKH01A.check",
+      "diagnostic": "511 MiB latched abort, 512 MiB allowed",
+      "fault_id": "F25",
+      "green_accepted": true,
+      "name": "RAM_512MIB_FLOOR_BREACH_AND_LATCH",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r3_shard_admission",
+      "diagnostic": "bad=WAIT_BACKPRESSURE,ok=ADMIT_VALIDATED_SINGLETON",
+      "fault_id": "F26",
+      "green_accepted": true,
+      "name": "SINGLETON_ADMISSION_BYPASS_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r3_shard_admission",
+      "diagnostic": "bad=REJECT_IMPOSSIBLE_OVER_CAP,lim=3",
+      "fault_id": "F27",
+      "green_accepted": true,
+      "name": "DESCENDANT_OVERSUBSCRIPTION_GT_4_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "compute_kh01b_r1_disk_reserve_policy",
+      "diagnostic": "constraining=temp",
+      "fault_id": "F28",
+      "green_accepted": true,
+      "name": "DISK_BELOW_RESERVE_ON_NON_ROOT_MOUNT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "write_json_durable_atomic",
+      "diagnostic": "fsync+replace verified, 0 leftover tmp",
+      "fault_id": "F29",
+      "green_accepted": true,
+      "name": "PARTIAL_WRITE_REJECTED_ATOMIC_WRITE_CLEAN",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_kill_process_tree_safe",
+      "diagnostic": "pid=8012,rc_after=15",
+      "fault_id": "F30",
+      "green_accepted": true,
+      "name": "ABORT_ORPHAN_CHILD_PROCESS_REAPED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "KH02_STALE_RUN_GUARD",
+      "diagnostic": "prior R3/R2 run_id & SHA disallowed",
+      "fault_id": "F31",
+      "green_accepted": true,
+      "name": "STALE_PREVIOUS_RUN_EVIDENCE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "detect_active_64mib_ram_floor_in_source",
+      "diagnostic": "source AST guard active",
+      "fault_id": "F32",
+      "green_accepted": true,
+      "name": "SOURCE_DRIFT_OR_UNSAFE_OVERRIDE_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "assert_kh02_runtime_safety_modes_off",
+      "diagnostic": "LIVE/PRODUCTION=ON raises PermissionError",
+      "fault_id": "F33",
+      "green_accepted": true,
+      "name": "UNAUTHORIZED_PRODUCTION_FLAG_CHANGE",
+      "red_rejected": true,
+      "status": "PASS"
+    }
+  ],
+  "passed_fault_controls": 33,
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "status": "PASS",
+  "total_fault_controls": 33
+}

@@ -1,0 +1,30 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "circular_hash_policy": "To avoid self-referential SHA hash paradox, this in-run receipt seals tested_executable_sha and head_at_start_sha BEFORE the evidence commit; post-push remote commit SHAs and live HTTPS raw SHA256 readbacks are written to external publication_<RUN_ID>.json.",
+  "frozen_hypothesis_manifest_sha256": "ba0282d139b1cab88d5b62c142cb8dcd1fea4f9f9f8fc343edd2c8540c5306fc",
+  "head_at_start_sha": "98a6d25da94b07572decb531cd6207b91a78fdb0",
+  "orthogonal_verdicts_pre_push": {
+    "ACTIVATION_READY": "NO",
+    "BASELINE_PARITY_VERDICT": "PASS",
+    "DATA_VERDICT": "PASS",
+    "ENGINEERING_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "PUBLICATION_VERDICT": "PENDING_REMOTE_PUSH",
+    "REGRESSION_VERDICT": "PASS",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY_VERDICT": "PASS",
+    "RUNTIME_SAFETY_MODES": {
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF"
+    }
+  },
+  "publication_phase": "PRE_PUSH_LOCAL_SEALED",
+  "run_id": "20261121T033338Z_b99ad30313a6",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "sealed_at_utc": "2026-11-21T04:10:47Z",
+  "spec_version": "KH-02.R1",
+  "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"
+}

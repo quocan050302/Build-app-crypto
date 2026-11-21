@@ -1,0 +1,32 @@
+BÀN GIAO NGHIỆM THU KH-02 — ENTRY FOUNDATION RESEARCH (KH-02.R1)
+1) Nhánh: feature/v17-9-2-structural-sl-tp-from-qa | HEAD lúc bắt đầu: 98a6d25da94b07572decb531cd6207b91a78fdb0 | tested_executable_sha: b99ad30313a6ed5929ba4cbaeab4383bd3db6be5 | Run ID: 20261121T033338Z_b99ad30313a6
+2) File thêm mới: 5 file KH-02 thuần cộng thêm; số file sản xuất/cũ bị sửa: 0 (KEEP_AS_IS giữ nguyên 100%).
+3) Kế hoạch giả thuyết đóng băng trước outcome: H1, H2, H3 (SHA256=ba0282d139b1cab88d5b62c142cb8dcd1fea4f9f9f8fc343edd2c8540c5306fc); tập dữ liệu REUSED_RESEARCH / MODELED_BID_ASK ($0.20), embargo=240 phút.
+4) Vũ trụ cơ hội: 44692 cơ hội hướng M1 sau warmup (3788 kích hoạt M1, 1039 đạt chuẩn SL/TP/RR>=2.0 & risk<=2.50 USD) + 56,710 A1 + 6,375 SI8.
+5) Phán quyết trực giao: ENGINEERING=PASS | REGRESSION=PASS | RESOURCE=PASS | PARITY=PASS | DATA=PASS | ECONOMIC=NO_PROVEN_EDGE | FRESH_OOS=BLOCKED_NO_UNTOUCHED_DATA | ACTIVATION_READY=NO.
+6) Baseline Parity: A1=56710 (0 lệch), SI8=6375, SI0=242/166 (9W/157L, Net=-345.8971 USD, Exp=-0.8474R), 3-adapter 246/246 khớp 100%, Strict D4=0.
+7) Full Pytest: collected=5524, executed=5524, passed=5516, skipped=8, failed=0, errors=0.
+8) RAM/Disk: đáy RAM=4060.8 MiB (>=512 MiB), peak_parent_rss=2570.293 MiB, peak_child_rss=987.512 MiB, max_children=4 (<=4), orphans=0, đáy đĩa=44.8881 GiB (>=20.0 GiB).
+9) Fault Injection RED/GREEN: 33/33 PASS.
+10) Khóa an toàn: PRODUCTION=OFF; LIVE=OFF; PAPER=OFF; AUTO=OFF; ACTIVATION_READY=NO. Không kích hoạt giao dịch; bước tiếp theo chỉ thu thập & niêm phong prospective OOS chưa chạm.
+
+| Gate ID | Gate Name | Status | Artifact | Observed |
+|---|---|---|---|---|
+| `G-KH02-01` | `BRANCH_WORKTREE_SOURCE_FREEZE_AND_TESTED_SHA` | **PASS** | `00_preflight_git_branch_head_resource_runtime.json` | `{"branch": "feature/v17-9-2-structural-sl-tp-from-qa", "tested_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"}` |
+| `G-KH02-02` | `BASELINE_IMMUTABLE_AND_AST_FINGERPRINT_UNCHANGED` | **PASS** | `01_function_callgraph_keep_as_is_diff_immutability.json` | `{"locked_modified": 0, "modified_existing_files": 0}` |
+| `G-KH02-03` | `RESEARCH_ONLY_ISOLATION_AND_MODE_FLAGS_OFF` | **PASS** | `00_preflight_git_branch_head_resource_runtime.json` | `{"ACTIVATION_READY": "NO", "runtime_modes": {"AUTO": "OFF", "LIVE": "OFF", "PAPER": "OFF", "PRODUCTION": "OFF"}}` |
+| `G-KH02-04` | `DATASET_ORIGIN_QUALITY_AND_MTF_COVERAGE` | **PASS** | `02_dataset_registry_lineage_m1_m15_h1_quality.json` | `{"h1_bars": 3863, "m15_bars": 15090, "m1_bars": 22376}` |
+| `G-KH02-05` | `M15_H1_ASOF_CAUSALITY_AND_LEAKAGE_TESTS` | **PASS** | `04_asof_mtf_feature_provenance_and_leakage_controls.json` | `{"future_mut_mismatches": 0, "post_warmup_bars": 22346}` |
+| `G-KH02-06` | `PREREGISTERED_HYPOTHESIS_FREEZE_BEFORE_OUTCOME` | **PASS** | `03_frozen_hypotheses_budget_splits_power_falsification.json` | `{"manifest_sha256": "ba0282d139b1cab8", "primary_count": 3}` |
+| `G-KH02-07` | `UNIVERSAL_DENOMINATOR_MATCHED_COHORTS_ABLATIONS` | **PASS** | `07_matched_cohort_confounder_balance_ablations.json` | `{"arms_evaluated": 12, "directional_opps": 44692}` |
+| `G-KH02-08` | `CHRONOLOGICAL_ONE_POSITION_REPLAY_AND_ADAPTER_PARITY` | **PASS** | `08_chronological_one_position_three_fill_replay.json` | `{"adapter_mismatches": 0, "arms_replayed": 12, "overlaps": 0}` |
+| `G-KH02-09` | `RISK_CAP_NET_RR_AND_THREE_FILL_COSTS` | **PASS** | `09_fee_spread_slippage_1x_2x_3x_counterfactuals.json` | `{"risk_violations": 0, "rr_violations": 0}` |
+| `G-KH02-10` | `PURGED_WALKFORWARD_UNCERTAINTY_AND_HONESTY` | **PASS** | `10_purged_walkforward_and_cluster_uncertainty.json` | `{"economic_verdict": "NO_PROVEN_EDGE", "fold_leakage": false}` |
+| `G-KH02-11` | `FULL_REGRESSION_JUNIT_COLLECTION_BIJECTION` | **PASS** | `12_full_pytest_collection_junit_bijection_exit.json` | `{"collected": 5524, "errors": 0, "executed": 5524, "failed": 0, "mandatory_skipped": 0, "passed": 5516, "skipped": 8}` |
+| `G-KH02-12` | `BOUNDED_ASYNC_W1_W2_W4_REPEAT_DETERMINISM` | **PASS** | `13_async_w1_w2_w4_w1repeat_hashes_speedups.json` | `{"pytest_w4_speedup": 1.537, "science_slice_identical": true}` |
+| `G-KH02-13` | `STRICT_RAM_512MIB_SAFE_SCHEDULER_NO_ORPHANS` | **PASS** | `14_resource_telemetry_ram_disk_pid_cleanup.json` | `{"max_children": 4, "min_avail_ram_mib": 4060.8, "orphans": 0, "peak_child_rss_mib": 987.512, "peak_parent_rss_mib": 2570.293}` |
+| `G-KH02-14` | `STRICT_DISK_RESERVE_ALL_MOUNTS_AND_SENTINEL_CLEANUP` | **PASS** | `14_resource_telemetry_ram_disk_pid_cleanup.json` | `{"min_free_disk_gib": 44.8881, "post_cleanup_gib": 44.8881, "sentinel_clean": true}` |
+| `G-KH02-15` | `REAL_33_RED_GREEN_FAULTS_AND_INDEPENDENT_VERIFIER` | **PASS** | `15_red_green_fault_injection_independent_controls.json` | `{"passed_faults": "33/33"}` |
+| `G-KH02-16` | `SHA256_MANIFESTS_AND_PRIOR_ARTIFACTS_INTACT` | **PASS** | `00_preflight_git_branch_head_resource_runtime.json` | `{"prior_unchanged": true}` |
+| `G-KH02-17` | `OOS_UNTOUCHED_REGISTRY_AND_NO_PEEK_TRUTH` | **PASS** | `11_oos_escrow_no_overlap_no_peek_status.json` | `{"FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA", "OOS_EVALUATIONS": 0}` |
+| `G-KH02-18` | `SAME_BRANCH_PUBLICATION_AND_REMOTE_VERIFY` | **PENDING_REMOTE_PUSH** | `19_git_tested_sha_evidence_publication_receipt.json` | `{"publication_status": "PENDING_REMOTE_PUSH", "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"}` |

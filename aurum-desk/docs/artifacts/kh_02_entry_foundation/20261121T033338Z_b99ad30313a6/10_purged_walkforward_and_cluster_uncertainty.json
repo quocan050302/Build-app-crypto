@@ -1,0 +1,1097 @@
+{
+  "any_fold_leakage_detected": false,
+  "arms_uncertainty": {
+    "ABL_H1_ONLY": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.204,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "ABL_H1_ONLY",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 31.84,
+      "closed_trades_nb": 107,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.017,
+        -0.7214
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -310.8341,
+        -161.5548
+      ],
+      "effective_independent_episodes": 100,
+      "effective_independent_ny_days": 15,
+      "expectancy_1x_nb_r": -0.8939,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -87.6933,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 103,
+      "max_drawdown_1x_nb_usd": 241.3625,
+      "mean_actual_risk_usd": 2.4663,
+      "mean_loss_usd": -2.5091,
+      "mean_win_usd": 5.5807,
+      "net_pnl_1x_nb_usd": -236.1101,
+      "profit_factor_1x_nb": 0.0864,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 42,
+          "train_net_pnl_usd": -105.0837,
+          "val_closed_n": 9,
+          "val_expectancy_r": -1.0168,
+          "val_net_pnl_usd": -22.6756
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 51,
+          "train_net_pnl_usd": -127.7593,
+          "val_closed_n": 12,
+          "val_expectancy_r": -0.4324,
+          "val_net_pnl_usd": -13.0159
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 64,
+          "train_net_pnl_usd": -143.2748,
+          "val_closed_n": 41,
+          "val_expectancy_r": -0.9411,
+          "val_net_pnl_usd": -95.313
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=107_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 123,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -417.3748,
+      "stress_3x_all_cost_net_pnl_usd": -575.4125,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 148.4168,
+      "variant_id": "KH02-ABL-H1-ONLY",
+      "win_rate_nb": 0.037383,
+      "win_rate_wilson_95ci": [
+        0.014632,
+        0.0922
+      ],
+      "wins_nb": 4
+    },
+    "ABL_M15_ONLY": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.2082,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "ABL_M15_ONLY",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 33.3,
+      "closed_trades_nb": 99,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.0155,
+        -0.8235
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -292.5279,
+        -153.0225
+      ],
+      "effective_independent_episodes": 91,
+      "effective_independent_ny_days": 16,
+      "expectancy_1x_nb_r": -0.9098,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -90.4768,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 96,
+      "max_drawdown_1x_nb_usd": 222.3156,
+      "mean_actual_risk_usd": 2.4679,
+      "mean_loss_usd": -2.5085,
+      "mean_win_usd": 6.1673,
+      "net_pnl_1x_nb_usd": -222.3156,
+      "profit_factor_1x_nb": 0.0768,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 49,
+          "train_net_pnl_usd": -104.6578,
+          "val_closed_n": 6,
+          "val_expectancy_r": -1.0142,
+          "val_net_pnl_usd": -15.0001
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 55,
+          "train_net_pnl_usd": -119.6579,
+          "val_closed_n": 13,
+          "val_expectancy_r": -0.7704,
+          "val_net_pnl_usd": -24.8723
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 69,
+          "train_net_pnl_usd": -146.941,
+          "val_closed_n": 28,
+          "val_expectancy_r": -1.0176,
+          "val_net_pnl_usd": -70.3157
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=99_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 112,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -368.4486,
+      "stress_3x_all_cost_net_pnl_usd": -509.8632,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 131.8388,
+      "variant_id": "KH02-ABL-M15-ONLY",
+      "win_rate_nb": 0.030303,
+      "win_rate_wilson_95ci": [
+        0.010359,
+        0.085337
+      ],
+      "wins_nb": 3
+    },
+    "ABL_NO_REGIME": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.2679,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "ABL_NO_REGIME",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 35.24,
+      "closed_trades_nb": 110,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9342,
+        -0.6452
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -299.1489,
+        -135.5544
+      ],
+      "effective_independent_episodes": 102,
+      "effective_independent_ny_days": 13,
+      "expectancy_1x_nb_r": -0.7992,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -74.6112,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 103,
+      "max_drawdown_1x_nb_usd": 218.6267,
+      "mean_actual_risk_usd": 2.468,
+      "mean_loss_usd": -2.5062,
+      "mean_win_usd": 5.9118,
+      "net_pnl_1x_nb_usd": -216.7543,
+      "profit_factor_1x_nb": 0.1603,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 36,
+          "train_net_pnl_usd": -73.6339,
+          "val_closed_n": 11,
+          "val_expectancy_r": -1.0172,
+          "val_net_pnl_usd": -27.6889
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 46,
+          "train_net_pnl_usd": -98.8057,
+          "val_closed_n": 26,
+          "val_expectancy_r": -0.7455,
+          "val_net_pnl_usd": -47.9601
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 74,
+          "train_net_pnl_usd": -151.7163,
+          "val_closed_n": 31,
+          "val_expectancy_r": -0.7886,
+          "val_net_pnl_usd": -60.0873
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=110_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 124,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -403.6548,
+      "stress_3x_all_cost_net_pnl_usd": -542.0633,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 142.1431,
+      "variant_id": "KH02-ABL-NO-VOL-REGIME",
+      "win_rate_nb": 0.063636,
+      "win_rate_wilson_95ci": [
+        0.031165,
+        0.125557
+      ],
+      "wins_nb": 7
+    },
+    "ABL_NO_SESSION": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.2457,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "ABL_NO_SESSION",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 32.8,
+      "closed_trades_nb": 44,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.016,
+        -0.7627
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -142.407,
+        -66.406
+      ],
+      "effective_independent_episodes": 40,
+      "effective_independent_ny_days": 12,
+      "expectancy_1x_nb_r": -0.9427,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -48.64,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 43,
+      "max_drawdown_1x_nb_usd": 102.1886,
+      "mean_actual_risk_usd": 2.4634,
+      "mean_loss_usd": -2.501,
+      "mean_win_usd": 5.3527,
+      "net_pnl_1x_nb_usd": -102.1886,
+      "profit_factor_1x_nb": 0.0498,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 17,
+          "train_net_pnl_usd": -42.3188,
+          "val_closed_n": 4,
+          "val_expectancy_r": -1.0151,
+          "val_net_pnl_usd": -10.0387
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 21,
+          "train_net_pnl_usd": -52.3575,
+          "val_closed_n": 9,
+          "val_expectancy_r": -0.6602,
+          "val_net_pnl_usd": -14.6983
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 30,
+          "train_net_pnl_usd": -67.0558,
+          "val_closed_n": 13,
+          "val_expectancy_r": -1.0169,
+          "val_net_pnl_usd": -32.6035
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=44_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 51,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -162.9796,
+      "stress_3x_all_cost_net_pnl_usd": -219.0518,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 53.5486,
+      "variant_id": "KH02-ABL-NO-SESSION",
+      "win_rate_nb": 0.022727,
+      "win_rate_wilson_95ci": [
+        0.004023,
+        0.118077
+      ],
+      "wins_nb": 1
+    },
+    "ABL_STRUCT_ONLY": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.1889,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "ABL_STRUCT_ONLY",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 37.02,
+      "closed_trades_nb": 170,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9488,
+        -0.731
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -480.8877,
+        -250.5028
+      ],
+      "effective_independent_episodes": 162,
+      "effective_independent_ny_days": 16,
+      "expectancy_1x_nb_r": -0.8522,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -133.1829,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 162,
+      "max_drawdown_1x_nb_usd": 357.2638,
+      "mean_actual_risk_usd": 2.4657,
+      "mean_loss_usd": -2.5058,
+      "mean_win_usd": 6.0838,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "profit_factor_1x_nb": 0.1199,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 59,
+          "train_net_pnl_usd": -131.2745,
+          "val_closed_n": 14,
+          "val_expectancy_r": -1.0171,
+          "val_net_pnl_usd": -35.2534
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 72,
+          "train_net_pnl_usd": -164.0108,
+          "val_closed_n": 34,
+          "val_expectancy_r": -0.6949,
+          "val_net_pnl_usd": -58.4456
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 108,
+          "train_net_pnl_usd": -227.4069,
+          "val_closed_n": 57,
+          "val_expectancy_r": -0.8894,
+          "val_net_pnl_usd": -124.9062
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=170_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 196,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -649.2293,
+      "stress_3x_all_cost_net_pnl_usd": -861.4224,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 224.0809,
+      "variant_id": "KH02-ABL-STRUCT-ONLY",
+      "win_rate_nb": 0.047059,
+      "win_rate_wilson_95ci": [
+        0.024036,
+        0.0901
+      ],
+      "wins_nb": 8
+    },
+    "B2_H1": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.186,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "B2_H1",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 30.6,
+      "closed_trades_nb": 58,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.0181,
+        -0.8214
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -193.0873,
+        -89.389
+      ],
+      "effective_independent_episodes": 53,
+      "effective_independent_ny_days": 14,
+      "expectancy_1x_nb_r": -0.9619,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -59.2099,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": true,
+      "losses_nb": 57,
+      "max_drawdown_1x_nb_usd": 137.6058,
+      "mean_actual_risk_usd": 2.466,
+      "mean_loss_usd": -2.508,
+      "mean_win_usd": 5.3527,
+      "net_pnl_1x_nb_usd": -137.6058,
+      "profit_factor_1x_nb": 0.0374,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 22,
+          "train_net_pnl_usd": -54.9386,
+          "val_closed_n": 4,
+          "val_expectancy_r": -1.0151,
+          "val_net_pnl_usd": -10.0387
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 26,
+          "train_net_pnl_usd": -64.9773,
+          "val_closed_n": 10,
+          "val_expectancy_r": -0.6964,
+          "val_net_pnl_usd": -17.2427
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 36,
+          "train_net_pnl_usd": -82.22,
+          "val_closed_n": 21,
+          "val_expectancy_r": -1.0188,
+          "val_net_pnl_usd": -52.8565
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=58_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 65,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -225.5363,
+      "stress_3x_all_cost_net_pnl_usd": -308.7476,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 78.3959,
+      "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME",
+      "win_rate_nb": 0.017241,
+      "win_rate_wilson_95ci": [
+        0.00305,
+        0.091409
+      ],
+      "wins_nb": 1
+    },
+    "B2_H123": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.0026,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "B2_H123",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 31.27,
+      "closed_trades_nb": 22,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.017,
+        -1.0148
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -70.3118,
+        -39.8521
+      ],
+      "effective_independent_episodes": 19,
+      "effective_independent_ny_days": 11,
+      "expectancy_1x_nb_r": -1.016,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -26.7786,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 22,
+      "max_drawdown_1x_nb_usd": 55.0756,
+      "mean_actual_risk_usd": 2.4641,
+      "mean_loss_usd": -2.5034,
+      "mean_win_usd": null,
+      "net_pnl_1x_nb_usd": -55.0756,
+      "profit_factor_1x_nb": 0.0,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 4,
+          "train_net_pnl_usd": -9.9165,
+          "val_closed_n": 3,
+          "val_expectancy_r": -1.0172,
+          "val_net_pnl_usd": -7.5373
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 7,
+          "train_net_pnl_usd": -17.4538,
+          "val_closed_n": 4,
+          "val_expectancy_r": -1.0166,
+          "val_net_pnl_usd": -10.0842
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 11,
+          "train_net_pnl_usd": -27.538,
+          "val_closed_n": 10,
+          "val_expectancy_r": -1.017,
+          "val_net_pnl_usd": -25.0083
+        }
+      ],
+      "sample_power_status": "UNDERPOWERED_N=22_LT_30",
+      "scheduled_nb": 28,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -88.3334,
+      "stress_3x_all_cost_net_pnl_usd": -116.8716,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 28.297,
+      "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3",
+      "win_rate_nb": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.148655
+      ],
+      "wins_nb": 0
+    },
+    "B2_H2": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.1889,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "B2_H2",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 37.02,
+      "closed_trades_nb": 170,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9488,
+        -0.731
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -480.8877,
+        -250.5028
+      ],
+      "effective_independent_episodes": 162,
+      "effective_independent_ny_days": 16,
+      "expectancy_1x_nb_r": -0.8522,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -133.1829,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": true,
+      "losses_nb": 162,
+      "max_drawdown_1x_nb_usd": 357.2638,
+      "mean_actual_risk_usd": 2.4657,
+      "mean_loss_usd": -2.5058,
+      "mean_win_usd": 6.0838,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "profit_factor_1x_nb": 0.1199,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 59,
+          "train_net_pnl_usd": -131.2745,
+          "val_closed_n": 14,
+          "val_expectancy_r": -1.0171,
+          "val_net_pnl_usd": -35.2534
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 72,
+          "train_net_pnl_usd": -164.0108,
+          "val_closed_n": 34,
+          "val_expectancy_r": -0.6949,
+          "val_net_pnl_usd": -58.4456
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 108,
+          "train_net_pnl_usd": -227.4069,
+          "val_closed_n": 57,
+          "val_expectancy_r": -0.8894,
+          "val_net_pnl_usd": -124.9062
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=170_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 196,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -649.2293,
+      "stress_3x_all_cost_net_pnl_usd": -861.4224,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 224.0809,
+      "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT",
+      "win_rate_nb": 0.047059,
+      "win_rate_wilson_95ci": [
+        0.024036,
+        0.0901
+      ],
+      "wins_nb": 8
+    },
+    "B2_H3": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.2729,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "B2_H3",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 35.58,
+      "closed_trades_nb": 108,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9334,
+        -0.6277
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -294.6182,
+        -131.5244
+      ],
+      "effective_independent_episodes": 100,
+      "effective_independent_ny_days": 13,
+      "expectancy_1x_nb_r": -0.7951,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -73.2514,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": true,
+      "losses_nb": 101,
+      "max_drawdown_1x_nb_usd": 213.598,
+      "mean_actual_risk_usd": 2.4681,
+      "mean_loss_usd": -2.506,
+      "mean_win_usd": 5.9118,
+      "net_pnl_1x_nb_usd": -211.7256,
+      "profit_factor_1x_nb": 0.1635,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 36,
+          "train_net_pnl_usd": -73.6304,
+          "val_closed_n": 11,
+          "val_expectancy_r": -1.0172,
+          "val_net_pnl_usd": -27.6889
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 46,
+          "train_net_pnl_usd": -98.8022,
+          "val_closed_n": 25,
+          "val_expectancy_r": -0.7344,
+          "val_net_pnl_usd": -45.4321
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 73,
+          "train_net_pnl_usd": -149.1848,
+          "val_closed_n": 30,
+          "val_expectancy_r": -0.7811,
+          "val_net_pnl_usd": -57.5901
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=108_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 122,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -390.6126,
+      "stress_3x_all_cost_net_pnl_usd": -529.0248,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 138.4742,
+      "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME",
+      "win_rate_nb": 0.064815,
+      "win_rate_wilson_95ci": [
+        0.031748,
+        0.127776
+      ],
+      "wins_nb": 7
+    },
+    "CONTROL_B0": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.2077,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "CONTROL_B0",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 77.61,
+      "closed_trades_nb": 166,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9697,
+        -0.712
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -452.6444,
+        -240.4336
+      ],
+      "effective_independent_episodes": 164,
+      "effective_independent_ny_days": 19,
+      "expectancy_1x_nb_r": -0.8474,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -142.7836,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 157,
+      "max_drawdown_1x_nb_usd": 345.8971,
+      "mean_actual_risk_usd": 2.4596,
+      "mean_loss_usd": -2.5427,
+      "mean_win_usd": 5.9226,
+      "net_pnl_1x_nb_usd": -345.8971,
+      "profit_factor_1x_nb": 0.1335,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 68,
+          "train_net_pnl_usd": -142.4118,
+          "val_closed_n": 12,
+          "val_expectancy_r": -0.6781,
+          "val_net_pnl_usd": -19.7435
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 81,
+          "train_net_pnl_usd": -168.4674,
+          "val_closed_n": 34,
+          "val_expectancy_r": -0.8035,
+          "val_net_pnl_usd": -67.3914
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 116,
+          "train_net_pnl_usd": -230.5306,
+          "val_closed_n": 47,
+          "val_expectancy_r": -0.9999,
+          "val_net_pnl_usd": -115.7947
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=166_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 242,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -594.6226,
+      "stress_3x_all_cost_net_pnl_usd": -803.8121,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 203.1135,
+      "variant_id": "KH02-B0-PRODUCTION-BASELINE-SI0",
+      "win_rate_nb": 0.054217,
+      "win_rate_wilson_95ci": [
+        0.028783,
+        0.099816
+      ],
+      "wins_nb": 9
+    },
+    "NC_NULL_TRIGGER": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.1889,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "NC_NULL_TRIGGER",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 37.02,
+      "closed_trades_nb": 170,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9488,
+        -0.731
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -480.8877,
+        -250.5028
+      ],
+      "effective_independent_episodes": 162,
+      "effective_independent_ny_days": 16,
+      "expectancy_1x_nb_r": -0.8522,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -133.1829,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 162,
+      "max_drawdown_1x_nb_usd": 357.2638,
+      "mean_actual_risk_usd": 2.4657,
+      "mean_loss_usd": -2.5058,
+      "mean_win_usd": 6.0838,
+      "net_pnl_1x_nb_usd": -357.2638,
+      "profit_factor_1x_nb": 0.1199,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 59,
+          "train_net_pnl_usd": -131.2745,
+          "val_closed_n": 14,
+          "val_expectancy_r": -1.0171,
+          "val_net_pnl_usd": -35.2534
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 72,
+          "train_net_pnl_usd": -164.0108,
+          "val_closed_n": 34,
+          "val_expectancy_r": -0.6949,
+          "val_net_pnl_usd": -58.4456
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 108,
+          "train_net_pnl_usd": -227.4069,
+          "val_closed_n": 57,
+          "val_expectancy_r": -0.8894,
+          "val_net_pnl_usd": -124.9062
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=170_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 196,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -649.2293,
+      "stress_3x_all_cost_net_pnl_usd": -861.4224,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 224.0809,
+      "variant_id": "KH02-NC-NULL-UNFILTERED-B2",
+      "win_rate_nb": 0.047059,
+      "win_rate_wilson_95ci": [
+        0.024036,
+        0.0901
+      ],
+      "wins_nb": 8
+    },
+    "NC_RANDOM_DIR": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.242,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "NC_RANDOM_DIR",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 32.3,
+      "closed_trades_nb": 125,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -0.9503,
+        -0.664
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -324.8122,
+        -177.6982
+      ],
+      "effective_independent_episodes": 119,
+      "effective_independent_ny_days": 15,
+      "expectancy_1x_nb_r": -0.8194,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -89.5542,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 118,
+      "max_drawdown_1x_nb_usd": 260.102,
+      "mean_actual_risk_usd": 2.467,
+      "mean_loss_usd": -2.5068,
+      "mean_win_usd": 6.1326,
+      "net_pnl_1x_nb_usd": -252.8719,
+      "profit_factor_1x_nb": 0.1451,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 41,
+          "train_net_pnl_usd": -84.1723,
+          "val_closed_n": 15,
+          "val_expectancy_r": -1.0165,
+          "val_net_pnl_usd": -37.6524
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 56,
+          "train_net_pnl_usd": -121.8247,
+          "val_closed_n": 27,
+          "val_expectancy_r": -0.7573,
+          "val_net_pnl_usd": -50.764
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 83,
+          "train_net_pnl_usd": -172.6113,
+          "val_closed_n": 37,
+          "val_expectancy_r": -0.826,
+          "val_net_pnl_usd": -75.2652
+        }
+      ],
+      "sample_power_status": "POWERED_MIN_N=125_NEGATIVE_NET_OR_2X_COST_FRAGILE",
+      "scheduled_nb": 152,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -458.5091,
+      "stress_3x_all_cost_net_pnl_usd": -624.4001,
+      "time_underwater_trade_fraction": 0.992,
+      "total_fees_1x_nb_usd": 163.3177,
+      "variant_id": "KH02-NC-RANDOMIZED-DIRECTION",
+      "win_rate_nb": 0.056,
+      "win_rate_wilson_95ci": [
+        0.027388,
+        0.111088
+      ],
+      "wins_nb": 7
+    },
+    "NC_SHIFTED_REGIME": {
+      "activation_ready": "NO",
+      "approx_mde_r_80pct_power": 0.0039,
+      "approx_normal_p_one_sided": 1.0,
+      "arm_code": "NC_SHIFTED_REGIME",
+      "arm_economic_verdict": "NO_PROVEN_EDGE",
+      "avg_holding_minutes": 34.96,
+      "closed_trades_nb": 23,
+      "cluster_bootstrap_95ci_expectancy_r": [
+        -1.0221,
+        -1.0163
+      ],
+      "cluster_bootstrap_95ci_net_pnl_usd": [
+        -98.5252,
+        -25.2264
+      ],
+      "effective_independent_episodes": 22,
+      "effective_independent_ny_days": 7,
+      "expectancy_1x_nb_r": -1.0187,
+      "fold_leakage_detected": false,
+      "fresh_oos_verdict": "BLOCKED_NO_UNTOUCHED_DATA",
+      "full_arms_family_size_m": 12,
+      "gross_pnl_1x_nb_usd": -23.7953,
+      "holm_primary_alpha_threshold": 0.016667,
+      "is_primary_arm": false,
+      "losses_nb": 23,
+      "max_drawdown_1x_nb_usd": 57.9935,
+      "mean_actual_risk_usd": 2.4752,
+      "mean_loss_usd": -2.5215,
+      "mean_win_usd": null,
+      "net_pnl_1x_nb_usd": -57.9935,
+      "profit_factor_1x_nb": 0.0,
+      "purged_walkforward_folds": [
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_1",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 10,
+          "train_net_pnl_usd": -25.139,
+          "val_closed_n": 0,
+          "val_expectancy_r": null,
+          "val_net_pnl_usd": 0
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_2",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 10,
+          "train_net_pnl_usd": -25.139,
+          "val_closed_n": 4,
+          "val_expectancy_r": -1.017,
+          "val_net_pnl_usd": -10.0785
+        },
+        {
+          "embargo_minutes": 240.0,
+          "fold_id": "REUSED_DEV_PURGED_FOLD_3",
+          "partition_label": "REUSED_DEVELOPMENT_NOT_FRESH_OOS",
+          "shared_episodes_count": 0,
+          "train_closed_n": 14,
+          "train_net_pnl_usd": -35.2175,
+          "val_closed_n": 8,
+          "val_expectancy_r": -1.0223,
+          "val_net_pnl_usd": -20.2524
+        }
+      ],
+      "sample_power_status": "UNDERPOWERED_N=23_LT_30",
+      "scheduled_nb": 25,
+      "statistical_method_caveats": "Cluster bootstrap resamples NY trading days (B=1000, seed=20261121) to preserve intra-day serial correlation; normal-tail p-value assumes finite variance and is reported strictly as a secondary diagnostic alongside Holm-Bonferroni multiplicity penalty.",
+      "stress_2x_all_cost_net_pnl_usd": -104.0463,
+      "stress_3x_all_cost_net_pnl_usd": -132.7019,
+      "time_underwater_trade_fraction": 1.0,
+      "total_fees_1x_nb_usd": 34.1982,
+      "variant_id": "KH02-NC-PAST-SHIFTED-48H-REGIME",
+      "win_rate_nb": 0.0,
+      "win_rate_wilson_95ci": [
+        0.0,
+        0.143117
+      ],
+      "wins_nb": 0
+    }
+  },
+  "embargo_minutes_enforced": 240,
+  "folds_spec_epoch_ms": [
+    [
+      1791437880000,
+      1792229034000,
+      1792243434000,
+      1792492752000
+    ],
+    [
+      1791437880000,
+      1792492752000,
+      1792507152000,
+      1792756470000
+    ],
+    [
+      1791437880000,
+      1792756470000,
+      1792770870000,
+      1793196000000
+    ]
+  ],
+  "overall_research_economic_verdict": "NO_PROVEN_EDGE",
+  "partition_disclosure": "REUSED_DEVELOPMENT_DATA_ONLY_NOT_FRESH_OOS",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "status": "PASS"
+}

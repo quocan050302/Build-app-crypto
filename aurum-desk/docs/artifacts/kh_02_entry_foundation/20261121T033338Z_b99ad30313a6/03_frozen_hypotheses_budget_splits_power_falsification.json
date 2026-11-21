@@ -1,0 +1,289 @@
+{
+  "branches_compared": [
+    "CONTROL-B0",
+    "DIAG-B1",
+    "FOUNDATION-B2"
+  ],
+  "code_sha256": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5",
+  "config_sha256": "e88177147cef06847f56d6a21974146f48993e6b525b79c9571f1e8eae637669",
+  "cost_multipliers": [
+    1.0,
+    2.0,
+    3.0
+  ],
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "fill_modes": [
+    "NEXT_BAR_OPEN_BID_ASK",
+    "LEGACY_CLOSE_FILL",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "frozen_before_outcome_evaluation": true,
+  "full_arms_family_size_m": 12,
+  "holm_primary_min_alpha": 0.016667,
+  "is_exploratory_post_freeze": false,
+  "manifest_sha256": "ba0282d139b1cab88d5b62c142cb8dcd1fea4f9f9f8fc343edd2c8540c5306fc",
+  "max_holding_horizon_minutes": 180,
+  "max_planned_risk_usd": 2.5,
+  "max_primary_hypotheses_budget": 3,
+  "min_net_rr": 2.0,
+  "min_powered_closed_trades": 30,
+  "multiplicity_method": "HOLM_BONFERRONI_PRIMARY_FAMILY_PLUS_FULL_ARM_DISCLOSURE",
+  "plan_version": "KH02_PLAN_V1_FROZEN",
+  "primary_family_size_m": 3,
+  "primary_hypotheses": [
+    {
+      "arm_code": "B2_H1",
+      "branch_family": "FOUNDATION_B2",
+      "control": "CONTROL_B0_PRODUCTION_BASELINE & NC_NULL_BASELINE_TRIGGER",
+      "data_availability_rule": "close_time + source_latency_ms <= decision_timestamp_ms",
+      "directional_alternative": "expectancy_1x_nb_r > 0 AND stress_2x_all_cost_net_pnl_usd > 0 AND lower_95_cluster_ci_r > 0",
+      "event_denominator": "ALL_POST_WARMUP_M1_DIRECTIONAL_BARS_44692_AND_A1_56710_MATCHED",
+      "exclusion_criteria": [
+        "RECENT_180M_M1_GAP",
+        "MISSING_OR_INVALID_M15_H1_CLOSED_BAR",
+        "NET_RR_LT_2_0_AFTER_COSTS",
+        "PLANNED_NET_RISK_GT_2_50_USD"
+      ],
+      "falsification_criteria": [
+        "net_expectancy_1x_nb_r <= 0.0",
+        "stress_2x_all_cost_net_pnl_usd <= 0.0",
+        "closed_trades_nb < 30 (NOT_ESTIMABLE / UNDERPOWERED)",
+        "cluster_bootstrap_95ci_low_r <= 0.0",
+        "no_fresh_untouched_oos (cannot claim PROVEN_EDGE on REUSED_RESEARCH)"
+      ],
+      "hypothesis_id": "H1",
+      "is_primary_confirmatory": true,
+      "min_effective_sample_closed_trades": 30,
+      "min_observation_bars": {
+        "15m": 25,
+        "1H": 25,
+        "1m": 30
+      },
+      "primary_outcome": "net_expectancy_r_1x_nb_after_fees_spread_slippage",
+      "return_horizon_minutes": 180,
+      "rule": {
+        "min_m15_signed_eff": 0.2,
+        "require_h1_trend": true,
+        "require_h2_structure": false,
+        "require_h3_vol_session": false,
+        "require_m15_trend": true,
+        "type": "B2_H1_MTF_TREND"
+      },
+      "secondary_outcomes": [
+        "net_pnl_usd",
+        "max_drawdown_usd",
+        "win_rate",
+        "trade_frequency",
+        "stress_2x_all_cost_net_pnl"
+      ],
+      "statement": "Closed-bar M15 and H1 directional trend alignment (M15 close vs EMA-20 with positive slope + M15 signed directional efficiency >= 0.20 + H1 close vs EMA-20 with aligned slope, strictly close_time + latency <= decision_time) improves net expectancy R after all costs over the full post-warmup M1 opportunity universe.",
+      "treatment": "B2_M1_CAUSAL_CONFIRMATION + M15_H1_CLOSED_TREND_ALIGNED",
+      "unit_of_analysis": "chronological_1pos_closed_trade_clustered_by_ny_day_and_episode",
+      "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME"
+    },
+    {
+      "arm_code": "B2_H2",
+      "branch_family": "FOUNDATION_B2",
+      "control": "CONTROL_B0_PRODUCTION_BASELINE & NC_NULL_BASELINE_TRIGGER",
+      "data_availability_rule": "pivot_confirmation_time <= decision_timestamp_ms (confirm_right_bars=2)",
+      "directional_alternative": "expectancy_1x_nb_r > 0 AND stress_2x_all_cost_net_pnl_usd > 0 AND lower_95_cluster_ci_r > 0",
+      "event_denominator": "ALL_POST_WARMUP_M1_DIRECTIONAL_BARS_44692_AND_A1_56710_MATCHED",
+      "exclusion_criteria": [
+        "UNCONFIRMED_FUTURE_PIVOT",
+        "NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET",
+        "NET_RR_LT_2_0_AFTER_COSTS",
+        "PLANNED_NET_RISK_GT_2_50_USD"
+      ],
+      "falsification_criteria": [
+        "net_expectancy_1x_nb_r <= 0.0",
+        "stress_2x_all_cost_net_pnl_usd <= 0.0",
+        "closed_trades_nb < 30 (NOT_ESTIMABLE / UNDERPOWERED)",
+        "cluster_bootstrap_95ci_low_r <= 0.0",
+        "no_fresh_untouched_oos (cannot claim PROVEN_EDGE on REUSED_RESEARCH)"
+      ],
+      "hypothesis_id": "H2",
+      "is_primary_confirmatory": true,
+      "min_effective_sample_closed_trades": 30,
+      "min_observation_bars": {
+        "15m": 25,
+        "1H": 25,
+        "1m": 30
+      },
+      "primary_outcome": "net_expectancy_r_1x_nb_after_fees_spread_slippage",
+      "return_horizon_minutes": 180,
+      "rule": {
+        "require_h1_trend": false,
+        "require_h2_structure": true,
+        "require_h3_vol_session": false,
+        "require_m15_trend": false,
+        "type": "B2_H2_CAUSAL_STRUCTURE"
+      },
+      "secondary_outcomes": [
+        "net_pnl_usd",
+        "max_drawdown_usd",
+        "win_rate",
+        "trade_frequency",
+        "stress_2x_all_cost_net_pnl"
+      ],
+      "statement": "Confirmed causal market structure and liquidity sweep/reclaim context (prior M1 swing liquidity sweep + reclaim or confirmed causal BOS + FVG retest, with explicit confirmation_time <= decision_time and verified unswept M15/H1 liquidity target) yields positive net expectancy R after realistic execution costs.",
+      "treatment": "B2_M1_CAUSAL_CONFIRMATION + CONFIRMED_SWEEP_OR_BOS_WITH_UNSWEPT_HTF_LIQUIDITY",
+      "unit_of_analysis": "chronological_1pos_closed_trade_clustered_by_ny_day_and_episode",
+      "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT"
+    },
+    {
+      "arm_code": "B2_H3",
+      "branch_family": "FOUNDATION_B2",
+      "control": "CONTROL_B0_PRODUCTION_BASELINE & NC_NULL_BASELINE_TRIGGER",
+      "data_availability_rule": "trailing_prefix_only_quantile_no_full_series_scaling",
+      "directional_alternative": "expectancy_1x_nb_r > 0 AND stress_2x_all_cost_net_pnl_usd > 0 AND lower_95_cluster_ci_r > 0",
+      "event_denominator": "ALL_POST_WARMUP_M1_DIRECTIONAL_BARS_44692_AND_A1_56710_MATCHED",
+      "exclusion_criteria": [
+        "WEEKEND_OR_ASIA_ROLLOVER_SESSION",
+        "SPREAD_TO_M1_ATR_GT_0_30",
+        "LOW_VOL_COMPRESSION_H1_Q_LT_0_45",
+        "NET_RR_LT_2_0_AFTER_COSTS"
+      ],
+      "falsification_criteria": [
+        "net_expectancy_1x_nb_r <= 0.0",
+        "stress_2x_all_cost_net_pnl_usd <= 0.0",
+        "closed_trades_nb < 30 (NOT_ESTIMABLE / UNDERPOWERED)",
+        "cluster_bootstrap_95ci_low_r <= 0.0",
+        "no_fresh_untouched_oos (cannot claim PROVEN_EDGE on REUSED_RESEARCH)"
+      ],
+      "hypothesis_id": "H3",
+      "is_primary_confirmatory": true,
+      "min_effective_sample_closed_trades": 30,
+      "min_observation_bars": {
+        "15m": 25,
+        "1H": 26,
+        "1m": 30
+      },
+      "primary_outcome": "net_expectancy_r_1x_nb_after_fees_spread_slippage",
+      "return_horizon_minutes": 180,
+      "rule": {
+        "max_spread_to_m1_atr": 0.3,
+        "min_h1_atr_quantile": 0.45,
+        "require_h1_trend": false,
+        "require_h2_structure": false,
+        "require_h3_vol_session": true,
+        "require_m15_trend": false,
+        "type": "B2_H3_VOL_SESSION"
+      },
+      "secondary_outcomes": [
+        "net_pnl_usd",
+        "max_drawdown_usd",
+        "win_rate",
+        "trade_frequency",
+        "stress_2x_all_cost_net_pnl"
+      ],
+      "statement": "Causal volatility & NY/London session regime (trailing prefix H1 ATR quantile >= 0.45, active London/NY AM/NY PM session excluding weekend/rollover, and modeled spread-to-M1-ATR ratio <= 0.30) separates viable net-positive entry conditions from fee/spread-dominated chop.",
+      "treatment": "B2_M1_CAUSAL_CONFIRMATION + H1_ATR_Q_GE_0_45 + LIQUID_SESSION + SPREAD_ATR_LE_0_30",
+      "unit_of_analysis": "chronological_1pos_closed_trade_clustered_by_ny_day_and_episode",
+      "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME"
+    }
+  ],
+  "primary_hypotheses_count": 3,
+  "prior_use_status": "REUSED_RESEARCH",
+  "purged_embargo_minutes": 240,
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "secondary_ablation_and_control_count": 9,
+  "secondary_and_control_arms": [
+    {
+      "arm_code": "B2_H123",
+      "arm_role": "COMPOSITE_PREDECLARED",
+      "rule": {
+        "max_spread_to_m1_atr": 0.3,
+        "min_h1_atr_quantile": 0.45,
+        "min_m15_signed_eff": 0.2,
+        "require_h1_trend": true,
+        "require_h2_structure": true,
+        "require_h3_vol_session": true,
+        "require_m15_trend": true,
+        "type": "B2_COMPOSITE"
+      },
+      "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3"
+    },
+    {
+      "arm_code": "ABL_M15_ONLY",
+      "arm_role": "ABLATION",
+      "rule": {
+        "min_m15_signed_eff": 0.2,
+        "require_h1_trend": false,
+        "require_m15_trend": true,
+        "type": "B2_ABL"
+      },
+      "variant_id": "KH02-ABL-M15-ONLY"
+    },
+    {
+      "arm_code": "ABL_H1_ONLY",
+      "arm_role": "ABLATION",
+      "rule": {
+        "require_h1_trend": true,
+        "require_m15_trend": false,
+        "type": "B2_ABL"
+      },
+      "variant_id": "KH02-ABL-H1-ONLY"
+    },
+    {
+      "arm_code": "ABL_STRUCT_ONLY",
+      "arm_role": "ABLATION",
+      "rule": {
+        "require_h2_structure": true,
+        "type": "B2_ABL"
+      },
+      "variant_id": "KH02-ABL-STRUCT-ONLY"
+    },
+    {
+      "arm_code": "ABL_NO_REGIME",
+      "arm_role": "ABLATION",
+      "rule": {
+        "require_h2_structure": true,
+        "require_session_only": true,
+        "type": "B2_ABL"
+      },
+      "variant_id": "KH02-ABL-NO-VOL-REGIME"
+    },
+    {
+      "arm_code": "ABL_NO_SESSION",
+      "arm_role": "ABLATION",
+      "rule": {
+        "max_spread_to_m1_atr": 0.3,
+        "min_h1_atr_quantile": 0.45,
+        "min_m15_signed_eff": 0.2,
+        "require_h1_trend": true,
+        "require_m15_trend": true,
+        "require_vol_only": true,
+        "type": "B2_ABL"
+      },
+      "variant_id": "KH02-ABL-NO-SESSION"
+    },
+    {
+      "arm_code": "NC_NULL_TRIGGER",
+      "arm_role": "NEGATIVE_CONTROL",
+      "rule": {
+        "type": "B2_NULL_UNFILTERED"
+      },
+      "variant_id": "KH02-NC-NULL-UNFILTERED-B2"
+    },
+    {
+      "arm_code": "NC_RANDOM_DIR",
+      "arm_role": "NEGATIVE_CONTROL",
+      "rule": {
+        "seed": 20261121,
+        "type": "B2_NEGATIVE_RANDOM_DIR"
+      },
+      "variant_id": "KH02-NC-RANDOMIZED-DIRECTION"
+    },
+    {
+      "arm_code": "NC_SHIFTED_REGIME",
+      "arm_role": "NEGATIVE_CONTROL",
+      "rule": {
+        "shift_bars_1m": 2880,
+        "type": "B2_NEGATIVE_PAST_SHIFTED_REGIME"
+      },
+      "variant_id": "KH02-NC-PAST-SHIFTED-48H-REGIME"
+    }
+  ],
+  "spec_version": "KH-02.R1",
+  "stop_rule": "STOP_NO_PRODUCTION_ACTIVATION: If any primary arm fails net_expectancy > 0, 2x cost stress > 0, cluster 95% CI > 0, powered N >= 30, OR lacks sealed fresh untouched OOS data, conclude NO_PROVEN_EDGE / BLOCKED_NO_UNTOUCHED_DATA; do NOT tune parameters on outcomes or unlock production."
+}
