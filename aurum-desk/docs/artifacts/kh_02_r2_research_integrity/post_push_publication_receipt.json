@@ -1,0 +1,67 @@
+{
+  "OOS_EVALUATIONS": 0,
+  "all_remote_blobs_exact_match": true,
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": "0e8503de3fba041ffda0f3f0c1308c36557f95a0",
+  "manifest_22_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+  "orthogonal_verdicts": {
+    "ACTIVATION_READY": "NO",
+    "BASELINE_PARITY_VERDICT": "PASS",
+    "COST_RECONCILIATION_VERDICT": "PASS",
+    "DATA_PROVENANCE_VERDICT": "PASS",
+    "ENGINEERING_VERDICT": "PASS_WITH_OWNER_DISK_WAIVER",
+    "ENTRY_TARGET_INTEGRITY_VERDICT": "PASS",
+    "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FULL_REGRESSION_VERDICT": "PASS",
+    "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+    "OFFLINE_RESEARCH_INTEGRITY_LOGIC_VERDICT": "PASS",
+    "PAIRED_COMPARISON_VERDICT": "IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+    "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED_WITH_OWNER_DISK_WAIVER",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY_VERDICT": "WAIVED_BY_OWNER_LOW_DISK"
+  },
+  "published_at_utc": "2026-11-21T16:07:46Z",
+  "remote_blob_readback_checks": {
+    "21_orthogonal_engineering_science_economic_oos_gate_matrix.json": {
+      "bytes": 6065,
+      "exact_match": true,
+      "local_sha256": "4028423d6dd963435bec693e8bc7790881739b9ce0e923fa2be5c5e26f968f3e",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/0e8503de3fba041ffda0f3f0c1308c36557f95a0/aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/21_orthogonal_engineering_science_economic_oos_gate_matrix.json",
+      "remote_sha256": "4028423d6dd963435bec693e8bc7790881739b9ce0e923fa2be5c5e26f968f3e"
+    },
+    "22_independent_os_disk_verifier_sha256_manifest.json": {
+      "bytes": 17145,
+      "exact_match": true,
+      "local_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/0e8503de3fba041ffda0f3f0c1308c36557f95a0/aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json",
+      "remote_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169"
+    },
+    "HANDOVER_KH02_R2_VI.txt": {
+      "bytes": 5058,
+      "exact_match": true,
+      "local_sha256": "b779e79be363622657e00657a779f9b076231173f90beb55a91321d49fcb639a",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/0e8503de3fba041ffda0f3f0c1308c36557f95a0/aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/HANDOVER_KH02_R2_VI.txt",
+      "remote_sha256": "b779e79be363622657e00657a779f9b076231173f90beb55a91321d49fcb639a"
+    },
+    "README_KH02_R2.md": {
+      "bytes": 10561,
+      "exact_match": true,
+      "local_sha256": "99a3de3c82f33d09444b5ffec8f7b0e048174861a4ba827ca449470921157ea0",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/0e8503de3fba041ffda0f3f0c1308c36557f95a0/aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/README_KH02_R2.md",
+      "remote_sha256": "99a3de3c82f33d09444b5ffec8f7b0e048174861a4ba827ca449470921157ea0"
+    }
+  },
+  "remote_ls_remote_sha": "0e8503de3fba041ffda0f3f0c1308c36557f95a0",
+  "role_distinction_verified": true,
+  "run_id": "20261121T154352Z_8ca245bcf4d8",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "spec_version": "KH-02.R2-v1.0",
+  "start_head_sha": "6dec7a716141401b7194a10a82797b04b7557816",
+  "tested_executable_sha": "8ca245bcf4d849c44426d047dc025609259bc21d"
+}
