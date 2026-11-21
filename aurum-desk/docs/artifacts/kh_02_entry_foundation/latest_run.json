@@ -1,0 +1,28 @@
+{
+  "ACTIVATION_READY": "NO",
+  "BASELINE_PARITY_VERDICT": "PASS",
+  "DATA_VERDICT": "PASS",
+  "ENGINEERING_VERDICT": "PASS",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "PUBLICATION_VERDICT": "PASS_REMOTE_VERIFIED",
+  "REGRESSION_VERDICT": "PASS",
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "RESOURCE_SAFETY_VERDICT": "PASS",
+  "RUNTIME_SAFETY_MODES": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": "382f7fe96bd8445954eaaa6f04e6b3f0e1637477",
+  "head_at_start_sha": "98a6d25da94b07572decb531cd6207b91a78fdb0",
+  "manifest_18_sha256": "ce3ebd63994829ba5beb13ab6c75f446ad76744a1080317ecca227f8dc49d3c8",
+  "publication_receipt": "aurum-desk/docs/artifacts/kh_02_entry_foundation/publication_20261121T033338Z_b99ad30313a6.json",
+  "publication_receipt_sha256": "f7b3b9f70cc83f1bc338345774e37f824b3da0bac8391d278619fc7186a683dd",
+  "run_dir": "aurum-desk/docs/artifacts/kh_02_entry_foundation/20261121T033338Z_b99ad30313a6",
+  "run_id": "20261121T033338Z_b99ad30313a6",
+  "schema_version": "kh_02.entry_foundation_research.v1",
+  "spec_version": "KH-02.R1",
+  "tested_executable_sha": "b99ad30313a6ed5929ba4cbaeab4383bd3db6be5"
+}
