@@ -290,6 +290,11 @@ def verify_r2_artifacts_independently_from_disk(
 
     min_disk = float(f18.get("min_disk_free_gib") or 0.0)
     reported_res_v = str((f21.get("orthogonal_verdicts") or {}).get("RESOURCE_SAFETY_VERDICT") or "")
+    reported_eng_v = str((f21.get("orthogonal_verdicts") or {}).get("ENGINEERING_VERDICT") or "")
+    if bool(f00.get("owner_disk_preflight_waiver", False)) or bool(f18.get("owner_disk_preflight_waiver", False)):
+        violations.append("UNAPPROVED_AUTONOMOUS_OWNER_DISK_WAIVER_FORBIDDEN")
+    if reported_res_v == "WAIVED_BY_OWNER_LOW_DISK" or reported_eng_v == "PASS_WITH_OWNER_DISK_WAIVER":
+        violations.append(f"DISALLOWED_WAIVER_VERDICT:{reported_res_v}/{reported_eng_v}")
     if min_disk < STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2 and reported_res_v == "PASS":
         violations.append(f"FORGED_RESOURCE_PASS_BELOW_20P5_GIB:disk={min_disk}")
 

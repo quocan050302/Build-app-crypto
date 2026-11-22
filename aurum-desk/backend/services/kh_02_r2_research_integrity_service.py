@@ -25,6 +25,7 @@ import math
 import os
 from pathlib import Path
 import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -102,6 +103,27 @@ PRIOR_KH02_R1_RUN_ID = "20261121T033338Z_b99ad30313a6"
 PRIOR_KH02_R1_LATEST_PTR_REL = "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json"
 PRIOR_KH02_R1_LATEST_PTR_SHA256 = "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4"
 PRIOR_KH02_R1_MANIFEST_18_SHA256 = "ce3ebd63994829ba5beb13ab6c75f446ad76744a1080317ecca227f8dc49d3c8"
+SPEC_VERSION_KH02_R2_C1 = "KH-02.R2.C1-v1.0"
+SCHEMA_VERSION_KH02_R2_C1 = "kh_02_r2_c1_strict_safety_oos_readiness_v1"
+PRIOR_KH02_R2_PUBLICATION_HEAD_SHA = "9c5b97be5dcbefbb52f8a7a4421683c8b0140d76"
+PRIOR_KH02_R2_TESTED_SHA = "8ca245bcf4d849c44426d047dc025609259bc21d"
+PRIOR_KH02_R2_EVIDENCE_COMMIT_SHA = "0e8503de3fba041ffda0f3f0c1308c36557f95a0"
+PRIOR_KH02_R2_RUN_ID = "20261121T154352Z_8ca245bcf4d8"
+PRIOR_KH02_R2_LATEST_PTR_REL = "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/latest_run.json"
+PRIOR_KH02_R2_LATEST_PTR_SHA256 = "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f"
+PRIOR_KH02_R2_ARTIFACT_14_REL = (
+    "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/"
+    "20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json"
+)
+PRIOR_KH02_R2_ARTIFACT_14_SHA256 = "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e"
+PRIOR_KH02_R2_MANIFEST_22_REL = (
+    "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/"
+    "20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json"
+)
+PRIOR_KH02_R2_MANIFEST_22_SHA256 = "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169"
+SENTINEL_FILENAME_KH02_R2_C1 = ".aurum_kh02_r2_c1_owned_temp_sentinel.json"
+SENTINEL_MAGIC_KH02_R2_C1 = "AURUM_KH02_R2_C1_OWNED_TEMP_SENTINEL"
+DEFAULT_RESERVED_EVIDENCE_HEADROOM_GIB = 0.05
 CANONICAL_DATASET_SHA256_KH02_R2 = CANONICAL_DATASET_SHA256_KH02
 CANONICAL_DATASET_REL_PATH = "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz"
 
@@ -4250,6 +4272,441 @@ def evaluate_r2_disk_preflight_policy(
     }
 
 
+def _resolve_mountpoint_for_path(path: Path) -> str:
+    cur = Path(os.path.realpath(str(path)))
+    if not cur.exists():
+        raise FileNotFoundError(f"UNRESOLVABLE_MOUNT_PATH:{path}")
+    while True:
+        if os.path.ismount(str(cur)):
+            return str(cur)
+        parent = cur.parent
+        if parent == cur:
+            return str(cur)
+        cur = parent
+
+
+def create_sentinel_owned_temp_dir_r2_c1(
+    prefix: str,
+    *,
+    run_id: str,
+    owner_pid: Optional[int] = None,
+    base_dir: Optional[Path] = None,
+) -> Path:
+    """
+    Creates a uniquely owned per-run temp directory stamped with an atomic sentinel
+    manifest (`SENTINEL_FILENAME_KH02_R2_C1`). Only directories carrying a verified
+    matching sentinel may ever be cleaned up by `safe_cleanup_sentinel_owned_temp_dir_r2_c1`.
+    """
+    if not str(run_id).strip():
+        raise ValueError("SENTINEL_RUN_ID_REQUIRED")
+    created_path = Path(
+        tempfile.mkdtemp(
+            prefix=prefix,
+            dir=str(base_dir) if base_dir is not None else None,
+        )
+    ).resolve()
+    sentinel_doc = {
+        "magic": SENTINEL_MAGIC_KH02_R2_C1,
+        "run_id": str(run_id),
+        "owner_pid": int(owner_pid if owner_pid is not None else os.getpid()),
+        "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    sentinel_path = created_path / SENTINEL_FILENAME_KH02_R2_C1
+    tmp_path = created_path / f".sentinel_tmp_{os.getpid()}.json"
+    tmp_path.write_text(json.dumps(sentinel_doc, sort_keys=True), encoding="utf-8")
+    os.replace(tmp_path, sentinel_path)
+    return created_path
+
+
+def verify_sentinel_owned_dir_r2_c1(target_dir: Path, *, expected_run_id: str) -> Dict[str, Any]:
+    """Verifies that `target_dir` is a real non-symlink directory carrying our exact run sentinel."""
+    raw_p = Path(target_dir)
+    if raw_p.is_symlink():
+        raise PermissionError(f"REFUSED_SYMLINK_TEMP_DIR:{raw_p}")
+    if not raw_p.is_dir():
+        raise PermissionError(f"REFUSED_NON_DIRECTORY_TEMP_PATH:{raw_p}")
+    sp = raw_p / SENTINEL_FILENAME_KH02_R2_C1
+    if not sp.is_file() or sp.is_symlink():
+        raise PermissionError(f"UNOWNED_TEMP_DIR_MISSING_SENTINEL:{raw_p}")
+    try:
+        doc = json.loads(sp.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise PermissionError(f"CORRUPTED_TEMP_SENTINEL:{raw_p}:{exc}") from exc
+    if doc.get("magic") != SENTINEL_MAGIC_KH02_R2_C1:
+        raise PermissionError(f"INVALID_TEMP_SENTINEL_MAGIC:{raw_p}")
+    if str(doc.get("run_id") or "") != str(expected_run_id):
+        raise PermissionError(
+            f"TEMP_SENTINEL_RUN_ID_MISMATCH:expected={expected_run_id},actual={doc.get('run_id')}"
+        )
+    return doc
+
+
+def safe_cleanup_sentinel_owned_temp_dir_r2_c1(
+    target_dir: Path,
+    *,
+    expected_run_id: str,
+) -> Dict[str, Any]:
+    """
+    Fail-closed temp directory removal: refuses ANY path lacking a valid matching
+    `SENTINEL_FILENAME_KH02_R2_C1` file, preventing accidental deletion of user or repo directories.
+    """
+    doc = verify_sentinel_owned_dir_r2_c1(target_dir, expected_run_id=expected_run_id)
+    shutil.rmtree(Path(target_dir), ignore_errors=False)
+    return {
+        "cleaned": not Path(target_dir).exists(),
+        "path": str(target_dir),
+        "verified_run_id": doc["run_id"],
+    }
+
+
+def run_atomic_write_rename_probe_r2_c1(
+    target_dir: Path,
+    *,
+    expected_run_id: Optional[str] = None,
+    require_sentinel: bool = True,
+) -> Dict[str, Any]:
+    """
+    Executes an atomic write -> fsync -> os.replace -> readback -> unlink probe strictly
+    inside an owned temp/output directory. Fail-closed on permission, IO, or unowned directory error.
+    """
+    td = Path(target_dir)
+    if require_sentinel:
+        if not expected_run_id:
+            raise PermissionError("ATOMIC_PROBE_REQUIRES_EXPECTED_RUN_ID_FOR_SENTINEL")
+        verify_sentinel_owned_dir_r2_c1(td, expected_run_id=expected_run_id)
+    elif not td.is_dir() or td.is_symlink():
+        raise PermissionError(f"ATOMIC_PROBE_INVALID_DIR:{td}")
+
+    probe_tmp = td / f".kh02_r2_c1_probe_{os.getpid()}.tmp"
+    probe_dst = td / f".kh02_r2_c1_probe_{os.getpid()}.dst"
+    payload = json.dumps({"probe": "kh_02_r2_c1_atomic", "pid": os.getpid()}, sort_keys=True).encode("utf-8")
+    try:
+        with probe_tmp.open("wb") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(probe_tmp, probe_dst)
+        readback = probe_dst.read_bytes()
+        if readback != payload:
+            raise IOError("ATOMIC_PROBE_READBACK_MISMATCH")
+        probe_dst.unlink()
+        return {"path": str(td), "atomic_write_rename_ok": True, "error": None}
+    except Exception as exc:
+        probe_tmp.unlink(missing_ok=True)
+        probe_dst.unlink(missing_ok=True)
+        return {"path": str(td), "atomic_write_rename_ok": False, "error": f"{type(exc).__name__}:{exc}"}
+
+
+def probe_r2_c1_write_mounts_strict(
+    paths_by_role: Mapping[str, Path | str],
+    *,
+    reserved_evidence_gib: float = DEFAULT_RESERVED_EVIDENCE_HEADROOM_GIB,
+    strict_preflight_min_gib: float = STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2,
+    strict_runtime_min_gib: float = STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2,
+    advisory_gib: float = ADVISORY_DISK_GIB_KH02_R2,
+    allow_nonexistent_leaf_roles: Sequence[str] = ("artifacts_output", "logs", "caches"),
+    atomic_probe_dirs: Sequence[Tuple[Path, bool, Optional[str]]] = (),
+    stat_fn: Optional[Callable[[str], Any]] = None,
+    disk_usage_fn: Optional[Callable[[str], Any]] = None,
+    mountpoint_fn: Optional[Callable[[Path], str]] = None,
+    realpath_fn: Optional[Callable[[str], str]] = None,
+) -> Dict[str, Any]:
+    """
+    KH-02.R2.C1 Stage A (§4.2) strict multi-mount fail-closed disk preflight probe:
+      - Rejects lowered numeric thresholds (< 20.5 GiB preflight or < 20.0 GiB runtime).
+      - Never accepts an autonomous owner waiver (`owner_waiver_permitted = False`).
+      - Resolves symlinks/aliases and deduplicates physical volumes by `st_dev` (zero double-counting).
+      - Records both binary GiB (1024**3) and decimal GB (1000**3), mountpoint, `st_dev`, UTC timestamp.
+      - Enforces strict >= 20.5 GiB free AND post-reserve `free_gib - reserved_evidence_gib >= 20.0 GiB`
+        on EVERY distinct underlying write volume independently.
+      - Fails closed on any missing/unresolvable mount, permission error, or atomic write probe failure.
+    """
+    if float(strict_preflight_min_gib) < STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2 - 1e-9:
+        raise ValueError(f"ILLEGAL_LOWERED_PREFLIGHT_DISK_FLOOR:{strict_preflight_min_gib}")
+    if float(strict_runtime_min_gib) < STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2 - 1e-9:
+        raise ValueError(f"ILLEGAL_LOWERED_RUNTIME_DISK_FLOOR:{strict_runtime_min_gib}")
+    if float(reserved_evidence_gib) < 0.0:
+        raise ValueError(f"NEGATIVE_RESERVED_EVIDENCE_HEADROOM:{reserved_evidence_gib}")
+    if not paths_by_role:
+        raise ValueError("EMPTY_WRITE_MOUNT_PATHS")
+
+    _stat = stat_fn or os.stat
+    _du = disk_usage_fn or shutil.disk_usage
+    _mp = mountpoint_fn or _resolve_mountpoint_for_path
+    _rp = realpath_fn or os.path.realpath
+    allow_leaf_set = set(allow_nonexistent_leaf_roles)
+    measured_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    role_records: Dict[str, Any] = {}
+    mounts_by_dev: Dict[int, Dict[str, Any]] = {}
+    probe_errors: List[str] = []
+
+    for role, raw_path in sorted(paths_by_role.items()):
+        p_in = Path(raw_path)
+        try:
+            probe_target = p_in
+            if not probe_target.exists():
+                if role in allow_leaf_set:
+                    parent = probe_target.parent
+                    while not parent.exists() and parent != parent.parent:
+                        parent = parent.parent
+                    if not parent.exists():
+                        raise FileNotFoundError(f"NO_EXISTING_PARENT_FOR_ROLE:{role}:{p_in}")
+                    probe_target = parent
+                else:
+                    raise FileNotFoundError(f"MISSING_REQUIRED_MOUNT_PATH:{role}:{p_in}")
+
+            resolved_str = _rp(str(probe_target))
+            st = _stat(resolved_str)
+            st_dev = int(st.st_dev)
+            du = _du(resolved_str)
+            free_b = int(du.free)
+            total_b = int(du.total)
+            used_b = int(du.used)
+            mountpoint = str(_mp(Path(resolved_str)))
+            free_gib = free_b / float(1024 ** 3)
+            free_gb_dec = free_b / float(1000 ** 3)
+            post_reserve_gib = free_gib - float(reserved_evidence_gib)
+
+            role_records[role] = {
+                "requested_path": str(p_in),
+                "probed_real_path": resolved_str,
+                "st_dev": st_dev,
+                "mountpoint": mountpoint,
+                "free_bytes": free_b,
+                "free_gib": round(free_gib, 4),
+                "free_gb_decimal": round(free_gb_dec, 4),
+                "probe_ok": True,
+                "error": None,
+            }
+            if st_dev not in mounts_by_dev:
+                passes_strict = (free_gib + 1e-12) >= float(strict_preflight_min_gib)
+                passes_post_res = (post_reserve_gib + 1e-12) >= float(strict_runtime_min_gib)
+                passes_adv = (free_gib + 1e-12) >= float(advisory_gib)
+                mounts_by_dev[st_dev] = {
+                    "st_dev": st_dev,
+                    "mountpoint": mountpoint,
+                    "roles": [role],
+                    "free_bytes": free_b,
+                    "used_bytes": used_b,
+                    "total_bytes": total_b,
+                    "free_gib": round(free_gib, 4),
+                    "free_gib_exact": free_gib,
+                    "free_gb_decimal": round(free_gb_dec, 4),
+                    "total_gib": round(total_b / float(1024 ** 3), 4),
+                    "reserved_evidence_gib": round(float(reserved_evidence_gib), 4),
+                    "projected_post_reserve_gib": round(post_reserve_gib, 4),
+                    "strict_preflight_min_gib": float(strict_preflight_min_gib),
+                    "strict_runtime_min_gib": float(strict_runtime_min_gib),
+                    "advisory_gib": float(advisory_gib),
+                    "passes_strict_20p5_gib": passes_strict,
+                    "passes_post_reserve_runtime_20p0_gib": passes_post_res,
+                    "passes_all_strict_floors": bool(passes_strict and passes_post_res),
+                    "passes_advisory_25_gib": passes_adv,
+                    "shortfall_to_20p5_gib": round(max(0.0, float(strict_preflight_min_gib) - free_gib), 4),
+                    "shortfall_post_reserve_to_20p0_gib": round(max(0.0, float(strict_runtime_min_gib) - post_reserve_gib), 4),
+                    "measured_utc": measured_utc,
+                    "apfs_purgeable_note": "POSIX statvfs/disk_usage free bytes used (binary GiB = 1024^3); never substitute Finder decimal GB or purgeable cache.",
+                }
+            else:
+                mounts_by_dev[st_dev]["roles"].append(role)
+                # Keep conservative minimum if a mock or concurrent read differed on same st_dev
+                if free_b < int(mounts_by_dev[st_dev]["free_bytes"]):
+                    mounts_by_dev[st_dev]["free_bytes"] = free_b
+                    mounts_by_dev[st_dev]["free_gib"] = round(free_gib, 4)
+                    mounts_by_dev[st_dev]["free_gib_exact"] = free_gib
+                    mounts_by_dev[st_dev]["projected_post_reserve_gib"] = round(post_reserve_gib, 4)
+                    passes_strict = (free_gib + 1e-12) >= float(strict_preflight_min_gib)
+                    passes_post_res = (post_reserve_gib + 1e-12) >= float(strict_runtime_min_gib)
+                    mounts_by_dev[st_dev]["passes_strict_20p5_gib"] = passes_strict
+                    mounts_by_dev[st_dev]["passes_post_reserve_runtime_20p0_gib"] = passes_post_res
+                    mounts_by_dev[st_dev]["passes_all_strict_floors"] = bool(passes_strict and passes_post_res)
+                    mounts_by_dev[st_dev]["shortfall_to_20p5_gib"] = round(max(0.0, float(strict_preflight_min_gib) - free_gib), 4)
+                    mounts_by_dev[st_dev]["shortfall_post_reserve_to_20p0_gib"] = round(max(0.0, float(strict_runtime_min_gib) - post_reserve_gib), 4)
+        except Exception as exc:
+            err_msg = f"MOUNT_PROBE_ERROR:{role}:{type(exc).__name__}:{exc}"
+            probe_errors.append(err_msg)
+            role_records[role] = {
+                "requested_path": str(p_in),
+                "probed_real_path": None,
+                "st_dev": None,
+                "mountpoint": None,
+                "free_bytes": None,
+                "free_gib": None,
+                "free_gb_decimal": None,
+                "probe_ok": False,
+                "error": err_msg,
+            }
+
+    atomic_probe_results: List[Dict[str, Any]] = []
+    for probe_dir, req_sent, exp_rid in atomic_probe_dirs:
+        ar = run_atomic_write_rename_probe_r2_c1(
+            probe_dir,
+            expected_run_id=exp_rid,
+            require_sentinel=req_sent,
+        )
+        atomic_probe_results.append(ar)
+        if not ar["atomic_write_rename_ok"]:
+            probe_errors.append(f"ATOMIC_WRITE_PROBE_FAILED:{probe_dir}:{ar['error']}")
+
+    distinct_mounts = [mounts_by_dev[k] for k in sorted(mounts_by_dev.keys())]
+    blocked_mounts = [m for m in distinct_mounts if not m["passes_all_strict_floors"]]
+    below_adv_mounts = [m for m in distinct_mounts if m["passes_all_strict_floors"] and not m["passes_advisory_25_gib"]]
+
+    if probe_errors or not distinct_mounts:
+        status = "FAIL_MOUNT_PROBE_ERROR"
+        min_free_gib = min((m["free_gib"] for m in distinct_mounts), default=0.0)
+        shortfall = round(max(0.0, float(strict_preflight_min_gib) - min_free_gib), 4)
+    elif blocked_mounts:
+        status = "BLOCKED_LOW_DISK"
+        min_free_gib = min(m["free_gib"] for m in distinct_mounts)
+        shortfall = round(max(0.0, float(strict_preflight_min_gib) - min_free_gib), 4)
+    elif below_adv_mounts:
+        status = "PASS_STRICT_BELOW_ADVISORY_25GIB"
+        min_free_gib = min(m["free_gib"] for m in distinct_mounts)
+        shortfall = 0.0
+    else:
+        status = "PASS_STRICT_AND_ADVISORY"
+        min_free_gib = min(m["free_gib"] for m in distinct_mounts)
+        shortfall = 0.0
+
+    # Strip internal exact float from serialized mount dicts after evaluation
+    for m in distinct_mounts:
+        m.pop("free_gib_exact", None)
+
+    return {
+        "spec_version": SPEC_VERSION_KH02_R2_C1,
+        "measured_utc": measured_utc,
+        "owner_waiver_permitted": False,
+        "status": status,
+        "can_run_heavy_stages": status in ("PASS_STRICT_BELOW_ADVISORY_25GIB", "PASS_STRICT_AND_ADVISORY"),
+        "strict_preflight_min_gib": float(strict_preflight_min_gib),
+        "strict_runtime_min_gib": float(strict_runtime_min_gib),
+        "advisory_gib": float(advisory_gib),
+        "reserved_evidence_gib": round(float(reserved_evidence_gib), 4),
+        "roles_probed_count": len(role_records),
+        "deduplicated_distinct_mounts_count": len(distinct_mounts),
+        "double_counting_prevented_by_st_dev": True,
+        "min_free_gib": round(min_free_gib, 4),
+        "min_free_gb_decimal": round(min_free_gib * (1024.0 ** 3) / (1000.0 ** 3), 4),
+        "shortfall_to_strict_20p5_gib": shortfall,
+        "blocked_mounts_count": len(blocked_mounts),
+        "blocked_mountpoints": [m["mountpoint"] for m in blocked_mounts],
+        "probe_errors": probe_errors,
+        "distinct_mounts": distinct_mounts,
+        "role_mount_mappings": role_records,
+        "atomic_write_probes": atomic_probe_results,
+    }
+
+
+def _dir_size_bytes_readonly(path: Path) -> int:
+    """Fast iterative os.scandir byte counter (zero Path/walk churn, zero symlink traversal, 100% read-only)."""
+    try:
+        st0 = os.lstat(path)
+    except OSError:
+        return 0
+    if not os.path.isdir(path) or os.path.islink(path):
+        return int(st0.st_size) if os.path.isfile(path) and not os.path.islink(path) else 0
+    total = 0
+    stack: List[str] = [os.fspath(path)]
+    while stack:
+        cur = stack.pop()
+        try:
+            with os.scandir(cur) as it:
+                for entry in it:
+                    try:
+                        if entry.is_symlink():
+                            continue
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                        else:
+                            total += int(entry.stat(follow_symlinks=False).st_size)
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+    return total
+
+
+def build_r2_c1_readonly_disk_inventory(repo_root: Path) -> Dict[str, Any]:
+    """
+    KH-02.R2.C1 §4.3: Pure READ-ONLY inventory of project-owned growth folders and
+    manual cleanup guidance. NEVER deletes, prunes, runs `git gc`, or modifies any file.
+    """
+    repo_root = Path(repo_root).resolve()
+    app_root = repo_root / "aurum-desk"
+    immutable_artifact_families = {
+        "kh_01a",
+        "kh_01b",
+        "kh_01b_r1",
+        "kh_01b_r1_data_safety",
+        "kh_01b_r1_data_safety_r2",
+        "kh_01b_r1_ram_safety_r3",
+        "kh_02_entry_foundation",
+        "kh_02_r2_research_integrity",
+        "kh_02_r2_strict_safety_oos_readiness",
+    }
+
+    top_app_folders: List[Dict[str, Any]] = []
+    if app_root.is_dir():
+        for child in sorted(app_root.iterdir()):
+            if child.name.startswith("."):
+                continue
+            sz = _dir_size_bytes_readonly(child)
+            top_app_folders.append(
+                {
+                    "path": str(child.relative_to(repo_root)),
+                    "size_bytes": sz,
+                    "size_mib": round(sz / (1024.0 ** 2), 2),
+                    "size_gib": round(sz / (1024.0 ** 3), 4),
+                }
+            )
+    top_app_folders.sort(key=lambda r: r["size_bytes"], reverse=True)
+
+    artifact_subfolders: List[Dict[str, Any]] = []
+    art_root = app_root / "docs" / "artifacts"
+    if art_root.is_dir():
+        for child in sorted(art_root.iterdir()):
+            sz = _dir_size_bytes_readonly(child)
+            is_imm = child.name in immutable_artifact_families
+            artifact_subfolders.append(
+                {
+                    "path": str(child.relative_to(repo_root)),
+                    "folder_name": child.name,
+                    "size_bytes": sz,
+                    "size_mib": round(sz / (1024.0 ** 2), 2),
+                    "size_gib": round(sz / (1024.0 ** 3), 4),
+                    "immutable_kh_evidence_locked": is_imm,
+                    "manual_archive_candidate": (not is_imm) and sz >= 50 * 1024 * 1024,
+                }
+            )
+    artifact_subfolders.sort(key=lambda r: r["size_bytes"], reverse=True)
+
+    project_reclaimable_bytes = sum(
+        r["size_bytes"] for r in artifact_subfolders if r["manual_archive_candidate"]
+    )
+    return {
+        "spec_version": SPEC_VERSION_KH02_R2_C1,
+        "inventory_mode": "READ_ONLY_ZERO_MUTATIONS",
+        "autonomous_deletion_executed": False,
+        "git_gc_executed": False,
+        "top_project_owned_folders": top_app_folders[:15],
+        "top_docs_artifacts_subfolders": artifact_subfolders[:15],
+        "estimated_project_non_kh_archive_candidates_gib": round(project_reclaimable_bytes / (1024.0 ** 3), 4),
+        "important_note": (
+            "Project-owned legacy artifacts (~1.6 GiB) alone are smaller than the ~11.4 GiB shortfall to 20.5 GiB. "
+            "Reaching >= 25.0 GiB advisory (or >= 20.5 GiB strict preflight) requires manual owner cleanup of "
+            "non-project system/user storage (e.g., macOS Downloads, Docker images, Xcode/Homebrew caches, Time Machine local snapshots)."
+        ),
+        "manual_inspection_commands_NOT_AUTOMATICALLY_EXECUTED": [
+            {"command": "df -h /System/Volumes/Data", "executed": False, "purpose": "Check real APFS Data volume binary GiB free space"},
+            {"command": "du -sh ~/Downloads ~/Library/Caches ~/.cache 2>/dev/null | sort -hr", "executed": False, "purpose": "Inspect user-owned non-project caches & downloads"},
+            {"command": "tmutil listlocalsnapshots /", "executed": False, "purpose": "Check if macOS APFS local Time Machine snapshots hold reclaimable blocks"},
+            {"command": "du -sh aurum-desk/docs/artifacts/* | sort -hr | head -n 15", "executed": False, "purpose": "Review historical pre-KH artifact folders (do NOT delete locked kh_01*/kh_02* folders)"},
+        ],
+    }
+
+
 def validate_r2_cost_scope_honesty(doc: Mapping[str, Any]) -> Tuple[bool, List[str]]:
     """Rejects subset-only rerisk masquerading as full-universe dynamic rerisk."""
     errs: List[str] = []
@@ -4959,25 +5416,28 @@ def evaluate_r2_orthogonal_science_and_engineering_gates_from_disk(
     _g("Gate 16", "Async W1/W2/W4/W1_repeat determinism & workload-specific speeds", g16_status, "17", f"status={sch_st}")
 
     # Gate 17: RAM >= 512 MiB, global children <= 4, no orphan, STRICT 20.5 GiB disk preflight / 20.0 GiB runtime
+    # KH-02.R2.C1 P0-A: Autonomous owner disk waivers are strictly FORBIDDEN (hard FAIL if injected!).
     min_ram = float(f18.get("min_available_ram_mib") or 0.0)
     min_disk = float(f18.get("min_disk_free_gib") or 0.0)
     max_ch_raw = f18.get("max_descendant_children")
     orphans_raw = f18.get("orphan_children_after_cleanup")
     max_ch = int(max_ch_raw) if max_ch_raw is not None else 99
     orphans = int(orphans_raw) if orphans_raw is not None else 99
-    owner_waived_disk = bool(f00.get("owner_disk_preflight_waiver", False)) and bool(f18.get("owner_disk_preflight_waiver", False))
+    owner_waived_disk = bool(f00.get("owner_disk_preflight_waiver", False)) or bool(f18.get("owner_disk_preflight_waiver", False))
     ram_ok = min_ram >= HARD_RAM_FLOOR_MIB_KH02_R2 and max_ch <= GLOBAL_MAX_DESCENDANTS_KH02_R2 and orphans == 0
-    disk_strict_ok = min_disk >= STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2 and bool((f18.get("disk_preflight_policy") or {}).get("can_run_heavy_stages", False))
-    emergency_disk_ok = min_disk >= 2.0
-    if not ram_ok or (owner_waived_disk and not emergency_disk_ok):
+    preflight_disk_ok = bool((f18.get("disk_preflight_policy") or {}).get("can_run_heavy_stages", False))
+    runtime_disk_ok = min_disk >= STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2
+    if owner_waived_disk:
         g17_status = "FAIL"
-    elif disk_strict_ok:
+    elif not ram_ok:
+        g17_status = "FAIL"
+    elif preflight_disk_ok and runtime_disk_ok:
         g17_status = "PASS"
-    elif owner_waived_disk:
-        g17_status = "WAIVED_BY_OWNER_LOW_DISK"
+    elif preflight_disk_ok and not runtime_disk_ok:
+        g17_status = "FAIL"
     else:
         g17_status = "BLOCKED_LOW_DISK"
-    _g("Gate 17", "RAM >= 512 MiB, children <= 4, orphans == 0, strict disk >= 20.5 GiB", g17_status, "18", f"min_ram={min_ram:.1f} MiB, min_disk={min_disk:.4f} GiB, max_ch={max_ch}, orphans={orphans}, owner_waived={owner_waived_disk}")
+    _g("Gate 17", "RAM >= 512 MiB, children <= 4, orphans == 0, strict disk >= 20.5 GiB preflight & >= 20.0 GiB runtime (NO waiver)", g17_status, "18", f"min_ram={min_ram:.1f} MiB, min_disk={min_disk:.4f} GiB, max_ch={max_ch}, orphans={orphans}, owner_waived={owner_waived_disk}")
 
     # Gate 18: >= 40 unique real RED/GREEN faults
     g18_ok = f19.get("status") == "PASS" and int(f19.get("unique_fault_ids", 0)) >= 40 and int(f19.get("failed_controls", 1)) == 0
@@ -4992,11 +5452,13 @@ def evaluate_r2_orthogonal_science_and_engineering_gates_from_disk(
 
     # Gate 20: Remote commit, push & SHA/blob readback
     pub_st = str(f23.get("publication_status") or "NOT_PUBLISHED_BLOCKED_LOW_DISK")
-    if pub_st == "PASS_REMOTE_VERIFIED":
+    if owner_waived_disk or "WAIVER" in pub_st:
+        g20_status = "FAIL"
+    elif pub_st == "PASS_REMOTE_VERIFIED":
         g20_status = "PASS"
     elif "BLOCKED" in pub_st:
         g20_status = "BLOCKED_LOW_DISK" if "LOW_DISK" in pub_st else pub_st
-    elif not require_remote_push_verified and pub_st in ("PRE_PUSH_PENDING", "PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER"):
+    elif not require_remote_push_verified and pub_st == "PRE_PUSH_PENDING":
         g20_status = "PENDING_REMOTE_PUSH"
     else:
         g20_status = "FAIL"
@@ -5018,13 +5480,8 @@ def evaluate_r2_orthogonal_science_and_engineering_gates_from_disk(
         eng_verdict = "FAIL"
     elif any_low_disk:
         eng_verdict = "BLOCKED_LOW_DISK"
-    elif all(g["status"] == "PASS" for g in offline_science_gates) and g15_status == "PASS" and g16_status == "PASS" and g01_status == "PASS" and parity_st == "PASS":
-        if g17_status == "PASS":
-            eng_verdict = "PASS"
-        elif g17_status == "WAIVED_BY_OWNER_LOW_DISK":
-            eng_verdict = "PASS_WITH_OWNER_DISK_WAIVER"
-        else:
-            eng_verdict = "BLOCKED_PENDING_VERIFICATION"
+    elif all(g["status"] == "PASS" for g in offline_science_gates) and g15_status == "PASS" and g16_status == "PASS" and g01_status == "PASS" and parity_st == "PASS" and g17_status == "PASS":
+        eng_verdict = "PASS"
     else:
         eng_verdict = "BLOCKED_PENDING_VERIFICATION"
 

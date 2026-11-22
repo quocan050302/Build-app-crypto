@@ -5,11 +5,13 @@ and separate-OS-process independent disk verifier GREEN + 10 adversarial tamper 
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import gzip
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import pytest
@@ -348,10 +350,13 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     assert out_ok["verifier_pid"] != os.getpid()
 
     # 10 Adversarial Tamper Controls — EVERY SINGLE ONE must cause separate OS verifier to FAIL!
+    # Executed with bounded max_workers=3 separate-OS verifier processes (respects <= 4 descendant cap).
     def _clone(name: str) -> Path:
         dst = tmp_path / name
-        subprocess.run(["cp", "-R", str(clean_dir), str(dst)], check=True)
+        shutil.copytree(clean_dir, dst)
         return dst
+
+    tamper_jobs: list[tuple[str, Path, str, str]] = []
 
     # Tamper 1: Flip Gate 17 from BLOCKED_LOW_DISK to PASS in 21
     d1 = _clone("t1_flip_gate")
@@ -361,7 +366,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
         if g["gate_id"] == "Gate 17":
             g["status"] = "PASS"
     p21.write_text(json.dumps(j21), encoding="utf-8")
-    assert _run_verifier_subprocess(d1, run_id, sha).returncode != 0
+    tamper_jobs.append(("t1_flip_gate", d1, run_id, sha))
 
     # Tamper 2: Forge RESOURCE_SAFETY_VERDICT = PASS under 9.65 GiB disk
     d2 = _clone("t2_forge_disk_pass")
@@ -369,7 +374,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j21 = json.loads(p21.read_text("utf-8"))
     j21["orthogonal_verdicts"]["RESOURCE_SAFETY_VERDICT"] = "PASS"
     p21.write_text(json.dumps(j21), encoding="utf-8")
-    assert _run_verifier_subprocess(d2, run_id, sha).returncode != 0
+    tamper_jobs.append(("t2_forge_disk_pass", d2, run_id, sha))
 
     # Tamper 3: Forge RESEARCH_ECONOMIC_VERDICT = PROVEN_EDGE on reused data
     d3 = _clone("t3_forge_econ")
@@ -377,7 +382,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j15 = json.loads(p15.read_text("utf-8"))
     j15["RESEARCH_ECONOMIC_VERDICT"] = "PROVEN_EDGE"
     p15.write_text(json.dumps(j15), encoding="utf-8")
-    assert _run_verifier_subprocess(d3, run_id, sha).returncode != 0
+    tamper_jobs.append(("t3_forge_econ", d3, run_id, sha))
 
     # Tamper 4: Mutate fixed-fill cost table arithmetic (gross - fee != net)
     d4 = _clone("t4_cost_math")
@@ -385,7 +390,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j11 = json.loads(p11.read_text("utf-8"))
     j11["arms"]["B2_H1"]["1x_base_0p0004"]["net_pnl_usd"] = 999.0
     p11.write_text(json.dumps(j11), encoding="utf-8")
-    assert _run_verifier_subprocess(d4, run_id, sha).returncode != 0
+    tamper_jobs.append(("t4_cost_math", d4, run_id, sha))
 
     # Tamper 5: Subset rerisk substitution in 12
     d5 = _clone("t5_subset_rerisk")
@@ -393,7 +398,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j12 = json.loads(p12.read_text("utf-8"))
     j12["starts_from_full_raw_opportunity_stream"] = False
     p12.write_text(json.dumps(j12), encoding="utf-8")
-    assert _run_verifier_subprocess(d5, run_id, sha).returncode != 0
+    tamper_jobs.append(("t5_subset_rerisk", d5, run_id, sha))
 
     # Tamper 6: Enable ACTIVATION_READY = YES
     d6 = _clone("t6_activation")
@@ -401,7 +406,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j01 = json.loads(p01.read_text("utf-8"))
     j01["ACTIVATION_READY"] = "YES"
     p01.write_text(json.dumps(j01), encoding="utf-8")
-    assert _run_verifier_subprocess(d6, run_id, sha).returncode != 0
+    tamper_jobs.append(("t6_activation", d6, run_id, sha))
 
     # Tamper 7: Nonzero OOS_EVALUATIONS = 1 (OOS peek)
     d7 = _clone("t7_oos_peek")
@@ -409,7 +414,7 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
     j14 = json.loads(p14.read_text("utf-8"))
     j14["OOS_EVALUATIONS"] = 1
     p14.write_text(json.dumps(j14), encoding="utf-8")
-    assert _run_verifier_subprocess(d7, run_id, sha).returncode != 0
+    tamper_jobs.append(("t7_oos_peek", d7, run_id, sha))
 
     # Tamper 8: Swap tested_executable_sha to stale KH-02.R1 SHA
     d8 = _clone("t8_stale_sha")
@@ -422,15 +427,22 @@ def test_separate_os_independent_verifier_green_and_10_adversarial_tampers(tmp_p
         jj = json.loads(fp.read_text("utf-8"))
         jj["tested_executable_sha"] = PRIOR_KH02_R1_TESTED_SHA
         fp.write_text(json.dumps(jj), encoding="utf-8")
-    assert _run_verifier_subprocess(d8, run_id, PRIOR_KH02_R1_TESTED_SHA).returncode != 0
+    tamper_jobs.append(("t8_stale_sha", d8, run_id, PRIOR_KH02_R1_TESTED_SHA))
 
     # Tamper 9: Delete pairing ledger 07
     d9 = _clone("t9_delete_pairing")
     (d9 / "07_paired_entry_geometry_factorial_control_mapping.jsonl.gz").unlink()
-    assert _run_verifier_subprocess(d9, run_id, sha).returncode != 0
+    tamper_jobs.append(("t9_delete_pairing", d9, run_id, sha))
 
     # Tamper 10: Claim full pytest PASS with zero JUnit XML
     d10 = _clone("t10_fake_pytest_pass")
     p16 = d10 / "16_full_pytest_collection_execution_junit_bijection.json"
     p16.write_text(json.dumps({"status": "PASS", "collected_count": 100, "executed_count": 100, "failed_count": 0, "error_count": 0, "junit_bijection_exact": True}), encoding="utf-8")
-    assert _run_verifier_subprocess(d10, run_id, sha).returncode != 0
+    tamper_jobs.append(("t10_fake_pytest_pass", d10, run_id, sha))
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(
+            pool.map(lambda job: (job[0], _run_verifier_subprocess(job[1], job[2], job[3])), tamper_jobs)
+        )
+    for label, proc in results:
+        assert proc.returncode != 0, f"Tamper {label} unexpectedly passed: {proc.stdout}"

@@ -2,16 +2,14 @@
 """
 aurum-desk/tools/run_kh_02_r2_verification.py
 
-AURUM DESK — KH-02.R2 | RESEARCH INTEGRITY & DATA READINESS ORCHESTRATOR
-SPEC VERSION: KH-02.R2-v1.0
+AURUM DESK — KH-02.R2 / KH-02.R2.C1 | RESEARCH INTEGRITY & DATA READINESS ORCHESTRATOR
+SPEC VERSION: KH-02.R2-v1.0 (hardened under KH-02.R2.C1 P0-A strict unwaivable disk safety)
 
-Executes the complete KH-02.R2 pipeline with:
-  - Strict fail-closed preflight disk policy (>= 20.5 GiB FREE on ALL writing volumes;
-    >= 20.0 GiB runtime floor; >= 25.0 GiB advisory) by default.
-  - Optional explicit owner waiver (`--owner-waive-disk-preflight`): records exact measured
-    disk space and labels Gate 17 / RESOURCE_SAFETY_VERDICT honestly as
-    `WAIVED_BY_OWNER_LOW_DISK` (NEVER fake `PASS`), keeping an emergency 2.0 GiB OS safety
-    rail, strict >= 512 MiB RAM floor, and <= 4 global child cap active at all times.
+Executes the KH-02.R2 pipeline with:
+  - Strict fail-closed unwaivable preflight disk policy (>= 20.5 GiB FREE on ALL distinct
+    writing volumes; >= 20.0 GiB runtime floor monitored throughout; >= 25.0 GiB advisory).
+  - Autonomous `--owner-waive-disk-preflight` bypass is PERMANENTLY DISABLED and REJECTED
+    fail-closed (`UNAPPROVED_AUTONOMOUS_DISK_WAIVER_FORBIDDEN`, exit code 2).
   - Full repository LPT-sharded pytest regression (`w <= 4`) + 1:1 JUnit XML bijection (16).
   - Controlled `W1/W2/W4/W1_repeat` pytest subset + KH-02.R2 science slice benchmark (17).
   - Full 56,710 A1 + 6,375 SI8 + 242/166 SI0 + 246 3-adapter + strict D4=0 parity (20).
@@ -19,6 +17,28 @@ Executes the complete KH-02.R2 pipeline with:
     sealing `22_independent_os_disk_verifier_sha256_manifest.json`.
 """
 from __future__ import annotations
+
+import json as _early_json
+import sys as _early_sys
+
+if __name__ == "__main__" and "--owner-waive-disk-preflight" in _early_sys.argv:
+    print(
+        _early_json.dumps(
+            {
+                "status": "REJECTED_UNAPPROVED_AUTONOMOUS_DISK_WAIVER",
+                "error": (
+                    "UNAPPROVED_AUTONOMOUS_DISK_WAIVER_FORBIDDEN: "
+                    "--owner-waive-disk-preflight is disabled under KH-02.R2.C1 strict disk safety "
+                    "(>= 20.5 GiB preflight / >= 20.0 GiB runtime)."
+                ),
+                "exit_code": 2,
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        file=_early_sys.stderr,
+    )
+    raise SystemExit(2)
 
 import argparse
 import asyncio
@@ -33,6 +53,7 @@ import io
 import json
 import os
 from pathlib import Path
+import pickle
 import platform
 import shutil
 import subprocess
@@ -101,13 +122,16 @@ from services.kh_02_r2_research_integrity_service import (
     audit_r2_r1_target_eligibility_counterexamples,
     audit_r2_reference_inputs_and_invariants,
     build_r2_causal_unswept_level_ledger,
+    build_r2_c1_readonly_disk_inventory,
     build_r2_paired_factorial_entry_geometry_design,
     build_r2_target_repair_full_opportunity_conservation,
     compute_r2_stratified_common_support_balance,
+    create_sentinel_owned_temp_dir_r2_c1,
     evaluate_r2_disk_preflight_policy,
     evaluate_r2_orthogonal_science_and_engineering_gates_from_disk,
     freeze_r2_estimands_thresholds_and_falsification,
     load_r2_canonical_dataset_readonly,
+    probe_r2_c1_write_mounts_strict,
     render_r2_readme_and_handover_vi,
     replay_r2_same_opportunity_paired_counterfactuals,
     reprice_r2_fixed_fills_cost_counterfactual,
@@ -115,6 +139,7 @@ from services.kh_02_r2_research_integrity_service import (
     resolve_r2_research_only_structural_target,
     run_kh02_r2_42_red_green_fault_suite,
     run_r2_purged_walkforward_and_multiplicity,
+    safe_cleanup_sentinel_owned_temp_dir_r2_c1,
 )
 from services.v17_9_3_1_2_1_root_cause_evidence_service import (
     build_full_intervention_candidate_index_v1793121,
@@ -139,6 +164,7 @@ from tools.fresh_junit_io import write_json_durable_atomic
 from tools.run_kh_01a_verification import V130_RUN, iter_jsonl_gz
 from tools.run_kh_01b_r1_verification import (
     _build_lpt_shards_kh01b_r1,
+    _kill_process_tree_safe,
     _load_empirical_file_durations_ms_from_kh01b,
     _run_controlled_pytest_w1_w2_w4_benchmark_r1,
     run_async_lpt_pytest_shards_kh01b_r1,
@@ -178,20 +204,90 @@ def _free_gib(path: Path) -> float:
     return round(usage.free / (1024.0 ** 3), 4)
 
 
-class _BoundedResourceSampler:
-    """0.5s background sampler writing compact RAM/disk/PID telemetry to gzip JSONL."""
+def _distinct_watch_paths_by_dev(paths: List[Path]) -> List[Path]:
+    """Deduplicates watch paths by st_dev so each underlying physical mount is polled once."""
+    seen_devs: Set[int] = set()
+    out: List[Path] = []
+    for raw in paths:
+        cur = raw if raw.exists() else raw.parent
+        try:
+            st_dev = int(os.stat(os.path.realpath(str(cur))).st_dev)
+        except OSError:
+            continue
+        if st_dev not in seen_devs:
+            seen_devs.add(st_dev)
+            out.append(cur)
+    return out or [APP_ROOT]
 
-    def __init__(self, out_gz: Path, watch_path: Path, interval_sec: float = 0.5) -> None:
+
+class _BoundedResourceSampler:
+    """
+    0.5s background sampler writing compact RAM/disk/PID telemetry to gzip JSONL.
+    Monitors ALL distinct write mounts and enforces hard runtime abort + safe descendant
+    termination/reaping if RAM < 512 MiB or (when enabled) disk < 20.0 GiB mid-run.
+    """
+
+    def __init__(
+        self,
+        out_gz: Path,
+        watch_path: Path,
+        interval_sec: float = 0.5,
+        *,
+        watch_paths: Optional[List[Path]] = None,
+        enforce_runtime_disk_abort: bool = False,
+        runtime_disk_floor_gib: float = STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2,
+        hard_ram_floor_mib: float = HARD_RAM_FLOOR_MIB_KH02_R2,
+        disk_free_fn: Optional[Any] = None,
+        ram_avail_mib_fn: Optional[Any] = None,
+        on_emergency_abort: Optional[Any] = None,
+    ) -> None:
         self.out_gz = out_gz
         self.watch_path = watch_path
+        self.watch_paths = _distinct_watch_paths_by_dev(list(watch_paths) if watch_paths else [watch_path])
         self.interval_sec = interval_sec
+        self.enforce_runtime_disk_abort = bool(enforce_runtime_disk_abort)
+        self.runtime_disk_floor_gib = float(runtime_disk_floor_gib)
+        self.hard_ram_floor_mib = float(hard_ram_floor_mib)
+        self._disk_free_fn = disk_free_fn or _free_gib
+        self._ram_avail_mib_fn = ram_avail_mib_fn
+        self._on_emergency_abort = on_emergency_abort
         self._stop = threading.Event()
+        self.abort_event = threading.Event()
+        self.abort_reason: Optional[str] = None
+        self.reaped_pids_on_abort: List[int] = []
         self._samples: List[Dict[str, Any]] = []
         self._thread: Optional[threading.Thread] = None
         self._proc = psutil.Process(os.getpid())
 
+    def _terminate_descendants_on_abort(self) -> List[int]:
+        killed: List[int] = []
+        try:
+            children = self._proc.children(recursive=True)
+        except Exception:
+            children = []
+        for ch in children:
+            try:
+                pid = int(ch.pid)
+                _kill_process_tree_safe(pid)
+                killed.append(pid)
+            except Exception:
+                continue
+        # Reap direct children non-blockingly / boundedly to prevent zombies
+        for ch in children:
+            try:
+                ch.wait(timeout=1.5)
+            except Exception:
+                pass
+        return killed
+
     def _sample_once(self) -> Dict[str, Any]:
         vm = psutil.virtual_memory()
+        if self._ram_avail_mib_fn is not None:
+            avail_mib = round(float(self._ram_avail_mib_fn()), 2)
+            avail_bytes = int(avail_mib * (1024.0 ** 2))
+        else:
+            avail_bytes = int(vm.available)
+            avail_mib = round(avail_bytes / (1024.0 ** 2), 2)
         try:
             heavy_children = _active_heavy_worker_children(self._proc)
             raw_children = self._proc.children(recursive=True)
@@ -204,18 +300,43 @@ class _BoundedResourceSampler:
             parent_rss = int(self._proc.memory_info().rss)
             child_rss = 0
             raw_desc_cnt = 0
-        return {
+
+        mount_frees = [round(float(self._disk_free_fn(wp)), 4) for wp in self.watch_paths]
+        min_mount_gib = min(mount_frees) if mount_frees else round(float(self._disk_free_fn(self.watch_path)), 4)
+
+        sample = {
             "ts_ms": int(time.time() * 1000),
-            "available_ram_bytes": int(vm.available),
-            "available_mib": round(vm.available / (1024.0 ** 2), 2),
+            "available_ram_bytes": avail_bytes,
+            "available_mib": avail_mib,
             "rss_bytes": parent_rss,
             "child_rss_bytes": child_rss,
             "tree_rss_mib": round((parent_rss + child_rss) / (1024.0 ** 2), 2),
             "worker_pids": child_pids,
             "child_count": len(child_pids),
             "raw_descendant_count": raw_desc_cnt,
-            "disk_free_gib": _free_gib(self.watch_path),
+            "disk_free_gib": min_mount_gib,
+            "distinct_watch_mounts_count": len(self.watch_paths),
         }
+
+        if not self.abort_event.is_set():
+            reason: Optional[str] = None
+            if avail_mib < self.hard_ram_floor_mib:
+                reason = f"RUNTIME_HARD_RAM_FLOOR_BREACH:{avail_mib:.2f}MiB<{self.hard_ram_floor_mib:.2f}MiB"
+            elif self.enforce_runtime_disk_abort and min_mount_gib < self.runtime_disk_floor_gib:
+                reason = f"RUNTIME_STRICT_DISK_FLOOR_BREACH:{min_mount_gib:.4f}GiB<{self.runtime_disk_floor_gib:.2f}GiB"
+            if reason is not None:
+                self.abort_reason = reason
+                self.abort_event.set()
+                self.reaped_pids_on_abort = self._terminate_descendants_on_abort()
+                sample["emergency_abort_triggered"] = True
+                sample["emergency_abort_reason"] = reason
+                sample["reaped_pids_on_abort"] = list(self.reaped_pids_on_abort)
+                if self._on_emergency_abort is not None:
+                    try:
+                        self._on_emergency_abort(reason, list(self.reaped_pids_on_abort))
+                    except Exception:
+                        pass
+        return sample
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -233,11 +354,13 @@ class _BoundedResourceSampler:
             self._thread.join(timeout=3.0)
         self._samples.append(self._sample_once())
         self.out_gz.parent.mkdir(parents=True, exist_ok=True)
-        with self.out_gz.open("wb") as raw_fh:
+        tmp_gz = self.out_gz.with_name(f"{self.out_gz.name}.tmp.{os.getpid()}")
+        with tmp_gz.open("wb") as raw_fh:
             with gzip.GzipFile(filename="", mode="wb", fileobj=raw_fh, compresslevel=6, mtime=0) as gzf:
                 with io.TextIOWrapper(gzf, encoding="utf-8") as gz:
                     for s in self._samples:
                         gz.write(json.dumps(s, sort_keys=True, separators=(",", ":")) + "\n")
+        os.replace(tmp_gz, self.out_gz)
         min_ram = min(s["available_mib"] for s in self._samples)
         max_rss = max(s["tree_rss_mib"] for s in self._samples)
         min_disk = min(s["disk_free_gib"] for s in self._samples)
@@ -250,7 +373,11 @@ class _BoundedResourceSampler:
             "min_disk_free_gib": round(min_disk, 4),
             "max_descendant_children": int(max_ch),
             "orphan_children_after_cleanup": int(orphans),
-            "never_breached_512mib_floor": min_ram >= HARD_RAM_FLOOR_MIB_KH02_R2,
+            "never_breached_512mib_floor": min_ram >= self.hard_ram_floor_mib,
+            "never_breached_20p0gib_runtime_disk_floor": min_disk >= self.runtime_disk_floor_gib,
+            "emergency_abort_triggered": bool(self.abort_event.is_set()),
+            "emergency_abort_reason": self.abort_reason,
+            "reaped_pids_on_abort": list(self.reaped_pids_on_abort),
         }
 
 
@@ -259,15 +386,28 @@ class _BoundedResourceSampler:
 # ==============================================================================
 
 
-def _run_r2_science_slice_worker_cli(start_idx: int, end_idx: int, out_json: Path) -> int:
+def _run_r2_science_slice_worker_cli(
+    start_idx: int,
+    end_idx: int,
+    out_json: Path,
+    *,
+    slice_cache_pkl: Optional[Path] = None,
+) -> int:
     """Subprocess worker evaluating R2 causal unswept ledger + target resolver across M1 slice."""
-    ds_path = REPO_ROOT / CANONICAL_DATASET_REL_PATH
-    datasets, _ = load_r2_canonical_dataset_readonly(ds_path)
-    mtf = build_kh02_asof_mtf_features(datasets, warmup_m1=30)
-    led = build_r2_causal_unswept_level_ledger(datasets, warmup_m1=30, run_t10_future_mutation_proof=False)
-    rbi = mtf["records_by_idx"]
-    hi_map = led["unswept_highs_by_m1_idx"]
-    lo_map = led["unswept_lows_by_m1_idx"]
+    if slice_cache_pkl is not None and slice_cache_pkl.is_file():
+        with slice_cache_pkl.open("rb") as fh:
+            cached = pickle.load(fh)
+        rbi = cached["rbi"]
+        hi_map = cached["hi_map"]
+        lo_map = cached["lo_map"]
+    else:
+        ds_path = REPO_ROOT / CANONICAL_DATASET_REL_PATH
+        datasets, _ = load_r2_canonical_dataset_readonly(ds_path)
+        mtf = build_kh02_asof_mtf_features(datasets, warmup_m1=30)
+        led = build_r2_causal_unswept_level_ledger(datasets, warmup_m1=30, run_t10_future_mutation_proof=False)
+        rbi = mtf["records_by_idx"]
+        hi_map = led["unswept_highs_by_m1_idx"]
+        lo_map = led["unswept_lows_by_m1_idx"]
     rows: List[Tuple[int, str, Optional[float], Optional[float], Optional[str]]] = []
     for idx in range(start_idx, end_idx):
         rec = rbi.get(idx)
@@ -295,62 +435,84 @@ async def _run_r2_science_slice_w1_w2_w4_determinism(
     runs_out: List[Dict[str, Any]] = []
     script_self = Path(__file__).resolve()
 
-    for mode_label, n_workers in (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1)):
-        avail_b = int(psutil.virtual_memory().available)
-        if avail_b < HARD_ABORT_RAM_FLOOR_BYTES_R3:
-            raise RuntimeError(f"BLOCKED_LOW_RAM_BEFORE_R2_SLICE:{mode_label}:{avail_b}")
-        t0 = time.perf_counter()
-        n_chunks = max(1, min(4, n_workers))
-        span = bar_end - bar_start
-        step = max(1, (span + n_chunks - 1) // n_chunks)
-        chunks = [
-            (bar_start + k * step, min(bar_end, bar_start + (k + 1) * step))
-            for k in range(n_chunks)
-            if bar_start + k * step < bar_end
-        ]
-        sem = asyncio.Semaphore(n_workers)
+    # Precompute read-only slice cache ONCE inside sentinel-owned temp dir so W=1/2/4 workers
+    # avoid duplicating full-dataset gzip decompression while evaluating identical inputs.
+    ds_path = REPO_ROOT / CANONICAL_DATASET_REL_PATH
+    datasets, _ = load_r2_canonical_dataset_readonly(ds_path)
+    mtf = build_kh02_asof_mtf_features(datasets, warmup_m1=30)
+    led = build_r2_causal_unswept_level_ledger(datasets, warmup_m1=30, run_t10_future_mutation_proof=False)
+    slice_cache_p = owned_temp_root / "kh02r2_slice_inputs_cache.pkl"
+    slice_payload = {
+        "rbi": {k: v for k, v in mtf["records_by_idx"].items() if bar_start <= k < bar_end},
+        "hi_map": {k: v for k, v in led["unswept_highs_by_m1_idx"].items() if bar_start <= k < bar_end},
+        "lo_map": {k: v for k, v in led["unswept_lows_by_m1_idx"].items() if bar_start <= k < bar_end},
+    }
+    with slice_cache_p.open("wb") as fh:
+        pickle.dump(slice_payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    del datasets, mtf, led, slice_payload
+    gc.collect()
 
-        async def _launch(ci: int, s_i: int, e_i: int) -> Path:
-            out_p = owned_temp_root / f"kh02r2_slice_{mode_label.replace('=', '')}_{ci}.json"
-            async with sem:
-                p = await asyncio.create_subprocess_exec(
-                    sys.executable,
-                    str(script_self),
-                    "--r2-science-slice-worker",
-                    str(s_i),
-                    str(e_i),
-                    str(out_p),
-                    cwd=str(REPO_ROOT),
-                    stdin=asyncio.subprocess.DEVNULL,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                _, err_b = await asyncio.wait_for(p.communicate(), timeout=240.0)
-                if p.returncode != 0:
-                    raise RuntimeError(
-                        f"R2_SLICE_WORKER_FAILED:{mode_label}:rc={p.returncode}:{err_b.decode('utf-8', errors='replace')[-400:]}"
+    try:
+        for mode_label, n_workers in (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1)):
+            avail_b = int(psutil.virtual_memory().available)
+            if avail_b < HARD_ABORT_RAM_FLOOR_BYTES_R3:
+                raise RuntimeError(f"BLOCKED_LOW_RAM_BEFORE_R2_SLICE:{mode_label}:{avail_b}")
+            t0 = time.perf_counter()
+            n_chunks = max(1, min(4, n_workers))
+            span = bar_end - bar_start
+            step = max(1, (span + n_chunks - 1) // n_chunks)
+            chunks = [
+                (bar_start + k * step, min(bar_end, bar_start + (k + 1) * step))
+                for k in range(n_chunks)
+                if bar_start + k * step < bar_end
+            ]
+            sem = asyncio.Semaphore(n_workers)
+
+            async def _launch(ci: int, s_i: int, e_i: int) -> Path:
+                out_p = owned_temp_root / f"kh02r2_slice_{mode_label.replace('=', '')}_{ci}.json"
+                async with sem:
+                    p = await asyncio.create_subprocess_exec(
+                        sys.executable,
+                        str(script_self),
+                        "--r2-science-slice-worker",
+                        str(s_i),
+                        str(e_i),
+                        str(out_p),
+                        "--slice-cache-pkl",
+                        str(slice_cache_p),
+                        cwd=str(REPO_ROOT),
+                        stdin=asyncio.subprocess.DEVNULL,
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.PIPE,
                     )
-            return out_p
+                    _, err_b = await asyncio.wait_for(p.communicate(), timeout=240.0)
+                    if p.returncode != 0:
+                        raise RuntimeError(
+                            f"R2_SLICE_WORKER_FAILED:{mode_label}:rc={p.returncode}:{err_b.decode('utf-8', errors='replace')[-400:]}"
+                        )
+                return out_p
 
-        out_files = await asyncio.gather(*[_launch(i, s, e) for i, (s, e) in enumerate(chunks)])
-        merged: List[Any] = []
-        for of in out_files:
-            doc = json.loads(of.read_text("utf-8"))
-            merged.extend(doc.get("rows") or [])
-            of.unlink(missing_ok=True)
-        merged.sort()
-        wall_s = round(time.perf_counter() - t0, 3)
-        runs_out.append(
-            {
-                "mode_label": mode_label,
-                "workers": n_workers,
-                "chunks_count": len(chunks),
-                "evaluated_bars_count": bar_end - bar_start,
-                "rows_count": len(merged),
-                "wall_seconds": wall_s,
-                "canonical_sorted_sha256": canonical_hash(merged),
-            }
-        )
+            out_files = await asyncio.gather(*[_launch(i, s, e) for i, (s, e) in enumerate(chunks)])
+            merged: List[Any] = []
+            for of in out_files:
+                doc = json.loads(of.read_text("utf-8"))
+                merged.extend(doc.get("rows") or [])
+                of.unlink(missing_ok=True)
+            merged.sort()
+            wall_s = round(time.perf_counter() - t0, 3)
+            runs_out.append(
+                {
+                    "mode_label": mode_label,
+                    "workers": n_workers,
+                    "chunks_count": len(chunks),
+                    "evaluated_bars_count": bar_end - bar_start,
+                    "rows_count": len(merged),
+                    "wall_seconds": wall_s,
+                    "canonical_sorted_sha256": canonical_hash(merged),
+                }
+            )
+    finally:
+        slice_cache_p.unlink(missing_ok=True)
 
     shas = {r["canonical_sorted_sha256"] for r in runs_out}
     w1_s = max(0.001, float(runs_out[0]["wall_seconds"]))
@@ -809,6 +971,13 @@ def run_kh02_r2_orchestrator(
     max_workers: int = GLOBAL_MAX_DESCENDANTS_KH02_R2,
     artifacts_root: Optional[Path] = None,
 ) -> Tuple[int, Path, Dict[str, Any]]:
+    if owner_waive_disk_preflight:
+        raise RuntimeError(
+            "UNAPPROVED_AUTONOMOUS_DISK_WAIVER_FORBIDDEN: "
+            "--owner-waive-disk-preflight is permanently disabled under KH-02.R2.C1 strict fail-closed disk policy "
+            f"(>= {STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2} GiB preflight / >= {STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2} GiB runtime on ALL write mounts)."
+        )
+
     t_start = time.perf_counter()
     utc_now = datetime.now(timezone.utc)
     utc_stamp = utc_now.strftime("%Y%m%dT%H%M%SZ")
@@ -826,44 +995,66 @@ def run_kh02_r2_orchestrator(
     if branch != MANDATORY_BRANCH_KH02_R2:
         raise RuntimeError(f"BLOCKED_WRONG_BRANCH:expected={MANDATORY_BRANCH_KH02_R2},actual={branch}")
 
+    run_id = f"{utc_stamp}_{head_sha[:12]}"
     art_base = (artifacts_root or (APP_ROOT / "docs/artifacts/kh_02_r2_research_integrity")).resolve()
-    sentinel_tmp = Path(tempfile.mkdtemp(prefix=f"kh02r2_{utc_stamp}_"))
+    sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1(
+        f"kh02r2_{utc_stamp}_",
+        run_id=run_id,
+        owner_pid=orch_pid,
+    )
 
-    vol_map = {
-        "repo_volume": _free_gib(REPO_ROOT),
-        "output_volume": _free_gib(art_base if art_base.exists() else APP_ROOT),
-        "temp_volume": _free_gib(sentinel_tmp),
+    write_mount_paths = {
+        "repo_volume": REPO_ROOT,
+        "app_volume": APP_ROOT,
+        "artifacts_output": art_base if art_base.exists() else APP_ROOT,
+        "temp_volume": sentinel_tmp,
+        "python_venv": Path(sys.executable).resolve().parent,
+        "caches": Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")),
+        "logs": art_base / run_id / "logs",
     }
+    strict_mount_probe = probe_r2_c1_write_mounts_strict(
+        write_mount_paths,
+        atomic_probe_dirs=[(sentinel_tmp, True, run_id)],
+    )
+    vol_map = {
+        f"dev_{m['st_dev']}_{m['mountpoint']}": float(m["free_gib"])
+        for m in strict_mount_probe["distinct_mounts"]
+    } or {"repo_volume": 0.0}
     disk_policy = evaluate_r2_disk_preflight_policy(vol_map)
+    disk_policy["strict_multi_mount_probe"] = strict_mount_probe
+
     vm = psutil.virtual_memory()
     avail_ram_mib = round(vm.available / (1024.0 ** 2), 2)
     ram_preflight_ok = avail_ram_mib >= PREFLIGHT_RAM_MIN_MIB_KH02_R2
 
-    emergency_disk_ok = float(disk_policy["min_free_gib"]) >= 2.0
-    strict_disk_ok = bool(disk_policy["can_run_heavy_stages"])
-    waiver_active = bool(owner_waive_disk_preflight and (not strict_disk_ok) and emergency_disk_ok)
-    can_run_heavy = bool((strict_disk_ok or waiver_active) and ram_preflight_ok)
+    strict_disk_ok = bool(strict_mount_probe["can_run_heavy_stages"]) and bool(disk_policy["can_run_heavy_stages"])
+    waiver_active = False
+    can_run_heavy = bool(strict_disk_ok and ram_preflight_ok)
 
     if (not git_clean) and (not allow_local_blocked_dirty) and can_run_heavy:
-        shutil.rmtree(sentinel_tmp, ignore_errors=True)
+        safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=run_id)
         raise RuntimeError("BLOCKED_DIRTY_WORKING_TREE: commit KH-02.R2 source cleanly before full verified run.")
 
-    run_id = f"{utc_stamp}_{head_sha[:12]}"
     run_dir = art_base / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
 
+    watch_paths = [REPO_ROOT, APP_ROOT, run_dir, sentinel_tmp, Path(sys.executable).resolve().parent]
     sampler = _BoundedResourceSampler(
         out_gz=run_dir / "logs" / "runtime_memory_samples_0p5s.jsonl.gz",
         watch_path=run_dir,
+        watch_paths=watch_paths,
         interval_sec=0.5,
+        enforce_runtime_disk_abort=can_run_heavy,
     )
     sampler.start()
 
     try:
         print(f"[KH-02.R2] Run ID: {run_id} | Branch: {branch} | HEAD: {head_sha[:12]} | clean={git_clean}", flush=True)
         print(
-            f"[KH-02.R2] Preflight Disk: min={disk_policy['min_free_gib']} GiB (strict >= 20.5 GiB -> {disk_policy['status']}, "
-            f"owner_waived={waiver_active}) | RAM: {avail_ram_mib} MiB (preflight >= 2048 MiB -> {'PASS' if ram_preflight_ok else 'BLOCKED'})",
+            f"[KH-02.R2] Preflight Disk: min={strict_mount_probe['min_free_gib']} GiB across "
+            f"{strict_mount_probe['deduplicated_distinct_mounts_count']} distinct mount(s) "
+            f"(strict >= 20.5 GiB -> {strict_mount_probe['status']}, owner_waiver_permitted=False) | "
+            f"RAM: {avail_ram_mib} MiB (preflight >= 2048 MiB -> {'PASS' if ram_preflight_ok else 'BLOCKED'})",
             flush=True,
         )
 
@@ -891,19 +1082,16 @@ def run_kh02_r2_orchestrator(
             "hard_ram_floor_mib": HARD_RAM_FLOOR_MIB_KH02_R2,
             "global_max_descendants": GLOBAL_MAX_DESCENDANTS_KH02_R2,
             "disk_preflight_policy": disk_policy,
-            "owner_disk_preflight_waiver": waiver_active,
-            "owner_disk_waiver_reason": (
-                "Explicit owner instruction to proceed despite low disk preflight (< 20.5 GiB); strict >= 512 MiB RAM floor and <= 4 child cap remain enforced."
-                if waiver_active
-                else None
-            ),
+            "owner_disk_preflight_waiver": False,
+            "owner_disk_waiver_permitted": False,
+            "owner_disk_waiver_reason": None,
             "can_run_heavy_stages": can_run_heavy,
             "runtime_safety_modes": dict(RUNTIME_SAFETY_MODES_KH02_R2),
             "ACTIVATION_READY": ACTIVATION_READY_KH02_R2,
             "status": (
                 "PASS"
                 if (strict_disk_ok and ram_preflight_ok and git_clean)
-                else ("WAIVED_BY_OWNER_LOW_DISK" if (waiver_active and ram_preflight_ok and git_clean) else "BLOCKED_LOW_DISK")
+                else ("BLOCKED_LOW_DISK" if not strict_disk_ok else "BLOCKED_PREFLIGHT")
             ),
         }
         write_json_durable_atomic(run_dir / "00_preflight_branch_repo_sha_data_and_resources.json", f00)
@@ -1090,9 +1278,7 @@ def run_kh02_r2_orchestrator(
 
         # Heavy Stages (16, 17, 20)
         if can_run_heavy:
-            eff_reserve_bytes = int(
-                (STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2 if strict_disk_ok else 2.0) * (1024 ** 3)
-            )
+            eff_reserve_bytes = int(STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2 * (1024 ** 3))
             pytest_workers = min(3, eff_workers)
             print(
                 f"[KH-02.R2] Stage 8A: Running FULL repository LPT-sharded pytest regression (max_workers={pytest_workers}) (16)...",
@@ -1214,8 +1400,8 @@ def run_kh02_r2_orchestrator(
             write_json_durable_atomic(run_dir / "20_production_baseline_parity_and_prior_evidence_immutability.json", f20)
 
         # Clean up sentinel-owned temp dir BEFORE final telemetry flush
-        shutil.rmtree(sentinel_tmp, ignore_errors=True)
-        sentinel_cleaned = not sentinel_tmp.exists()
+        cleanup_info = safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=run_id)
+        sentinel_cleaned = bool(cleanup_info["cleaned"])
 
         telemetry = sampler.stop_and_flush()
         f18: Dict[str, Any] = {
@@ -1230,7 +1416,9 @@ def run_kh02_r2_orchestrator(
             "advisory_disk_gib": ADVISORY_DISK_GIB_KH02_R2,
             "shortfall_to_strict_20p5_gib": disk_policy["shortfall_to_strict_20p5_gib"],
             "disk_preflight_policy": disk_policy,
-            "owner_disk_preflight_waiver": waiver_active,
+            "owner_disk_preflight_waiver": False,
+            "owner_disk_waiver_permitted": False,
+            "readonly_disk_inventory": build_r2_c1_readonly_disk_inventory(REPO_ROOT) if not strict_disk_ok else None,
             "sentinel_temp_dir": str(sentinel_tmp),
             "sentinel_temp_cleaned_up": sentinel_cleaned,
             "total_wall_clock_sec": round(time.perf_counter() - t_start, 3),
@@ -1238,23 +1426,13 @@ def run_kh02_r2_orchestrator(
                 "PASS"
                 if (
                     telemetry["never_breached_512mib_floor"]
+                    and telemetry["never_breached_20p0gib_runtime_disk_floor"]
                     and telemetry["max_descendant_children"] <= GLOBAL_MAX_DESCENDANTS_KH02_R2
                     and telemetry["orphan_children_after_cleanup"] == 0
                     and strict_disk_ok
                     and sentinel_cleaned
                 )
-                else (
-                    "WAIVED_BY_OWNER_LOW_DISK"
-                    if (
-                        waiver_active
-                        and telemetry["never_breached_512mib_floor"]
-                        and telemetry["max_descendant_children"] <= GLOBAL_MAX_DESCENDANTS_KH02_R2
-                        and telemetry["orphan_children_after_cleanup"] == 0
-                        and telemetry["min_disk_free_gib"] >= 2.0
-                        and sentinel_cleaned
-                    )
-                    else ("BLOCKED_LOW_DISK" if not strict_disk_ok else "FAIL")
-                )
+                else ("BLOCKED_LOW_DISK" if not strict_disk_ok else "FAIL")
             ),
         }
         write_json_durable_atomic(run_dir / "18_ram_disk_pid_temp_telemetry.json", f18)
@@ -1262,8 +1440,6 @@ def run_kh02_r2_orchestrator(
         # Artifact 23: Pre-push receipt
         if strict_disk_ok and git_clean:
             pub_status = "PRE_PUSH_PENDING"
-        elif waiver_active and git_clean:
-            pub_status = "PRE_PUSH_PENDING_WITH_OWNER_DISK_WAIVER"
         else:
             pub_status = "NOT_PUBLISHED_BLOCKED_LOW_DISK"
 
@@ -1278,7 +1454,7 @@ def run_kh02_r2_orchestrator(
             "publication_head_sha": None,
             "latest_run_pointer_updated": False,
             "git_commit_or_push_executed": False,
-            "owner_disk_preflight_waiver": waiver_active,
+            "owner_disk_preflight_waiver": False,
             "publication_status": pub_status,
         }
         write_json_durable_atomic(run_dir / "23_tested_sha_evidence_publication_receipt_pre_push.json", f23)
@@ -1346,7 +1522,7 @@ def run_kh02_r2_orchestrator(
         eng_v = f21["orthogonal_verdicts"]["ENGINEERING_VERDICT"]
         if not verifier_ok or eng_v == "FAIL":
             exit_code = 1
-        elif eng_v in ("PASS", "PASS_WITH_OWNER_DISK_WAIVER"):
+        elif eng_v == "PASS":
             exit_code = 0
         else:
             exit_code = 2
@@ -1366,7 +1542,10 @@ def run_kh02_r2_orchestrator(
         }
     finally:
         if sentinel_tmp.exists():
-            shutil.rmtree(sentinel_tmp, ignore_errors=True)
+            try:
+                safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=run_id)
+            except Exception:
+                pass
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -1385,7 +1564,7 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument(
         "--owner-waive-disk-preflight",
         action="store_true",
-        help="Explicit owner waiver to execute heavy stages below 20.5 GiB disk preflight (still reports Gate 17 as WAIVED_BY_OWNER_LOW_DISK, never fake PASS, and enforces 2.0 GiB emergency floor + 512 MiB RAM floor).",
+        help="DEPRECATED & REJECTED (KH-02.R2.C1): autonomous disk preflight waivers are strictly forbidden and always exit non-zero.",
     )
     ap.add_argument(
         "--max-workers",
@@ -1398,15 +1577,40 @@ def main(argv: List[str] | None = None) -> int:
         action="store_true",
         help="Skip focused KH-02.R2 pytest diagnostic run when blocked.",
     )
+    ap.add_argument(
+        "--slice-cache-pkl",
+        default="",
+        help="Optional precomputed read-only slice cache pickle for --r2-science-slice-worker.",
+    )
     args = ap.parse_args(argv)
+
+    if args.owner_waive_disk_preflight:
+        print(
+            json.dumps(
+                {
+                    "status": "REJECTED_UNAPPROVED_AUTONOMOUS_DISK_WAIVER",
+                    "error": (
+                        "UNAPPROVED_AUTONOMOUS_DISK_WAIVER_FORBIDDEN: "
+                        "--owner-waive-disk-preflight is disabled under KH-02.R2.C1 strict disk safety "
+                        f"(>= {STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2} GiB preflight / >= {STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2} GiB runtime)."
+                    ),
+                    "exit_code": 2,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 2
 
     if args.r2_science_slice_worker:
         s_i, e_i, out_p = args.r2_science_slice_worker
-        return _run_r2_science_slice_worker_cli(int(s_i), int(e_i), Path(out_p))
+        cache_p = Path(args.slice_cache_pkl) if args.slice_cache_pkl else None
+        return _run_r2_science_slice_worker_cli(int(s_i), int(e_i), Path(out_p), slice_cache_pkl=cache_p)
 
     rc, run_dir, summary = run_kh02_r2_orchestrator(
         allow_local_blocked_dirty=args.allow_local_blocked_dirty,
-        owner_waive_disk_preflight=args.owner_waive_disk_preflight,
+        owner_waive_disk_preflight=False,
         run_focused_r2_tests=not args.skip_focused_r2_tests,
         max_workers=args.max_workers,
     )
