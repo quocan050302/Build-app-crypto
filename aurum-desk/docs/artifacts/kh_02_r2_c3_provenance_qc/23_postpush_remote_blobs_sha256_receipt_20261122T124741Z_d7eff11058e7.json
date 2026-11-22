@@ -1,0 +1,55 @@
+{
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "schema_version": "kh_02_r2_c3_postpush_remote_receipt_v1",
+  "publication_phase": "PHASE_2_POST_PUSH_REMOTE_VERIFIED_EXTERNAL_TO_SEALED_MANIFEST",
+  "verified_utc": "2026-11-22T13:07:35Z",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "run_id": "20261122T124741Z_d7eff11058e7",
+  "sealed_run_dir_rel": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7",
+  "sealed_run_dir_mutated": false,
+  "tested_executable_sha": "d7eff11058e7875b838654a5f4b4d59e94500a80",
+  "evidence_commit_sha": "2a8c1bdb55c01496b058f15eae9175b815cb8dbc",
+  "remote_ls_remote_ref_match": true,
+  "remote_readback_sha256_verified": true,
+  "publication_status": "PASS_REMOTE_VERIFIED",
+  "ci_status": "CI_UNKNOWN_NO_LOCAL_ACTIONS_RUN",
+  "manifest_20_file_sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+  "manifest_20_content_sha256": "93f7d7455c30afea090765901b9ff6860611be99bbc6d849f1e9ebd0fc3b1556",
+  "remote_readback_verified_blobs": {
+    "20_independent_verifier_sha256_manifest.json": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/2a8c1bdb55c01496b058f15eae9175b815cb8dbc/aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/20_independent_verifier_sha256_manifest.json",
+      "http_status": 200,
+      "size_bytes": 17968,
+      "sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+      "exact_match": true
+    },
+    "21_orthogonal_science_engineering_gate_matrix.json": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/2a8c1bdb55c01496b058f15eae9175b815cb8dbc/aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/21_orthogonal_science_engineering_gate_matrix.json",
+      "http_status": 200,
+      "size_bytes": 1876,
+      "sha256": "9f0ae95ba0db6a725d29a1a92ac41cb492447c9d4dc87e23d1725842e5ac2abc",
+      "exact_match": true
+    },
+    "22_publication_tested_sha_prepush_receipt.json": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/2a8c1bdb55c01496b058f15eae9175b815cb8dbc/aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/22_publication_tested_sha_prepush_receipt.json",
+      "http_status": 200,
+      "size_bytes": 504,
+      "sha256": "03d4ece86e45b73bedb4f106731b4c1bc88be73ec2da5aea77e258816249aa67",
+      "exact_match": true
+    },
+    "README_KH02_R2_C3.md": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/2a8c1bdb55c01496b058f15eae9175b815cb8dbc/aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/README_KH02_R2_C3.md",
+      "http_status": 200,
+      "size_bytes": 4124,
+      "sha256": "80f96e720d41cfd0a9a318b2095c544326279126e7c44eb683aeed43b382d90a",
+      "exact_match": true
+    },
+    "HANDOVER_KH02_R2_C3_VI.txt": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/2a8c1bdb55c01496b058f15eae9175b815cb8dbc/aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/HANDOVER_KH02_R2_C3_VI.txt",
+      "http_status": 200,
+      "size_bytes": 1509,
+      "sha256": "7c1100745699977264e9fc086dd7983f243fed608b3701148c497d65c42e6fd3",
+      "exact_match": true
+    }
+  }
+}
