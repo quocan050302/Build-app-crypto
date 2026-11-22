@@ -58,6 +58,17 @@ PRIOR_KH02_R2_C1_MANIFEST_16_REL_SHARED = (
     "20261122T013329Z_1d5b82a9e094/16_independent_disk_verifier_content_sha256_manifest.json"
 )
 PRIOR_KH02_R2_C1_MANIFEST_16_SHA256_SHARED = "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06"
+PRIOR_KH02_R2_C2_TESTED_SHA_SHARED = "732a22fbdeda8458f0c982a51049fa48b3c58f4d"
+PRIOR_KH02_R2_C2_EVIDENCE_SHA_SHARED = "ff8ca3e749d183757ce100ad2d7ae749e7391d86"
+PRIOR_KH02_R2_C2_PUB_HEAD_SHA_SHARED = "02c3a0459b5de7b298663fb0002744b7552c7b0e"
+PRIOR_KH02_R2_C2_RUN_ID_SHARED = "20261122T113807Z_732a22fbdeda"
+PRIOR_KH02_R2_C2_LATEST_PTR_REL_SHARED = "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/latest_run.json"
+PRIOR_KH02_R2_C2_LATEST_PTR_SHA256_SHARED = "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91"
+PRIOR_KH02_R2_C2_MANIFEST_17_REL_SHARED = (
+    "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/"
+    "20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json"
+)
+PRIOR_KH02_R2_C2_MANIFEST_17_SHA256_SHARED = "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518"
 R2_NEW_FILES_ALLOWLIST_SHARED: Tuple[str, ...] = (
     "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
     "aurum-desk/backend/services/kh_02_r2_prospective_data_service.py",
@@ -1508,3 +1519,30 @@ def run_kh02_r2_c1_20_synthetic_oos_ingestion_faults(tmp_root: Path) -> Dict[str
         "cases": cases,
         "status": "PASS" if passed == len(cases) else "FAIL",
     }
+
+
+def validate_prospective_snapshot_contract_c3(
+    entry: Mapping[str, Any],
+    *,
+    raw_payload_bytes: Optional[bytes],
+    capture_receipt: Optional[Any],
+    require_live_real_oos: bool = True,
+    freeze_timestamp_ms: int = R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
+    known_dev_shas: Sequence[str] = (CANONICAL_DATASET_SHA256_KH02, KNOWN_EXTENDED_DEV_SNAPSHOT_SHA256),
+) -> Dict[str, Any]:
+    """
+    KH-02.R2.C3 hardened provenance contract preserving C1/C2 compatibility:
+    NEVER accepts `is_synthetic_fixture=False`, `partition_role="FRESH_UNTOUCHED"`, or
+    `observed_bid_ask_present=True` alone as proof of real OOS custody. Requires verified
+    raw payload bytes + HMAC-verified TrustedCaptureReceiptC3 + raw-byte reparse check.
+    """
+    from services.kh_02_r2_c3_provenance_guard import evaluate_c3_prospective_admission
+
+    return evaluate_c3_prospective_admission(
+        entry,
+        raw_payload_bytes=raw_payload_bytes,
+        capture_receipt=capture_receipt,
+        require_live_real_oos=require_live_real_oos,
+        freeze_timestamp_ms=freeze_timestamp_ms,
+        known_dev_shas=known_dev_shas,
+    )

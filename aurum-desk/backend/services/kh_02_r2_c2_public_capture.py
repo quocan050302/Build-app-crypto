@@ -22,12 +22,28 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
+from pathlib import Path
 import random
+import shutil
+import ssl
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
-from urllib.parse import urlencode
+import urllib.error
+from urllib.parse import urlencode, urlsplit
 import urllib.request
 
+from services.kh_02_r2_c3_provenance_guard import (
+    MAX_DECOMPRESSED_BODY_BYTES_C3,
+    MAX_RAW_HTTP_BODY_BYTES_C3,
+    OFFICIAL_BITGET_PUBLIC_HOST_C3,
+    OFFICIAL_BITGET_PUBLIC_PATHS_C3,
+    ProvenanceClassC3,
+    TCB_LIMITATIONS_DISCLOSURE_C3,
+    TrustedCaptureReceiptC3,
+    mint_trusted_capture_receipt_c3,
+    safe_bounded_decompress_if_gzip_c3,
+)
 from services.kh_02_r2_prospective_data_service import (
     BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1,
     CANONICAL_DATASET_SHA256_KH02,
@@ -35,6 +51,7 @@ from services.kh_02_r2_prospective_data_service import (
     R2_AUTHORITATIVE_EMBARGO_CUTOFF_MS,
     R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
     SCHEMA_VERSION_KH02_R2_C1,
+    STRICT_PREFLIGHT_DISK_MIN_GIB_SHARED,
     normalize_ny_local_to_utc_ms_r2_c1,
     scan_for_forbidden_secrets_r2_c1,
     validate_prospective_snapshot_contract_c1,
@@ -140,6 +157,9 @@ class RawHttpResponseC2:
     request_utc_ms: int
     response_utc_ms: int
     transport_kind: str = "INJECTED_FAKE_TRANSPORT"
+    tls_verified_host: str = ""
+    final_url: str = ""
+    monotonic_duration_ms: int = 0
 
 
 class PublicHttpTransportProtocol(Protocol):
@@ -160,13 +180,82 @@ class OperatorCaptureAuthorizationC2:
     network_capture_enabled: bool = False
     persistent_capture_active: bool = False
     scope: str = "PUBLIC_READONLY_MARKET_DATA_ONLY"
+    capture_session_id: str = ""
+    live_network_session_authorized: bool = False
+
+    def __post_init__(self) -> None:
+        if self.network_capture_enabled and not str(self.approval_id or "").strip():
+            raise PermissionError("OPERATOR_APPROVAL_ID_REQUIRED_WHEN_CAPTURE_ENABLED")
+        if self.live_network_session_authorized and (
+            not self.network_capture_enabled
+            or not str(self.approval_id or "").strip()
+            or not str(self.approved_by or "").strip()
+            or not str(self.capture_session_id or "").strip()
+        ):
+            raise PermissionError("LIVE_NETWORK_AUTHORIZATION_REQUIRES_APPROVAL_APPROVER_AND_SESSION_ID")
+
+
+class _NoRedirectHandlerC3(urllib.request.HTTPRedirectHandler):
+    """Fail-closed redirect blocker: NEVER follows 301/302/303/307/308 to any host or path."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        raise PermissionError(f"HTTP_REDIRECT_FORBIDDEN_FAIL_CLOSED:status={code}:target={newurl}")
+
+
+def _validate_public_bitget_https_url_c3(url: str, params: Mapping[str, Any]) -> Tuple[str, str]:
+    """
+    Strictly validates HTTPS scheme, exact allowlisted host (`api.bitget.com`), exact
+    allowlisted public GET path, zero userinfo/SSRF/private tokens, and zero secrets in query.
+    """
+    parsed = urlsplit(str(url or "").strip())
+    if parsed.scheme.lower() != "https":
+        raise PermissionError(f"NON_HTTPS_SCHEME_FORBIDDEN:{parsed.scheme}")
+    if parsed.username or parsed.password:
+        raise PermissionError("URL_USERINFO_FORBIDDEN")
+    host = (parsed.hostname or "").lower()
+    if host != OFFICIAL_BITGET_PUBLIC_HOST_C3:
+        raise PermissionError(f"UNALLOWLISTED_OR_SSRF_HOST_FORBIDDEN:{host}")
+    if parsed.port not in (None, 443):
+        raise PermissionError(f"NON_STANDARD_HTTPS_PORT_FORBIDDEN:{parsed.port}")
+    if parsed.path not in OFFICIAL_BITGET_PUBLIC_PATHS_C3:
+        raise PermissionError(f"UNALLOWLISTED_PUBLIC_PATH_FORBIDDEN:{parsed.path}")
+    url_l = str(url).lower()
+    for bad_tok in FORBIDDEN_URL_TOKENS_C2:
+        if bad_tok in url_l:
+            raise PermissionError(f"FORBIDDEN_PRIVATE_OR_ORDER_ENDPOINT:{url}")
+    if parsed.query:
+        raise PermissionError("INLINE_QUERY_STRING_FORBIDDEN_USE_VALIDATED_PARAMS")
+    secret_hits = scan_for_forbidden_secrets_r2_c1(dict(params))
+    if secret_hits:
+        raise PermissionError(f"FORBIDDEN_SECRETS_IN_QUERY_PARAMS:{','.join(secret_hits)}")
+    qs = urlencode(sorted((str(k), str(v)) for k, v in params.items()))
+    return (f"{url}?{qs}" if qs else url), host
 
 
 class StdlibUrllibPublicTransportC2:
     """
     Production-ready stdlib GET-only public transport (ZERO extra dependencies, ZERO auth headers).
     ONLY callable when operator explicitly authorizes live network capture AND disk >= 20.5 GiB.
+    Enforces:
+      - Strict HTTPS-only + exact `api.bitget.com` host + allowlisted public GET path (SSRF-proof).
+      - Verified TLS context (`ssl.create_default_context()`).
+      - Fail-closed redirect refusal (`_NoRedirectHandlerC3`) — blocks 301/302/303/307/308.
+      - Bounded response size (`<= 4 MiB`) and gzip-bomb rejection (`<= 8 MiB` decompressed).
     """
+
+    def __init__(
+        self,
+        *,
+        max_response_bytes: int = MAX_RAW_HTTP_BODY_BYTES_C3,
+        max_decompressed_bytes: int = MAX_DECOMPRESSED_BODY_BYTES_C3,
+        _opener_fn: Optional[Callable[[urllib.request.Request, float], Any]] = None,
+    ) -> None:
+        self.max_response_bytes = int(max_response_bytes)
+        self.max_decompressed_bytes = int(max_decompressed_bytes)
+        self._opener_fn = _opener_fn
+
+    def is_genuine_live_socket_transport(self) -> bool:
+        return self._opener_fn is None
 
     def get(
         self,
@@ -175,25 +264,66 @@ class StdlibUrllibPublicTransportC2:
         *,
         timeout_sec: float,
     ) -> RawHttpResponseC2:
-        qs = urlencode(sorted((str(k), str(v)) for k, v in params.items()))
-        full_url = f"{url}?{qs}" if qs else url
+        full_url, host = _validate_public_bitget_https_url_c3(url, params)
         req = urllib.request.Request(
             full_url,
             method="GET",
-            headers={"Accept": "application/json", "User-Agent": "AurumDesk-KH02-R2-C2-ReadOnly/1.0"},
+            headers={"Accept": "application/json", "User-Agent": "AurumDesk-KH02-R2-C3-ReadOnly/1.0"},
         )
         req_ms = int(time.time() * 1000)
-        with urllib.request.urlopen(req, timeout=float(timeout_sec)) as resp:
-            body = resp.read()
+        t_mono_0 = time.monotonic()
+
+        if self._opener_fn is not None:
+            resp = self._opener_fn(req, float(timeout_sec))
+            t_kind = "TEST_INJECTED_OPENER_NOT_LIVE_HTTP"
+        else:
+            tls_ctx = ssl.create_default_context()
+            opener = urllib.request.build_opener(
+                _NoRedirectHandlerC3(),
+                urllib.request.HTTPSHandler(context=tls_ctx),
+            )
+            resp = opener.open(req, timeout=float(timeout_sec))
+            t_kind = "STDLIB_URLLIB_HTTPS_GET"
+
+        with resp:
+            status = int(getattr(resp, "status", getattr(resp, "code", 0)))
+            hdrs = {str(k).lower(): str(v) for k, v in dict(getattr(resp, "headers", {})).items()}
+            if status in (301, 302, 303, 307, 308) or "location" in hdrs:
+                raise PermissionError(
+                    f"HTTP_REDIRECT_FORBIDDEN_FAIL_CLOSED:status={status}:target={hdrs.get('location', '')}"
+                )
+            hdr_secrets = scan_for_forbidden_secrets_r2_c1(hdrs)
+            if hdr_secrets:
+                raise PermissionError(f"FORBIDDEN_SECRET_OR_COOKIE_IN_RESPONSE_HEADERS:{','.join(hdr_secrets)}")
+            final_url = str(getattr(resp, "url", full_url) or full_url)
+            final_parsed = urlsplit(final_url)
+            if final_parsed.scheme.lower() != "https" or (final_parsed.hostname or "").lower() != OFFICIAL_BITGET_PUBLIC_HOST_C3:
+                raise PermissionError(f"REDIRECTED_OR_MISMATCHED_FINAL_HOST:{final_url}")
+
+            raw = resp.read(self.max_response_bytes + 1)
+            if len(raw) > self.max_response_bytes:
+                raise ValueError(
+                    f"OVERSIZED_HTTP_RESPONSE_BODY:len>{self.max_response_bytes}"
+                )
+            # Validate gzip bomb cap immediately if compressed
+            if hdrs.get("content-encoding", "").lower() == "gzip" or (len(raw) >= 2 and raw[0] == 0x1F and raw[1] == 0x8B):
+                _ = safe_bounded_decompress_if_gzip_c3(
+                    raw,
+                    max_raw_bytes=self.max_response_bytes,
+                    max_decompressed_bytes=self.max_decompressed_bytes,
+                )
             resp_ms = int(time.time() * 1000)
-            hdrs = {str(k).lower(): str(v) for k, v in resp.headers.items()}
+            mono_ms = max(0, int((time.monotonic() - t_mono_0) * 1000))
             return RawHttpResponseC2(
-                status_code=int(resp.status),
-                body_bytes=body,
+                status_code=status,
+                body_bytes=raw,
                 headers=hdrs,
                 request_utc_ms=req_ms,
                 response_utc_ms=resp_ms,
-                transport_kind="STDLIB_URLLIB_HTTPS_GET",
+                transport_kind=t_kind,
+                tls_verified_host=host if self._opener_fn is None else "",
+                final_url=final_url,
+                monotonic_duration_ms=mono_ms,
             )
 
 
@@ -215,6 +345,7 @@ class C2PublicReadOnlyBitgetCollector:
         max_retries: int = 3,
         base_backoff_sec: float = 0.05,
         max_backoff_sec: float = 2.0,
+        max_total_wait_sec: float = 30.0,
         backoff_seed: int = 20261122,
         min_request_interval_ms: int = 50,
         max_clock_skew_ms: int = 5_000,
@@ -223,24 +354,76 @@ class C2PublicReadOnlyBitgetCollector:
         sleep_fn: Optional[Callable[[float], None]] = None,
         clock_ms_fn: Optional[Callable[[], int]] = None,
         is_fake_transport_qa: bool = False,
+        os_disk_probe_fn: Optional[Callable[[], float]] = None,
+        write_target_paths: Optional[Sequence[Path]] = None,
     ) -> None:
         self.authorization = authorization
         self.transport = transport
-        self.timeout_sec = float(timeout_sec)
-        self.max_retries = int(max_retries)
-        self.base_backoff_sec = float(base_backoff_sec)
-        self.max_backoff_sec = float(max_backoff_sec)
+        self.timeout_sec = max(0.5, min(30.0, float(timeout_sec)))
+        self.max_retries = max(0, min(5, int(max_retries)))
+        self.base_backoff_sec = max(0.01, float(base_backoff_sec))
+        self.max_backoff_sec = max(self.base_backoff_sec, min(30.0, float(max_backoff_sec)))
+        self.max_total_wait_sec = max(0.1, min(60.0, float(max_total_wait_sec)))
         self._rng = random.Random(int(backoff_seed))
-        self.min_request_interval_ms = int(min_request_interval_ms)
+        self.min_request_interval_ms = max(50, int(min_request_interval_ms))
         self.max_clock_skew_ms = int(max_clock_skew_ms)
         self.stale_quote_threshold_ms = int(stale_quote_threshold_ms)
         self.disconnect_gap_threshold_ms = int(disconnect_gap_threshold_ms)
-        self._sleep = sleep_fn or (lambda _s: None)
-        self._clock_ms = clock_ms_fn or (lambda: int(time.time() * 1000))
         self.is_fake_transport_qa = bool(is_fake_transport_qa)
+        self._os_disk_probe_fn = os_disk_probe_fn
+        self._write_target_paths = tuple(Path(p) for p in (write_target_paths or ()))
+        self.sleep_audit_log: List[Dict[str, Any]] = []
+
+        is_live_stdlib = isinstance(transport, StdlibUrllibPublicTransportC2) and transport.is_genuine_live_socket_transport()
+        if (not self.is_fake_transport_qa) and (sleep_fn is not None or clock_ms_fn is not None):
+            raise PermissionError(
+                "FAKE_CLOCK_OR_SLEEP_BYPASS_FORBIDDEN_IN_LIVE_TRANSPORT: "
+                "Injected sleeper/clock is permitted ONLY when is_fake_transport_qa=True."
+            )
+
+        # P0-B FIX: Production / live transport ALWAYS uses REAL `time.sleep`, NEVER `lambda _s: None`!
+        if self.is_fake_transport_qa:
+            inner_sleep = sleep_fn or (lambda _s: None)
+            self._real_rate_limiter_active = False
+        else:
+            inner_sleep = time.sleep
+            self._real_rate_limiter_active = True
+
+        def _audited_sleep(sec: float) -> None:
+            s_clamped = max(0.0, min(self.max_backoff_sec, float(sec)))
+            self.sleep_audit_log.append(
+                {
+                    "sleep_sec": round(s_clamped, 6),
+                    "real_sleep": self._real_rate_limiter_active,
+                }
+            )
+            inner_sleep(s_clamped)
+
+        self._sleep = _audited_sleep
+        self._clock_ms = clock_ms_fn or (lambda: int(time.time() * 1000))
+        self._is_live_stdlib_transport = is_live_stdlib
         self._last_request_ms: Optional[int] = None
         self.session_gap_log: List[Dict[str, Any]] = []
         self.retry_audit_log: List[Dict[str, Any]] = []
+
+    def _trusted_transport_classification(self) -> ProvenanceClassC3:
+        live_auth = bool(
+            self.authorization is not None
+            and self.authorization.network_capture_enabled
+            and self.authorization.live_network_session_authorized
+            and bool(str(self.authorization.approval_id).strip())
+            and bool(str(self.authorization.capture_session_id).strip())
+        )
+        if (
+            (not self.is_fake_transport_qa)
+            and self._is_live_stdlib_transport
+            and live_auth
+            and self._real_rate_limiter_active
+        ):
+            return ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
+        if self.is_fake_transport_qa or self.transport is not None:
+            return ProvenanceClassC3.QA_FAKE_TRANSPORT
+        return ProvenanceClassC3.UNVERIFIED
 
     def describe_readiness(self) -> Dict[str, Any]:
         auth_ok = bool(
@@ -254,16 +437,41 @@ class C2PublicReadOnlyBitgetCollector:
             "order_or_private_endpoints_present": False,
             "api_key_or_secret_reads_present": False,
             "network_capture_enabled": auth_ok,
+            "live_network_session_authorized": bool(
+                self.authorization and self.authorization.live_network_session_authorized
+            ),
             "persistent_capture_active": bool(self.authorization and self.authorization.persistent_capture_active),
             "is_fake_transport_qa": self.is_fake_transport_qa,
+            "trusted_transport_classification": self._trusted_transport_classification().value,
+            "real_rate_limiter_default_active": self._real_rate_limiter_active,
+            "live_network_test_status": "LIVE_NETWORK_TEST_NOT_RUN_BY_DESIGN",
             "official_bitget_public_allowlist": OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2,
             "historical_l1_bbo_available_from_rest": False,
             "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+            "unanchored_integrity_caveat": TCB_LIMITATIONS_DISCLOSURE_C3,
             "sampling_caveat": (
                 "REST ticker/merge-depth/orderbook endpoints provide polled point-in-time top-of-book "
                 "snapshots, NOT full tick-by-tick WebSocket orderbook completeness and NEVER historical L1 BBO backfill."
             ),
         }
+
+    def _fresh_os_min_disk_gib(self) -> float:
+        if self._os_disk_probe_fn is not None:
+            return float(self._os_disk_probe_fn())
+        targets = self._write_target_paths or (Path(__file__).resolve().parent,)
+        seen_devs: set[int] = set()
+        min_gib: Optional[float] = None
+        for p in targets:
+            cur = p if p.exists() else p.parent
+            while not cur.exists() and cur != cur.parent:
+                cur = cur.parent
+            st = os.stat(cur)
+            if st.st_dev in seen_devs:
+                continue
+            seen_devs.add(st.st_dev)
+            free_gib = shutil.disk_usage(cur).free / float(1024 ** 3)
+            min_gib = free_gib if min_gib is None else min(min_gib, free_gib)
+        return float(min_gib if min_gib is not None else 0.0)
 
     def _check_guards(
         self,
@@ -271,14 +479,14 @@ class C2PublicReadOnlyBitgetCollector:
         params: Mapping[str, Any],
         write_mount_probe: Mapping[str, Any],
     ) -> Dict[str, Any]:
+        if str(os.environ.get("KH02_OWNER_WAIVE_DISK_PREFLIGHT") or "").strip().lower() in ("1", "true", "yes"):
+            raise RuntimeError("UNAPPROVED_AUTONOMOUS_DISK_WAIVER_FORBIDDEN:ENV_OVERRIDE_BLOCKED")
+
         if endpoint_key not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
             raise ValueError(f"FORBIDDEN_OR_UNKNOWN_PUBLIC_ENDPOINT:{endpoint_key}")
         spec = OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2[endpoint_key]
         url = str(spec["url"])
-        url_l = url.lower()
-        for bad_tok in FORBIDDEN_URL_TOKENS_C2:
-            if bad_tok in url_l:
-                raise PermissionError(f"FORBIDDEN_PRIVATE_OR_ORDER_ENDPOINT:{url}")
+        _validate_public_bitget_https_url_c3(url, params)
 
         if (
             self.authorization is None
@@ -297,9 +505,20 @@ class C2PublicReadOnlyBitgetCollector:
                 f"BLOCKED_LOW_DISK_CAPTURE_FORBIDDEN:status={write_mount_probe.get('status')},min_free_gib={write_mount_probe.get('min_free_gib')}"
             )
 
-        secret_hits = scan_for_forbidden_secrets_r2_c1(dict(params))
-        if secret_hits:
-            raise PermissionError(f"FORBIDDEN_SECRETS_IN_QUERY_PARAMS:{','.join(secret_hits)}")
+        # P0-B4: NEVER trust caller-supplied `can_run_heavy_stages=True` as sole disk permission!
+        # Re-measure actual OS disk free space on live/non-QA mode OR whenever `os_disk_probe_fn` is set.
+        if (not self.is_fake_transport_qa) or (self._os_disk_probe_fn is not None):
+            fresh_gib = self._fresh_os_min_disk_gib()
+            if fresh_gib < STRICT_PREFLIGHT_DISK_MIN_GIB_SHARED:
+                raise RuntimeError(
+                    f"FORGED_CALLER_DISK_PROBE_BELOW_OS_FLOOR:fresh_os_free_gib={fresh_gib:.4f}<{STRICT_PREFLIGHT_DISK_MIN_GIB_SHARED}"
+                )
+
+        if "symbol" in params and str(params.get("symbol")) != BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1["symbol"]:
+            raise ValueError(f"UNALLOWLISTED_SYMBOL_FORBIDDEN:{params.get('symbol')}")
+        for pkey in ("productType", "category"):
+            if pkey in params and str(params.get(pkey)) != BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1["product_type"]:
+                raise ValueError(f"UNALLOWLISTED_PRODUCT_TYPE_FORBIDDEN:{params.get(pkey)}")
 
         for rp in spec["required_params"]:
             if rp not in params or not str(params.get(rp) or "").strip():
@@ -332,34 +551,64 @@ class C2PublicReadOnlyBitgetCollector:
         self._last_request_ms = now_ms
 
         last_err: Optional[str] = None
+        total_wait_sec = 0.0
         for attempt in range(self.max_retries + 1):
             try:
                 assert self.transport is not None
                 resp = self.transport.get(url, params, timeout_sec=self.timeout_sec)
+            except (PermissionError, ValueError):
+                # Never retry security, redirect, SSRF, secret, gzip-bomb, or oversized-body errors!
+                raise
             except Exception as exc:
                 last_err = f"TRANSPORT_ERROR:{type(exc).__name__}:{exc}"
                 self.retry_audit_log.append({"endpoint": endpoint_key, "attempt": attempt, "outcome": last_err})
                 if attempt < self.max_retries:
                     delay = min(self.max_backoff_sec, self.base_backoff_sec * (2 ** attempt) + self._rng.uniform(0.0, 0.02))
+                    if total_wait_sec + delay > self.max_total_wait_sec:
+                        raise RuntimeError(f"HTTP_RETRY_TOTAL_WAIT_CAP_EXCEEDED:{last_err}") from exc
+                    total_wait_sec += delay
                     self._sleep(delay)
                     continue
                 raise RuntimeError(f"HTTP_TRANSPORT_RETRY_EXHAUSTED:{last_err}") from exc
 
-            # Check response headers for forbidden credential/cookie reflection
-            hdr_secrets = scan_for_forbidden_secrets_r2_c1(dict(resp.headers))
+            # Check response headers for forbidden credential/cookie reflection & redirects
+            hdrs_l = {str(k).lower(): str(v) for k, v in dict(resp.headers).items()}
+            hdr_secrets = scan_for_forbidden_secrets_r2_c1(hdrs_l)
             if hdr_secrets:
                 raise PermissionError(f"FORBIDDEN_SECRET_OR_COOKIE_IN_RESPONSE_HEADERS:{','.join(hdr_secrets)}")
 
             sc = int(resp.status_code)
+            if sc in (301, 302, 303, 307, 308) or "location" in hdrs_l:
+                raise PermissionError(f"HTTP_REDIRECT_FORBIDDEN_FAIL_CLOSED:status={sc}")
+            if sc in (400, 401, 403, 404):
+                # P0-B3: Client/auth errors NEVER retry!
+                self.retry_audit_log.append({"endpoint": endpoint_key, "attempt": attempt, "status": sc, "retried": False})
+                raise RuntimeError(f"NON_RETRYABLE_CLIENT_HTTP_STATUS:{sc}")
             if sc == 429 or (500 <= sc <= 599):
                 last_err = f"HTTP_{sc}"
-                retry_after = float(resp.headers.get("retry-after", 0.0) or 0.0)
+                try:
+                    raw_ra = float(hdrs_l.get("retry-after", 0.0) or 0.0)
+                except ValueError:
+                    raw_ra = 0.0
+                capped_ra = min(self.max_backoff_sec, max(0.0, raw_ra))
                 delay = min(
                     self.max_backoff_sec,
-                    max(retry_after, self.base_backoff_sec * (2 ** attempt)) + self._rng.uniform(0.0, 0.02),
+                    max(capped_ra, self.base_backoff_sec * (2 ** attempt)) + self._rng.uniform(0.0, 0.02),
                 )
-                self.retry_audit_log.append({"endpoint": endpoint_key, "attempt": attempt, "status": sc, "backoff_sec": round(delay, 4)})
+                self.retry_audit_log.append(
+                    {
+                        "endpoint": endpoint_key,
+                        "attempt": attempt,
+                        "status": sc,
+                        "raw_retry_after_sec": raw_ra,
+                        "backoff_sec": round(delay, 4),
+                        "retried": attempt < self.max_retries,
+                    }
+                )
                 if attempt < self.max_retries:
+                    if total_wait_sec + delay > self.max_total_wait_sec:
+                        raise RuntimeError(f"HTTP_RETRY_TOTAL_WAIT_CAP_EXCEEDED:{last_err}")
+                    total_wait_sec += delay
                     self._sleep(delay)
                     continue
                 raise RuntimeError(f"HTTP_RETRY_EXHAUSTED:{last_err}")
@@ -368,6 +617,8 @@ class C2PublicReadOnlyBitgetCollector:
                 raise RuntimeError(f"NON_200_HTTP_STATUS:{sc}")
             if not resp.body_bytes:
                 raise ValueError("TRUNCATED_OR_EMPTY_HTTP_BODY")
+            if len(resp.body_bytes) > MAX_RAW_HTTP_BODY_BYTES_C3:
+                raise ValueError(f"OVERSIZED_HTTP_RESPONSE_BODY:len={len(resp.body_bytes)}>{MAX_RAW_HTTP_BODY_BYTES_C3}")
             return resp
 
         raise RuntimeError(f"HTTP_RETRY_EXHAUSTED:{last_err}")
@@ -403,8 +654,9 @@ class C2PublicReadOnlyBitgetCollector:
         resp = self._execute_get_with_retry(endpoint_key, spec["url"], params)
 
         raw_sha = hashlib.sha256(resp.body_bytes).hexdigest()
+        decoded_raw = safe_bounded_decompress_if_gzip_c3(resp.body_bytes)
         try:
-            body = json.loads(resp.body_bytes.decode("utf-8"))
+            body = json.loads(decoded_raw.decode("utf-8"))
         except Exception as exc:
             raise ValueError(f"TRUNCATED_OR_MALFORMED_JSON_BODY:{type(exc).__name__}") from exc
 
@@ -419,6 +671,8 @@ class C2PublicReadOnlyBitgetCollector:
             item = data[0] if isinstance(data, list) and data else (data if isinstance(data, dict) else None)
             if not isinstance(item, dict) or "bidPr" not in item or "askPr" not in item or "ts" not in item:
                 raise ValueError("API_SCHEMA_DRIFT_MISSING_TICKER_BBO_OR_TS")
+            if item.get("symbol") and str(item["symbol"]) != symbol:
+                raise ValueError(f"RESPONSE_SYMBOL_MISMATCH:{item.get('symbol')}!={symbol}")
             bid = float(item["bidPr"])
             ask = float(item["askPr"])
             event_ms = int(item["ts"])
@@ -436,6 +690,8 @@ class C2PublicReadOnlyBitgetCollector:
             raise ValueError("MISSING_OR_INVALID_SERVER_TIMESTAMP")
         if bid <= 0.0 or ask <= 0.0 or bid >= ask:
             raise ValueError(f"CROSSED_OR_INVALID_BBO:bid={bid},ask={ask}")
+        if abs(bid * 100.0 - round(bid * 100.0)) > 1e-4 or abs(ask * 100.0 - round(ask * 100.0)) > 1e-4:
+            raise ValueError(f"BBO_TICK_PRECISION_VIOLATION:bid={bid},ask={ask}")
 
         req_ms = int(resp.request_utc_ms)
         recv_ms = int(resp.response_utc_ms)
@@ -523,20 +779,46 @@ class C2PublicReadOnlyBitgetCollector:
         if not val["valid_for_escrow_admission"]:
             raise ValueError(f"SNAPSHOT_CONTRACT_VALIDATION_FAILED:{val['violations']}")
 
+        receipt = mint_trusted_capture_receipt_c3(
+            capture_session_id=(self.authorization.capture_session_id or self.authorization.approval_id) if self.authorization else "",
+            endpoint_key=endpoint_key,
+            url=spec["url"],
+            params=params,
+            http_status=int(resp.status_code),
+            raw_response_bytes=resp.body_bytes,
+            canonical_parsed_sha256=parsed_sha,
+            request_utc_ms=req_ms,
+            response_utc_ms=recv_ms,
+            monotonic_duration_ms=int(resp.monotonic_duration_ms),
+            provider_event_utc_ms=event_ms,
+            transport_obj=self.transport,
+            transport_kind=resp.transport_kind,
+            tls_host=resp.tls_verified_host,
+            is_fake_transport_qa=self.is_fake_transport_qa,
+            live_transport_verified=self._is_live_stdlib_transport,
+            live_authorization_verified=bool(
+                self.authorization is not None and self.authorization.live_network_session_authorized
+            ),
+            real_rate_limiter_active=self._real_rate_limiter_active,
+        )
         return {
             "spec_version": SPEC_VERSION_KH02_R2_C2,
             "is_fake_transport_qa": self.is_fake_transport_qa,
+            "provenance_class": receipt.provenance_class.value,
             "provenance_disclosure": (
                 "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA"
-                if self.is_fake_transport_qa
+                if receipt.provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
                 else "PUBLIC_READONLY_POLL_SNAPSHOT"
             ),
+            "capture_receipt": receipt,
+            "capture_receipt_audit": receipt.to_audit_dict(),
             "raw_response_bytes": resp.body_bytes,
             "parsed_quote": parsed_obj,
             "snapshot_contract_entry": contract_entry,
             "validation": val,
             "session_gap_log": list(self.session_gap_log),
             "retry_audit_log": list(self.retry_audit_log),
+            "sleep_audit_log": list(self.sleep_audit_log),
         }
 
     def fetch_public_ohlcv_candles_snapshot(
@@ -577,8 +859,9 @@ class C2PublicReadOnlyBitgetCollector:
         resp = self._execute_get_with_retry(endpoint_key, spec["url"], params)
 
         raw_sha = hashlib.sha256(resp.body_bytes).hexdigest()
+        decoded_raw = safe_bounded_decompress_if_gzip_c3(resp.body_bytes)
         try:
-            body = json.loads(resp.body_bytes.decode("utf-8"))
+            body = json.loads(decoded_raw.decode("utf-8"))
         except Exception as exc:
             raise ValueError(f"TRUNCATED_OR_MALFORMED_JSON_BODY:{type(exc).__name__}") from exc
 
@@ -696,20 +979,46 @@ class C2PublicReadOnlyBitgetCollector:
         if not val["valid_for_escrow_admission"]:
             raise ValueError(f"SNAPSHOT_CONTRACT_VALIDATION_FAILED:{val['violations']}")
 
+        receipt = mint_trusted_capture_receipt_c3(
+            capture_session_id=(self.authorization.capture_session_id or self.authorization.approval_id) if self.authorization else "",
+            endpoint_key=endpoint_key,
+            url=spec["url"],
+            params=params,
+            http_status=int(resp.status_code),
+            raw_response_bytes=resp.body_bytes,
+            canonical_parsed_sha256=parsed_sha,
+            request_utc_ms=req_ms,
+            response_utc_ms=recv_ms,
+            monotonic_duration_ms=int(resp.monotonic_duration_ms),
+            provider_event_utc_ms=last_close,
+            transport_obj=self.transport,
+            transport_kind=resp.transport_kind,
+            tls_host=resp.tls_verified_host,
+            is_fake_transport_qa=self.is_fake_transport_qa,
+            live_transport_verified=self._is_live_stdlib_transport,
+            live_authorization_verified=bool(
+                self.authorization is not None and self.authorization.live_network_session_authorized
+            ),
+            real_rate_limiter_active=self._real_rate_limiter_active,
+        )
         return {
             "spec_version": SPEC_VERSION_KH02_R2_C2,
             "is_fake_transport_qa": self.is_fake_transport_qa,
+            "provenance_class": receipt.provenance_class.value,
             "provenance_disclosure": (
                 "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA"
-                if self.is_fake_transport_qa
+                if receipt.provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
                 else "PUBLIC_READONLY_OHLCV_SNAPSHOT"
             ),
+            "capture_receipt": receipt,
+            "capture_receipt_audit": receipt.to_audit_dict(),
             "raw_response_bytes": resp.body_bytes,
             "parsed_bars": parsed_bars,
             "gap_windows": gap_windows,
             "snapshot_contract_entry": contract_entry,
             "validation": val,
             "retry_audit_log": list(self.retry_audit_log),
+            "sleep_audit_log": list(self.sleep_audit_log),
         }
 
 

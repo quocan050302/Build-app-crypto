@@ -24,14 +24,22 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
+from services.kh_02_r2_c3_provenance_guard import (
+    ProvenanceClassC3,
+    TrustedCaptureReceiptC3,
+    evaluate_c3_prospective_admission,
+    reparse_and_verify_raw_market_bytes_c3,
+)
 from services.kh_02_r2_prospective_data_service import (
     CANONICAL_DATASET_SHA256_KH02,
     KNOWN_EXTENDED_DEV_SNAPSHOT_SHA256,
     R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
     R2_AUTHORITATIVE_FROZEN_CODE_SHA,
     R2_AUTHORITATIVE_FROZEN_CONFIG_SHA256,
+    STRICT_RUNTIME_DISK_MIN_GIB_SHARED,
     validate_prospective_snapshot_contract_c1,
 )
 from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
@@ -73,6 +81,35 @@ def _assert_not_symlink_and_contained(path: Path, root: Path) -> None:
         raise PermissionError(f"PATH_ESCAPE_OUTSIDE_ESCROW_ROOT:{path}") from exc
 
 
+def _write_all_eintr_safe(
+    fd: int,
+    data: bytes,
+    *,
+    _write_fn: Optional[Callable[[int, bytes], int]] = None,
+) -> int:
+    """
+    Robust full-buffer write looping across EINTR and short kernel writes.
+    Fails closed (`IOError`) if a short write returns 0 bytes (unable to make progress).
+    """
+    writer = _write_fn or os.write
+    total = 0
+    mv = memoryview(data)
+    n = len(data)
+    while total < n:
+        try:
+            w = int(writer(fd, bytes(mv[total:])))
+        except InterruptedError:
+            continue
+        except OSError as exc:
+            if exc.errno == errno.EINTR:
+                continue
+            raise
+        if w <= 0:
+            raise IOError(f"SHORT_WRITE_ZERO_PROGRESS:written={total},expected={n}")
+        total += w
+    return total
+
+
 def _validate_snapshot_id_safe(snapshot_id: str) -> str:
     sid = str(snapshot_id or "").strip()
     if not sid or not SAFE_SNAPSHOT_ID_RE.match(sid) or ".." in sid:
@@ -83,8 +120,9 @@ def _validate_snapshot_id_safe(snapshot_id: str) -> str:
 class ExternalHeadAnchorC2:
     """
     Optional independent append-only head anchor stored at a separate destination.
-    Distinguishes LOCAL_TAMPER_EVIDENT_ONLY (no anchor) from EXTERNAL_ANCHOR_ATTESTED
-    rollback checks. Never fabricates an anchor or claims hardware WORM on local disk.
+    Uses inter-process fcntl.flock(LOCK_EX) + O_APPEND + fsync + dir fsync for one-writer
+    atomicity. Distinguishes LOCAL_TAMPER_EVIDENT_ONLY (no anchor) from EXTERNAL_ANCHOR_ATTESTED
+    and UNANCHORED_PENDING_ATTESTATION. Never claims hardware WORM on local disk.
     """
 
     def __init__(
@@ -94,6 +132,7 @@ class ExternalHeadAnchorC2:
         anchor_trust_tier: str = "SEPARATE_LOCAL_APPEND_ONLY_FILE_NOT_HARDWARE_WORM",
     ) -> None:
         self.anchor_path = Path(anchor_path)
+        self.anchor_lock_path = self.anchor_path.parent / f".{self.anchor_path.name}.lock"
         self.anchor_trust_tier = str(anchor_trust_tier)
         if self.anchor_path.is_symlink():
             raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
@@ -130,37 +169,47 @@ class ExternalHeadAnchorC2:
         journal_id: str,
     ) -> Dict[str, Any]:
         self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
-        existing = self.read_anchors()
-        prev_sha = existing[-1]["anchor_entry_sha256"] if existing else GENESIS_PREV_SHA256_C2
-        if existing and int(journal_record_count) < int(existing[-1]["journal_record_count"]):
-            raise PermissionError(
-                f"ANCHOR_REFUSES_ROLLBACK:new_count={journal_record_count}<anchored={existing[-1]['journal_record_count']}"
-            )
-        body = {
-            "anchor_seq": len(existing),
-            "prev_anchor_sha256": prev_sha,
-            "journal_id": str(journal_id),
-            "journal_record_count": int(journal_record_count),
-            "head_seq_index": int(head_seq_index),
-            "head_entry_sha256": str(head_entry_sha256),
-            "anchored_utc": _utc_now_iso(),
-            "anchor_trust_tier": self.anchor_trust_tier,
-        }
-        rec = dict(body, anchor_entry_sha256=canonical_hash(body))
-        line_bytes = _canonical_json_bytes(rec) + b"\n"
-        fd = os.open(os.fspath(self.anchor_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        if self.anchor_path.is_symlink() or self.anchor_lock_path.is_symlink():
+            raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
+        lfd = os.open(os.fspath(self.anchor_lock_path), os.O_RDWR | os.O_CREAT, 0o600)
         try:
-            os.write(fd, line_bytes)
-            os.fsync(fd)
+            fcntl.flock(lfd, fcntl.LOCK_EX)
+            existing = self.read_anchors()
+            prev_sha = existing[-1]["anchor_entry_sha256"] if existing else GENESIS_PREV_SHA256_C2
+            if existing and int(journal_record_count) < int(existing[-1]["journal_record_count"]):
+                raise PermissionError(
+                    f"ANCHOR_REFUSES_ROLLBACK:new_count={journal_record_count}<anchored={existing[-1]['journal_record_count']}"
+                )
+            body = {
+                "anchor_seq": len(existing),
+                "prev_anchor_sha256": prev_sha,
+                "journal_id": str(journal_id),
+                "journal_record_count": int(journal_record_count),
+                "head_seq_index": int(head_seq_index),
+                "head_entry_sha256": str(head_entry_sha256),
+                "anchored_utc": _utc_now_iso(),
+                "anchor_trust_tier": self.anchor_trust_tier,
+            }
+            rec = dict(body, anchor_entry_sha256=canonical_hash(body))
+            line_bytes = _canonical_json_bytes(rec) + b"\n"
+            fd = os.open(os.fspath(self.anchor_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+            try:
+                _write_all_eintr_safe(fd, line_bytes)
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            _fsync_directory(self.anchor_path.parent)
+            return rec
         finally:
-            os.close(fd)
-        _fsync_directory(self.anchor_path.parent)
-        return rec
+            try:
+                fcntl.flock(lfd, fcntl.LOCK_UN)
+            finally:
+                os.close(lfd)
 
 
 class C2DurableEscrowJournal:
     """
-    KH-02.R2.C2 Durable Append-Only Escrow Journal:
+    KH-02.R2.C2/C3 Durable Append-Only Escrow Journal:
       <escrow_root>/
         .escrow.lock            (inter-process fcntl.flock exclusive lock)
         blobs/<sha256>.blob     (content-addressed immutable payload blobs via O_CREAT|O_EXCL)
@@ -175,6 +224,9 @@ class C2DurableEscrowJournal:
         external_anchor: Optional[ExternalHeadAnchorC2] = None,
         journal_id: str = "kh_02_r2_c2_prospective_escrow",
         allow_synthetic_in_isolated_tmp: bool = False,
+        strict_real_oos_admission: bool = False,
+        isolated_qa_mode: bool = False,
+        os_disk_probe_fn: Optional[Callable[[], float]] = None,
     ) -> None:
         raw_root = Path(escrow_root)
         if raw_root.is_symlink():
@@ -187,7 +239,30 @@ class C2DurableEscrowJournal:
         self.external_anchor = external_anchor
         self.journal_id = str(journal_id)
         self.allow_synthetic_in_isolated_tmp = bool(allow_synthetic_in_isolated_tmp)
+        self.strict_real_oos_admission = bool(strict_real_oos_admission)
+        self.isolated_qa_mode = bool(isolated_qa_mode)
+        self._os_disk_probe_fn = os_disk_probe_fn
         self._active_lock_owner_pid: Optional[int] = None
+
+    @classmethod
+    def open_real_oos_escrow(
+        cls,
+        escrow_root: Path,
+        *,
+        external_anchor: Optional[ExternalHeadAnchorC2] = None,
+        journal_id: str = "kh_02_r2_c3_real_oos_escrow",
+        os_disk_probe_fn: Optional[Callable[[], float]] = None,
+    ) -> "C2DurableEscrowJournal":
+        """Opens a fail-closed C3 real-OOS escrow refusing fake, synthetic, or metadata-only inputs."""
+        return cls(
+            escrow_root,
+            external_anchor=external_anchor,
+            journal_id=journal_id,
+            allow_synthetic_in_isolated_tmp=False,
+            strict_real_oos_admission=True,
+            isolated_qa_mode=False,
+            os_disk_probe_fn=os_disk_probe_fn,
+        )
 
     def _ensure_layout(self) -> None:
         if self.escrow_root.is_symlink():
@@ -357,9 +432,13 @@ class C2DurableEscrowJournal:
                 anchor_summary = {"configured": True, "error": str(exc)}
             else:
                 if not anchors:
-                    immutability_class = "LOCAL_TAMPER_EVIDENT_ONLY"
-                    rollback_status = "EXTERNAL_ANCHOR_EMPTY_NO_ATTESTATION_YET"
-                    anchor_summary = {"configured": True, "anchored_count": 0}
+                    if len(records) > 0:
+                        immutability_class = "LOCAL_COMMITTED_UNANCHORED_PENDING_ATTESTATION"
+                        rollback_status = "UNANCHORED_PENDING_ATTESTATION"
+                    else:
+                        immutability_class = "LOCAL_TAMPER_EVIDENT_ONLY"
+                        rollback_status = "EXTERNAL_ANCHOR_EMPTY_NO_ATTESTATION_YET"
+                    anchor_summary = {"configured": True, "anchored_count": 0, "head_attested": False}
                 else:
                     latest = anchors[-1]
                     anc_cnt = int(latest["journal_record_count"])
@@ -371,20 +450,29 @@ class C2DurableEscrowJournal:
                         )
                         immutability_class = "ROLLBACK_TAMPER_DETECTED"
                         rollback_status = "FAIL_ROLLBACK_DETECTED_BELOW_EXTERNAL_ANCHOR"
+                        head_att = False
                     elif anc_seq >= 0 and seq_to_sha.get(anc_seq) != anc_sha:
                         violations.append(
                             f"JOURNAL_FORK_OR_REWRITE_DETECTED:seq={anc_seq}:actual={seq_to_sha.get(anc_seq)}!=anchored={anc_sha}"
                         )
                         immutability_class = "FORK_TAMPER_DETECTED"
                         rollback_status = "FAIL_JOURNAL_DIVERGED_FROM_EXTERNAL_ANCHOR"
+                        head_att = False
+                    elif len(records) > anc_cnt:
+                        # P0-C / §09-20: Crash after journal fsync before anchor append!
+                        immutability_class = "LOCAL_COMMITTED_UNANCHORED_PENDING_ATTESTATION"
+                        rollback_status = "UNANCHORED_PENDING_ATTESTATION"
+                        head_att = False
                     else:
                         immutability_class = "LOCAL_TAMPER_EVIDENT_WITH_EXTERNAL_ANCHOR_ATTESTED"
                         rollback_status = "EXTERNAL_ANCHOR_CONSISTENT"
+                        head_att = True
                     anchor_summary = {
                         "configured": True,
                         "anchored_count": len(anchors),
                         "latest_anchored_record_count": anc_cnt,
                         "latest_anchored_head_sha256": anc_sha,
+                        "head_attested": head_att,
                         "anchor_trust_tier": self.external_anchor.anchor_trust_tier,
                     }
 
@@ -413,49 +501,146 @@ class C2DurableEscrowJournal:
             "violations": violations,
         }
 
+    def append_verified_prospective_snapshot(
+        self,
+        entry: Mapping[str, Any],
+        *,
+        raw_payload_bytes: Optional[bytes],
+        capture_receipt: Optional[TrustedCaptureReceiptC3],
+        freeze_timestamp_ms: int = R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
+        known_dev_shas: Sequence[str] = (CANONICAL_DATASET_SHA256_KH02, KNOWN_EXTENDED_DEV_SNAPSHOT_SHA256),
+        _crash_hook: Optional[Callable[[str], None]] = None,
+        _expected_lock_owner_pid: Optional[int] = None,
+        _write_fn: Optional[Callable[[int, bytes], int]] = None,
+    ) -> Dict[str, Any]:
+        """
+        KH-02.R2.C3 fail-closed provenance-verified escrow append entrypoint.
+        Enforces P0-A + P0-C: requires raw HTTP bytes + HMAC-verified TrustedCaptureReceiptC3
+        and re-validates inside exclusive lock. Rejects fake/synthetic/metadata-only for real OOS.
+        """
+        return self.append_snapshot(
+            entry,
+            raw_payload_bytes=raw_payload_bytes,
+            capture_receipt=capture_receipt,
+            require_c3_provenance=True,
+            freeze_timestamp_ms=freeze_timestamp_ms,
+            known_dev_shas=known_dev_shas,
+            _crash_hook=_crash_hook,
+            _expected_lock_owner_pid=_expected_lock_owner_pid,
+            _write_fn=_write_fn,
+        )
+
     def append_snapshot(
         self,
         entry: Mapping[str, Any],
         *,
         raw_payload_bytes: Optional[bytes] = None,
+        capture_receipt: Optional[TrustedCaptureReceiptC3] = None,
+        require_c3_provenance: bool = False,
         freeze_timestamp_ms: int = R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
         known_dev_shas: Sequence[str] = (CANONICAL_DATASET_SHA256_KH02, KNOWN_EXTENDED_DEV_SNAPSHOT_SHA256),
         _crash_hook: Optional[Callable[[str], None]] = None,
         _expected_lock_owner_pid: Optional[int] = None,
+        _write_fn: Optional[Callable[[int, bytes], int]] = None,
     ) -> Dict[str, Any]:
         """
         Atomically & durably appends one validated prospective snapshot under an exclusive
         inter-process OS lock (`fcntl.flock LOCK_EX`):
-          1. Validate snapshot contract (strict C1/C2 rules, zero synthetic in prod escrow).
-          2. Under lock: verify current journal + blobs integrity (fail closed on corruption).
+          1. Validate snapshot contract AND (under C3 strict/provenance mode) raw bytes +
+             HMAC-verified TrustedCaptureReceiptC3 + raw-byte reparse BEFORE and INSIDE lock.
+          2. Under lock: verify fresh OS disk >= 20.0 GiB (when strict/probed), verify journal +
+             blobs integrity (fail closed on corruption).
           3. Idempotency check: same snapshot_id + same content_sha -> IDEMPOTENT_ALREADY_RECORDED_NOOP;
              same snapshot_id + different content_sha -> PermissionError.
-          4. Write immutable content-addressed blob via O_CREAT|O_EXCL -> fsync(blob) -> fsync(blobs_dir).
-          5. Append single canonical JSONL record via O_APPEND (NEVER rewrites prior bytes!) -> fsync(journal) -> fsync(root).
-          6. If external_anchor configured: append durable head attestation.
+          4. Write immutable content-addressed blob via O_CREAT|O_EXCL + EINTR-safe write -> fsync(blob) -> fsync(blobs_dir).
+          5. Append single canonical JSONL record via O_APPEND + EINTR-safe write -> fsync(journal) -> fsync(root).
+          6. If external_anchor configured: append durable locked head attestation.
         """
         if bool(entry.get("is_synthetic_fixture", False)) and not self.allow_synthetic_in_isolated_tmp:
             raise ValueError("SYNTHETIC_FIXTURE_FORBIDDEN_IN_ESCROW_JOURNAL")
 
-        sid = _validate_snapshot_id_safe(str(entry.get("snapshot_id") or ""))
-        val = validate_prospective_snapshot_contract_c1(
-            entry,
-            freeze_timestamp_ms=freeze_timestamp_ms,
-            known_dev_shas=known_dev_shas,
-        )
-        if not val["valid_for_escrow_admission"]:
-            raise ValueError(f"INVALID_PROSPECTIVE_SNAPSHOT:{val['violations']}")
+        enforce_c3 = bool(self.strict_real_oos_admission or require_c3_provenance)
+        require_live_real = bool(self.strict_real_oos_admission or (require_c3_provenance and not self.isolated_qa_mode))
 
-        # Canonical immutable blob payload binds both normalized entry metadata & optional raw payload bytes
-        if raw_payload_bytes is not None:
-            actual_raw_sha = hashlib.sha256(raw_payload_bytes).hexdigest()
-            if actual_raw_sha != str(entry["raw_response_sha256"]).lower():
-                raise ValueError(
-                    f"RAW_PAYLOAD_BYTES_SHA256_MISMATCH:claimed={entry['raw_response_sha256']},actual={actual_raw_sha}"
+        sid = _validate_snapshot_id_safe(str(entry.get("snapshot_id") or ""))
+
+        def _validate_all() -> Tuple[Dict[str, Any], Dict[str, Any]]:
+            val_c1 = validate_prospective_snapshot_contract_c1(
+                entry,
+                freeze_timestamp_ms=freeze_timestamp_ms,
+                known_dev_shas=known_dev_shas,
+            )
+            if not val_c1["valid_for_escrow_admission"]:
+                raise ValueError(f"INVALID_PROSPECTIVE_SNAPSHOT:{val_c1['violations']}")
+
+            if enforce_c3:
+                if raw_payload_bytes is None:
+                    raise ValueError("RAW_PAYLOAD_BYTES_REQUIRED_FOR_REAL_OOS")
+                adm = evaluate_c3_prospective_admission(
+                    entry,
+                    raw_payload_bytes=raw_payload_bytes,
+                    capture_receipt=capture_receipt,
+                    require_live_real_oos=require_live_real,
+                    freeze_timestamp_ms=freeze_timestamp_ms,
+                    known_dev_shas=known_dev_shas,
                 )
-            blob_bytes = raw_payload_bytes
-        else:
-            blob_bytes = _canonical_json_bytes(entry)
+                if not adm["admitted"]:
+                    viols_str = ";".join(adm["violations"])
+                    if any(
+                        tok in viols_str
+                        for tok in (
+                            "UNTRUSTED_PROVENANCE_CLASS",
+                            "FORGED_OR_TAMPERED_CAPTURE_RECEIPT",
+                            "MISSING_TRUSTED_CAPTURE_RECEIPT",
+                            "RECEIPT_NOT_TRUSTED",
+                            "LIVE_RATE_LIMITER_NOT_ACTIVE",
+                        )
+                    ):
+                        raise PermissionError(f"UNTRUSTED_OR_SYNTHETIC_PROVENANCE_FORBIDDEN:{viols_str}")
+                    raise ValueError(f"C3_PROVENANCE_OR_RAW_REPARSE_REJECTED:{viols_str}")
+                return val_c1, adm
+
+            # Non-strict backward-compat mode: still verify raw bytes strictly if provided,
+            # and NEVER classify metadata-only or fake-transport records as eligible fresh OOS!
+            if raw_payload_bytes is not None:
+                actual_raw_sha = hashlib.sha256(raw_payload_bytes).hexdigest()
+                if actual_raw_sha != str(entry["raw_response_sha256"]).lower():
+                    raise ValueError(
+                        f"RAW_PAYLOAD_BYTES_SHA256_MISMATCH:claimed={entry['raw_response_sha256']},actual={actual_raw_sha}"
+                    )
+                if capture_receipt is not None:
+                    rp = reparse_and_verify_raw_market_bytes_c3(
+                        raw_payload_bytes,
+                        entry,
+                        capture_receipt=capture_receipt,
+                        freeze_timestamp_ms=freeze_timestamp_ms,
+                        known_dev_shas=known_dev_shas,
+                    )
+                    if not rp["valid"]:
+                        raise ValueError(f"RAW_BYTES_REPARSE_FAILED:{rp['violations']}")
+                p_cls = capture_receipt.provenance_class.value if isinstance(capture_receipt, TrustedCaptureReceiptC3) else ProvenanceClassC3.UNVERIFIED.value
+                adm_fallback = {
+                    "provenance_class": p_cls,
+                    "admission_tier": (
+                        "TEST_ONLY_NOT_ELIGIBLE_OOS"
+                        if p_cls == ProvenanceClassC3.QA_FAKE_TRANSPORT.value
+                        else "LEGACY_UNVERIFIED_NON_OOS"
+                    ),
+                    "eligible_for_fresh_oos": False,
+                }
+                return val_c1, adm_fallback
+
+            adm_meta = {
+                "provenance_class": ProvenanceClassC3.LEGACY_UNVERIFIED.value,
+                "admission_tier": "LEGACY_METADATA_ONLY_NON_OOS",
+                "eligible_for_fresh_oos": False,
+            }
+            return val_c1, adm_meta
+
+        # Pre-lock validation
+        val, adm_info = _validate_all()
+
+        blob_bytes = raw_payload_bytes if raw_payload_bytes is not None else _canonical_json_bytes(entry)
         content_sha = hashlib.sha256(blob_bytes).hexdigest()
         blob_rel = f"blobs/{content_sha}.blob"
         blob_path = self.escrow_root / blob_rel
@@ -465,6 +650,20 @@ class C2DurableEscrowJournal:
                 _crash_hook(phase)
 
         with self.exclusive_lock(expected_owner_pid=_expected_lock_owner_pid):
+            # Re-validate INSIDE exclusive lock (zero TOCTOU between validator and durable append!)
+            val, adm_info = _validate_all()
+
+            if enforce_c3 or self._os_disk_probe_fn is not None:
+                free_gib = (
+                    float(self._os_disk_probe_fn())
+                    if self._os_disk_probe_fn is not None
+                    else (shutil.disk_usage(self.escrow_root).free / float(1024 ** 3))
+                )
+                if free_gib < STRICT_RUNTIME_DISK_MIN_GIB_SHARED:
+                    raise RuntimeError(
+                        f"BLOCKED_LOW_DISK_IN_ESCROW_APPEND:free_gib={free_gib:.4f}<{STRICT_RUNTIME_DISK_MIN_GIB_SHARED}"
+                    )
+
             integrity = self.verify_integrity()
             if not integrity["valid"]:
                 raise RuntimeError(f"FAIL_CLOSED_CORRUPT_ESCROW_JOURNAL:{integrity['violations']}")
@@ -481,10 +680,13 @@ class C2DurableEscrowJournal:
                             "seq_index": existing["seq_index"],
                             "record_count": len(records),
                             "journal_prior_bytes_untouched": True,
+                            "provenance_class": adm_info["provenance_class"],
+                            "admission_tier": adm_info["admission_tier"],
+                            "eligible_for_fresh_oos": bool(adm_info["eligible_for_fresh_oos"]),
                         }
                     raise PermissionError(f"IMMUTABLE_REGISTRY_OVERWRITE_FORBIDDEN:{sid}")
 
-            # Phase 1: Write immutable blob exclusively via O_CREAT | O_EXCL
+            # Phase 1: Write immutable blob exclusively via O_CREAT | O_EXCL + EINTR-safe full write
             _assert_not_symlink_and_contained(blob_path, self.escrow_root)
             _hook("BEFORE_BLOB_WRITE")
             blob_created = False
@@ -492,7 +694,9 @@ class C2DurableEscrowJournal:
                 bfd = os.open(os.fspath(blob_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
                 blob_created = True
                 try:
-                    os.write(bfd, blob_bytes)
+                    _hook("ENOSPC_BLOB_WRITE")
+                    _hook("EIO_BLOB_WRITE")
+                    _write_all_eintr_safe(bfd, blob_bytes, _write_fn=_write_fn)
                     _hook("AFTER_BLOB_WRITE_BEFORE_FSYNC")
                     _hook("FSYNC_FAILURE")
                     os.fsync(bfd)
@@ -500,14 +704,9 @@ class C2DurableEscrowJournal:
                     os.close(bfd)
                 _fsync_directory(self.blobs_dir)
             except FileExistsError:
-                # Content-addressed dedup: verify existing blob bytes match SHA256 strictly!
                 existing_sha = hashlib.sha256(blob_path.read_bytes()).hexdigest()
                 if existing_sha != content_sha:
                     raise PermissionError(f"EXISTING_BLOB_CORRUPT_OR_COLLISION:{blob_rel}")
-            except Exception:
-                # If we created a partial uncommitted blob before crash/fsync error, let crash tests inspect or clean?
-                # Note: crash hooks simulate abrupt power loss (process dies mid-phase without cleanup).
-                raise
 
             _hook("AFTER_BLOB_FSYNC_BEFORE_JOURNAL_APPEND")
 
@@ -523,6 +722,11 @@ class C2DurableEscrowJournal:
                 "content_sha256": content_sha,
                 "blob_rel_path": blob_rel,
                 "blob_size_bytes": len(blob_bytes),
+                "has_raw_payload_bytes": raw_payload_bytes is not None,
+                "provenance_class": adm_info["provenance_class"],
+                "admission_tier": adm_info["admission_tier"],
+                "eligible_for_fresh_oos": bool(adm_info["eligible_for_fresh_oos"]),
+                "capture_receipt_id": capture_receipt.receipt_id if isinstance(capture_receipt, TrustedCaptureReceiptC3) else None,
                 "dataset_sha256": val["dataset_sha256"],
                 "raw_response_sha256": str(entry["raw_response_sha256"]).lower(),
                 "canonical_parsed_sha256": val["canonical_parsed_sha256"],
@@ -548,18 +752,17 @@ class C2DurableEscrowJournal:
             full_rec = dict(record_body, entry_sha256=canonical_hash(record_body))
             line_bytes = _canonical_json_bytes(full_rec) + b"\n"
 
-            # Phase 3: Strict O_APPEND single line (NEVER rewrites prior bytes!)
+            # Phase 3: Strict O_APPEND single line + EINTR-safe full write (NEVER rewrites prior bytes!)
             jfd = os.open(os.fspath(self.journal_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
             try:
                 if _crash_hook is not None:
-                    # Allow torn-line crash test to simulate partial write without newline
                     try:
                         _hook("TORN_JOURNAL_LINE")
                     except _InjectTornWriteSignal:
-                        os.write(jfd, line_bytes[: max(8, len(line_bytes) // 2)])
+                        _write_all_eintr_safe(jfd, line_bytes[: max(8, len(line_bytes) // 2)])
                         os.fsync(jfd)
                         raise RuntimeError("SIMULATED_CRASH_TORN_JOURNAL_LINE")
-                written = os.write(jfd, line_bytes)
+                written = _write_all_eintr_safe(jfd, line_bytes, _write_fn=_write_fn)
                 if written != len(line_bytes):
                     raise IOError(f"SHORT_JOURNAL_APPEND_WRITE:{written}!={len(line_bytes)}")
                 _hook("AFTER_JOURNAL_WRITE_BEFORE_FSYNC")
@@ -569,6 +772,7 @@ class C2DurableEscrowJournal:
             _fsync_directory(self.escrow_root)
 
             # Phase 4: Optional external head anchor attestation
+            _hook("AFTER_JOURNAL_FSYNC_BEFORE_ANCHOR")
             anchor_rec = None
             if self.external_anchor is not None:
                 anchor_rec = self.external_anchor.append_head_attestation(
@@ -589,6 +793,9 @@ class C2DurableEscrowJournal:
                 "record_count": seq_idx + 1,
                 "journal_prior_bytes_untouched": True,
                 "external_anchor_attested": anchor_rec is not None,
+                "provenance_class": adm_info["provenance_class"],
+                "admission_tier": adm_info["admission_tier"],
+                "eligible_for_fresh_oos": bool(adm_info["eligible_for_fresh_oos"]),
             }
 
     def quarantine_corrupt_tail_and_orphans(
@@ -605,17 +812,26 @@ class C2DurableEscrowJournal:
             raise ValueError("EXPLICIT_OPERATOR_REASON_REQUIRED_FOR_QUARANTINE")
 
         with self.exclusive_lock():
+            _assert_not_symlink_and_contained(self.quarantine_dir, self.escrow_root)
+            _assert_not_symlink_and_contained(self.blobs_dir, self.escrow_root)
             records, parse_violations, corrupt_tail = self._parse_journal_bytes()
-            utc_tag = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            utc_tag = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
             q_dir = self.quarantine_dir / f"quarantine_{utc_tag}_{os.getpid()}"
+            _assert_not_symlink_and_contained(q_dir, self.escrow_root)
             q_dir.mkdir(parents=True, exist_ok=True)
             quarantined_items: List[Dict[str, Any]] = []
 
             # Quarantine torn tail bytes by truncating journal strictly to end of last valid line
             if corrupt_tail is not None and self.journal_path.is_file():
+                _assert_not_symlink_and_contained(self.journal_path, self.escrow_root)
                 raw = self.journal_path.read_bytes()
                 tail_path = q_dir / "corrupt_journal_tail.bin"
-                tail_path.write_bytes(corrupt_tail)
+                tfd = os.open(os.fspath(tail_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                try:
+                    _write_all_eintr_safe(tfd, corrupt_tail)
+                    os.fsync(tfd)
+                finally:
+                    os.close(tfd)
                 quarantined_items.append(
                     {
                         "kind": "CORRUPT_JOURNAL_TAIL",
@@ -639,7 +855,10 @@ class C2DurableEscrowJournal:
             }
             if self.blobs_dir.is_dir():
                 for bp in sorted(self.blobs_dir.iterdir()):
+                    if bp.is_symlink():
+                        continue
                     if bp.is_file() and bp.name.endswith(".blob") and bp.name not in referenced_names:
+                        _assert_not_symlink_and_contained(bp, self.escrow_root)
                         dst = q_dir / bp.name
                         b_bytes = bp.read_bytes()
                         os.replace(bp, dst)
@@ -653,7 +872,6 @@ class C2DurableEscrowJournal:
                             }
                         )
             _fsync_directory(self.blobs_dir)
-            _fsync_directory(q_dir)
 
             receipt = {
                 "spec_version": SPEC_VERSION_KH02_R2_C2,
@@ -662,9 +880,17 @@ class C2DurableEscrowJournal:
                 "prior_parse_violations": parse_violations,
                 "quarantined_items": quarantined_items,
             }
-            (q_dir / "quarantine_receipt.json").write_text(
-                json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8"
-            )
+            r_bytes = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            r_path = q_dir / "quarantine_receipt.json"
+            rfd = os.open(os.fspath(r_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            try:
+                _write_all_eintr_safe(rfd, r_bytes)
+                os.fsync(rfd)
+            finally:
+                os.close(rfd)
+            _fsync_directory(q_dir)
+            _fsync_directory(self.quarantine_dir)
+            _fsync_directory(self.escrow_root)
             post_check = self.verify_integrity()
             return {
                 "quarantine_dir": str(q_dir),
@@ -736,7 +962,9 @@ def make_crash_hook_for_phase(phase_to_crash: str) -> Callable[[str], None]:
             return
         if phase_to_crash == "TORN_JOURNAL_LINE":
             raise _InjectTornWriteSignal()
-        if phase_to_crash == "FSYNC_FAILURE":
-            raise OSError(errno.EIO, "SIMULATED_FSYNC_EIO_FAILURE")
+        if phase_to_crash in ("FSYNC_FAILURE", "EIO_BLOB_WRITE"):
+            raise OSError(errno.EIO, f"SIMULATED_EIO_AT_{phase_to_crash}")
+        if phase_to_crash == "ENOSPC_BLOB_WRITE":
+            raise OSError(errno.ENOSPC, "SIMULATED_ENOSPC_NO_SPACE_LEFT_ON_DEVICE")
         raise RuntimeError(f"SIMULATED_CRASH_AT_{phase_to_crash}")
     return _hook
