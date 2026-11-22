@@ -1,0 +1,174 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+  "OOS_EVALUATIONS": 0,
+  "accepted_prospective_snapshots": [],
+  "accepted_prospective_snapshots_count": 0,
+  "authoritative_r2_freeze_audit": {
+    "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "authoritative_source_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json",
+    "embargo_boundary_semantics": "INCLUSIVE_START_GE_EMBARGO_CUTOFF_MS__EXCLUSIVE_LT_CUTOFF_REJECTED",
+    "expected_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "inclusive_boundary_example": {
+      "accepted_earliest_start_utc_ms": 1795290232732,
+      "rejected_latest_blocked_start_utc_ms": 1795290232731
+    },
+    "observed_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "sha256_match": true,
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "status": "PASS",
+    "violations": []
+  },
+  "bitget_xauusdt_contract_spec": {
+    "exchange": "bitget",
+    "exchange_contract_id": "XAUUSDT_UMCBL",
+    "price_precision": 2,
+    "product_type": "USDT-FUTURES",
+    "qty_precision": 2,
+    "qty_step": "0.01",
+    "symbol": "XAUUSDT",
+    "tick_size": "0.01"
+  },
+  "embargo_boundary_semantics": "INCLUSIVE_START_GE_EMBARGO_CUTOFF_MS__EXCLUSIVE_LT_CUTOFF_REJECTED",
+  "escrow_contract_integrity_status": "PASS",
+  "power_and_sample_size_prerequisites": {
+    "assumed_trade_r_std": 1.25,
+    "bonferroni_strict_alpha_per_arm": 0.0125,
+    "familywise_alpha_two_sided": 0.05,
+    "fixed_30_trades_proves_edge": false,
+    "num_primary_arms_holm_family": 4,
+    "ny_day_clustering_vif": 1.5,
+    "sample_size_grid": [
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0249,
+        "required_closed_trades_clustered_vif": 1163,
+        "required_closed_trades_iid": 775,
+        "target_net_expectancy_r": 0.15
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0544,
+        "required_closed_trades_clustered_vif": 419,
+        "required_closed_trades_iid": 279,
+        "target_net_expectancy_r": 0.25
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.1065,
+        "required_closed_trades_clustered_vif": 215,
+        "required_closed_trades_iid": 143,
+        "target_net_expectancy_r": 0.35
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.2392,
+        "required_closed_trades_clustered_vif": 105,
+        "required_closed_trades_iid": 70,
+        "target_net_expectancy_r": 0.5
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "statistical_disclosure": "A fixed N = 30 closed trades is severely UNDERPOWERED under clustered gold-futures returns and multi-arm Holm-Bonferroni correction. Prospective OOS must span multiple distinct volatility/trend regimes, record observed L1 BBO quotes, verify actual account fees, and meet pre-registered cluster-adjusted sample-size thresholds before any unsealing.",
+    "z_alpha_two_sided": 2.4977,
+    "z_beta_power_80pct": 0.8416
+  },
+  "proposed_snapshots_count": 0,
+  "r2_escrow_check_summary": {
+    "capture_block_reasons": [
+      "OFFLINE_READINESS_RUN_NO_LIVE_EXCHANGE_CAPTURE_REQUESTED",
+      "LOW_DISK_FREE_GIB:7.5191<20.50",
+      "NO_NEW_POST_FREEZE_VERIFIED_SNAPSHOTS_SUPPLIED"
+    ],
+    "escrow_contract_integrity_status": "PASS",
+    "prior_escrow_mutated_count": 0
+  },
+  "readonly_collector_readiness": {
+    "allowed_public_endpoints": {
+      "contracts_metadata": {
+        "auth_required": false,
+        "method": "GET",
+        "read_only": true,
+        "reused_from_repo_module": "aurum-desk/backend/services/instrument_provider.py",
+        "url": "https://api.bitget.com/api/v2/mix/market/contracts"
+      },
+      "history_candles": {
+        "auth_required": false,
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "read_only": true,
+        "reused_from_repo_module": "aurum-desk/backend/services/kh_01a_foundation_service.py",
+        "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+      },
+      "orderbook_v3": {
+        "auth_required": false,
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_top_of_book_capable": true,
+        "read_only": true,
+        "reused_from_repo_module": "aurum-desk/backend/services/bitget_depth_service.py",
+        "url": "https://api.bitget.com/api/v3/market/orderbook"
+      },
+      "public_ticker": {
+        "auth_required": false,
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_top_of_book_capable": true,
+        "read_only": true,
+        "reused_from_repo_module": "aurum-desk/backend/services/market_shadow_service.py",
+        "url": "https://api.bitget.com/api/v2/mix/market/ticker"
+      }
+    },
+    "api_key_or_secret_reads_present": false,
+    "explicit_operator_approval_present": false,
+    "historical_l1_bbo_available_from_rest": false,
+    "network_capture_enabled": false,
+    "order_or_private_endpoints_present": false,
+    "persistent_capture_active": false,
+    "prospective_top_of_book_caveat": "Public REST ticker/orderbook endpoints cannot backfill historical L1 BBO. When explicitly authorized in the future with >= 20.5 GiB strict disk free, prospective capture can only record live future top-of-book with explicit event_utc_ms, receive_utc_ms, sampling interval, and disconnect-gap logs.",
+    "read_only": true,
+    "spec_version": "KH-02.R2.C1-v1.0"
+  },
+  "reused_dataset_limitations": {
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "data_classification": "REUSED_RESEARCH_NOT_UNTOUCHED_OOS",
+    "dataset_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+    "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "m1_effective_calendar_days": 20.35,
+    "modeled_spread_usd": 0.2,
+    "observed_l1_bbo_available": false,
+    "preregistered_strategies_already_evaluated_on_reused_data": true,
+    "quote_mode": "MODELED_BID_ASK",
+    "timeframes_present": [
+      "M1",
+      "M15",
+      "H1"
+    ]
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_c1_strict_safety_oos_readiness_v1",
+  "spec_version": "KH-02.R2.C1-v1.0"
+}

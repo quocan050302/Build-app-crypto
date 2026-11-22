@@ -1,0 +1,142 @@
+{
+  "ACTIVATION_READY": "NO",
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "data_regime": "REUSED_RESEARCH_NOT_UNTOUCHED_OOS",
+  "historical_readonly_r2_reused_data_outcomes_next_bar_modeled_bid_ask": {
+    "B2_H1": {
+      "closed": 73,
+      "data_gap_unresolved": 0,
+      "effective_ny_days": 14,
+      "effective_setup_episodes": 66,
+      "episode_cluster_95ci_r": [
+        -1.0182,
+        -0.8537
+      ],
+      "expectancy_r": -0.9737,
+      "gross_pnl_usd": -73.1555,
+      "losses": 72,
+      "max_drawdown_usd": 175.438,
+      "net_pnl_usd": -175.438,
+      "ny_day_cluster_95ci_r": [
+        -1.0183,
+        -0.8726
+      ],
+      "open_at_horizon": 9,
+      "scheduled": 82,
+      "total_fees_usd": 102.2825,
+      "unfilled": 0,
+      "win_rate": 0.0137,
+      "wins": 1
+    },
+    "B2_H123": {
+      "closed": 23,
+      "data_gap_unresolved": 0,
+      "effective_ny_days": 10,
+      "effective_setup_episodes": 21,
+      "episode_cluster_95ci_r": [
+        -1.0183,
+        -1.0154
+      ],
+      "expectancy_r": -1.0169,
+      "gross_pnl_usd": -26.2462,
+      "losses": 23,
+      "max_drawdown_usd": 57.6807,
+      "net_pnl_usd": -57.6807,
+      "ny_day_cluster_95ci_r": [
+        -1.0183,
+        -1.0153
+      ],
+      "open_at_horizon": 8,
+      "scheduled": 31,
+      "total_fees_usd": 31.4345,
+      "unfilled": 0,
+      "win_rate": 0.0,
+      "wins": 0
+    },
+    "B2_H2": {
+      "closed": 203,
+      "data_gap_unresolved": 2,
+      "effective_ny_days": 17,
+      "effective_setup_episodes": 186,
+      "episode_cluster_95ci_r": [
+        -0.9723,
+        -0.7723
+      ],
+      "expectancy_r": -0.8806,
+      "gross_pnl_usd": -164.9541,
+      "losses": 196,
+      "max_drawdown_usd": 441.6118,
+      "net_pnl_usd": -441.6118,
+      "ny_day_cluster_95ci_r": [
+        -0.9777,
+        -0.7786
+      ],
+      "open_at_horizon": 28,
+      "scheduled": 233,
+      "total_fees_usd": 276.6577,
+      "unfilled": 0,
+      "win_rate": 0.0345,
+      "wins": 7
+    },
+    "B2_H3": {
+      "closed": 114,
+      "data_gap_unresolved": 1,
+      "effective_ny_days": 13,
+      "effective_setup_episodes": 104,
+      "episode_cluster_95ci_r": [
+        -0.9818,
+        -0.6958
+      ],
+      "expectancy_r": -0.8504,
+      "gross_pnl_usd": -89.8935,
+      "losses": 109,
+      "max_drawdown_usd": 239.6588,
+      "net_pnl_usd": -239.6588,
+      "ny_day_cluster_95ci_r": [
+        -0.9847,
+        -0.6908
+      ],
+      "open_at_horizon": 16,
+      "scheduled": 131,
+      "total_fees_usd": 149.7653,
+      "unfilled": 0,
+      "win_rate": 0.0439,
+      "wins": 5
+    },
+    "NC_NULL_TRIGGER": {
+      "closed": 203,
+      "data_gap_unresolved": 2,
+      "effective_ny_days": 17,
+      "effective_setup_episodes": 186,
+      "episode_cluster_95ci_r": [
+        -0.9723,
+        -0.7723
+      ],
+      "expectancy_r": -0.8806,
+      "gross_pnl_usd": -164.9541,
+      "losses": 196,
+      "max_drawdown_usd": 441.6118,
+      "net_pnl_usd": -441.6118,
+      "ny_day_cluster_95ci_r": [
+        -0.9777,
+        -0.7786
+      ],
+      "open_at_horizon": 28,
+      "scheduled": 233,
+      "total_fees_usd": 276.6577,
+      "unfilled": 0,
+      "win_rate": 0.0345,
+      "wins": 7
+    }
+  },
+  "no_new_entry_variants_added": true,
+  "no_parameter_tuning_on_reused_data": true,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS"
+}

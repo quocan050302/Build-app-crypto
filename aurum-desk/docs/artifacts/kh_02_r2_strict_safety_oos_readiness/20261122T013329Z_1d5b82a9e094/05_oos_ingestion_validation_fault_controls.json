@@ -1,0 +1,193 @@
+{
+  "all_passed": true,
+  "cases": [
+    {
+      "case_id": "OOS-V01",
+      "detail": "cutoff-1 rejected=['EMBARGO_VIOLATION:start_utc_ms=1795290232731<freeze_plus_embargo=1795290232732']",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "POST_FREEZE_AND_EXACT_EMBARGO_BOUNDARY",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V02",
+      "detail": "REUSED_DEV_DATASET_BLOCKED_AS_OOS:9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "OVERLAPPING_OLD_DEV_SHA_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V03",
+      "detail": "MODELED_OR_SYNTHETIC_BBO_FORBIDDEN_AS_OBSERVED_QUOTE",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "FAKE_OBSERVED_QUOTE_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V04",
+      "detail": "UNCLOSED_CANDLE_FORBIDDEN:idx=0",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "OPEN_UNCLOSED_CANDLE_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V05",
+      "detail": "MISSING_TRADES_GAP:idx=1:prev=10,curr=15",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "MISSING_TRADES_SEQUENCE_GAP_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V06",
+      "detail": "MISSING_OR_BROKEN_QUOTE_SEQUENCE:idx=1:prev=1,curr=5",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "MISSING_QUOTE_SEQUENCE_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V07",
+      "detail": "edt=2026-11-01T05:30:00Z, est=2026-11-01T06:30:00Z",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "DST_NEW_YORK_LOCAL_TIME_HANDLING",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V08",
+      "detail": "utc=2026-11-21T19:43:52Z",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "UTC_NORMALIZATION_AND_STRICT_MONOTONIC",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V09",
+      "detail": "OUT_OF_ORDER_QUOTE_PACKET:idx=1:1795290236732<1795290237732",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "OUT_OF_ORDER_PACKETS_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V10",
+      "detail": "closures=1",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "LONG_MARKET_CLOSURE_DISCLOSED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V11",
+      "detail": "CROSSED_OR_INVALID_BBO:idx=0:bid=4000.5,ask=4000.4",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "CROSSED_BBO_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V12",
+      "detail": "PARTIAL_OR_INCOMPLETE_PAGINATION_REJECTED",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "PARTIAL_PAGE_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V13",
+      "detail": "QUOTE_DISCONNECT_GAP:idx=1:gap_ms=499000",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "RECONNECT_DISCONNECT_GAP_DETECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V14",
+      "detail": "dropped=1",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "CRASH_RESTART_DEDUPLICATION",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V15",
+      "detail": "CORRUPT_GZIP_PAYLOAD:BadGzipFile",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "CORRUPT_GZIP_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V16",
+      "detail": "TAMPERED_REGISTRY_ENTRY_SHA256:idx=0:sid=synth_fixture_prosp_001",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "TAMPERED_MANIFEST_HASH_CHAIN_DETECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V17",
+      "detail": "STALE_OR_UNVERIFIED_ACCOUNT_FEE_TIER",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "STALE_ACCOUNT_FEE_TIER_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V18",
+      "detail": "EMPTY_MARKET_DATA_PAYLOAD",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "MISSING_EMPTY_MARKET_DATA_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V19",
+      "detail": "a1=APPENDED_NEW_ENTRY, a2=IDEMPOTENT_ALREADY_RECORDED_NOOP",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "REPEATED_INGESTION_IDEMPOTENCY_AND_NO_OVERWRITE",
+      "status": "PASS"
+    },
+    {
+      "case_id": "OOS-V20",
+      "detail": "secret=['FORBIDDEN_SECRETS_OR_ACCOUNT_FIELDS_PRESENT:FORBIDDEN_KEY:$.query_params.api_key']; synth=['SYNTHETIC_FIXTURE_FORBIDDEN_AS_REAL_OOS_MARKET_DATA']",
+      "fixture_provenance": "SYNTHETIC_VALIDATOR_ONLY_NOT_MARKET_DATA",
+      "green_accepted": true,
+      "red_rejected": true,
+      "scenario": "SECRET_REDACTION_AND_SYNTHETIC_FIXTURE_EXCLUSION",
+      "status": "PASS"
+    }
+  ],
+  "failed_cases": 0,
+  "fixture_provenance_disclosure": "ALL_20_TESTS_ARE_SYNTHETIC_VALIDATOR_ONLY_NOT_REAL_MARKET_DATA",
+  "passed_cases": 20,
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS",
+  "total_cases": 20,
+  "validates_real_market_data": false,
+  "validates_validator_contract": true
+}

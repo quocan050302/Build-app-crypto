@@ -1,0 +1,412 @@
+{
+  "owner_disk_preflight_waiver": false,
+  "owner_waiver_permitted": false,
+  "readonly_disk_inventory": {
+    "autonomous_deletion_executed": false,
+    "estimated_project_non_kh_archive_candidates_gib": 1.4771,
+    "git_gc_executed": false,
+    "important_note": "Project-owned legacy artifacts (~1.6 GiB) alone are smaller than the ~11.4 GiB shortfall to 20.5 GiB. Reaching >= 25.0 GiB advisory (or >= 20.5 GiB strict preflight) requires manual owner cleanup of non-project system/user storage (e.g., macOS Downloads, Docker images, Xcode/Homebrew caches, Time Machine local snapshots).",
+    "inventory_mode": "READ_ONLY_ZERO_MUTATIONS",
+    "manual_inspection_commands_NOT_AUTOMATICALLY_EXECUTED": [
+      {
+        "command": "df -h /System/Volumes/Data",
+        "executed": false,
+        "purpose": "Check real APFS Data volume binary GiB free space"
+      },
+      {
+        "command": "du -sh ~/Downloads ~/Library/Caches ~/.cache 2>/dev/null | sort -hr",
+        "executed": false,
+        "purpose": "Inspect user-owned non-project caches & downloads"
+      },
+      {
+        "command": "tmutil listlocalsnapshots /",
+        "executed": false,
+        "purpose": "Check if macOS APFS local Time Machine snapshots hold reclaimable blocks"
+      },
+      {
+        "command": "du -sh aurum-desk/docs/artifacts/* | sort -hr | head -n 15",
+        "executed": false,
+        "purpose": "Review historical pre-KH artifact folders (do NOT delete locked kh_01*/kh_02* folders)"
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "top_docs_artifacts_subfolders": [
+      {
+        "folder_name": "v17_9_0_1_3",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_0_1_3",
+        "size_bytes": 676917390,
+        "size_gib": 0.6304,
+        "size_mib": 645.56
+      },
+      {
+        "folder_name": "v17_9_3_1_2_9",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_9",
+        "size_bytes": 228213244,
+        "size_gib": 0.2125,
+        "size_mib": 217.64
+      },
+      {
+        "folder_name": "v17_9_3_1_2_10",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_10",
+        "size_bytes": 205441811,
+        "size_gib": 0.1913,
+        "size_mib": 195.92
+      },
+      {
+        "folder_name": "v17_9_3_1_2_8",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_8",
+        "size_bytes": 203367536,
+        "size_gib": 0.1894,
+        "size_mib": 193.95
+      },
+      {
+        "folder_name": "v17_9_3_1_2_7",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_7",
+        "size_bytes": 192599029,
+        "size_gib": 0.1794,
+        "size_mib": 183.68
+      },
+      {
+        "folder_name": "v17_9_0",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": true,
+        "path": "aurum-desk/docs/artifacts/v17_9_0",
+        "size_bytes": 79518398,
+        "size_gib": 0.0741,
+        "size_mib": 75.83
+      },
+      {
+        "folder_name": "v17_9_3_1_2_11",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_11",
+        "size_bytes": 49517234,
+        "size_gib": 0.0461,
+        "size_mib": 47.22
+      },
+      {
+        "folder_name": "kh_01b_r1_data_safety_r2",
+        "immutable_kh_evidence_locked": true,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2",
+        "size_bytes": 35331348,
+        "size_gib": 0.0329,
+        "size_mib": 33.69
+      },
+      {
+        "folder_name": "kh_01b_r1_ram_safety_r3",
+        "immutable_kh_evidence_locked": true,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3",
+        "size_bytes": 35226565,
+        "size_gib": 0.0328,
+        "size_mib": 33.59
+      },
+      {
+        "folder_name": "kh_01b_r1",
+        "immutable_kh_evidence_locked": true,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/kh_01b_r1",
+        "size_bytes": 34825709,
+        "size_gib": 0.0324,
+        "size_mib": 33.21
+      },
+      {
+        "folder_name": "v17_9_3_1_2_13",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_13",
+        "size_bytes": 24640132,
+        "size_gib": 0.0229,
+        "size_mib": 23.5
+      },
+      {
+        "folder_name": "v17_9_3_1_2_12",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_12",
+        "size_bytes": 19445074,
+        "size_gib": 0.0181,
+        "size_mib": 18.54
+      },
+      {
+        "folder_name": "v17_9_3_1",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1",
+        "size_bytes": 16800193,
+        "size_gib": 0.0156,
+        "size_mib": 16.02
+      },
+      {
+        "folder_name": "v17_9_3_1_2_5",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_5",
+        "size_bytes": 16243487,
+        "size_gib": 0.0151,
+        "size_mib": 15.49
+      },
+      {
+        "folder_name": "v17_9_3_1_2_6",
+        "immutable_kh_evidence_locked": false,
+        "manual_archive_candidate": false,
+        "path": "aurum-desk/docs/artifacts/v17_9_3_1_2_6",
+        "size_bytes": 14534686,
+        "size_gib": 0.0135,
+        "size_mib": 13.86
+      }
+    ],
+    "top_project_owned_folders": [
+      {
+        "path": "aurum-desk/backend",
+        "size_bytes": 3201765091,
+        "size_gib": 2.9819,
+        "size_mib": 3053.44
+      },
+      {
+        "path": "aurum-desk/docs",
+        "size_bytes": 2286049250,
+        "size_gib": 2.129,
+        "size_mib": 2180.15
+      },
+      {
+        "path": "aurum-desk/frontend",
+        "size_bytes": 187564329,
+        "size_gib": 0.1747,
+        "size_mib": 178.88
+      },
+      {
+        "path": "aurum-desk/backtest",
+        "size_bytes": 22251670,
+        "size_gib": 0.0207,
+        "size_mib": 21.22
+      },
+      {
+        "path": "aurum-desk/audit_20261015",
+        "size_bytes": 13200172,
+        "size_gib": 0.0123,
+        "size_mib": 12.59
+      },
+      {
+        "path": "aurum-desk/research_artifacts",
+        "size_bytes": 10645148,
+        "size_gib": 0.0099,
+        "size_mib": 10.15
+      },
+      {
+        "path": "aurum-desk/tools",
+        "size_bytes": 10385053,
+        "size_gib": 0.0097,
+        "size_mib": 9.9
+      },
+      {
+        "path": "aurum-desk/artifacts",
+        "size_bytes": 4800429,
+        "size_gib": 0.0045,
+        "size_mib": 4.58
+      },
+      {
+        "path": "aurum-desk/logs",
+        "size_bytes": 735793,
+        "size_gib": 0.0007,
+        "size_mib": 0.7
+      },
+      {
+        "path": "aurum-desk/AURUM_14D_REPLAY_VERIFIED_AUDIT.md",
+        "size_bytes": 33551,
+        "size_gib": 0.0,
+        "size_mib": 0.03
+      },
+      {
+        "path": "aurum-desk/CG01_V16_27_BASELINE_AUDIT_CLOSURE.md",
+        "size_bytes": 19051,
+        "size_gib": 0.0,
+        "size_mib": 0.02
+      },
+      {
+        "path": "aurum-desk/CG01_V16_27_BASELINE_PERFORMANCE_REPORT.md",
+        "size_bytes": 15720,
+        "size_gib": 0.0,
+        "size_mib": 0.01
+      },
+      {
+        "path": "aurum-desk/test-results",
+        "size_bytes": 15610,
+        "size_gib": 0.0,
+        "size_mib": 0.01
+      },
+      {
+        "path": "aurum-desk/V179012_INITIAL_CODE_AUDIT.md",
+        "size_bytes": 12017,
+        "size_gib": 0.0,
+        "size_mib": 0.01
+      },
+      {
+        "path": "aurum-desk/V179012_FINAL_BLOCKER_AUDIT.md",
+        "size_bytes": 10892,
+        "size_gib": 0.0,
+        "size_mib": 0.01
+      }
+    ]
+  },
+  "schema_version": "kh_02_r2_c1_strict_safety_oos_readiness_v1",
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "strict_multi_mount_probe": {
+    "advisory_gib": 25.0,
+    "atomic_write_probes": [
+      {
+        "atomic_write_rename_ok": true,
+        "error": null,
+        "path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/kh02r2c1_20261122T013329Z_q_rcv6s_"
+      },
+      {
+        "atomic_write_rename_ok": true,
+        "error": null,
+        "path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094"
+      }
+    ],
+    "blocked_mountpoints": [
+      "/"
+    ],
+    "blocked_mounts_count": 1,
+    "can_run_heavy_stages": false,
+    "deduplicated_distinct_mounts_count": 1,
+    "distinct_mounts": [
+      {
+        "advisory_gib": 25.0,
+        "apfs_purgeable_note": "POSIX statvfs/disk_usage free bytes used (binary GiB = 1024^3); never substitute Finder decimal GB or purgeable cache.",
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "measured_utc": "2026-11-22T01:33:30Z",
+        "mountpoint": "/",
+        "passes_advisory_25_gib": false,
+        "passes_all_strict_floors": false,
+        "passes_post_reserve_runtime_20p0_gib": false,
+        "passes_strict_20p5_gib": false,
+        "projected_post_reserve_gib": 7.4691,
+        "reserved_evidence_gib": 0.05,
+        "roles": [
+          "app_volume",
+          "artifacts_output",
+          "caches",
+          "logs",
+          "python_venv",
+          "repo_volume",
+          "temp_volume"
+        ],
+        "shortfall_post_reserve_to_20p0_gib": 12.5309,
+        "shortfall_to_20p5_gib": 12.9809,
+        "st_dev": 16777229,
+        "strict_preflight_min_gib": 20.5,
+        "strict_runtime_min_gib": 20.0,
+        "total_bytes": 494384795648,
+        "total_gib": 460.4317,
+        "used_bytes": 486311194624
+      }
+    ],
+    "double_counting_prevented_by_st_dev": true,
+    "measured_utc": "2026-11-22T01:33:30Z",
+    "min_free_gb_decimal": 8.0736,
+    "min_free_gib": 7.5191,
+    "owner_waiver_permitted": false,
+    "probe_errors": [],
+    "reserved_evidence_gib": 0.05,
+    "role_mount_mappings": {
+      "app_volume": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk",
+        "requested_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk",
+        "st_dev": 16777229
+      },
+      "artifacts_output": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094",
+        "requested_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094",
+        "st_dev": 16777229
+      },
+      "caches": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Users/macbook/.cache",
+        "requested_path": "/Users/macbook/.cache",
+        "st_dev": 16777229
+      },
+      "logs": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094",
+        "requested_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094/logs",
+        "st_dev": 16777229
+      },
+      "python_venv": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Library/Frameworks/Python.framework/Versions/3.13/bin",
+        "requested_path": "/Library/Frameworks/Python.framework/Versions/3.13/bin",
+        "st_dev": 16777229
+      },
+      "repo_volume": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto",
+        "requested_path": "/Users/macbook/Documents/Project_Github/Build-app-crypto",
+        "st_dev": 16777229
+      },
+      "temp_volume": {
+        "error": null,
+        "free_bytes": 8073601024,
+        "free_gb_decimal": 8.0736,
+        "free_gib": 7.5191,
+        "mountpoint": "/",
+        "probe_ok": true,
+        "probed_real_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/kh02r2c1_20261122T013329Z_q_rcv6s_",
+        "requested_path": "/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/kh02r2c1_20261122T013329Z_q_rcv6s_",
+        "st_dev": 16777229
+      }
+    },
+    "roles_probed_count": 7,
+    "shortfall_to_strict_20p5_gib": 12.9809,
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "status": "BLOCKED_LOW_DISK",
+    "strict_preflight_min_gib": 20.5,
+    "strict_runtime_min_gib": 20.0
+  }
+}

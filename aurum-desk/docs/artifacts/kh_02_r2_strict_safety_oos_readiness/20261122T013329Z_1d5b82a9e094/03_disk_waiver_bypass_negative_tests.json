@@ -1,0 +1,81 @@
+{
+  "controls": [
+    {
+      "control_id": "DISK-NC01",
+      "detail": "val=20.499 -> status=BLOCKED_LOW_DISK, can_run_heavy=False",
+      "name": "BLOCKED_BELOW_FLOOR_20p499_GIB",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC02",
+      "detail": "val=19.999 -> status=BLOCKED_LOW_DISK, can_run_heavy=False",
+      "name": "BLOCKED_BELOW_FLOOR_19p999_GIB",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC03",
+      "detail": "val=5.6567 -> status=BLOCKED_LOW_DISK, can_run_heavy=False",
+      "name": "BLOCKED_BELOW_FLOOR_5p6567_GIB",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC04",
+      "detail": "val=1.999 -> status=BLOCKED_LOW_DISK, can_run_heavy=False",
+      "name": "BLOCKED_BELOW_FLOOR_1p999_GIB",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC05",
+      "detail": "ok_0p05=PASS_STRICT_BELOW_ADVISORY_25GIB, oversub_0p60=BLOCKED_LOW_DISK",
+      "name": "EXACT_20P500_GIB_BOUNDARY_AND_RESERVE_OVERSUBSCRIPTION",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC06",
+      "detail": "distinct_mounts=1, min_gib=11.0",
+      "name": "ALIAS_SYMLINK_MOUNT_DEDUP_NO_DOUBLE_COUNT",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC07",
+      "detail": "mounts=2, blocked=['/Volumes/SmallB']",
+      "name": "DISTINCT_MOUNT_INDEPENDENT_FLOOR",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC08",
+      "detail": "status=FAIL_MOUNT_PROBE_ERROR, errors=['MOUNT_PROBE_ERROR:repo:FileNotFoundError:MISSING_REQUIRED_MOUNT_PATH:repo:/private/var/folders/n_/hz396std3x792_n2yrmrcw640000gn/T/kh02r2c1_20261122T013329Z_q_rcv6s_/definitely_missing_mount_xyz']",
+      "name": "UNREADABLE_OR_MISSING_MOUNT_FAIL_CLOSED",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC09",
+      "detail": "r2_cli_rc=2, c1_cli_rc=2, api_blocked=True",
+      "name": "INJECTED_OWNER_WAIVE_DISK_PREFLIGHT_CLI_AND_API_REJECTED",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC10",
+      "detail": "reason=RUNTIME_STRICT_DISK_FLOOR_BREACH:19.5000GiB<20.00GiB, child_reaped=True, reaped=[77082]",
+      "name": "MID_RUN_DISK_DROP_BELOW_20GIB_HARD_ABORT_AND_CHILD_REAP",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC11",
+      "detail": "refused=True, preserved=True",
+      "name": "UNOWNED_SENTINEL_LESS_TEMP_DIR_REFUSED",
+      "status": "PASS"
+    },
+    {
+      "control_id": "DISK-NC12",
+      "detail": "verified_count=7/7",
+      "name": "PRIOR_EVIDENCE_AND_POINTERS_IMMUTABLE",
+      "status": "PASS"
+    }
+  ],
+  "failed_controls": 0,
+  "passed_controls": 12,
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS",
+  "total_controls": 12
+}

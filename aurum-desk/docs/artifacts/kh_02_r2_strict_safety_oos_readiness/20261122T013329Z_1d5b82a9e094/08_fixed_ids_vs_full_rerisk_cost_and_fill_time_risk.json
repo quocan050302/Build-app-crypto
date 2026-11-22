@@ -1,0 +1,58 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "fill_time_cap_violations": 0,
+  "fixed_fill_decimal_checks": {
+    "B2_H1_r2_readonly_1x": {
+      "fees_usd": 102.2825,
+      "gross_pnl_usd": -73.1555,
+      "net_pnl_usd": -175.438
+    },
+    "B2_H1_synth_1x": {
+      "fees_usd": 0.25,
+      "gross_pnl_usd": -2.0,
+      "net_pnl_usd": -2.25
+    }
+  },
+  "fixed_fill_zero_dropped_ids_verified": true,
+  "full_rerisk_starts_from_full_universe": true,
+  "historical_readonly_r2_tail_summary": {
+    "decision_time_cap_violations": 0,
+    "post_fill_policy_cap_violations": 0,
+    "source_run_id": "20261121T154352Z_8ca245bcf4d8"
+  },
+  "live_fill_time_controls": {
+    "future_high_low_peek_blocked": true,
+    "gap_past_sl_rejected": {
+      "accepted": false,
+      "fill_entry_price": 3995.2,
+      "fill_time_action": "REJECTED_FILL_TIME_GAPPED_PAST_SL",
+      "fill_time_net_rr": null,
+      "fill_time_planned_net_risk_usd": null,
+      "final_qty": 0.0
+    },
+    "low_net_rr_trade_rejected": {
+      "accepted": false,
+      "decision_qty": 0.5,
+      "fill_entry_price": 4000.2,
+      "fill_time_action": "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0",
+      "fill_time_net_rr": 1.3226,
+      "fill_time_planned_net_risk_usd": 2.47,
+      "final_qty": 0.0,
+      "orig_qty_fill_time_net_risk_usd": 3.2494
+    },
+    "valid_trade_accepted": {
+      "accepted": true,
+      "decision_qty": 0.35,
+      "fill_entry_price": 4000.2,
+      "fill_time_action": "ACCEPTED_AS_SIZED",
+      "fill_time_net_rr": 2.553,
+      "fill_time_planned_net_risk_usd": 2.2746,
+      "final_qty": 0.35,
+      "orig_qty_fill_time_net_risk_usd": 2.2746
+    }
+  },
+  "realized_tail_risk_disclosed": true,
+  "realized_tail_risk_disclosure": "Planned net risk cap <= $2.50 is a pre-fill/fill-time planned stop estimate, NOT a physical cap on realized loss under adverse gaps or slippage.",
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS"
+}

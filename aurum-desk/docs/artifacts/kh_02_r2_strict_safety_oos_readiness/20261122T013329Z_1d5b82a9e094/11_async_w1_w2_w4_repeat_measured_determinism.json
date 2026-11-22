@@ -1,0 +1,6 @@
+{
+  "block_reason": "Strict unwaivable preflight disk floor >= 20.5 GiB breached: measured 7.5191 GiB free across 1 distinct write mount(s) (shortfall 12.9809 GiB).",
+  "historical_r2_speedups_not_copied_as_current": true,
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "NOT_RUN_BLOCKED_LOW_DISK"
+}

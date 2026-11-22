@@ -1,0 +1,146 @@
+{
+  "future_mutation_invariance_passed": true,
+  "historical_readonly_r2_full_dataset_reference": {
+    "finding_classification": "R1_SUSPECT_CONFIRMED_ON_RESEARCH_PATH_ONLY",
+    "production_affected": false,
+    "r1_risk_eligible_count": 1039,
+    "r1_targets_selected_count": 3610,
+    "raw_already_swept_targets": 584,
+    "reexecuted_in_this_run": false,
+    "risk_eligible_already_swept_targets": 162,
+    "source_run_id": "20261121T154352Z_8ca245bcf4d8"
+  },
+  "live_synthetic_t01_to_t10_suite": {
+    "all_passed": true,
+    "passed_count": 10,
+    "scenario_count": 10,
+    "scenarios": [
+      {
+        "description": "Confirmed M15 swing HIGH swept before LONG decision must NOT be eligible TP",
+        "passed": true,
+        "r1_reproduced_swept_target_bug": true,
+        "r1_selected": {
+          "rejection": null,
+          "source": "M15_CONFIRMED_SWING_HIGH",
+          "tp": 4006.0
+        },
+        "r2_result": {
+          "accepted": false,
+          "rejection": "NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET",
+          "tp": null
+        },
+        "scenario_id": "T01"
+      },
+      {
+        "description": "Confirmed H1 swing LOW swept before SHORT decision must NOT be eligible TP",
+        "passed": true,
+        "r1_reproduced_swept_target_bug": true,
+        "r1_selected": {
+          "rejection": null,
+          "source": "H1_CONFIRMED_SWING_LOW",
+          "tp": 3993.0
+        },
+        "r2_result": {
+          "accepted": false,
+          "rejection": "NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET",
+          "tp": null
+        },
+        "scenario_id": "T02"
+      },
+      {
+        "description": "H1 swing confirmed after decision timestamp must be unavailable",
+        "passed": true,
+        "r2_result": {
+          "accepted": false,
+          "rejection": "NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET_LATENCY_FILTERED"
+        },
+        "scenario_id": "T03"
+      },
+      {
+        "description": "Swing confirmed before decision and swept only after decision MUST remain eligible as-of decision",
+        "passed": true,
+        "r2_result": {
+          "accepted": true,
+          "target_level_id": "15m_HIGH_T04_SWEPT_LATER",
+          "tp": 4007.5
+        },
+        "scenario_id": "T04"
+      },
+      {
+        "description": "Closer swept target skipped; farther valid as-of unswept target selected",
+        "passed": true,
+        "r2_result": {
+          "accepted": true,
+          "target_level_id": "1H_HIGH_T05_VALID",
+          "tp": 4009.0
+        },
+        "scenario_id": "T05"
+      },
+      {
+        "description": "Exact close_time + latency == decision_time accepted; +1ms late rejected",
+        "passed": true,
+        "r2_exact_accepted": true,
+        "r2_plus1ms_rejected": true,
+        "scenario_id": "T06"
+      },
+      {
+        "description": "Identical prices across distinct TFs obey order-invariant deterministic tie-break",
+        "order_ab_target_id": "15m_HIGH_T07",
+        "order_ba_target_id": "15m_HIGH_T07",
+        "passed": true,
+        "scenario_id": "T07"
+      },
+      {
+        "description": "Duplicate/non-monotonic timestamps fail-closed; DST & weekend gaps tracked in gap_provenance",
+        "dst_gap_provenance_recorded": true,
+        "dup_rejected": true,
+        "nonmono_rejected": true,
+        "passed": true,
+        "scenario_id": "T08"
+      },
+      {
+        "description": "Unreachable net R:R target fails closed with ZERO TP stretching",
+        "passed": true,
+        "r2_result": {
+          "accepted": false,
+          "rejection": "NO_UNSWEPT_CAUSAL_STRUCTURAL_TARGET_ALL_TOO_CLOSE"
+        },
+        "scenario_id": "T09"
+      },
+      {
+        "description": "Randomly mutating all future M1/M15/H1 bars beyond decision leaves prefix ledger bit-for-bit identical",
+        "passed": true,
+        "scenario_id": "T10",
+        "t10_proof": {
+          "bit_for_bit_identical": true,
+          "cutoff_close_time_ms": 1793503680000,
+          "cutoff_m1_index": 47,
+          "cutoff_utc": "2026-11-01T03:28:00Z",
+          "executed": true,
+          "mutated_future_prefix_sha256": "accc968f1f263b1d16e8d823f92d36aa5701d72b38bff74e13ba4b5f70bd962f",
+          "mutated_m1_bars_count": 32,
+          "original_prefix_sha256": "accc968f1f263b1d16e8d823f92d36aa5701d72b38bff74e13ba4b5f70bd962f",
+          "passed": true,
+          "rng_seed": 20261121
+        }
+      }
+    ]
+  },
+  "m1_between_htf_sweep_detected": true,
+  "outcome_ledger_sample": [
+    {
+      "candidate_id": "synth_t01_unswept_ok",
+      "decision_timestamp_ms": 1795000060000,
+      "target_unswept_verified": true
+    },
+    {
+      "candidate_id": "synth_t02_m1_swept_rejected",
+      "decision_timestamp_ms": 1795000120000,
+      "target_unswept_verified": false
+    }
+  ],
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS",
+  "swept_tp_accepted_count": 0,
+  "t01_to_t10_all_passed": true
+}

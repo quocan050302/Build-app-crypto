@@ -1,0 +1,29 @@
+{
+  "block_reason": "Strict unwaivable preflight disk floor >= 20.5 GiB breached: measured 7.5191 GiB free across 1 distinct write mount(s) (shortfall 12.9809 GiB).",
+  "collected_count": 0,
+  "error_count": 0,
+  "executed_count": 0,
+  "failed_count": 0,
+  "junit_bijection_exact": false,
+  "junit_xml_files": [],
+  "mandatory_skipped_count": 0,
+  "passed_count": 0,
+  "safe_focused_unit_tests_diagnostic_not_full_regression": {
+    "diagnostic_scope_only_not_full_regression": true,
+    "elapsed_sec": 12.401,
+    "executed": true,
+    "exit_code": 0,
+    "output_tail": "..................                                                       [100%]\n=============================== warnings summary ===============================\nbackend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 1 warning in 11.27s",
+    "status": "PASS",
+    "test_files": [
+      "backend/tests/test_kh_02_r2_research_integrity.py",
+      "backend/tests/test_kh_02_r2_counterfactual_and_costs.py",
+      "backend/tests/test_kh_02_r2_oos_provenance_and_faults.py",
+      "backend/tests/test_kh_02_r2_c1_strict_safety_and_oos.py"
+    ]
+  },
+  "skipped_count": 0,
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "NOT_RUN_BLOCKED_LOW_DISK",
+  "zero_placeholder_junit_written": true
+}

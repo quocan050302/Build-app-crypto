@@ -1,0 +1,14 @@
+{
+  "PAIRED_RESEARCH_VERDICT": "IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+  "b0_vs_b2_identifiability_status": "COMPARISON_NOT_IDENTIFIABLE",
+  "historical_readonly_r2_balance_reference": {
+    "PAIRED_COMPARISON_VERDICT": "IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+    "b2_h1_matching_quality": "MATCHING_INADEQUATE",
+    "b2_h1_max_abs_smd": null,
+    "source_run_id": "20261121T154352Z_8ca245bcf4d8"
+  },
+  "live_synthetic_imbalance_smd": 1.3416,
+  "matching_inadequate_guard_verified": true,
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "status": "PASS"
+}

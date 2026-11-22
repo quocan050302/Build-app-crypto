@@ -1,0 +1,46 @@
+================================================================================
+BAN GIAO CHU SO HUU (TIENG VIET) — AURUM DESK | KH-02.R2.C1
+DONG CONG AN TOAN O DIA NGHIEM NGAT & SAN SANG DU LIEU OOS TUONG LAI
+================================================================================
+Run ID                 : 20261122T013329Z_1d5b82a9e094
+Nhanh bat buoc         : feature/v17-9-2-structural-sl-tp-from-qa
+Git HEAD quan sat      : 1d5b82a9e0946b02e414e797f61804594645bbb5
+Remote origin HEAD     : 9c5b97be5dcbefbb52f8a7a4421683c8b0140d76
+Trang thai working tree: git_clean=True, uncommitted_c1=False
+An toan giao dich      : PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO
+OOS_EVALUATIONS        : 0
+
+--- 15 KET LUAN TRUC GIAO ---
+  BRANCH_SOURCE_VERDICT                = PASS
+  STRICT_DISK_SAFETY_VERDICT           = BLOCKED_LOW_DISK
+  RAM_PROCESS_SAFETY_VERDICT           = PASS
+  FULL_REGRESSION_VERDICT              = NOT_RUN_BLOCKED_LOW_DISK
+  BASELINE_PARITY_VERDICT              = NOT_RUN_BLOCKED_LOW_DISK
+  ENTRY_TARGET_INTEGRITY_VERDICT       = PASS
+  PAIRED_RESEARCH_VERDICT              = IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT
+  COST_RISK_RECONCILIATION_VERDICT     = PASS
+  DATA_PROVENANCE_VERDICT              = PASS
+  FUTURE_OOS_READINESS_VERDICT         = BLOCKED_NO_VERIFIED_NEW_DATA
+  FRESH_OOS_VERDICT                    = BLOCKED_NO_UNTOUCHED_DATA
+  RESEARCH_ECONOMIC_VERDICT            = NO_PROVEN_EDGE
+  INDEPENDENT_VERIFIER_VERDICT         = PENDING_SEPARATE_OS_VERIFIER
+  PUBLICATION_VERDICT                  = NOT_PUBLISHED_BLOCKED_LOW_DISK
+  ACTIVATION_READY                     = NO
+
+--- DO O DIA & RAM THUC TE ---
+  So phan vung vat ly ghi (st_dev)     : 1
+  Dung luong trong toi thieu           : 7.5191 GiB nhi phan (8.0736 GB thap phan)
+  San preflight / runtime / khuyen nghi: 20.5 GiB / 20.0 GiB / 25.0 GiB (owner_waiver_permitted=False)
+  Thieu hut so voi 20.5 GiB            : 12.9809 GiB
+  RAM kha dung preflight / min runtime : 4833.31 MiB / 4617.67 MiB (san >= 512 MiB)
+  Max children / Orphans / Sentinel    : 3 / 0 / cleaned=True
+
+--- KIEM CHUNG & CHONG PASS GIA ---
+  Negative controls chong waiver (03)  : 12/12 PASS
+  OOS validator 20 tinh huong gia lap  : 20/20 PASS (KHONG PHAI DU LIEU THI TRUONG THAT)
+  Bo 56 loi RED/GREEN thuc (13)        : 56/56 PASS
+  Full pytest (10) / Async (11) / Par14: NOT_RUN_BLOCKED_LOW_DISK / NOT_RUN_BLOCKED_LOW_DISK / NOT_RUN_BLOCKED_LOW_DISK
+  Snapshot OOS moi that duoc chap nhan : 0 (OOS_EVALUATIONS=0)
+  Commit & Push                        : KHONG THUC HIEN (NOT_PUBLISHED_BLOCKED_LOW_DISK)
+  Thu muc bang chung                   : /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094
+================================================================================

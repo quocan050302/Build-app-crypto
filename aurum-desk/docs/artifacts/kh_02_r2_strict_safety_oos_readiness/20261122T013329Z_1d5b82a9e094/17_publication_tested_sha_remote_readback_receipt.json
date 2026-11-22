@@ -1,0 +1,15 @@
+{
+  "blocked_reason": "Strict disk preflight BLOCKED_LOW_DISK (7.5191 GiB < 20.5 GiB); automatic commit & push prohibited by \u00a710 until full strict QA passes without waiver.",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": null,
+  "git_commit_or_push_executed": false,
+  "latest_run_pointer_updated": false,
+  "owner_disk_preflight_waiver": false,
+  "publication_head_sha": null,
+  "publication_status": "NOT_PUBLISHED_BLOCKED_LOW_DISK",
+  "run_id": "20261122T013329Z_1d5b82a9e094",
+  "schema_version": "kh_02_r2_c1_strict_safety_oos_readiness_v1",
+  "spec_version": "KH-02.R2.C1-v1.0",
+  "start_head_sha": "1d5b82a9e0946b02e414e797f61804594645bbb5",
+  "tested_executable_sha": "1d5b82a9e0946b02e414e797f61804594645bbb5"
+}
