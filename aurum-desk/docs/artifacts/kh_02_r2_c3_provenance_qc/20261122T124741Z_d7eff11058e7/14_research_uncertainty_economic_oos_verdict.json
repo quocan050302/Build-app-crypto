@@ -1,0 +1,22 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "fresh_live_recomputed": true,
+  "live_purged_walkforward_summary": {
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "multiplicity_arms_evaluated": null,
+    "walkforward_folds_count": null
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS",
+  "walkforward_diagnostic_only_reused_data": true
+}

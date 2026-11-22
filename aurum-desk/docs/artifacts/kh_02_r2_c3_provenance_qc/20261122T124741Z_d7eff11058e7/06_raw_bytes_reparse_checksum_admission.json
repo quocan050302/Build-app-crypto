@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "check_id": "RP-01",
+      "detail": "both reparsed identically",
+      "name": "VALID_RAW_BYTES_REPARSE_BBO_AND_OHLCV",
+      "status": "PASS"
+    },
+    {
+      "check_id": "RP-02",
+      "detail": "['CANONICAL_PARSED_SHA256_TAMPERED_VS_RAW_BYTES:claimed=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,recomputed=e9061f256d06e7ab8e98329edbe531d6441f8a5b1b5824aa1f2c85b7fdc3f818']",
+      "name": "PARSED_SHA_FORGERY_REJECTED_WITH_VALID_RAW_SHA",
+      "status": "PASS"
+    },
+    {
+      "check_id": "RP-03",
+      "detail": "['EVENT_TIMESTAMP_TAMPERED_VS_RAW_BYTES:claimed=1795290357732,raw=1795290352732']",
+      "name": "EVENT_TIMESTAMP_TAMPER_REJECTED_VS_RAW_BYTES",
+      "status": "PASS"
+    },
+    {
+      "check_id": "RP-04",
+      "detail": "['REUSED_DEV_DATASET_BLOCKED_AS_OOS:9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18']",
+      "name": "DEV_CANONICAL_SHA_REPLAY_BLOCKED",
+      "status": "PASS"
+    }
+  ],
+  "dev_replay_rejected": true,
+  "event_timestamp_tamper_rejected": true,
+  "failed_checks": 0,
+  "parsed_forgery_rejected": true,
+  "raw_bytes_reparse_verified": true,
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS",
+  "total_checks": 4
+}

@@ -1,0 +1,34 @@
+{
+  "concurrent_stress_results": {
+    "writers_2": {
+      "distinct_appended": 2,
+      "passed": true,
+      "record_count": 3,
+      "same_id_appended": 1,
+      "same_id_noop": 1,
+      "valid": true
+    },
+    "writers_4": {
+      "distinct_appended": 4,
+      "passed": true,
+      "record_count": 5,
+      "same_id_appended": 1,
+      "same_id_noop": 3,
+      "valid": true
+    },
+    "writers_8": {
+      "distinct_appended": 8,
+      "passed": true,
+      "record_count": 9,
+      "same_id_appended": 1,
+      "same_id_noop": 7,
+      "valid": true
+    }
+  },
+  "concurrent_writers_2_4_8_exact_once_passed": true,
+  "interprocess_flock_passed": true,
+  "interprocess_flock_record_count": 7,
+  "prior_journal_bytes_untouched_verified": true,
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS"
+}

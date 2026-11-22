@@ -1,0 +1,55 @@
+{
+  "dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "future_mutation_invariance_passed": true,
+  "ledger_canonical_sha256": "276f209e39c28207b740740055592ff5d73b30ae7aef6ed0d27c90da12399a3a",
+  "live_causal_ledger_recomputed": true,
+  "r1_target_counterexamples_summary": {
+    "classification_counts_raw_targets": {
+      "CONFIRMED_SWING_ALREADY_SWEPT_ON_SOURCE_HTF": 294,
+      "GENUINELY_UNSWEPT_LABEL_COLLISION_ONLY": 2049,
+      "GENUINELY_UNSWEPT_VALID": 977,
+      "HTF_POOL_ALREADY_SWEPT_BY_INTERVENING_M1": 290
+    },
+    "classification_counts_risk_eligible": {
+      "CONFIRMED_SWING_ALREADY_SWEPT_ON_SOURCE_HTF": 64,
+      "GENUINELY_UNSWEPT_LABEL_COLLISION_ONLY": 559,
+      "GENUINELY_UNSWEPT_VALID": 318,
+      "HTF_POOL_ALREADY_SWEPT_BY_INTERVENING_M1": 98
+    },
+    "r1_raw_m1_triggers_audited": 3788,
+    "r1_risk_eligible_count": 1039,
+    "r1_target_source_label_counts": {
+      "H1_CONFIRMED_SWING_HIGH": 512,
+      "H1_CONFIRMED_SWING_LOW": 509,
+      "H1_UNSWEPT_SWING_HIGH": 228,
+      "H1_UNSWEPT_SWING_LOW": 219,
+      "M15_CONFIRMED_SWING_HIGH": 753,
+      "M15_CONFIRMED_SWING_LOW": 670,
+      "M15_UNSWEPT_SWING_HIGH": 289,
+      "M15_UNSWEPT_SWING_LOW": 430
+    },
+    "r1_targets_selected_count": 3610,
+    "swept_by_r1_target_source_label": {
+      "H1_CONFIRMED_SWING_HIGH": 129,
+      "H1_CONFIRMED_SWING_LOW": 89,
+      "H1_UNSWEPT_SWING_HIGH": 2,
+      "H1_UNSWEPT_SWING_LOW": 7,
+      "M15_CONFIRMED_SWING_HIGH": 119,
+      "M15_CONFIRMED_SWING_LOW": 58,
+      "M15_UNSWEPT_SWING_HIGH": 19,
+      "M15_UNSWEPT_SWING_LOW": 161
+    },
+    "total_confirmed_already_swept_raw_rate": 0.161773,
+    "total_confirmed_already_swept_raw_targets": 584,
+    "total_confirmed_already_swept_risk_eligible_rate": 0.155919,
+    "total_confirmed_already_swept_risk_eligible_targets": 162,
+    "total_directional_opportunities_audited": 44692
+  },
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS",
+  "swept_earlier_by_intervening_m1_count": 391,
+  "swept_on_source_htf_count": 4693,
+  "swept_tp_accepted_count": 0,
+  "t01_to_t10_all_passed": true,
+  "total_confirmed_levels": 5205
+}

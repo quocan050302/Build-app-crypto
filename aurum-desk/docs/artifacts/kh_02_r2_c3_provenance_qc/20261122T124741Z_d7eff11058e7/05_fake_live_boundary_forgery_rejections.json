@@ -1,0 +1,50 @@
+{
+  "attacks": [
+    {
+      "attack_id": "P0A-01",
+      "detail": "class=UNVERIFIED",
+      "name": "FAKE_TRANSPORT_WITH_IS_FAKE_FALSE_BLOCKED_FROM_REAL_OOS",
+      "rejected": true,
+      "status": "PASS"
+    },
+    {
+      "attack_id": "P0A-02",
+      "detail": "missing trusted receipt & raw mismatch blocked",
+      "name": "SYNTHETIC_FIXTURE_OMITTED_FLAG_BLOCKED_FROM_REAL_OOS",
+      "rejected": true,
+      "status": "PASS"
+    },
+    {
+      "attack_id": "P0A-03",
+      "detail": "raw_payload_bytes=None rejected",
+      "name": "METADATA_ONLY_FALLBACK_BLOCKED_FOR_QUOTE_AND_OHLCV",
+      "rejected": true,
+      "status": "PASS"
+    },
+    {
+      "attack_id": "P0A-04",
+      "detail": "tampered MAC rejected",
+      "name": "FORGED_LIVE_CAPTURE_RECEIPT_MAC_REJECTED",
+      "rejected": true,
+      "status": "PASS"
+    },
+    {
+      "attack_id": "P0A-05",
+      "detail": "tier=TEST_ONLY_NOT_ELIGIBLE_OOS",
+      "name": "ISOLATED_QA_MARKED_TEST_ONLY_NOT_ELIGIBLE_OOS",
+      "rejected": true,
+      "status": "PASS"
+    }
+  ],
+  "attacks_total": 5,
+  "failed_attacks": 0,
+  "fake_transport_blocked_from_real_oos": true,
+  "forged_receipt_mac_blocked": true,
+  "isolated_qa_strictly_tagged_non_oos": true,
+  "metadata_only_blocked_from_real_oos": true,
+  "real_oos_escrow_final_record_count": 0,
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS",
+  "stripped_synthetic_blocked_from_real_oos": true,
+  "tcb_disclosure": "In-process HMAC capture receipts and raw-byte reparsing enforce a strict fail-closed provenance firewall between fake/synthetic QA fixtures and real authorized public HTTP capture within this codebase, preventing accidental or caller-flag crossing. HOWEVER, code executing with full local host/root privileges could modify local files or memory; this boundary does NOT provide hardware TPM attestation or hardware WORM."
+}

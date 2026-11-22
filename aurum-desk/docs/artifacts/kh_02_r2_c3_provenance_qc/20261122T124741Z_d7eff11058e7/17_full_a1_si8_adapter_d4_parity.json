@@ -1,0 +1,125 @@
+{
+  "BASELINE_PARITY_VERDICT": "PASS",
+  "a1_mismatches_count": 0,
+  "a1_population_count": 56710,
+  "canonical_dataset_sha256_match": true,
+  "d4_a1_56710_eligible_count": 0,
+  "d4_historical_closed_trades": 0,
+  "heavy_56710_a1_6375_si8_246_adapter_streaming_rerun": "EXECUTED",
+  "kh02_r1_pointer_and_manifest_intact": true,
+  "parity_verifier_summary": {
+    "a1_evaluated_count": 56710,
+    "a1_mismatches_count": 0,
+    "a1_population_denominator": 56710,
+    "b00_vs_si0_exact_match": true,
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "parity_sha256": "5ddb06c928664fab593680b221788a5eeaef825d3cc6f9dfd8b2979506c34387",
+    "risk_cap_violations_count": 0,
+    "runtime_modes_all_off": true,
+    "si8_mismatches_count": 0,
+    "si8_population_denominator": 6375,
+    "si8_verified_count": 6375,
+    "spec_version": "KH-01B-v1.0",
+    "status": "PASS",
+    "tested_sha": "d7eff11058e7875b838654a5f4b4d59e94500a80",
+    "three_adapter_episodes_denominator": 246,
+    "three_adapter_mismatches_count": 0,
+    "violations": []
+  },
+  "per_decision_and_episode_fingerprints": {
+    "a1_56710_ids_sha256": "dd8282ca484c5d38b2d94b6a0dd65669ad01fb1acbda2874b6ed808457da08f3",
+    "all_sealed_fingerprints_exact_match": true,
+    "e00_bundle_sha256": "30f90659430d0607180e9834d11554d664f89438389d793e4f6384f0dde12b83",
+    "si0_242_episode_matched_tuples_sha256": "644addeb27aae5215079363564d6ba89a3a7d90c47a26499c595cbc501be964e",
+    "si8_6375_ids_sha256": "8d3bc50b44f7da510c166ba468b6de03402739eaa2e4bcebac6b939770a0141b"
+  },
+  "prior_evidence_immutability_verified": true,
+  "prior_sealed_artifacts_immutability": {
+    "CANONICAL_DATASET": {
+      "actual_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "match": true,
+      "path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz"
+    },
+    "KH01B_R2_LATEST_PTR": {
+      "actual_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "expected_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/latest_run.json"
+    },
+    "KH01B_R3_LATEST_PTR": {
+      "actual_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "expected_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/latest_run.json"
+    },
+    "KH02_R1_LATEST_PTR": {
+      "actual_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "expected_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json"
+    },
+    "KH02_R2_ARTIFACT_14": {
+      "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json"
+    },
+    "KH02_R2_C1_MANIFEST_16": {
+      "actual_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "expected_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094/16_independent_disk_verifier_content_sha256_manifest.json"
+    },
+    "KH02_R2_C2_LATEST_PTR": {
+      "actual_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "expected_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/latest_run.json"
+    },
+    "KH02_R2_C2_MANIFEST_17": {
+      "actual_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "expected_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_LATEST_PTR": {
+      "actual_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "expected_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/latest_run.json"
+    },
+    "KH02_R2_MANIFEST_22": {
+      "actual_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "expected_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "match": true,
+      "path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json"
+    }
+  },
+  "production_files_modified_count": 0,
+  "schema_version": "kh_02_r2_research_integrity_v1",
+  "si0_e00_primary_nb_summary": {
+    "blocked_by_open_position_count": 18502,
+    "closed_trades_count": 166,
+    "data_gap_unresolved_count": 1,
+    "expectancy_net_r": -0.8474,
+    "longest_losing_streak": 47,
+    "losses_count": 157,
+    "max_drawdown_usd": 345.8971,
+    "open_at_horizon_count": 74,
+    "profit_factor": 0.1335,
+    "total_fees_usd": 203.1135,
+    "total_realized_gross_usd": -142.7836,
+    "total_realized_net_usd": -345.8971,
+    "total_scheduled_episodes": 242,
+    "unfilled_or_no_fill_count": 1,
+    "win_rate": 0.054217,
+    "wins_count": 9
+  },
+  "si8_mismatches_count": 0,
+  "si8_population_count": 6375,
+  "spec_version": "KH-02.R2-v1.0",
+  "strict_d4_ontology_untouched": true,
+  "three_adapter_mismatches_count": 0,
+  "three_adapter_population_count": 246
+}

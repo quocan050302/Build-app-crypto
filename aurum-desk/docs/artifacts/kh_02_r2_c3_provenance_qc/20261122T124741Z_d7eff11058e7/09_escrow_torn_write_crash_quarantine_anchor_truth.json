@@ -1,0 +1,12 @@
+{
+  "anchored_rollback_detected": true,
+  "crash_recovery_and_double_quarantine_passed": true,
+  "eintr_and_short_write_recovery_passed": true,
+  "enospc_blob_leaves_prior_journal_untouched": true,
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS",
+  "threat_model_disclosure": "An append-only local hash chain detects accidental corruption and naive edits (LOCAL_TAMPER_EVIDENT_ONLY), but a privileged actor with write/root access to the same host filesystem could rewrite both journal and local anchor unless anchored to an independent remote WORM/signed store.",
+  "unanchored_immutability_class": "LOCAL_TAMPER_EVIDENT_ONLY",
+  "unanchored_pending_attestation_detected": true,
+  "unanchored_worm_verified": false
+}

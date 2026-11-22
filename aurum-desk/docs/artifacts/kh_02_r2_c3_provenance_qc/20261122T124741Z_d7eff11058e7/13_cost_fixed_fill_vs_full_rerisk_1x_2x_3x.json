@@ -1,0 +1,1806 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "fixed_fill_arms_summary": {
+    "B2_H1": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.9737,
+        "fees_usd": 102.2825,
+        "net_pnl_usd": -175.438
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6102,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -290.2165
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2466,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -404.995
+      },
+      "closed_trade_ids_sha256": "af5daf6884371c45feba370d8ba52153a7133fd67f772561c39eddeecb85c1cc",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 73,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -51.1413,
+        "expectancy_r": -1.2573,
+        "fees_usd": 153.4238,
+        "net_pnl_usd": -226.5793
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 204.565,
+        "net_pnl_usd": -277.7205
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 306.8475,
+        "net_pnl_usd": -380.003
+      },
+      "gross_pnl_1x_usd": -73.1555,
+      "losses": 72,
+      "open_at_horizon": 9,
+      "per_id_reconciled_count": 73,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 1
+    },
+    "B2_H123": {
+      "1x_base_0p0004": {
+        "expectancy_r": -1.0169,
+        "fees_usd": 31.4345,
+        "net_pnl_usd": -57.6807
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6384,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -92.9552
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2598,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -128.2297
+      },
+      "closed_trade_ids_sha256": "23d3eb8fb4b766ffb8f86a3ec0b0a2b7c6997612a1efe2e683cfcb90d17b43ee",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 23,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -15.7173,
+        "expectancy_r": -1.2938,
+        "fees_usd": 47.1518,
+        "net_pnl_usd": -73.398
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 62.869,
+        "net_pnl_usd": -89.1152
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 94.3035,
+        "net_pnl_usd": -120.5497
+      },
+      "gross_pnl_1x_usd": -26.2462,
+      "losses": 23,
+      "open_at_horizon": 8,
+      "per_id_reconciled_count": 23,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 0
+    },
+    "B2_H2": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    },
+    "B2_H3": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8504,
+        "fees_usd": 149.7653,
+        "net_pnl_usd": -239.6588
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4467,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -407.7001
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.0429,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -575.7414
+      },
+      "closed_trade_ids_sha256": "44eb3ac829c5cef674c767d475f221eb11ddb897aabbd14c29eb3348555fc7c1",
+      "data_gap_unresolved": 1,
+      "denominator_closed_trades": 114,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -74.8827,
+        "expectancy_r": -1.1161,
+        "fees_usd": 224.648,
+        "net_pnl_usd": -314.5415
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 299.5306,
+        "net_pnl_usd": -389.4241
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 449.2959,
+        "net_pnl_usd": -539.1894
+      },
+      "gross_pnl_1x_usd": -89.8935,
+      "losses": 109,
+      "open_at_horizon": 16,
+      "per_id_reconciled_count": 114,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 5
+    },
+    "NC_NULL_TRIGGER": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    }
+  },
+  "fixed_fill_decimal_checks": {
+    "B2_H123_1x_0p0004": {
+      "fees_usd": 31.4345,
+      "gross_pnl_usd": -26.2462,
+      "net_pnl_usd": -57.6807
+    },
+    "B2_H1_1x_0p0004": {
+      "fees_usd": 102.2825,
+      "gross_pnl_usd": -73.1555,
+      "net_pnl_usd": -175.438
+    },
+    "B2_H2_1x_0p0004": {
+      "fees_usd": 276.6577,
+      "gross_pnl_usd": -164.9541,
+      "net_pnl_usd": -441.6118
+    },
+    "B2_H3_1x_0p0004": {
+      "fees_usd": 149.7653,
+      "gross_pnl_usd": -89.8935,
+      "net_pnl_usd": -239.6588
+    },
+    "NC_NULL_TRIGGER_1x_0p0004": {
+      "fees_usd": 276.6577,
+      "gross_pnl_usd": -164.9541,
+      "net_pnl_usd": -441.6118
+    }
+  },
+  "fixed_fill_zero_dropped_ids_verified": true,
+  "fresh_live_recomputed": true,
+  "full_rerisk_starts_from_full_universe": true,
+  "full_universe_rerisk_summary": {
+    "1X_BASE_0p0004": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 240,
+            "arm_rejected_from_raw_eligible_count": 1083,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 1323,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 300,
+              "M15_TREND_NOT_ALIGNED": 270,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 513
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 240,
+          "replay_summary": {
+            "closed": 73,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 14,
+            "effective_setup_episodes": 66,
+            "eligible_candidates_input": 240,
+            "episode_cluster_95ci_r": [
+              -1.0182,
+              -0.8537
+            ],
+            "executed_ids_sha256": "2e31a75b3e83fbe13ed88adfae5d57cfc0ef1ccb86d98aa30dfadfe445f7cadd",
+            "expectancy_r": -0.9737,
+            "gross_pnl_usd": -73.1555,
+            "losses": 72,
+            "max_drawdown_usd": 175.438,
+            "net_pnl_usd": -175.438,
+            "ny_day_cluster_95ci_r": [
+              -1.0183,
+              -0.8726
+            ],
+            "open_at_horizon": 9,
+            "overlap_violations": 0,
+            "scheduled": 82,
+            "skipped_due_to_active_position": 158,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0137,
+            "wins": 1
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 104,
+            "arm_rejected_from_raw_eligible_count": 1219,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 1323,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 140,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 2,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 156,
+              "H2_STRUCTURE_NOT_CONFIRMED": 3,
+              "H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 1,
+              "H3_VOL_OR_SESSION_EXCLUDED": 132,
+              "M15_TREND_NOT_ALIGNED": 116,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 291,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 5,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 217,
+              "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 154
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 104,
+          "replay_summary": {
+            "closed": 23,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 21,
+            "eligible_candidates_input": 104,
+            "episode_cluster_95ci_r": [
+              -1.0183,
+              -1.0154
+            ],
+            "executed_ids_sha256": "54e41563dcd8464b5f19502fdbf5d6aeeaa44244f65102cd5f2fbf5daf9c12ef",
+            "expectancy_r": -1.0169,
+            "gross_pnl_usd": -26.2462,
+            "losses": 23,
+            "max_drawdown_usd": 57.6807,
+            "net_pnl_usd": -57.6807,
+            "ny_day_cluster_95ci_r": [
+              -1.0183,
+              -1.0153
+            ],
+            "open_at_horizon": 8,
+            "overlap_violations": 0,
+            "scheduled": 31,
+            "skipped_due_to_active_position": 73,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 1310,
+            "arm_rejected_from_raw_eligible_count": 13,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 1323,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 13
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 1310,
+          "replay_summary": {
+            "closed": 203,
+            "data_gap_unresolved": 2,
+            "effective_ny_days": 17,
+            "effective_setup_episodes": 186,
+            "eligible_candidates_input": 1310,
+            "episode_cluster_95ci_r": [
+              -0.9723,
+              -0.7723
+            ],
+            "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+            "expectancy_r": -0.8806,
+            "gross_pnl_usd": -164.9541,
+            "losses": 196,
+            "max_drawdown_usd": 441.6118,
+            "net_pnl_usd": -441.6118,
+            "ny_day_cluster_95ci_r": [
+              -0.9777,
+              -0.7786
+            ],
+            "open_at_horizon": 28,
+            "overlap_violations": 0,
+            "scheduled": 233,
+            "skipped_due_to_active_position": 1077,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0345,
+            "wins": 7
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 661,
+            "arm_rejected_from_raw_eligible_count": 662,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 1323,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 662
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 661,
+          "replay_summary": {
+            "closed": 114,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 13,
+            "effective_setup_episodes": 104,
+            "eligible_candidates_input": 661,
+            "episode_cluster_95ci_r": [
+              -0.9818,
+              -0.6958
+            ],
+            "executed_ids_sha256": "a144cd86c018afb5a9e1cb02ac48d2d809969c2939a7f9760f92ce465997bb54",
+            "expectancy_r": -0.8504,
+            "gross_pnl_usd": -89.8935,
+            "losses": 109,
+            "max_drawdown_usd": 239.6588,
+            "net_pnl_usd": -239.6588,
+            "ny_day_cluster_95ci_r": [
+              -0.9847,
+              -0.6908
+            ],
+            "open_at_horizon": 16,
+            "overlap_violations": 0,
+            "scheduled": 131,
+            "skipped_due_to_active_position": 530,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0439,
+            "wins": 5
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 1323,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 1323,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 1323,
+          "replay_summary": {
+            "closed": 203,
+            "data_gap_unresolved": 2,
+            "effective_ny_days": 17,
+            "effective_setup_episodes": 186,
+            "eligible_candidates_input": 1323,
+            "episode_cluster_95ci_r": [
+              -0.9723,
+              -0.7723
+            ],
+            "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+            "expectancy_r": -0.8806,
+            "gross_pnl_usd": -164.9541,
+            "losses": 196,
+            "max_drawdown_usd": 441.6118,
+            "net_pnl_usd": -441.6118,
+            "ny_day_cluster_95ci_r": [
+              -0.9777,
+              -0.7786
+            ],
+            "open_at_horizon": 28,
+            "overlap_violations": 0,
+            "scheduled": 233,
+            "skipped_due_to_active_position": 1090,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0345,
+            "wins": 7
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0002,
+        "slippage_usd": 0.1,
+        "spread_usd": 0.2,
+        "taker_fee_rate": 0.0004
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 1323,
+      "scenario_id": "1X_BASE_0p0004",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 1323,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 2358
+      }
+    },
+    "2X_ALL_COST_0p0004": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 90,
+            "arm_rejected_from_raw_eligible_count": 452,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 542,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 196,
+              "M15_TREND_NOT_ALIGNED": 51,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 205
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 90,
+          "replay_summary": {
+            "closed": 24,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 23,
+            "eligible_candidates_input": 90,
+            "episode_cluster_95ci_r": [
+              -1.0216,
+              -1.0185
+            ],
+            "executed_ids_sha256": "46b5a18582cd4723482eb96736c15c844d1263c0ce44e6576aceec7572c434fe",
+            "expectancy_r": -1.0201,
+            "gross_pnl_usd": -20.8608,
+            "losses": 24,
+            "max_drawdown_usd": 59.7975,
+            "net_pnl_usd": -59.7975,
+            "ny_day_cluster_95ci_r": [
+              -1.0213,
+              -1.0179
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 28,
+            "skipped_due_to_active_position": 62,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 38,
+            "arm_rejected_from_raw_eligible_count": 504,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 542,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 97,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 97,
+              "H2_STRUCTURE_NOT_CONFIRMED": 2,
+              "H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 1,
+              "H3_VOL_OR_SESSION_EXCLUDED": 49,
+              "M15_TREND_NOT_ALIGNED": 14,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 101,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 1,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 103,
+              "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 37
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 38,
+          "replay_summary": {
+            "closed": 6,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 6,
+            "eligible_candidates_input": 38,
+            "episode_cluster_95ci_r": [
+              -1.0205,
+              -1.0165
+            ],
+            "executed_ids_sha256": "cc3d80540303fed703d8146759d319b865f92df06a03c7003cdc0f7d138c24e7",
+            "expectancy_r": -1.0185,
+            "gross_pnl_usd": -5.8829,
+            "losses": 6,
+            "max_drawdown_usd": 14.8701,
+            "net_pnl_usd": -14.8701,
+            "ny_day_cluster_95ci_r": [
+              -1.0197,
+              -1.0171
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 10,
+            "skipped_due_to_active_position": 28,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 536,
+            "arm_rejected_from_raw_eligible_count": 6,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 542,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 6
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 536,
+          "replay_summary": {
+            "closed": 111,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 15,
+            "effective_setup_episodes": 97,
+            "eligible_candidates_input": 536,
+            "episode_cluster_95ci_r": [
+              -1.021,
+              -0.8153
+            ],
+            "executed_ids_sha256": "a5e6c214f46a167f90ef25bb124f8f212851e68dffbab52cb3f56b888689918e",
+            "expectancy_r": -0.9307,
+            "gross_pnl_usd": -64.1289,
+            "losses": 108,
+            "max_drawdown_usd": 253.7513,
+            "net_pnl_usd": -253.7513,
+            "ny_day_cluster_95ci_r": [
+              -1.0211,
+              -0.8296
+            ],
+            "open_at_horizon": 20,
+            "overlap_violations": 0,
+            "scheduled": 132,
+            "skipped_due_to_active_position": 404,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.027,
+            "wins": 3
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 253,
+            "arm_rejected_from_raw_eligible_count": 289,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 542,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 289
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 253,
+          "replay_summary": {
+            "closed": 70,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 12,
+            "effective_setup_episodes": 61,
+            "eligible_candidates_input": 253,
+            "episode_cluster_95ci_r": [
+              -1.0212,
+              -0.7701
+            ],
+            "executed_ids_sha256": "ed8497b201d1805adf80bce9bb1026f43a69e56e536207203cb908db1b229d71",
+            "expectancy_r": -0.9233,
+            "gross_pnl_usd": -39.9362,
+            "losses": 68,
+            "max_drawdown_usd": 158.8308,
+            "net_pnl_usd": -158.8308,
+            "ny_day_cluster_95ci_r": [
+              -1.0214,
+              -0.8053
+            ],
+            "open_at_horizon": 12,
+            "overlap_violations": 0,
+            "scheduled": 83,
+            "skipped_due_to_active_position": 170,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0286,
+            "wins": 2
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 542,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 542,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 542,
+          "replay_summary": {
+            "closed": 111,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 15,
+            "effective_setup_episodes": 97,
+            "eligible_candidates_input": 542,
+            "episode_cluster_95ci_r": [
+              -1.021,
+              -0.8153
+            ],
+            "executed_ids_sha256": "a5e6c214f46a167f90ef25bb124f8f212851e68dffbab52cb3f56b888689918e",
+            "expectancy_r": -0.9307,
+            "gross_pnl_usd": -64.1289,
+            "losses": 108,
+            "max_drawdown_usd": 253.7513,
+            "net_pnl_usd": -253.7513,
+            "ny_day_cluster_95ci_r": [
+              -1.0211,
+              -0.8296
+            ],
+            "open_at_horizon": 20,
+            "overlap_violations": 0,
+            "scheduled": 132,
+            "skipped_due_to_active_position": 410,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.027,
+            "wins": 3
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0004,
+        "slippage_usd": 0.2,
+        "spread_usd": 0.4,
+        "taker_fee_rate": 0.0008
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 542,
+      "scenario_id": "2X_ALL_COST_0p0004",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 542,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 3139
+      }
+    },
+    "2X_ALL_COST_0p0006": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 19,
+            "arm_rejected_from_raw_eligible_count": 181,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 200,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 111,
+              "M15_TREND_NOT_ALIGNED": 7,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 63
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 19,
+          "replay_summary": {
+            "closed": 5,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 3,
+            "effective_setup_episodes": 5,
+            "eligible_candidates_input": 19,
+            "episode_cluster_95ci_r": [
+              -1.0165,
+              -1.0129
+            ],
+            "executed_ids_sha256": "a4abdacefeaa5eff03ab7760965ea106d449c0f67b2997c04086e4f5cbbfd8d0",
+            "expectancy_r": -1.0147,
+            "gross_pnl_usd": -3.694,
+            "losses": 5,
+            "max_drawdown_usd": 12.3382,
+            "net_pnl_usd": -12.3382,
+            "ny_day_cluster_95ci_r": [
+              -1.0149,
+              -1.014
+            ],
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 5,
+            "skipped_due_to_active_position": 14,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 5,
+            "arm_rejected_from_raw_eligible_count": 195,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 200,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 41,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 68,
+              "H3_VOL_OR_SESSION_EXCLUDED": 14,
+              "M15_TREND_NOT_ALIGNED": 6,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 27,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 36,
+              "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 1
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 5,
+          "replay_summary": {
+            "closed": 5,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 2,
+            "effective_setup_episodes": 4,
+            "eligible_candidates_input": 5,
+            "episode_cluster_95ci_r": [
+              -1.0179,
+              -1.0149
+            ],
+            "executed_ids_sha256": "5b343999a4de0a049c84b058d86430358bdb0b94287bc57bb9be6f1e313e1fae",
+            "expectancy_r": -1.0164,
+            "gross_pnl_usd": -2.7415,
+            "losses": 5,
+            "max_drawdown_usd": 12.5217,
+            "net_pnl_usd": -12.5217,
+            "ny_day_cluster_95ci_r": [
+              -1.017,
+              -1.014
+            ],
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 5,
+            "skipped_due_to_active_position": 0,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 198,
+            "arm_rejected_from_raw_eligible_count": 2,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 200,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 2
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 198,
+          "replay_summary": {
+            "closed": 46,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 38,
+            "eligible_candidates_input": 198,
+            "episode_cluster_95ci_r": [
+              -1.0164,
+              -1.0153
+            ],
+            "executed_ids_sha256": "11f298ff49adafb7d92ba5e3423c916647549d661b746b70510a5dc37f8b504a",
+            "expectancy_r": -1.0158,
+            "gross_pnl_usd": -26.1278,
+            "losses": 46,
+            "max_drawdown_usd": 113.8658,
+            "net_pnl_usd": -113.8658,
+            "ny_day_cluster_95ci_r": [
+              -1.0166,
+              -1.0151
+            ],
+            "open_at_horizon": 10,
+            "overlap_violations": 0,
+            "scheduled": 56,
+            "skipped_due_to_active_position": 142,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 79,
+            "arm_rejected_from_raw_eligible_count": 121,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 200,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 121
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 79,
+          "replay_summary": {
+            "closed": 39,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 8,
+            "effective_setup_episodes": 33,
+            "eligible_candidates_input": 79,
+            "episode_cluster_95ci_r": [
+              -1.0164,
+              -1.0152
+            ],
+            "executed_ids_sha256": "79c136ca843bf773050abda0a1d950cdb1fc582405d599dd90a16e144f4a4ca8",
+            "expectancy_r": -1.0159,
+            "gross_pnl_usd": -22.1387,
+            "losses": 39,
+            "max_drawdown_usd": 96.6987,
+            "net_pnl_usd": -96.6987,
+            "ny_day_cluster_95ci_r": [
+              -1.0168,
+              -1.0151
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 43,
+            "skipped_due_to_active_position": 36,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 200,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 200,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 200,
+          "replay_summary": {
+            "closed": 46,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 38,
+            "eligible_candidates_input": 200,
+            "episode_cluster_95ci_r": [
+              -1.0164,
+              -1.0153
+            ],
+            "executed_ids_sha256": "11f298ff49adafb7d92ba5e3423c916647549d661b746b70510a5dc37f8b504a",
+            "expectancy_r": -1.0158,
+            "gross_pnl_usd": -26.1278,
+            "losses": 46,
+            "max_drawdown_usd": 113.8658,
+            "net_pnl_usd": -113.8658,
+            "ny_day_cluster_95ci_r": [
+              -1.0166,
+              -1.0151
+            ],
+            "open_at_horizon": 10,
+            "overlap_violations": 0,
+            "scheduled": 56,
+            "skipped_due_to_active_position": 144,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0004,
+        "slippage_usd": 0.2,
+        "spread_usd": 0.4,
+        "taker_fee_rate": 0.0012
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 200,
+      "scenario_id": "2X_ALL_COST_0p0006",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 200,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 3481
+      }
+    },
+    "3X_ALL_COST_0p0004": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 19,
+            "arm_rejected_from_raw_eligible_count": 176,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 195,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 107,
+              "M15_TREND_NOT_ALIGNED": 7,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 62
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 19,
+          "replay_summary": {
+            "closed": 5,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 3,
+            "effective_setup_episodes": 5,
+            "eligible_candidates_input": 19,
+            "episode_cluster_95ci_r": [
+              -1.0244,
+              -1.0181
+            ],
+            "executed_ids_sha256": "a4abdacefeaa5eff03ab7760965ea106d449c0f67b2997c04086e4f5cbbfd8d0",
+            "expectancy_r": -1.0211,
+            "gross_pnl_usd": -3.864,
+            "losses": 5,
+            "max_drawdown_usd": 12.3146,
+            "net_pnl_usd": -12.3146,
+            "ny_day_cluster_95ci_r": [
+              -1.0237,
+              -1.0188
+            ],
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 5,
+            "skipped_due_to_active_position": 14,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 5,
+            "arm_rejected_from_raw_eligible_count": 190,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 195,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 38,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 67,
+              "H3_VOL_OR_SESSION_EXCLUDED": 14,
+              "M15_TREND_NOT_ALIGNED": 6,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 26,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 36,
+              "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 1
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 5,
+          "replay_summary": {
+            "closed": 5,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 2,
+            "effective_setup_episodes": 4,
+            "eligible_candidates_input": 5,
+            "episode_cluster_95ci_r": [
+              -1.0263,
+              -1.0207
+            ],
+            "executed_ids_sha256": "5b343999a4de0a049c84b058d86430358bdb0b94287bc57bb9be6f1e313e1fae",
+            "expectancy_r": -1.0243,
+            "gross_pnl_usd": -2.9364,
+            "losses": 5,
+            "max_drawdown_usd": 12.426,
+            "net_pnl_usd": -12.426,
+            "ny_day_cluster_95ci_r": [
+              -1.0257,
+              -1.0188
+            ],
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 5,
+            "skipped_due_to_active_position": 0,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 193,
+            "arm_rejected_from_raw_eligible_count": 2,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 195,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 2
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 193,
+          "replay_summary": {
+            "closed": 45,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 38,
+            "eligible_candidates_input": 193,
+            "episode_cluster_95ci_r": [
+              -1.0241,
+              -1.0224
+            ],
+            "executed_ids_sha256": "617cbd197d204d8d43307a5c3b3b8ed4ce6fe2a324e8fdfb2f4e5b67533f8852",
+            "expectancy_r": -1.0233,
+            "gross_pnl_usd": -27.3175,
+            "losses": 45,
+            "max_drawdown_usd": 112.2769,
+            "net_pnl_usd": -112.2769,
+            "ny_day_cluster_95ci_r": [
+              -1.025,
+              -1.0217
+            ],
+            "open_at_horizon": 10,
+            "overlap_violations": 0,
+            "scheduled": 55,
+            "skipped_due_to_active_position": 138,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 75,
+            "arm_rejected_from_raw_eligible_count": 120,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 195,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 120
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 75,
+          "replay_summary": {
+            "closed": 37,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 7,
+            "effective_setup_episodes": 32,
+            "eligible_candidates_input": 75,
+            "episode_cluster_95ci_r": [
+              -1.0239,
+              -1.0221
+            ],
+            "executed_ids_sha256": "91e9533ef9395342b9564da5b9e9a1052df1727ae87f2e3f3c0e25dbaa9e8703",
+            "expectancy_r": -1.023,
+            "gross_pnl_usd": -23.1675,
+            "losses": 37,
+            "max_drawdown_usd": 92.0618,
+            "net_pnl_usd": -92.0618,
+            "ny_day_cluster_95ci_r": [
+              -1.025,
+              -1.0213
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 41,
+            "skipped_due_to_active_position": 34,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 195,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 195,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 195,
+          "replay_summary": {
+            "closed": 45,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 10,
+            "effective_setup_episodes": 38,
+            "eligible_candidates_input": 195,
+            "episode_cluster_95ci_r": [
+              -1.0241,
+              -1.0224
+            ],
+            "executed_ids_sha256": "617cbd197d204d8d43307a5c3b3b8ed4ce6fe2a324e8fdfb2f4e5b67533f8852",
+            "expectancy_r": -1.0233,
+            "gross_pnl_usd": -27.3175,
+            "losses": 45,
+            "max_drawdown_usd": 112.2769,
+            "net_pnl_usd": -112.2769,
+            "ny_day_cluster_95ci_r": [
+              -1.025,
+              -1.0217
+            ],
+            "open_at_horizon": 10,
+            "overlap_violations": 0,
+            "scheduled": 55,
+            "skipped_due_to_active_position": 140,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0006,
+        "slippage_usd": 0.3,
+        "spread_usd": 0.6,
+        "taker_fee_rate": 0.0012
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 195,
+      "scenario_id": "3X_ALL_COST_0p0004",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 195,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 3486
+      }
+    },
+    "3X_ALL_COST_0p0006": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 4,
+            "arm_rejected_from_raw_eligible_count": 73,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 77,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 30,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 43
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 4,
+          "replay_summary": {
+            "closed": 2,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 1,
+            "effective_setup_episodes": 2,
+            "eligible_candidates_input": 4,
+            "episode_cluster_95ci_r": [
+              -1.0137,
+              -1.0137
+            ],
+            "executed_ids_sha256": "e36758d9bcd1d665f5071b2cd45898e48fbff8025197dba19add3e2b66f9e20f",
+            "expectancy_r": -1.0137,
+            "gross_pnl_usd": -1.3787,
+            "losses": 2,
+            "max_drawdown_usd": 4.8151,
+            "net_pnl_usd": -4.8151,
+            "ny_day_cluster_95ci_r": null,
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 2,
+            "skipped_due_to_active_position": 2,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 0,
+            "arm_rejected_from_raw_eligible_count": 77,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 77,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 6,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 22,
+              "H3_VOL_OR_SESSION_EXCLUDED": 4,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 17,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 26
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 0,
+          "replay_summary": {
+            "closed": 0,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 0,
+            "effective_setup_episodes": 0,
+            "eligible_candidates_input": 0,
+            "episode_cluster_95ci_r": null,
+            "executed_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "expectancy_r": null,
+            "gross_pnl_usd": 0.0,
+            "losses": 0,
+            "max_drawdown_usd": 0.0,
+            "net_pnl_usd": 0.0,
+            "ny_day_cluster_95ci_r": null,
+            "open_at_horizon": 0,
+            "overlap_violations": 0,
+            "scheduled": 0,
+            "skipped_due_to_active_position": 0,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": null,
+            "wins": 0
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 75,
+            "arm_rejected_from_raw_eligible_count": 2,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 77,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 2
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 75,
+          "replay_summary": {
+            "closed": 14,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 3,
+            "effective_setup_episodes": 14,
+            "eligible_candidates_input": 75,
+            "episode_cluster_95ci_r": [
+              -1.0166,
+              -1.0147
+            ],
+            "executed_ids_sha256": "61fe83008dd858a58d7801785be5f09c2963e3992a95c6b2ff78055a0b7a7f12",
+            "expectancy_r": -1.0156,
+            "gross_pnl_usd": -7.2788,
+            "losses": 14,
+            "max_drawdown_usd": 34.0747,
+            "net_pnl_usd": -34.0747,
+            "ny_day_cluster_95ci_r": [
+              -1.016,
+              -1.015
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 18,
+            "skipped_due_to_active_position": 57,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 23,
+            "arm_rejected_from_raw_eligible_count": 54,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 77,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 54
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 23,
+          "replay_summary": {
+            "closed": 9,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 2,
+            "effective_setup_episodes": 9,
+            "eligible_candidates_input": 23,
+            "episode_cluster_95ci_r": [
+              -1.0166,
+              -1.0147
+            ],
+            "executed_ids_sha256": "4a1348d1cc0f192ee1600a63169b7190b3f73ffc05e61197f7ef30a7c3e6e2b2",
+            "expectancy_r": -1.0157,
+            "gross_pnl_usd": -4.4576,
+            "losses": 9,
+            "max_drawdown_usd": 21.8573,
+            "net_pnl_usd": -21.8573,
+            "ny_day_cluster_95ci_r": [
+              -1.016,
+              -1.015
+            ],
+            "open_at_horizon": 1,
+            "overlap_violations": 0,
+            "scheduled": 10,
+            "skipped_due_to_active_position": 13,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 77,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 77,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 77,
+          "replay_summary": {
+            "closed": 14,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 3,
+            "effective_setup_episodes": 14,
+            "eligible_candidates_input": 77,
+            "episode_cluster_95ci_r": [
+              -1.0166,
+              -1.0147
+            ],
+            "executed_ids_sha256": "61fe83008dd858a58d7801785be5f09c2963e3992a95c6b2ff78055a0b7a7f12",
+            "expectancy_r": -1.0156,
+            "gross_pnl_usd": -7.2788,
+            "losses": 14,
+            "max_drawdown_usd": 34.0747,
+            "net_pnl_usd": -34.0747,
+            "ny_day_cluster_95ci_r": [
+              -1.016,
+              -1.015
+            ],
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "scheduled": 18,
+            "skipped_due_to_active_position": 59,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0006,
+        "slippage_usd": 0.3,
+        "spread_usd": 0.6,
+        "taker_fee_rate": 0.0018
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 77,
+      "scenario_id": "3X_ALL_COST_0p0006",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 77,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 3604
+      }
+    },
+    "FEE_ONLY_0p0006": {
+      "arms": {
+        "B2_H1": {
+          "arm_conservation": {
+            "arm_code": "B2_H1",
+            "arm_eligible_count": 138,
+            "arm_rejected_from_raw_eligible_count": 700,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 838,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 250,
+              "M15_TREND_NOT_ALIGNED": 123,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 327
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H1-MTF-CLOSED-BAR-TREND-REGIME_R2"
+          },
+          "arm_eligible_candidates": 138,
+          "replay_summary": {
+            "closed": 41,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 13,
+            "effective_setup_episodes": 39,
+            "eligible_candidates_input": 138,
+            "episode_cluster_95ci_r": [
+              -1.0132,
+              -0.5781
+            ],
+            "executed_ids_sha256": "30be7016bad0e406e8e010bde5550bf2cee2ed7f60b5a7592d19ba446444014a",
+            "expectancy_r": -0.8419,
+            "gross_pnl_usd": -20.041,
+            "losses": 39,
+            "max_drawdown_usd": 84.88,
+            "net_pnl_usd": -84.88,
+            "ny_day_cluster_95ci_r": [
+              -1.0132,
+              -0.5613
+            ],
+            "open_at_horizon": 6,
+            "overlap_violations": 0,
+            "scheduled": 47,
+            "skipped_due_to_active_position": 91,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0488,
+            "wins": 2
+          }
+        },
+        "B2_H123": {
+          "arm_conservation": {
+            "arm_code": "B2_H123",
+            "arm_eligible_count": 56,
+            "arm_rejected_from_raw_eligible_count": 782,
+            "arm_role": "COMPOSITE_PREDECLARED",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 838,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H1_TREND_NOT_ALIGNED": 118,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 2,
+              "H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 2,
+              "H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 128,
+              "H2_STRUCTURE_NOT_CONFIRMED": 3,
+              "H2_STRUCTURE_NOT_CONFIRMED|H3_VOL_OR_SESSION_EXCLUDED": 1,
+              "H3_VOL_OR_SESSION_EXCLUDED": 78,
+              "M15_TREND_NOT_ALIGNED": 50,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED": 178,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H2_STRUCTURE_NOT_CONFIRMED": 3,
+              "M15_TREND_NOT_ALIGNED|H1_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 146,
+              "M15_TREND_NOT_ALIGNED|H3_VOL_OR_SESSION_EXCLUDED": 73
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-COMPOSITE-H1-H2-H3_R2"
+          },
+          "arm_eligible_candidates": 56,
+          "replay_summary": {
+            "closed": 12,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 7,
+            "effective_setup_episodes": 11,
+            "eligible_candidates_input": 56,
+            "episode_cluster_95ci_r": [
+              -1.0149,
+              -0.0345
+            ],
+            "executed_ids_sha256": "88c5e55beaecb4371af529992e361b405266215c888eb4e9176c724a8007fec9",
+            "expectancy_r": -0.7148,
+            "gross_pnl_usd": -0.9485,
+            "losses": 11,
+            "max_drawdown_usd": 22.5014,
+            "net_pnl_usd": -21.0497,
+            "ny_day_cluster_95ci_r": [
+              -1.0151,
+              -0.1157
+            ],
+            "open_at_horizon": 6,
+            "overlap_violations": 0,
+            "scheduled": 18,
+            "skipped_due_to_active_position": 38,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0833,
+            "wins": 1
+          }
+        },
+        "B2_H2": {
+          "arm_conservation": {
+            "arm_code": "B2_H2",
+            "arm_eligible_count": 827,
+            "arm_rejected_from_raw_eligible_count": 11,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 838,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H2_STRUCTURE_NOT_CONFIRMED": 11
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H2-CAUSAL-STRUCTURE-LIQUIDITY-CONTEXT_R2"
+          },
+          "arm_eligible_candidates": 827,
+          "replay_summary": {
+            "closed": 138,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 15,
+            "effective_setup_episodes": 122,
+            "eligible_candidates_input": 827,
+            "episode_cluster_95ci_r": [
+              -0.984,
+              -0.7587
+            ],
+            "executed_ids_sha256": "55974211cd6b9cee64e016f8cc7938d6657694099ade102175476782554d65a0",
+            "expectancy_r": -0.8833,
+            "gross_pnl_usd": -81.5907,
+            "losses": 133,
+            "max_drawdown_usd": 299.6384,
+            "net_pnl_usd": -299.6384,
+            "ny_day_cluster_95ci_r": [
+              -0.9654,
+              -0.7963
+            ],
+            "open_at_horizon": 28,
+            "overlap_violations": 0,
+            "scheduled": 167,
+            "skipped_due_to_active_position": 660,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0362,
+            "wins": 5
+          }
+        },
+        "B2_H3": {
+          "arm_conservation": {
+            "arm_code": "B2_H3",
+            "arm_eligible_count": 410,
+            "arm_rejected_from_raw_eligible_count": 428,
+            "arm_role": "PRIMARY",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 838,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {
+              "H3_VOL_OR_SESSION_EXCLUDED": 428
+            },
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-B2-H3-VOLATILITY-SESSION-COST-REGIME_R2"
+          },
+          "arm_eligible_candidates": 410,
+          "replay_summary": {
+            "closed": 84,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 12,
+            "effective_setup_episodes": 73,
+            "eligible_candidates_input": 410,
+            "episode_cluster_95ci_r": [
+              -1.013,
+              -0.7788
+            ],
+            "executed_ids_sha256": "5cdaa316d0c130d2b5cbd8cf0142db7f110fc52d0bcad72f4e3410869718c3ef",
+            "expectancy_r": -0.9228,
+            "gross_pnl_usd": -59.7984,
+            "losses": 82,
+            "max_drawdown_usd": 190.3363,
+            "net_pnl_usd": -190.3363,
+            "ny_day_cluster_95ci_r": [
+              -1.0129,
+              -0.8185
+            ],
+            "open_at_horizon": 15,
+            "overlap_violations": 0,
+            "scheduled": 100,
+            "skipped_due_to_active_position": 310,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0238,
+            "wins": 2
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "arm_conservation": {
+            "arm_code": "NC_NULL_TRIGGER",
+            "arm_eligible_count": 838,
+            "arm_rejected_from_raw_eligible_count": 0,
+            "arm_role": "NEGATIVE_CONTROL",
+            "raw_m1_trigger_count": 3788,
+            "raw_r2_geometry_risk_eligible_count": 838,
+            "raw_r2_target_found_count": 3681,
+            "rejection_reasons": {},
+            "total_directional_bar_universe": 44692,
+            "variant_id": "KH02-NC-NULL-UNFILTERED-B2_R2"
+          },
+          "arm_eligible_candidates": 838,
+          "replay_summary": {
+            "closed": 138,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 15,
+            "effective_setup_episodes": 122,
+            "eligible_candidates_input": 838,
+            "episode_cluster_95ci_r": [
+              -0.9864,
+              -0.7608
+            ],
+            "executed_ids_sha256": "69f818f779b73fa04c6b1e95fdb19c2991517ff7ce5042d2e9b02300266da742",
+            "expectancy_r": -0.8833,
+            "gross_pnl_usd": -82.0567,
+            "losses": 133,
+            "max_drawdown_usd": 299.6037,
+            "net_pnl_usd": -299.6037,
+            "ny_day_cluster_95ci_r": [
+              -0.9653,
+              -0.7962
+            ],
+            "open_at_horizon": 28,
+            "overlap_violations": 0,
+            "scheduled": 167,
+            "skipped_due_to_active_position": 671,
+            "total_fees_usd": 0.0,
+            "unfilled": 0,
+            "win_rate": 0.0362,
+            "wins": 5
+          }
+        }
+      },
+      "parameters": {
+        "maker_fee_rate": 0.0002,
+        "slippage_usd": 0.1,
+        "spread_usd": 0.2,
+        "taker_fee_rate": 0.0006
+      },
+      "population_mode": "FULL_RERISKED_DYNAMIC_POPULATION",
+      "raw_m1_triggers_count": 3788,
+      "raw_r2_geometry_risk_eligible_count": 838,
+      "scenario_id": "FEE_ONLY_0p0006",
+      "total_directional_bar_opportunities": 44692,
+      "universe_reason_codes": {
+        "ELIGIBLE_R2_VERIFIED_UNSWEPT_AND_RISK_OK": 838,
+        "NO_M1_CAUSAL_TRIGGER": 38368,
+        "REJECTED_CAUSAL_STOP_DISTANCE_TOO_WIDE": 107,
+        "REJECTED_RECENT_180M_M1_GAP": 2536,
+        "REJECTED_RISK_GATE:NET_RR_TOO_LOW": 2843
+      }
+    }
+  },
+  "modeled_spread_usd": 0.2,
+  "observed_l1_bbo_available": false,
+  "quote_mode": "MODELED_BID_ASK",
+  "realized_tail_risk_disclosed": true,
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "status": "PASS"
+}

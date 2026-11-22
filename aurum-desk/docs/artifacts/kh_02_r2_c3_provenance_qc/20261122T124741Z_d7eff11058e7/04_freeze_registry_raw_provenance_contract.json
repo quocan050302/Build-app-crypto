@@ -1,0 +1,108 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+  "OOS_EVALUATIONS": 0,
+  "accepted_prospective_snapshots_count": 0,
+  "authoritative_r2_freeze_audit": {
+    "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "authoritative_source_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json",
+    "embargo_boundary_semantics": "INCLUSIVE_START_GE_EMBARGO_CUTOFF_MS__EXCLUSIVE_LT_CUTOFF_REJECTED",
+    "expected_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "inclusive_boundary_example": {
+      "accepted_earliest_start_utc_ms": 1795290232732,
+      "rejected_latest_blocked_start_utc_ms": 1795290232731
+    },
+    "observed_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "sha256_match": true,
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "status": "PASS",
+    "violations": []
+  },
+  "bitget_xauusdt_contract_spec": {
+    "exchange": "bitget",
+    "exchange_contract_id": "XAUUSDT_UMCBL",
+    "price_precision": 2,
+    "product_type": "USDT-FUTURES",
+    "qty_precision": 2,
+    "qty_step": "0.01",
+    "symbol": "XAUUSDT",
+    "tick_size": "0.01"
+  },
+  "embargo_boundary_semantics": "INCLUSIVE_START_GE_EMBARGO_CUTOFF_MS__EXCLUSIVE_LT_CUTOFF_REJECTED",
+  "escrow_contract_integrity_status": "PASS",
+  "power_and_sample_size_prerequisites": {
+    "assumed_trade_r_std": 1.25,
+    "bonferroni_strict_alpha_per_arm": 0.0125,
+    "familywise_alpha_two_sided": 0.05,
+    "fixed_30_trades_proves_edge": false,
+    "num_primary_arms_holm_family": 4,
+    "ny_day_clustering_vif": 1.5,
+    "sample_size_grid": [
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0249,
+        "required_closed_trades_clustered_vif": 1163,
+        "required_closed_trades_iid": 775,
+        "target_net_expectancy_r": 0.15
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0544,
+        "required_closed_trades_clustered_vif": 419,
+        "required_closed_trades_iid": 279,
+        "target_net_expectancy_r": 0.25
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.1065,
+        "required_closed_trades_clustered_vif": 215,
+        "required_closed_trades_iid": 143,
+        "target_net_expectancy_r": 0.35
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.2392,
+        "required_closed_trades_clustered_vif": 105,
+        "required_closed_trades_iid": 70,
+        "target_net_expectancy_r": 0.5
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "statistical_disclosure": "A fixed N = 30 closed trades is severely UNDERPOWERED under clustered gold-futures returns and multi-arm Holm-Bonferroni correction. Prospective OOS must span multiple distinct volatility/trend regimes, record observed L1 BBO quotes, verify actual account fees, and meet pre-registered cluster-adjusted sample-size thresholds before any unsealing.",
+    "z_alpha_two_sided": 2.4977,
+    "z_beta_power_80pct": 0.8416
+  },
+  "proposed_snapshots_count": 0,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "spec_version": "KH-02.R2.C3-v1.0",
+  "synthetic_20_oos_validator_status": "PASS",
+  "synthetic_20_oos_validator_summary": {
+    "passed_cases": 20,
+    "total_cases": 20,
+    "validates_real_market_data": false
+  },
+  "tcb_disclosure": "In-process HMAC capture receipts and raw-byte reparsing enforce a strict fail-closed provenance firewall between fake/synthetic QA fixtures and real authorized public HTTP capture within this codebase, preventing accidental or caller-flag crossing. HOWEVER, code executing with full local host/root privileges could modify local files or memory; this boundary does NOT provide hardware TPM attestation or hardware WORM."
+}
