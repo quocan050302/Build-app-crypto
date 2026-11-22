@@ -10,6 +10,7 @@ Zero order/exchange execution calls, zero wallet/API-key reads, zero OOS peeking
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import fcntl
 import gzip
 import hashlib
 import json
@@ -49,6 +50,14 @@ PRIOR_KH02_R2_MANIFEST_22_REL_SHARED = (
     "20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json"
 )
 PRIOR_KH02_R2_MANIFEST_22_SHA256_SHARED = "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169"
+PRIOR_KH02_R2_C1_CODE_COMMIT_SHA_SHARED = "1d5b82a9e0946b02e414e797f61804594645bbb5"
+PRIOR_KH02_R2_C1_DIAG_COMMIT_SHA_SHARED = "abf729f596cea4a5e42ead702a87d36dc8469fd5"
+PRIOR_KH02_R2_C1_RUN_ID_SHARED = "20261122T013329Z_1d5b82a9e094"
+PRIOR_KH02_R2_C1_MANIFEST_16_REL_SHARED = (
+    "aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/"
+    "20261122T013329Z_1d5b82a9e094/16_independent_disk_verifier_content_sha256_manifest.json"
+)
+PRIOR_KH02_R2_C1_MANIFEST_16_SHA256_SHARED = "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06"
 R2_NEW_FILES_ALLOWLIST_SHARED: Tuple[str, ...] = (
     "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
     "aurum-desk/backend/services/kh_02_r2_prospective_data_service.py",
@@ -988,10 +997,11 @@ class ProspectiveHashLinkedEscrowRegistryR2C1:
         freeze_timestamp_ms: int = R2_AUTHORITATIVE_FREEZE_TIMESTAMP_MS,
         known_dev_shas: Sequence[str] = (CANONICAL_DATASET_SHA256_KH02, KNOWN_EXTENDED_DEV_SNAPSHOT_SHA256),
     ) -> Dict[str, Any]:
-        chain_check = self.verify_chain_integrity()
-        if not chain_check["valid"]:
-            raise ValueError(f"TAMPERED_REGISTRY_CANNOT_APPEND:{chain_check['violations']}")
-
+        """
+        KH-02.R2.C2 hardened compatibility entrypoint: acquires inter-process fcntl.flock(LOCK_EX)
+        and appends strictly via os.open(..., O_WRONLY|O_CREAT|O_APPEND) + fsync + dir fsync.
+        NEVER reserializes or rewrites prior journal lines on success.
+        """
         val = validate_prospective_snapshot_contract_c1(
             entry,
             freeze_timestamp_ms=freeze_timestamp_ms,
@@ -1000,50 +1010,70 @@ class ProspectiveHashLinkedEscrowRegistryR2C1:
         if not val["valid_for_escrow_admission"]:
             raise ValueError(f"INVALID_PROSPECTIVE_SNAPSHOT:{val['violations']}")
 
-        records = self._read_records()
-        sid = str(entry["snapshot_id"])
-        content_sha = canonical_hash(dict(entry))
-        for existing in records:
-            if existing.get("snapshot_id") == sid:
-                if existing.get("snapshot_content_sha256") == content_sha:
-                    return {
-                        "action": "IDEMPOTENT_ALREADY_RECORDED_NOOP",
-                        "snapshot_id": sid,
-                        "entry_sha256": existing["entry_sha256"],
-                        "record_count": len(records),
-                    }
-                raise PermissionError(f"IMMUTABLE_REGISTRY_OVERWRITE_FORBIDDEN:{sid}")
-
-        prev_sha = records[-1]["entry_sha256"] if records else self.GENESIS_PREV_SHA256
-        new_body = {
-            "seq_index": len(records),
-            "snapshot_id": sid,
-            "prev_entry_sha256": prev_sha,
-            "snapshot_content_sha256": content_sha,
-            "dataset_sha256": val["dataset_sha256"],
-            "raw_response_sha256": str(entry["raw_response_sha256"]).lower(),
-            "canonical_parsed_sha256": val["canonical_parsed_sha256"],
-            "data_origin": val["data_origin"],
-            "start_utc_ms": int(entry["start_utc_ms"]),
-            "end_utc_ms": int(entry["end_utc_ms"]),
-            "OOS_EVALUATIONS": 0,
-        }
-        new_rec = dict(new_body, entry_sha256=canonical_hash(new_body))
-        all_recs = records + [new_rec]
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_p = self.registry_path.with_name(f"{self.registry_path.name}.tmp.{os.getpid()}")
-        with tmp_p.open("w", encoding="utf-8") as fh:
-            for r in all_recs:
-                fh.write(json.dumps(r, sort_keys=True, separators=(",", ":")) + "\n")
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp_p, self.registry_path)
-        return {
-            "action": "APPENDED_NEW_ENTRY",
-            "snapshot_id": sid,
-            "entry_sha256": new_rec["entry_sha256"],
-            "record_count": len(all_recs),
-        }
+        lock_p = self.registry_path.with_name(f".{self.registry_path.name}.lock")
+        lfd = os.open(os.fspath(lock_p), os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(lfd, fcntl.LOCK_EX)
+            chain_check = self.verify_chain_integrity()
+            if not chain_check["valid"]:
+                raise ValueError(f"TAMPERED_REGISTRY_CANNOT_APPEND:{chain_check['violations']}")
+
+            records = self._read_records()
+            sid = str(entry["snapshot_id"])
+            content_sha = canonical_hash(dict(entry))
+            for existing in records:
+                if existing.get("snapshot_id") == sid:
+                    if existing.get("snapshot_content_sha256") == content_sha:
+                        return {
+                            "action": "IDEMPOTENT_ALREADY_RECORDED_NOOP",
+                            "snapshot_id": sid,
+                            "entry_sha256": existing["entry_sha256"],
+                            "record_count": len(records),
+                        }
+                    raise PermissionError(f"IMMUTABLE_REGISTRY_OVERWRITE_FORBIDDEN:{sid}")
+
+            prev_sha = records[-1]["entry_sha256"] if records else self.GENESIS_PREV_SHA256
+            new_body = {
+                "seq_index": len(records),
+                "snapshot_id": sid,
+                "prev_entry_sha256": prev_sha,
+                "snapshot_content_sha256": content_sha,
+                "dataset_sha256": val["dataset_sha256"],
+                "raw_response_sha256": str(entry["raw_response_sha256"]).lower(),
+                "canonical_parsed_sha256": val["canonical_parsed_sha256"],
+                "data_origin": val["data_origin"],
+                "start_utc_ms": int(entry["start_utc_ms"]),
+                "end_utc_ms": int(entry["end_utc_ms"]),
+                "OOS_EVALUATIONS": 0,
+            }
+            new_rec = dict(new_body, entry_sha256=canonical_hash(new_body))
+            line_b = (json.dumps(new_rec, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+            jfd = os.open(os.fspath(self.registry_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+            try:
+                written = os.write(jfd, line_b)
+                if written != len(line_b):
+                    raise IOError(f"SHORT_APPEND_WRITE:{written}!={len(line_b)}")
+                os.fsync(jfd)
+            finally:
+                os.close(jfd)
+            dfd = os.open(os.fspath(self.registry_path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+            return {
+                "action": "APPENDED_NEW_ENTRY",
+                "snapshot_id": sid,
+                "entry_sha256": new_rec["entry_sha256"],
+                "record_count": len(records) + 1,
+                "append_only_prior_bytes_untouched": True,
+            }
+        finally:
+            try:
+                fcntl.flock(lfd, fcntl.LOCK_UN)
+            finally:
+                os.close(lfd)
 
 
 def compute_prospective_oos_power_requirements_r2_c1(
@@ -1157,8 +1187,14 @@ class ReadOnlyBitgetPublicProspectiveCollectorR2C1:
         endpoint_key: str,
         *,
         write_mount_probe: Mapping[str, Any],
+        transport: Optional[Any] = None,
+        snapshot_id: str = "prosp_snap_001",
     ) -> Dict[str, Any]:
-        """Fail-closed guard: refuses network capture unless separately authorized AND strict disk >= 20.5 GiB."""
+        """
+        Fail-closed guard: refuses network capture unless separately authorized AND strict
+        disk >= 20.5 GiB. When an injectable HTTP transport is supplied under explicit approval,
+        delegates to C2PublicReadOnlyBitgetCollector (never launches unapproved live HTTP).
+        """
         if endpoint_key not in self.allowed_endpoints:
             raise ValueError(f"FORBIDDEN_OR_UNKNOWN_ENDPOINT:{endpoint_key}")
         if not self.network_capture_enabled or not self.explicit_operator_approval_id:
@@ -1170,9 +1206,29 @@ class ReadOnlyBitgetPublicProspectiveCollectorR2C1:
             raise RuntimeError(
                 f"BLOCKED_LOW_DISK_CAPTURE_FORBIDDEN:status={write_mount_probe.get('status')},min_free_gib={write_mount_probe.get('min_free_gib')}"
             )
-        raise RuntimeError(
-            "OFFLINE_READINESS_BUILD_NO_LIVE_HTTP_TRANSPORT_EXECUTED: "
-            "KH-02.R2.C1 is strictly offline readiness validation; operator must commission separate capture session."
+        if transport is not None:
+            from services.kh_02_r2_c2_public_capture import (
+                C2PublicReadOnlyBitgetCollector,
+                OperatorCaptureAuthorizationC2,
+            )
+            col = C2PublicReadOnlyBitgetCollector(
+                authorization=OperatorCaptureAuthorizationC2(
+                    approval_id=str(self.explicit_operator_approval_id),
+                    approved_by="DELEGATED_COMPAT_CALLER",
+                    network_capture_enabled=True,
+                ),
+                transport=transport,
+                is_fake_transport_qa=True,
+            )
+            if endpoint_key in ("public_ticker", "orderbook_v3"):
+                return col.fetch_public_l1_bbo_snapshot(
+                    endpoint_key=endpoint_key,
+                    snapshot_id=snapshot_id,
+                    write_mount_probe=write_mount_probe,
+                )
+        raise PermissionError(
+            "NO_HTTP_TRANSPORT_CONFIGURED_LIVE_NETWORK_DISABLED: "
+            "Supply an injected fake transport for QA or commission a separate operator-approved capture session."
         )
 
 
