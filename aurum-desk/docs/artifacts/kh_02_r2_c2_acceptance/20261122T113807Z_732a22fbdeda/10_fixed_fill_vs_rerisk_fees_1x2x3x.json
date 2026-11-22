@@ -1,0 +1,16 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "fill_time_cap_violations": 0,
+  "fixed_fill_decimal_checks": {
+    "B2_H1_r2_readonly_1x": {
+      "fees_usd": 102.2825,
+      "gross_pnl_usd": -73.1555,
+      "net_pnl_usd": -175.438
+    }
+  },
+  "fixed_fill_zero_dropped_ids_verified": true,
+  "full_rerisk_starts_from_full_universe": true,
+  "realized_tail_risk_disclosed": true,
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "status": "PASS"
+}

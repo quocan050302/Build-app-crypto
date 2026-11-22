@@ -1,0 +1,10 @@
+{
+  "b0_vs_b2_identifiability_status": "COMPARISON_NOT_IDENTIFIABLE",
+  "historical_readonly_r2_balance": {
+    "PAIRED_COMPARISON_VERDICT": "IDENTIFIABLE_WITH_PARTIAL_COMMON_SUPPORT",
+    "b2_h1_max_abs_smd": null
+  },
+  "matching_inadequate_guard_verified": true,
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "status": "PASS"
+}

@@ -1,0 +1,12 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "evidence_commit_sha": null,
+  "latest_run_pointer_updated": false,
+  "owner_disk_preflight_waiver": false,
+  "publication_head_sha": null,
+  "publication_status": "PRE_PUSH_PENDING",
+  "remote_readback_sha256_verified": false,
+  "run_id": "20261122T113807Z_732a22fbdeda",
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "tested_executable_sha": "732a22fbdeda8458f0c982a51049fa48b3c58f4d"
+}

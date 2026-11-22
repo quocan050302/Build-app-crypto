@@ -1,0 +1,37 @@
+{
+  "concurrent_stress_results": {
+    "writers_2": {
+      "distinct_appended": 2,
+      "final_record_count": 3,
+      "integrity_valid": true,
+      "passed": true,
+      "same_id_appended": 1,
+      "same_id_idempotent_noop": 1
+    },
+    "writers_4": {
+      "distinct_appended": 4,
+      "final_record_count": 5,
+      "integrity_valid": true,
+      "passed": true,
+      "same_id_appended": 1,
+      "same_id_idempotent_noop": 3
+    },
+    "writers_8": {
+      "distinct_appended": 8,
+      "final_record_count": 9,
+      "integrity_valid": true,
+      "passed": true,
+      "same_id_appended": 1,
+      "same_id_idempotent_noop": 7
+    }
+  },
+  "concurrent_writers_2_4_8_exact_once_passed": true,
+  "crash_recovery_and_quarantine_passed": true,
+  "idempotent_noop_verified": true,
+  "legacy_c1_readonly_migration_verified": true,
+  "overwrite_conflict_rejected": true,
+  "prior_journal_bytes_untouched_verified": true,
+  "quarantined_items_count": 2,
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "status": "PASS"
+}

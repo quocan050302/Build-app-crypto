@@ -1,0 +1,247 @@
+{
+  "all_passed": true,
+  "cases": [
+    {
+      "case_id": "COL-01",
+      "detail": "spread=0.2",
+      "name": "GOOD_PUBLIC_L1_BBO_TICKER",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-02",
+      "detail": "bars=2",
+      "name": "GOOD_CLOSED_OHLCV_CANDLES",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-03",
+      "detail": "30s stale quote blocked",
+      "name": "STALE_QUOTE_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-04",
+      "detail": "retries=1",
+      "name": "HTTP_429_BACKOFF_RETRY_SUCCEEDS",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-05",
+      "detail": "503 retry + exhaustion verified",
+      "name": "HTTP_5XX_RETRY_AND_EXHAUSTION_HANDLING",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-06",
+      "detail": "hasMore=True rejected",
+      "name": "DROPPED_OR_PARTIAL_PAGE_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-07",
+      "detail": "missing ts rejected",
+      "name": "MISSING_TIMESTAMPS_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-08",
+      "detail": "forming bar close>recv blocked",
+      "name": "UNCLOSED_FORMING_BAR_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-09",
+      "detail": "bid >= ask rejected",
+      "name": "CROSSED_BBO_BOOK_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-10",
+      "detail": "bar_gaps=1, sleep_gaps=1",
+      "name": "BAR_GAP_AND_SLEEP_WAKE_DISCONNECT_LOGGED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-11",
+      "detail": "reversed candles rejected",
+      "name": "OUT_OF_ORDER_BARS_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-12",
+      "detail": "future ts rejected",
+      "name": "FUTURE_SERVER_CLOCK_SKEW_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-13",
+      "detail": "edt=2026-11-01T05:30:00Z, est=2026-11-01T06:30:00Z",
+      "name": "DST_NEW_YORK_UTC_NORMALIZATION",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-14",
+      "detail": "duplicate bar ts rejected",
+      "name": "DUPLICATE_CANDLE_ID_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-15",
+      "detail": "set-cookie header rejected",
+      "name": "SECRETS_AND_COOKIES_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-16",
+      "detail": "9.0 GiB blocked",
+      "name": "LOW_DISK_BLOCKS_CAPTURE",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-17",
+      "detail": "default OFF enforced",
+      "name": "DEFAULT_NETWORK_DISABLED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-18",
+      "detail": "connection error fails closed",
+      "name": "NETWORK_ERROR_FAIL_CLOSED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-19",
+      "detail": "truncated JSON rejected",
+      "name": "TRUNCATED_BODY_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    },
+    {
+      "case_id": "COL-20",
+      "detail": "drift & private endpoint blocked",
+      "name": "API_SCHEMA_DRIFT_AND_FORBIDDEN_ENDPOINT_REJECTED",
+      "provenance": "FAKE_TRANSPORT_QA_ONLY_NOT_LIVE_MARKET_DATA",
+      "status": "PASS"
+    }
+  ],
+  "default_collector_readiness": {
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "api_key_or_secret_reads_present": false,
+    "historical_l1_bbo_available_from_rest": false,
+    "is_fake_transport_qa": false,
+    "network_capture_enabled": false,
+    "official_bitget_public_allowlist": {
+      "candles": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol",
+          "granularity"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/candles"
+      },
+      "contracts": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/contracts"
+      },
+      "history_candles": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol",
+          "granularity"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+      },
+      "merge_depth": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/merge-depth"
+      },
+      "orderbook_v3": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "category",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v3/market/orderbook"
+      },
+      "public_ticker": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/ticker"
+      }
+    },
+    "order_or_private_endpoints_present": false,
+    "persistent_capture_active": false,
+    "read_only": true,
+    "sampling_caveat": "REST ticker/merge-depth/orderbook endpoints provide polled point-in-time top-of-book snapshots, NOT full tick-by-tick WebSocket orderbook completeness and NEVER historical L1 BBO backfill.",
+    "spec_version": "KH-02.R2.C2-v1.0"
+  },
+  "failed_cases": 0,
+  "live_network_capture_executed": false,
+  "passed_cases": 20,
+  "provenance_disclosure": "ALL_20_COLLECTOR_TESTS_USE_INJECTED_FAKE_TRANSPORT_ZERO_LIVE_NETWORK_CALLS",
+  "real_prospective_snapshots_collected": 0,
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "status": "PASS",
+  "total_cases": 20
+}

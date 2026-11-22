@@ -1,0 +1,21 @@
+================================================================================
+BAN GIAO CHU SO HUU (TIENG VIET) — AURUM DESK | KH-02.R2.C2
+================================================================================
+Quyet dinh            : ACCEPTED_ENGINEERING_WITH_NO_PROVEN_EDGE
+Run ID                : 20261122T113807Z_732a22fbdeda
+Nhanh                 : feature/v17-9-2-structural-sl-tp-from-qa
+Tested Executable SHA : 732a22fbdeda8458f0c982a51049fa48b3c58f4d
+An toan giao dich     : PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO
+OOS_EVALUATIONS       : 0 (BLOCKED_NO_VERIFIED_NEW_DATA / BLOCKED_NO_UNTOUCHED_DATA)
+Ket luan kinh te      : NO_PROVEN_EDGE (KHONG chung minh loi nhuan; KHONG kich hoat)
+O dia preflight / min : 37.8709 GiB / 37.4969 GiB (PASS_STRICT_AND_ADVISORY)
+RAM min / children / orphans: 2626.12 MiB / 4 / 0
+Full pytest (12)      : PASS (5555/5557 passed, 2 skipped, 0 failed)
+Async W1/W2/W4 (13)   : PASS
+Parity 56710 (14)     : PASS
+Escrow journal (05/06): PASS / PASS (unanchored=LOCAL_TAMPER_EVIDENT_ONLY)
+Collector QA (07)     : 20/20 PASS (live_network=False)
+Faults RED/GREEN (16) : 74/74 PASS
+Publication (19)      : PRE_PUSH_PENDING
+Thu muc bang chung    : /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda
+================================================================================

@@ -1,0 +1,11 @@
+{
+  "anchored_post_rollback_status": "FAIL_ROLLBACK_DETECTED_BELOW_EXTERNAL_ANCHOR",
+  "anchored_pre_rollback_status": "EXTERNAL_ANCHOR_CONSISTENT",
+  "anchored_rollback_detected": true,
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "status": "PASS",
+  "threat_model_disclosure": "An append-only local hash chain detects accidental corruption and naive edits (LOCAL_TAMPER_EVIDENT_ONLY), but a privileged actor with write/root access to the same host filesystem could rewrite both journal and local anchor unless anchored to an independent remote WORM/signed store.",
+  "unanchored_immutability_class": "LOCAL_TAMPER_EVIDENT_ONLY",
+  "unanchored_rollback_detection_status": "ROLLBACK_NOT_DETECTABLE_WITHOUT_EXTERNAL_ANCHOR",
+  "unanchored_worm_verified": false
+}
