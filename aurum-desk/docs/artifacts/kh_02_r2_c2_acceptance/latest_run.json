@@ -1,0 +1,100 @@
+{
+  "spec_version": "KH-02.R2.C2-v1.0",
+  "schema_version": "kh_02_r2_c2_acceptance_v1",
+  "published_utc": "2026-11-22T11:58:25Z",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "run_id": "20261122T113807Z_732a22fbdeda",
+  "run_dir_rel": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda",
+  "mandatory_final_choice": "A_ACCEPTED_ENGINEERING_WITH_NO_PROVEN_EDGE",
+  "tested_executable_sha": "732a22fbdeda8458f0c982a51049fa48b3c58f4d",
+  "evidence_commit_sha": "ff8ca3e749d183757ce100ad2d7ae749e7391d86",
+  "prior_kh02_r2_c1_code_commit_sha": "1d5b82a9e0946b02e414e797f61804594645bbb5",
+  "prior_kh02_r2_c1_diag_commit_sha": "abf729f596cea4a5e42ead702a87d36dc8469fd5",
+  "manifest_17_rel": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json",
+  "manifest_17_file_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+  "manifest_17_content_sha256": "33c2141e180b2c0bc1ac60f150004ab794bc2ea7bd4f1fb56f1560138be68ff9",
+  "verifier_pid": 6645,
+  "orchestrator_pid": 4404,
+  "distinct_os_process_verified": true,
+  "publication_status": "PASS_REMOTE_VERIFIED",
+  "remote_readback_sha256_verified": true,
+  "ci_status": "CI_UNKNOWN_NO_LOCAL_ACTIONS_RUN",
+  "owner_disk_preflight_waiver": false,
+  "remote_readback_verified_blobs": {
+    "17_independent_os_verifier_sha256_manifest.json": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/ff8ca3e749d183757ce100ad2d7ae749e7391d86/aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json",
+      "http_status": 200,
+      "size_bytes": 15999,
+      "sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "exact_match": true
+    },
+    "18_orthogonal_gate_matrix.json": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/ff8ca3e749d183757ce100ad2d7ae749e7391d86/aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/18_orthogonal_gate_matrix.json",
+      "http_status": 200,
+      "size_bytes": 1596,
+      "sha256": "e1f846d9aebfd030c60563251e454d36e729a6d95cc5288c3ad9878a54564117",
+      "exact_match": true
+    },
+    "README_KH02_R2_C2.md": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/ff8ca3e749d183757ce100ad2d7ae749e7391d86/aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/README_KH02_R2_C2.md",
+      "http_status": 200,
+      "size_bytes": 3848,
+      "sha256": "5b135542f78189f28a6b2dbfe7e9ce5adb6f17d8d16e6c098d7c2e58a46f6f57",
+      "exact_match": true
+    },
+    "HANDOVER_KH02_R2_C2_VI.txt": {
+      "url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/ff8ca3e749d183757ce100ad2d7ae749e7391d86/aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/HANDOVER_KH02_R2_C2_VI.txt",
+      "http_status": 200,
+      "size_bytes": 1440,
+      "sha256": "4d218a5c189548818d9bebc7ac1d664b0d179c6f1d9e25f4f0731bb4d6821ba8",
+      "exact_match": true
+    }
+  },
+  "runtime_safety_modes": {
+    "PRODUCTION": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "AUTO": "OFF"
+  },
+  "ACTIVATION_READY": "NO",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "FUTURE_OOS_READINESS_VERDICT": "BLOCKED_NO_VERIFIED_NEW_DATA",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "gates_19": {
+    "G01_BRANCH_SOURCE": "PASS",
+    "G02_PRODUCTION_FREEZE": "PASS",
+    "G03_LIVE_MODES": "PASS",
+    "G04_STRICT_DISK": "PASS",
+    "G05_RAM_PID": "PASS",
+    "G06_JOURNAL": "PASS",
+    "G07_OOS_PROVENANCE": "PASS",
+    "G08_COLLECTOR_SAFETY": "PASS",
+    "G09_ENTRY_TARGET_INTEGRITY": "PASS",
+    "G10_PAIRED_RESEARCH": "PASS",
+    "G11_COST_RISK": "PASS",
+    "G12_FULL_REGRESSION": "PASS",
+    "G13_ASYNC_DETERMINISM": "PASS",
+    "G14_BASELINE_PARITY": "PASS",
+    "G15_FAULT_INJECTIONS": "PASS",
+    "G16_INDEPENDENT_DISK_VERIFIER": "PASS",
+    "G17_FUTURE_OOS_STATUS": "BLOCKED_NO_VERIFIED_NEW_DATA",
+    "G18_RESEARCH_ECONOMICS": "NO_PROVEN_EDGE",
+    "G19_PUBLICATION": "PASS"
+  },
+  "verdicts_13": {
+    "ENGINEERING": "PASS",
+    "RESOURCE": "PASS",
+    "REGRESSION": "PASS",
+    "PARITY": "PASS",
+    "DATA_PROVENANCE": "PASS",
+    "OOS_READINESS": "BLOCKED_NO_VERIFIED_NEW_DATA",
+    "ENTRY_TARGET": "PASS",
+    "COST": "PASS",
+    "CONCURRENCY": "PASS",
+    "INDEPENDENT_VERIFIER": "PASS",
+    "PUBLICATION": "PASS",
+    "ECONOMIC": "NO_PROVEN_EDGE",
+    "ACTIVATION": "NO"
+  }
+}
