@@ -51,6 +51,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
 
@@ -1061,7 +1062,7 @@ def run_kh03_r3_c1_acceptance(
     if owner_waive_disk_preflight:
         raise SystemExit(2)
 
-    lock = _CrossPlatformRunLock(REPO_ROOT / KH03_R3_C1_ARTIFACTS_BASE_REL / ".kh03_r3_c1_run.lock")
+    lock = _CrossPlatformRunLock(Path(tempfile.gettempdir()) / "aurum_desk_kh03_r3_c1_run.lock")
     lock_ok, lock_msg = lock.acquire()
     if not lock_ok:
         raise RuntimeError(f"KH03_R3_C1_SINGLE_RUN_LOCK_FAILED:{lock_msg}")
@@ -1097,13 +1098,10 @@ def run_kh03_r3_c1_acceptance(
     )
 
     art_base = (REPO_ROOT / KH03_R3_C1_ARTIFACTS_BASE_REL).resolve()
-    tmp_base = APP_ROOT / ".kh03_r3_c1_tmp_work"
-    tmp_base.mkdir(parents=True, exist_ok=True)
     sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1(
         f"kh03c1_{utc_now.strftime('%Y%m%dT%H%M%SZ')}_",
         run_id=run_id,
         owner_pid=orch_pid,
-        base_dir=tmp_base,
     )
     write_mount_paths = {
         "repo_volume": REPO_ROOT,
@@ -1342,11 +1340,6 @@ def run_kh03_r3_c1_acceptance(
 
         cl_info = _cleanup_sentinel_temp_c4_win_safe(sentinel_tmp, expected_run_id=run_id)
         sentinel_cleaned = bool(cl_info["cleaned"])
-        try:
-            if tmp_base.exists() and not any(tmp_base.iterdir()):
-                tmp_base.rmdir()
-        except Exception:
-            pass
         telem = sampler.stop_and_flush()
         sampler_stopped = True
 
@@ -1515,11 +1508,6 @@ def run_kh03_r3_c1_acceptance(
                 _cleanup_sentinel_temp_c4_win_safe(sentinel_tmp, expected_run_id=run_id)
             except Exception:
                 pass
-        try:
-            if tmp_base.exists() and not any(tmp_base.iterdir()):
-                tmp_base.rmdir()
-        except Exception:
-            pass
         lock.release()
 
 
