@@ -1,0 +1,262 @@
+{
+  "ACTIVATION_READY": "NO",
+  "OOS_EVALUATIONS": 0,
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "code_commit_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "distinct_os_process_verified": true,
+  "evidence_commit_sha": "cc4cda79019c4ee8394e4e545bc7561e44efe220",
+  "gates_28_post_readback": {
+    "G01_BRANCH_CLEAN_EXECUTABLE_SHA": "PASS",
+    "G02_PRIOR_R1_R2_R3_AND_DATASET_IMMUTABLE": "PASS",
+    "G03_LOCKED_PROD_ENTRY_SL_TP_AST_PARITY": "PASS",
+    "G04_R3_EMPTY_MEAN_MAP_RED_REPRODUCED": "PASS",
+    "G05_STRICT_SCHEMA_PARSER_BOUNDARY_GREEN": "PASS",
+    "G06_R3_PYTEST_FIXTURE_SELECTS_W4": "PASS",
+    "G07_R3_SCIENCE_FIXTURE_SELECTS_W1": "PASS",
+    "G08_EXPLICIT_BENCHMARK_IDENTITY_FOUR_RAW_RUNS": "PASS",
+    "G09_FRESH_W1_W2_W4_W1REPEAT_SEMANTIC_IDENTICAL": "PASS",
+    "G10_W1_REPEAT_TIMING_VARIANCE_DISCLOSED": "PASS",
+    "G11_MEASURED_FASTEST_VS_APPLIED_SAFE_CAP_SEPARATED": "PASS",
+    "G12_POLICY_INDEPENDENTLY_RECOMPUTED_NONEMPTY_MEANS": "PASS",
+    "G13_RESOURCE_CEILINGS_DISK_RAM_WORKERS_FAIL_CLOSED": "PASS",
+    "G14_FULL_PYTEST_FRESH_JUNIT_1_TO_1_ZERO_MANDATORY_SKIP": "PASS",
+    "G15_FULL_A1_SI8_ADAPTER_D4_PARITY_ZERO_MISMATCH": "PASS",
+    "G16_BASELINE_1X_AND_E1_E2_E3_ECONOMIC_REGRESSION": "PASS",
+    "G17_SIX_COST_DYNAMIC_VS_FIXED_FILL_SCOPED": "PASS",
+    "G18_LEGACY_R1_GUARD_R2_FWD_ONLY_H3_PATH_B_INTACT": "PASS",
+    "G19_FRESH_OOS_ZERO_NO_L1_FORGERY_ACTIVATION_OFF": "PASS",
+    "G20_INHERITED_R3_FAULTS_RED_GREEN_VALID": "PASS",
+    "G21_NEW_C1_WORKER_POLICY_FAULTS_12_PLUS_RED_GREEN": "PASS",
+    "G22_NEW_C1_INDEPENDENT_VERIFIER_MUTATIONS_12_PLUS": "PASS",
+    "G23_INDEPENDENT_VERIFIER_DISTINCT_OS_PID_NO_TRUST": "PASS",
+    "G24_ZERO_ORPHANS_CLEAN_TEMP_ATOMIC_CHECKSUMS": "PASS",
+    "G25_PERFORMANCE_CLAIMS_MEASURED_SCOPE_NO_EXTRAPOLATION": "PASS",
+    "G26_RESEARCH_ECONOMIC_NO_PROVEN_EDGE_HONESTY": "NO_PROVEN_EDGE_NO_DEV_CANDIDATE",
+    "G27_KH04_BLOCKED_AND_ACTIVATION_READY_NO": "BLOCKED_NO_DEV_CANDIDATE",
+    "G28_TWO_PHASE_COMMIT_PUSH_REMOTE_READBACK": "PASS_REMOTE_VERIFIED"
+  },
+  "manifest_18_content_sha256": "d0a0dd8484d7c7646fdb2261ad915afd72699967065a41de07da0c5593fba3c7",
+  "manifest_18_file_sha256": "2c625eedcd3dcf636b32306b63d9534d37aa618805b12eb21f8f0ac8f5dd25f4",
+  "manifest_18_rel": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/18_independent_OS_verifier_manifest_sha256.json",
+  "orchestrator_pid": 28386,
+  "origin_url": "https://github.com/quocan050302/Build-app-crypto",
+  "overall_classification": "PASS_KH03_R3_C1_ENGINEERING_POLICY_CORRECT_NO_PROVEN_EDGE_OOS_BLOCKED",
+  "owner_disk_preflight_waiver": false,
+  "prior_kh03_r3_pub_head_sha": "b03db8642cdd9a1dede38ca5c9adad47cd1ced71",
+  "publication_status": "PASS_REMOTE_VERIFIED",
+  "remote_readback_blobs": [
+    {
+      "bytes": 6693,
+      "http_status": 200,
+      "local_sha256": "faf559979093042fe6b0b6dcd747892e07ba33f9a9156f72e566e9a8b497cdf7",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/00_preflight_branch_sha_resource_and_lock.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/00_preflight_branch_sha_resource_and_lock.json",
+      "remote_sha256": "faf559979093042fe6b0b6dcd747892e07ba33f9a9156f72e566e9a8b497cdf7",
+      "sha256_match": true
+    },
+    {
+      "bytes": 1297,
+      "http_status": 200,
+      "local_sha256": "88e20626fb0fb12116ef553ecb7361a089be6138579e10e855908f91017962c0",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/03_r3_benchmark_schema_bug_real_red_reproduction.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/03_r3_benchmark_schema_bug_real_red_reproduction.json",
+      "remote_sha256": "88e20626fb0fb12116ef553ecb7361a089be6138579e10e855908f91017962c0",
+      "sha256_match": true
+    },
+    {
+      "bytes": 5837,
+      "http_status": 200,
+      "local_sha256": "3f6ae0c11a00ec73718cb025c9f14fb68091804851f179928ac1feef23718d7f",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/05_r3_historical_fixture_green_pytest_w4_science_w1.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/05_r3_historical_fixture_green_pytest_w4_science_w1.json",
+      "remote_sha256": "3f6ae0c11a00ec73718cb025c9f14fb68091804851f179928ac1feef23718d7f",
+      "sha256_match": true
+    },
+    {
+      "bytes": 1972,
+      "http_status": 200,
+      "local_sha256": "46c464f570ff9e4365b33aa9409565c64b4ae9afbae175e091c359ee1d638330",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/06_fresh_pytest_w1_w2_w4_w1repeat_raw_receipts.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/06_fresh_pytest_w1_w2_w4_w1repeat_raw_receipts.json",
+      "remote_sha256": "46c464f570ff9e4365b33aa9409565c64b4ae9afbae175e091c359ee1d638330",
+      "sha256_match": true
+    },
+    {
+      "bytes": 1793,
+      "http_status": 200,
+      "local_sha256": "8eb4edc404d09362ea4df6dd37ccc966cba73e1b836513379612ff0a4e5e13dc",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/07_fresh_science_w1_w2_w4_w1repeat_raw_receipts.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/07_fresh_science_w1_w2_w4_w1repeat_raw_receipts.json",
+      "remote_sha256": "8eb4edc404d09362ea4df6dd37ccc966cba73e1b836513379612ff0a4e5e13dc",
+      "sha256_match": true
+    },
+    {
+      "bytes": 5580,
+      "http_status": 200,
+      "local_sha256": "8f31be369c73b999c32d8a648ba156487e62edfb49ecd043d0bfa01341cc0826",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/08_worker_policy_measured_vs_applied_caps_and_provenance.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/08_worker_policy_measured_vs_applied_caps_and_provenance.json",
+      "remote_sha256": "8f31be369c73b999c32d8a648ba156487e62edfb49ecd043d0bfa01341cc0826",
+      "sha256_match": true
+    },
+    {
+      "bytes": 1907,
+      "http_status": 200,
+      "local_sha256": "d99d85a1865662ed779129779c48d846b443eb0081eeba48e3a217e89f7355e2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/09_worker_policy_noise_stability_and_speedup_limits.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/09_worker_policy_noise_stability_and_speedup_limits.json",
+      "remote_sha256": "d99d85a1865662ed779129779c48d846b443eb0081eeba48e3a217e89f7355e2",
+      "sha256_match": true
+    },
+    {
+      "bytes": 6382,
+      "http_status": 200,
+      "local_sha256": "0631dd3c539c5ee13b6c05cc5ac966ee7ba17d011840d4da2646426e2758ba7e",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/10_independent_benchmark_recomputation_and_claim_checks.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/10_independent_benchmark_recomputation_and_claim_checks.json",
+      "remote_sha256": "0631dd3c539c5ee13b6c05cc5ac966ee7ba17d011840d4da2646426e2758ba7e",
+      "sha256_match": true
+    },
+    {
+      "bytes": 1593711,
+      "http_status": 200,
+      "local_sha256": "c85f5df06a7b45e4c8feaac9a923630e942ca39072a26fb02b29c286e032e08f",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/11_full_pytest_junit_collected_executed_bijection.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/11_full_pytest_junit_collected_executed_bijection.json",
+      "remote_sha256": "c85f5df06a7b45e4c8feaac9a923630e942ca39072a26fb02b29c286e032e08f",
+      "sha256_match": true
+    },
+    {
+      "bytes": 2480,
+      "http_status": 200,
+      "local_sha256": "4ada96a0e09de0ec256a178810e891a2b131a5ea2da624c8f5cdc0478d131aa5",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/12_full_A1_SI8_adapter_D4_parity_and_fingerprints.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/12_full_A1_SI8_adapter_D4_parity_and_fingerprints.json",
+      "remote_sha256": "4ada96a0e09de0ec256a178810e891a2b131a5ea2da624c8f5cdc0478d131aa5",
+      "sha256_match": true
+    },
+    {
+      "bytes": 53111,
+      "http_status": 200,
+      "local_sha256": "79d5bf9737cf8fb04e91b6bb8e4ef738b09be6330c7d813715fdeee47b3e6de7",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/13_six_scenario_backtest_and_E1_E2_E3_null_economic_regression.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/13_six_scenario_backtest_and_E1_E2_E3_null_economic_regression.json",
+      "remote_sha256": "79d5bf9737cf8fb04e91b6bb8e4ef738b09be6330c7d813715fdeee47b3e6de7",
+      "sha256_match": true
+    },
+    {
+      "bytes": 988,
+      "http_status": 200,
+      "local_sha256": "3e60b7b6ff0e65f2c93856a4beecf5842ace4b7b353e4604f3166633abe4fb4d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/15_disk_ram_pid_0p5s_telemetry_and_cleanup.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/15_disk_ram_pid_0p5s_telemetry_and_cleanup.json",
+      "remote_sha256": "3e60b7b6ff0e65f2c93856a4beecf5842ace4b7b353e4604f3166633abe4fb4d",
+      "sha256_match": true
+    },
+    {
+      "bytes": 63928,
+      "http_status": 200,
+      "local_sha256": "cc7db2e74bab2ffc5d96a2be604c4382974219c8b44b1dacc97aba7580cc66ea",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/16_inherited_R3_faults_plus_new_C1_red_green_controls.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/16_inherited_R3_faults_plus_new_C1_red_green_controls.json",
+      "remote_sha256": "cc7db2e74bab2ffc5d96a2be604c4382974219c8b44b1dacc97aba7580cc66ea",
+      "sha256_match": true
+    },
+    {
+      "bytes": 7692,
+      "http_status": 200,
+      "local_sha256": "b2f13d8575f17c5ee758d7a50ae5dc97e89cab4698491ea2c253679814dd72f2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/17_new_verifier_mutation_resistance.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/17_new_verifier_mutation_resistance.json",
+      "remote_sha256": "b2f13d8575f17c5ee758d7a50ae5dc97e89cab4698491ea2c253679814dd72f2",
+      "sha256_match": true
+    },
+    {
+      "bytes": 18096,
+      "http_status": 200,
+      "local_sha256": "2c625eedcd3dcf636b32306b63d9534d37aa618805b12eb21f8f0ac8f5dd25f4",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/18_independent_OS_verifier_manifest_sha256.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/18_independent_OS_verifier_manifest_sha256.json",
+      "remote_sha256": "2c625eedcd3dcf636b32306b63d9534d37aa618805b12eb21f8f0ac8f5dd25f4",
+      "sha256_match": true
+    },
+    {
+      "bytes": 2858,
+      "http_status": 200,
+      "local_sha256": "7cd6752cb71e38b100e6155c6a8eb3cab3b97b26de575e915ca4e04151f8029a",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/19_orthogonal_engineering_economic_resource_release_gates.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/19_orthogonal_engineering_economic_resource_release_gates.json",
+      "remote_sha256": "7cd6752cb71e38b100e6155c6a8eb3cab3b97b26de575e915ca4e04151f8029a",
+      "sha256_match": true
+    },
+    {
+      "bytes": 650,
+      "http_status": 200,
+      "local_sha256": "6de212ceb111d96cd0ad35befa0ee0f530118f9e2756bfc265930c14f8458865",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/20_phase1_code_push_and_phase2_evidence_remote_readback.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/20_phase1_code_push_and_phase2_evidence_remote_readback.json",
+      "remote_sha256": "6de212ceb111d96cd0ad35befa0ee0f530118f9e2756bfc265930c14f8458865",
+      "sha256_match": true
+    },
+    {
+      "bytes": 5618,
+      "http_status": 200,
+      "local_sha256": "d01aa78945a21e14fdc3a4f5867400372654d6c07827f1c08b65c664faa2fa05",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/README_KH03_R3_C1.md",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/README_KH03_R3_C1.md",
+      "remote_sha256": "d01aa78945a21e14fdc3a4f5867400372654d6c07827f1c08b65c664faa2fa05",
+      "sha256_match": true
+    },
+    {
+      "bytes": 4934,
+      "http_status": 200,
+      "local_sha256": "329663cfadca892ce19f18cad97e9a76f06b7611ac1c6181457c6812c33c32c6",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/HANDOVER_KH03_R3_C1_VI.txt",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/HANDOVER_KH03_R3_C1_VI.txt",
+      "remote_sha256": "329663cfadca892ce19f18cad97e9a76f06b7611ac1c6181457c6812c33c32c6",
+      "sha256_match": true
+    },
+    {
+      "bytes": 9821,
+      "http_status": 200,
+      "local_sha256": "b04261d63ab8f20786e86f5f6b84208a3b7071f4dd054d8f1318ca74af18da87",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/checksums/sha256_inventory.json",
+      "remote_raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/cc4cda79019c4ee8394e4e545bc7561e44efe220/aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/checksums/sha256_inventory.json",
+      "remote_sha256": "b04261d63ab8f20786e86f5f6b84208a3b7071f4dd054d8f1318ca74af18da87",
+      "sha256_match": true
+    }
+  ],
+  "remote_readback_blobs_verified_count": 20,
+  "remote_readback_sha256_verified": true,
+  "run_dir_rel": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2",
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "sealed_run_dir_untouched_post_seal": true,
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "verdicts_post_readback": {
+    "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "BENCHMARK_POLICY_CORRECTNESS": "PASS",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "DETERMINISM": "PASS",
+    "ECONOMIC_DEV": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+    "ENGINEERING_CORRECTNESS": "PASS",
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+    "OOS_EVALUATIONS": 0,
+    "PUBLICATION": "PASS_REMOTE_VERIFIED",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY": "PASS"
+  },
+  "verified_at_utc": "2026-11-23T12:57:13Z",
+  "verifier_pid": 31787
+}
