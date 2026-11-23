@@ -1,0 +1,68 @@
+{
+  "all_4_runs_identical": true,
+  "all_executed_runs_identical": true,
+  "benchmark_kind": "pytest_controlled_subset",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "files_count": 10,
+  "measured_speedup_w2_vs_w1": 1.466,
+  "measured_speedup_w4_vs_w1": 1.904,
+  "r2_reference_timings_seconds": {
+    "w=1": 59.733,
+    "w=1_repeat": 58.891,
+    "w=2": 49.024,
+    "w=4": 43.088
+  },
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "runs": [
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=1",
+      "wall_clock_seconds": 26.887,
+      "worker_pids": [
+        31465
+      ],
+      "workers": 1
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=2",
+      "wall_clock_seconds": 18.346,
+      "worker_pids": [
+        31483,
+        31484
+      ],
+      "workers": 2
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=4",
+      "wall_clock_seconds": 14.119,
+      "worker_pids": [
+        31510,
+        31511,
+        31512,
+        31513
+      ],
+      "workers": 4
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=1_repeat",
+      "wall_clock_seconds": 25.064,
+      "worker_pids": [
+        31554
+      ],
+      "workers": 1
+    }
+  ],
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "w4_status": "EXECUTED"
+}

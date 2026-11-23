@@ -1,0 +1,108 @@
+{
+  "cases": [
+    {
+      "case_id": "S01_P04_MISSING_W1_REPEAT",
+      "description": "Missing w=1_repeat blocks policy",
+      "detail": "BLOCKED",
+      "passed": true
+    },
+    {
+      "case_id": "S02_P05_MISSING_W4",
+      "description": "Missing w=4 blocks and never selects w=2",
+      "detail": "BLOCKED",
+      "passed": true
+    },
+    {
+      "case_id": "S03_P06_DUP_W2_DISAGREE",
+      "description": "Duplicate w=2 disagreeing fails",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S04_P07_STRING_DURATION",
+      "description": "String duration rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S05_P07_BOOL_DURATION",
+      "description": "Bool duration rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S06_P08_NAN_INF_DURATION",
+      "description": "NaN/Inf/-Inf rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S07_P08_JSON_NAN_PARSE",
+      "description": "Nonstandard JSON NaN constant rejected",
+      "detail": "RAISED_VALUE_ERROR",
+      "passed": true
+    },
+    {
+      "case_id": "S08_P09_ZERO_NEG_DURATION",
+      "description": "Zero and negative duration rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S09_P10_CONFLICTING_KEYS",
+      "description": "Conflicting wall_clock_seconds vs elapsed_sec rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S10_P11_MIXED_PYTEST_SCIENCE",
+      "description": "Mixed pytest/science keys rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S11_P12_MODE_WORKERS_MISMATCH",
+      "description": "mode_label=w=4 with workers=1 rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S12_P13_BAD_WORKER_PIDS",
+      "description": "W4 incompatible worker_pids count rejected",
+      "detail": "REJECTED",
+      "passed": true
+    },
+    {
+      "case_id": "S13_P16_EXACT_TIE_FEWER_WORKERS",
+      "description": "W2==W4 exact tie selects w=2 deterministically",
+      "detail": "SELECTED_W2",
+      "passed": true
+    },
+    {
+      "case_id": "S14_P17_W1_REPEAT_TIMING_NOISE",
+      "description": "W1_repeat timing drift with same SHA passes + warns",
+      "detail": "DISCLOSED",
+      "passed": true
+    },
+    {
+      "case_id": "S15_P18_W1_REPEAT_SHA_DIFFERS",
+      "description": "W1_repeat SHA drift fails determinism",
+      "detail": "BLOCKED",
+      "passed": true
+    },
+    {
+      "case_id": "S16_P15_LOW_RESOURCE_BLOCKS",
+      "description": "Low disk/RAM blocks policy fail-closed",
+      "detail": "BLOCKED_RESOURCE",
+      "passed": true
+    }
+  ],
+  "cases_failed": 0,
+  "cases_passed": 16,
+  "cases_total": 16,
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d"
+}

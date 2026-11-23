@@ -1,0 +1,61 @@
+{
+  "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "ACTIVATION_READY": "NO",
+  "H3_RESIZE_EXECUTION_STATUS": "BLOCKED_ADVISORY_FILTER_ONLY",
+  "LEGACY_METHOD_GUARD": "PASS",
+  "OOS_EVALUATIONS": 0,
+  "forensic_ledger_canonical_rows_sha256": "31759f84b075520949707acb1f61e6b60b277a02a86ecdaeee3ce6e7c69de217",
+  "forensic_ledger_episode_count": 233,
+  "funding_modeled": "EXCLUDED_UNMODELED",
+  "h3_promoted_as_executable": false,
+  "h3_r2_excluded_from_executable_arms": true,
+  "observed_l1_bbo_available": false,
+  "overall_pooled_null_1x": {
+    "accrued_open_entry_fees_usd": 14.7151,
+    "censoring_rate_over_filled": 0.1202,
+    "closed_count": 203,
+    "data_gap_unresolved": 2,
+    "effective_ny_days_closed": 17,
+    "expectancy_r": -0.8806,
+    "filled_count": 233,
+    "gross_pnl_usd": -164.9541,
+    "losses": 196,
+    "net_pnl_usd": -441.6118,
+    "ny_day_95ci_r_parsed": {
+      "available": true,
+      "diagnostic": "Entire 95% CI strictly negative [-0.9761, -0.7712] (upper < 0; does NOT cross zero).",
+      "label": "group_ci",
+      "lower": -0.9761,
+      "schema_valid": true,
+      "status": "CI_VALID_NEGATIVE",
+      "strictly_positive": false,
+      "upper": -0.7712
+    },
+    "ny_day_95ci_r_raw": [
+      -0.9761,
+      -0.7712
+    ],
+    "open_at_horizon_censored": 28,
+    "scheduled_count": 233,
+    "total_fees_usd": 276.6577,
+    "unfilled_count": 0,
+    "win_rate_over_closed": 0.0345,
+    "win_rate_over_filled": 0.03,
+    "win_rate_over_scheduled": 0.03,
+    "wins": 7
+  },
+  "planned_cap_is_physical_guarantee": false,
+  "r2_forward_only_embargo_240m_verified": true,
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "unauthorized_r1_callers_count": 0
+}

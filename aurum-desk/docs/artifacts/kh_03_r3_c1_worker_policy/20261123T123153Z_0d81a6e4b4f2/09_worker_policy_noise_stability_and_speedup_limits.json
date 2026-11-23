@@ -1,0 +1,41 @@
+{
+  "full_suite_speedup_extrapolated": false,
+  "pytest_stability": {
+    "applied_worker_count": 3,
+    "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+    "measured_fastest_mode": "w=4",
+    "measured_speedup_w2_vs_w1": 1.466,
+    "measured_speedup_w4_vs_w1": 1.904,
+    "measured_speedup_w4_vs_w1_mean": 1.84,
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "sample_size": 155,
+    "stability_disclosure": "w=4 fastest in measured scope (47.49% faster than w=1, exceeding 5.00% threshold and 7.27% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "timing_stability_status": "MODERATE_TIMING_NOISE_WARNING",
+    "w1_repeat_delta_sec": -1.823,
+    "w1_repeat_variance_pct": 0.0727,
+    "w1_repeat_wall_sec": 25.064,
+    "w1_wall_sec": 26.887
+  },
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "science_stability": {
+    "applied_worker_count": 2,
+    "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+    "measured_fastest_mode": "w=2",
+    "measured_speedup_w2_vs_w1": 1.229,
+    "measured_speedup_w4_vs_w1": 1.165,
+    "measured_speedup_w4_vs_w1_mean": 1.101,
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "sample_size": 12062,
+    "stability_disclosure": "w=2 fastest in measured scope (18.62% faster than w=1, exceeding 5.00% threshold and 12.41% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "timing_stability_status": "MODERATE_TIMING_NOISE_WARNING",
+    "w1_repeat_delta_sec": -0.147,
+    "w1_repeat_variance_pct": 0.1241,
+    "w1_repeat_wall_sec": 1.185,
+    "w1_wall_sec": 1.332
+  },
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "timing_determinism_claimed": false
+}

@@ -1,0 +1,261 @@
+{
+  "ACTIVATION_READY": "NO",
+  "changed_files_vs_r3_pub_head": [
+    "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+    "aurum-desk/backend/tests/test_kh03_r3_c1_policy_safety.py",
+    "aurum-desk/backend/tests/test_kh03_r3_c1_regression_truth.py",
+    "aurum-desk/backend/tests/test_kh03_r3_c1_verifier_mutations.py",
+    "aurum-desk/backend/tests/test_kh03_r3_c1_worker_policy_schema.py",
+    "aurum-desk/tools/kh_03_r3_c1_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r3_acceptance.py",
+    "aurum-desk/tools/run_kh_03_r3_c1_acceptance.py"
+  ],
+  "cost_assumptions_defaults_intact": true,
+  "forbidden_order_import_hits": [],
+  "function_responsibility_map": [
+    {
+      "evidence": "04, 06, 07, 08",
+      "function": "parse_benchmark_run_duration_strict",
+      "inputs": "raw run row dict, benchmark_kind",
+      "invariants": "Canonical kind-specific duration keys (`wall_clock_seconds` / `wall_seconds`), rejects bool/str/NaN/Inf/<=0/conflicts/mixed keys/bad worker_pids",
+      "module": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "outputs": "validated {mode_label, workers, duration_sec, duration_source_key, input_row_sha256, provenance_status, violations}",
+      "tests": "test_kh03_r3_c1_worker_policy_schema.py (P07..P13)"
+    },
+    {
+      "evidence": "04, 05, 06, 07, 08",
+      "function": "validate_benchmark_semantic_equivalence_strict",
+      "inputs": "raw bench_doc, benchmark_kind, expected_run_id, expected_tested_sha",
+      "invariants": "Requires all 4 modes (w=1,w=2,w=4,w=1_repeat), no duplicates, identical positive counts & SHA; rejects stale/cached runs",
+      "module": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "outputs": "PASS or BLOCKED_INVALID_BENCHMARK + normalized 4-mode table + canonical semantic SHA",
+      "tests": "test_kh03_r3_c1_worker_policy_schema.py (P03..P06, P11, P18)"
+    },
+    {
+      "evidence": "05, 08, 09, 10",
+      "function": "select_measured_worker_policy_strict",
+      "inputs": "bench_doc, benchmark_kind, system_limits, tie_rule, min_meaningful_gain_pct",
+      "invariants": "Separates measured subset fastest from safe applied cap (<=3 full pytest), never extrapolates full-suite speedup, tie prefers fewer workers, fail-closed on low disk/RAM",
+      "module": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "outputs": "measured_fastest_mode, mean_wall_sec_by_mode, applied_worker_count, safe_worker_cap, w1_repeat_variance_pct, policy_decision_sha256",
+      "tests": "test_kh03_r3_c1_worker_policy_schema.py (P01, P02, P16, P17), test_kh03_r3_c1_policy_safety.py (P14, P15)"
+    },
+    {
+      "evidence": "10, 16",
+      "function": "recompute_worker_policy_from_raw_receipt",
+      "inputs": "raw_bench_doc, reported_policy, benchmark_kind, reported_speedups, system_limits",
+      "invariants": "Rejects empty means, mismatched fastest mode, forged speedup, over-cap workers, extrapolated speedup",
+      "module": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "outputs": "independent verification status + discrepancies list",
+      "tests": "test_kh03_r3_c1_worker_policy_schema.py, test_kh03_r3_c1_regression_truth.py"
+    },
+    {
+      "evidence": "01, 03, 05",
+      "function": "_compute_optimum_worker_policy (minimal backward-compat shim)",
+      "inputs": "bench_doc, optional keyword-only benchmark_kind & system_limits",
+      "invariants": "Fixes P1 key bug in R3 without rewriting R3 orchestration; keeps Stage 6A pytest_workers=min(3, eff_workers)",
+      "module": "aurum-desk/tools/run_kh_03_r3_acceptance.py",
+      "outputs": "backward-compat {mean_wall_sec_by_mode, optimum_worker_policy} + validated C1 policy metadata",
+      "tests": "test_kh03_r3_c1_regression_truth.py"
+    },
+    {
+      "evidence": "17, 18, 19",
+      "function": "verify_kh03_r3_c1_artifacts_independently_from_disk + _independent_recompute_raw_benchmark_policy_c1",
+      "inputs": "run_dir, expected_run_id, expected_tested_sha",
+      "invariants": "Distinct OS PID, zero orchestrator import, independent minimal raw timing/SHA/speedup/cap/JUnit/telemetry/economic/28-gate recomputation",
+      "module": "aurum-desk/tools/kh_03_r3_c1_independent_verifier.py",
+      "outputs": "18_independent_OS_verifier_manifest_sha256.json + exit code 0/1/2",
+      "tests": "test_kh03_r3_c1_verifier_mutations.py (17 NEW separate-OS mutations)"
+    },
+    {
+      "evidence": "00..20",
+      "function": "run_kh03_r3_c1_acceptance + main",
+      "inputs": "CLI flags (waiver exit 2), max_workers <= 4",
+      "invariants": "Single-run lock, strict >=20.5/20.0 GiB disk & >=512 MiB RAM, <=4 descendants, atomic writes, zero mutation of prior runs",
+      "module": "aurum-desk/tools/run_kh_03_r3_c1_acceptance.py",
+      "outputs": "Immutable per-run artifact directory 00..20 + README + HANDOVER + junit/ + logs/ + checksums/",
+      "tests": "test_kh03_r3_c1_policy_safety.py"
+    }
+  ],
+  "kh03_r3_c1_module_inventory": [
+    {
+      "functions_count": 12,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "sha256": "ca5a209b538145621c503b888465eee55fb64eccb92ef175cef6fe4af8200120"
+    },
+    {
+      "functions_count": 11,
+      "rel_path": "aurum-desk/tools/run_kh_03_r3_acceptance.py",
+      "sha256": "06d44be055dd70f13bc26244978e405fd64eda50dc278ae99d0b4991fdfa8ab3"
+    },
+    {
+      "functions_count": 15,
+      "rel_path": "aurum-desk/tools/run_kh_03_r3_c1_acceptance.py",
+      "sha256": "d5edfcd2649a51eaa9b306f10f41c1259784ed59e48f0e377fbcf11e3c9497d6"
+    },
+    {
+      "functions_count": 14,
+      "rel_path": "aurum-desk/tools/kh_03_r3_c1_independent_verifier.py",
+      "sha256": "771beaf19a33a7a1ae7a224591215b3a63b490907694a9a90f75af155e4d48ef"
+    },
+    {
+      "functions_count": 18,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r3_c1_worker_policy_schema.py",
+      "sha256": "79c4f66acf3d60fc95bd30b93c8fe828b0bb0c2c9bae2b81729fc44d61ea524f"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r3_c1_policy_safety.py",
+      "sha256": "d476073b4230d182f082720e6a1ef62e426c2cef1503710120ba8a4692af894e"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r3_c1_verifier_mutations.py",
+      "sha256": "d43f5a47f61fcb6f5d5c83214f3b46ac089900f478958f97ab97becf7dab4134"
+    },
+    {
+      "functions_count": 5,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r3_c1_regression_truth.py",
+      "sha256": "3db46547654fb03e2bb540dd3829dd8ee2ae33ac35193933b18a2fb39c00b815"
+    }
+  ],
+  "legacy_guard_status": "PASS",
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "locked_keep_as_is_count": 20,
+  "locked_keep_as_is_inventory": [
+    {
+      "ast_function_count": 83,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "sha256": "22a4c52521657ceea6f3462bcda830250403092091f663c804eab6565c3472b2"
+    },
+    {
+      "ast_function_count": 6,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/domain_calculator.py",
+      "sha256": "1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f"
+    },
+    {
+      "ast_function_count": 48,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75"
+    },
+    {
+      "ast_function_count": 22,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd"
+    },
+    {
+      "ast_function_count": 12,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249"
+    },
+    {
+      "ast_function_count": 24,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98"
+    },
+    {
+      "ast_function_count": 51,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794"
+    },
+    {
+      "ast_function_count": 30,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf"
+    },
+    {
+      "ast_function_count": 21,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "sha256": "5ff22a0fa55e10f5ce4e5d1e99a96dfd619081f04cf24d3215d1492cbbf3e283"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_02_entry_foundation_research_service.py",
+      "sha256": "bcc26e0a6149fb33145ba97052eab6ad85b250ebdee93975f27eddf143db7034"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_02_entry_foundation_research.py",
+      "sha256": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924"
+    },
+    {
+      "ast_function_count": 3,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_02_entry_foundation_independent_verifier.py",
+      "sha256": "b9f181801ffc55b77a64c8123e8d661b3cb1ed0e02a1d314692ab2fa2a50503a"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json",
+      "sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    },
+    {
+      "ast_function_count": 58,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "sha256": "fa60c5d6fe48fd13303334a12eb2f3b5c4e7c4d87f22f6d616d019bbfaa64b49"
+    },
+    {
+      "ast_function_count": 19,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r2_methodology_service.py",
+      "sha256": "ee3b0cd03fdf7c9cbe30992dcb2a994ef208dd2f967c9530ddb8bd3375e64e88"
+    },
+    {
+      "ast_function_count": 10,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_diagnostic_service.py",
+      "sha256": "f145c6703ab974683809f7c6cbb43e282732260e59832829265e71f19ad9aa03"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_experiment_service.py",
+      "sha256": "6dcba6e9f2be06f555f7c445198222045d14e4e0b70ed4ee8d248344c9f01422"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_legacy_research_guard.py",
+      "sha256": "e9b856e398b6276ce4762b6162a2bf956966f7450380b9137c7b711254ecfb17"
+    }
+  ],
+  "prior_r3_pub_head_sha": "b03db8642cdd9a1dede38ca5c9adad47cd1ced71",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "unauthorized_changed_files": [],
+  "unauthorized_changed_files_count": 0
+}

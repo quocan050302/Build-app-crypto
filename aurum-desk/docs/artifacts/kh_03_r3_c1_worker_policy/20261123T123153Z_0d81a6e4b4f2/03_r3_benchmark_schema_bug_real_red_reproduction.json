@@ -1,0 +1,30 @@
+{
+  "classification": "REAL_RED_REPRODUCED",
+  "defect_root_cause": "Old _compute_optimum_worker_policy only checked elapsed_sec/wall_sec/duration_sec, ignoring actual producer keys wall_clock_seconds (pytest) and wall_seconds (science).",
+  "old_buggy_pytest_policy": {
+    "mean_wall_sec_by_mode": {},
+    "optimum_worker_policy": "w=1",
+    "repro_role": "RED_REPRO_OLD_R3_BUG_ONLY"
+  },
+  "old_buggy_science_policy": {
+    "mean_wall_sec_by_mode": {},
+    "optimum_worker_policy": "w=1",
+    "repro_role": "RED_REPRO_OLD_R3_BUG_ONLY"
+  },
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "sealed_r3_published_pytest_policy": {
+    "mean_wall_sec_by_mode": {},
+    "optimum_worker_policy": "w=1"
+  },
+  "sealed_r3_published_science_policy": {
+    "mean_wall_sec_by_mode": {},
+    "optimum_worker_policy": "w=1"
+  },
+  "source_fixture_mutated": false,
+  "source_fixture_rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/19_w1_w2_w4_w1repeat_hashes_timings_speedups.json",
+  "source_fixture_sha256": "85d7e5f7ed41192688c062e27114cec05e54b611f39822dd4c37496fd4471356",
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d"
+}

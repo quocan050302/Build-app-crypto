@@ -1,0 +1,221 @@
+{
+  "clean_clone_verifier_green": true,
+  "inherited_r3_mutations_detected_count": 16,
+  "inherited_r3_mutations_failed_detection_count": 0,
+  "inherited_r3_mutations_tested_count": 16,
+  "inherited_r3_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PROVENANCE_16:INVALID_SPEC_VERSION",
+      "mutation_id": "R3M01_FORGE_R1_PROTOCOL_IN_16",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "UNAUTHORIZED_R1_CALLER_DETECTED",
+      "mutation_id": "R3M02_UNAUTHORIZED_R1_CALLER_IN_04",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PROVENANCE_16:H3_PROMOTED_AS_EXECUTABLE_CANDIDATE",
+      "mutation_id": "R3M03_FORGE_H3_INTO_R3_PRIMARY_ARMS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_DEV_ADVANCEMENT_BOOLEAN",
+      "mutation_id": "R3M04_FORGE_FALSE_CI_PASS_BOOLEAN",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORENSIC_06:FORENSIC_07_WIN_LOSS_DENOMINATOR_MISMATCH",
+      "mutation_id": "R3M05_FORGE_WIN_RATE_EXCLUDES_LOSSES_07",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORENSIC_06:FORENSIC_07_FEES_MISMATCH",
+      "mutation_id": "R3M06_ZERO_FEE_IN_07",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_RISK_CAP_PHYSICAL_GUARANTEE",
+      "mutation_id": "R3M07_CONCEAL_RISK_CAP_AS_GUARANTEE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PREREG_PLAN_SHA256_TAMPERED_OR_UNLINKED",
+      "mutation_id": "R3M08_TAMPER_PREREG_PLAN_SHA_11",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_CAUSALITY:FUTURE_TRAIN_BARS_LEAKED",
+      "mutation_id": "R3M09_INJECT_FUTURE_TRAIN_BAR_IN_13",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_SELECTION_FREEZE_SHA_TAMPERED",
+      "mutation_id": "R3M10_TAMPER_FOLD_SELECTION_FREEZE_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "ZERO_FEE_BUG_IN_15",
+      "mutation_id": "R3M11_ZERO_FEE_BUG_IN_15",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_OBSERVED_L1_BBO_AVAILABLE_TRUE",
+      "mutation_id": "R3M12_FABRICATE_OBSERVED_L1_BBO_TRUE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "NONZERO_OOS_EVALUATIONS_PEEK",
+      "mutation_id": "R3M13_FABRICATE_FRESH_OOS_EVAL_ONE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "CANONICAL_DATASET_SHA256_TAMPERED",
+      "mutation_id": "R3M14_TAMPER_DATASET_SHA_02",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "GATE_TAMPER_OR_DRIFT:G23_DISK_RAM_CHILD_PROCESS_SAFETY",
+      "mutation_id": "R3M15_FAKE_CHILD_PROCESS_COUNT_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FALSE_REMOTE_READBACK_CLAIM",
+      "mutation_id": "R3M16_FAKE_REMOTE_PUBLICATION_NO_READBACK",
+      "verifier_exit_code": 1
+    }
+  ],
+  "isolated_temp_clones_only": true,
+  "mutations_failed_detection_count": 0,
+  "new_c1_mutations_detected_count": 17,
+  "new_c1_mutations_failed_detection_count": 0,
+  "new_c1_mutations_tested_count": 17,
+  "new_c1_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_MEAN_WALL_DRIFT",
+      "mutation_id": "C1M01_EDIT_ONE_PYTEST_DURATION",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BENCH_MISSING_MODE:pytest_controlled_subset:w=4",
+      "mutation_id": "C1M02_REMOVE_W4_ROW_FROM_PYTEST",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BENCH_NON_NUMERIC_DURATION",
+      "mutation_id": "C1M03_INSERT_STRING_NAN_DURATION",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BENCH_SEMANTIC_SHA_MISMATCH",
+      "mutation_id": "C1M04_FLIP_PYTEST_SEMANTIC_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BENCH_W1_REPEAT_SHA_MISMATCH",
+      "mutation_id": "C1M05_FALSIFY_W1_REPEAT_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_EMPTY_MEAN_WALL_MAP",
+      "mutation_id": "C1M06_EMPTY_MEANS_MAP_P19",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_FASTEST_MODE_MISMATCH:pytest_controlled_subset",
+      "mutation_id": "C1M07_FAKE_W1_FASTEST_ON_PYTEST_P20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_FASTEST_MODE_MISMATCH:r2_science_slice",
+      "mutation_id": "C1M08_FAKE_W4_FASTEST_ON_SCIENCE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_SPEEDUP_W4_MISMATCH",
+      "mutation_id": "C1M09_FORGED_SPEEDUP_999_P21",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "VERIFIER_APPLIED_WORKER_CAP_EXCEEDED",
+      "mutation_id": "C1M10_ALTER_APPLIED_CAP_ABOVE_MAX_P22",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORBIDDEN_FULL_SUITE_SPEEDUP_EXTRAPOLATION",
+      "mutation_id": "C1M11_EXTRAPOLATE_FULL_SUITE_SPEEDUP_G25",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_RESEARCH_ECONOMIC_VERDICT",
+      "mutation_id": "C1M12_MUTATE_ECONOMIC_PROVEN_EDGE_P25",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "JUNIT_BIJECTION_MISMATCH",
+      "mutation_id": "C1M13_MUTATE_JUNIT_NODE_ID_P24",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "TELEMETRY_15_RAM_MUTATED_VS_GZ",
+      "mutation_id": "C1M14_MUTATE_TELEMETRY_VS_GZ_P23",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FALSE_REMOTE_READBACK_CLAIM",
+      "mutation_id": "C1M15_FAKE_REMOTE_VERIFIED_P29",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_H3_RESIZE_EXECUTION_PASS",
+      "mutation_id": "C1M16_FAKE_OOS_AND_H3_PASS_AND_LIVE_ON_P25_P26",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BENCH_STALE_R3_REUSED",
+      "mutation_id": "C1M17_REUSE_STALE_R3_RUN_ID_P28",
+      "verifier_exit_code": 1
+    }
+  ],
+  "run_id": "20261123T123153Z_0d81a6e4b4f2",
+  "schema_version": "kh_03_r3_c1_worker_policy_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R3.C1-v1.0",
+  "status": "PASS",
+  "synthetic_clone_vs_real_run_distinguished": true,
+  "tested_executable_sha": "0d81a6e4b4f2de6c0770506308f4a280ff7f186d",
+  "total_mutations_tested_count": 33
+}
