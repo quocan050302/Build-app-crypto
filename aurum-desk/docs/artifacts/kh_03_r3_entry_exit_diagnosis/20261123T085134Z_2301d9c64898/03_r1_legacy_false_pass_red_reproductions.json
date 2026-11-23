@@ -1,0 +1,64 @@
+{
+  "artifact_canonical_sha256": "0c386f2f313323e9cc1bae5584cc561fe0129acc1302b6994030bb5678cbe342",
+  "classification": "REAL_RED",
+  "forged_h3_and_posthoc_wf_rejected": {
+    "admitted_for_certification": false,
+    "admitted_for_descriptive_audit_only": false,
+    "classification": "REJECTED_PROTOCOL_INVARIANT_VIOLATION",
+    "protocol_id": "KH-03.R3-v1.0",
+    "violations": [
+      "FORBIDDEN_H3_EXECUTABLE_PROMOTION",
+      "NON_FORWARD_ONLY_VALIDATION:POSTHOC_FOUR_SLICES",
+      "FUTURE_TRAIN_BARS_NONZERO:16542"
+    ]
+  },
+  "r1_ci_positive_list_bug": {
+    "input": [
+      0.1,
+      0.5
+    ],
+    "old_r1_ci_low": null,
+    "r2_strict_status": "CI_VALID_POSITIVE"
+  },
+  "r1_descriptive_only_mode": {
+    "admitted_for_certification": false,
+    "admitted_for_descriptive_audit_only": true,
+    "classification": "LEGACY_DESCRIPTIVE_ONLY",
+    "protocol_id": "KH-03.R1-v1.0",
+    "violations": [
+      "LEGACY_R1_CANNOT_CERTIFY_CURRENT_RESEARCH_OR_DEV_CANDIDATE"
+    ]
+  },
+  "r1_fold1_future_train_proof": {
+    "train_bars_after_val": 16542,
+    "val_start_idx": 0
+  },
+  "r1_h1_real_false_crosses_zero": {
+    "r1_failed_criteria": [
+      "NON_POSITIVE_1X_NET:expR=-0.9749,net=-180.434",
+      "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8459",
+      "NON_POSITIVE_2X_STRESS:expR=-1.0203",
+      "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+      "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+      "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.1167",
+      "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+      "PURGED_WF_UNSTABLE:med=-1.015,pos_ratio=0.0"
+    ],
+    "raw_ci": [
+      -1.0184,
+      -0.8625
+    ]
+  },
+  "r1_protocol_certification_rejected": {
+    "admitted_for_certification": false,
+    "admitted_for_descriptive_audit_only": false,
+    "classification": "REJECTED_UNSUPPORTED_OR_SUPERSEDED_PROTOCOL",
+    "protocol_id": "KH-03.R1-v1.0",
+    "violations": [
+      "PROTOCOL_BELOW_KH03_R2_REJECTED:KH-03.R1-v1.0"
+    ]
+  },
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS"
+}

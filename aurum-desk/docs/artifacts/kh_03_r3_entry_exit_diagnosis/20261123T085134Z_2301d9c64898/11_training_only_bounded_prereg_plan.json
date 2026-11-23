@@ -1,0 +1,78 @@
+{
+  "ACTIVATION_READY": "NO",
+  "OOS_EVALUATIONS": 0,
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "data_regime": "REUSED_DEV_TEMPORAL_ROBUSTNESS_NOT_FRESH_OOS",
+  "finite_search_budget": {
+    "declared_primary_arms_count": 3,
+    "discarded_variants_count": 0,
+    "max_primary_arms": 3,
+    "multiplicity_correction": "HOLM_BONFERRONI_FAMILY_M3_NOT_RELAXED",
+    "post_validation_threshold_tuning_permitted": false
+  },
+  "h3_r2_excluded_from_executable_arms": true,
+  "hypotheses": [
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+      "axis": "E1_ENTRY_QUALITY_FRICTION_STOP_FLOOR",
+      "causal_mechanism": "Derived from TRAIN diagnosis showing median SL=2.38 USD lets taker fees eat 56-83% of risk. Requires structural SL >= 4.00 USD, SL >= 1.25 * M1_ATR_14, and as-of M15 trend agreement.",
+      "falsification_rule": "Falsified if R2 strict DEV gate fails on 1x/fee-only/2x, strict CI, Holm m=3, controls, or forward-only WF.",
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "fixed_parameters": {
+        "min_stop_dist_usd": 4.0,
+        "min_stop_to_m1_atr_ratio": 1.25,
+        "require_m15_trend_alignment": true
+      },
+      "observable_at": "decision_timestamp_ms (strictly as-of M1/M15 close)"
+    },
+    {
+      "alters_entry_sl_tp_qty": true,
+      "arm_code": "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION",
+      "axis": "E2_ENTRY_TIMING_CLOSED_BAR_DELAY",
+      "causal_mechanism": "Waits 1..6 strictly closed M1 bars for directional close breakout beyond base trigger bar without hitting SL, then re-risks causally at new close and enters on the NEXT open (never OPEN_TO_OPEN).",
+      "execution_realism_label": "MODELED_DELAYED_FILL_NOT_OBSERVED_L1",
+      "falsification_rule": "Falsified if R2 strict DEV gate fails or fails to beat NULL / placebo / time-shift.",
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "fixed_parameters": {
+        "max_wait_closed_bars": 6,
+        "min_wait_closed_bars": 1
+      },
+      "observable_at": "new_decision_timestamp_ms = bars_1m[idx + wait_bars].close_time > base_decision_ts; fill on bar[idx + wait_bars + 1].open"
+    },
+    {
+      "alters_entry_sl_tp_qty": true,
+      "arm_code": "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT",
+      "axis": "E3_EXIT_MECHANISM_NEAREST_CAUSAL_M5_UNSWEPT_TARGET",
+      "causal_mechanism": "Derived from TRAIN diagnosis showing median TP=24.05 USD (8.92x SL) causes 43.9% of losses to reach >=1.0x SL favorably before stopping out. Selects nearest strictly as-of unswept M5 swing satisfying net_rr >= 2.0 on exact same entry/SL (fallback to baseline R2 target).",
+      "execution_realism_label": "MODELED_BID_ASK_NOT_OBSERVED_L1",
+      "falsification_rule": "Falsified if paired/1-pos replay fails R2 strict DEV gate or fails to beat controls.",
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "fixed_parameters": {
+        "m5_pivot_radius": 2,
+        "min_net_rr": 2.0,
+        "risk_cap_usd": 2.5
+      },
+      "observable_at": "decision_timestamp_ms (strictly confirmed as-of M5/M15/H1 unswept swing)"
+    }
+  ],
+  "negative_controls": [
+    "NC_NULL_TRIGGER",
+    "NC_PLACEBO_SHUFFLED_TRIGGER",
+    "NC_TIME_OFFSET_SHIFT"
+  ],
+  "plan_frozen_sha256": "8c03983943e03ae47c68c60529b48693f85ec60eb7aac6c2e52a7a07a775bbfc",
+  "preregistered_utc": "2026-11-23T08:52:00Z",
+  "random_seed": 20261121,
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS",
+  "tested_code_sha": "2301d9c648984f6b06ccb4e22f47174c3990d7af",
+  "written_and_hashed_before_validation_replay": true
+}

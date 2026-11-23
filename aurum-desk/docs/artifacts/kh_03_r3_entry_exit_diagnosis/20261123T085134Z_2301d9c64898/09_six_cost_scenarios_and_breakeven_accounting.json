@@ -1,0 +1,296 @@
+{
+  "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "artifact_canonical_sha256": "f4a53e29cde5bcce6a0d84c4ee934bbe7f72f5e1bdd5b753be21f1df87e9518d",
+  "funding_cost_status": "EXCLUDED_UNMODELED_DISCLOSED",
+  "observed_l1_bbo_available": false,
+  "quote_mode": "MODELED_BID_ASK",
+  "scenarios": {
+    "1X_BASE_0p0004": {
+      "avg_realized_loss_abs_r": 1.0167,
+      "avg_realized_win_r": 2.932,
+      "eligible_denominator": 1323,
+      "empirical_breakeven_win_rate": 0.2575,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.0345,
+      "parameters": {
+        "maker_fee_rate": 0.0002,
+        "slippage_usd": 0.1,
+        "spread_usd": 0.2,
+        "taker_fee_rate": 0.0004
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 16.3231,
+        "closed": 203,
+        "data_gap_unresolved": 2,
+        "effective_ny_days": 17,
+        "effective_setup_episodes": 186,
+        "eligible_candidates_input": 1323,
+        "entry_fees_closed_usd": 138.3223,
+        "episode_cluster_95ci_r": [
+          -0.9723,
+          -0.7723
+        ],
+        "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+        "exit_fees_closed_usd": 138.3354,
+        "expectancy_r": -0.8806,
+        "gross_pnl_usd": -164.9541,
+        "losses": 196,
+        "max_drawdown_usd": 441.6118,
+        "net_pnl_usd": -441.6118,
+        "ny_day_cluster_95ci_r": [
+          -0.9777,
+          -0.7786
+        ],
+        "open_at_horizon": 28,
+        "overlap_violations": 0,
+        "scheduled": 233,
+        "skipped_due_to_active_position": 1090,
+        "total_fees_usd": 276.6577,
+        "unfilled": 0,
+        "win_rate": 0.0345,
+        "wins": 7
+      }
+    },
+    "2X_ALL_COST_0p0004": {
+      "avg_realized_loss_abs_r": 1.021,
+      "avg_realized_win_r": 2.3194,
+      "eligible_denominator": 542,
+      "empirical_breakeven_win_rate": 0.3057,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.027,
+      "parameters": {
+        "maker_fee_rate": 0.0004,
+        "slippage_usd": 0.2,
+        "spread_usd": 0.4,
+        "taker_fee_rate": 0.0008
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 16.8229,
+        "closed": 111,
+        "data_gap_unresolved": 1,
+        "effective_ny_days": 15,
+        "effective_setup_episodes": 97,
+        "eligible_candidates_input": 542,
+        "entry_fees_closed_usd": 94.802,
+        "episode_cluster_95ci_r": [
+          -1.021,
+          -0.8153
+        ],
+        "executed_ids_sha256": "a5e6c214f46a167f90ef25bb124f8f212851e68dffbab52cb3f56b888689918e",
+        "exit_fees_closed_usd": 94.8204,
+        "expectancy_r": -0.9307,
+        "gross_pnl_usd": -64.1289,
+        "losses": 108,
+        "max_drawdown_usd": 253.7513,
+        "net_pnl_usd": -253.7513,
+        "ny_day_cluster_95ci_r": [
+          -1.0211,
+          -0.8296
+        ],
+        "open_at_horizon": 20,
+        "overlap_violations": 0,
+        "scheduled": 132,
+        "skipped_due_to_active_position": 410,
+        "total_fees_usd": 189.6224,
+        "unfilled": 0,
+        "win_rate": 0.027,
+        "wins": 3
+      }
+    },
+    "2X_ALL_COST_0p0006": {
+      "avg_realized_loss_abs_r": 1.0158,
+      "avg_realized_win_r": null,
+      "eligible_denominator": 200,
+      "empirical_breakeven_win_rate": null,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.0,
+      "parameters": {
+        "maker_fee_rate": 0.0004,
+        "slippage_usd": 0.2,
+        "spread_usd": 0.4,
+        "taker_fee_rate": 0.0012
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 9.0863,
+        "closed": 46,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 10,
+        "effective_setup_episodes": 38,
+        "eligible_candidates_input": 200,
+        "entry_fees_closed_usd": 43.856,
+        "episode_cluster_95ci_r": [
+          -1.0164,
+          -1.0153
+        ],
+        "executed_ids_sha256": "11f298ff49adafb7d92ba5e3423c916647549d661b746b70510a5dc37f8b504a",
+        "exit_fees_closed_usd": 43.882,
+        "expectancy_r": -1.0158,
+        "gross_pnl_usd": -26.1278,
+        "losses": 46,
+        "max_drawdown_usd": 113.8658,
+        "net_pnl_usd": -113.8658,
+        "ny_day_cluster_95ci_r": [
+          -1.0166,
+          -1.0151
+        ],
+        "open_at_horizon": 10,
+        "overlap_violations": 0,
+        "scheduled": 56,
+        "skipped_due_to_active_position": 144,
+        "total_fees_usd": 87.738,
+        "unfilled": 0,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "3X_ALL_COST_0p0004": {
+      "avg_realized_loss_abs_r": 1.0233,
+      "avg_realized_win_r": null,
+      "eligible_denominator": 195,
+      "empirical_breakeven_win_rate": null,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.0,
+      "parameters": {
+        "maker_fee_rate": 0.0006,
+        "slippage_usd": 0.3,
+        "spread_usd": 0.6,
+        "taker_fee_rate": 0.0012
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 8.9364,
+        "closed": 45,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 10,
+        "effective_setup_episodes": 38,
+        "eligible_candidates_input": 195,
+        "entry_fees_closed_usd": 42.4668,
+        "episode_cluster_95ci_r": [
+          -1.0241,
+          -1.0224
+        ],
+        "executed_ids_sha256": "617cbd197d204d8d43307a5c3b3b8ed4ce6fe2a324e8fdfb2f4e5b67533f8852",
+        "exit_fees_closed_usd": 42.4926,
+        "expectancy_r": -1.0233,
+        "gross_pnl_usd": -27.3175,
+        "losses": 45,
+        "max_drawdown_usd": 112.2769,
+        "net_pnl_usd": -112.2769,
+        "ny_day_cluster_95ci_r": [
+          -1.025,
+          -1.0217
+        ],
+        "open_at_horizon": 10,
+        "overlap_violations": 0,
+        "scheduled": 55,
+        "skipped_due_to_active_position": 140,
+        "total_fees_usd": 84.9594,
+        "unfilled": 0,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "3X_ALL_COST_0p0006": {
+      "avg_realized_loss_abs_r": 1.0156,
+      "avg_realized_win_r": null,
+      "eligible_denominator": 77,
+      "empirical_breakeven_win_rate": null,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.0,
+      "parameters": {
+        "maker_fee_rate": 0.0006,
+        "slippage_usd": 0.3,
+        "spread_usd": 0.6,
+        "taker_fee_rate": 0.0018
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 3.6895,
+        "closed": 14,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 3,
+        "effective_setup_episodes": 14,
+        "eligible_candidates_input": 77,
+        "entry_fees_closed_usd": 13.3919,
+        "episode_cluster_95ci_r": [
+          -1.0166,
+          -1.0147
+        ],
+        "executed_ids_sha256": "61fe83008dd858a58d7801785be5f09c2963e3992a95c6b2ff78055a0b7a7f12",
+        "exit_fees_closed_usd": 13.404,
+        "expectancy_r": -1.0156,
+        "gross_pnl_usd": -7.2788,
+        "losses": 14,
+        "max_drawdown_usd": 34.0747,
+        "net_pnl_usd": -34.0747,
+        "ny_day_cluster_95ci_r": [
+          -1.016,
+          -1.015
+        ],
+        "open_at_horizon": 4,
+        "overlap_violations": 0,
+        "scheduled": 18,
+        "skipped_due_to_active_position": 59,
+        "total_fees_usd": 26.7959,
+        "unfilled": 0,
+        "win_rate": 0.0,
+        "wins": 0
+      }
+    },
+    "FEE_ONLY_0p0006": {
+      "avg_realized_loss_abs_r": 1.0129,
+      "avg_realized_win_r": 2.566,
+      "eligible_denominator": 838,
+      "empirical_breakeven_win_rate": 0.283,
+      "gross_minus_fee_minus_net_residual_usd": 0.0,
+      "observed_closed_win_rate": 0.0362,
+      "parameters": {
+        "maker_fee_rate": 0.0002,
+        "slippage_usd": 0.1,
+        "spread_usd": 0.2,
+        "taker_fee_rate": 0.0006
+      },
+      "population_mode": "FULL_DYNAMIC_RERISK",
+      "summary": {
+        "accrued_open_entry_fees_usd": 20.1439,
+        "closed": 138,
+        "data_gap_unresolved": 1,
+        "effective_ny_days": 15,
+        "effective_setup_episodes": 122,
+        "eligible_candidates_input": 838,
+        "entry_fees_closed_usd": 108.7698,
+        "episode_cluster_95ci_r": [
+          -0.9864,
+          -0.7608
+        ],
+        "executed_ids_sha256": "69f818f779b73fa04c6b1e95fdb19c2991517ff7ce5042d2e9b02300266da742",
+        "exit_fees_closed_usd": 108.7772,
+        "expectancy_r": -0.8833,
+        "gross_pnl_usd": -82.0567,
+        "losses": 133,
+        "max_drawdown_usd": 299.6037,
+        "net_pnl_usd": -299.6037,
+        "ny_day_cluster_95ci_r": [
+          -0.9653,
+          -0.7962
+        ],
+        "open_at_horizon": 28,
+        "overlap_violations": 0,
+        "scheduled": 167,
+        "skipped_due_to_active_position": 671,
+        "total_fees_usd": 217.547,
+        "unfilled": 0,
+        "win_rate": 0.0362,
+        "wins": 5
+      }
+    }
+  },
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS",
+  "total_overlap_violations": 0,
+  "zero_fee_display_bugs_count": 0
+}

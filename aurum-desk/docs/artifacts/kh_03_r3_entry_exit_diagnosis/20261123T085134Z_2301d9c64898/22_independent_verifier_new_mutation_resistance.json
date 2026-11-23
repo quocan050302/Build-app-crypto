@@ -1,0 +1,109 @@
+{
+  "clean_clone_verifier_green": true,
+  "isolated_temp_clones_only": true,
+  "mutations_detected_count": 16,
+  "mutations_failed_detection_count": 0,
+  "mutations_tested_count": 16,
+  "results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PROVENANCE_16:INVALID_SPEC_VERSION",
+      "mutation_id": "R3M01_FORGE_R1_PROTOCOL_IN_16",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "UNAUTHORIZED_R1_CALLER_DETECTED",
+      "mutation_id": "R3M02_UNAUTHORIZED_R1_CALLER_IN_04",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PROVENANCE_16:H3_PROMOTED_AS_EXECUTABLE_CANDIDATE",
+      "mutation_id": "R3M03_FORGE_H3_INTO_R3_PRIMARY_ARMS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_DEV_ADVANCEMENT_BOOLEAN",
+      "mutation_id": "R3M04_FORGE_FALSE_CI_PASS_BOOLEAN",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORENSIC_06:FORENSIC_07_WIN_LOSS_DENOMINATOR_MISMATCH",
+      "mutation_id": "R3M05_FORGE_WIN_RATE_EXCLUDES_LOSSES_07",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORENSIC_06:FORENSIC_07_FEES_MISMATCH",
+      "mutation_id": "R3M06_ZERO_FEE_IN_07",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_RISK_CAP_PHYSICAL_GUARANTEE",
+      "mutation_id": "R3M07_CONCEAL_RISK_CAP_AS_GUARANTEE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PREREG_PLAN_SHA256_TAMPERED_OR_UNLINKED",
+      "mutation_id": "R3M08_TAMPER_PREREG_PLAN_SHA_11",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_CAUSALITY:FUTURE_TRAIN_BARS_LEAKED",
+      "mutation_id": "R3M09_INJECT_FUTURE_TRAIN_BAR_IN_13",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_SELECTION_FREEZE_SHA_TAMPERED",
+      "mutation_id": "R3M10_TAMPER_FOLD_SELECTION_FREEZE_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "ZERO_FEE_BUG_IN_15",
+      "mutation_id": "R3M11_ZERO_FEE_BUG_IN_15",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_OBSERVED_L1_BBO_AVAILABLE_TRUE",
+      "mutation_id": "R3M12_FABRICATE_OBSERVED_L1_BBO_TRUE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "NONZERO_OOS_EVALUATIONS_PEEK",
+      "mutation_id": "R3M13_FABRICATE_FRESH_OOS_EVAL_ONE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "CANONICAL_DATASET_SHA256_TAMPERED",
+      "mutation_id": "R3M14_TAMPER_DATASET_SHA_02",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "GATE_TAMPER_OR_DRIFT:G23_DISK_RAM_CHILD_PROCESS_SAFETY",
+      "mutation_id": "R3M15_FAKE_CHILD_PROCESS_COUNT_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FALSE_REMOTE_READBACK_CLAIM",
+      "mutation_id": "R3M16_FAKE_REMOTE_PUBLICATION_NO_READBACK",
+      "verifier_exit_code": 1
+    }
+  ],
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS"
+}

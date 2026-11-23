@@ -1,0 +1,1154 @@
+{
+  "artifact_canonical_sha256": "9c8e3807f598cfa8f9e5cfa7ef547867eb044929cdf6d278ef95b36e6383cc06",
+  "is_fresh_oos": false,
+  "per_fold_selection_and_validation_replays": [
+    {
+      "all_arms_validation_results": {
+        "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 3.1487,
+            "closed": 19,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 19,
+            "eligible_candidates_in_window": 67,
+            "entry_fees_closed_usd": 7.9136,
+            "episode_cluster_95ci_r": [
+              -1.0106,
+              -0.4256
+            ],
+            "executed_ids_sha256": "1d9c301e04e52b3802d03a11dad2736a4d6383a19d322143a042f8b65fd693fe",
+            "exit_fees_closed_usd": 7.9197,
+            "expectancy_r": -0.8153,
+            "gross_pnl_usd": -21.9704,
+            "losses": 18,
+            "max_drawdown_usd": 37.8037,
+            "max_realized_loss_usd": 2.5235,
+            "net_pnl_usd": -37.8037,
+            "ny_day_cluster_95ci_r": [
+              -1.011,
+              -0.6514
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 7,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 26,
+            "skipped_due_to_active_position": 41,
+            "total_fees_usd": 15.8333,
+            "unfilled": 0,
+            "win_rate": 0.0526,
+            "wins": 1
+          }
+        },
+        "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 5.0445,
+            "closed": 38,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 6,
+            "effective_setup_episodes": 38,
+            "eligible_candidates_in_window": 267,
+            "entry_fees_closed_usd": 24.1953,
+            "episode_cluster_95ci_r": [
+              -1.0147,
+              -0.1115
+            ],
+            "executed_ids_sha256": "c62293372991da8fab54cf0d54586670f53ec0fd2124e4432c408e2352f03cc4",
+            "exit_fees_closed_usd": 24.204,
+            "expectancy_r": -0.6077,
+            "gross_pnl_usd": -8.4553,
+            "losses": 35,
+            "max_drawdown_usd": 56.8546,
+            "max_realized_loss_usd": 2.5394,
+            "net_pnl_usd": -56.8546,
+            "ny_day_cluster_95ci_r": [
+              -1.0161,
+              -0.1539
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 9,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 47,
+            "skipped_due_to_active_position": 220,
+            "total_fees_usd": 48.3993,
+            "unfilled": 0,
+            "win_rate": 0.0789,
+            "wins": 3
+          }
+        },
+        "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 4.8941,
+            "closed": 50,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 6,
+            "effective_setup_episodes": 48,
+            "eligible_candidates_in_window": 453,
+            "entry_fees_closed_usd": 33.2836,
+            "episode_cluster_95ci_r": [
+              -0.9531,
+              -0.4331
+            ],
+            "executed_ids_sha256": "fb24a2c6984b32972d97d56105540dacd6a4a11e246ce8fcc67a62477f81207c",
+            "exit_fees_closed_usd": 33.2871,
+            "expectancy_r": -0.7336,
+            "gross_pnl_usd": -24.0814,
+            "losses": 46,
+            "max_drawdown_usd": 90.6521,
+            "max_realized_loss_usd": 2.5527,
+            "net_pnl_usd": -90.6521,
+            "ny_day_cluster_95ci_r": [
+              -1.0189,
+              -0.4917
+            ],
+            "open_at_fold_end": 1,
+            "open_at_horizon": 8,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 60,
+            "skipped_due_to_active_position": 393,
+            "total_fees_usd": 66.5707,
+            "unfilled": 0,
+            "win_rate": 0.08,
+            "wins": 4
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 6.3109,
+            "closed": 48,
+            "data_gap_unresolved": 1,
+            "effective_ny_days": 6,
+            "effective_setup_episodes": 46,
+            "eligible_candidates_in_window": 453,
+            "entry_fees_closed_usd": 31.8844,
+            "episode_cluster_95ci_r": [
+              -1.0168,
+              -0.5432
+            ],
+            "executed_ids_sha256": "545b7bef1dad99aba89a8437f216746b5b68fa74058f8bac4a6643507317cd07",
+            "exit_fees_closed_usd": 31.8856,
+            "expectancy_r": -0.8353,
+            "gross_pnl_usd": -35.328,
+            "losses": 46,
+            "max_drawdown_usd": 99.098,
+            "max_realized_loss_usd": 2.5527,
+            "net_pnl_usd": -99.098,
+            "ny_day_cluster_95ci_r": [
+              -1.0189,
+              -0.6675
+            ],
+            "open_at_fold_end": 1,
+            "open_at_horizon": 10,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 60,
+            "skipped_due_to_active_position": 393,
+            "total_fees_usd": 63.77,
+            "unfilled": 0,
+            "win_rate": 0.0417,
+            "wins": 2
+          }
+        },
+        "NC_PLACEBO_SHUFFLED_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 5.7914,
+            "closed": 18,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 18,
+            "eligible_candidates_in_window": 67,
+            "entry_fees_closed_usd": 12.3026,
+            "episode_cluster_95ci_r": [
+              -1.0177,
+              0.3326
+            ],
+            "executed_ids_sha256": "94fb94ca65342ae0b8ae52ca4962bca2b9b66f5af42c6050c1575a00f2da2048",
+            "exit_fees_closed_usd": 12.2958,
+            "expectancy_r": -0.4852,
+            "gross_pnl_usd": 3.0568,
+            "losses": 16,
+            "max_drawdown_usd": 21.5416,
+            "max_realized_loss_usd": 2.5469,
+            "net_pnl_usd": -21.5416,
+            "ny_day_cluster_95ci_r": [
+              -1.0186,
+              0.0176
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 9,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 27,
+            "skipped_due_to_active_position": 40,
+            "total_fees_usd": 24.5984,
+            "unfilled": 0,
+            "win_rate": 0.1111,
+            "wins": 2
+          }
+        },
+        "NC_TIME_OFFSET_SHIFT": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 3.1487,
+            "closed": 19,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 18,
+            "eligible_candidates_in_window": 69,
+            "entry_fees_closed_usd": 8.2493,
+            "episode_cluster_95ci_r": [
+              -1.0108,
+              -0.3936
+            ],
+            "executed_ids_sha256": "a1afcb409ae45dc254ddf93cc306b1b1c701ce18a02967e021efc19cd8baba7c",
+            "exit_fees_closed_usd": 8.2548,
+            "expectancy_r": -0.8155,
+            "gross_pnl_usd": -21.3625,
+            "losses": 18,
+            "max_drawdown_usd": 37.8666,
+            "max_realized_loss_usd": 2.5235,
+            "net_pnl_usd": -37.8666,
+            "ny_day_cluster_95ci_r": [
+              -1.0111,
+              -0.6739
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 7,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 26,
+            "skipped_due_to_active_position": 43,
+            "total_fees_usd": 16.5041,
+            "unfilled": 0,
+            "win_rate": 0.0526,
+            "wins": 1
+          }
+        }
+      },
+      "fold_id": "R2_FWD_FOLD_1",
+      "fold_local_selection_freeze": {
+        "candidate_arms_pool": [
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION",
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT"
+        ],
+        "fold_id": "R2_FWD_FOLD_1",
+        "selected_arm_meets_positive_train_bar": false,
+        "selected_arm_on_past_train_only": "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+        "selection_freeze_sha256": "9325dbb20e0dbd89b0c58b23b6417fa86668fb61f63ebbbdbc1672ce7f685b25",
+        "selection_frozen_before_validation_replay": true,
+        "tested_code_sha": "2301d9c648984f6b06ccb4e22f47174c3990d7af",
+        "train_only_arm_scores": {
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+            "closed_train_trades": 13,
+            "train_executed_ids_sha256": "de1579c21dd52b19684edacb66e8f76e471c2472fc7eb0b98677a84b9aa0591c",
+            "train_expectancy_r": -1.0118,
+            "train_net_pnl_usd": -32.399
+          },
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+            "closed_train_trades": 24,
+            "train_executed_ids_sha256": "6afa89faced636016de5c0476d1fdc55d44a79845a23ac2391dd1bca2917094d",
+            "train_expectancy_r": -1.0151,
+            "train_net_pnl_usd": -59.9912
+          },
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+            "closed_train_trades": 40,
+            "train_executed_ids_sha256": "c217f105ade946018513c4dd939924cb5078a63ab8c955db09ca64de4cd510a6",
+            "train_expectancy_r": -1.0179,
+            "train_net_pnl_usd": -100.7304
+          }
+        }
+      },
+      "selected_arm_validation_result": {
+        "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+        "summary": {
+          "accrued_open_entry_fees_usd": 3.1487,
+          "closed": 19,
+          "data_gap_unresolved": 0,
+          "effective_ny_days": 5,
+          "effective_setup_episodes": 19,
+          "eligible_candidates_in_window": 67,
+          "entry_fees_closed_usd": 7.9136,
+          "episode_cluster_95ci_r": [
+            -1.0106,
+            -0.4256
+          ],
+          "executed_ids_sha256": "1d9c301e04e52b3802d03a11dad2736a4d6383a19d322143a042f8b65fd693fe",
+          "exit_fees_closed_usd": 7.9197,
+          "expectancy_r": -0.8153,
+          "gross_pnl_usd": -21.9704,
+          "losses": 18,
+          "max_drawdown_usd": 37.8037,
+          "max_realized_loss_usd": 2.5235,
+          "net_pnl_usd": -37.8037,
+          "ny_day_cluster_95ci_r": [
+            -1.011,
+            -0.6514
+          ],
+          "open_at_fold_end": 0,
+          "open_at_horizon": 7,
+          "overlap_violations": 0,
+          "purged_boundary_trades_count": 0,
+          "scheduled": 26,
+          "skipped_due_to_active_position": 41,
+          "total_fees_usd": 15.8333,
+          "unfilled": 0,
+          "win_rate": 0.0526,
+          "wins": 1
+        }
+      }
+    },
+    {
+      "all_arms_validation_results": {
+        "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+          "fold_sample_status": "INCONCLUSIVE_LOW_FOLD_N",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.8598,
+            "closed": 12,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 11,
+            "eligible_candidates_in_window": 37,
+            "entry_fees_closed_usd": 5.0934,
+            "episode_cluster_95ci_r": [
+              -1.0116,
+              0.4592
+            ],
+            "executed_ids_sha256": "a4e0e6e6e6429959928d5a8da3fa6547a2e288c8e2db2b8bb6a8be0e38ffd353",
+            "exit_fees_closed_usd": 5.0909,
+            "expectancy_r": -0.4367,
+            "gross_pnl_usd": -2.7476,
+            "losses": 10,
+            "max_drawdown_usd": 17.9389,
+            "max_realized_loss_usd": 2.5113,
+            "net_pnl_usd": -12.9319,
+            "ny_day_cluster_95ci_r": [
+              -1.0112,
+              0.1377
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 16,
+            "skipped_due_to_active_position": 21,
+            "total_fees_usd": 10.1843,
+            "unfilled": 0,
+            "win_rate": 0.1667,
+            "wins": 2
+          }
+        },
+        "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 3.3499,
+            "closed": 31,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 29,
+            "eligible_candidates_in_window": 147,
+            "entry_fees_closed_usd": 19.4059,
+            "episode_cluster_95ci_r": [
+              -1.0173,
+              -0.695
+            ],
+            "executed_ids_sha256": "2296b8ab5e78c0e926e10996d8624b63130e591fdfa80a1e1e75e36c51d18076",
+            "exit_fees_closed_usd": 19.4023,
+            "expectancy_r": -0.9126,
+            "gross_pnl_usd": -30.8456,
+            "losses": 30,
+            "max_drawdown_usd": 69.6538,
+            "max_realized_loss_usd": 2.5569,
+            "net_pnl_usd": -69.6538,
+            "ny_day_cluster_95ci_r": [
+              -1.0195,
+              -0.7578
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 7,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 38,
+            "skipped_due_to_active_position": 109,
+            "total_fees_usd": 38.8082,
+            "unfilled": 0,
+            "win_rate": 0.0323,
+            "wins": 1
+          }
+        },
+        "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 3.0744,
+            "closed": 54,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 50,
+            "eligible_candidates_in_window": 292,
+            "entry_fees_closed_usd": 34.644,
+            "episode_cluster_95ci_r": [
+              -1.0159,
+              -0.5522
+            ],
+            "executed_ids_sha256": "4c2b4a7fa17b59f00d48de3e5b0cbdaddc3a1349e47735e9d9bda64456447aad",
+            "exit_fees_closed_usd": 34.6373,
+            "expectancy_r": -0.8113,
+            "gross_pnl_usd": -38.9672,
+            "losses": 51,
+            "max_drawdown_usd": 108.2485,
+            "max_realized_loss_usd": 2.5522,
+            "net_pnl_usd": -108.2485,
+            "ny_day_cluster_95ci_r": [
+              -1.0172,
+              -0.6562
+            ],
+            "open_at_fold_end": 1,
+            "open_at_horizon": 7,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 1,
+            "scheduled": 62,
+            "skipped_due_to_active_position": 229,
+            "total_fees_usd": 69.2813,
+            "unfilled": 0,
+            "win_rate": 0.0556,
+            "wins": 3
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 3.0744,
+            "closed": 53,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 49,
+            "eligible_candidates_in_window": 292,
+            "entry_fees_closed_usd": 34.104,
+            "episode_cluster_95ci_r": [
+              -1.0156,
+              -0.505
+            ],
+            "executed_ids_sha256": "54d7d94632032141686a09f8a0d9f05917f6e9636012f0491180f3e7fa4a856d",
+            "exit_fees_closed_usd": 34.0972,
+            "expectancy_r": -0.7948,
+            "gross_pnl_usd": -35.9258,
+            "losses": 50,
+            "max_drawdown_usd": 104.127,
+            "max_realized_loss_usd": 2.5522,
+            "net_pnl_usd": -104.127,
+            "ny_day_cluster_95ci_r": [
+              -1.0172,
+              -0.6196
+            ],
+            "open_at_fold_end": 1,
+            "open_at_horizon": 7,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 1,
+            "scheduled": 61,
+            "skipped_due_to_active_position": 230,
+            "total_fees_usd": 68.2012,
+            "unfilled": 0,
+            "win_rate": 0.0566,
+            "wins": 3
+          }
+        },
+        "NC_PLACEBO_SHUFFLED_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.125,
+            "closed": 18,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 18,
+            "eligible_candidates_in_window": 36,
+            "entry_fees_closed_usd": 11.8887,
+            "episode_cluster_95ci_r": [
+              -1.0174,
+              -0.4468
+            ],
+            "executed_ids_sha256": "f44371f0361096b69ea717ff420b6d7920e8eeaa4437c0d81e8808ecb805f735",
+            "exit_fees_closed_usd": 11.8866,
+            "expectancy_r": -0.8267,
+            "gross_pnl_usd": -12.861,
+            "losses": 17,
+            "max_drawdown_usd": 36.6363,
+            "max_realized_loss_usd": 2.5278,
+            "net_pnl_usd": -36.6363,
+            "ny_day_cluster_95ci_r": [
+              -1.0165,
+              -0.706
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 2,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 20,
+            "skipped_due_to_active_position": 16,
+            "total_fees_usd": 23.7753,
+            "unfilled": 0,
+            "win_rate": 0.0556,
+            "wins": 1
+          }
+        },
+        "NC_TIME_OFFSET_SHIFT": {
+          "fold_sample_status": "INCONCLUSIVE_LOW_FOLD_N",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.8757,
+            "closed": 14,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 13,
+            "eligible_candidates_in_window": 39,
+            "entry_fees_closed_usd": 6.2517,
+            "episode_cluster_95ci_r": [
+              -1.0122,
+              -0.1219
+            ],
+            "executed_ids_sha256": "3f871ab5822a3cc05176ea31647c9777e0ba49b849f737ff7742e6f62223428e",
+            "exit_fees_closed_usd": 6.251,
+            "expectancy_r": -0.7361,
+            "gross_pnl_usd": -12.9598,
+            "losses": 13,
+            "max_drawdown_usd": 25.4625,
+            "max_realized_loss_usd": 2.5236,
+            "net_pnl_usd": -25.4625,
+            "ny_day_cluster_95ci_r": [
+              -1.0124,
+              -0.2879
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 18,
+            "skipped_due_to_active_position": 21,
+            "total_fees_usd": 12.5027,
+            "unfilled": 0,
+            "win_rate": 0.0714,
+            "wins": 1
+          }
+        }
+      },
+      "fold_id": "R2_FWD_FOLD_2",
+      "fold_local_selection_freeze": {
+        "candidate_arms_pool": [
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION",
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT"
+        ],
+        "fold_id": "R2_FWD_FOLD_2",
+        "selected_arm_meets_positive_train_bar": false,
+        "selected_arm_on_past_train_only": "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION",
+        "selection_freeze_sha256": "80b4f100ab47b4eaa08043adcf9cf778f84e6b308977dac30e8d447d6009334a",
+        "selection_frozen_before_validation_replay": true,
+        "tested_code_sha": "2301d9c648984f6b06ccb4e22f47174c3990d7af",
+        "train_only_arm_scores": {
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+            "closed_train_trades": 31,
+            "train_executed_ids_sha256": "2fac59f1424ff3b73512b434ccc0e02afc93834d145d7fe1f5331616e14ba2f5",
+            "train_expectancy_r": -0.8915,
+            "train_net_pnl_usd": -67.7919
+          },
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+            "closed_train_trades": 62,
+            "train_executed_ids_sha256": "d73fda45204eac501c5450fa92c0f6d71e55c1e077a8b1ddadccde6f92041c9b",
+            "train_expectancy_r": -0.7656,
+            "train_net_pnl_usd": -116.8203
+          },
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+            "closed_train_trades": 95,
+            "train_executed_ids_sha256": "8dba871243daafa334bfd32a808cee321564404f580fbf90a13fcad59dca0b4c",
+            "train_expectancy_r": -0.8684,
+            "train_net_pnl_usd": -204.0484
+          }
+        }
+      },
+      "selected_arm_validation_result": {
+        "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+        "summary": {
+          "accrued_open_entry_fees_usd": 3.3499,
+          "closed": 31,
+          "data_gap_unresolved": 0,
+          "effective_ny_days": 5,
+          "effective_setup_episodes": 29,
+          "eligible_candidates_in_window": 147,
+          "entry_fees_closed_usd": 19.4059,
+          "episode_cluster_95ci_r": [
+            -1.0173,
+            -0.695
+          ],
+          "executed_ids_sha256": "2296b8ab5e78c0e926e10996d8624b63130e591fdfa80a1e1e75e36c51d18076",
+          "exit_fees_closed_usd": 19.4023,
+          "expectancy_r": -0.9126,
+          "gross_pnl_usd": -30.8456,
+          "losses": 30,
+          "max_drawdown_usd": 69.6538,
+          "max_realized_loss_usd": 2.5569,
+          "net_pnl_usd": -69.6538,
+          "ny_day_cluster_95ci_r": [
+            -1.0195,
+            -0.7578
+          ],
+          "open_at_fold_end": 0,
+          "open_at_horizon": 7,
+          "overlap_violations": 0,
+          "purged_boundary_trades_count": 0,
+          "scheduled": 38,
+          "skipped_due_to_active_position": 109,
+          "total_fees_usd": 38.8082,
+          "unfilled": 0,
+          "win_rate": 0.0323,
+          "wins": 1
+        }
+      }
+    },
+    {
+      "all_arms_validation_results": {
+        "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+          "fold_sample_status": "INCONCLUSIVE_LOW_FOLD_N",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.5166,
+            "closed": 14,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 14,
+            "eligible_candidates_in_window": 30,
+            "entry_fees_closed_usd": 6.7609,
+            "episode_cluster_95ci_r": [
+              -1.013,
+              -1.0118
+            ],
+            "executed_ids_sha256": "5adbaf667527ad5f62ef4878f2be80b4ede23fee264bc6a6b3dc544d68827d9f",
+            "exit_fees_closed_usd": 6.7587,
+            "expectancy_r": -1.0124,
+            "gross_pnl_usd": -21.3579,
+            "losses": 14,
+            "max_drawdown_usd": 34.8775,
+            "max_realized_loss_usd": 2.522,
+            "net_pnl_usd": -34.8775,
+            "ny_day_cluster_95ci_r": [
+              -1.0127,
+              -1.0119
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 4,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 18,
+            "skipped_due_to_active_position": 12,
+            "total_fees_usd": 13.5196,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        },
+        "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 2.8755,
+            "closed": 36,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 35,
+            "eligible_candidates_in_window": 208,
+            "entry_fees_closed_usd": 22.324,
+            "episode_cluster_95ci_r": [
+              -1.0166,
+              -0.7567
+            ],
+            "executed_ids_sha256": "1eb561871ee6f3ac0b5aa48d80a038b63170c02f479cf3b74ec1ec7acaaee7b1",
+            "exit_fees_closed_usd": 22.3336,
+            "expectancy_r": -0.9316,
+            "gross_pnl_usd": -38.1875,
+            "losses": 35,
+            "max_drawdown_usd": 82.8451,
+            "max_realized_loss_usd": 2.5613,
+            "net_pnl_usd": -82.8451,
+            "ny_day_cluster_95ci_r": [
+              -1.0175,
+              -0.7563
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 6,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 42,
+            "skipped_due_to_active_position": 166,
+            "total_fees_usd": 44.6576,
+            "unfilled": 0,
+            "win_rate": 0.0278,
+            "wins": 1
+          }
+        },
+        "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 2.4395,
+            "closed": 55,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 52,
+            "eligible_candidates_in_window": 344,
+            "entry_fees_closed_usd": 36.6464,
+            "episode_cluster_95ci_r": [
+              -1.0172,
+              -0.724
+            ],
+            "executed_ids_sha256": "393a98dbbf8ef1f7692f8bdcf003d01affdf430ddcd623331455ab8a15016df1",
+            "exit_fees_closed_usd": 36.6597,
+            "expectancy_r": -0.8981,
+            "gross_pnl_usd": -48.5009,
+            "losses": 53,
+            "max_drawdown_usd": 121.807,
+            "max_realized_loss_usd": 2.5574,
+            "net_pnl_usd": -121.807,
+            "ny_day_cluster_95ci_r": [
+              -1.0179,
+              -0.7552
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 5,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 60,
+            "skipped_due_to_active_position": 284,
+            "total_fees_usd": 73.3061,
+            "unfilled": 0,
+            "win_rate": 0.0364,
+            "wins": 2
+          }
+        },
+        "NC_NULL_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 2.4395,
+            "closed": 55,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 5,
+            "effective_setup_episodes": 52,
+            "eligible_candidates_in_window": 344,
+            "entry_fees_closed_usd": 36.6464,
+            "episode_cluster_95ci_r": [
+              -1.0172,
+              -0.6869
+            ],
+            "executed_ids_sha256": "393a98dbbf8ef1f7692f8bdcf003d01affdf430ddcd623331455ab8a15016df1",
+            "exit_fees_closed_usd": 36.6604,
+            "expectancy_r": -0.8852,
+            "gross_pnl_usd": -46.7453,
+            "losses": 53,
+            "max_drawdown_usd": 120.0521,
+            "max_realized_loss_usd": 2.5574,
+            "net_pnl_usd": -120.0521,
+            "ny_day_cluster_95ci_r": [
+              -1.0179,
+              -0.7164
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 5,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 60,
+            "skipped_due_to_active_position": 284,
+            "total_fees_usd": 73.3068,
+            "unfilled": 0,
+            "win_rate": 0.0364,
+            "wins": 2
+          }
+        },
+        "NC_PLACEBO_SHUFFLED_TRIGGER": {
+          "fold_sample_status": "EVALUATED_REUSED_DEV_FOLD",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.4892,
+            "closed": 20,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 20,
+            "eligible_candidates_in_window": 30,
+            "entry_fees_closed_usd": 13.5835,
+            "episode_cluster_95ci_r": [
+              -1.0189,
+              -0.4151
+            ],
+            "executed_ids_sha256": "77c07d3e30e9be54ce1b2e79c5d9441054a1430e64f887c674d59b7f367bf56e",
+            "exit_fees_closed_usd": 13.5909,
+            "expectancy_r": -0.8167,
+            "gross_pnl_usd": -13.1615,
+            "losses": 19,
+            "max_drawdown_usd": 45.1737,
+            "max_realized_loss_usd": 2.5489,
+            "net_pnl_usd": -40.3359,
+            "ny_day_cluster_95ci_r": [
+              -1.0183,
+              -0.3493
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 3,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 23,
+            "skipped_due_to_active_position": 7,
+            "total_fees_usd": 27.1744,
+            "unfilled": 0,
+            "win_rate": 0.05,
+            "wins": 1
+          }
+        },
+        "NC_TIME_OFFSET_SHIFT": {
+          "fold_sample_status": "INCONCLUSIVE_LOW_FOLD_N",
+          "summary": {
+            "accrued_open_entry_fees_usd": 1.0022,
+            "closed": 14,
+            "data_gap_unresolved": 0,
+            "effective_ny_days": 4,
+            "effective_setup_episodes": 14,
+            "eligible_candidates_in_window": 28,
+            "entry_fees_closed_usd": 6.8109,
+            "episode_cluster_95ci_r": [
+              -1.013,
+              -1.0118
+            ],
+            "executed_ids_sha256": "4d59c07ceb91b7f5a85ab96e633dda3879956a4771ccc24845bf3936a209c4b2",
+            "exit_fees_closed_usd": 6.8087,
+            "expectancy_r": -1.0123,
+            "gross_pnl_usd": -21.2149,
+            "losses": 14,
+            "max_drawdown_usd": 34.8345,
+            "max_realized_loss_usd": 2.522,
+            "net_pnl_usd": -34.8345,
+            "ny_day_cluster_95ci_r": [
+              -1.0126,
+              -1.0119
+            ],
+            "open_at_fold_end": 0,
+            "open_at_horizon": 3,
+            "overlap_violations": 0,
+            "purged_boundary_trades_count": 0,
+            "scheduled": 17,
+            "skipped_due_to_active_position": 11,
+            "total_fees_usd": 13.6196,
+            "unfilled": 0,
+            "win_rate": 0.0,
+            "wins": 0
+          }
+        }
+      },
+      "fold_id": "R2_FWD_FOLD_3",
+      "fold_local_selection_freeze": {
+        "candidate_arms_pool": [
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION",
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT"
+        ],
+        "fold_id": "R2_FWD_FOLD_3",
+        "selected_arm_meets_positive_train_bar": false,
+        "selected_arm_on_past_train_only": "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR",
+        "selection_freeze_sha256": "2260b96b2157ff2d8e3fcf438c95e308bdac4880ebde82de5de5f7c38a265214",
+        "selection_frozen_before_validation_replay": true,
+        "tested_code_sha": "2301d9c648984f6b06ccb4e22f47174c3990d7af",
+        "train_only_arm_scores": {
+          "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+            "closed_train_trades": 44,
+            "train_executed_ids_sha256": "95cf5e301877a0ae5f9e9d5aa45389accbfceff4e6fbd157d2cef8bdb2124576",
+            "train_expectancy_r": -0.7701,
+            "train_net_pnl_usd": -83.1346
+          },
+          "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+            "closed_train_trades": 93,
+            "train_executed_ids_sha256": "7e812c8de328d55f235792041483ccc77b140f32d598ff2745ecef20347194e4",
+            "train_expectancy_r": -0.8146,
+            "train_net_pnl_usd": -186.5261
+          },
+          "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+            "closed_train_trades": 147,
+            "train_executed_ids_sha256": "7054df5ecebda3273a1cc88b93aabbb4d2df194f7d43469941e1e7c0e0c56243",
+            "train_expectancy_r": -0.8453,
+            "train_net_pnl_usd": -307.164
+          }
+        }
+      },
+      "selected_arm_validation_result": {
+        "fold_sample_status": "INCONCLUSIVE_LOW_FOLD_N",
+        "summary": {
+          "accrued_open_entry_fees_usd": 1.5166,
+          "closed": 14,
+          "data_gap_unresolved": 0,
+          "effective_ny_days": 4,
+          "effective_setup_episodes": 14,
+          "eligible_candidates_in_window": 30,
+          "entry_fees_closed_usd": 6.7609,
+          "episode_cluster_95ci_r": [
+            -1.013,
+            -1.0118
+          ],
+          "executed_ids_sha256": "5adbaf667527ad5f62ef4878f2be80b4ede23fee264bc6a6b3dc544d68827d9f",
+          "exit_fees_closed_usd": 6.7587,
+          "expectancy_r": -1.0124,
+          "gross_pnl_usd": -21.3579,
+          "losses": 14,
+          "max_drawdown_usd": 34.8775,
+          "max_realized_loss_usd": 2.522,
+          "net_pnl_usd": -34.8775,
+          "ny_day_cluster_95ci_r": [
+            -1.0127,
+            -1.0119
+          ],
+          "open_at_fold_end": 0,
+          "open_at_horizon": 4,
+          "overlap_violations": 0,
+          "purged_boundary_trades_count": 0,
+          "scheduled": 18,
+          "skipped_due_to_active_position": 12,
+          "total_fees_usd": 13.5196,
+          "unfilled": 0,
+          "win_rate": 0.0,
+          "wins": 0
+        }
+      }
+    }
+  ],
+  "preregistered_plan_sha256": "8c03983943e03ae47c68c60529b48693f85ec60eb7aac6c2e52a7a07a775bbfc",
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS",
+  "stitched_non_overlapping_validation_by_arm": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.8153,
+      "per_fold_expectancy_r": [
+        -0.8153,
+        -0.4367,
+        -1.0124
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 6.5251,
+        "closed": 45,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 12,
+        "effective_setup_episodes": 44,
+        "entry_fees_closed_usd": 19.7679,
+        "episode_cluster_95ci_r": [
+          -1.011,
+          -0.5071
+        ],
+        "exit_fees_closed_usd": 19.7693,
+        "expectancy_r": -0.7757,
+        "gross_pnl_usd": -46.0759,
+        "losses": 42,
+        "max_drawdown_usd": 85.6131,
+        "net_pnl_usd": -85.6131,
+        "ny_day_cluster_95ci_r": [
+          -1.0114,
+          -0.5438
+        ],
+        "open_at_horizon": 15,
+        "scheduled": 60,
+        "total_fees_usd": 39.5372,
+        "unfilled": 0,
+        "win_rate": 0.0667,
+        "wins": 3
+      }
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.9126,
+      "per_fold_expectancy_r": [
+        -0.6077,
+        -0.9126,
+        -0.9316
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 11.2699,
+        "closed": 105,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 14,
+        "effective_setup_episodes": 102,
+        "entry_fees_closed_usd": 65.9252,
+        "episode_cluster_95ci_r": [
+          -0.9837,
+          -0.6016
+        ],
+        "exit_fees_closed_usd": 65.9399,
+        "expectancy_r": -0.8088,
+        "gross_pnl_usd": -77.4884,
+        "losses": 100,
+        "max_drawdown_usd": 209.3535,
+        "net_pnl_usd": -209.3535,
+        "ny_day_cluster_95ci_r": [
+          -0.985,
+          -0.5932
+        ],
+        "open_at_horizon": 22,
+        "scheduled": 127,
+        "total_fees_usd": 131.8651,
+        "unfilled": 0,
+        "win_rate": 0.0476,
+        "wins": 5
+      }
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.8113,
+      "per_fold_expectancy_r": [
+        -0.7336,
+        -0.8113,
+        -0.8981
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 10.408,
+        "closed": 159,
+        "data_gap_unresolved": 1,
+        "effective_ny_days": 14,
+        "effective_setup_episodes": 150,
+        "entry_fees_closed_usd": 104.574,
+        "episode_cluster_95ci_r": [
+          -0.9289,
+          -0.6656
+        ],
+        "exit_fees_closed_usd": 104.5841,
+        "expectancy_r": -0.8169,
+        "gross_pnl_usd": -111.5495,
+        "losses": 150,
+        "max_drawdown_usd": 320.7076,
+        "net_pnl_usd": -320.7076,
+        "ny_day_cluster_95ci_r": [
+          -0.9589,
+          -0.6616
+        ],
+        "open_at_horizon": 20,
+        "scheduled": 182,
+        "total_fees_usd": 209.1581,
+        "unfilled": 0,
+        "win_rate": 0.0566,
+        "wins": 9
+      }
+    },
+    "NC_NULL_TRIGGER": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.8353,
+      "per_fold_expectancy_r": [
+        -0.8353,
+        -0.7948,
+        -0.8852
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 11.8248,
+        "closed": 156,
+        "data_gap_unresolved": 1,
+        "effective_ny_days": 14,
+        "effective_setup_episodes": 147,
+        "entry_fees_closed_usd": 102.6348,
+        "episode_cluster_95ci_r": [
+          -0.9509,
+          -0.7004
+        ],
+        "exit_fees_closed_usd": 102.6432,
+        "expectancy_r": -0.8391,
+        "gross_pnl_usd": -117.9991,
+        "losses": 149,
+        "max_drawdown_usd": 323.2771,
+        "net_pnl_usd": -323.2771,
+        "ny_day_cluster_95ci_r": [
+          -0.9562,
+          -0.7237
+        ],
+        "open_at_horizon": 22,
+        "scheduled": 181,
+        "total_fees_usd": 205.278,
+        "unfilled": 0,
+        "win_rate": 0.0449,
+        "wins": 7
+      }
+    },
+    "NC_PLACEBO_SHUFFLED_TRIGGER": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.8167,
+      "per_fold_expectancy_r": [
+        -0.4852,
+        -0.8267,
+        -0.8167
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 8.4056,
+        "closed": 56,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 12,
+        "effective_setup_episodes": 56,
+        "entry_fees_closed_usd": 37.7748,
+        "episode_cluster_95ci_r": [
+          -0.9555,
+          -0.4195
+        ],
+        "exit_fees_closed_usd": 37.7733,
+        "expectancy_r": -0.7134,
+        "gross_pnl_usd": -22.9657,
+        "losses": 52,
+        "max_drawdown_usd": 98.5138,
+        "net_pnl_usd": -98.5138,
+        "ny_day_cluster_95ci_r": [
+          -0.9418,
+          -0.4291
+        ],
+        "open_at_horizon": 14,
+        "scheduled": 70,
+        "total_fees_usd": 75.5481,
+        "unfilled": 0,
+        "win_rate": 0.0714,
+        "wins": 4
+      }
+    },
+    "NC_TIME_OFFSET_SHIFT": {
+      "duplicate_opportunity_ids_across_folds": 0,
+      "median_fold_expectancy_r": -0.8155,
+      "per_fold_expectancy_r": [
+        -0.8155,
+        -0.7361,
+        -1.0123
+      ],
+      "positive_fold_ratio": 0.0,
+      "stitched_summary": {
+        "accrued_open_entry_fees_usd": 6.0266,
+        "closed": 47,
+        "data_gap_unresolved": 0,
+        "effective_ny_days": 12,
+        "effective_setup_episodes": 45,
+        "entry_fees_closed_usd": 21.3119,
+        "episode_cluster_95ci_r": [
+          -1.0116,
+          -0.6042
+        ],
+        "exit_fees_closed_usd": 21.3145,
+        "expectancy_r": -0.8505,
+        "gross_pnl_usd": -55.5372,
+        "losses": 45,
+        "max_drawdown_usd": 98.1636,
+        "net_pnl_usd": -98.1636,
+        "ny_day_cluster_95ci_r": [
+          -1.0119,
+          -0.6661
+        ],
+        "open_at_horizon": 14,
+        "scheduled": 61,
+        "total_fees_usd": 42.6264,
+        "unfilled": 0,
+        "win_rate": 0.0426,
+        "wins": 2
+      }
+    }
+  },
+  "temporal_validation_kind": "FORWARD_ONLY_DEV_VALIDATION",
+  "total_overlap_violations": 0
+}

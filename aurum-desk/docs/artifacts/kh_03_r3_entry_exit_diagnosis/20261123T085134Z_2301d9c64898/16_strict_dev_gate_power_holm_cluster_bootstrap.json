@@ -1,0 +1,407 @@
+{
+  "ACTIVATION_READY": "NO",
+  "DEV_RESEARCH_CANDIDATE": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+  "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "all_ci_schemas_valid": true,
+  "artifact_canonical_sha256": "acebca6286aef9fd85d58d5d0adb2eeb9b8085435bd2a593e6892498cfc4458b",
+  "kh04_prospective_oos_power_grid": {
+    "assumed_trade_r_std": 1.25,
+    "bonferroni_strict_alpha_per_arm": 0.016667,
+    "familywise_alpha_two_sided": 0.05,
+    "fixed_30_trades_proves_edge": false,
+    "num_primary_arms_holm_family": 3,
+    "ny_day_clustering_vif": 1.5,
+    "sample_size_grid": [
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0316,
+        "required_closed_trades_clustered_vif": 1092,
+        "required_closed_trades_iid": 728,
+        "target_net_expectancy_r": 0.15
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0669,
+        "required_closed_trades_clustered_vif": 393,
+        "required_closed_trades_iid": 262,
+        "target_net_expectancy_r": 0.25
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.1268,
+        "required_closed_trades_clustered_vif": 201,
+        "required_closed_trades_iid": 134,
+        "target_net_expectancy_r": 0.35
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.2725,
+        "required_closed_trades_clustered_vif": 99,
+        "required_closed_trades_iid": 66,
+        "target_net_expectancy_r": 0.5
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "statistical_disclosure": "A fixed N = 30 closed trades is severely UNDERPOWERED under clustered gold-futures returns and multi-arm Holm-Bonferroni correction. Prospective OOS must span multiple distinct volatility/trend regimes, record observed L1 BBO quotes, verify actual account fees, and meet pre-registered cluster-adjusted sample-size thresholds before any unsealing.",
+    "z_alpha_two_sided": 2.394,
+    "z_beta_power_80pct": 0.8416
+  },
+  "matching_reports": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "expectancy_r_vs_placebo_shuffled": -0.0387,
+      "expectancy_r_vs_time_offset": 0.0569,
+      "matched_mean_delta_r_vs_null": -0.0424,
+      "matched_pairs_count": 57,
+      "matching_quality_status": "BALANCED_COMMON_SUPPORT",
+      "max_post_abs_smd": 0.0,
+      "overlap_coverage_ratio": 0.9828
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "expectancy_r_vs_placebo_shuffled": -0.0599,
+      "expectancy_r_vs_time_offset": 0.0357,
+      "matched_mean_delta_r_vs_null": 0.0406,
+      "matched_pairs_count": 131,
+      "matching_quality_status": "BALANCED_COMMON_SUPPORT",
+      "max_post_abs_smd": 0.0,
+      "overlap_coverage_ratio": 1.0
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "expectancy_r_vs_placebo_shuffled": -0.0729,
+      "expectancy_r_vs_time_offset": 0.0227,
+      "matched_mean_delta_r_vs_null": 0.02,
+      "matched_pairs_count": 203,
+      "matching_quality_status": "BALANCED_COMMON_SUPPORT",
+      "max_post_abs_smd": 0.0,
+      "overlap_coverage_ratio": 0.9854
+    }
+  },
+  "multiplicity_correction": "HOLM_BONFERRONI_FAMILY_M3_NOT_RELAXED",
+  "negative_control_summaries_1x": {
+    "NC_NULL_TRIGGER": {
+      "accrued_open_entry_fees_usd": 16.3231,
+      "closed": 203,
+      "data_gap_unresolved": 2,
+      "effective_ny_days": 17,
+      "effective_setup_episodes": 186,
+      "eligible_candidates_input": 1323,
+      "entry_fees_closed_usd": 138.3223,
+      "episode_cluster_95ci_r": [
+        -0.9723,
+        -0.7723
+      ],
+      "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+      "exit_fees_closed_usd": 138.3354,
+      "expectancy_r": -0.8806,
+      "gross_pnl_usd": -164.9541,
+      "losses": 196,
+      "max_drawdown_usd": 441.6118,
+      "net_pnl_usd": -441.6118,
+      "ny_day_cluster_95ci_r": [
+        -0.9777,
+        -0.7786
+      ],
+      "open_at_horizon": 28,
+      "overlap_violations": 0,
+      "scheduled": 233,
+      "skipped_due_to_active_position": 1090,
+      "total_fees_usd": 276.6577,
+      "unfilled": 0,
+      "win_rate": 0.0345,
+      "wins": 7
+    },
+    "NC_PLACEBO_SHUFFLED_TRIGGER": {
+      "accrued_open_entry_fees_usd": 10.1466,
+      "closed": 75,
+      "data_gap_unresolved": 0,
+      "effective_ny_days": 14,
+      "effective_setup_episodes": 75,
+      "eligible_candidates_input": 168,
+      "entry_fees_closed_usd": 50.071,
+      "episode_cluster_95ci_r": [
+        -0.971,
+        -0.5455
+      ],
+      "executed_ids_sha256": "f9216a53d46dd2f7eaec3813f96dc47baa24bb6d779b5cb44ccb8a1e551036c0",
+      "exit_fees_closed_usd": 50.0685,
+      "expectancy_r": -0.7899,
+      "gross_pnl_usd": -46.2114,
+      "losses": 71,
+      "max_drawdown_usd": 146.3509,
+      "net_pnl_usd": -146.3509,
+      "ny_day_cluster_95ci_r": [
+        -0.9594,
+        -0.5625
+      ],
+      "open_at_horizon": 17,
+      "overlap_violations": 0,
+      "scheduled": 92,
+      "skipped_due_to_active_position": 76,
+      "total_fees_usd": 100.1395,
+      "unfilled": 0,
+      "win_rate": 0.0533,
+      "wins": 4
+    },
+    "NC_TIME_OFFSET_SHIFT": {
+      "accrued_open_entry_fees_usd": 7.8368,
+      "closed": 60,
+      "data_gap_unresolved": 0,
+      "effective_ny_days": 14,
+      "effective_setup_episodes": 58,
+      "eligible_candidates_input": 170,
+      "entry_fees_closed_usd": 27.6899,
+      "episode_cluster_95ci_r": [
+        -1.0116,
+        -0.6903
+      ],
+      "executed_ids_sha256": "f10a44bd2400138ef4008d986c744120427f605086e84636171eda40810bea0a",
+      "exit_fees_closed_usd": 27.6979,
+      "expectancy_r": -0.8855,
+      "gross_pnl_usd": -75.1748,
+      "losses": 58,
+      "max_drawdown_usd": 130.5626,
+      "net_pnl_usd": -130.5626,
+      "ny_day_cluster_95ci_r": [
+        -1.0119,
+        -0.7283
+      ],
+      "open_at_horizon": 18,
+      "overlap_violations": 0,
+      "scheduled": 78,
+      "skipped_due_to_active_position": 92,
+      "total_fees_usd": 55.3878,
+      "unfilled": 0,
+      "win_rate": 0.0333,
+      "wins": 2
+    }
+  },
+  "passing_dev_candidate_arms": [],
+  "preregistered_hypothesis_budget_m": 3,
+  "preregistered_plan_sha256": "8c03983943e03ae47c68c60529b48693f85ec60eb7aac6c2e52a7a07a775bbfc",
+  "primary_arm_evaluations": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "arm_dev_verdict": "REJECTED_NO_DEV_ADVANCEMENT",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-1.0116, -0.6282] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR:ny_day_cluster_95ci_r",
+        "lower": -1.0116,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.6282
+      },
+      "ci_schema_valid": true,
+      "closed_trades_1x": 58,
+      "effective_ny_days_1x": 14,
+      "episode_cluster_95ci_r": [
+        -1.0113,
+        -0.6393
+      ],
+      "expectancy_r_1x": -0.8286,
+      "expectancy_r_2x": -1.0166,
+      "expectancy_r_3x": -1.0186,
+      "expectancy_r_fee_only_0p0006": -0.821,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.8286,net=-118.0121",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.821",
+        "NON_POSITIVE_2X_STRESS:expR=-1.0166",
+        "NY_DAY_CI_UPPER_BELOW_OR_EQUAL_ZERO:ci=[-1.0116,-0.6282]",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.0424",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "FORWARD_ONLY_WF_UNSTABLE:folds=3,med=-0.8153,pos_ratio=0.0"
+      ],
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "forward_only_wf_median_fold_expectancy_r": -0.8153,
+      "forward_only_wf_positive_fold_ratio": 0.0,
+      "forward_only_wf_valid_folds_count": 3,
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "losses_1x": 55,
+      "net_pnl_usd_1x": -118.0121,
+      "ny_day_cluster_95ci_r": [
+        -1.0116,
+        -0.6282
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "raw_one_sided_pvalue_gt_zero": 1.0,
+      "subgates": {
+        "beats_controls_ok": false,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": false,
+        "holm_pvalue_ok": false,
+        "matched_null_ok": false,
+        "positive_1x_ok": false,
+        "positive_2x_ok": false,
+        "positive_fee_only_ok": false,
+        "sample_and_days_ok": true
+      },
+      "total_fees_usd_1x": 52.2986,
+      "win_rate_1x": 0.0517,
+      "wins_1x": 3
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "arm_dev_verdict": "REJECTED_NO_DEV_ADVANCEMENT",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-0.9881, -0.6744] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION:ny_day_cluster_95ci_r",
+        "lower": -0.9881,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.6744
+      },
+      "ci_schema_valid": true,
+      "closed_trades_1x": 131,
+      "effective_ny_days_1x": 16,
+      "episode_cluster_95ci_r": [
+        -0.9773,
+        -0.6782
+      ],
+      "expectancy_r_1x": -0.8498,
+      "expectancy_r_2x": -0.8992,
+      "expectancy_r_3x": -0.8732,
+      "expectancy_r_fee_only_0p0006": -0.8573,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.8498,net=-274.3771",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8573",
+        "NON_POSITIVE_2X_STRESS:expR=-0.8992",
+        "NY_DAY_CI_UPPER_BELOW_OR_EQUAL_ZERO:ci=[-0.9881,-0.6744]",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "FORWARD_ONLY_WF_UNSTABLE:folds=3,med=-0.9126,pos_ratio=0.0"
+      ],
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "forward_only_wf_median_fold_expectancy_r": -0.9126,
+      "forward_only_wf_positive_fold_ratio": 0.0,
+      "forward_only_wf_valid_folds_count": 3,
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "losses_1x": 126,
+      "net_pnl_usd_1x": -274.3771,
+      "ny_day_cluster_95ci_r": [
+        -0.9881,
+        -0.6744
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "raw_one_sided_pvalue_gt_zero": 1.0,
+      "subgates": {
+        "beats_controls_ok": false,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": false,
+        "holm_pvalue_ok": false,
+        "matched_null_ok": true,
+        "positive_1x_ok": false,
+        "positive_2x_ok": false,
+        "positive_fee_only_ok": false,
+        "sample_and_days_ok": true
+      },
+      "total_fees_usd_1x": 165.3988,
+      "win_rate_1x": 0.0382,
+      "wins_1x": 5
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "arm_dev_verdict": "REJECTED_NO_DEV_ADVANCEMENT",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-0.9807, -0.7352] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT:ny_day_cluster_95ci_r",
+        "lower": -0.9807,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.7352
+      },
+      "ci_schema_valid": true,
+      "closed_trades_1x": 206,
+      "effective_ny_days_1x": 17,
+      "episode_cluster_95ci_r": [
+        -0.965,
+        -0.7477
+      ],
+      "expectancy_r_1x": -0.8628,
+      "expectancy_r_2x": -0.9365,
+      "expectancy_r_3x": -1.0233,
+      "expectancy_r_fee_only_0p0006": -0.866,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.8628,net=-439.0423",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.866",
+        "NON_POSITIVE_2X_STRESS:expR=-0.9365",
+        "NY_DAY_CI_UPPER_BELOW_OR_EQUAL_ZERO:ci=[-0.9807,-0.7352]",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "FORWARD_ONLY_WF_UNSTABLE:folds=3,med=-0.8113,pos_ratio=0.0"
+      ],
+      "fidelity_tier": "MODELED_RESEARCH_COUNTERFACTUAL",
+      "forward_only_wf_median_fold_expectancy_r": -0.8113,
+      "forward_only_wf_positive_fold_ratio": 0.0,
+      "forward_only_wf_valid_folds_count": 3,
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "losses_1x": 197,
+      "net_pnl_usd_1x": -439.0423,
+      "ny_day_cluster_95ci_r": [
+        -0.9807,
+        -0.7352
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "raw_one_sided_pvalue_gt_zero": 1.0,
+      "subgates": {
+        "beats_controls_ok": false,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": false,
+        "holm_pvalue_ok": false,
+        "matched_null_ok": true,
+        "positive_1x_ok": false,
+        "positive_2x_ok": false,
+        "positive_fee_only_ok": false,
+        "sample_and_days_ok": true
+      },
+      "total_fees_usd_1x": 280.5378,
+      "win_rate_1x": 0.0437,
+      "wins_1x": 9
+    }
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS",
+  "synthetic_positive_gate_capability_proof": {
+    "arm_code": "SYNTH_POSITIVE_GATE_CAPABILITY_CHECK",
+    "arm_dev_verdict": "DEV_CANDIDATE_UNPROVEN_OOS",
+    "ci_parsed": {
+      "available": true,
+      "diagnostic": "Entire 95% CI strictly positive [0.12, 0.58].",
+      "label": "SYNTH_POSITIVE_GATE_CAPABILITY_CHECK:ny_day_cluster_95ci_r",
+      "lower": 0.12,
+      "schema_valid": true,
+      "status": "CI_VALID_POSITIVE",
+      "strictly_positive": true,
+      "upper": 0.58
+    },
+    "ci_schema_valid": true,
+    "failed_advancement_criteria": [],
+    "passes_preregistered_dev_advancement": true,
+    "subgates": {
+      "beats_controls_ok": true,
+      "ci_strictly_positive_ok": true,
+      "executable_edge_eligible": true,
+      "forward_only_wf_ok": true,
+      "holm_pvalue_ok": true,
+      "matched_null_ok": true,
+      "positive_1x_ok": true,
+      "positive_2x_ok": true,
+      "positive_fee_only_ok": true,
+      "sample_and_days_ok": true
+    }
+  }
+}

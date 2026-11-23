@@ -1,0 +1,73 @@
+{
+  "all_arms_conserved_exact": true,
+  "arm_conservation": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "accepted_count": 168,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "3cf62e0b367434906c2c96d944cc49556c7f90c2bb1c641d18678f92b6491633",
+      "conservation_exact": true,
+      "rejected_count": 1155,
+      "rejection_breakdown": {
+        "FAILED_M15_TREND_ALIGN": 148,
+        "STOP_DIST_LT_4p00_USD": 1005,
+        "STOP_TO_M1_ATR_LT_1p25": 2
+      }
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "accepted_count": 751,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "da588db3e4e61709fdd5bfaa6c5e41d8017b58512ca3d26d6c869a0fd0c5f288",
+      "conservation_exact": true,
+      "rejected_count": 572,
+      "rejection_breakdown": {
+        "FAILED_DELAYED_RERISK_RR_OR_CAP": 186,
+        "NO_BREAKOUT_CONFIRM_WITHIN_6_CLOSED_BARS": 167,
+        "STOP_BREACHED_DURING_WAIT": 219
+      }
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "accepted_count": 1323,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "1b37c10e7009dcf1f6ad975c7770081ae4d7fac4d6b5b6380b6b73b01bcd983e",
+      "conservation_exact": true,
+      "rejected_count": 0,
+      "rejection_breakdown": {}
+    },
+    "NC_NULL_TRIGGER": {
+      "accepted_count": 1323,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "1b37c10e7009dcf1f6ad975c7770081ae4d7fac4d6b5b6380b6b73b01bcd983e",
+      "conservation_exact": true,
+      "rejected_count": 0,
+      "rejection_breakdown": {}
+    },
+    "NC_PLACEBO_SHUFFLED_TRIGGER": {
+      "accepted_count": 168,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "da8dbddca6046473d0ba21acc3191db75c31bca43f4257340a52a7cef2dff14b",
+      "conservation_exact": true,
+      "rejected_count": 1155,
+      "rejection_breakdown": {
+        "NOT_SELECTED_BY_PLACEBO_SHUFFLE": 1155
+      }
+    },
+    "NC_TIME_OFFSET_SHIFT": {
+      "accepted_count": 170,
+      "base_eligible_denominator": 1323,
+      "candidate_ids_sha256": "ce5a4b9c75d4bd6536d9c32ca1f38b9ac643e769eabadfb4d39d069ec33ed517",
+      "conservation_exact": true,
+      "rejected_count": 1153,
+      "rejection_breakdown": {
+        "FAILED_STALE_15M_SHIFT_CONTROL": 1153
+      }
+    }
+  },
+  "artifact_canonical_sha256": "50d6a52cb15475e2d69b77a039e8bdc5197f0365200372a2dfe822d6c051b151",
+  "base_eligible_count": 1323,
+  "e3_replaced_baseline_tp_with_nearer_m5_count": 650,
+  "m5_swings_tracked_asof": 1538,
+  "preregistered_plan_sha256": "8c03983943e03ae47c68c60529b48693f85ec60eb7aac6c2e52a7a07a775bbfc",
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS"
+}

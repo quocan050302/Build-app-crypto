@@ -1,0 +1,167 @@
+{
+  "all_synthetic_bypass_vectors_detected": true,
+  "artifact_canonical_sha256": "191253fb8a979981a2fb49b1c4185c0db206ca2b8fade186bc62351fbdac38aa",
+  "callgraph_audit": {
+    "LEGACY_DIRECT_CALL_REMAINS_AVAILABLE_FOR_HISTORICAL_ONLY": true,
+    "LEGACY_METHOD_GUARD": "PASS",
+    "allowed_historical_legacy_whitelist": [
+      "aurum-desk/backend/services/kh_03_data_governance_service.py",
+      "aurum-desk/backend/services/kh_03_research_service.py",
+      "aurum-desk/backend/tests/test_kh03_r3_legacy_guard.py",
+      "aurum-desk/backend/tests/test_kh_03_async_and_resource_safety.py",
+      "aurum-desk/backend/tests/test_kh_03_causal_research_and_negative_controls.py",
+      "aurum-desk/backend/tests/test_kh_03_partition_seal_and_provenance.py",
+      "aurum-desk/backend/tests/test_kh_03_verifier_mutations.py",
+      "aurum-desk/tools/kh_03_independent_verifier.py",
+      "aurum-desk/tools/run_kh_03_acceptance.py"
+    ],
+    "current_r2_r3_entrypoints_count": 17,
+    "forbidden_r1_promotion_symbols": [
+      "run_kh03_full_research_study_10_to_16",
+      "preregister_kh03_research_plan",
+      "build_kh03_partition_manifest_and_noncontamination"
+    ],
+    "python_files_scanned_count": 885,
+    "runtime_monkeypatch_applied_to_production": false,
+    "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+    "scope_disclosure": "Static AST whitelist+blacklist enforcement covers all Python modules under `aurum-desk/`. Historical KH-03.R1 modules remain untouched and directly importable strictly for `HISTORICAL_REPLAY_ONLY` audit compatibility; no current/new research evaluation or production module is permitted to invoke R1 certification entrypoints.",
+    "spec_version": "KH-03.R3-v1.0",
+    "status": "PASS",
+    "unauthorized_r1_callers": [],
+    "unauthorized_r1_callers_count": 0,
+    "whitelisted_historical_callers": [
+      {
+        "hits": [
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 28,
+            "local_alias": "preregister_kh03_research_plan",
+            "module": "services.kh_03_research_service",
+            "symbol": "preregister_kh03_research_plan"
+          },
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 28,
+            "local_alias": "run_kh03_full_research_study_10_to_16",
+            "module": "services.kh_03_research_service",
+            "symbol": "run_kh03_full_research_study_10_to_16"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 43,
+            "local_alias": "preregister_kh03_research_plan",
+            "symbol": "preregister_kh03_research_plan"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 60,
+            "local_alias": "preregister_kh03_research_plan",
+            "symbol": "preregister_kh03_research_plan"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 62,
+            "local_alias": "run_kh03_full_research_study_10_to_16",
+            "symbol": "run_kh03_full_research_study_10_to_16"
+          }
+        ],
+        "hits_count": 5,
+        "rel_path": "aurum-desk/backend/tests/test_kh_03_causal_research_and_negative_controls.py",
+        "role": "HISTORICAL_REPLAY_ONLY"
+      },
+      {
+        "hits": [
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 24,
+            "local_alias": "build_kh03_partition_manifest_and_noncontamination",
+            "module": "services.kh_03_data_governance_service",
+            "symbol": "build_kh03_partition_manifest_and_noncontamination"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 92,
+            "local_alias": "build_kh03_partition_manifest_and_noncontamination",
+            "symbol": "build_kh03_partition_manifest_and_noncontamination"
+          }
+        ],
+        "hits_count": 2,
+        "rel_path": "aurum-desk/backend/tests/test_kh_03_partition_seal_and_provenance.py",
+        "role": "HISTORICAL_REPLAY_ONLY"
+      },
+      {
+        "hits": [
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 107,
+            "local_alias": "build_kh03_partition_manifest_and_noncontamination",
+            "module": "services.kh_03_data_governance_service",
+            "symbol": "build_kh03_partition_manifest_and_noncontamination"
+          },
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 121,
+            "local_alias": "preregister_kh03_research_plan",
+            "module": "services.kh_03_research_service",
+            "symbol": "preregister_kh03_research_plan"
+          },
+          {
+            "kind": "DIRECT_OR_ALIASED_IMPORT",
+            "line": 121,
+            "local_alias": "run_kh03_full_research_study_10_to_16",
+            "module": "services.kh_03_research_service",
+            "symbol": "run_kh03_full_research_study_10_to_16"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 806,
+            "local_alias": "build_kh03_partition_manifest_and_noncontamination",
+            "symbol": "build_kh03_partition_manifest_and_noncontamination"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 817,
+            "local_alias": "preregister_kh03_research_plan",
+            "symbol": "preregister_kh03_research_plan"
+          },
+          {
+            "kind": "CALL_TO_ALIASED_FORBIDDEN_SYMBOL",
+            "line": 820,
+            "local_alias": "run_kh03_full_research_study_10_to_16",
+            "symbol": "run_kh03_full_research_study_10_to_16"
+          }
+        ],
+        "hits_count": 6,
+        "rel_path": "aurum-desk/tools/run_kh_03_acceptance.py",
+        "role": "HISTORICAL_REPLAY_ONLY"
+      }
+    ]
+  },
+  "green_r3_protocol_check": {
+    "admitted_for_certification": true,
+    "admitted_for_descriptive_audit_only": true,
+    "classification": "VERIFIED_KH03_R2_PLUS_PROTOCOL",
+    "protocol_id": "KH-03.R3-v1.0",
+    "violations": []
+  },
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "status": "PASS",
+  "synthetic_bypass_vector_detection": {
+    "alias_import": {
+      "detected": true
+    },
+    "direct_import": {
+      "detected": true
+    },
+    "eval_wrapper": {
+      "detected": true
+    },
+    "getattr_wrapper": {
+      "detected": true
+    },
+    "reexport_all": {
+      "detected": true
+    }
+  }
+}

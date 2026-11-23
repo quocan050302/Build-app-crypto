@@ -1,0 +1,35 @@
+{
+  "artifact_canonical_sha256": "629c089d15cac1afe757ad8d5285b42c64f82880f6390b72754886f3723afb85",
+  "conservation_checks": {
+    "eligible_eq_scheduled_plus_busy_skipped": true,
+    "scheduled_eq_terminal_outcome_partition": true,
+    "zero_1pos_overlap_violations": true,
+    "zero_duplicate_opportunity_ids": true
+  },
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "do_not_sum_overlapping_arms_warning": "Counts below track NC_NULL_TRIGGER strictly; NEVER sum overlapping arm rows into independent trials.",
+  "schema_version": "kh_03_r3_entry_exit_diagnosis_v1",
+  "spec_version": "KH-03.R3-v1.0",
+  "stages": {
+    "busy_skipped_ids_sha256": "210ba849bcf7d6380260feabfc3eb06776fed2fc6644ce8fc28580623c206128",
+    "closed_count": 203,
+    "data_gap_unresolved_count": 2,
+    "filled_count": 233,
+    "losses_count": 196,
+    "losses_ids_sha256": "99d94f5622ece3d3941d889dac466bdea8ad7a0e1241b38c20ebe444b57f1799",
+    "open_at_horizon_180m_censored_count": 28,
+    "r2_eligible_ids_sha256": "1b37c10e7009dcf1f6ad975c7770081ae4d7fac4d6b5b6380b6b73b01bcd983e",
+    "r2_structural_geometry_and_risk_eligible_count": 1323,
+    "raw_m1_triggers_count": 3788,
+    "scheduled_1pos_count": 233,
+    "scheduled_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+    "skipped_due_to_active_1pos_count": 1090,
+    "total_directional_bar_opportunities": 44692,
+    "total_m1_bars": 22376,
+    "unfilled_count": 0,
+    "wins_count": 7,
+    "wins_ids_sha256": "a1c7e025fa48fe20a03e30592495f2ba028d62934b20fd40da0e1fadaa97ad49"
+  },
+  "status": "PASS",
+  "tie_break_sort_key": "(decision_timestamp_ms, direction, opportunity_id)"
+}
