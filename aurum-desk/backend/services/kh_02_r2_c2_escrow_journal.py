@@ -94,7 +94,7 @@ def _cross_platform_exclusive_fd_lock(lock_path: Path) -> Iterator[int]:
     tlock = _get_thread_lock_for_path(lock_path) if sys.platform == "win32" else None
     if tlock is not None:
         tlock.acquire()
-    lfd = os.open(os.fspath(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    lfd = os.open(_win_long_path(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
     locked = False
     try:
         if fcntl is not None:
@@ -147,31 +147,62 @@ def _fsync_directory(dir_path: Path) -> None:
 
 
 def _win_long_path(path: Path) -> str:
-    """Applies Windows extended-length path prefix (`\\\\?\\`) when path exceeds 240 chars."""
+    """Applies Windows extended-length path prefix (`\\\\?\\`) when path exceeds 230 chars."""
     s = os.path.abspath(os.fspath(path))
-    if sys.platform == "win32" and len(s) >= 240 and not s.startswith("\\\\?\\"):
+    if sys.platform == "win32" and len(s) >= 230 and not s.startswith("\\\\?\\"):
         return "\\\\?\\" + s
     return s
 
 
+def _exists_safe(path: Path) -> bool:
+    return os.path.exists(_win_long_path(path))
+
+
+def _is_file_safe(path: Path) -> bool:
+    return os.path.isfile(_win_long_path(path))
+
+
+def _is_dir_safe(path: Path) -> bool:
+    return os.path.isdir(_win_long_path(path))
+
+
+def _read_bytes_safe(path: Path) -> bytes:
+    with open(_win_long_path(path), "rb") as _fh:
+        return _fh.read()
+
+
+def _mkdir_parents_safe(path: Path) -> None:
+    os.makedirs(_win_long_path(path), exist_ok=True)
+
+
 def _is_symlink_or_junction(path: Path) -> bool:
-    """Detects POSIX symlinks AND Windows NTFS directory junctions."""
-    if path.is_symlink():
-        return True
+    """Detects POSIX symlinks AND Windows NTFS directory junctions (long-path safe)."""
+    lp = _win_long_path(path)
+    try:
+        if os.path.islink(lp):
+            return True
+    except OSError:
+        pass
     if hasattr(os.path, "isjunction"):
         try:
-            return bool(os.path.isjunction(path))
+            return bool(os.path.isjunction(lp))
         except OSError:
             return False
     return False
+
+
+def _strip_win_long_prefix(s: str) -> str:
+    if sys.platform == "win32" and s.startswith("\\\\?\\"):
+        return s[4:]
+    return s
 
 
 def _assert_not_symlink_and_contained(path: Path, root: Path) -> None:
     if _is_symlink_or_junction(path):
         raise PermissionError(f"SYMLINK_ESCAPE_FORBIDDEN:{path}")
     try:
-        resolved_root = root.resolve()
-        resolved_path = path.resolve()
+        resolved_root = Path(_strip_win_long_prefix(os.path.realpath(_win_long_path(root))))
+        resolved_path = Path(_strip_win_long_prefix(os.path.realpath(_win_long_path(path))))
         resolved_path.relative_to(resolved_root)
     except Exception as exc:
         raise PermissionError(f"PATH_ESCAPE_OUTSIDE_ESCROW_ROOT:{path}") from exc
@@ -230,15 +261,15 @@ class ExternalHeadAnchorC2:
         self.anchor_path = Path(anchor_path)
         self.anchor_lock_path = self.anchor_path.parent / f".{self.anchor_path.name}.lock"
         self.anchor_trust_tier = str(anchor_trust_tier)
-        if self.anchor_path.is_symlink():
+        if _is_symlink_or_junction(self.anchor_path):
             raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
 
     def read_anchors(self) -> List[Dict[str, Any]]:
-        if not self.anchor_path.exists():
+        if not _exists_safe(self.anchor_path):
             return []
-        if self.anchor_path.is_symlink():
+        if _is_symlink_or_junction(self.anchor_path):
             raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
-        raw = self.anchor_path.read_bytes()
+        raw = _read_bytes_safe(self.anchor_path)
         if not raw:
             return []
         if not raw.endswith(b"\n"):
@@ -264,8 +295,8 @@ class ExternalHeadAnchorC2:
         head_entry_sha256: str,
         journal_id: str,
     ) -> Dict[str, Any]:
-        self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.anchor_path.is_symlink() or self.anchor_lock_path.is_symlink():
+        _mkdir_parents_safe(self.anchor_path.parent)
+        if _is_symlink_or_junction(self.anchor_path) or _is_symlink_or_junction(self.anchor_lock_path):
             raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
         with _cross_platform_exclusive_fd_lock(self.anchor_lock_path):
             existing = self.read_anchors()
@@ -286,7 +317,7 @@ class ExternalHeadAnchorC2:
             }
             rec = dict(body, anchor_entry_sha256=canonical_hash(body))
             line_bytes = _canonical_json_bytes(rec) + b"\n"
-            fd = os.open(os.fspath(self.anchor_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+            fd = os.open(_win_long_path(self.anchor_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
             try:
                 _write_all_eintr_safe(fd, line_bytes)
                 os.fsync(fd)
@@ -354,15 +385,15 @@ class C2DurableEscrowJournal:
         )
 
     def _ensure_layout(self) -> None:
-        if self.escrow_root.is_symlink():
+        if _is_symlink_or_junction(self.escrow_root):
             raise PermissionError(f"SYMLINK_ESCROW_ROOT_FORBIDDEN:{self.escrow_root}")
-        self.escrow_root.mkdir(parents=True, exist_ok=True)
+        _mkdir_parents_safe(self.escrow_root)
         for sub in (self.blobs_dir, self.quarantine_dir):
-            if sub.is_symlink():
+            if _is_symlink_or_junction(sub):
                 raise PermissionError(f"SYMLINK_ESCROW_SUBDIR_FORBIDDEN:{sub}")
-            sub.mkdir(parents=True, exist_ok=True)
+            _mkdir_parents_safe(sub)
         for fpath in (self.journal_path, self.lock_path):
-            if fpath.is_symlink():
+            if _is_symlink_or_junction(fpath):
                 raise PermissionError(f"SYMLINK_ESCROW_FILE_FORBIDDEN:{fpath}")
 
     @contextmanager
@@ -393,10 +424,10 @@ class C2DurableEscrowJournal:
         Parses raw journal bytes strictly. Returns (records, violations, corrupt_tail_bytes).
         NEVER silently drops a torn/unterminated tail line.
         """
-        if not self.journal_path.exists():
+        if not _exists_safe(self.journal_path):
             return [], [], None
         _assert_not_symlink_and_contained(self.journal_path, self.escrow_root)
-        raw = self.journal_path.read_bytes()
+        raw = _read_bytes_safe(self.journal_path)
         if not raw:
             return [], [], None
 
@@ -436,7 +467,7 @@ class C2DurableEscrowJournal:
         """
         violations: List[str] = []
         orphan_blobs: List[str] = []
-        if self.escrow_root.is_symlink():
+        if _is_symlink_or_junction(self.escrow_root):
             return {
                 "spec_version": SPEC_VERSION_KH02_R2_C2,
                 "valid": False,
@@ -482,11 +513,11 @@ class C2DurableEscrowJournal:
             except PermissionError as exc:
                 violations.append(str(exc))
             else:
-                if not blob_p.is_file():
+                if not _is_file_safe(blob_p):
                     violations.append(f"RECORD_WITHOUT_BLOB:idx={idx}:blob={blob_rel}")
                 else:
                     referenced_blob_names.add(blob_p.name)
-                    actual_blob_sha = hashlib.sha256(blob_p.read_bytes()).hexdigest()
+                    actual_blob_sha = hashlib.sha256(_read_bytes_safe(blob_p)).hexdigest()
                     if actual_blob_sha != expected_csha:
                         violations.append(
                             f"BLOB_BYTES_SHA256_MISMATCH:idx={idx}:expected={expected_csha},actual={actual_blob_sha}"
@@ -496,11 +527,12 @@ class C2DurableEscrowJournal:
             seq_to_sha[idx] = prev_sha
 
         # Detect orphan uncommitted blobs in blobs/
-        if self.blobs_dir.is_dir() and not self.blobs_dir.is_symlink():
-            for bp in sorted(self.blobs_dir.iterdir()):
-                if bp.is_symlink():
+        if _is_dir_safe(self.blobs_dir) and not _is_symlink_or_junction(self.blobs_dir):
+            for bname in sorted(os.listdir(_win_long_path(self.blobs_dir))):
+                bp = self.blobs_dir / bname
+                if _is_symlink_or_junction(bp):
                     violations.append(f"SYMLINK_IN_BLOBS_DIR:{bp.name}")
-                elif bp.is_file() and bp.name.endswith(".blob") and bp.name not in referenced_blob_names:
+                elif _is_file_safe(bp) and bp.name.endswith(".blob") and bp.name not in referenced_blob_names:
                     orphan_blobs.append(bp.name)
                     violations.append(f"ORPHAN_UNCOMMITTED_BLOB:{bp.name}")
 
@@ -794,7 +826,7 @@ class C2DurableEscrowJournal:
             _hook("BEFORE_BLOB_WRITE")
             blob_created = False
             try:
-                bfd = os.open(os.fspath(blob_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                bfd = os.open(_win_long_path(blob_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
                 blob_created = True
                 try:
                     _hook("ENOSPC_BLOB_WRITE")
@@ -807,7 +839,7 @@ class C2DurableEscrowJournal:
                     os.close(bfd)
                 _fsync_directory(self.blobs_dir)
             except FileExistsError:
-                existing_sha = hashlib.sha256(blob_path.read_bytes()).hexdigest()
+                existing_sha = hashlib.sha256(_read_bytes_safe(blob_path)).hexdigest()
                 if existing_sha != content_sha:
                     raise PermissionError(f"EXISTING_BLOB_CORRUPT_OR_COLLISION:{blob_rel}")
 
@@ -856,7 +888,7 @@ class C2DurableEscrowJournal:
             line_bytes = _canonical_json_bytes(full_rec) + b"\n"
 
             # Phase 3: Strict O_APPEND single line + EINTR-safe full write (NEVER rewrites prior bytes!)
-            jfd = os.open(os.fspath(self.journal_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+            jfd = os.open(_win_long_path(self.journal_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
             try:
                 if _crash_hook is not None:
                     try:
@@ -921,15 +953,15 @@ class C2DurableEscrowJournal:
             utc_tag = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
             q_dir = self.quarantine_dir / f"quarantine_{utc_tag}_{os.getpid()}"
             _assert_not_symlink_and_contained(q_dir, self.escrow_root)
-            q_dir.mkdir(parents=True, exist_ok=True)
+            _mkdir_parents_safe(q_dir)
             quarantined_items: List[Dict[str, Any]] = []
 
             # Quarantine torn tail bytes by truncating journal strictly to end of last valid line
-            if corrupt_tail is not None and self.journal_path.is_file():
+            if corrupt_tail is not None and _is_file_safe(self.journal_path):
                 _assert_not_symlink_and_contained(self.journal_path, self.escrow_root)
-                raw = self.journal_path.read_bytes()
+                raw = _read_bytes_safe(self.journal_path)
                 tail_path = q_dir / "corrupt_journal_tail.bin"
-                tfd = os.open(os.fspath(tail_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                tfd = os.open(_win_long_path(tail_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
                 try:
                     _write_all_eintr_safe(tfd, corrupt_tail)
                     os.fsync(tfd)
@@ -945,7 +977,7 @@ class C2DurableEscrowJournal:
                 )
                 valid_prefix = raw[: len(raw) - len(corrupt_tail)]
                 # Only rewrite/truncate under explicit owner quarantine recovery (NEVER on normal append)
-                jfd = os.open(os.fspath(self.journal_path), os.O_RDWR)
+                jfd = os.open(_win_long_path(self.journal_path), os.O_RDWR)
                 try:
                     os.ftruncate(jfd, len(valid_prefix))
                     os.fsync(jfd)
@@ -956,11 +988,12 @@ class C2DurableEscrowJournal:
             referenced_names = {
                 Path(str(r.get("blob_rel_path") or "")).name for r in records
             }
-            if self.blobs_dir.is_dir():
-                for bp in sorted(self.blobs_dir.iterdir()):
-                    if bp.is_symlink():
+            if _is_dir_safe(self.blobs_dir):
+                for bname in sorted(os.listdir(_win_long_path(self.blobs_dir))):
+                    bp = self.blobs_dir / bname
+                    if _is_symlink_or_junction(bp):
                         continue
-                    if bp.is_file() and bp.name.endswith(".blob") and bp.name not in referenced_names:
+                    if _is_file_safe(bp) and bp.name.endswith(".blob") and bp.name not in referenced_names:
                         _assert_not_symlink_and_contained(bp, self.escrow_root)
                         dst = q_dir / bp.name
                         bp_s = _win_long_path(bp)
@@ -988,7 +1021,7 @@ class C2DurableEscrowJournal:
             }
             r_bytes = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode("utf-8")
             r_path = q_dir / "quarantine_receipt.json"
-            rfd = os.open(os.fspath(r_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            rfd = os.open(_win_long_path(r_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
             try:
                 _write_all_eintr_safe(rfd, r_bytes)
                 os.fsync(rfd)
@@ -1012,9 +1045,9 @@ class C2DurableEscrowJournal:
         reference into `<escrow_root>/legacy_c1_base_reference.json` via O_CREAT|O_EXCL.
         """
         src = Path(legacy_c1_jsonl_path).resolve()
-        if not src.is_file() or src.is_symlink():
+        if not _is_file_safe(src) or _is_symlink_or_junction(src):
             raise FileNotFoundError(f"LEGACY_C1_REGISTRY_NOT_FOUND:{src}")
-        raw_bytes = src.read_bytes()
+        raw_bytes = _read_bytes_safe(src)
         src_sha = hashlib.sha256(raw_bytes).hexdigest()
         prev = GENESIS_PREV_SHA256_C2
         count = 0
@@ -1043,7 +1076,7 @@ class C2DurableEscrowJournal:
             }
             ref_bytes = _canonical_json_bytes(ref_doc) + b"\n"
             try:
-                rfd = os.open(os.fspath(ref_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                rfd = os.open(_win_long_path(ref_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
                 try:
                     os.write(rfd, ref_bytes)
                     os.fsync(rfd)
@@ -1051,7 +1084,7 @@ class C2DurableEscrowJournal:
                     os.close(rfd)
                 _fsync_directory(self.escrow_root)
             except FileExistsError:
-                existing = json.loads(ref_path.read_text(encoding="utf-8"))
+                existing = json.loads(_read_bytes_safe(ref_path).decode("utf-8"))
                 if existing.get("legacy_c1_source_sha256") != src_sha:
                     raise PermissionError("LEGACY_C1_BASE_REFERENCE_OVERWRITE_FORBIDDEN")
             return ref_doc
