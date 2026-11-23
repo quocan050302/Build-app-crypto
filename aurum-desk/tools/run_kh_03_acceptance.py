@@ -560,18 +560,19 @@ def _run_kh03_full_repo_pytest_sharded(
     max_workers: int,
 ) -> Dict[str, Any]:
     t0 = time.perf_counter()
+    empirical_r2_rss = load_empirical_r2_shard_rss_bytes(REPO_ROOT)
     collected_by_file, kh03_shards = _collect_and_build_kh03_lpt_shards(sentinel_tmp)
     active_shards_tracker: Dict[str, Any] = {}
     junit_res = asyncio.run(
         run_async_lpt_pytest_shards_kh01b_r1(
             run_dir,
-            sentinel_tmp / "s_r1",
+            sentinel_tmp,
             run_id=run_id,
-            tested_sha=tested_sha,
-            max_workers=max_workers,
+            tested_executable_sha=tested_sha,
             effective_disk_reserve_bytes=effective_disk_reserve_bytes,
-            enforce_r3_ram_guard=True,
-            empirical_rss_map=load_empirical_r2_shard_rss_bytes(),
+            max_parallel_workers=max_workers,
+            ram_policy_mode="R3_STRICT_512MIB",
+            empirical_rss_by_shard=empirical_r2_rss,
             active_shards_tracker=active_shards_tracker,
             shard_specs_override=kh03_shards,
             collected_by_file_override=collected_by_file,
