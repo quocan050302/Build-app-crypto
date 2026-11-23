@@ -1,0 +1,174 @@
+{
+  "artifact_canonical_sha256": "3e72cfd54c11d566b5e32c6b8d5670517866b2ca884a4748a025bfd85ef3a7a4",
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "synthetic_fixtures_never_prove_real_edge": true,
+  "synthetic_verdicts": {
+    "synth_full_pass": {
+      "arm_code": "SYNTH_POSITIVE_ALL_GATES",
+      "arm_dev_verdict": "DEV_CANDIDATE_UNPROVEN_OOS",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly positive [0.11, 0.53].",
+        "label": "SYNTH_POSITIVE_ALL_GATES:ny_day_cluster_95ci_r",
+        "lower": 0.11,
+        "schema_valid": true,
+        "status": "CI_VALID_POSITIVE",
+        "strictly_positive": true,
+        "upper": 0.53
+      },
+      "ci_schema_valid": true,
+      "failed_advancement_criteria": [],
+      "passes_preregistered_dev_advancement": true,
+      "subgates": {
+        "beats_controls_ok": true,
+        "ci_strictly_positive_ok": true,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": true,
+        "holm_pvalue_ok": true,
+        "matched_null_ok": true,
+        "positive_1x_ok": true,
+        "positive_2x_ok": true,
+        "positive_fee_only_ok": true,
+        "sample_and_days_ok": true
+      }
+    },
+    "synth_invalid_ci": {
+      "arm_code": "SYNTH_INVALID_CI_SCHEMA",
+      "arm_dev_verdict": "FAIL_INVALID_CI_SCHEMA",
+      "ci_parsed": {
+        "available": false,
+        "diagnostic": "Malformed CI mapping keys ['bogus']; expected exact {'ci_low','ci_high'}.",
+        "label": "SYNTH_INVALID_CI_SCHEMA:ny_day_cluster_95ci_r",
+        "lower": null,
+        "schema_valid": false,
+        "status": "CI_INVALID_SCHEMA",
+        "strictly_positive": false,
+        "upper": null
+      },
+      "ci_schema_valid": false,
+      "failed_advancement_criteria": [
+        "NY_DAY_CI_INVALID_SCHEMA:Malformed CI mapping keys ['bogus']; expected exact {'ci_low','ci_high'}."
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "subgates": {
+        "beats_controls_ok": true,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": true,
+        "holm_pvalue_ok": true,
+        "matched_null_ok": true,
+        "positive_1x_ok": true,
+        "positive_2x_ok": true,
+        "positive_fee_only_ok": true,
+        "sample_and_days_ok": true
+      }
+    },
+    "synth_missing_ci": {
+      "arm_code": "SYNTH_MISSING_CI_INCONCLUSIVE",
+      "arm_dev_verdict": "INCONCLUSIVE_INSUFFICIENT_CI_SAMPLE",
+      "ci_parsed": {
+        "available": false,
+        "diagnostic": "CI is None (insufficient clusters or observations); treated as INCONCLUSIVE.",
+        "label": "SYNTH_MISSING_CI_INCONCLUSIVE:ny_day_cluster_95ci_r",
+        "lower": null,
+        "schema_valid": true,
+        "status": "CI_UNAVAILABLE_INSUFFICIENT_SAMPLE",
+        "strictly_positive": false,
+        "upper": null
+      },
+      "ci_schema_valid": true,
+      "failed_advancement_criteria": [
+        "NY_DAY_CI_UNAVAILABLE_INSUFFICIENT_SAMPLE"
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "subgates": {
+        "beats_controls_ok": true,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": true,
+        "holm_pvalue_ok": true,
+        "matched_null_ok": true,
+        "positive_1x_ok": true,
+        "positive_2x_ok": true,
+        "positive_fee_only_ok": true,
+        "sample_and_days_ok": true
+      }
+    },
+    "synth_neg_strict": {
+      "arm_code": "SYNTH_STRICT_NEGATIVE_LIKE_R1",
+      "arm_dev_verdict": "REJECTED_NO_DEV_ADVANCEMENT",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-1.0184, -0.8625] (upper < 0; does NOT cross zero).",
+        "label": "SYNTH_STRICT_NEGATIVE_LIKE_R1:ny_day_cluster_95ci_r",
+        "lower": -1.0184,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.8625
+      },
+      "ci_schema_valid": true,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.9749,net=-180.434",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8459",
+        "NON_POSITIVE_2X_STRESS:expR=-1.0203",
+        "NY_DAY_CI_UPPER_BELOW_OR_EQUAL_ZERO:ci=[-1.0184,-0.8625]",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.1167",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "FORWARD_ONLY_WF_UNSTABLE:folds=3,med=-1.015,pos_ratio=0.0"
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "subgates": {
+        "beats_controls_ok": false,
+        "ci_strictly_positive_ok": false,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": false,
+        "holm_pvalue_ok": false,
+        "matched_null_ok": false,
+        "positive_1x_ok": false,
+        "positive_2x_ok": false,
+        "positive_fee_only_ok": false,
+        "sample_and_days_ok": true
+      }
+    },
+    "synth_pos_ci_other_fail": {
+      "arm_code": "SYNTH_POS_CI_ONLY_OTHER_GATES_FAIL",
+      "arm_dev_verdict": "REJECTED_NO_DEV_ADVANCEMENT",
+      "ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly positive [0.05, 0.45].",
+        "label": "SYNTH_POS_CI_ONLY_OTHER_GATES_FAIL:ny_day_cluster_95ci_r",
+        "lower": 0.05,
+        "schema_valid": true,
+        "status": "CI_VALID_POSITIVE",
+        "strictly_positive": true,
+        "upper": 0.45
+      },
+      "ci_schema_valid": true,
+      "failed_advancement_criteria": [
+        "INSUFFICIENT_SAMPLE_OR_DAYS:n=12,days=3",
+        "NON_POSITIVE_2X_STRESS:expR=-0.08",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=0.22",
+        "MATCHED_NULL_LIFT_FAILED:mq=MATCHING_INADEQUATE,delta=-0.02",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "FORWARD_ONLY_WF_UNSTABLE:folds=3,med=-0.1,pos_ratio=0.33"
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "subgates": {
+        "beats_controls_ok": false,
+        "ci_strictly_positive_ok": true,
+        "executable_edge_eligible": true,
+        "forward_only_wf_ok": false,
+        "holm_pvalue_ok": false,
+        "matched_null_ok": false,
+        "positive_1x_ok": true,
+        "positive_2x_ok": false,
+        "positive_fee_only_ok": true,
+        "sample_and_days_ok": false
+      }
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "clean_clone_verifier_green": true,
+  "isolated_temp_clones_only": true,
+  "mutations_detected_count": 16,
+  "mutations_failed_detection_count": 0,
+  "mutations_tested_count": 16,
+  "results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "RAW_CI_INVALID_SCHEMA",
+      "mutation_id": "R2M01_FORGE_CI_BOUNDS_SWAPPED",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_DEV_ADVANCEMENT_BOOLEAN",
+      "mutation_id": "R2M02_FORGE_DEV_ADVANCEMENT_TRUE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FALSE_CROSSES_ZERO_ON_STRICTLY_NEGATIVE_CI",
+      "mutation_id": "R2M03_FORGE_FALSE_CROSSES_ZERO_ON_NEG_CI",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "H3_RESIZE_EXECUTION_FALSE_CLAIM",
+      "mutation_id": "R2M04_FORGE_H3_EXECUTION_STATUS_PASS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "H3_PATH_B_CLAIMED_SIZE_APPLIED_TO_EXECUTION",
+      "mutation_id": "R2M05_FORGE_H3_SIZE_APPLIED_TRUE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "H3_LEDGER:H3_SUMMARY_FEES_MISMATCH",
+      "mutation_id": "R2M06_TAMPER_H3_LEDGER_FEE_SUMMARY",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_CAUSALITY:TRAIN_NOT_STRICTLY_BEFORE_VAL",
+      "mutation_id": "R2M07_INJECT_AFTER_VAL_TRAIN_TIMESTAMP",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_CAUSALITY:EMBARGO_MINUTES_BELOW_MIN",
+      "mutation_id": "R2M08_EMBARGO_239_MINUTES",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_SELECTION_FREEZE_SHA_TAMPERED",
+      "mutation_id": "R2M09_TAMPER_SELECTION_FREEZE_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "WF_MISSING_RAW_FOLD_RESULTS",
+      "mutation_id": "R2M10_DROP_FOLD_RAW_RESULTS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "ZERO_FEE_BUG_IN_15",
+      "mutation_id": "R2M11_TAMPER_1X_FEES_TO_ZERO_IN_15",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_RESEARCH_ECONOMIC_VERDICT",
+      "mutation_id": "R2M12_FORGE_PROVEN_EDGE_VERDICT",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "NONZERO_OOS_EVALUATIONS_PEEK",
+      "mutation_id": "R2M13_FORGE_OOS_EVALUATIONS_ONE",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_ACTIVATION_READY_ON",
+      "mutation_id": "R2M14_FORGE_ACTIVATION_READY_YES",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "TESTED_SHA_MISMATCH_ACROSS_00_24_26",
+      "mutation_id": "R2M15_SWAP_TESTED_SHA_IN_26",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_OBSERVED_L1_BBO_AVAILABLE_TRUE",
+      "mutation_id": "R2M16_FORGE_OBSERVED_L1_BBO_TRUE",
+      "verifier_exit_code": 1
+    }
+  ],
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS"
+}

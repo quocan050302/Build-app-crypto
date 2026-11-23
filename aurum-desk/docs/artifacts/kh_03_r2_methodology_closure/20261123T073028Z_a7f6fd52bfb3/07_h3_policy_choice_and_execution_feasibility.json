@@ -1,0 +1,29 @@
+{
+  "H3_ECONOMIC_CLAIM_TIER": "H3_FILL_TIME_FILTER_ONLY_RESEARCH_ADVISORY",
+  "H3_EXECUTABLE_EDGE_CANDIDATE_ELIGIBLE": false,
+  "H3_FILTER_ONLY_RESEARCH": "PASS",
+  "H3_RESIZE_EXECUTION_STATUS": "NOT_VERIFIABLE_WITH_M1",
+  "artifact_canonical_sha256": "436ddf86514ab3340003498f2f1893a7d1efa130968dc54a378baae5e098c4fd",
+  "authoritative_simulator_mutated": false,
+  "chosen_path": "PATH_B_FILTER_ONLY_RESEARCH_ADVISORY",
+  "dataset_execution_feasibility_audit": {
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "historical_quote_mode": "MODELED_BID_ASK",
+    "observed_l1_bbo_available": false,
+    "open_to_open_instantaneous_fill_permitted": false,
+    "path_a_feasibility": "BLOCKED_MISSING_POST_OPEN_EXECUTABLE_QUOTES_OR_L1_BBO",
+    "path_b_scientific_rationale": "With M1-only modeled OHLCV (`observed_l1_bbo_available=False`), observing `bar[t+1].open` and filling at `bar[t+1].open` is an unverified instantaneous `OPEN_TO_OPEN` assumption. PATH B truthfully downgrades H3 to `H3_FILL_TIME_FILTER_ONLY_RESEARCH_ADVISORY`, records `proposed_final_qty` in an advisory ledger with `size_applied_to_execution=False`, keeps legacy R1 replay strictly as `R1_FILTER_ONLY_COMPATIBILITY`, and disqualifies H3 from `EXECUTABLE_EDGE_CANDIDATE` until observed post-open L1 BBO / latency data exist.",
+    "post_open_intrabar_tick_quotes_available": false
+  },
+  "disclosures": [
+    "H3 resize execution is NOT_VERIFIABLE_WITH_M1; do NOT claim H3_EXECUTION=PASS or materialized resize.",
+    "Legacy H3 replay is preserved solely as R1_FILTER_ONLY_COMPATIBILITY descriptive screening.",
+    "H3 is explicitly disqualified from EXECUTABLE_EDGE_CANDIDATE and DEV_CANDIDATE_UNPROVEN_OOS."
+  ],
+  "frozen_before_r2_h3_recomputation": true,
+  "policy_choice_frozen_sha256": "8a49d8da773bdb1c8ea73e27d529d69e257e999831777478d23e0763af4d3e11",
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "tested_code_sha": "a7f6fd52bfb39a3c771a1d3dc3853f1dbdc75a4f"
+}

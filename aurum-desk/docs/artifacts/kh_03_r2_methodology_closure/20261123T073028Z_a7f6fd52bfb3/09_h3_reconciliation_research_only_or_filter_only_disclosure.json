@@ -1,0 +1,47 @@
+{
+  "H3_ECONOMIC_CLAIM_TIER": "H3_FILL_TIME_FILTER_ONLY_RESEARCH_ADVISORY",
+  "H3_EXECUTABLE_EDGE_CANDIDATE_ELIGIBLE": false,
+  "H3_FILTER_ONLY_RESEARCH": "PASS",
+  "H3_RESIZE_EXECUTION_STATUS": "NOT_VERIFIABLE_WITH_M1",
+  "artifact_canonical_sha256": "ee871f92064889419efa2a34fc487607b579a999134e52cc5e59db8b18723ca0",
+  "chosen_path": "PATH_B_FILTER_ONLY_RESEARCH_ADVISORY",
+  "legacy_r1_filter_only_compatibility_summary": {
+    "accrued_open_entry_fees_usd": 14.7151,
+    "closed": 202,
+    "expectancy_r": -0.8799,
+    "gross_pnl_usd": -164.2098,
+    "label": "R1_FILTER_ONLY_COMPATIBILITY_DESCRIPTIVE_ONLY_NOT_EXECUTABLE_EDGE",
+    "losses": 195,
+    "max_gross_fee_net_residual_usd": 0.0,
+    "net_pnl_usd": -439.0029,
+    "open_at_horizon": 28,
+    "overlap_violations": 0,
+    "scheduled": 232,
+    "total_fees_usd": 274.7931,
+    "wins": 7
+  },
+  "linked_advisory_ledger": {
+    "canonical_rows_sha256": "241a550549b94211f2eb6f195dd862103e872f441ec5c6b30ea1275575a310ef",
+    "episode_uids_sha256": "2e5408dca2a95696ff44cd0c139220db74d8d35a08ae1751676b8e8277cd4ecb",
+    "ledger_file_sha256": "3fe4dd7a464bcbd7132467fccded593372d3195d1cc43f2fe30876e1d8402a87",
+    "ledger_filename": "08_h3_per_episode_policy_qty_time_ledger.jsonl.gz",
+    "total_episode_rows": 232
+  },
+  "policy_choice_frozen_sha256": "8a49d8da773bdb1c8ea73e27d529d69e257e999831777478d23e0763af4d3e11",
+  "r1_vs_r2_delta_disclosure": {
+    "candidate_advancement_eligibility_change": "DISQUALIFIED_FROM_EXECUTABLE_EDGE_CANDIDATE",
+    "legacy_closed_trades_delta_vs_r1": 0,
+    "legacy_net_pnl_delta_vs_r1_usd": 0.0,
+    "r1_claimed_estimand_class": "MATERIALIZED_RESEARCH_COUNTERFACTUAL (alters_entry_sl_tp_qty=True)",
+    "r2_truthful_estimand_class": "H3_FILL_TIME_FILTER_ONLY_RESEARCH_ADVISORY (size_applied_to_execution=False)"
+  },
+  "replayed_action_breakdown": {
+    "ACCEPTED_AS_SIZED": 76,
+    "RESIZED_CAUSALLY_AT_FILL_TIME": 156
+  },
+  "replayed_resize_proposed_count": 156,
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "size_applied_to_execution_any_row": false,
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS"
+}

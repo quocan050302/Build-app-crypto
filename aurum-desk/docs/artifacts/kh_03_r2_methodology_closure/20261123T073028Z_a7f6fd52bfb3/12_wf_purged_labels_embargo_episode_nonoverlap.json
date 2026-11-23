@@ -1,0 +1,276 @@
+{
+  "all_cross_fold_val_duplicates_zero": true,
+  "all_train_exits_strictly_le_embargo_start": true,
+  "all_train_val_episode_overlaps_zero": true,
+  "artifact_canonical_sha256": "8881253307644324624b4b39712cd5d5e4a769c0705b12c23ef69675fc27edfc",
+  "embargo_minutes": 240,
+  "max_label_horizon_minutes": 180,
+  "per_fold_purge_audit": [
+    {
+      "embargo_end_ms": 1791929040000,
+      "embargo_start_ms": 1791914640000,
+      "fold_id": "R2_FWD_FOLD_1",
+      "purged_boundary_trades": [
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791811980000,
+          "hard_horizon_cutoff_ms": 1791914640000,
+          "label_exit_ts_ms": 1791833220000,
+          "opportunity_id": "kh02_b2_SHORT_idx3816_ts1791811980000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791900780000,
+          "hard_horizon_cutoff_ms": 1791914640000,
+          "label_exit_ts_ms": 1791911580000,
+          "opportunity_id": "kh02_b2_SHORT_idx5122_ts1791900780000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1791814560000,
+          "hard_horizon_cutoff_ms": 1791914640000,
+          "label_exit_ts_ms": 1791835800000,
+          "opportunity_id": "kh02_b2_SHORT_idx3859_ts1791814560000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        }
+      ],
+      "purged_boundary_trades_count": 3,
+      "train_last_exit_strictly_le_embargo_start": true,
+      "train_last_label_exit_ts_ms": 1791900660000,
+      "train_val_episode_overlap_count": 0,
+      "val_null_unique_opportunities_count": 60
+    },
+    {
+      "embargo_end_ms": 1792524540000,
+      "embargo_start_ms": 1792510140000,
+      "fold_id": "R2_FWD_FOLD_2",
+      "purged_boundary_trades": [
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791811980000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1791833220000,
+          "opportunity_id": "kh02_b2_SHORT_idx3816_ts1791811980000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791900780000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1791911580000,
+          "opportunity_id": "kh02_b2_SHORT_idx5122_ts1791900780000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791921120000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1791931920000,
+          "opportunity_id": "kh02_b2_SHORT_idx5461_ts1791921120000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792417620000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1792428420000,
+          "opportunity_id": "kh02_b2_SHORT_idx9405_ts1792417620000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792488360000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1792499160000,
+          "opportunity_id": "kh02_b2_SHORT_idx10584_ts1792488360000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1791814560000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1791835800000,
+          "opportunity_id": "kh02_b2_SHORT_idx3859_ts1791814560000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1791915420000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1791926220000,
+          "opportunity_id": "kh02_b2_LONG_idx5366_ts1791915420000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792076520000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1792087320000,
+          "opportunity_id": "kh02_b2_SHORT_idx7427_ts1792076520000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792094580000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1792105380000,
+          "opportunity_id": "kh02_b2_SHORT_idx7728_ts1792094580000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792417620000,
+          "hard_horizon_cutoff_ms": 1792510140000,
+          "label_exit_ts_ms": 1792428420000,
+          "opportunity_id": "kh02_b2_SHORT_idx9405_ts1792417620000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        }
+      ],
+      "purged_boundary_trades_count": 10,
+      "train_last_exit_strictly_le_embargo_start": true,
+      "train_last_label_exit_ts_ms": 1792503660000,
+      "train_val_episode_overlap_count": 0,
+      "val_null_unique_opportunities_count": 61
+    },
+    {
+      "embargo_end_ms": 1792860180000,
+      "embargo_start_ms": 1792845780000,
+      "fold_id": "R2_FWD_FOLD_3",
+      "purged_boundary_trades": [
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791811980000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1791833220000,
+          "opportunity_id": "kh02_b2_SHORT_idx3816_ts1791811980000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791900780000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1791911580000,
+          "opportunity_id": "kh02_b2_SHORT_idx5122_ts1791900780000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1791921120000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1791931920000,
+          "opportunity_id": "kh02_b2_SHORT_idx5461_ts1791921120000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792417620000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792428420000,
+          "opportunity_id": "kh02_b2_SHORT_idx9405_ts1792417620000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792488360000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792499160000,
+          "opportunity_id": "kh02_b2_SHORT_idx10584_ts1792488360000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792697640000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792708440000,
+          "opportunity_id": "kh02_b2_SHORT_idx14072_ts1792697640000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+          "decision_timestamp_ms": 1792767360000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792778160000,
+          "opportunity_id": "kh02_b2_SHORT_idx15234_ts1792767360000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1791814560000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1791835800000,
+          "opportunity_id": "kh02_b2_SHORT_idx3859_ts1791814560000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1791915420000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1791926220000,
+          "opportunity_id": "kh02_b2_LONG_idx5366_ts1791915420000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792076520000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792087320000,
+          "opportunity_id": "kh02_b2_SHORT_idx7427_ts1792076520000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792094580000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792105380000,
+          "opportunity_id": "kh02_b2_SHORT_idx7728_ts1792094580000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        },
+        {
+          "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+          "decision_timestamp_ms": 1792417620000,
+          "hard_horizon_cutoff_ms": 1792845780000,
+          "label_exit_ts_ms": 1792428420000,
+          "opportunity_id": "kh02_b2_SHORT_idx9405_ts1792417620000",
+          "outcome_before_purge": "OPEN_AT_HORIZON",
+          "reason": "PURGED_CENSORED_AT_TRAIN_CUTOFF"
+        }
+      ],
+      "purged_boundary_trades_count": 12,
+      "train_last_exit_strictly_le_embargo_start": true,
+      "train_last_label_exit_ts_ms": 1792799160000,
+      "train_val_episode_overlap_count": 0,
+      "val_null_unique_opportunities_count": 60
+    }
+  ],
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "total_overlap_violations_across_wf_replays": 0,
+  "total_purged_train_boundary_trades": 25
+}

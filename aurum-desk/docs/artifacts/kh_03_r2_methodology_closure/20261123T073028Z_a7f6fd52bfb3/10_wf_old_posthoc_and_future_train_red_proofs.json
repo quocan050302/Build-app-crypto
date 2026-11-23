@@ -1,0 +1,56 @@
+{
+  "artifact_canonical_sha256": "09d24001654187a26c70b30ff76ae356c0ab9af5a83b8fe09bf8208012dd0070",
+  "bug_1_location": "aurum-desk/backend/services/kh_03_data_governance_service.py:build_kh03_partition_manifest_and_noncontamination:478-482",
+  "bug_2_location": "aurum-desk/backend/services/kh_03_research_service.py:run_kh03_full_research_study_10_to_16:851-868",
+  "classification": "REAL_RED",
+  "r1_future_train_leakage_by_fold": [
+    {
+      "fold_id": "DEV_PURGED_FOLD_1",
+      "future_after_val_train_bars_leaked": 16542,
+      "future_leakage_pct": 100.0,
+      "r1_reported_train_bars": 16542,
+      "strictly_past_train_bars": 0,
+      "val_end_idx": 5593,
+      "val_start_idx": 0
+    },
+    {
+      "fold_id": "DEV_PURGED_FOLD_2",
+      "future_after_val_train_bars_leaked": 10948,
+      "future_leakage_pct": 67.16,
+      "r1_reported_train_bars": 16302,
+      "strictly_past_train_bars": 5354,
+      "val_end_idx": 11187,
+      "val_start_idx": 5594
+    },
+    {
+      "fold_id": "DEV_PURGED_FOLD_3",
+      "future_after_val_train_bars_leaked": 5354,
+      "future_leakage_pct": 32.84,
+      "r1_reported_train_bars": 16302,
+      "strictly_past_train_bars": 10948,
+      "val_end_idx": 16781,
+      "val_start_idx": 11188
+    },
+    {
+      "fold_id": "DEV_PURGED_FOLD_4",
+      "future_after_val_train_bars_leaked": 0,
+      "future_leakage_pct": 0.0,
+      "r1_reported_train_bars": 16542,
+      "strictly_past_train_bars": 16542,
+      "val_end_idx": 22375,
+      "val_start_idx": 16782
+    }
+  ],
+  "r1_posthoc_slicing_proof": {
+    "exact_partition_of_single_full_sample_replay": true,
+    "fold_local_validation_replay_performed_in_r1": false,
+    "r1_h1_full_sample_closed_trades": 75,
+    "r1_h1_sum_of_4_wf_slice_closed_trades": 75
+  },
+  "r1_total_future_train_bars_across_4_folds": 32844,
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "source_r1_07_sha256": "90b9cbd15f04842156958ec9efb31fd243365671b3228061776acb5a52040462",
+  "source_r1_15_sha256": "959281f7d13d3ceccecb543a789b7cd42ebf1c04ec4057042bf127008e2df129",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS"
+}

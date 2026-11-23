@@ -1,0 +1,138 @@
+{
+  "artifact_canonical_sha256": "9a22846a793bc86e645298e436d2fe6fe949b46ea28c348a3764bd61aadf0a1b",
+  "bug_explanation": "KH-03.R1 called `evaluate_causal_fill_time_policy_single_trade()` and checked `ft['accepted']`, but appended original candidate `c` without forwarding `final_qty`. The authoritative simulator `simulate_v17931_trade_execution_net()` then recomputed size from original `planned_entry`. Additionally, observing `bar[t+1].open` and assuming guaranteed fill at that same `bar[t+1].open` violates execution-availability causality without observed post-open tick/L1 BBO quotes.",
+  "bug_location": "aurum-desk/backend/services/kh_03_research_service.py:build_kh03_arm_candidates_from_r2_universe:393-414",
+  "classification": "REAL_RED",
+  "real_dev_discarded_examples": [
+    {
+      "decision_qty": 0.42,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.41,
+      "r1_authoritative_simulated_qty": 0.42
+    },
+    {
+      "decision_qty": 0.51,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx57_ts1791441360000",
+      "outcome_label": "DATA_GAP_UNRESOLVED",
+      "proposed_final_qty": 0.5,
+      "r1_authoritative_simulated_qty": 0.51
+    },
+    {
+      "decision_qty": 0.57,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx2929_ts1791758760000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.55,
+      "r1_authoritative_simulated_qty": 0.57
+    },
+    {
+      "decision_qty": 0.41,
+      "direction": "SHORT",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_SHORT_idx2941_ts1791759480000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.4,
+      "r1_authoritative_simulated_qty": 0.41
+    },
+    {
+      "decision_qty": 0.56,
+      "direction": "SHORT",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_SHORT_idx2976_ts1791761580000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.55,
+      "r1_authoritative_simulated_qty": 0.56
+    },
+    {
+      "decision_qty": 0.47,
+      "direction": "SHORT",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_SHORT_idx3219_ts1791776160000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.46,
+      "r1_authoritative_simulated_qty": 0.47
+    },
+    {
+      "decision_qty": 0.55,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx3258_ts1791778500000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.54,
+      "r1_authoritative_simulated_qty": 0.55
+    },
+    {
+      "decision_qty": 0.37,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx3338_ts1791783300000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.36,
+      "r1_authoritative_simulated_qty": 0.37
+    },
+    {
+      "decision_qty": 0.51,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.5,
+      "r1_authoritative_simulated_qty": 0.51
+    },
+    {
+      "decision_qty": 0.49,
+      "direction": "LONG",
+      "final_qty_discarded_in_r1": true,
+      "opportunity_id": "kh02_b2_LONG_idx3390_ts1791786420000",
+      "outcome_label": "LOSS",
+      "proposed_final_qty": 0.48,
+      "r1_authoritative_simulated_qty": 0.49
+    }
+  ],
+  "real_dev_replayed_episodes_where_r1_discarded_final_qty_count": 156,
+  "real_dev_resized_opportunities_count": 881,
+  "real_dev_universe_action_counts": {
+    "ACCEPTED_AS_SIZED": 408,
+    "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 34,
+    "RESIZED_CAUSALLY_AT_FILL_TIME": 881
+  },
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "synthetic_edge_controls": {
+    "gap_past_sl_action": "REJECTED_FILL_TIME_GAPPED_PAST_SL",
+    "gap_past_tp_action": "REJECTED_FILL_TIME_GAPPED_PAST_TP",
+    "min_lot_breach_rejected": true,
+    "open_to_open_causality_check": {
+      "executable_fill_verifiable": false,
+      "reason": "NO_OBSERVED_L1_BBO_OR_POST_OPEN_TICK_QUOTE_IN_M1_OHLCV"
+    },
+    "same_bar_high_low_future_fields_rejected": true
+  },
+  "synthetic_long_resize_repro": {
+    "accepted": true,
+    "decision_qty": 0.45,
+    "fill_entry_price": 4125.7,
+    "fill_time_action": "RESIZED_CAUSALLY_AT_FILL_TIME",
+    "fill_time_net_rr": 2.9567,
+    "fill_time_planned_net_risk_usd": 2.48,
+    "final_qty": 0.35,
+    "orig_qty_fill_time_net_risk_usd": 3.1946
+  },
+  "synthetic_short_resize_repro": {
+    "accepted": true,
+    "decision_qty": 0.45,
+    "fill_entry_price": 4124.3,
+    "fill_time_action": "RESIZED_CAUSALLY_AT_FILL_TIME",
+    "fill_time_net_rr": 2.9588,
+    "fill_time_planned_net_risk_usd": 2.49,
+    "final_qty": 0.35,
+    "orig_qty_fill_time_net_risk_usd": 3.1954
+  }
+}

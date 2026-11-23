@@ -1,0 +1,93 @@
+{
+  "all_3_r1_arms_bug_reproduced": true,
+  "artifact_canonical_sha256": "abbf76802e91bf5c8de1c451dd8439b73ce6b2b6bfb58215fccff940c3431e5e",
+  "bug_explanation": "`_block_bootstrap_ci()` returns `Optional[List[float]]` (`[lower, upper]`), while KH-03.R1 checked `isinstance(ci_ny, Mapping)` and read `ci_ny.get('ci_low')`, yielding `ci_low=None` on EVERY list CI. Consequently all 3 strictly negative R1 arms were mislabeled `NY_DAY_95CI_CROSSES_ZERO:ci_low=None`, and even a strictly positive list `[0.25, 0.55]` would silently fail with `ci_low=None`.",
+  "bug_location": "aurum-desk/backend/services/kh_03_research_service.py:run_kh03_full_research_study_10_to_16:901-902",
+  "classification": "REAL_RED",
+  "r1_real_arms_reproduction": {
+    "KH03_H1_MTF_UNSWEPT_ALIGN": {
+      "old_r1_parser_emitted_reason": "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+      "old_r1_parser_extracted_ci_low": null,
+      "r1_bug_confirmed_false_crosses_zero_with_none": true,
+      "r1_published_failed_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.9749,net=-180.434",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8459",
+        "NON_POSITIVE_2X_STRESS:expR=-1.0203",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.1167",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "PURGED_WF_UNSTABLE:med=-1.015,pos_ratio=0.0"
+      ],
+      "r1_raw_ci_python_type": "list",
+      "r1_raw_ci_value": [
+        -1.0184,
+        -0.8625
+      ],
+      "r2_strict_lower": -1.0184,
+      "r2_strict_parsed_status": "CI_VALID_NEGATIVE",
+      "r2_strict_upper": -0.8625
+    },
+    "KH03_H2_LOW_FRICTION_VOL_REGIME": {
+      "old_r1_parser_emitted_reason": "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+      "old_r1_parser_extracted_ci_low": null,
+      "r1_bug_confirmed_false_crosses_zero_with_none": true,
+      "r1_published_failed_criteria": [
+        "INSUFFICIENT_SAMPLE_OR_DAYS:n=25,days=10",
+        "NON_POSITIVE_1X_NET:expR=-1.0136,net=-62.7336",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.7406",
+        "NON_POSITIVE_2X_STRESS:expR=-0.6595",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.0001",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "PURGED_WF_UNSTABLE:med=-1.0145,pos_ratio=0.0"
+      ],
+      "r1_raw_ci_python_type": "list",
+      "r1_raw_ci_value": [
+        -1.0149,
+        -1.0125
+      ],
+      "r2_strict_lower": -1.0149,
+      "r2_strict_parsed_status": "CI_VALID_NEGATIVE",
+      "r2_strict_upper": -1.0125
+    },
+    "KH03_H3_FILL_TIME_CAUSAL_RR_GATE": {
+      "old_r1_parser_emitted_reason": "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+      "old_r1_parser_extracted_ci_low": null,
+      "r1_bug_confirmed_false_crosses_zero_with_none": true,
+      "r1_published_failed_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.8799,net=-439.0029",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8833",
+        "NON_POSITIVE_2X_STRESS:expR=-0.9307",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.0",
+        "PURGED_WF_UNSTABLE:med=-0.8492,pos_ratio=0.0"
+      ],
+      "r1_raw_ci_python_type": "list",
+      "r1_raw_ci_value": [
+        -0.9764,
+        -0.7755
+      ],
+      "r2_strict_lower": -0.9764,
+      "r2_strict_parsed_status": "CI_VALID_NEGATIVE",
+      "r2_strict_upper": -0.7755
+    }
+  },
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "source_r1_artifact_rel": "aurum-desk/docs/artifacts/kh_03_research_data/20261123T055123Z_f0b668dc0dd1/15_purged_walkforward_bootstrap_multiplicity_power.json",
+  "source_r1_artifact_sha256": "959281f7d13d3ceccecb543a789b7cd42ebf1c04ec4057042bf127008e2df129",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "synthetic_positive_list_false_rejection_proof": {
+    "input": [
+      0.25,
+      0.55
+    ],
+    "old_r1_emitted_reason": "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+    "old_r1_extracted_ci_low": null,
+    "r2_strict_status": "CI_VALID_POSITIVE",
+    "r2_strictly_positive": true
+  }
+}

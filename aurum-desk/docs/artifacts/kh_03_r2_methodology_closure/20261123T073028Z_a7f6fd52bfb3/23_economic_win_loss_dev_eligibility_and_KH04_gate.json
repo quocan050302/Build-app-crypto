@@ -1,0 +1,82 @@
+{
+  "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "H3_FILTER_ONLY_RESEARCH": "PASS",
+  "H3_RESIZE_EXECUTION_STATUS": "NOT_VERIFIABLE_WITH_M1",
+  "KH03_R2_DEV_CANDIDATE_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+  "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "arm_win_loss_truth_table_1x": {
+    "KH03_H1_MTF_UNSWEPT_ALIGN": {
+      "closed": 75,
+      "executable_edge_eligible": true,
+      "expectancy_r": -0.9749,
+      "losses": 74,
+      "net_pnl_usd": -180.434,
+      "total_fees_usd": 104.9209,
+      "wins": 1
+    },
+    "KH03_H2_LOW_FRICTION_VOL_REGIME": {
+      "closed": 25,
+      "executable_edge_eligible": true,
+      "expectancy_r": -1.0136,
+      "losses": 25,
+      "net_pnl_usd": -62.7336,
+      "total_fees_usd": 27.383,
+      "wins": 0
+    },
+    "KH03_H3_FILL_TIME_CAUSAL_RR_GATE": {
+      "closed": 202,
+      "executable_edge_eligible": false,
+      "expectancy_r": -0.8799,
+      "losses": 195,
+      "net_pnl_usd": -439.0029,
+      "total_fees_usd": 274.7931,
+      "wins": 7
+    },
+    "NC_NULL_TRIGGER": {
+      "closed": 203,
+      "executable_edge_eligible": false,
+      "expectancy_r": -0.8806,
+      "losses": 196,
+      "net_pnl_usd": -441.6118,
+      "total_fees_usd": 276.6577,
+      "wins": 7
+    },
+    "NC_PLACEBO_SHUFFLED_TRIGGER": {
+      "closed": 101,
+      "executable_edge_eligible": false,
+      "expectancy_r": -0.9851,
+      "losses": 100,
+      "net_pnl_usd": -245.3514,
+      "total_fees_usd": 138.5007,
+      "wins": 1
+    },
+    "NC_TIME_OFFSET_SHIFT": {
+      "closed": 74,
+      "executable_edge_eligible": false,
+      "expectancy_r": -0.912,
+      "losses": 72,
+      "net_pnl_usd": -166.5236,
+      "total_fees_usd": 107.0112,
+      "wins": 2
+    }
+  },
+  "artifact_canonical_sha256": "0e558d2c7556af9d8e40ffd2d2a8207bbf6c8eee34c5c38e25bc8cf8f4685855",
+  "h3_disclosure_ref_sha256": "ee871f92064889419efa2a34fc487607b579a999134e52cc5e59db8b18723ca0",
+  "h3_policy_tier": "H3_FILL_TIME_FILTER_ONLY_RESEARCH_ADVISORY",
+  "passing_dev_candidate_arms": [],
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r2_methodology_closure_v1",
+  "spec_version": "KH-03.R2-v1.0",
+  "status": "PASS",
+  "tested_code_sha": "a7f6fd52bfb39a3c771a1d3dc3853f1dbdc75a4f"
+}
