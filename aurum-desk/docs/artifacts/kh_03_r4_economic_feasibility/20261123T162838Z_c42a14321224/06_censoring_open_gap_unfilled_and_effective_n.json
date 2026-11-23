@@ -1,0 +1,130 @@
+{
+  "arms_censoring_and_effective_n": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "censoring_rate_over_filled": 0.2468,
+      "effective_ny_days": 14,
+      "effective_setup_episodes": 57,
+      "gap_rate_over_scheduled": 0.0,
+      "n_closed": 58,
+      "n_filled": 77,
+      "n_gap_unresolved": 0,
+      "n_open_censored": 19,
+      "n_scheduled": 77,
+      "n_unfilled": 0,
+      "ny_day_cluster_95ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-1.0115, -0.6346] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR_ny_day_95ci",
+        "lower": -1.0115,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.6346
+      },
+      "underpowered_flag": true
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "censoring_rate_over_filled": 0.175,
+      "effective_ny_days": 16,
+      "effective_setup_episodes": 127,
+      "gap_rate_over_scheduled": 0.0063,
+      "n_closed": 131,
+      "n_filled": 160,
+      "n_gap_unresolved": 1,
+      "n_open_censored": 28,
+      "n_scheduled": 160,
+      "n_unfilled": 0,
+      "ny_day_cluster_95ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-0.9851, -0.6508] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION_ny_day_95ci",
+        "lower": -0.9851,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.6508
+      },
+      "underpowered_flag": false
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "censoring_rate_over_filled": 0.1111,
+      "effective_ny_days": 17,
+      "effective_setup_episodes": 189,
+      "gap_rate_over_scheduled": 0.0085,
+      "n_closed": 206,
+      "n_filled": 234,
+      "n_gap_unresolved": 2,
+      "n_open_censored": 26,
+      "n_scheduled": 234,
+      "n_unfilled": 0,
+      "ny_day_cluster_95ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-0.98, -0.7324] (upper < 0; does NOT cross zero).",
+        "label": "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT_ny_day_95ci",
+        "lower": -0.98,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.7324
+      },
+      "underpowered_flag": false
+    },
+    "NC_NULL_TRIGGER": {
+      "censoring_rate_over_filled": 0.1202,
+      "effective_ny_days": 17,
+      "effective_setup_episodes": 186,
+      "gap_rate_over_scheduled": 0.0086,
+      "n_closed": 203,
+      "n_filled": 233,
+      "n_gap_unresolved": 2,
+      "n_open_censored": 28,
+      "n_scheduled": 233,
+      "n_unfilled": 0,
+      "ny_day_cluster_95ci_parsed": {
+        "available": true,
+        "diagnostic": "Entire 95% CI strictly negative [-0.9777, -0.7786] (upper < 0; does NOT cross zero).",
+        "label": "NC_NULL_TRIGGER_ny_day_95ci",
+        "lower": -0.9777,
+        "schema_valid": true,
+        "status": "CI_VALID_NEGATIVE",
+        "strictly_positive": false,
+        "upper": -0.7786
+      },
+      "underpowered_flag": false
+    }
+  },
+  "artifact_canonical_sha256": "4600d07d34d26414200b149d72098421db7be2ab6581063c5bb4f2108feb4d44",
+  "baseline_1x_censoring_and_gaps": {
+    "censoring_fraction_over_filled": "28/233",
+    "censoring_rate_over_filled": 0.1202,
+    "gap_fraction_over_scheduled": "2/233",
+    "gap_rate_over_scheduled": 0.0086,
+    "gap_trades_recoded_as_win_or_loss": false,
+    "horizon_endpoint_rule": "Trades still open after 180 M1 bars are strictly labeled OPEN_AT_HORIZON (right-censored); trades encountering an unfillable data gap are labeled DATA_GAP_UNRESOLVED.",
+    "n_closed": 203,
+    "n_filled": 233,
+    "n_gap_unresolved": 2,
+    "n_open_censored": 28,
+    "n_scheduled": 233,
+    "n_unfilled": 0,
+    "open_trades_recoded_as_win_or_loss": false,
+    "open_trades_silently_dropped": false
+  },
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "dependence_and_effective_n_disclosure": {
+    "closed_trades_raw_count": 203,
+    "effective_independent_setup_episodes": 186,
+    "effective_ny_days_closed": 17,
+    "independence_caveat": "The 203 closed baseline trades span only 17 NY trading days (186 setup episodes) and are serially dependent under 1-position scheduling; NEVER treat 203 outcomes as 203 i.i.d. trials.",
+    "trades_per_ny_day_min_median_max": {
+      "max": 22,
+      "min": 1,
+      "p50": 13.0
+    }
+  },
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6"
+}

@@ -1,0 +1,2178 @@
+{
+  "artifact_canonical_sha256": "cfbd53ff85109fb5ce780457ec0a00eb6ce12f82e7b56956349e3feb39ab8208",
+  "controls": [
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Confirmed M15 swing HIGH swept before LONG decision must NOT be eligible TP",
+      "fault_id": "R2-F01",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T01_CONFIRMED_M15_SWING_HIGH_SWEPT_BEFORE_LONG",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Confirmed H1 swing LOW swept before SHORT decision must NOT be eligible TP",
+      "fault_id": "R2-F02",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T02_CONFIRMED_H1_SWING_LOW_SWEPT_BEFORE_SHORT_",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "H1 swing confirmed after decision timestamp must be unavailable",
+      "fault_id": "R2-F03",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T03_H1_SWING_CONFIRMED_AFTER_DECISION_TIMESTAM",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Swing confirmed before decision and swept only after decision MUST remain eligible as-of decision",
+      "fault_id": "R2-F04",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T04_SWING_CONFIRMED_BEFORE_DECISION_AND_SWEPT_",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Closer swept target skipped; farther valid as-of unswept target selected",
+      "fault_id": "R2-F05",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T05_CLOSER_SWEPT_TARGET_SKIPPED;_FARTHER_VALID",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Exact close_time + latency == decision_time accepted; +1ms late rejected",
+      "fault_id": "R2-F06",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T06_EXACT_CLOSE_TIME_+_LATENCY_==_DECISION_TIM",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Identical prices across distinct TFs obey order-invariant deterministic tie-break",
+      "fault_id": "R2-F07",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T07_IDENTICAL_PRICES_ACROSS_DISTINCT_TFS_OBEY_",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Duplicate/non-monotonic timestamps fail-closed; DST & weekend gaps tracked in gap_provenance",
+      "fault_id": "R2-F08",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T08_DUPLICATE/NON-MONOTONIC_TIMESTAMPS_FAIL-CL",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Unreachable net R:R target fails closed with ZERO TP stretching",
+      "fault_id": "R2-F09",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T09_UNREACHABLE_NET_R:R_TARGET_FAILS_CLOSED_WI",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target / build_r2_causal_unswept_level_ledger",
+      "diagnostic": "Randomly mutating all future M1/M15/H1 bars beyond decision leaves prefix ledger bit-for-bit identical",
+      "fault_id": "R2-F10",
+      "green_accepted": true,
+      "name": "ADVERSARIAL_T10_RANDOMLY_MUTATING_ALL_FUTURE_M1/M15/H1_BAR",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "is_closed=False M1 rejected",
+      "fault_id": "R2-F11",
+      "green_accepted": true,
+      "name": "UNCLOSED_M1_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "is_closed=False M15 rejected",
+      "fault_id": "R2-F12",
+      "green_accepted": true,
+      "name": "UNCLOSED_M15_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "is_closed=False H1 rejected",
+      "fault_id": "R2-F13",
+      "green_accepted": true,
+      "name": "UNCLOSED_H1_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "future_high key blocked",
+      "fault_id": "R2-F14",
+      "green_accepted": true,
+      "name": "HIDDEN_FUTURE_KEY_IN_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "negative latency rejected",
+      "fault_id": "R2-F15",
+      "green_accepted": true,
+      "name": "NEGATIVE_SOURCE_LATENCY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "corrupted OHLC blocked",
+      "fault_id": "R2-F16",
+      "green_accepted": true,
+      "name": "CORRUPTED_OHLC_HIGH_LT_LOW_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_causal_unswept_level_ledger",
+      "diagnostic": "M1 intra-HTF sweep tracked causally",
+      "fault_id": "R2-F17",
+      "green_accepted": true,
+      "name": "INTERVENING_CLOSED_M1_SWEEP_INVALIDATES_HTF_POOL",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "resolve_r2_research_only_structural_target",
+      "diagnostic": "SIDEWAYS rejected; LONG accepted",
+      "fault_id": "R2-F18",
+      "green_accepted": true,
+      "name": "INVALID_DIRECTION_ENUM_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "replay_r2_same_opportunity_paired_counterfactuals",
+      "diagnostic": "known_at > decision_ts rejected",
+      "fault_id": "R2-F19",
+      "green_accepted": true,
+      "name": "FUTURE_KNOWN_AT_IN_REPLAY_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "future fill-bar High/Low blocked",
+      "fault_id": "R2-F20",
+      "green_accepted": true,
+      "name": "FUTURE_BAR_HIGH_LOW_PEEK_AT_FILL_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "REJECTED_FILL_TIME_GAPPED_PAST_SL",
+      "fault_id": "R2-F21",
+      "green_accepted": true,
+      "name": "OVERNIGHT_GAP_PAST_SL_REJECTED_AT_FILL",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0",
+      "fault_id": "R2-F22",
+      "green_accepted": true,
+      "name": "FILL_TIME_RISK_CAP_BREACH_CAUSAL_RESIZE_OR_REJECT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "REJECTED_AT_FILL_TIME_MIN_LOT_EXCEEDS_RISK_CAP",
+      "fault_id": "R2-F23",
+      "green_accepted": true,
+      "name": "MIN_LOT_BREACHES_2P50_CAP_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r2_cost_scope_honesty",
+      "diagnostic": "dropped fixed-fill trade ID caught",
+      "fault_id": "R2-F24",
+      "green_accepted": true,
+      "name": "FIXED_FILL_DROPPED_ID_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "reprice_r2_fixed_fills_cost_counterfactual",
+      "diagnostic": "tampered net PnL caught",
+      "fault_id": "R2-F25",
+      "green_accepted": true,
+      "name": "FIXED_FILL_GROSS_FEE_NET_MISMATCH_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r2_cost_scope_honesty",
+      "diagnostic": "subset-only cannot claim full universe",
+      "fault_id": "R2-F26",
+      "green_accepted": true,
+      "name": "SUBSET_RERISK_SUBSTITUTION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_snapshot_entry_r2",
+      "diagnostic": "CLAIMED_OBSERVED_L1_BBO_WITHOUT_OBSERVED_FLAG",
+      "fault_id": "R2-F27",
+      "green_accepted": true,
+      "name": "MODELED_SPREAD_MISLABELED_AS_OBSERVED_BBO_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_snapshot_entry_r2",
+      "diagnostic": "SYNTHETIC_DATA_FORBIDDEN_AS_PROSPECTIVE_OOS",
+      "fault_id": "R2-F28",
+      "green_accepted": true,
+      "name": "SYNTHETIC_DATA_AS_PROSPECTIVE_OOS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_snapshot_entry_r2",
+      "diagnostic": "REUSED_DEV_DATASET_BLOCKED_AS_OOS:9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "fault_id": "R2-F29",
+      "green_accepted": true,
+      "name": "REUSED_DEV_SHA_AS_OOS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_snapshot_entry_r2",
+      "diagnostic": "EMBARGO_VIOLATION:start_utc_ms=1795003600000<freeze_plus_embargo=1795014400000",
+      "fault_id": "R2-F30",
+      "green_accepted": true,
+      "name": "PROSPECTIVE_OOS_EMBARGO_240M_VIOLATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "prepare_r2_prospective_oos_ingestion_and_escrow",
+      "diagnostic": "OOS peek blocked",
+      "fault_id": "R2-F31",
+      "green_accepted": true,
+      "name": "UNAUTHORIZED_OOS_PEEK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_compute_smd",
+      "diagnostic": "bad_smd=1.3416, good_smd=0.0",
+      "fault_id": "R2-F32",
+      "green_accepted": true,
+      "name": "COVARIATE_IMBALANCE_EXCEEDING_SMD_0P10_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_r2_paired_factorial_entry_geometry_design",
+      "diagnostic": "B0 vs B2 locked NOT_IDENTIFIABLE",
+      "fault_id": "R2-F33",
+      "green_accepted": true,
+      "name": "B0_VS_B2_FORBIDDEN_DIRECT_CAUSAL_ATTRIBUTION_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "verify_fresh_junit_bijection_v17931211",
+      "diagnostic": "JUnit 1:1 bijection enforced",
+      "fault_id": "R2-F34",
+      "green_accepted": true,
+      "name": "TAMPERED_JUNIT_MISSING_TEST_ID_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "detect_active_64mib_ram_floor_in_source",
+      "diagnostic": "hits_bad=1, hits_ok=0",
+      "fault_id": "R2-F35",
+      "green_accepted": true,
+      "name": "LOWERED_64MIB_RAM_FLOOR_IN_SOURCE_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r2_disk_preflight_policy",
+      "diagnostic": "20.5 GiB floor fail-closed",
+      "fault_id": "R2-F36",
+      "green_accepted": true,
+      "name": "STRICT_20P5_GIB_DISK_FLOOR_CANNOT_BE_BYPASSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "audit_r3_memory_samples_jsonl_gz",
+      "diagnostic": "400 MiB breach detected",
+      "fault_id": "R2-F37",
+      "green_accepted": true,
+      "name": "RAM_HARD_FLOOR_512MIB_BREACH_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_kill_process_tree_safe",
+      "diagnostic": "pid=53613 terminated cleanly",
+      "fault_id": "R2-F38",
+      "green_accepted": true,
+      "name": "ORPHAN_SUBPROCESS_TREE_CLEANUP",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+      "diagnostic": "UNSAFE_ACTIVATION_ENABLED",
+      "fault_id": "R2-F39",
+      "green_accepted": true,
+      "name": "UNSAFE_LIVE_ACTIVATION_MUTATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+      "diagnostic": "FORGED_PROVEN_EDGE_ON_REUSED_DATA",
+      "fault_id": "R2-F40",
+      "green_accepted": true,
+      "name": "FORGED_PROVEN_EDGE_ON_REUSED_DATA_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+      "diagnostic": "FORGED_RESOURCE_PASS_UNDER_LOW_DISK",
+      "fault_id": "R2-F41",
+      "green_accepted": true,
+      "name": "FORGED_RESOURCE_PASS_UNDER_9P65GIB_DISK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_r2_orthogonal_science_and_engineering_gates_from_disk",
+      "diagnostic": "STALE_R1_SHA_REUSED",
+      "fault_id": "R2-F42",
+      "green_accepted": true,
+      "name": "STALE_KH02_R1_TESTED_SHA_RELABELED_AS_R2_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_02_r2_verification.main",
+      "diagnostic": "rc=2",
+      "fault_id": "C1-F43",
+      "green_accepted": true,
+      "name": "CLI_OWNER_WAIVE_DISK_PREFLIGHT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "probe_r2_c1_write_mounts_strict",
+      "diagnostic": "low=BLOCKED_LOW_DISK, ok=PASS_STRICT_BELOW_ADVISORY_25GIB",
+      "fault_id": "C1-F44",
+      "green_accepted": true,
+      "name": "STRICT_20P499_VS_20P500_GIB_BOUNDARY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "probe_r2_c1_write_mounts_strict",
+      "diagnostic": "over=BLOCKED_LOW_DISK",
+      "fault_id": "C1-F45",
+      "green_accepted": true,
+      "name": "EVIDENCE_RESERVE_OVERSUBSCRIPTION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "safe_cleanup_sentinel_owned_temp_dir_r2_c1",
+      "diagnostic": "unowned preserved, owned cleaned",
+      "fault_id": "C1-F46",
+      "green_accepted": true,
+      "name": "SENTINEL_OWNED_TEMP_CLEANUP_GUARD",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "ReadOnlyBitgetPublicProspectiveCollectorR2C1",
+      "diagnostic": "network capture disabled by default",
+      "fault_id": "C1-F47",
+      "green_accepted": true,
+      "name": "PROSPECTIVE_COLLECTOR_DISABLED_BY_DEFAULT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "ReadOnlyBitgetPublicProspectiveCollectorR2C1",
+      "diagnostic": "low disk blocks capture",
+      "fault_id": "C1-F48",
+      "green_accepted": true,
+      "name": "PROSPECTIVE_COLLECTOR_BLOCKED_ON_LOW_DISK",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "audit_authoritative_r2_freeze_manifest_r2_c1",
+      "diagnostic": "sha_match=True",
+      "fault_id": "C1-F49",
+      "green_accepted": true,
+      "name": "AUTHORITATIVE_R2_FREEZE_MANIFEST_MATCH",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "cutoff-1 rejected=['EMBARGO_VIOLATION:start_utc_ms=1795290232731<freeze_plus_embargo=1795290232732']",
+      "fault_id": "C1-F50",
+      "green_accepted": true,
+      "name": "EXACT_EMBARGO_CUTOFF_MINUS_1MS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "edt=2026-11-01T05:30:00Z, est=2026-11-01T06:30:00Z",
+      "fault_id": "C1-F51",
+      "green_accepted": true,
+      "name": "DST_NEW_YORK_NONEXISTENT_HOUR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "CROSSED_OR_INVALID_BBO:idx=0:bid=4000.5,ask=4000.4",
+      "fault_id": "C1-F52",
+      "green_accepted": true,
+      "name": "CROSSED_BBO_BID_GE_ASK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "CORRUPT_GZIP_PAYLOAD:BadGzipFile",
+      "fault_id": "C1-F53",
+      "green_accepted": true,
+      "name": "CORRUPT_GZIP_PAYLOAD_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "TAMPERED_REGISTRY_ENTRY_SHA256:idx=0:sid=synth_fixture_prosp_001",
+      "fault_id": "C1-F54",
+      "green_accepted": true,
+      "name": "TAMPERED_HASH_LINKED_ESCROW_CHAIN_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "a1=APPENDED_NEW_ENTRY, a2=IDEMPOTENT_ALREADY_RECORDED_NOOP",
+      "fault_id": "C1-F55",
+      "green_accepted": true,
+      "name": "IMMUTABLE_ESCROW_NO_OVERWRITE_IDEMPOTENT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "kh_02_r2_prospective_data_service",
+      "diagnostic": "secret=['FORBIDDEN_SECRETS_OR_ACCOUNT_FIELDS_PRESENT:FORBIDDEN_KEY:$.query_params.api_key']; synth=['SYNTHETIC_FIXTURE_FORBIDDEN_AS_REAL_OOS_MARKET_DATA']",
+      "fault_id": "C1-F56",
+      "green_accepted": true,
+      "name": "SECRET_AND_SYNTHETIC_FIXTURE_EXCLUSION",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_snapshot",
+      "diagnostic": "['IDEMPOTENT_ALREADY_RECORDED_NOOP', 'APPENDED_NEW_ENTRY', 'IDEMPOTENT_ALREADY_RECORDED_NOOP', 'IDEMPOTENT_ALREADY_RECORDED_NOOP']",
+      "fault_id": "C2-F57",
+      "green_accepted": true,
+      "name": "CONCURRENT_DUPLICATE_RACE_EXACT_ONCE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_snapshot",
+      "diagnostic": "4/4 committed",
+      "fault_id": "C2-F58",
+      "green_accepted": true,
+      "name": "CONCURRENT_NONDUPLICATE_ZERO_LOST_UPDATE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_snapshot",
+      "diagnostic": "fsync EIO + quarantine recovery",
+      "fault_id": "C2-F59",
+      "green_accepted": true,
+      "name": "CRASH_DURING_BLOB_FSYNC_AND_ORPHAN_RECOVERY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.verify_integrity",
+      "diagnostic": "orphan quarantined",
+      "fault_id": "C2-F60",
+      "green_accepted": true,
+      "name": "ORPHAN_BLOB_DETECTED_AND_QUARANTINED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.quarantine_corrupt_tail_and_orphans",
+      "diagnostic": "torn tail quarantined",
+      "fault_id": "C2-F61",
+      "green_accepted": true,
+      "name": "TORN_FINAL_RECORD_FAIL_CLOSED_AND_QUARANTINE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.exclusive_lock",
+      "diagnostic": "lock owner mismatch blocked",
+      "fault_id": "C2-F62",
+      "green_accepted": true,
+      "name": "WRONG_LOCK_OWNER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.__init__",
+      "diagnostic": "symlink root blocked",
+      "fault_id": "C2-F63",
+      "green_accepted": true,
+      "name": "SYMLINK_ESCAPE_ESCROW_ROOT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.verify_integrity",
+      "diagnostic": "blob bytes mismatch caught",
+      "fault_id": "C2-F64",
+      "green_accepted": true,
+      "name": "TAMPERED_BLOB_BYTES_DETECTED_FROM_DISK",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.verify_integrity",
+      "diagnostic": "ROLLBACK_NOT_DETECTABLE_WITHOUT_EXTERNAL_ANCHOR",
+      "fault_id": "C2-F65",
+      "green_accepted": true,
+      "name": "EXTERNAL_ANCHOR_ABSENT_HONEST_LOCAL_ONLY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "ExternalHeadAnchorC2",
+      "diagnostic": "rollback caught",
+      "fault_id": "C2-F66",
+      "green_accepted": true,
+      "name": "REGISTRY_ROLLBACK_DETECTED_BY_EXTERNAL_ANCHOR",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector",
+      "diagnostic": "default OFF enforced",
+      "fault_id": "C2-F67",
+      "green_accepted": true,
+      "name": "COLLECTOR_UNAUTHORIZED_NETWORK_DISABLED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector",
+      "diagnostic": "bid >= ask rejected",
+      "fault_id": "C2-F68",
+      "green_accepted": true,
+      "name": "COLLECTOR_MALFORMED_CROSSED_BBO_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector",
+      "diagnostic": "drift & private endpoint blocked",
+      "fault_id": "C2-F69",
+      "green_accepted": true,
+      "name": "COLLECTOR_API_SCHEMA_DRIFT_AND_PRIVATE_ENDPOINT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector",
+      "diagnostic": "set-cookie header rejected",
+      "fault_id": "C2-F70",
+      "green_accepted": true,
+      "name": "COLLECTOR_SECRETS_LEAK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector",
+      "diagnostic": "spread=0.2",
+      "fault_id": "C2-F71",
+      "green_accepted": true,
+      "name": "COLLECTOR_FEE_TIER_UNKNOWN_AND_GOOD_BBO",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_02_r2_c2_acceptance.early_guard",
+      "diagnostic": "rc=2",
+      "fault_id": "C2-F72",
+      "green_accepted": true,
+      "name": "ENV_VAR_DISK_WAIVER_OVERRIDE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c2_19_gates_and_13_verdicts",
+      "diagnostic": "unverified remote readback rejected",
+      "fault_id": "C2-F73",
+      "green_accepted": true,
+      "name": "FALSE_REMOTE_READBACK_REJECTED_IN_G19",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c2_19_gates_and_13_verdicts",
+      "diagnostic": "low-disk publication blocked",
+      "fault_id": "C2-F74",
+      "green_accepted": true,
+      "name": "PREMATURE_PUBLICATION_UNDER_LOW_DISK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_c3_prospective_admission",
+      "diagnostic": "spoofed live flag blocked",
+      "fault_id": "C3-F01",
+      "green_accepted": true,
+      "name": "FAKE_TRANSPORT_IS_FAKE_FALSE_CANNOT_ENTER_REAL_OOS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "omitted synthetic flag blocked",
+      "fault_id": "C3-F02",
+      "green_accepted": true,
+      "name": "SYNTHETIC_OMITTED_FLAG_BLOCKED_REAL_OOS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "metadata-only quote blocked",
+      "fault_id": "C3-F03",
+      "green_accepted": true,
+      "name": "OBSERVED_QUOTE_RAW_BYTES_NONE_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "metadata-only OHLCV blocked",
+      "fault_id": "C3-F04",
+      "green_accepted": true,
+      "name": "OHLCV_METADATA_ONLY_FRESH_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "reparse_and_verify_raw_market_bytes_c3",
+      "diagnostic": "parsed mismatch caught",
+      "fault_id": "C3-F05",
+      "green_accepted": true,
+      "name": "PARSED_PAYLOAD_SHA_FORGED_WITH_VALID_RAW_SHA_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "reparse_and_verify_raw_market_bytes_c3",
+      "diagnostic": "event_ms mismatch caught",
+      "fault_id": "C3-F06",
+      "green_accepted": true,
+      "name": "PROVIDER_EVENT_TS_OVERWRITE_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_prospective_snapshot_contract_c3",
+      "diagnostic": "DEV SHA blocked",
+      "fault_id": "C3-F07",
+      "green_accepted": true,
+      "name": "DEV_CANONICAL_SHA_AND_OVERLAP_REPLAY_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "StdlibUrllibPublicTransportC2.get",
+      "diagnostic": "302 to 127.0.0.1 blocked",
+      "fault_id": "C3-F08",
+      "green_accepted": true,
+      "name": "HTTP_302_SSRF_REDIRECT_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "StdlibUrllibPublicTransportC2.get",
+      "diagnostic": "place-order blocked",
+      "fault_id": "C3-F09",
+      "green_accepted": true,
+      "name": "PRIVATE_ORDER_API_PATH_BLOCKED_BEFORE_HTTP",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "StdlibUrllibPublicTransportC2.get",
+      "diagnostic": "api_key query blocked",
+      "fault_id": "C3-F10",
+      "green_accepted": true,
+      "name": "SECRETS_COOKIES_ACCOUNT_ID_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector.__init__",
+      "diagnostic": "live sleep bypass blocked",
+      "fault_id": "C3-F11",
+      "green_accepted": true,
+      "name": "REAL_DEFAULT_SLEEP_ACTIVE_AND_BYPASS_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector._execute_get_with_retry",
+      "diagnostic": "400=1 call; 429 capped<=1.5s",
+      "fault_id": "C3-F12",
+      "green_accepted": true,
+      "name": "HTTP_400_NO_RETRY_VS_429_CAPPED_RETRY_AFTER",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "StdlibUrllibPublicTransportC2.get",
+      "diagnostic": "gzip bomb bounded reject",
+      "fault_id": "C3-F13",
+      "green_accepted": true,
+      "name": "GZIP_BOMB_AND_OVERSIZED_BODY_BOUNDED_REJECT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector.fetch_public_ohlcv_candles_snapshot",
+      "diagnostic": "forming bar rejected",
+      "fault_id": "C3-F14",
+      "green_accepted": true,
+      "name": "UNCLOSED_CANDLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector.fetch_public_l1_bbo_snapshot",
+      "diagnostic": "0.0001 tick rejected",
+      "fault_id": "C3-F15",
+      "green_accepted": true,
+      "name": "BBO_TICK_PRECISION_AND_SYMBOL_MISMATCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector._check_guards",
+      "diagnostic": "fresh OS statvfs overrides caller dict",
+      "fault_id": "C3-F16",
+      "green_accepted": true,
+      "name": "FORGED_CALLER_DISK_PROBE_BELOW_OS_FLOOR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "OperatorCaptureAuthorizationC2.__post_init__",
+      "diagnostic": "missing session blocked",
+      "fault_id": "C3-F17",
+      "green_accepted": true,
+      "name": "COUNTERFEIT_APPROVAL_WITHOUT_SESSION_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_snapshot",
+      "diagnostic": "prior journal untouched",
+      "fault_id": "C3-F18",
+      "green_accepted": true,
+      "name": "ENOSPC_BLOB_WRITE_PRESERVES_PRIOR_JOURNAL",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_write_all_eintr_safe",
+      "diagnostic": "zero-progress fail-closed; EINTR OK",
+      "fault_id": "C3-F19",
+      "green_accepted": true,
+      "name": "SHORT_WRITE_FAIL_CLOSED_AND_EINTR_RETRIES",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.verify_integrity",
+      "diagnostic": "UNANCHORED_PENDING_ATTESTATION",
+      "fault_id": "C3-F20",
+      "green_accepted": true,
+      "name": "CRASH_BEFORE_ANCHOR_UNANCHORED_PENDING_ATTESTATION",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.verify_integrity",
+      "diagnostic": "FAIL_ROLLBACK_DETECTED_BELOW_EXTERNAL_ANCHOR",
+      "fault_id": "C3-F21",
+      "green_accepted": true,
+      "name": "EXTERNAL_ANCHOR_ROLLBACK_DETECTED_NO_WORM_CLAIM",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_snapshot",
+      "diagnostic": "1 append + 3 noop + fork blocked",
+      "fault_id": "C3-F22",
+      "green_accepted": true,
+      "name": "CONCURRENT_DUPLICATE_AND_FORK_CONFLICT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "mandatory_skip=1 -> FAIL",
+      "fault_id": "C3-F23",
+      "green_accepted": true,
+      "name": "MANDATORY_SKIP_OR_JUNIT_TAMPER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "PROVEN_EDGE -> FAIL",
+      "fault_id": "C3-F24",
+      "green_accepted": true,
+      "name": "FORGED_ECONOMIC_VERDICT_OR_FEE_TAMPER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "W4 hash drift -> FAIL",
+      "fault_id": "C3-F25",
+      "green_accepted": true,
+      "name": "W1_W2_W4_ROW_HASH_MUTATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "18.5 GiB runtime -> FAIL",
+      "fault_id": "C3-F26",
+      "green_accepted": true,
+      "name": "RUNTIME_DISK_DROP_BELOW_20GIB_FAILS_GATE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "false remote readback -> FAIL",
+      "fault_id": "C3-F27",
+      "green_accepted": true,
+      "name": "PREPUSH_TAMPERED_TO_REMOTE_VERIFIED_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_c3_17_gates_and_17_verdicts",
+      "diagnostic": "OOS=1 / ACT=YES -> FAIL",
+      "fault_id": "C3-F28",
+      "green_accepted": true,
+      "name": "OOS_EVAL_NONZERO_OR_ACTIVATION_ON_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "mint_trusted_capture_receipt_c3",
+      "diagnostic": "caller booleans cannot mint LIVE",
+      "fault_id": "C4-F01",
+      "green_accepted": true,
+      "name": "DIRECT_MINT_BOOLEAN_SPOOF_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "verify_capture_proof_c4",
+      "diagnostic": "unregistered proof rejected",
+      "fault_id": "C4-F02",
+      "green_accepted": true,
+      "name": "FORGED_MANUAL_PROOF_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "is_exact_unmodified_stdlib_transport_c4",
+      "diagnostic": "subclass blocked",
+      "fault_id": "C4-F03",
+      "green_accepted": true,
+      "name": "EVIL_SUBCLASS_GET_OVERRIDE_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "is_exact_unmodified_stdlib_transport_c4",
+      "diagnostic": "instance .get blocked",
+      "fault_id": "C4-F04",
+      "green_accepted": true,
+      "name": "INSTANCE_GET_MONKEYPATCH_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2PublicReadOnlyBitgetCollector._check_live_transport_exact_now",
+      "diagnostic": "post-init mutation caught",
+      "fault_id": "C4-F05",
+      "green_accepted": true,
+      "name": "POST_INIT_OPENER_MUTATION_CAUGHT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "VerifiedCaptureProofC4.__copy__",
+      "diagnostic": "copy blocked",
+      "fault_id": "C4-F06",
+      "green_accepted": true,
+      "name": "PROOF_NON_COPYABLE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "VerifiedCaptureProofC4.__reduce__",
+      "diagnostic": "pickle blocked",
+      "fault_id": "C4-F07",
+      "green_accepted": true,
+      "name": "PROOF_NON_PICKLABLE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "bind_capture_proof_consumption_c4",
+      "diagnostic": "cross-snapshot proof replay blocked",
+      "fault_id": "C4-F08",
+      "green_accepted": true,
+      "name": "PROOF_REPLAY_DIFFERENT_SNAPSHOT_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_c3_prospective_admission",
+      "diagnostic": "byte tamper blocked",
+      "fault_id": "C4-F09",
+      "green_accepted": true,
+      "name": "MODIFIED_BYTES_AFTER_CAPTURE_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "CaptureAuthorityC4.verify_proof",
+      "diagnostic": "TTL expiry enforced",
+      "fault_id": "C4-F10",
+      "green_accepted": true,
+      "name": "EXPIRED_CAPTURE_PROOF_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "naked response blocked",
+      "fault_id": "C4-F11",
+      "green_accepted": true,
+      "name": "NAKED_RAW_RESPONSE_NO_RECEIPT_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "0 real OOS rows",
+      "fault_id": "C4-F12",
+      "green_accepted": true,
+      "name": "DIRECT_MINT_ESCROW_ADMISSION_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "C2DurableEscrowJournal.append_verified_prospective_snapshot",
+      "diagnostic": "0 real OOS rows",
+      "fault_id": "C4-F13",
+      "green_accepted": true,
+      "name": "EVIL_SUBCLASS_ESCROW_ADMISSION_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "mint_trusted_capture_receipt_c4",
+      "diagnostic": "mint_c4 rejects forged proof",
+      "fault_id": "C4-F14",
+      "green_accepted": true,
+      "name": "MINT_C4_FORGED_PROOF_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "empty {} fails closed",
+      "fault_id": "C4-F15",
+      "green_accepted": true,
+      "name": "EMPTY_TAIL_SUMMARY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "boolean-only PASS rejected",
+      "fault_id": "C4-F16",
+      "green_accepted": true,
+      "name": "HARDCODED_TRUE_WITHOUT_ROWS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "missing arm caught",
+      "fault_id": "C4-F17",
+      "green_accepted": true,
+      "name": "OMITTED_ARM_IN_TAIL_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "missing mode caught",
+      "fault_id": "C4-F18",
+      "green_accepted": true,
+      "name": "OMITTED_MODE_IN_TAIL_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "loss count mismatch caught",
+      "fault_id": "C4-F19",
+      "green_accepted": true,
+      "name": "ALTERED_OVERSIZED_LOSS_COUNT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "max loss mismatch caught",
+      "fault_id": "C4-F20",
+      "green_accepted": true,
+      "name": "ALTERED_MAX_REALIZED_LOSS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "cap tamper caught",
+      "fault_id": "C4-F21",
+      "green_accepted": true,
+      "name": "ALTERED_RISK_CAP_THRESHOLD_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "ledger sha mismatch caught",
+      "fault_id": "C4-F22",
+      "green_accepted": true,
+      "name": "LEDGER_CHECKSUM_MISMATCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_c4_tail_disclosure_vs_risk_ledger",
+      "diagnostic": "dropped row caught",
+      "fault_id": "C4-F23",
+      "green_accepted": true,
+      "name": "DROPPED_EPISODE_ROW_IN_LEDGER_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "reconcile_c4_full_universe_cost_fees",
+      "diagnostic": "fee reconciliation mismatch caught",
+      "fault_id": "C4-F24",
+      "green_accepted": true,
+      "name": "UNRECONCILED_FULL_UNIVERSE_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "missing exit fee rejected",
+      "fault_id": "KH03-F01",
+      "green_accepted": true,
+      "name": "MISSING_EXIT_FEE_ON_CLOSED_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "negative fee rejected",
+      "fault_id": "KH03-F02",
+      "green_accepted": true,
+      "name": "NEGATIVE_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "NaN fee rejected",
+      "fault_id": "KH03-F03",
+      "green_accepted": true,
+      "name": "NAN_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "Inf fee rejected",
+      "fault_id": "KH03-F04",
+      "green_accepted": true,
+      "name": "INF_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "double-counted total_fees_usd rejected",
+      "fault_id": "KH03-F05",
+      "green_accepted": true,
+      "name": "DOUBLE_COUNT_TOTAL_FEE_CONFLICT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "material gross-fee-net drift rejected",
+      "fault_id": "KH03-F06",
+      "green_accepted": true,
+      "name": "GROSS_MINUS_FEE_NE_NET_DRIFT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "unfilled nonzero fee rejected",
+      "fault_id": "KH03-F07",
+      "green_accepted": true,
+      "name": "UNFILLED_NONZERO_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "extract_authoritative_ledger_fees_kh03",
+      "diagnostic": "open exit fee rejected, entry accrued separately",
+      "fault_id": "KH03-F08",
+      "green_accepted": true,
+      "name": "OPEN_AT_HORIZON_NONZERO_EXIT_FEE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_fee_ledger_independently",
+      "diagnostic": "tampered zero fee caught vs ledger",
+      "fault_id": "KH03-F09",
+      "green_accepted": true,
+      "name": "TAMPERED_ZERO_FEE_IN_05_CAUGHT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "reconcile_c4_full_universe_cost_fees",
+      "diagnostic": "C4 compat checks nonzero double-count",
+      "fault_id": "KH03-F10",
+      "green_accepted": true,
+      "name": "C4_RECONCILE_CATCHES_DOUBLE_COUNTED_NONZERO_FEE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "XAUUSD spot substitute blocked",
+      "fault_id": "KH03-F11",
+      "green_accepted": true,
+      "name": "CONTRACT_SYMBOL_DRIFT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "unclosed bar blocked",
+      "fault_id": "KH03-F12",
+      "green_accepted": true,
+      "name": "UNCLOSED_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "broken OHLC envelope blocked",
+      "fault_id": "KH03-F13",
+      "green_accepted": true,
+      "name": "INVALID_OHLC_HIGH_LT_CLOSE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "duplicate conflicting bar blocked",
+      "fault_id": "KH03-F14",
+      "green_accepted": true,
+      "name": "DUPLICATE_CONFLICTING_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "incomplete pagination blocked",
+      "fault_id": "KH03-F15",
+      "green_accepted": true,
+      "name": "INCOMPLETE_PAGINATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "crossed L1 rejected",
+      "fault_id": "KH03-F16",
+      "green_accepted": true,
+      "name": "L1_CROSSED_BOOK_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_source_contracts",
+      "diagnostic": "synthetic L1 rejected",
+      "fault_id": "KH03-F17",
+      "green_accepted": true,
+      "name": "L1_SYNTHETIC_PASSED_AS_OBSERVED_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_noncontamination_entry",
+      "diagnostic": "canonical DEV SHA blocked as fresh OOS",
+      "fault_id": "KH03-F18",
+      "green_accepted": true,
+      "name": "REUSED_DEV_SHA_CANNOT_BE_FRESH_OOS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_noncontamination_entry",
+      "diagnostic": "extended DEV SHA blocked",
+      "fault_id": "KH03-F19",
+      "green_accepted": true,
+      "name": "EXTENDED_DEV_SHA_CANNOT_BE_FRESH_OOS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_noncontamination_entry",
+      "diagnostic": "peeked SHA permanently tainted",
+      "fault_id": "KH03-F20",
+      "green_accepted": true,
+      "name": "PEEKED_OOS_SHA_CANNOT_RESEAL",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_noncontamination_entry",
+      "diagnostic": "embargo boundary enforced",
+      "fault_id": "KH03-F21",
+      "green_accepted": true,
+      "name": "EMBARGO_MINUS_1MS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_03_acceptance.main",
+      "diagnostic": "KH03 env waiver exits 2",
+      "fault_id": "KH03-F22",
+      "green_accepted": true,
+      "name": "KH03_DISK_WAIVER_ENV_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_03_acceptance.main",
+      "diagnostic": "KH03 CLI waiver exits 2",
+      "fault_id": "KH03-F23",
+      "green_accepted": true,
+      "name": "KH03_DISK_WAIVER_CLI_FLAG_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_noncontamination_entry",
+      "diagnostic": "unknown partition role blocked",
+      "fault_id": "KH03-F24",
+      "green_accepted": true,
+      "name": "INVALID_PARTITION_ROLE_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "strictly negative CI classified CI_VALID_NEGATIVE",
+      "fault_id": "KH03R2-F01",
+      "green_accepted": true,
+      "name": "CI_NEGATIVE_NOT_CALLED_CROSSES_ZERO",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "straddling CI rejected from positive",
+      "fault_id": "KH03R2-F02",
+      "green_accepted": true,
+      "name": "CI_STRADDLES_ZERO_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "exact 0 boundary not strictly positive",
+      "fault_id": "KH03R2-F03",
+      "green_accepted": true,
+      "name": "CI_TOUCHES_ZERO_NOT_STRICTLY_POSITIVE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "swapped bounds rejected",
+      "fault_id": "KH03R2-F04",
+      "green_accepted": true,
+      "name": "CI_SWAPPED_BOUNDS_INVALID_SCHEMA",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "NaN/Inf rejected",
+      "fault_id": "KH03R2-F05",
+      "green_accepted": true,
+      "name": "CI_NAN_INF_INVALID_SCHEMA",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "bool/str/empty dict rejected",
+      "fault_id": "KH03R2-F06",
+      "green_accepted": true,
+      "name": "CI_BOOL_STR_EMPTY_DICT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_kh03_cluster_ci_strict",
+      "diagnostic": "None CI inconclusive",
+      "fault_id": "KH03R2-F07",
+      "green_accepted": true,
+      "name": "CI_NONE_UNAVAILABLE_NOT_PASS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_kh03_dev_ci_and_advancement",
+      "diagnostic": "positive CI alone blocked by other gates",
+      "fault_id": "KH03R2-F08",
+      "green_accepted": true,
+      "name": "POSITIVE_CI_ALONE_CANNOT_PASS_DEV_GATE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "assert_no_instantaneous_open_to_open_fill",
+      "diagnostic": "open-to-open without L1 blocked",
+      "fault_id": "KH03R2-F09",
+      "green_accepted": true,
+      "name": "H3_OPEN_TO_OPEN_WITHOUT_L1_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "assert_no_instantaneous_open_to_open_fill",
+      "diagnostic": "zero-latency same-ts execution rejected",
+      "fault_id": "KH03R2-F10",
+      "green_accepted": true,
+      "name": "H3_SAME_TS_WITH_L1_STILL_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "future bar H/L raises ValueError",
+      "fault_id": "KH03R2-F11",
+      "green_accepted": true,
+      "name": "H3_FUTURE_HIGH_LOW_FIELDS_RAISE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "gap past SL rejected",
+      "fault_id": "KH03R2-F12",
+      "green_accepted": true,
+      "name": "H3_GAP_PAST_SL_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "gap past TP rejected",
+      "fault_id": "KH03R2-F13",
+      "green_accepted": true,
+      "name": "H3_GAP_PAST_TP_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_h3_ledger_independently",
+      "diagnostic": "tampered H3 fee caught",
+      "fault_id": "KH03R2-F14",
+      "green_accepted": true,
+      "name": "H3_LEDGER_TAMPERED_FEE_SUMMARY_CAUGHT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_kh03_dev_ci_and_advancement",
+      "diagnostic": "PATH B H3 cannot pass executable candidate gate",
+      "fault_id": "KH03R2-F15",
+      "green_accepted": true,
+      "name": "H3_PATH_B_DISQUALIFIED_EVEN_ON_SYNTH_POSITIVE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "evaluate_causal_fill_time_policy_single_trade",
+      "diagnostic": "LONG/SHORT fill-time resize repro",
+      "fault_id": "KH03R2-F16",
+      "green_accepted": true,
+      "name": "H3_LONG_SHORT_RESIZE_TRIGGERED_PROPERLY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "train >= val blocked",
+      "fault_id": "KH03R2-F17",
+      "green_accepted": true,
+      "name": "WF_TRAIN_GE_VAL_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "239m59s embargo rejected",
+      "fault_id": "KH03R2-F18",
+      "green_accepted": true,
+      "name": "WF_EMBARGO_239M59S_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "future train bar rejected",
+      "fault_id": "KH03R2-F19",
+      "green_accepted": true,
+      "name": "WF_FUTURE_TRAIN_BAR_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "train label crossing embargo rejected",
+      "fault_id": "KH03R2-F20",
+      "green_accepted": true,
+      "name": "WF_LABEL_EXIT_CROSSING_EMBARGO_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "reused DEV fold cannot be fresh OOS",
+      "fault_id": "KH03R2-F21",
+      "green_accepted": true,
+      "name": "WF_FOLD_CLAIMED_FRESH_OOS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_kh03_r2_fold_causality",
+      "diagnostic": "duplicate val episode rejected",
+      "fault_id": "KH03R2-F22",
+      "green_accepted": true,
+      "name": "WF_DUPLICATE_EPISODE_ACROSS_FOLDS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "build_kh03_r2_forward_only_dev_folds",
+      "diagnostic": "short history never fabricates folds",
+      "fault_id": "KH03R2-F23",
+      "green_accepted": true,
+      "name": "WF_SHORT_HISTORY_TRUTHFUL_INSUFFICIENT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_03_r2_acceptance.main",
+      "diagnostic": "R2 runner refuses disk waiver env with exit 2",
+      "fault_id": "KH03R2-F24",
+      "green_accepted": true,
+      "name": "KH03_R2_DISK_WAIVER_ENV_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "require_kh03_r2_or_newer_research_protocol",
+      "diagnostic": "R1 protocol cannot certify",
+      "fault_id": "KH03R3-F01",
+      "green_accepted": true,
+      "name": "R1_PROTOCOL_CERTIFICATION_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "require_kh03_r2_or_newer_research_protocol",
+      "diagnostic": "unknown protocol denied",
+      "fault_id": "KH03R3-F02",
+      "green_accepted": true,
+      "name": "UNKNOWN_PROTOCOL_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "scan_python_source_for_forbidden_r1_usage",
+      "diagnostic": "direct R1 import caught",
+      "fault_id": "KH03R3-F03",
+      "green_accepted": true,
+      "name": "R1_DIRECT_IMPORT_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "scan_python_source_for_forbidden_r1_usage",
+      "diagnostic": "alias R1 import caught",
+      "fault_id": "KH03R3-F04",
+      "green_accepted": true,
+      "name": "R1_ALIAS_IMPORT_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "scan_python_source_for_forbidden_r1_usage",
+      "diagnostic": "re-export caught",
+      "fault_id": "KH03R3-F05",
+      "green_accepted": true,
+      "name": "R1_REEXPORT_ALL_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "scan_python_source_for_forbidden_r1_usage",
+      "diagnostic": "dynamic wrapper caught",
+      "fault_id": "KH03R3-F06",
+      "green_accepted": true,
+      "name": "R1_GETATTR_EVAL_WRAPPER_DETECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "forged PROVEN_EDGE denied",
+      "fault_id": "KH03R3-F07",
+      "green_accepted": true,
+      "name": "PROVENANCE_FORGED_PROVEN_EDGE_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "reused DEV as fresh OOS denied",
+      "fault_id": "KH03R3-F08",
+      "green_accepted": true,
+      "name": "PROVENANCE_REUSED_DEV_FRESH_OOS_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "H3 execution pass denied",
+      "fault_id": "KH03R3-F09",
+      "green_accepted": true,
+      "name": "PROVENANCE_H3_EXECUTABLE_PROMOTION_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "fake observed L1 denied",
+      "fault_id": "KH03R3-F10",
+      "green_accepted": true,
+      "name": "PROVENANCE_FAKE_L1_FROM_M1_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_forensic_ledger_independently",
+      "diagnostic": "excluded losses caught vs 06",
+      "fault_id": "KH03R3-F11",
+      "green_accepted": true,
+      "name": "FORENSIC_07_DROPPED_LOSSES_CAUGHT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_forensic_ledger_independently",
+      "diagnostic": "zeroed fee in 07 caught",
+      "fault_id": "KH03R3-F12",
+      "green_accepted": true,
+      "name": "FORENSIC_07_ZERO_FEE_TAMPER_CAUGHT",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "query_nearest_causal_unswept_m5_target",
+      "diagnostic": "future M5 target never visible",
+      "fault_id": "KH03R3-F13",
+      "green_accepted": true,
+      "name": "M5_FUTURE_SWING_IGNORED_STRICTLY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "query_nearest_causal_unswept_m5_target",
+      "diagnostic": "already-swept M5 target skipped",
+      "fault_id": "KH03R3-F14",
+      "green_accepted": true,
+      "name": "M5_ALREADY_SWEPT_SWING_IGNORED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "query_nearest_causal_unswept_m5_target",
+      "diagnostic": "valid as-of M5 swing selected",
+      "fault_id": "KH03R3-F15",
+      "green_accepted": true,
+      "name": "M5_VALID_ASOF_UNSWEPT_NEARER_TARGET_ADMITTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "old R1 CI bug rejected",
+      "fault_id": "KH03R3-F16",
+      "green_accepted": true,
+      "name": "PROVENANCE_OLD_CI_CROSSES_ZERO_ON_NEG_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_r3_research_output_provenance",
+      "diagnostic": "LIVE=ON rejected",
+      "fault_id": "KH03R3-F17",
+      "green_accepted": true,
+      "name": "PROVENANCE_SAFETY_MODE_LIVE_ON_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "require_kh03_r2_or_newer_research_protocol",
+      "diagnostic": "future train bars blocked",
+      "fault_id": "KH03R3-F18",
+      "green_accepted": true,
+      "name": "PROTOCOL_FUTURE_TRAIN_BARS_NONZERO_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "require_kh03_r2_or_newer_research_protocol",
+      "diagnostic": "embargo < 240m blocked",
+      "fault_id": "KH03R3-F19",
+      "green_accepted": true,
+      "name": "PROTOCOL_EMBARGO_LT_240M_DENIED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "run_kh_03_r3_acceptance.main",
+      "diagnostic": "R3 runner refuses disk waiver with exit 2",
+      "fault_id": "KH03R3-F20",
+      "green_accepted": true,
+      "name": "KH03_R3_DISK_WAIVER_ENV_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "select_measured_worker_policy_strict",
+      "diagnostic": "pytest wall_clock_seconds parsed -> w=4",
+      "fault_id": "KH03R3C1-F01",
+      "green_accepted": true,
+      "name": "R3_PYTEST_EMPTY_MEANS_BUG_FIXED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "select_measured_worker_policy_strict",
+      "diagnostic": "science wall_seconds parsed -> w=1",
+      "fault_id": "KH03R3C1-F02",
+      "green_accepted": true,
+      "name": "R3_SCIENCE_EMPTY_MEANS_BUG_FIXED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_benchmark_semantic_equivalence_strict",
+      "diagnostic": "w=1_repeat mandatory",
+      "fault_id": "KH03R3C1-F03",
+      "green_accepted": true,
+      "name": "MISSING_W1_REPEAT_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "select_measured_worker_policy_strict",
+      "diagnostic": "missing w=4 fail-closed",
+      "fault_id": "KH03R3C1-F04",
+      "green_accepted": true,
+      "name": "MISSING_W4_NEVER_SILENTLY_W2",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_benchmark_run_duration_strict",
+      "diagnostic": "bool/str rejected",
+      "fault_id": "KH03R3C1-F05",
+      "green_accepted": true,
+      "name": "BOOL_AND_STRING_DURATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_json_strict_no_nonfinite",
+      "diagnostic": "NaN/Inf blocked",
+      "fault_id": "KH03R3C1-F06",
+      "green_accepted": true,
+      "name": "NONFINITE_NAN_INF_AND_JSON_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_benchmark_run_duration_strict",
+      "diagnostic": "zero/neg blocked",
+      "fault_id": "KH03R3C1-F07",
+      "green_accepted": true,
+      "name": "ZERO_AND_NEGATIVE_DURATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_benchmark_run_duration_strict",
+      "diagnostic": "conflicting keys fail-closed",
+      "fault_id": "KH03R3C1-F08",
+      "green_accepted": true,
+      "name": "CONFLICTING_DURATION_KEYS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_benchmark_semantic_equivalence_strict",
+      "diagnostic": "cross-kind keys rejected",
+      "fault_id": "KH03R3C1-F09",
+      "green_accepted": true,
+      "name": "MIXED_PYTEST_SCIENCE_KEYS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "parse_benchmark_run_duration_strict",
+      "diagnostic": "worker identity enforced",
+      "fault_id": "KH03R3C1-F10",
+      "green_accepted": true,
+      "name": "MODE_WORKERS_AND_PIDS_MISMATCH_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "validate_benchmark_semantic_equivalence_strict",
+      "diagnostic": "w1_repeat SHA drift blocked",
+      "fault_id": "KH03R3C1-F11",
+      "green_accepted": true,
+      "name": "W1_REPEAT_SEMANTIC_SHA_DRIFT_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "select_measured_worker_policy_strict",
+      "diagnostic": "low disk/RAM fail-closed",
+      "fault_id": "KH03R3C1-F12",
+      "green_accepted": true,
+      "name": "RESOURCE_FLOOR_BREACH_BLOCKS_POLICY",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_worker_policy_from_raw_receipt",
+      "diagnostic": "recompute discrepancies caught",
+      "fault_id": "KH03R3C1-F13",
+      "green_accepted": true,
+      "name": "RECOMPUTE_CATCHES_EMPTY_WRONG_OPT_FORGED_SPEEDUP",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_worker_policy_from_raw_receipt",
+      "diagnostic": "no unmeasured full-suite speedup",
+      "fault_id": "KH03R3C1-F14",
+      "green_accepted": true,
+      "name": "EXTRAPOLATION_AND_OVERCAP_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "missing W4 closed",
+      "fault_id": "KH03R3C2-F01",
+      "green_accepted": true,
+      "name": "OLD_R3_PASS_ON_MISSING_W4_CLOSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "negative duration blocked",
+      "fault_id": "KH03R3C2-F02",
+      "green_accepted": true,
+      "name": "NEGATIVE_DURATION_F19_FAIL_CLOSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "NaN duration blocked",
+      "fault_id": "KH03R3C2-F03",
+      "green_accepted": true,
+      "name": "NAN_DURATION_F19_FAIL_CLOSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "cross-kind rejected",
+      "fault_id": "KH03R3C2-F04",
+      "green_accepted": true,
+      "name": "CROSS_KIND_SCIENCE_KEY_BLOCKED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "strict bool enforced",
+      "fault_id": "KH03R3C2-F05",
+      "green_accepted": true,
+      "name": "STRING_TRUE_CAN_CERTIFY_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "policy_status whitelist enforced",
+      "fault_id": "KH03R3C2-F06",
+      "green_accepted": true,
+      "name": "WHITELIST_POLICY_STATUS_ENFORCED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "empty means rejected",
+      "fault_id": "KH03R3C2-F07",
+      "green_accepted": true,
+      "name": "EMPTY_MEAN_MAP_WITH_PASS_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "pytest cap<=3 enforced",
+      "fault_id": "KH03R3C2-F08",
+      "green_accepted": true,
+      "name": "APPLIED_CAP_OVER_3_PYTEST_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "extrapolation blocked",
+      "fault_id": "KH03R3C2-F09",
+      "green_accepted": true,
+      "name": "FULL_SUITE_EXTRAPOLATION_REJECTED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "resource floor blocks",
+      "fault_id": "KH03R3C2-F10",
+      "green_accepted": true,
+      "name": "LOW_DISK_OR_RAM_BLOCKS_F19",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "waiver rejected",
+      "fault_id": "KH03R3C2-F11",
+      "green_accepted": true,
+      "name": "WAIVER_FLAG_FAILS_F19",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "low-disk never PASS",
+      "fault_id": "KH03R3C2-F12",
+      "green_accepted": true,
+      "name": "CAN_RUN_HEAVY_FALSE_NEVER_PASS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "_evaluate_r3_f19_policy_certification",
+      "diagnostic": "stale R3 identity refused",
+      "fault_id": "KH03R3C2-F13",
+      "green_accepted": true,
+      "name": "STALE_ARCHIVED_R3_NEW_CERT_REFUSED",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_r3_worker_policy_from_raw_for_verifier",
+      "diagnostic": "downgrade attack blocked",
+      "fault_id": "KH03R3C2-F14",
+      "green_accepted": true,
+      "name": "VERIFIER_REJECTS_VERSION_STRIP_DOWNGRADE",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_r3_worker_policy_from_raw_for_verifier",
+      "diagnostic": "forged speedup caught",
+      "fault_id": "KH03R3C2-F15",
+      "green_accepted": true,
+      "name": "VERIFIER_REJECTS_FORGED_TOP_SPEEDUP",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "anchored_function": "recompute_r3_worker_policy_from_raw_for_verifier",
+      "diagnostic": "raw duration edit caught",
+      "fault_id": "KH03R3C2-F16",
+      "green_accepted": true,
+      "name": "VERIFIER_INDEPENDENTLY_RECOMPUTES_RAW_DURATIONS",
+      "red_rejected": true,
+      "status": "PASS"
+    },
+    {
+      "control_name": "DECIMAL_RESIDUAL_BREACH_DETECTED",
+      "detail": "gross-fees!=net detected",
+      "fault_id": "KH03R4-F01",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "recompute_r4_decimal_economic_bridge"
+    },
+    {
+      "control_name": "OPEN_FEE_LEAK_INTO_CLOSED_REJECTED",
+      "detail": "open fee separation enforced",
+      "fault_id": "KH03R4-F02",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "recompute_r4_decimal_economic_bridge"
+    },
+    {
+      "control_name": "CLOSED_VS_FILLED_DENOMINATOR_SEPARATED",
+      "detail": "7/203 strictly distinct from 7/233",
+      "fault_id": "KH03R4-F03",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "build_r4_trade_population_conservation"
+    },
+    {
+      "control_name": "OPEN_CENSOR_RECODING_DETECTED",
+      "detail": "open/gap recoding rejected",
+      "fault_id": "KH03R4-F04",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "recompute_r4_decimal_economic_bridge"
+    },
+    {
+      "control_name": "DUPLICATE_OPPORTUNITY_ID_REJECTED",
+      "detail": "duplicate ID rejected",
+      "fault_id": "KH03R4-F05",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "recompute_r4_decimal_economic_bridge"
+    },
+    {
+      "control_name": "FEE_ONLY_EXECUTABLE_CLAIM_REJECTED",
+      "detail": "fee-only executable claim blocked",
+      "fault_id": "KH03R4-F06",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "FIXED_VS_DYNAMIC_CONFLATION_REJECTED",
+      "detail": "population mode conflation blocked",
+      "fault_id": "KH03R4-F07",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "UNMATCHED_ARM_RAW_PNL_RANKING_REJECTED",
+      "detail": "raw PnL ranking blocked",
+      "fault_id": "KH03R4-F08",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "PLANNED_CAP_AS_GUARANTEE_REJECTED",
+      "detail": "$2.50 guarantee claim blocked",
+      "fault_id": "KH03R4-F09",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "CAUSAL_CLAIM_INFLATION_REJECTED",
+      "detail": "causal claim inflation blocked",
+      "fault_id": "KH03R4-F10",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "FABRICATED_L1_ACCOUNT_FEE_REJECTED",
+      "detail": "fabricated L1/fee blocked",
+      "fault_id": "KH03R4-F11",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "DATA_READINESS_REGISTER_15_FIELDS_CHECKED",
+      "detail": "15-field x 8-domain schema enforced",
+      "fault_id": "KH03R4-F12",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "build_r4_data_gap_register"
+    },
+    {
+      "control_name": "FORGED_OOS_ALPHA_ACTIVATION_REJECTED",
+      "detail": "activation/OOS forgery blocked",
+      "fault_id": "KH03R4-F13",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_r4_no_claim_inflation"
+    },
+    {
+      "control_name": "MALFORMED_CLUSTER_CI_REJECTED",
+      "detail": "reversed/NaN CI rejected",
+      "fault_id": "KH03R4-F14",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "parse_kh03_cluster_ci_strict"
+    },
+    {
+      "control_name": "DISK_WAIVER_ENV_REJECTED_EXIT_2",
+      "detail": "disk waiver rejected exit=2",
+      "fault_id": "KH03R4-F15",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "tools/run_kh_03_r4_acceptance.py"
+    },
+    {
+      "control_name": "EMBARGO_240M_AND_ZERO_R1_CALLERS",
+      "detail": "future train leak detected; zero R1 callers",
+      "fault_id": "KH03R4-F16",
+      "green_clean_passed": true,
+      "red_negative_detected": true,
+      "status": "PASS",
+      "target_function": "validate_kh03_r2_fold_causality"
+    }
+  ],
+  "failed_controls": 0,
+  "inherited_c2_c1_r3_controls_count": 224,
+  "inherited_c2_c1_r3_failed_controls": 0,
+  "new_r4_controls_count": 16,
+  "new_r4_failed_controls": 0,
+  "passed_controls": 240,
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "total_controls": 240,
+  "unique_fault_ids": 240
+}

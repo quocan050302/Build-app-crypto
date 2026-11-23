@@ -1,0 +1,100 @@
+{
+  "artifact_canonical_sha256": "c291bf0ed74d4a76d6771ae95893fb1be003a865f751e42b0741a472fba949ce",
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "denominators": {
+    "n_closed": 203,
+    "n_losses": 196,
+    "n_scheduled": 233,
+    "n_wins": 7
+  },
+  "distributions_closed_trades": {
+    "adverse_open_gap_usd": {
+      "max": 0.0,
+      "min": 0.0,
+      "p25": 0.0,
+      "p50": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+    },
+    "fee_share_of_planned_risk": {
+      "max": 0.8267,
+      "min": 0.1998,
+      "p25": 0.4342,
+      "p50": 0.5611,
+      "p75": 0.6823,
+      "p90": 0.7548
+    },
+    "gross_rr": {
+      "max": 67.6795,
+      "min": 2.9651,
+      "p25": 6.3333,
+      "p50": 8.9172,
+      "p75": 15.949,
+      "p90": 26.75
+    },
+    "hold_minutes_closed": {
+      "max": 174.0,
+      "min": 1.0,
+      "p25": 5.0,
+      "p50": 15.0,
+      "p75": 47.0,
+      "p90": 92.0
+    },
+    "losses_post_hoc_20bar_mfe_in_sl_units": {
+      "max": 9.0449,
+      "min": 0.0,
+      "p25": 0.2371,
+      "p50": 0.8165,
+      "p75": 1.8255,
+      "p90": 3.0512
+    },
+    "realized_loss_abs_usd": {
+      "max": 2.5574,
+      "min": 2.3987,
+      "p25": 2.4972,
+      "p50": 2.5172,
+      "p75": 2.5311,
+      "p90": 2.5423
+    },
+    "stop_dist_usd": {
+      "max": 13.06,
+      "min": 0.5,
+      "p25": 1.34,
+      "p50": 2.38,
+      "p75": 4.01,
+      "p90": 5.88
+    },
+    "tp_dist_usd": {
+      "max": 64.24,
+      "min": 11.6,
+      "p25": 17.35,
+      "p50": 24.05,
+      "p75": 33.15,
+      "p90": 42.02
+    }
+  },
+  "epistemic_label": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM",
+  "exit_type_breakdown": {
+    "DATA_GAP_UNRESOLVED": 2,
+    "LOSS": 196,
+    "OPEN_AT_HORIZON": 28,
+    "WIN": 7
+  },
+  "non_exclusive_overlap_counts": {
+    "fees_ge_50pct_of_planned_risk_over_closed": "127/203",
+    "losses_20bar_mfe_ge_1p0x_sl_before_stopout": "86/196",
+    "losses_20bar_mfe_ge_1p5x_sl_before_stopout": "64/196",
+    "realized_losses_gt_2p50_cap": "139/196",
+    "same_bar_tie_conservative_losses": 0,
+    "warning": "Non-exclusive descriptive overlap cohorts over closed trades; NEVER sum percentages to 100%."
+  },
+  "planned_cap_is_physical_guarantee": false,
+  "planned_net_risk_cap_usd": 2.5,
+  "r3_attribution_cross_check_match": true,
+  "realized_tail_loss_disclosure": "Planned risk <= 2.50 USD is a pre-entry stop estimate, NOT a physical max-loss guarantee. Observed 139/196 closed losses exceeded 2.50 USD (median 2.5172 USD, max 2.5574 USD) due to next-bar open adverse gaps, spread/slippage, and taker fees.",
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6"
+}

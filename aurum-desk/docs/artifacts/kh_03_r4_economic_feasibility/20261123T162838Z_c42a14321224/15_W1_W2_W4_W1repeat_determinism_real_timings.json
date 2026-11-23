@@ -1,0 +1,271 @@
+{
+  "artifact_canonical_sha256": "ce55ca290e65bf385bd193e945d29695c9eb55db1543a2641439b0d92e5ea248",
+  "chronological_1pos_replay_parallelism_status": "NOT_PARALLELIZABLE_SAFELY_SEQUENTIAL_W1_ONLY",
+  "full_suite_actual_max_workers_applied": 3,
+  "full_suite_speedup_extrapolated": false,
+  "pytest_controlled_subset_raw": {
+    "all_4_runs_identical": true,
+    "all_executed_runs_identical": true,
+    "artifact_canonical_sha256": "2c5089d808bbf984941c7cc68a01b3cce7e91c867cf137489fc2c5389e74fa2c",
+    "benchmark_kind": "pytest_controlled_subset",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "files_count": 10,
+    "measured_speedup_w2_vs_w1": 1.586,
+    "measured_speedup_w4_vs_w1": 2.066,
+    "r2_reference_timings_seconds": {
+      "w=1": 59.733,
+      "w=1_repeat": 58.891,
+      "w=2": 49.024,
+      "w=4": 43.088
+    },
+    "run_id": "20261123T162838Z_c42a14321224",
+    "runs": [
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 29.556,
+        "worker_pids": [
+          56698
+        ],
+        "workers": 1
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 18.631,
+        "worker_pids": [
+          56733,
+          56734
+        ],
+        "workers": 2
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 14.305,
+        "worker_pids": [
+          56751,
+          56752,
+          56753,
+          56754
+        ],
+        "workers": 4
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 28.693,
+        "worker_pids": [
+          56791
+        ],
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r4_economic_feasibility_v1",
+    "spec_version": "KH-03.R4-v1.0",
+    "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+    "status": "PASS",
+    "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+    "w4_status": "EXECUTED"
+  },
+  "pytest_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 29.556,
+      "w=1_repeat": 28.693,
+      "w=2": 18.631,
+      "w=4": 14.305
+    },
+    "applied_worker_count": 3,
+    "applied_worker_count_is_benchmark_measured": false,
+    "applied_worker_mode": "w=3_SAFE_CAP_NOT_BENCHMARK_MEASURED",
+    "benchmark_kind": "pytest_controlled_subset",
+    "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+    "borderline_or_noisy_gain_warning": false,
+    "can_certify": true,
+    "canonical_semantic_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 3,
+      "full_suite_safe_worker_cap": 3,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 3
+    },
+    "duration_source_key": "wall_clock_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": true,
+    "gain_exceeds_w1_repeat_noise": true,
+    "gain_vs_w1_pct": 0.516,
+    "input_doc_sha256": "0a84e1346e9f5a580222d99005a7767f02c2d3e1ff91a649be627365ec5d03cd",
+    "mean_wall_sec_by_mode": {
+      "w=1": 29.556,
+      "w=2": 18.631,
+      "w=4": 14.305
+    },
+    "measured_fastest_mode": "w=4",
+    "measured_fastest_workers": 4,
+    "measured_speedup_w2_vs_w1": 1.586,
+    "measured_speedup_w4_vs_w1": 2.066,
+    "measured_speedup_w4_vs_w1_mean": 2.036,
+    "median_wall_sec_by_mode": {
+      "w=1": 29.556,
+      "w=2": 18.631,
+      "w=4": 14.305
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=4",
+    "policy_decision_sha256": "f60698896e1653a81004707795f377b3bbb841827dfb1300f5c965a1d11fefdb",
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "policy_recommended_mode_after_gain_rule": "w=4",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 3,
+    "sample_size": 155,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=4 fastest in measured scope (51.60% faster than w=1, exceeding 5.00% threshold and 3.01% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+    "violations": [],
+    "w1_repeat_delta_sec": -0.863,
+    "w1_repeat_drift_vs_w1_pct": 0.0292,
+    "w1_repeat_variance_pct": 0.0301,
+    "w1_repeat_wall_sec": 28.693
+  },
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "science_slice_8000_raw": {
+    "all_4_runs_identical": true,
+    "artifact_canonical_sha256": "c8598947a46fbb8ea3b41e6c6985056a5cc6e060d66895349af7669db7fbe92e",
+    "benchmark_kind": "r2_science_slice",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "evaluated_bar_range": [
+      30,
+      8030
+    ],
+    "measured_optimal_worker_count_for_slice": 2,
+    "measured_speedup_w2_vs_w1": 1.282,
+    "measured_speedup_w4_vs_w1": 1.105,
+    "run_id": "20261123T162838Z_c42a14321224",
+    "runs": [
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1",
+        "rows_count": 12062,
+        "wall_seconds": 1.296,
+        "workers": 1
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 2,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=2",
+        "rows_count": 12062,
+        "wall_seconds": 1.011,
+        "workers": 2
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 4,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=4",
+        "rows_count": 12062,
+        "wall_seconds": 1.173,
+        "workers": 4
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1_repeat",
+        "rows_count": 12062,
+        "wall_seconds": 1.078,
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r4_economic_feasibility_v1",
+    "spec_version": "KH-03.R4-v1.0",
+    "status": "PASS",
+    "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6"
+  },
+  "science_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 1.296,
+      "w=1_repeat": 1.078,
+      "w=2": 1.011,
+      "w=4": 1.173
+    },
+    "applied_worker_count": 2,
+    "applied_worker_count_is_benchmark_measured": true,
+    "applied_worker_mode": "w=2",
+    "benchmark_kind": "r2_science_slice",
+    "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+    "borderline_or_noisy_gain_warning": false,
+    "can_certify": true,
+    "canonical_semantic_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 4,
+      "full_suite_safe_worker_cap": 4,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 4
+    },
+    "duration_source_key": "wall_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": true,
+    "gain_exceeds_w1_repeat_noise": true,
+    "gain_vs_w1_pct": 0.2199,
+    "input_doc_sha256": "eb2ecb06627953ee6344ba8495744ec53307f29f56a8a265826d8de0f67dc310",
+    "mean_wall_sec_by_mode": {
+      "w=1": 1.296,
+      "w=2": 1.011,
+      "w=4": 1.173
+    },
+    "measured_fastest_mode": "w=2",
+    "measured_fastest_workers": 2,
+    "measured_speedup_w2_vs_w1": 1.282,
+    "measured_speedup_w4_vs_w1": 1.105,
+    "measured_speedup_w4_vs_w1_mean": 1.012,
+    "median_wall_sec_by_mode": {
+      "w=1": 1.296,
+      "w=2": 1.011,
+      "w=4": 1.173
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=2",
+    "policy_decision_sha256": "2d0e1c1688c2c0aea765038be15dfa839ce6cb7e360a9b0d0e25ade6eafa14ad",
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "policy_recommended_mode_after_gain_rule": "w=2",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 4,
+    "sample_size": 12062,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=2 fastest in measured scope (21.99% faster than w=1, exceeding 5.00% threshold and 20.22% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "HIGH_TIMING_NOISE_WARNING",
+    "violations": [],
+    "w1_repeat_delta_sec": -0.218,
+    "w1_repeat_drift_vs_w1_pct": 0.1682,
+    "w1_repeat_variance_pct": 0.2022,
+    "w1_repeat_wall_sec": 1.078
+  },
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6"
+}

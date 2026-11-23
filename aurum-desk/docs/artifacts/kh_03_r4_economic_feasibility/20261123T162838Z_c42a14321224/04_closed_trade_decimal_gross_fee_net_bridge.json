@@ -1,0 +1,90 @@
+{
+  "arithmetic_mode": "EXACT_DECIMAL_QUANTIZED_AT_REPORT_BOUNDARY_ONLY",
+  "artifact_canonical_sha256": "079fcd8f25ce5129fc77569b3b761de7926f7842c68372613c3189e85bb0e39c",
+  "closed_trades_decimal_bridge_usd": {
+    "aggregate_gross_minus_fees_minus_net_residual_usd": 0.0,
+    "entry_fees_closed_usd": 138.3223,
+    "exit_fees_closed_usd": 138.3354,
+    "expectancy_r": -0.8806,
+    "gross_pnl_closed_exact": "-164.9541",
+    "gross_pnl_closed_usd": -164.9541,
+    "losses_subtotal": {
+      "count": 196,
+      "fees_usd": 267.173,
+      "gross_pnl_usd": -224.8919,
+      "net_pnl_usd": -492.0649
+    },
+    "max_per_trade_entry_plus_exit_minus_total_fee_residual_usd": 0.0,
+    "max_per_trade_gross_minus_fees_minus_net_residual_usd": 0.0,
+    "net_pnl_closed_exact": "-441.6118",
+    "net_pnl_closed_usd": -441.6118,
+    "ny_day_cluster_95ci_r_parsed": {
+      "available": true,
+      "diagnostic": "Entire 95% CI strictly negative [-0.9761, -0.7712] (upper < 0; does NOT cross zero).",
+      "label": "baseline_1x_closed_ny_day_95ci_r",
+      "lower": -0.9761,
+      "schema_valid": true,
+      "status": "CI_VALID_NEGATIVE",
+      "strictly_positive": false,
+      "upper": -0.7712
+    },
+    "ny_day_cluster_95ci_r_raw": [
+      -0.9761,
+      -0.7712
+    ],
+    "total_closed_fees_exact": "276.6577",
+    "total_closed_fees_usd": 276.6577,
+    "wins_subtotal": {
+      "count": 7,
+      "fees_usd": 9.4847,
+      "gross_pnl_usd": 59.9378,
+      "net_pnl_usd": 50.4531
+    }
+  },
+  "counts": {
+    "n_closed": 203,
+    "n_effective_ny_days_closed": 17,
+    "n_gap_unresolved": 2,
+    "n_losses": 196,
+    "n_open_censored": 28,
+    "n_scheduled": 233,
+    "n_unfilled": 0,
+    "n_wins": 7
+  },
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "gross_is_strictly_negative_before_fees": true,
+  "historical_anchor_drifts": [],
+  "historical_r3_c2_anchor_exact_match": true,
+  "linked_forensic_ledger": {
+    "canonical_rows_sha256": "31759f84b075520949707acb1f61e6b60b277a02a86ecdaeee3ce6e7c69de217",
+    "episode_uids_sha256": "7c1552b86a62a2f00be48b7e32e04747c759c971bfefff75f61d5dd40a0af6fd",
+    "ledger_file_sha256": "11b15d2ce6385ced0ce8a3c18ff053a59a204a2da0cde77cd52b8c43f965c344",
+    "ledger_filename": "forensic_closed_open_gap_ledger_1x.jsonl.gz",
+    "ledger_rel_path": "logs/forensic_closed_open_gap_ledger_1x.jsonl.gz",
+    "max_gross_fee_net_residual_usd": 0.0,
+    "overlap_violations": 0,
+    "total_episode_rows": 233
+  },
+  "open_and_gap_fee_separation_usd": {
+    "all_nonclosed_filled_30_accrued_entry_fees_usd": 16.3231,
+    "data_gap_unresolved_2_accrued_entry_fees_usd": 1.608,
+    "entry_fee_double_counted": false,
+    "open_at_horizon_28_accrued_entry_fees_usd": 14.7151,
+    "open_fees_excluded_from_closed_net_pnl": true,
+    "reconciliation_note": "R3 diagnostic 07 reports open-at-horizon accrued entry fees only (14.7151 USD across 28 open trades), whereas R2/R3 replay summary reports all non-closed filled entry fees (16.3231 USD = 14.7151 + 1.6080 from 2 data-gap trades). Both are audited separately here and strictly excluded from closed-trade fees (276.6577 USD)."
+  },
+  "planned_risk_cap_tail_check": {
+    "max_realized_single_loss_usd": 2.5574,
+    "planned_cap_is_physical_guarantee": false,
+    "planned_net_risk_cap_usd": 2.5,
+    "realized_losses_exceeding_2p50_count": 139
+  },
+  "residual_tolerance_usd": "0.0010",
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "source_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "violations": []
+}

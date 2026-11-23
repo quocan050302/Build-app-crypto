@@ -1,0 +1,72 @@
+{
+  "ACTIVATION_READY": "NO",
+  "BINARY_OWNER_RECOMMENDATION": "STOP_STRATEGY_TUNING_ON_REUSED_DEV_AND_DECIDE_PROSPECTIVE_DATA_AUTHORIZATION",
+  "DATA_READINESS": "INCOMPLETE",
+  "DECISION": "NO_GO_DIAGNOSIS_ONLY_STOP_REUSED_DEV_TUNING",
+  "DIAGNOSIS_VERDICT": "DIAGNOSIS_ONLY_COMPLETE",
+  "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+  "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "artifact_canonical_sha256": "d06de7cfa117f5942427d5f70f3aa6f7dd7f1e8d1c979f17fa4c28d45a9d5a1d",
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "decision_rules_evaluated": [
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR01_HAS_PREREGISTERED_PASSING_DEV_CANDIDATE"
+    },
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR02_BASELINE_GROSS_POSITIVE_OR_CONFIRMED_CAUSAL_MECHANISM"
+    },
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR03_OBSERVED_L1_BBO_AVAILABLE"
+    },
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR04_ACCOUNT_EFFECTIVE_FEE_LOCALLY_VERIFIED"
+    },
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR05_FUNDING_COST_MODELED"
+    },
+    {
+      "passed": false,
+      "required_for_kh04": true,
+      "rule_id": "DR06_SEALED_UNTOUCHED_PROSPECTIVE_OOS_AVAILABLE"
+    }
+  ],
+  "fail_reasons": [
+    "ZERO_PASSING_DEV_CANDIDATES_ALL_ARMS_STRICTLY_NEGATIVE_CI",
+    "BASELINE_GROSS_PNL_STRICTLY_NEGATIVE_BEFORE_FEES_FEE_REDUCTION_ALONE_INSUFFICIENT",
+    "MISSING_OBSERVED_L1_BID_ASK_SPREAD_DATA",
+    "ACCOUNT_EFFECTIVE_FEE_TIER_UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "PERPETUAL_FUNDING_COST_EXCLUDED_UNMODELED",
+    "FRESH_UNTOUCHED_PROSPECTIVE_OOS_WINDOW_ABSENT"
+  ],
+  "owner_next_actions_prerequisites": [
+    "1. Do NOT tune SL/TP thresholds or add E4/E5 on the reused Oct-2026 DEV window (severe multiple-testing / overfitting risk with only 17 NY days).",
+    "2. Confirm whether to pause strategy search completely OR authorize a new public prospective market-data collection phase (M1/M5/15m/1H/4H/1D OHLCV + L1 BBO + public funding rates + exchange contract spec), sealed by SHA-256.",
+    "3. Provide a redacted confirmation of effective account maker/taker fee tier (NO API keys, secrets, or passwords).",
+    "4. Keep any newly collected OOS slice strictly in zero-access SHA-256 escrow; never inspect or tune on it before a separately designed hypothesis passes on an independent development sample.",
+    "5. Keep PRODUCTION=OFF, LIVE=OFF, PAPER=OFF, AUTO=OFF, ACTIVATION_READY=NO."
+  ],
+  "private_api_or_credentials_requested": false,
+  "run_id": "20261123T162838Z_c42a14321224",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6"
+}

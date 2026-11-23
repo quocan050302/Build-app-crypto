@@ -1,0 +1,120 @@
+{
+  "artifact_canonical_sha256": "130e8fe3e747be3127b1b561c9bd1dac25969184441472c091334bf6d4045aa0",
+  "baseline_closed_fees_usd": 276.6577,
+  "baseline_gross_pnl_usd": -164.9541,
+  "baseline_net_pnl_usd": -441.6118,
+  "core_conclusion": "Baseline closed gross P&L on matched 203 fills is already -164.9541 USD (< 0) BEFORE any fees. Therefore, reducing or even zeroing modeled closed fees (276.6577 USD) CANNOT make the existing baseline fills profitable. Fees amplify an already-negative gross payoff; zero-fee repricing is purely descriptive and NOT executable alpha.",
+  "counterfactual_zero_fee_label": "COUNTERFACTUAL_ZERO_FEE_DESCRIPTIVE",
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "dynamic_full_rerisk_null_closed_counts_by_scenario": {
+    "1X_BASE_0p0004": 203,
+    "2X_ALL_COST_0p0004": 111,
+    "2X_ALL_COST_0p0006": 46,
+    "3X_ALL_COST_0p0004": 45,
+    "3X_ALL_COST_0p0006": 14,
+    "FEE_ONLY_0p0006": 138
+  },
+  "dynamic_populations_differ_across_cost_regimes": true,
+  "dynamic_vs_fixed_fill_populations_separated": true,
+  "epistemic_label": "NON_EXECUTABLE_DESCRIPTIVE_ONLY",
+  "fee_only_fixed_fill_sweeps": {
+    "BASELINE_1X_TAKER_0p0004": {
+      "assumed_taker_fee_rate": 0.0004,
+      "counterfactual_closed_fees_usd": 276.6577,
+      "counterfactual_mean_r": -0.8805,
+      "counterfactual_net_pnl_usd": -441.6118,
+      "executable_strategy": false,
+      "fee_multiplier_vs_1x_base": 1.0,
+      "gross_pnl_usd": -164.9541,
+      "is_alpha_claim": false,
+      "matched_closed_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "matched_closed_trades_count": 203,
+      "population_mode": "FIXED_FILLS_DESCRIPTIVE_REPRICING",
+      "profitable_under_this_descriptive_fee": false
+    },
+    "COUNTERFACTUAL_ZERO_FEE_DESCRIPTIVE": {
+      "assumed_taker_fee_rate": 0.0,
+      "counterfactual_closed_fees_usd": 0.0,
+      "counterfactual_mean_r": -0.3291,
+      "counterfactual_net_pnl_usd": -164.9541,
+      "executable_strategy": false,
+      "fee_multiplier_vs_1x_base": 0.0,
+      "gross_pnl_usd": -164.9541,
+      "is_alpha_claim": false,
+      "matched_closed_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "matched_closed_trades_count": 203,
+      "population_mode": "FIXED_FILLS_DESCRIPTIVE_REPRICING",
+      "profitable_under_this_descriptive_fee": false
+    },
+    "DESCRIPTIVE_HALF_TAKER_0p0002": {
+      "assumed_taker_fee_rate": 0.0002,
+      "counterfactual_closed_fees_usd": 138.3289,
+      "counterfactual_mean_r": -0.6048,
+      "counterfactual_net_pnl_usd": -303.283,
+      "executable_strategy": false,
+      "fee_multiplier_vs_1x_base": 0.5,
+      "gross_pnl_usd": -164.9541,
+      "is_alpha_claim": false,
+      "matched_closed_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "matched_closed_trades_count": 203,
+      "population_mode": "FIXED_FILLS_DESCRIPTIVE_REPRICING",
+      "profitable_under_this_descriptive_fee": false
+    },
+    "STRESS_TAKER_0p0006_FIXED_FILLS": {
+      "assumed_taker_fee_rate": 0.0006,
+      "counterfactual_closed_fees_usd": 414.9866,
+      "counterfactual_mean_r": -1.1563,
+      "counterfactual_net_pnl_usd": -579.9407,
+      "executable_strategy": false,
+      "fee_multiplier_vs_1x_base": 1.5,
+      "gross_pnl_usd": -164.9541,
+      "is_alpha_claim": false,
+      "matched_closed_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "matched_closed_trades_count": 203,
+      "population_mode": "FIXED_FILLS_DESCRIPTIVE_REPRICING",
+      "profitable_under_this_descriptive_fee": false
+    }
+  },
+  "fee_reduction_alone_cannot_cure_baseline_losses": true,
+  "is_executable_strategy": false,
+  "is_proven_edge": false,
+  "matched_closed_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+  "matched_closed_trades_count": 203,
+  "population_mode": "FIXED_FILLS_DESCRIPTIVE_REPRICING",
+  "r3_fixed_fills_reference_summary": {
+    "KH03_R3_E1_LOW_FRICTION_STOP_FLOOR": {
+      "fee_1x_0p0004_usd": 52.2986,
+      "fixed_1x_closed_count": 58,
+      "gross_pnl_usd": -65.7135,
+      "mode": "FIXED_FILLS_DESCRIPTIVE_ONLY_NOT_DYNAMIC_RERISK",
+      "net_1x_usd": -118.0121,
+      "net_fee_scaled_1p5x_0p0006_usd": -144.1614,
+      "net_fee_scaled_2x_0p0008_usd": -170.3107
+    },
+    "KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION": {
+      "fee_1x_0p0004_usd": 165.3988,
+      "fixed_1x_closed_count": 131,
+      "gross_pnl_usd": -108.9783,
+      "mode": "FIXED_FILLS_DESCRIPTIVE_ONLY_NOT_DYNAMIC_RERISK",
+      "net_1x_usd": -274.3771,
+      "net_fee_scaled_1p5x_0p0006_usd": -357.0765,
+      "net_fee_scaled_2x_0p0008_usd": -439.7759
+    },
+    "KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT": {
+      "fee_1x_0p0004_usd": 280.5378,
+      "fixed_1x_closed_count": 206,
+      "gross_pnl_usd": -158.5045,
+      "mode": "FIXED_FILLS_DESCRIPTIVE_ONLY_NOT_DYNAMIC_RERISK",
+      "net_1x_usd": -439.0423,
+      "net_fee_scaled_1p5x_0p0006_usd": -579.3112,
+      "net_fee_scaled_2x_0p0008_usd": -719.5801
+    }
+  },
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "source_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "zero_fee_counterfactual_net_pnl_usd": -164.9541
+}

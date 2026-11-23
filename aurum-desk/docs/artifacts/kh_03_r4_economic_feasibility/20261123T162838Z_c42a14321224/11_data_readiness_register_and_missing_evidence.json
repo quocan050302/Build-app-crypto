@@ -1,0 +1,220 @@
+{
+  "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "DATA_READINESS_REGISTER": [
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume zero weekend/maintenance gaps or intrabar tick ordering inside a 1m bar.",
+      "confirmation_method": "SHA-256 verification against canonical sealed hash + timestamp monotonicity & gap audit.",
+      "cost_privacy_risk": "NONE_LOCAL_PUBLIC_HISTORICAL_ARCHIVE",
+      "currently_observed": true,
+      "evidence_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "freshness": "HISTORICAL_SEALED_REUSED_DEV (2026-10-08T05:38:00Z..2026-10-28T14:00:00Z)",
+      "granularity": "1m (22,376 bars), 5m (31,609), 15m (15,090), 1H (3,863), 4H (965), 1D (181); UTC epoch ms",
+      "minimum_coverage_spec": "Continuous UTC-aligned M1/M5/15m/1H/4H/1D OHLCV with explicit gap ledger (current M1 missing-bar ratio including weekends ~23.64%).",
+      "name": "historical_m1_m5_h1_raw_ohlcv_and_gaps",
+      "observed_or_modeled_or_missing": "OBSERVED_WITH_DISCLOSED_GAPS",
+      "possible_owner_action": "Retain sealed read-only for DEV regression; authorize separate forward prospective collection for any future OOS window.",
+      "promotion_gates_dependent_on_field": [
+        "G02_IMMUTABLE_DATASET_AND_PRIOR_SEALED_SHA",
+        "G06_CENSOR_GAP_STATUS",
+        "G22_A1_SI8_ADAPTER_D4_PARITY"
+      ],
+      "source_existing_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "why_required": "Core deterministic price series for as-of MTF structural level detection and chronological 1-position trade replay."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume constant $0.20 spread or treat H3 resize/fill timing as executable without observed L1 quotes.",
+      "confirmation_method": "Independent SHA-256 check of raw L1 quote archive + timestamp coverage >=99% of decision/fill bars.",
+      "cost_privacy_risk": "LOW_PUBLIC_MARKET_FEED_NO_ACCOUNT_SECRETS_REQUIRED",
+      "currently_observed": false,
+      "evidence_sha256": null,
+      "freshness": "NOT_AVAILABLE",
+      "granularity": "Best bid/ask L1 quotes synchronized to decision & next-bar open timestamps (<=1s cadence)",
+      "minimum_coverage_spec": "Prospective L1 bid/ask stream covering full prospective evaluation window across Asia/London/NY sessions.",
+      "name": "observed_l1_bid_ask_and_spread_dynamics",
+      "observed_or_modeled_or_missing": "MISSING_CURRENTLY_MODELED_0p20_USD",
+      "possible_owner_action": "Owner authorizes public exchange/vendor L1 BBO recorder in an isolated collection run with SHA-256 sealing.",
+      "promotion_gates_dependent_on_field": [
+        "G17_DATA_READINESS_REGISTER_TRUE_UNKNOWN",
+        "G18_NO_FABRICATED_ACCOUNT_FEES_L1_FUNDING",
+        "KH04_EXECUTION_FIDELITY"
+      ],
+      "source_existing_path": null,
+      "why_required": "Measures true decision-time and fill-time bid/ask spread and liquidity across sessions instead of constant $0.20 modeled spread."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume VIP/maker discounts, zero fees, or that modeled 0.04% matches owner's actual account.",
+      "confirmation_method": "Owner-signed redacted fee schedule JSON + SHA-256 receipt (no live private API polling by agent).",
+      "cost_privacy_risk": "MEDIUM_ACCOUNT_METADATA_NEVER_COMMIT_API_KEYS_OR_CREDENTIALS",
+      "currently_observed": false,
+      "evidence_sha256": null,
+      "freshness": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "granularity": "Contract-specific (XAUUSDT perp) maker/taker schedule with effective date, VIP tier, and region/rebate terms",
+      "minimum_coverage_spec": "Exact maker/taker rates for target symbol/contract/region with effective timestamp.",
+      "name": "exchange_account_effective_fee_tier",
+      "observed_or_modeled_or_missing": "MISSING_UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "possible_owner_action": "Owner exports redacted fee-tier confirmation (no API keys/secrets) into an owner-approved config artifact.",
+      "promotion_gates_dependent_on_field": [
+        "G17_DATA_READINESS_REGISTER_TRUE_UNKNOWN",
+        "G18_NO_FABRICATED_ACCOUNT_FEES_L1_FUNDING",
+        "KH04_COST_VERIFICATION"
+      ],
+      "source_existing_path": null,
+      "why_required": "Modeled taker fee (0.04% = 4 bps) consumes median ~56% of $2.50 planned risk; actual fee schedule directly scales realized cost drag."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume $0.10 constant slippage, zero partial fills, or 100% maker execution on stop/market entries.",
+      "confirmation_method": "Exchange instrument metadata SHA-256 + empirical slippage distribution vs modeled $0.10.",
+      "cost_privacy_risk": "LOW_TO_MEDIUM_PUBLIC_SPECS_AND_REDACTED_FILL_SAMPLES",
+      "currently_observed": false,
+      "evidence_sha256": null,
+      "freshness": "NOT_AVAILABLE",
+      "granularity": "Per-fill execution receipts + static exchange instrument metadata (tickSize, stepSize, minNotional, maxLeverage)",
+      "minimum_coverage_spec": "Full contract rules for target symbol + observed slippage quantiles across volatility regimes.",
+      "name": "observed_execution_slippage_maker_taker_and_exchange_rules",
+      "observed_or_modeled_or_missing": "MISSING_CURRENTLY_MODELED_0p10_SLIPPAGE",
+      "possible_owner_action": "Owner supplies public exchangeInfo contract spec snapshot and, only after a valid DEV candidate exists, bounded paper/micro-fill slippage calibration.",
+      "promotion_gates_dependent_on_field": [
+        "G12_REALIZED_GT_PLANNED_RISK_DISCLOSED",
+        "G18_NO_FABRICATED_ACCOUNT_FEES_L1_FUNDING",
+        "KH04_EXECUTION_FIDELITY"
+      ],
+      "source_existing_path": null,
+      "why_required": "Verifies true fill slippage vs modeled $0.10, real maker vs taker fill mix, leverage caps, tick size, lot step, and mark/last price source."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume zero funding drag or net-neutral funding across directional bias.",
+      "confirmation_method": "SHA-256 sealed funding rate JSONL reconciled against holding intervals crossing funding UTC boundaries.",
+      "cost_privacy_risk": "NONE_PUBLIC_EXCHANGE_FUNDING_HISTORY",
+      "currently_observed": false,
+      "evidence_sha256": null,
+      "freshness": "EXCLUDED_UNMODELED",
+      "granularity": "8-hour (or contract-native) historical funding rate timestamps + mark prices",
+      "minimum_coverage_spec": "100% of funding settlement timestamps spanning DEV and prospective OOS windows.",
+      "name": "perpetual_funding_and_carrying_fee_history",
+      "observed_or_modeled_or_missing": "MISSING_EXCLUDED_UNMODELED",
+      "possible_owner_action": "Owner authorizes downloading public historical funding rate series aligned with OHLCV timestamps.",
+      "promotion_gates_dependent_on_field": [
+        "G17_DATA_READINESS_REGISTER_TRUE_UNKNOWN",
+        "G18_NO_FABRICATED_ACCOUNT_FEES_L1_FUNDING"
+      ],
+      "source_existing_path": null,
+      "why_required": "Multi-hour positions crossing 8h perpetual funding timestamps incur funding credits/debits currently omitted from net P&L."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume REUSED DEV fold performance transfers out-of-sample, or treat inspected newly appended data as fresh OOS.",
+      "confirmation_method": "Escrow SHA-256 seal + zero-access audit ledger confirming zero reads prior to frozen preregistered OOS run.",
+      "cost_privacy_risk": "NONE_PUBLIC_MARKET_DATA_WITH_STRICT_ESCROW_ACCESS_CONTROL",
+      "currently_observed": false,
+      "evidence_sha256": null,
+      "freshness": "ABSENT_ZERO_UNTOUCHED_RECORDS",
+      "granularity": "Synchronized prospective M1/M5/15m/1H/4H/1D OHLCV + L1 BBO + funding after preregistration seal date",
+      "minimum_coverage_spec": ">=30 independent NY trading days (>=100 closed trades expected) strictly post-dating strategy freeze.",
+      "name": "fresh_untouched_prospective_oos_window",
+      "observed_or_modeled_or_missing": "MISSING_ABSENT",
+      "possible_owner_action": "Only AFTER a valid DEV candidate exists (currently NONE), authorize sealed prospective collection and escrow lock until single-shot OOS gate.",
+      "promotion_gates_dependent_on_field": [
+        "G19_ZERO_FRESH_OOS_AND_NO_NEW_ALPHA",
+        "KH04_OOS_EVALUATION"
+      ],
+      "source_existing_path": null,
+      "why_required": "Existing DEV window has been reused across KH-02, KH-03.R1/R2/R3/C1/C2/R4; valid statistical validation requires unseen future data."
+    },
+    {
+      "blocked_if_absent": false,
+      "cannot_assume": "Cannot assume 203 trades equal 203 independent trials or generalize 17 NY days to all gold volatility regimes.",
+      "confirmation_method": "Clustered NY-day block bootstrap CI + effective_ny_days & episode counts audited by independent verifier.",
+      "cost_privacy_risk": "NONE_DERIVED_FROM_SEALED_LOCAL_OHLCV",
+      "currently_observed": true,
+      "evidence_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "freshness": "HISTORICAL_SEALED_REUSED_DEV_17_NY_DAYS_ONLY",
+      "granularity": "Per-episode setup_episode_id, NY trading date, Asia/London/NY session bucket",
+      "minimum_coverage_spec": ">=60 NY trading days spanning distinct volatility/macro regimes for future research design.",
+      "name": "correlated_opportunity_episodes_and_session_calendar",
+      "observed_or_modeled_or_missing": "OBSERVED_IN_DEV_INSUFFICIENT_DURATION_FOR_REGIME_GENERALIZATION",
+      "possible_owner_action": "Acquire multi-month prospective/non-overlapping regimes before attempting any statistical promotion.",
+      "promotion_gates_dependent_on_field": [
+        "G06_CENSOR_GAP_STATUS",
+        "G11_E1_E2_E3_NO_POPULATION_CONFLATION"
+      ],
+      "source_existing_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "why_required": "203 closed baseline trades cluster into only 17 NY days under 1-position lock-out (1,090 skipped busy); effective sample size is much smaller than trade count."
+    },
+    {
+      "blocked_if_absent": true,
+      "cannot_assume": "Cannot assume OHLCV bar-level stop simulation captures live liquidation cascades, wick spikes, or exchange halt gaps.",
+      "confirmation_method": "Synthetic LONG/SHORT tie/TP/gap controls + future exchange rule documentation.",
+      "cost_privacy_risk": "NONE_LOCAL_SIMULATOR_CODE",
+      "currently_observed": true,
+      "evidence_sha256": "a5b3591f3e6ea6340619e1a51d6fcc96da4033d00e17709085c35a326ec32f01",
+      "freshness": "CODE_OBSERVED_LIVE_EXCHANGE_MATCH_UNVERIFIED",
+      "granularity": "Bar-level OHLCV conservative tie + next-bar open gap rule; live orderbook trigger semantics unverified",
+      "minimum_coverage_spec": "Explicit exchange stop-trigger spec (mark vs last) + gap handling reconciliation.",
+      "name": "order_execution_semantics_and_market_closure_gaps",
+      "observed_or_modeled_or_missing": "MODELED_IN_SIMULATOR_LIVE_EXCHANGE_UNOBSERVED",
+      "possible_owner_action": "Confirm target exchange stop-market trigger type (mark vs last price) and maintenance halt handling in future spec.",
+      "promotion_gates_dependent_on_field": [
+        "G06_CENSOR_GAP_STATUS",
+        "G14_NEGATIVE_CONTROL_AND_PLACEBO",
+        "G20_NO_MARKET_ORDER_ALL_ACTIVATION_OFF"
+      ],
+      "source_existing_path": "aurum-desk/backend/services/v17_9_2_structural_stop_intelligence.py",
+      "why_required": "Documents exact stop-trigger vs market-gap execution, same-bar tie conservatism, weekend/maintenance halt behavior, and 180m horizon censoring."
+    }
+  ],
+  "DATA_READINESS_VERDICT": "INCOMPLETE",
+  "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+  "artifact_canonical_sha256": "738455b20d41ec56b3b88c69e673910dcc36dc1113d983bd16c3def27d6398e6",
+  "credentials_or_api_keys_requested": false,
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "funding_cost_status": "EXCLUDED_UNMODELED",
+  "missing_or_unverified_domains_count": 5,
+  "observed_domains_count": 3,
+  "observed_l1_bbo_available": false,
+  "private_api_called": false,
+  "readiness_roadmap_no_fabricated_costs_or_timelines": {
+    "A_auditable_from_current_local_files_only": [
+      "Full Decimal gross/fee/net reconciliation across 6 modeled cost scenarios and NULL/E1/E2/E3 on REUSED DEV.",
+      "Exact stage conservation (22,376 M1 bars -> 1,323 eligible -> 233 scheduled -> 203 closed / 28 open / 2 gap).",
+      "Association-only entry/exit geometry, 20-bar MFE, realized >$2.50 tail, and negative-control integrity audits."
+    ],
+    "B_requires_owner_authorization_and_external_capture_no_credentials_requested": [
+      "Public historical & prospective L1 bid/ask BBO archive (timestamped bid/ask/spread).",
+      "Redacted owner-confirmed effective maker/taker fee schedule for target symbol/contract (NO API keys/secrets).",
+      "Public historical funding rate & exchange contract metadata (tickSize, stepSize, stop trigger price source)."
+    ],
+    "C_unverifiable_until_independent_fresh_oos_and_escrow_sealing": [
+      "True out-of-sample expectancy, live slippage tail beyond $2.50 planned risk, and cross-regime stability.",
+      "FRESHNESS TRAP PROTOCOL: Any newly appended dataset inspected or used for feature/arm/parameter selection IMMEDIATELY loses fresh-OOS status. Fresh OOS must be SHA-256 sealed upon capture with a strict zero-access ledger and unlocked ONLY once after a frozen pre-registered candidate passes DEV."
+    ]
+  },
+  "register_schema_complete": true,
+  "register_schema_fields_required": [
+    "name",
+    "why_required",
+    "currently_observed",
+    "source_existing_path",
+    "evidence_sha256",
+    "freshness",
+    "granularity",
+    "observed_or_modeled_or_missing",
+    "cost_privacy_risk",
+    "possible_owner_action",
+    "blocked_if_absent",
+    "confirmation_method",
+    "minimum_coverage_spec",
+    "cannot_assume",
+    "promotion_gates_dependent_on_field"
+  ],
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "total_domains_audited": 8
+}

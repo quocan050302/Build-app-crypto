@@ -1,0 +1,132 @@
+{
+  "anti_claim_inflation_attestation": {
+    "activation_ready": "NO",
+    "causal_improvement_claimed": false,
+    "e4_or_e5_or_threshold_tuning_performed": false,
+    "economic_verdict": "NO_PROVEN_EDGE",
+    "fee_only_treated_as_executable_alpha": false,
+    "kh04_entry": "BLOCKED_NO_DEV_CANDIDATE",
+    "oos_evaluations": 0,
+    "raw_pnl_ranking_across_unmatched_arms_prohibited": true,
+    "reused_dev_treated_as_oos": false
+  },
+  "artifact_canonical_sha256": "ebcc151bea4223631ae28bd41ffd199f0607089e94be67a93f990b4271a987bb",
+  "claim_inflation_self_audit": {
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "data_regime": "REUSED_DEV_NOT_FRESH_OOS",
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "three_axis_diagnosis": {
+    "DATA_EXECUTION_AXIS": {
+      "account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "credentials_requested": false,
+      "fresh_untouched_prospective_oos_available": false,
+      "funding_cost_status": "EXCLUDED_UNMODELED",
+      "m1_ohlcv_gaps_observed": true,
+      "observed_l1_bbo_available": false,
+      "private_exchange_api_called": false,
+      "quote_mode": "MODELED_BID_ASK",
+      "verdict": "INCOMPLETE_OBSERVED_EXECUTION_DATA"
+    },
+    "ENGINE_ACCOUNTING_AXIS": {
+      "claim_disclaimer": "Means no reproducible accounting/simulator defect was detected in tested scope; does NOT claim 'no bugs anywhere'.",
+      "evidence": {
+        "decimal_aggregate_residual_usd": 0.0,
+        "decimal_max_trade_residual_usd": 0.0,
+        "historical_anchors_exact_match": true,
+        "open_fees_separated_from_closed": true
+      },
+      "verdict": "NOT_FOUND_IN_TESTED_SCOPE"
+    },
+    "STRATEGY_AND_COST_AXIS": {
+      "causal_root_fix_confirmed": false,
+      "conclusion_tag": "NO_CONFIRMED_CAUSAL_ROOT_FIX",
+      "fee_only_zero_fee_net_usd": -164.9541,
+      "fee_reduction_alone_sufficient": false,
+      "hypotheses_table": [
+        {
+          "axis": "STRATEGY_AND_COST_AXIS",
+          "causal_fix_claimed": false,
+          "cohort_overlap_and_censoring": "28/233 filled trades censored open at 180m; 2/233 unresolved data gap.",
+          "competing_explanations": [
+            "Entry trigger may lack directional predictive edge regardless of TP/SL ratio (even direction-inverted symmetric SL/TP remains deeply negative: -298.4195 USD).",
+            "Shortening TP without pre-registered causal control can merely trade lower hit distance for smaller win payoff while keeping negative expectancy (as observed descriptively in E3: -439.0423 USD / -0.8628R)."
+          ],
+          "confidence": "MODERATE_DESCRIPTIVE_ASSOCIATION_LOW_CAUSAL",
+          "epistemic_label": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM",
+          "hypothesis_id": "H_MECH_01_DISTANT_TP_VS_TIGHT_SL",
+          "observed_count_and_denominator": "203 closed trades (7W/196L) on 180m horizon",
+          "observed_metric": "median_SL=2.38 USD vs median_TP=24.05 USD (median Gross R:R=8.9172x)",
+          "time_horizon": "180m max bar window (REUSED DEV 2026-10-08..2026-10-28)",
+          "unmatched_confounders": [
+            "market volatility regime",
+            "session liquidity",
+            "1-position serial scheduling lock-out (1090 skipped)"
+          ]
+        },
+        {
+          "axis": "STRATEGY_AND_COST_AXIS",
+          "causal_fix_claimed": false,
+          "cohort_overlap_and_censoring": "Conditioned post-hoc on realized LOSS subset (196/203); excludes 28 censored trades.",
+          "competing_explanations": [
+            "Under a zero-drift random walk, a large fraction of trades that eventually hit -1x SL first excursion past +1x SL before reversing; observing 86/196 (43.88%) does NOT prove a partial-TP or trailing-stop rule would produce positive net expectancy after fees."
+          ],
+          "confidence": "DESCRIPTIVE_ONLY_NOT_CAUSAL_PROOF",
+          "epistemic_label": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM",
+          "hypothesis_id": "H_MECH_02_POST_HOC_MFE_BEFORE_STOPOUT",
+          "observed_count_and_denominator": "86/196 closed losses (64/196 reached >=1.5x SL)",
+          "observed_metric": "86/196 (43.88%) losses reached >=1.0x SL favorably within 20 bars before stopping out",
+          "time_horizon": "First 20 M1 bars post-entry (post-hoc descriptive only)",
+          "unmatched_confounders": [
+            "random-walk excursion probability of reaching +1x SL before -1x SL is naturally high (~50% symmetric baseline)",
+            "selection on losers induces hindsight bias"
+          ]
+        },
+        {
+          "axis": "STRATEGY_AND_COST_AXIS",
+          "causal_fix_claimed": false,
+          "cohort_overlap_and_censoring": "Excludes 14.7151 USD accrued entry fees on 28 open trades and 1.6080 USD on 2 gap trades.",
+          "competing_explanations": [
+            "Counterfactual zero-fee check proves baseline gross P&L is ALREADY -164.9541 USD (< 0) before fees. Reducing fees alone CANNOT make existing baseline fills profitable."
+          ],
+          "confidence": "HIGH_ACCOUNTING_FACT_NOT_SOLO_CAUSE",
+          "epistemic_label": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM",
+          "hypothesis_id": "H_MECH_03_TAKER_FRICTION_DRAG",
+          "observed_count_and_denominator": "127/203 closed trades at modeled 0.04% taker fee",
+          "observed_metric": "closed_fees=276.6577 USD (median 0.5611x planned risk; 127/203 trades >=50% planned risk)",
+          "time_horizon": "Full 1X_BASE_0p0004 replay",
+          "unmatched_confounders": [
+            "effective account fee tier UNKNOWN_NOT_LOCALLY_VERIFIED",
+            "tight M1 stops force larger notional per $2.50 risk cap, mechanically magnifying notional fee"
+          ]
+        },
+        {
+          "axis": "STRATEGY_AND_COST_AXIS",
+          "causal_fix_claimed": false,
+          "cohort_overlap_and_censoring": "Modeled spread ($0.20) + slippage ($0.10); real L1 BBO & live slippage unobserved.",
+          "competing_explanations": [
+            "Excess over $2.50 is a small mechanical slippage/fee overshoot (~$0.0574 max in modeled OHLCV), NOT the primary cause of -441.61 USD net loss, though live tail risk remains unquantified without L1/fill logs."
+          ],
+          "confidence": "HIGH_ACCOUNTING_DISCLOSURE",
+          "epistemic_label": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM",
+          "hypothesis_id": "H_MECH_04_TAIL_LOSS_BEYOND_PLANNED_CAP",
+          "observed_count_and_denominator": "139/196 closed losses",
+          "observed_metric": "139/196 losses exceeded $2.50 planned cap (max 2.5574 USD)",
+          "time_horizon": "1X_BASE_0p0004 closed losses",
+          "unmatched_confounders": [
+            "unobserved real orderbook depth and weekend/news gap slippage could produce substantially larger live tails"
+          ]
+        }
+      ],
+      "new_strategy_arms_e4_e5_created": false,
+      "optimal_sl_tp_invented": false,
+      "verdict": "ASSOCIATION_ONLY_NO_CAUSAL_CLAIM"
+    }
+  }
+}
