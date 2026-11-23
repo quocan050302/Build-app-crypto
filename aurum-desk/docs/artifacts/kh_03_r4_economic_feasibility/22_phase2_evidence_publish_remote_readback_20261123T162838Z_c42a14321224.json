@@ -1,0 +1,313 @@
+{
+  "G30_TWO_PHASE_GIT_REMOTE_VERIFIED_PUBLICATION": "PASS_REMOTE_VERIFIED",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "discretionary_skipped_tests_from_raw_junit": [
+    {
+      "classname": "backend.tests.test_fresh_junit_artifact_io",
+      "message": "Windows writer sharing semantics",
+      "name": "test_capture_refuses_a_real_open_windows_writer_then_accepts_closed_file",
+      "shard_xml": "SHARD_INPROC_11_BALANCED.xml"
+    },
+    {
+      "classname": "backend.tests.test_fresh_junit_artifact_io",
+      "message": "Windows writer sharing semantics",
+      "name": "test_capture_waits_for_real_writer_to_close_before_attesting",
+      "shard_xml": "SHARD_INPROC_11_BALANCED.xml"
+    }
+  ],
+  "phase1_tested_executable_sha": "c42a14321224d3a143cb56ac15df5f5f228dbac6",
+  "phase2_sealed_evidence_commit_sha": "b67ff35099bde078c98fe68128d90701dd1d3fab",
+  "prior_c2_pub_head_sha": "2eb271f624504b5cb8617eb2039d2dccd9ea46de",
+  "remote_readback_blobs": [
+    {
+      "http_status": 200,
+      "local_bytes": 6821,
+      "local_sha256": "a3853e27aeb04257ee0f8915d5a7d848f38922989108c0aba44a2e9ad15fed25",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/00_branch_head_clean_sha_preflight_resource_lock.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/00_branch_head_clean_sha_preflight_resource_lock.json",
+      "remote_bytes": 6821,
+      "remote_sha256": "a3853e27aeb04257ee0f8915d5a7d848f38922989108c0aba44a2e9ad15fed25",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 14413,
+      "local_sha256": "42a5836d31131b39fca6d7c104f05622a55e6977fe660f35f012ddb4919c99d3",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/01_ownership_keep_as_is_locked_sha_manifest.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/01_ownership_keep_as_is_locked_sha_manifest.json",
+      "remote_bytes": 14413,
+      "remote_sha256": "42a5836d31131b39fca6d7c104f05622a55e6977fe660f35f012ddb4919c99d3",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 21094,
+      "local_sha256": "e21a5b81f6145cdbd971dd47575cc0f7a75bb538b9e7f76e35086969eece0b43",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/02_prior_r1_r2_r3_c1_c2_dataset_hash_integrity.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/02_prior_r1_r2_r3_c1_c2_dataset_hash_integrity.json",
+      "remote_bytes": 21094,
+      "remote_sha256": "e21a5b81f6145cdbd971dd47575cc0f7a75bb538b9e7f76e35086969eece0b43",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 32527,
+      "local_sha256": "ffc77fac97375a264b4b19c0b1267a960562428cf2131381064b60161bd285bf",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/03_raw_population_lineage_and_denominator_conservation.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/03_raw_population_lineage_and_denominator_conservation.json",
+      "remote_bytes": 32527,
+      "remote_sha256": "ffc77fac97375a264b4b19c0b1267a960562428cf2131381064b60161bd285bf",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 3712,
+      "local_sha256": "57ce82a79570301680bcf2e165a8afacc3a436dcda8e80ce7db87d4f480573cf",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/04_closed_trade_decimal_gross_fee_net_bridge.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/04_closed_trade_decimal_gross_fee_net_bridge.json",
+      "remote_bytes": 3712,
+      "remote_sha256": "57ce82a79570301680bcf2e165a8afacc3a436dcda8e80ce7db87d4f480573cf",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 2759,
+      "local_sha256": "01870752bf7c42588864edadde020242dc8ddd4bab1ef120120f95f81abdf7aa",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/05_entry_exit_stop_target_risk_and_tail_diagnostic.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/05_entry_exit_stop_target_risk_and_tail_diagnostic.json",
+      "remote_bytes": 2759,
+      "remote_sha256": "01870752bf7c42588864edadde020242dc8ddd4bab1ef120120f95f81abdf7aa",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 4762,
+      "local_sha256": "58e4b20023f64a82522721e6e7fb99f5b54f856d7e7ad279d18e128b85971112",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/06_censoring_open_gap_unfilled_and_effective_n.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/06_censoring_open_gap_unfilled_and_effective_n.json",
+      "remote_bytes": 4762,
+      "remote_sha256": "58e4b20023f64a82522721e6e7fb99f5b54f856d7e7ad279d18e128b85971112",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 5429,
+      "local_sha256": "4d7ead3e2630d5e4f71851543ee1bf084f46b243a65a5cf0b1b8d2a9fad812df",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/07_fee_only_fixed_fills_non_executable_counterfactual.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/07_fee_only_fixed_fills_non_executable_counterfactual.json",
+      "remote_bytes": 5429,
+      "remote_sha256": "4d7ead3e2630d5e4f71851543ee1bf084f46b243a65a5cf0b1b8d2a9fad812df",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 45484,
+      "local_sha256": "f2f1c31ec8be7748b443d26d6f2798107d37c8b928b587c2cfbb76d8f1e3613a",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/08_full_dynamic_rerisk_6_cost_scenario_replay.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/08_full_dynamic_rerisk_6_cost_scenario_replay.json",
+      "remote_bytes": 45484,
+      "remote_sha256": "f2f1c31ec8be7748b443d26d6f2798107d37c8b928b587c2cfbb76d8f1e3613a",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 8967,
+      "local_sha256": "d5a0372264d087be63bd49f3973a0c4367079fb785811c6effe704276da38eec",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/09_E1_E2_E3_null_negative_controls_comparability.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/09_E1_E2_E3_null_negative_controls_comparability.json",
+      "remote_bytes": 8967,
+      "remote_sha256": "d5a0372264d087be63bd49f3973a0c4367079fb785811c6effe704276da38eec",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 7117,
+      "local_sha256": "8af74c5c74270aecbdf27d67650c1dbc2ca031174510143f70d08200922adb9e",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/10_assoc_not_causal_and_no_alpha_claim_proof.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/10_assoc_not_causal_and_no_alpha_claim_proof.json",
+      "remote_bytes": 7117,
+      "remote_sha256": "8af74c5c74270aecbdf27d67650c1dbc2ca031174510143f70d08200922adb9e",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 14318,
+      "local_sha256": "9a104584362daf4acf575a7732edaea8f91470ad45293cf5e57b5210cf2f7e88",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/11_data_readiness_register_and_missing_evidence.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/11_data_readiness_register_and_missing_evidence.json",
+      "remote_bytes": 14318,
+      "remote_sha256": "9a104584362daf4acf575a7732edaea8f91470ad45293cf5e57b5210cf2f7e88",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 3025,
+      "local_sha256": "f9ded06cbaa5bcf3bd1c8ee82e1c21c0c08fab6a50aa66214550e54fe67796d1",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/12_go_nogo_decision_rules_and_owner_next_actions.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/12_go_nogo_decision_rules_and_owner_next_actions.json",
+      "remote_bytes": 3025,
+      "remote_sha256": "f9ded06cbaa5bcf3bd1c8ee82e1c21c0c08fab6a50aa66214550e54fe67796d1",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 1634432,
+      "local_sha256": "1feb9e421d109b2202e854b0a15e40e5651c95985d627d28c57582d3dc809acf",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/13_full_pytest_junit_fresh_collection_bijection.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/13_full_pytest_junit_fresh_collection_bijection.json",
+      "remote_bytes": 1634432,
+      "remote_sha256": "1feb9e421d109b2202e854b0a15e40e5651c95985d627d28c57582d3dc809acf",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 2696,
+      "local_sha256": "8dd93391fed7f9974ecdcd3d62b6bf38884b2e3b15a797bb8f435dd64ba66070",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/14_A1_SI8_adapter_D4_production_baseline_parity.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/14_A1_SI8_adapter_D4_production_baseline_parity.json",
+      "remote_bytes": 2696,
+      "remote_sha256": "8dd93391fed7f9974ecdcd3d62b6bf38884b2e3b15a797bb8f435dd64ba66070",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 10092,
+      "local_sha256": "6215c326e57e828a0f60b6c22354b60393551fcc1a78888abd25625326d72af0",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/15_W1_W2_W4_W1repeat_determinism_real_timings.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/15_W1_W2_W4_W1repeat_determinism_real_timings.json",
+      "remote_bytes": 10092,
+      "remote_sha256": "6215c326e57e828a0f60b6c22354b60393551fcc1a78888abd25625326d72af0",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 1069,
+      "local_sha256": "df0d233562a538a336096600b7fd4f3ef809d673c26c42e546f00f5e621e9476",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/16_disk_ram_PID_0p5s_log_and_cleanup.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/16_disk_ram_PID_0p5s_log_and_cleanup.json",
+      "remote_bytes": 1069,
+      "remote_sha256": "df0d233562a538a336096600b7fd4f3ef809d673c26c42e546f00f5e621e9476",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 73686,
+      "local_sha256": "2ce8148e255508656ca218abe99a2f2b42a18aff042f38d7df5dbd1253e3ce1d",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/17_inherited_plus_new_fault_red_green_receipts.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/17_inherited_plus_new_fault_red_green_receipts.json",
+      "remote_bytes": 73686,
+      "remote_sha256": "2ce8148e255508656ca218abe99a2f2b42a18aff042f38d7df5dbd1253e3ce1d",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 15357,
+      "local_sha256": "0f7f33d7364e0b4f95d85d6858f0850a430d1034ef393ad171fb6c757c48fd98",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/18_separate_OS_verifier_mutation_attack_results.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/18_separate_OS_verifier_mutation_attack_results.json",
+      "remote_bytes": 15357,
+      "remote_sha256": "0f7f33d7364e0b4f95d85d6858f0850a430d1034ef393ad171fb6c757c48fd98",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 2377,
+      "local_sha256": "72b048a10b75f391ce3c6537609bf736d97f1ef0f67db2a092546ebe86858b93",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/19_orthogonal_30_gates_and_verdict_matrix.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/19_orthogonal_30_gates_and_verdict_matrix.json",
+      "remote_bytes": 2377,
+      "remote_sha256": "72b048a10b75f391ce3c6537609bf736d97f1ef0f67db2a092546ebe86858b93",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 782,
+      "local_sha256": "a26f7f7182473e7f053527f7530b3e2b6edee523cb5ff042cd937a85cbe7ecb2",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/20_phase1_code_commit_push_receipt.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/20_phase1_code_commit_push_receipt.json",
+      "remote_bytes": 782,
+      "remote_sha256": "a26f7f7182473e7f053527f7530b3e2b6edee523cb5ff042cd937a85cbe7ecb2",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 7490,
+      "local_sha256": "67893977482c2e9028536683ebaac8267769197b5b160d238d4e9e2acf4460b1",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/21_independent_OS_verifier_manifest_sha256.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/21_independent_OS_verifier_manifest_sha256.json",
+      "remote_bytes": 7490,
+      "remote_sha256": "67893977482c2e9028536683ebaac8267769197b5b160d238d4e9e2acf4460b1",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 6098,
+      "local_sha256": "0366f8856ef940523953c51ca4d8acc782c05d3fc281c910b8629fef72bff599",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/README_KH03_R4.md",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/README_KH03_R4.md",
+      "remote_bytes": 6098,
+      "remote_sha256": "0366f8856ef940523953c51ca4d8acc782c05d3fc281c910b8629fef72bff599",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 3565,
+      "local_sha256": "f2f2532665d3857112a6be730d308e46155737aa77cf948c50bb6b46781fe8eb",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/HANDOVER_KH03_R4_VI.txt",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/HANDOVER_KH03_R4_VI.txt",
+      "remote_bytes": 3565,
+      "remote_sha256": "f2f2532665d3857112a6be730d308e46155737aa77cf948c50bb6b46781fe8eb",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 23782,
+      "local_sha256": "11b15d2ce6385ced0ce8a3c18ff053a59a204a2da0cde77cd52b8c43f965c344",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/logs/forensic_closed_open_gap_ledger_1x.jsonl.gz",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/logs/forensic_closed_open_gap_ledger_1x.jsonl.gz",
+      "remote_bytes": 23782,
+      "remote_sha256": "11b15d2ce6385ced0ce8a3c18ff053a59a204a2da0cde77cd52b8c43f965c344",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 95277,
+      "local_sha256": "55de3a51141adce71900661723b047f9d3c8803e8bd689f4a5a661046d9fefa0",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/logs/runtime_memory_samples_0p5s.jsonl.gz",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/logs/runtime_memory_samples_0p5s.jsonl.gz",
+      "remote_bytes": 95277,
+      "remote_sha256": "55de3a51141adce71900661723b047f9d3c8803e8bd689f4a5a661046d9fefa0",
+      "sha256_exact_match": true
+    },
+    {
+      "http_status": 200,
+      "local_bytes": 10467,
+      "local_sha256": "7e6e984896199930b72cff7fd61ba1d781b1d0187f458399cec6e7c0eff4d404",
+      "raw_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/b67ff35099bde078c98fe68128d90701dd1d3fab/aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/checksums/sha256_inventory.json",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/checksums/sha256_inventory.json",
+      "remote_bytes": 10467,
+      "remote_sha256": "7e6e984896199930b72cff7fd61ba1d781b1d0187f458399cec6e7c0eff4d404",
+      "sha256_exact_match": true
+    }
+  ],
+  "remote_readback_sha256_all_exact_match": true,
+  "remote_readback_verified_blobs_count": 27,
+  "run_id": "20261123T162838Z_c42a14321224",
+  "schema_version": "kh_03_r4_economic_feasibility_v1",
+  "sealed_run_dir_rel": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224",
+  "sealed_verifier_manifest_21_sha256": "67893977482c2e9028536683ebaac8267769197b5b160d238d4e9e2acf4460b1",
+  "spec_version": "KH-03.R4-v1.0",
+  "status": "PASS_REMOTE_VERIFIED",
+  "verdicts": {
+    "ACTIVATION_READY": "NO",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "DATA_READINESS": "INCOMPLETE",
+    "DIAGNOSIS": "PASS",
+    "ENGINEERING": "PASS",
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "PUBLICATION": "PASS_REMOTE_VERIFIED",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE"
+  },
+  "verified_utc": "2026-11-23T16:55:30Z"
+}
