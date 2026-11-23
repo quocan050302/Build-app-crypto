@@ -856,9 +856,9 @@ def _run_kh03_r3_c1_full_repo_pytest_sharded(
             run_dir, sentinel_tmp,
             run_id=run_id, tested_executable_sha=tested_sha,
             effective_disk_reserve_bytes=effective_disk_reserve_bytes,
-            max_workers=max_workers, active_shards_tracker=active_shards_tracker,
-            empirical_r2_rss=empirical_r2_rss,
-            precollected_by_file=collected_by_file, prebuilt_shards=c1_shards,
+            max_parallel_workers=max_workers, ram_policy_mode="R3_STRICT_512MIB",
+            empirical_rss_by_shard=empirical_r2_rss, active_shards_tracker=active_shards_tracker,
+            shard_specs_override=c1_shards, collected_by_file_override=collected_by_file,
         )
     )
     elapsed = round(time.perf_counter() - t0, 3)
@@ -872,18 +872,25 @@ def _run_kh03_r3_c1_full_repo_pytest_sharded(
     cm = junit_res["collection_manifest"]
     sm = junit_res["shard_manifest"]
     bj = verify_fresh_junit_bijection_v17931211(
-        run_dir, collection_manifest=cm, shard_manifest=sm,
-        expected_run_id=run_id, expected_tested_executable_sha=tested_sha,
+        run_dir, cm, sm,
+        expected_run_id=run_id, expected_tested_sha=tested_sha,
+        mandatory_node_prefixes=(
+            "backend/tests/test_kh_02_r2",
+            "backend/tests/test_kh_03",
+            "backend/tests/test_kh03_r2",
+            "backend/tests/test_kh03_r3",
+            "backend/tests/test_kh03_r3_c1",
+        ),
+        require_shard_schedule=True,
     )
-    c_map = bj.get("counters") or {}
-    collected_n = int(cm.get("collected_node_ids_count", 0))
-    executed_n = int(bj.get("executed_count", c_map.get("executed", 0)))
-    passed_n = int(c_map.get("passed", 0))
-    skipped_n = int(c_map.get("skipped", 0))
-    failed_n = int(c_map.get("failed", 0))
-    error_n = int(c_map.get("error", 0))
-    mand_skip_n = int(c_map.get("mandatory_skipped", len(bj.get("mandatory_skipped_nodes") or ())))
-    nonzero_shards = int(sm.get("nonzero_exit_shards_count", 0))
+    collected_n = int(cm.get("collected_node_ids_count") or len(cm.get("collected_node_ids") or ()))
+    executed_n = int(bj.get("executed_node_ids_count") or bj.get("executed_count") or 0)
+    passed_n = int(bj.get("passed_count") or 0)
+    skipped_n = int(bj.get("skipped_count") or 0)
+    failed_n = int(bj.get("failed_count") or 0)
+    error_n = int(bj.get("error_count") or 0)
+    mand_skip_n = int(bj.get("mandatory_skipped_count") or 0)
+    nonzero_shards = int(sm.get("nonzero_exit_shards_count") or 0)
     ok = (
         bj.get("status") == "PASS"
         and nonzero_shards == 0
