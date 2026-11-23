@@ -1,0 +1,22 @@
+================================================================================
+BAN GIAO CHU SO HUU (TIENG VIET) — AURUM DESK | KH-02.R2.C4
+================================================================================
+Phan loai ky thuat    : PASS_ENGINEERING_RESEARCH_NO_EDGE_OOS_BLOCKED
+Run ID                : 20261123T035128Z_ed8b190c8f0f
+Nhanh                 : feature/v17-9-2-structural-sl-tp-from-qa
+Tested Executable SHA : ed8b190c8f0ff84e79f2d9b17c668ed1c75beaa4
+An toan giao dich     : PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO
+OOS_EVALUATIONS       : 0 (BLOCKED_NO_VERIFIED_NEW_DATA / BLOCKED_NO_UNTOUCHED_DATA)
+Ket luan kinh te      : NO_PROVEN_EDGE (KHONG chung minh loi nhuan; KHONG kich hoat)
+O dia preflight / min : 44.6844 GiB / 44.6707 GiB (PASS_STRICT_AND_ADVISORY)
+RAM min / children / orphans: 3118.74 MiB / 4 / 0
+P0-A Boundary (04/06) : RED proven -> GREEN PASS (real OOS count=0)
+P0-B Risk-Tail (11/12): 10/10 cells, 1461 episodes, losses>$2.50=1047, max_loss=2.7549 USD
+Full pytest (16)      : PASS (5570/5578 passed, 8 skipped, 0 failed)
+Async W1/W2/W4 (17)   : PASS
+Parity 56710 (18)     : PASS
+Faults RED/GREEN (20) : 126/126 PASS (24 new C4)
+Verifier Mutations(21): 14/14 detected PASS
+Publication (23)      : PRE_PUSH_PENDING
+Thu muc bang chung    : D:\build app-crypto\aurum-desk\docs\artifacts\kh_02_r2_c4_integrity_closure\20261123T035128Z_ed8b190c8f0f
+================================================================================

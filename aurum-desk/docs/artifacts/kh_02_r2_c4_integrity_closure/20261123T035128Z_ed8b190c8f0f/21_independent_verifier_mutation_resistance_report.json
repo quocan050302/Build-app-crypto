@@ -1,0 +1,162 @@
+{
+  "clean_clone_verifier_green": true,
+  "isolated_temp_clones_only": true,
+  "mutations": [
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "INDEPENDENT_TAIL_LEDGER",
+      "mutation_id": "VM01_EMPTY_TAIL_DICT",
+      "violations_sample": [
+        "INDEPENDENT_TAIL_LEDGER:EMPTY_OR_MISSING_ARM_FILL_TIME_AND_TAIL_AUDITS",
+        "GATE_TAMPER_OR_DRIFT:G11_TAIL_EVIDENCE_COMPLETE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G12_TAIL_INDEPENDENT_RECOMPUTE:stored=PASS!=recomputed=FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "CELL_INT_MISMATCH",
+      "mutation_id": "VM02_FAKE_ZERO_LOSS_GT_CAP",
+      "violations_sample": [
+        "INDEPENDENT_TAIL_LEDGER:CELL_INT_MISMATCH:B2_H1:NEXT_BAR_OPEN_BID_ASK:realized_losses_exceeding_2p50_count:claimed=0!=recomp=1",
+        "GATE_TAMPER_OR_DRIFT:G12_TAIL_INDEPENDENT_RECOMPUTE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "CELL_FLOAT_MISMATCH",
+      "mutation_id": "VM03_ALTERED_MAX_LOSS",
+      "violations_sample": [
+        "INDEPENDENT_TAIL_LEDGER:CELL_FLOAT_MISMATCH:B2_H1:NEXT_BAR_OPEN_BID_ASK:max_realized_net_loss_usd:claimed=1.25!=recomp=2.85",
+        "GATE_TAMPER_OR_DRIFT:G12_TAIL_INDEPENDENT_RECOMPUTE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "INDEPENDENT_TAIL_LEDGER",
+      "mutation_id": "VM04_DROPPED_LEDGER_ROW",
+      "violations_sample": [
+        "INDEPENDENT_TAIL_LEDGER:MISSING_ARM_MODE_IN_LEDGER:NC_NULL_TRIGGER:STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+        "GATE_TAMPER_OR_DRIFT:G12_TAIL_INDEPENDENT_RECOMPUTE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "JUNIT_COUNTS_TAMPERED_VS_RAW_XML",
+      "mutation_id": "VM05_JUNIT_COUNT_TAMPER",
+      "violations_sample": [
+        "JUNIT_COUNTS_TAMPERED_VS_RAW_XML:xml=(1,1,0,0,0)!=f16=(1,99,0,0,0)",
+        "GATE_TAMPER_OR_DRIFT:G14_FULL_PYTEST_JUNIT:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "W1_W2_W4_DETERMINISM_HASH_MISMATCH",
+      "mutation_id": "VM06_W1_W4_HASH_MUTATION",
+      "violations_sample": [
+        "W1_W2_W4_DETERMINISM_HASH_MISMATCH",
+        "GATE_TAMPER_OR_DRIFT:G15_ASYNC_DETERMINISM:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "FIXED_FILL_DECIMAL_MISMATCH",
+      "mutation_id": "VM07_DECIMAL_PNL_TAMPER",
+      "violations_sample": [
+        "FIXED_FILL_DECIMAL_MISMATCH:B2_H1_1x:gross=-73.1555,fee=102.2825,net=999.0"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "FALSE_REMOTE_READBACK_CLAIM",
+      "mutation_id": "VM08_PREPUSH_FALSE_REMOTE",
+      "violations_sample": [
+        "FALSE_REMOTE_READBACK_CLAIM",
+        "GATE_TAMPER_OR_DRIFT:G21_PUBLICATION:stored=PRE_PUSH_PENDING!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "NONZERO_OOS_EVALUATIONS_PEEK",
+      "mutation_id": "VM09_OOS_EVAL_NONZERO",
+      "violations_sample": [
+        "NONZERO_OOS_EVALUATIONS_PEEK",
+        "GATE_TAMPER_OR_DRIFT:G18_OOS_TRUTH:stored=BLOCKED_NO_VERIFIED_NEW_DATA!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "FORGED_ACTIVATION_READY_ON",
+      "mutation_id": "VM10_ACTIVATION_TURNED_ON",
+      "violations_sample": [
+        "FORGED_ACTIVATION_READY_ON",
+        "GATE_TAMPER_OR_DRIFT:G23_ACTIVATION:stored=NO!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "FORGED_ECONOMIC_VERDICT",
+      "mutation_id": "VM11_FORGED_PROVEN_EDGE",
+      "violations_sample": [
+        "FORGED_ECONOMIC_VERDICT:PROVEN_EDGE",
+        "GATE_TAMPER_OR_DRIFT:G19_ECONOMIC_TRUTH:stored=NO_PROVEN_EDGE!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G22_KH03_RESEARCH_ENTRY_GATE:stored=PENDING_REMOTE_PUBLICATION!=recomputed=BLOCKED_FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "UNAPPROVED_OWNER_DISK_WAIVER_FORBIDDEN",
+      "mutation_id": "VM12_OWNER_DISK_WAIVER",
+      "violations_sample": [
+        "UNAPPROVED_OWNER_DISK_WAIVER_FORBIDDEN",
+        "GATE_TAMPER_OR_DRIFT:G03_DISK_RAM_PID_SAFE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G14_FULL_PYTEST_JUNIT:stored=PASS!=recomputed=FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "MEMORY_TELEMETRY_BREACHED_512MIB_FLOOR",
+      "mutation_id": "VM13_RAM_FLOOR_BREACH",
+      "violations_sample": [
+        "MEMORY_TELEMETRY_BREACHED_512MIB_FLOOR:FAIL_BELOW_HARD_FLOOR",
+        "GATE_TAMPER_OR_DRIFT:G03_DISK_RAM_PID_SAFE:stored=PASS!=recomputed=FAIL",
+        "GATE_TAMPER_OR_DRIFT:G14_FULL_PYTEST_JUNIT:stored=PASS!=recomputed=FAIL"
+      ]
+    },
+    {
+      "detected": true,
+      "exit_code": 1,
+      "expected_token": "GATE_TAMPER_OR_DRIFT",
+      "mutation_id": "VM14_GATE_MATRIX_TAMPER",
+      "violations_sample": [
+        "GATE_TAMPER_OR_DRIFT:G19_ECONOMIC_TRUTH:stored=PROVEN_EDGE!=recomputed=NO_PROVEN_EDGE"
+      ]
+    }
+  ],
+  "mutations_detected_count": 14,
+  "mutations_failed_detection_count": 0,
+  "mutations_tested_count": 14,
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}

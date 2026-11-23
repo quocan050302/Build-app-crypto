@@ -1,0 +1,22 @@
+{
+  "cannot_prove_within_python_process_tcb": [
+    "Same-process arbitrary code execution or full interpreter/stdlib patching by a privileged local developer or root",
+    "Direct process memory inspection/modification of ephemeral process keys",
+    "Compromised host OS TLS root store or kernel network stack",
+    "Compromised upstream Bitget API servers",
+    "Local disk rollback/rewrite without an independent remote WORM or external signed attestation store"
+  ],
+  "hardware_tpm_or_remote_worm": false,
+  "policy_version": "kh02_r2_c4_boundary_v1",
+  "prevents": [
+    "Direct mint_trusted_capture_receipt_c3/c4 boolean or metadata spoofing",
+    "Evil subclass of StdlibUrllibPublicTransportC2 overriding .get() or is_genuine_live_socket_transport()",
+    "Instance-level transport.get monkeypatching or post-__init__ _opener_fn mutation",
+    "Naked fabricated RawHttpResponseC2 carrying matching transport_kind/tls_verified_host strings",
+    "Forged capture_receipt MAC, cross-process serialized receipt forgery, or expired capture proof",
+    "Replay of a genuine proof with modified raw bytes or mismatched snapshot_id",
+    "Forged caller disk probe or unapproved owner disk waiver",
+    "Accidental QA/synthetic fixture promotion into REAL_OOS escrow"
+  ],
+  "spec_version": "KH-02.R2.C4-v1.0"
+}

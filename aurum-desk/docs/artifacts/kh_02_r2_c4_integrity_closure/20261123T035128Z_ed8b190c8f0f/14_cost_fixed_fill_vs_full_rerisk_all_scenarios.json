@@ -1,0 +1,713 @@
+{
+  "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "fixed_fill_arms_summary": {
+    "B2_H1": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.9737,
+        "fees_usd": 102.2825,
+        "net_pnl_usd": -175.438
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6102,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -290.2165
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2466,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -404.995
+      },
+      "closed_trade_ids_sha256": "af5daf6884371c45feba370d8ba52153a7133fd67f772561c39eddeecb85c1cc",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 73,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -51.1413,
+        "expectancy_r": -1.2573,
+        "fees_usd": 153.4238,
+        "net_pnl_usd": -226.5793
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 204.565,
+        "net_pnl_usd": -277.7205
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 306.8475,
+        "net_pnl_usd": -380.003
+      },
+      "gross_pnl_1x_usd": -73.1555,
+      "losses": 72,
+      "open_at_horizon": 9,
+      "per_id_reconciled_count": 73,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 1
+    },
+    "B2_H123": {
+      "1x_base_0p0004": {
+        "expectancy_r": -1.0169,
+        "fees_usd": 31.4345,
+        "net_pnl_usd": -57.6807
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.6384,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -92.9552
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.2598,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -128.2297
+      },
+      "closed_trade_ids_sha256": "23d3eb8fb4b766ffb8f86a3ec0b0a2b7c6997612a1efe2e683cfcb90d17b43ee",
+      "data_gap_unresolved": 0,
+      "denominator_closed_trades": 23,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -15.7173,
+        "expectancy_r": -1.2938,
+        "fees_usd": 47.1518,
+        "net_pnl_usd": -73.398
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 62.869,
+        "net_pnl_usd": -89.1152
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 94.3035,
+        "net_pnl_usd": -120.5497
+      },
+      "gross_pnl_1x_usd": -26.2462,
+      "losses": 23,
+      "open_at_horizon": 8,
+      "per_id_reconciled_count": 23,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 0
+    },
+    "B2_H2": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    },
+    "B2_H3": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8504,
+        "fees_usd": 149.7653,
+        "net_pnl_usd": -239.6588
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4467,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -407.7001
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.0429,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -575.7414
+      },
+      "closed_trade_ids_sha256": "44eb3ac829c5cef674c767d475f221eb11ddb897aabbd14c29eb3348555fc7c1",
+      "data_gap_unresolved": 1,
+      "denominator_closed_trades": 114,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -74.8827,
+        "expectancy_r": -1.1161,
+        "fees_usd": 224.648,
+        "net_pnl_usd": -314.5415
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 299.5306,
+        "net_pnl_usd": -389.4241
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 449.2959,
+        "net_pnl_usd": -539.1894
+      },
+      "gross_pnl_1x_usd": -89.8935,
+      "losses": 109,
+      "open_at_horizon": 16,
+      "per_id_reconciled_count": 114,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 5
+    },
+    "NC_NULL_TRIGGER": {
+      "1x_base_0p0004": {
+        "expectancy_r": -0.8805,
+        "fees_usd": 276.6577,
+        "net_pnl_usd": -441.6118
+      },
+      "all_in_2x_fixed_fill": {
+        "expectancy_r": -1.4992,
+        "formula": "gross_1x - (0.40 * qty) - (2 * fees_1x)",
+        "net_pnl_usd": -751.9815
+      },
+      "all_in_3x_fixed_fill": {
+        "expectancy_r": -2.1178,
+        "formula": "gross_1x - (0.80 * qty) - (3 * fees_1x)",
+        "net_pnl_usd": -1062.3512
+      },
+      "closed_trade_ids_sha256": "feccc2de5e69b64cd7a662ce4dd4e7bd1d38a8527156b4804f8a9c78682087a3",
+      "data_gap_unresolved": 2,
+      "denominator_closed_trades": 203,
+      "dropped_ids_count": 0,
+      "fee_only_0p0006": {
+        "delta_vs_0p0004_usd": -138.3289,
+        "expectancy_r": -1.1563,
+        "fees_usd": 414.9866,
+        "net_pnl_usd": -579.9407
+      },
+      "fee_only_2x_0p0008": {
+        "fees_usd": 553.3154,
+        "net_pnl_usd": -718.2695
+      },
+      "fee_only_3x_0p0012": {
+        "fees_usd": 829.9731,
+        "net_pnl_usd": -994.9272
+      },
+      "gross_pnl_1x_usd": -164.9541,
+      "losses": 196,
+      "open_at_horizon": 28,
+      "per_id_reconciled_count": 203,
+      "scope": "FIXED_FILL_SAME_IDS",
+      "unfilled": 0,
+      "wins": 7
+    }
+  },
+  "fixed_fill_decimal_checks": {
+    "B2_H123_1x_0p0004": {
+      "fees_usd": 31.4345,
+      "gross_pnl_usd": -26.2462,
+      "net_pnl_usd": -57.6807
+    },
+    "B2_H1_1x_0p0004": {
+      "fees_usd": 102.2825,
+      "gross_pnl_usd": -73.1555,
+      "net_pnl_usd": -175.438
+    },
+    "B2_H2_1x_0p0004": {
+      "fees_usd": 276.6577,
+      "gross_pnl_usd": -164.9541,
+      "net_pnl_usd": -441.6118
+    },
+    "B2_H3_1x_0p0004": {
+      "fees_usd": 149.7653,
+      "gross_pnl_usd": -89.8935,
+      "net_pnl_usd": -239.6588
+    },
+    "NC_NULL_TRIGGER_1x_0p0004": {
+      "fees_usd": 276.6577,
+      "gross_pnl_usd": -164.9541,
+      "net_pnl_usd": -441.6118
+    }
+  },
+  "fixed_fill_zero_dropped_ids_verified": true,
+  "fresh_live_recomputed": true,
+  "full_rerisk_starts_from_full_universe": true,
+  "full_universe_fee_reconciliation": {
+    "core_r2_replay_mutated": false,
+    "reconciled_scenarios": {
+      "1X_BASE_0p0004": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 102.2825,
+            "closed_trades": 73,
+            "expectancy_r": -0.9737,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -73.1555,
+            "losses": 72,
+            "matches_fixed_fill_1x_fees": true,
+            "net_pnl_usd": -175.438,
+            "open_at_horizon": 9,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 1
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 31.4345,
+            "closed_trades": 23,
+            "expectancy_r": -1.0169,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -26.2462,
+            "losses": 23,
+            "matches_fixed_fill_1x_fees": true,
+            "net_pnl_usd": -57.6807,
+            "open_at_horizon": 8,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 276.6577,
+            "closed_trades": 203,
+            "expectancy_r": -0.8806,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -164.9541,
+            "losses": 196,
+            "matches_fixed_fill_1x_fees": true,
+            "net_pnl_usd": -441.6118,
+            "open_at_horizon": 28,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 7
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 149.7653,
+            "closed_trades": 114,
+            "expectancy_r": -0.8504,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -89.8935,
+            "losses": 109,
+            "matches_fixed_fill_1x_fees": true,
+            "net_pnl_usd": -239.6588,
+            "open_at_horizon": 16,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 5
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 276.6577,
+            "closed_trades": 203,
+            "expectancy_r": -0.8806,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -164.9541,
+            "losses": 196,
+            "matches_fixed_fill_1x_fees": true,
+            "net_pnl_usd": -441.6118,
+            "open_at_horizon": 28,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 7
+          }
+        },
+        "raw_r2_eligible": 1323
+      },
+      "2X_ALL_COST_0p0004": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 38.9367,
+            "closed_trades": 24,
+            "expectancy_r": -1.0201,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -20.8608,
+            "losses": 24,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -59.7975,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 8.9872,
+            "closed_trades": 6,
+            "expectancy_r": -1.0185,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -5.8829,
+            "losses": 6,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -14.8701,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 189.6224,
+            "closed_trades": 111,
+            "expectancy_r": -0.9307,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -64.1289,
+            "losses": 108,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -253.7513,
+            "open_at_horizon": 20,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 3
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 118.8946,
+            "closed_trades": 70,
+            "expectancy_r": -0.9233,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -39.9362,
+            "losses": 68,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -158.8308,
+            "open_at_horizon": 12,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 2
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 189.6224,
+            "closed_trades": 111,
+            "expectancy_r": -0.9307,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -64.1289,
+            "losses": 108,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -253.7513,
+            "open_at_horizon": 20,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 3
+          }
+        },
+        "raw_r2_eligible": 542
+      },
+      "2X_ALL_COST_0p0006": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 8.6442,
+            "closed_trades": 5,
+            "expectancy_r": -1.0147,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -3.694,
+            "losses": 5,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -12.3382,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 9.7802,
+            "closed_trades": 5,
+            "expectancy_r": -1.0164,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -2.7415,
+            "losses": 5,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -12.5217,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 87.738,
+            "closed_trades": 46,
+            "expectancy_r": -1.0158,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -26.1278,
+            "losses": 46,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -113.8658,
+            "open_at_horizon": 10,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 74.56,
+            "closed_trades": 39,
+            "expectancy_r": -1.0159,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -22.1387,
+            "losses": 39,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -96.6987,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 87.738,
+            "closed_trades": 46,
+            "expectancy_r": -1.0158,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -26.1278,
+            "losses": 46,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -113.8658,
+            "open_at_horizon": 10,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          }
+        },
+        "raw_r2_eligible": 200
+      },
+      "3X_ALL_COST_0p0004": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 8.4506,
+            "closed_trades": 5,
+            "expectancy_r": -1.0211,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -3.864,
+            "losses": 5,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -12.3146,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 9.4896,
+            "closed_trades": 5,
+            "expectancy_r": -1.0243,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -2.9364,
+            "losses": 5,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -12.426,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 84.9594,
+            "closed_trades": 45,
+            "expectancy_r": -1.0233,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -27.3175,
+            "losses": 45,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -112.2769,
+            "open_at_horizon": 10,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 68.8943,
+            "closed_trades": 37,
+            "expectancy_r": -1.023,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -23.1675,
+            "losses": 37,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -92.0618,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 84.9594,
+            "closed_trades": 45,
+            "expectancy_r": -1.0233,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -27.3175,
+            "losses": 45,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -112.2769,
+            "open_at_horizon": 10,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          }
+        },
+        "raw_r2_eligible": 195
+      },
+      "3X_ALL_COST_0p0006": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 3.4364,
+            "closed_trades": 2,
+            "expectancy_r": -1.0137,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -1.3787,
+            "losses": 2,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -4.8151,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 0.0,
+            "closed_trades": 0,
+            "expectancy_r": 0.0,
+            "fee_accounting_status": "DIRECTLY_RECONCILED",
+            "gross_pnl_usd": 0.0,
+            "losses": 0,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": 0.0,
+            "open_at_horizon": 0,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 26.7959,
+            "closed_trades": 14,
+            "expectancy_r": -1.0156,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -7.2788,
+            "losses": 14,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -34.0747,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 17.3997,
+            "closed_trades": 9,
+            "expectancy_r": -1.0157,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -4.4576,
+            "losses": 9,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -21.8573,
+            "open_at_horizon": 1,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 26.7959,
+            "closed_trades": 14,
+            "expectancy_r": -1.0156,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -7.2788,
+            "losses": 14,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -34.0747,
+            "open_at_horizon": 4,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 0
+          }
+        },
+        "raw_r2_eligible": 77
+      },
+      "FEE_ONLY_0p0006": {
+        "arms": {
+          "B2_H1": {
+            "c4_reconciled_total_fees_usd": 64.839,
+            "closed_trades": 41,
+            "expectancy_r": -0.8419,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -20.041,
+            "losses": 39,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -84.88,
+            "open_at_horizon": 6,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 2
+          },
+          "B2_H123": {
+            "c4_reconciled_total_fees_usd": 20.1012,
+            "closed_trades": 12,
+            "expectancy_r": -0.7148,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -0.9485,
+            "losses": 11,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -21.0497,
+            "open_at_horizon": 6,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 1
+          },
+          "B2_H2": {
+            "c4_reconciled_total_fees_usd": 218.0477,
+            "closed_trades": 138,
+            "expectancy_r": -0.8833,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -81.5907,
+            "losses": 133,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -299.6384,
+            "open_at_horizon": 28,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 5
+          },
+          "B2_H3": {
+            "c4_reconciled_total_fees_usd": 130.5379,
+            "closed_trades": 84,
+            "expectancy_r": -0.9228,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -59.7984,
+            "losses": 82,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -190.3363,
+            "open_at_horizon": 15,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 2
+          },
+          "NC_NULL_TRIGGER": {
+            "c4_reconciled_total_fees_usd": 217.547,
+            "closed_trades": 138,
+            "expectancy_r": -0.8833,
+            "fee_accounting_status": "UPSTREAM_DISPLAY_ZERO_BUG_RECONCILED_FROM_GROSS_MINUS_NET",
+            "gross_pnl_usd": -82.0567,
+            "losses": 133,
+            "matches_fixed_fill_1x_fees": null,
+            "net_pnl_usd": -299.6037,
+            "open_at_horizon": 28,
+            "upstream_displayed_total_fees_usd": 0.0,
+            "wins": 5
+          }
+        },
+        "raw_r2_eligible": 838
+      }
+    },
+    "reconciliation_mismatches": [],
+    "spec_version": "KH-02.R2.C4-v1.0",
+    "status": "PASS",
+    "upstream_bug_source": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py:3808 (`ld.get('total_fees_usd')` missing key in `TradeExecutionLedger.to_dict()`, which stores fees under `entry_fee_usd`/`exit_fee_usd` while `realized_net_pnl_usd` already deducts fees accurately).",
+    "upstream_zero_fee_display_hits": 29
+  },
+  "modeled_spread_usd": 0.2,
+  "observed_l1_bbo_available": false,
+  "quote_mode": "MODELED_BID_ASK",
+  "science_and_risk_truth_summary": {
+    "A_executed_modeled_historical_outcomes": {
+      "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+      "data_regime": "REUSED_RESEARCH_NOT_UNTOUCHED_OOS",
+      "global_max_realized_net_loss_usd": 2.7549,
+      "modeled_spread_usd": 0.2,
+      "observed_historical_l1_bbo_available": false,
+      "quote_mode": "MODELED_BID_ASK",
+      "research_economic_verdict": "NO_PROVEN_EDGE",
+      "total_realized_losses_exceeding_2p50_count": 1047
+    },
+    "B_advisory_hypothetical_fill_time_rerisk": {
+      "decision_time_cap_violations": 0,
+      "description": "Causal fill-time open-price policy audit is offline research advisory ONLY, not a live runtime guarantee.",
+      "is_live_runtime_enforcement": false,
+      "post_fill_policy_cap_violations": 0
+    },
+    "C_production_engine_behavior": {
+      "ACTIVATION_READY": "NO",
+      "AUTO": "OFF",
+      "LIVE": "OFF",
+      "PAPER": "OFF",
+      "PRODUCTION": "OFF",
+      "unchanged": true
+    },
+    "D_unobserved_future_gap_and_tail_risk": {
+      "disclosure": "planned_net_risk_usd <= 2.50 USD is a causal planned stop-loss estimate computed BEFORE trade exit; it is NOT a physical guarantee that realized loss cannot exceed 2.50 USD after adverse overnight gaps, liquidity shocks, or stop-fill slippage. Realized losses exceeding 2.50 USD are tracked and disclosed separately.",
+      "planned_cap_guarantees_realized_loss_le_2p50": false
+    },
+    "cost_fee_reconciliation_status": "PASS",
+    "independent_ledger_reconciliation_status": "PASS",
+    "spec_version": "KH-02.R2.C4-v1.0"
+  },
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}

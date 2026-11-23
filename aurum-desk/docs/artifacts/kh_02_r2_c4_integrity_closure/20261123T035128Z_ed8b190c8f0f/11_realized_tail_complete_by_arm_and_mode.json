@@ -1,0 +1,1292 @@
+{
+  "arm_fill_time_and_tail_audits": {
+    "B2_H1": {
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades": 73,
+        "data_gap_unresolved_count": 0,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 25,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 6,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 51
+        },
+        "gross_pnl_usd": -73.1555,
+        "losses": 72,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.563,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.563,
+        "net_pnl_usd": -175.438,
+        "open_at_horizon_count": 9,
+        "opportunity_ids_sha256": "2e31a75b3e83fbe13ed88adfae5d57cfc0ef1ccb86d98aa30dfadfe445f7cadd",
+        "orig_qty_fill_time_breaches_over_2p50": 56,
+        "realized_loss_quantiles_usd": {
+          "max": 2.563,
+          "p50": 2.5151,
+          "p90": 2.5414,
+          "p95": 2.5484
+        },
+        "realized_losses_exceeding_2p50_count": 51,
+        "realized_tail_examples": [
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0172,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5172
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0409,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4065_ts1791837360000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5409
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.03,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4433_ts1791859440000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.53
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0163,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5369_ts1791915600000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5163
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0414,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5415_ts1791918360000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5414
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.031,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5445_ts1791920160000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.531
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.011,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5647_ts1791932280000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.511
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0167,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5837_ts1791943680000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5167
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0043,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5862_ts1791945180000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.5043
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0127,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5953_ts1791950640000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.5127
+          }
+        ],
+        "scheduled_trades": 82,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "b28a1cea595848bdbbed125b5801dee23f2b6eac083d9ca2c84e5264b73f2a61",
+        "total_fees_usd": 102.2825,
+        "unfilled_count": 0,
+        "wins": 1
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades": 80,
+        "data_gap_unresolved_count": 0,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 3,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 8,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 76
+        },
+        "gross_pnl_usd": -79.0765,
+        "losses": 78,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.7549,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.7549,
+        "net_pnl_usd": -191.4399,
+        "open_at_horizon_count": 7,
+        "opportunity_ids_sha256": "90792c1410bf8972bd760174d5af79c68cc62a5c700eb76511b93662b198fd11",
+        "orig_qty_fill_time_breaches_over_2p50": 84,
+        "realized_loss_quantiles_usd": {
+          "max": 2.7549,
+          "p50": 2.6422,
+          "p90": 2.7111,
+          "p95": 2.7172
+        },
+        "realized_losses_exceeding_2p50_count": 77,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.044,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3063_ts1791766800000",
+            "planned_net_risk_usd": 2.42,
+            "realized_net_loss_usd": 2.544
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0613,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3082_ts1791767940000",
+            "planned_net_risk_usd": 2.45,
+            "realized_net_loss_usd": 2.5613
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.023,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3583_ts1791798000000",
+            "planned_net_risk_usd": 2.42,
+            "realized_net_loss_usd": 2.523
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1372,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6372
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1938,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4065_ts1791837360000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6938
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0143,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4296_ts1791851220000",
+            "planned_net_risk_usd": 2.41,
+            "realized_net_loss_usd": 2.5143
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.085,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4350_ts1791854460000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.585
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0896,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4397_ts1791857280000",
+            "planned_net_risk_usd": 2.45,
+            "realized_net_loss_usd": 2.5896
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0702,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4420_ts1791858660000",
+            "planned_net_risk_usd": 2.45,
+            "realized_net_loss_usd": 2.5702
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1561,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4433_ts1791859440000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6561
+          }
+        ],
+        "scheduled_trades": 87,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "dd18adf95717f4d9124788424c156a0ae3bbc1db043e90e38d179e4d98d60a32",
+        "total_fees_usd": 112.3634,
+        "unfilled_count": 0,
+        "wins": 2
+      }
+    },
+    "B2_H123": {
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades": 23,
+        "data_gap_unresolved_count": 0,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 10,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 5,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 16
+        },
+        "gross_pnl_usd": -26.2462,
+        "losses": 23,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.5484,
+        "max_post_policy_fill_time_planned_risk_usd": 2.4997,
+        "max_realized_net_loss_usd": 2.5484,
+        "net_pnl_usd": -57.6807,
+        "open_at_horizon_count": 8,
+        "opportunity_ids_sha256": "54e41563dcd8464b5f19502fdbf5d6aeeaa44244f65102cd5f2fbf5daf9c12ef",
+        "orig_qty_fill_time_breaches_over_2p50": 20,
+        "realized_loss_quantiles_usd": {
+          "max": 2.5484,
+          "p50": 2.5087,
+          "p90": 2.5352,
+          "p95": 2.5387
+        },
+        "realized_losses_exceeding_2p50_count": 16,
+        "realized_tail_examples": [
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0172,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5172
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0163,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5369_ts1791915600000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5163
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0337,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx9183_ts1792404300000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5337
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0151,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx9641_ts1792431780000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5151
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0018,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx10423_ts1792478700000",
+            "planned_net_risk_usd": 2.45,
+            "realized_net_loss_usd": 2.5018
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0018,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx10492_ts1792482840000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5018
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0063,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx12566_ts1792607280000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5063
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0087,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx13472_ts1792661640000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.5087
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0387,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx13479_ts1792662060000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.5387
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0305,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx13788_ts1792680600000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5305
+          }
+        ],
+        "scheduled_trades": 31,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "16a33260a1bb661f5d2764ebdef488d9d1507e344b326d4faec8bb4afd45e1be",
+        "total_fees_usd": 31.4345,
+        "unfilled_count": 0,
+        "wins": 0
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades": 28,
+        "data_gap_unresolved_count": 0,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 2,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 7,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 25
+        },
+        "gross_pnl_usd": -23.6376,
+        "losses": 27,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.7074,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.7073,
+        "net_pnl_usd": -61.8945,
+        "open_at_horizon_count": 6,
+        "opportunity_ids_sha256": "48f258753259c9f930e8e5c9a44581ab3758495d4890b9273ed7367101982c0d",
+        "orig_qty_fill_time_breaches_over_2p50": 32,
+        "realized_loss_quantiles_usd": {
+          "max": 2.7073,
+          "p50": 2.6306,
+          "p90": 2.6936,
+          "p95": 2.7061
+        },
+        "realized_losses_exceeding_2p50_count": 27,
+        "realized_tail_examples": [
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.023,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3583_ts1791798000000",
+            "planned_net_risk_usd": 2.42,
+            "realized_net_loss_usd": 2.523
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1372,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6372
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0521,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5116_ts1791900420000",
+            "planned_net_risk_usd": 2.43,
+            "realized_net_loss_usd": 2.5521
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1014,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5122_ts1791900780000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6014
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1153,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx5369_ts1791915600000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6153
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1243,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx6299_ts1792008840000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.6243
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1687,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx9183_ts1792404300000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6687
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1561,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx9641_ts1792431780000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6561
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1458,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx10423_ts1792478700000",
+            "planned_net_risk_usd": 2.45,
+            "realized_net_loss_usd": 2.6458
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0827,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx10492_ts1792482840000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5827
+          }
+        ],
+        "scheduled_trades": 34,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "a352c1fc1e9b4417cbc435b3a0cfb13a9a95ae9ae1d603aa56336d737804259c",
+        "total_fees_usd": 38.2569,
+        "unfilled_count": 0,
+        "wins": 1
+      }
+    },
+    "B2_H2": {
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades": 203,
+        "data_gap_unresolved_count": 2,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 74,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 4,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 155
+        },
+        "gross_pnl_usd": -164.9541,
+        "losses": 196,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.5573,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.5574,
+        "net_pnl_usd": -441.6118,
+        "open_at_horizon_count": 28,
+        "opportunity_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+        "orig_qty_fill_time_breaches_over_2p50": 157,
+        "realized_loss_quantiles_usd": {
+          "max": 2.5574,
+          "p50": 2.5172,
+          "p90": 2.5423,
+          "p95": 2.5462
+        },
+        "realized_losses_exceeding_2p50_count": 139,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0115,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5115
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0559,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2929_ts1791758760000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.5559
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0188,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2941_ts1791759480000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5188
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.032,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2976_ts1791761580000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.532
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0414,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3219_ts1791776160000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5414
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0152,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3258_ts1791778500000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.5152
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0094,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3338_ts1791783300000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5094
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0404,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5404
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.034,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3390_ts1791786420000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.534
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0275,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3396_ts1791786780000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5275
+          }
+        ],
+        "scheduled_trades": 233,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "65a12301f8d5c79050cef23773b9d9162788d28eb02f30e5b0edca869f3bc4e7",
+        "total_fees_usd": 276.6577,
+        "unfilled_count": 0,
+        "wins": 7
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades": 215,
+        "data_gap_unresolved_count": 2,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 10,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 25,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 211
+        },
+        "gross_pnl_usd": -205.1278,
+        "losses": 208,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.7492,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.7493,
+        "net_pnl_usd": -498.5072,
+        "open_at_horizon_count": 29,
+        "opportunity_ids_sha256": "cd8b6d537762bb6ff04eaf270c5830de99317e1942dd517f0ebd6fbe27cbd5bc",
+        "orig_qty_fill_time_breaches_over_2p50": 234,
+        "realized_loss_quantiles_usd": {
+          "max": 2.7493,
+          "p50": 2.6394,
+          "p90": 2.7064,
+          "p95": 2.714
+        },
+        "realized_losses_exceeding_2p50_count": 203,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1375,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6375
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1702,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx57_ts1791441360000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6702
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.2269,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2929_ts1791758760000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.7269
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.2099,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2931_ts1791758880000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.7099
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1418,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2941_ts1791759480000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6418
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.2,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2976_ts1791761580000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.7
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1825,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3219_ts1791776160000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6825
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1803,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3258_ts1791778500000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.6803
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1205,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3338_ts1791783300000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6205
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1935,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6935
+          }
+        ],
+        "scheduled_trades": 246,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "6a8561e5559f7b4d76ab82550450e27ebf9851fa5a57419ddcaa4801f3065ad0",
+        "total_fees_usd": 293.3794,
+        "unfilled_count": 0,
+        "wins": 7
+      }
+    },
+    "B2_H3": {
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades": 114,
+        "data_gap_unresolved_count": 1,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 41,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 4,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 86
+        },
+        "gross_pnl_usd": -89.8935,
+        "losses": 109,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.5528,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.5529,
+        "net_pnl_usd": -239.6588,
+        "open_at_horizon_count": 16,
+        "opportunity_ids_sha256": "a144cd86c018afb5a9e1cb02ac48d2d809969c2939a7f9760f92ce465997bb54",
+        "orig_qty_fill_time_breaches_over_2p50": 88,
+        "realized_loss_quantiles_usd": {
+          "max": 2.5529,
+          "p50": 2.5179,
+          "p90": 2.5397,
+          "p95": 2.5475
+        },
+        "realized_losses_exceeding_2p50_count": 79,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0115,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5115
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0391,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3375_ts1791785520000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5391
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0404,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5404
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.034,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3390_ts1791786420000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.534
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0275,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3396_ts1791786780000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5275
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0172,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5172
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0331,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4630_ts1791871260000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5331
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0061,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4948_ts1791890340000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5061
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0337,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4974_ts1791891900000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5337
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0195,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4979_ts1791892200000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5195
+          }
+        ],
+        "scheduled_trades": 131,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "5748fbb404b8c372850593c763f3cebbc13b86beb625022553f5901e84be2e5a",
+        "total_fees_usd": 149.7653,
+        "unfilled_count": 0,
+        "wins": 5
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades": 120,
+        "data_gap_unresolved_count": 1,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 4,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 15,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 119
+        },
+        "gross_pnl_usd": -110.7693,
+        "losses": 115,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.7149,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.7148,
+        "net_pnl_usd": -269.3241,
+        "open_at_horizon_count": 17,
+        "opportunity_ids_sha256": "cf330111ef00d11f0245f312beb909f7f1c5d984d6aad81c2f9ec8e3b1de6938",
+        "orig_qty_fill_time_breaches_over_2p50": 133,
+        "realized_loss_quantiles_usd": {
+          "max": 2.7148,
+          "p50": 2.6375,
+          "p90": 2.6937,
+          "p95": 2.7037
+        },
+        "realized_losses_exceeding_2p50_count": 113,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1375,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6375
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1702,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx57_ts1791441360000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6702
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1801,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3375_ts1791785520000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6801
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1935,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6935
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.181,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3390_ts1791786420000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.681
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1325,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3396_ts1791786780000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6325
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.023,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3583_ts1791798000000",
+            "planned_net_risk_usd": 2.42,
+            "realized_net_loss_usd": 2.523
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1372,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3684_ts1791804060000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6372
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1682,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4630_ts1791871260000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6682
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.183,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx4692_ts1791874980000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.683
+          }
+        ],
+        "scheduled_trades": 138,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "542378e7ae6d9ef9ce497dd702ad97e29c59e41961600ea4c13c2ce113df3692",
+        "total_fees_usd": 158.5548,
+        "unfilled_count": 0,
+        "wins": 5
+      }
+    },
+    "NC_NULL_TRIGGER": {
+      "NEXT_BAR_OPEN_BID_ASK": {
+        "closed_trades": 203,
+        "data_gap_unresolved_count": 2,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 74,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 4,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 155
+        },
+        "gross_pnl_usd": -164.9541,
+        "losses": 196,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.5573,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.5574,
+        "net_pnl_usd": -441.6118,
+        "open_at_horizon_count": 28,
+        "opportunity_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+        "orig_qty_fill_time_breaches_over_2p50": 157,
+        "realized_loss_quantiles_usd": {
+          "max": 2.5574,
+          "p50": 2.5172,
+          "p90": 2.5423,
+          "p95": 2.5462
+        },
+        "realized_losses_exceeding_2p50_count": 139,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0115,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5115
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0559,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2929_ts1791758760000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.5559
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0188,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2941_ts1791759480000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.5188
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.032,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2976_ts1791761580000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.532
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.0414,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3219_ts1791776160000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5414
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0152,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3258_ts1791778500000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.5152
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0094,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3338_ts1791783300000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.5094
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0404,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5404
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.034,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3390_ts1791786420000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.534
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.0275,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3396_ts1791786780000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.5275
+          }
+        ],
+        "scheduled_trades": 233,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "65a12301f8d5c79050cef23773b9d9162788d28eb02f30e5b0edca869f3bc4e7",
+        "total_fees_usd": 276.6577,
+        "unfilled_count": 0,
+        "wins": 7
+      },
+      "STRESS_WIDER_SPREAD_SLIPPAGE_2X": {
+        "closed_trades": 215,
+        "data_gap_unresolved_count": 2,
+        "fill_time_policy_actions": {
+          "ACCEPTED_AS_SIZED": 10,
+          "REJECTED_AT_FILL_TIME_NET_RR_LT_2_0": 25,
+          "RESIZED_CAUSALLY_AT_FILL_TIME": 211
+        },
+        "gross_pnl_usd": -205.1278,
+        "losses": 208,
+        "max_decision_planned_net_risk_usd": 2.5,
+        "max_orig_qty_fill_time_net_risk_usd": 2.7492,
+        "max_post_policy_fill_time_planned_risk_usd": 2.5,
+        "max_realized_net_loss_usd": 2.7493,
+        "net_pnl_usd": -498.5072,
+        "open_at_horizon_count": 29,
+        "opportunity_ids_sha256": "cd8b6d537762bb6ff04eaf270c5830de99317e1942dd517f0ebd6fbe27cbd5bc",
+        "orig_qty_fill_time_breaches_over_2p50": 234,
+        "realized_loss_quantiles_usd": {
+          "max": 2.7493,
+          "p50": 2.6394,
+          "p90": 2.7064,
+          "p95": 2.714
+        },
+        "realized_losses_exceeding_2p50_count": 203,
+        "realized_tail_examples": [
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1375,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx36_ts1791440100000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6375
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1702,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx57_ts1791441360000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6702
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.2269,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2929_ts1791758760000",
+            "planned_net_risk_usd": 2.5,
+            "realized_net_loss_usd": 2.7269
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.2099,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx2931_ts1791758880000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.7099
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1418,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2941_ts1791759480000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.6418
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.2,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx2976_ts1791761580000",
+            "planned_net_risk_usd": 2.48,
+            "realized_net_loss_usd": 2.7
+          },
+          {
+            "direction": "SHORT",
+            "excess_over_2p50_usd": 0.1825,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_SHORT_idx3219_ts1791776160000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6825
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1803,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3258_ts1791778500000",
+            "planned_net_risk_usd": 2.46,
+            "realized_net_loss_usd": 2.6803
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1205,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3338_ts1791783300000",
+            "planned_net_risk_usd": 2.47,
+            "realized_net_loss_usd": 2.6205
+          },
+          {
+            "direction": "LONG",
+            "excess_over_2p50_usd": 0.1935,
+            "exit_type": "LOSS",
+            "opportunity_id": "kh02_b2_LONG_idx3382_ts1791785940000",
+            "planned_net_risk_usd": 2.49,
+            "realized_net_loss_usd": 2.6935
+          }
+        ],
+        "scheduled_trades": 246,
+        "tail_loss_gt_2p50_opportunity_ids_sha256": "6a8561e5559f7b4d76ab82550450e27ebf9851fa5a57419ddcaa4801f3065ad0",
+        "total_fees_usd": 293.3794,
+        "unfilled_count": 0,
+        "wins": 7
+      }
+    }
+  },
+  "artifact_canonical_sha256": "0c1254cdcaf862531e2d9535f627eaf73463ee90206bdd1228d0a42b6b08b0eb",
+  "c3_root_cause_audit": {
+    "c3_f12_bug": "Read nonexistent keys `realized_tail_summary`/`summary` and defaulted silently to `{}` instead of `arm_fill_time_and_tail_audits`.",
+    "c3_f12_cap_key_bug": "Read nonexistent key `fill_time_cap_violations_count` defaulting to `0` instead of `decision_time_cap_violations` + `post_fill_policy_cap_violations`.",
+    "c3_f13_hardcoded_bool_bug": "Hardcoded `realized_tail_risk_disclosed = True` while `f12['realized_tail_summary'] == {}`.",
+    "c3_runner_file": "aurum-desk/tools/run_kh_02_r2_c3_acceptance.py",
+    "sealed_c3_folder_modified": false
+  },
+  "coverage_cells_expected": 10,
+  "coverage_cells_populated": 10,
+  "coverage_matrix": [
+    {
+      "arm_code": "B2_H1",
+      "closed_trades": 73,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "max_realized_net_loss_usd": 2.563,
+      "open_at_horizon_count": 9,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 51,
+      "scheduled_trades": 82
+    },
+    {
+      "arm_code": "B2_H1",
+      "closed_trades": 80,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "max_realized_net_loss_usd": 2.7549,
+      "open_at_horizon_count": 7,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 77,
+      "scheduled_trades": 87
+    },
+    {
+      "arm_code": "B2_H123",
+      "closed_trades": 23,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "max_realized_net_loss_usd": 2.5484,
+      "open_at_horizon_count": 8,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 16,
+      "scheduled_trades": 31
+    },
+    {
+      "arm_code": "B2_H123",
+      "closed_trades": 28,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "max_realized_net_loss_usd": 2.7073,
+      "open_at_horizon_count": 6,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 27,
+      "scheduled_trades": 34
+    },
+    {
+      "arm_code": "B2_H2",
+      "closed_trades": 203,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "max_realized_net_loss_usd": 2.5574,
+      "open_at_horizon_count": 28,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 139,
+      "scheduled_trades": 233
+    },
+    {
+      "arm_code": "B2_H2",
+      "closed_trades": 215,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "max_realized_net_loss_usd": 2.7493,
+      "open_at_horizon_count": 29,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 203,
+      "scheduled_trades": 246
+    },
+    {
+      "arm_code": "B2_H3",
+      "closed_trades": 114,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "max_realized_net_loss_usd": 2.5529,
+      "open_at_horizon_count": 16,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 79,
+      "scheduled_trades": 131
+    },
+    {
+      "arm_code": "B2_H3",
+      "closed_trades": 120,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "max_realized_net_loss_usd": 2.7148,
+      "open_at_horizon_count": 17,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 113,
+      "scheduled_trades": 138
+    },
+    {
+      "arm_code": "NC_NULL_TRIGGER",
+      "closed_trades": 203,
+      "fill_mode": "NEXT_BAR_OPEN_BID_ASK",
+      "max_realized_net_loss_usd": 2.5574,
+      "open_at_horizon_count": 28,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 139,
+      "scheduled_trades": 233
+    },
+    {
+      "arm_code": "NC_NULL_TRIGGER",
+      "closed_trades": 215,
+      "fill_mode": "STRESS_WIDER_SPREAD_SLIPPAGE_2X",
+      "max_realized_net_loss_usd": 2.7493,
+      "open_at_horizon_count": 29,
+      "present": true,
+      "realized_losses_exceeding_2p50_count": 203,
+      "scheduled_trades": 246
+    }
+  ],
+  "decision_time_cap_violations": 0,
+  "expected_arms": [
+    "B2_H1",
+    "B2_H123",
+    "B2_H2",
+    "B2_H3",
+    "NC_NULL_TRIGGER"
+  ],
+  "expected_modes": [
+    "NEXT_BAR_OPEN_BID_ASK",
+    "STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+  ],
+  "global_max_realized_net_loss_usd": 2.7549,
+  "linked_per_episode_ledger": {
+    "canonical_rows_sha256": "582655065d33044db8d5f81a4559a9bd9c31b4e3ceeba063d75b40df684e6d2c",
+    "episode_uids_sha256": "07b92cbb3e7760fba7fd624adf3b9caefb390254fac847774201b97d9d365501",
+    "ledger_file_sha256": "a1d8e84436c5e41d5d3612db16bf73b5c195a36b0f917a10bba09ed193b5ed80",
+    "ledger_filename": "12_per_episode_risk_ledger.jsonl.gz",
+    "total_episode_rows": 1461
+  },
+  "min_net_rr": 2.0,
+  "post_fill_policy_cap_violations": 0,
+  "realized_tail_loss_disclosure": "planned_net_risk_usd <= 2.50 USD is a causal planned stop-loss estimate computed BEFORE trade exit; it is NOT a physical guarantee that realized loss cannot exceed 2.50 USD after adverse overnight gaps, liquidity shocks, or stop-fill slippage. Realized losses exceeding 2.50 USD are tracked and disclosed separately.",
+  "risk_cap_usd": 2.5,
+  "schema_version": "kh_02_r2_c4_risk_tail_evidence_v1",
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS",
+  "synthetic_stress_controls": {
+    "adverse_slippage_jump_enforces_2p50_cap": true,
+    "future_high_low_peek_blocked": true,
+    "min_lot_exceeds_cap_rejected": true,
+    "overnight_gap_past_sl_rejected": true,
+    "tiny_stop_resizes_or_rejects_cleanly": true
+  },
+  "total_realized_losses_exceeding_2p50_count": 1047,
+  "upstream_audit_canonical_sha256": "7511cc1de80a998aae991b69e2e8b56272424a8d0aed7219549b3fc66f6b801c"
+}

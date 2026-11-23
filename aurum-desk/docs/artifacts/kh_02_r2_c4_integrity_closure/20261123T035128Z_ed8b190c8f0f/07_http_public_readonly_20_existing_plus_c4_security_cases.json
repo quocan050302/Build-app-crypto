@@ -1,0 +1,55 @@
+{
+  "c4_security_cases": [
+    {
+      "case_id": "C4-HTTP-01_EXACT_CLASS_CHECK",
+      "detail": "Evil subclass rejected",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-02_INSTANCE_PATCH_CHECK",
+      "detail": "Instance .get patch rejected",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-03_POST_INIT_OPENER",
+      "detail": "Post-init _opener_fn mutation rejected",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-04_DEFAULT_REAL_SLEEP",
+      "detail": "Default real time.sleep verified",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-05_PROOF_NON_COPYABLE",
+      "detail": "VerifiedCaptureProofC4 non-copyable",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-06_PROOF_NON_SERIALIZABLE",
+      "detail": "VerifiedCaptureProofC4 non-picklable",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-07_EXPIRED_PROOF_FAIL_CLOSED",
+      "detail": "Expired capture proof rejected",
+      "status": "PASS"
+    },
+    {
+      "case_id": "C4-HTTP-08_ZERO_LIVE_NETWORK_BY_DESIGN",
+      "detail": "Network OFF by default",
+      "status": "PASS"
+    }
+  ],
+  "c4_security_cases_failed": 0,
+  "c4_security_cases_passed": 8,
+  "c4_security_cases_total": 8,
+  "inherited_20_cases_failed": 0,
+  "inherited_20_cases_passed": 20,
+  "inherited_20_cases_total": 20,
+  "live_network_capture_executed": false,
+  "live_network_test_status": "LIVE_NETWORK_TEST_NOT_RUN_BY_DESIGN",
+  "real_prospective_snapshots_collected": 0,
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}

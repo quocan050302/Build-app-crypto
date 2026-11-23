@@ -1,0 +1,18 @@
+{
+  "direct_mint_green_provenance_never_live": true,
+  "direct_mint_spoof_blocked": true,
+  "event_timestamp_tamper_rejected": true,
+  "evil_subclass_blocked": true,
+  "expired_proof_rejected": true,
+  "instance_get_monkeypatch_blocked": true,
+  "modified_bytes_after_capture_rejected": true,
+  "naked_raw_response_blocked": true,
+  "parsed_forgery_rejected": true,
+  "post_init_opener_mutation_blocked": true,
+  "proof_replay_different_snapshot_blocked": true,
+  "qa_isolated_admitted_test_only": true,
+  "raw_bytes_reparse_verified": true,
+  "real_oos_escrow_final_record_count": 0,
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}

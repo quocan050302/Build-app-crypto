@@ -1,0 +1,12 @@
+{
+  "concurrent_writers_2_4_8_exact_once_passed": true,
+  "crash_recovery_and_quarantine_passed": true,
+  "interprocess_os_lock_passed": true,
+  "os_locking_mechanism": "threading.RLock+msvcrt.locking(LK_NBLCK)",
+  "proof_replay_different_snapshot_blocked": true,
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS",
+  "threat_model_disclosure": "An append-only local hash chain detects accidental corruption and naive edits (LOCAL_TAMPER_EVIDENT_ONLY), but a privileged actor with write/root access to the same host filesystem could rewrite both journal and local anchor unless anchored to an independent remote WORM/signed store.",
+  "unanchored_immutability_class": "LOCAL_TAMPER_EVIDENT_ONLY",
+  "unanchored_worm_verified": false
+}

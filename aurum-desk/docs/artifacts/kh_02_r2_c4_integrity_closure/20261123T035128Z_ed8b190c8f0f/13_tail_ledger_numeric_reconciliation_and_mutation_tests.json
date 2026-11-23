@@ -1,0 +1,93 @@
+{
+  "independent_recompute_from_12": {
+    "recomputed_summary": {
+      "decision_time_cap_violations": 0,
+      "episode_uids_sha256": "07b92cbb3e7760fba7fd624adf3b9caefb390254fac847774201b97d9d365501",
+      "global_max_realized_net_loss_usd": 2.7549,
+      "max_episode_gross_fee_net_residual_usd": 0.0,
+      "post_fill_policy_cap_violations": 0,
+      "total_episode_rows": 1461,
+      "total_realized_losses_exceeding_2p50_count": 1047
+    },
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "mutation_controls": [
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM01_EMPTY_DICT",
+      "violations": [
+        "EMPTY_TAIL_SUMMARY_DOCUMENT"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM02_HARDCODED_TRUE_EMPTY_ARMS",
+      "violations": [
+        "EMPTY_OR_MISSING_ARM_FILL_TIME_AND_TAIL_AUDITS"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM03_MISSING_ARM",
+      "violations": [
+        "MISSING_ARM_IN_TAIL_SUMMARY:B2_H1"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM04_MISSING_MODE",
+      "violations": [
+        "MISSING_MODE_IN_TAIL_SUMMARY:B2_H2:STRESS_WIDER_SPREAD_SLIPPAGE_2X"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM05_TAMPERED_LOSS_GT_CAP_COUNT",
+      "violations": [
+        "CELL_INT_MISMATCH:B2_H1:NEXT_BAR_OPEN_BID_ASK:realized_losses_exceeding_2p50_count:claimed=9999!=recomp=51"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM06_TAMPERED_MAX_LOSS",
+      "violations": [
+        "CELL_FLOAT_MISMATCH:B2_H1:NEXT_BAR_OPEN_BID_ASK:max_realized_net_loss_usd:claimed=0.01!=recomp=2.563"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM07_TAMPERED_NET_PNL",
+      "violations": [
+        "CELL_FLOAT_MISMATCH:B2_H1:NEXT_BAR_OPEN_BID_ASK:net_pnl_usd:claimed=999.0!=recomp=-175.438"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM08_TAMPERED_CAP_THRESHOLD",
+      "violations": [
+        "RISK_CAP_THRESHOLD_TAMPERED:claimed=10.0,expected=2.5"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM09_TAMPERED_LEDGER_SHA",
+      "violations": [
+        "LINKED_LEDGER_FILE_SHA256_MISMATCH"
+      ]
+    },
+    {
+      "detected_as_fail": true,
+      "mutation_id": "TM10_REMOVED_TAIL_DISCLOSURE",
+      "violations": [
+        "MISSING_REALIZED_TAIL_PHYSICAL_GUARANTEE_DISCLOSURE"
+      ]
+    }
+  ],
+  "mutation_controls_failed": 0,
+  "mutation_controls_passed": 10,
+  "mutation_controls_total": 10,
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}

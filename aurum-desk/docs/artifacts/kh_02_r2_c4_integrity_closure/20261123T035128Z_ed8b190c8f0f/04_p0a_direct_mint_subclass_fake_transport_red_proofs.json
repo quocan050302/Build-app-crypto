@@ -1,0 +1,46 @@
+{
+  "baseline_sha": "ca5ba09602c115d1aa2b35f762104f7e0766f4a6",
+  "captured_before_c4_edits": true,
+  "direct_mint_red_proven": true,
+  "evil_subclass_red_proven": true,
+  "instance_get_monkeypatch_red_proven": true,
+  "p0a_exploits": {
+    "A01_DIRECT_MINT_BOOLEAN_SPOOF": {
+      "admission_admitted": true,
+      "admission_eligible_for_fresh_oos": true,
+      "admission_tier": "NEW_REAL_OOS_RAW_VERIFIED",
+      "classification": "REAL_RED",
+      "escrow_action": "APPENDED_NEW_ENTRY",
+      "escrow_eligible_for_fresh_oos": true,
+      "escrow_record_count": 1,
+      "minted_provenance_class": "LIVE_AUTHORIZED_PUBLIC_HTTP"
+    },
+    "A02_EVIL_SUBCLASS_GET_OVERRIDE": {
+      "classification": "REAL_RED",
+      "collector_provenance_class": "LIVE_AUTHORIZED_PUBLIC_HTTP",
+      "escrow_action": "APPENDED_NEW_ENTRY",
+      "escrow_eligible_for_fresh_oos": true,
+      "escrow_record_count": 1,
+      "receipt_provenance_class": "LIVE_AUTHORIZED_PUBLIC_HTTP"
+    },
+    "A03_INSTANCE_GET_MONKEYPATCH": {
+      "classification": "REAL_RED",
+      "collector_provenance_class": "LIVE_AUTHORIZED_PUBLIC_HTTP",
+      "escrow_action": "APPENDED_NEW_ENTRY",
+      "escrow_eligible_for_fresh_oos": true,
+      "escrow_record_count": 1
+    }
+  },
+  "p0b_evidence_gaps_on_sealed_c3": {
+    "c3_12_realized_tail_summary_is_empty_dict": true,
+    "c3_12_realized_tail_summary_value": {},
+    "c3_13_full_rerisk_b2_h1_1x_gross_pnl": -73.1555,
+    "c3_13_full_rerisk_b2_h1_1x_net_pnl": -175.438,
+    "c3_13_full_rerisk_b2_h1_1x_total_fees_displayed": 0.0,
+    "c3_13_full_rerisk_fee_display_mismatch_confirmed": true,
+    "c3_13_realized_tail_risk_disclosed_hardcoded_bool": true,
+    "c3_21_G09_status_despite_empty_tail": "PASS",
+    "classification": "REAL_RED"
+  },
+  "windows_native_fcntl_missing_on_ca5ba096": true
+}

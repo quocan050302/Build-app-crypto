@@ -1,0 +1,32 @@
+{
+  "ACTIVATION_READY": "NO",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "can_run_heavy_stages": true,
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "end_head_sha": "ed8b190c8f0ff84e79f2d9b17c668ed1c75beaa4",
+  "git_clean_at_start": true,
+  "local_uncommitted_c4_changes": false,
+  "orchestrator_pid": 34372,
+  "owner_disk_preflight_waiver": false,
+  "platform": "Windows-11-10.0.26300-SP0",
+  "prior_kh02_r2_c3_evidence_sha": "2a8c1bdb55c01496b058f15eae9175b815cb8dbc",
+  "prior_kh02_r2_c3_pub_head_sha": "ca5ba09602c115d1aa2b35f762104f7e0766f4a6",
+  "prior_kh02_r2_c3_run_id": "20261122T124741Z_d7eff11058e7",
+  "prior_kh02_r2_c3_tested_sha": "d7eff11058e7875b838654a5f4b4d59e94500a80",
+  "python_version": "3.12.10",
+  "random_seed": 20261121,
+  "remote_head_sha": "ca5ba09602c115d1aa2b35f762104f7e0766f4a6",
+  "run_id": "20261123T035128Z_ed8b190c8f0f",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_02_r2_c4_integrity_closure_v1",
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "start_head_sha": "ed8b190c8f0ff84e79f2d9b17c668ed1c75beaa4",
+  "started_utc": "2026-11-23T03:51:28Z",
+  "status": "PASS",
+  "tested_executable_sha": "ed8b190c8f0ff84e79f2d9b17c668ed1c75beaa4"
+}

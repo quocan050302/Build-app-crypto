@@ -1,0 +1,119 @@
+{
+  "all_determinism_identical": true,
+  "measured_pytest_speedup_w2_vs_w1": 1.402,
+  "measured_pytest_speedup_w4_vs_w1": 1.792,
+  "measured_science_speedup_w2_vs_w1": 1.259,
+  "measured_science_speedup_w4_vs_w1": 1.065,
+  "pytest_controlled_subset_w1_w2_w4_repeat": {
+    "all_4_runs_identical": true,
+    "all_executed_runs_identical": true,
+    "files_count": 10,
+    "measured_speedup_w2_vs_w1": 1.402,
+    "measured_speedup_w4_vs_w1": 1.792,
+    "r2_reference_timings_seconds": {
+      "w=1": 59.733,
+      "w=1_repeat": 58.891,
+      "w=2": 49.024,
+      "w=4": 43.088
+    },
+    "runs": [
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 52.477,
+        "worker_pids": [
+          33960
+        ],
+        "workers": 1
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 37.421,
+        "worker_pids": [
+          36272,
+          29996
+        ],
+        "workers": 2
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 29.282,
+        "worker_pids": [
+          38796,
+          23820,
+          960,
+          32312
+        ],
+        "workers": 4
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 41.054,
+        "worker_pids": [
+          24188
+        ],
+        "workers": 1
+      }
+    ],
+    "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+    "w4_status": "EXECUTED"
+  },
+  "r2_science_slice_w1_w2_w4_repeat": {
+    "all_4_runs_identical": true,
+    "canonical_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "evaluated_bar_range": [
+      30,
+      8030
+    ],
+    "measured_optimal_worker_count_for_slice": 2,
+    "measured_speedup_w2_vs_w1": 1.259,
+    "measured_speedup_w4_vs_w1": 1.065,
+    "runs": [
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1",
+        "rows_count": 12062,
+        "wall_seconds": 2.244,
+        "workers": 1
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 2,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=2",
+        "rows_count": 12062,
+        "wall_seconds": 1.783,
+        "workers": 2
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 4,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=4",
+        "rows_count": 12062,
+        "wall_seconds": 2.107,
+        "workers": 4
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1_repeat",
+        "rows_count": 12062,
+        "wall_seconds": 1.898,
+        "workers": 1
+      }
+    ]
+  },
+  "spec_version": "KH-02.R2.C4-v1.0",
+  "status": "PASS"
+}
