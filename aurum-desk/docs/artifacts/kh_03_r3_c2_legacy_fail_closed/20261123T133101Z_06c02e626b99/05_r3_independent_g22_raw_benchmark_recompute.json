@@ -1,0 +1,16 @@
+{
+  "archived_r3_admitted_for_new_c2_certification": false,
+  "archived_r3_descriptive_audit_classification": "LEGACY_DESCRIPTIVE_ONLY",
+  "archived_r3_descriptive_audit_exit_code": 0,
+  "archived_r3_run_id": "20261123T085134Z_2301d9c64898",
+  "archived_r3_strict_mode_exit_code": 1,
+  "archived_r3_strict_mode_rejected": true,
+  "artifact_canonical_sha256": "55d3dcc8729cde75d938353d1679914ceac3ac5266796344160ba23a922217d9",
+  "clean_c2_r3_run_passes": true,
+  "forged_f19_rejected_fail_closed": true,
+  "run_id": "20261123T133101Z_06c02e626b99",
+  "schema_version": "kh_03_r3_c2_legacy_fail_closed_v1",
+  "spec_version": "KH-03.R3.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "06c02e626b9993de6d21d906e2340b8a22ed37b3"
+}

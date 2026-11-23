@@ -1,0 +1,57 @@
+{
+  "all_4_runs_identical": true,
+  "artifact_canonical_sha256": "f390ead85cfc2a3f06a3ba360cdb7821cd32c1666f46df722c6781923c767aeb",
+  "benchmark_kind": "r2_science_slice",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+  "evaluated_bar_range": [
+    30,
+    8030
+  ],
+  "measured_optimal_worker_count_for_slice": 2,
+  "measured_speedup_w2_vs_w1": 1.24,
+  "measured_speedup_w4_vs_w1": 1.153,
+  "run_id": "20261123T133101Z_06c02e626b99",
+  "runs": [
+    {
+      "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "chunks_count": 1,
+      "evaluated_bars_count": 8000,
+      "mode_label": "w=1",
+      "rows_count": 12062,
+      "wall_seconds": 1.322,
+      "workers": 1
+    },
+    {
+      "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "chunks_count": 2,
+      "evaluated_bars_count": 8000,
+      "mode_label": "w=2",
+      "rows_count": 12062,
+      "wall_seconds": 1.066,
+      "workers": 2
+    },
+    {
+      "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "chunks_count": 4,
+      "evaluated_bars_count": 8000,
+      "mode_label": "w=4",
+      "rows_count": 12062,
+      "wall_seconds": 1.147,
+      "workers": 4
+    },
+    {
+      "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "chunks_count": 1,
+      "evaluated_bars_count": 8000,
+      "mode_label": "w=1_repeat",
+      "rows_count": 12062,
+      "wall_seconds": 1.145,
+      "workers": 1
+    }
+  ],
+  "schema_version": "kh_03_r3_c2_legacy_fail_closed_v1",
+  "spec_version": "KH-03.R3.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "06c02e626b9993de6d21d906e2340b8a22ed37b3"
+}

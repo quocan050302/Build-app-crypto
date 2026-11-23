@@ -1,0 +1,21 @@
+{
+  "artifact_canonical_sha256": "dd827d7ab1433f0e9bcf81c9ffe1e0c53fbc5e33066dea4afa1a63785d48c211",
+  "c1_worker_policy_service_rel": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+  "c1_worker_policy_service_sha256": "ca5a209b538145621c503b888465eee55fb64eccb92ef175cef6fe4af8200120",
+  "c1_worker_policy_service_untouched": true,
+  "changed_files_vs_c1_pub_head": [
+    "aurum-desk/backend/tests/test_kh03_r3_c2_independent_mutations.py",
+    "aurum-desk/backend/tests/test_kh03_r3_c2_legacy_runner_fail_closed.py",
+    "aurum-desk/backend/tests/test_kh03_r3_resource_async_and_verifier_mutations.py",
+    "aurum-desk/tools/kh_03_r3_c2_independent_verifier.py",
+    "aurum-desk/tools/kh_03_r3_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r3_acceptance.py",
+    "aurum-desk/tools/run_kh_03_r3_c2_acceptance.py"
+  ],
+  "locked_production_and_science_files_modified_count": 0,
+  "run_id": "20261123T133101Z_06c02e626b99",
+  "schema_version": "kh_03_r3_c2_legacy_fail_closed_v1",
+  "spec_version": "KH-03.R3.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "06c02e626b9993de6d21d906e2340b8a22ed37b3"
+}

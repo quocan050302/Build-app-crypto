@@ -1,0 +1,69 @@
+{
+  "all_4_runs_identical": true,
+  "all_executed_runs_identical": true,
+  "artifact_canonical_sha256": "c2210224bd3718afff8bb9dfed86f2d673e168d12f9ddd935f955466bca3521f",
+  "benchmark_kind": "pytest_controlled_subset",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "files_count": 10,
+  "measured_speedup_w2_vs_w1": 1.396,
+  "measured_speedup_w4_vs_w1": 1.837,
+  "r2_reference_timings_seconds": {
+    "w=1": 59.733,
+    "w=1_repeat": 58.891,
+    "w=2": 49.024,
+    "w=4": 43.088
+  },
+  "run_id": "20261123T133101Z_06c02e626b99",
+  "runs": [
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=1",
+      "wall_clock_seconds": 26.301,
+      "worker_pids": [
+        40722
+      ],
+      "workers": 1
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=2",
+      "wall_clock_seconds": 18.836,
+      "worker_pids": [
+        40758,
+        40759
+      ],
+      "workers": 2
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=4",
+      "wall_clock_seconds": 14.317,
+      "worker_pids": [
+        40791,
+        40792,
+        40793,
+        40794
+      ],
+      "workers": 4
+    },
+    {
+      "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "executed_tests_count": 155,
+      "mode_label": "w=1_repeat",
+      "wall_clock_seconds": 27.216,
+      "worker_pids": [
+        40836
+      ],
+      "workers": 1
+    }
+  ],
+  "schema_version": "kh_03_r3_c2_legacy_fail_closed_v1",
+  "spec_version": "KH-03.R3.C2-v1.0",
+  "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+  "status": "PASS",
+  "tested_executable_sha": "06c02e626b9993de6d21d906e2340b8a22ed37b3",
+  "w4_status": "EXECUTED"
+}

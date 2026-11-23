@@ -1,0 +1,215 @@
+{
+  "artifact_canonical_sha256": "b91beddba073a7229440a9cf11f9a25fdb759df973243599d07feaa20654a3ab",
+  "cases": [
+    {
+      "case_id": "C2T01",
+      "detail": "valid pytest policy",
+      "passed": true
+    },
+    {
+      "case_id": "C2T02",
+      "detail": "valid science policy",
+      "passed": true
+    },
+    {
+      "case_id": "C2T03",
+      "detail": "both valid -> f19 PASS + verifier PASS",
+      "passed": true
+    },
+    {
+      "case_id": "C2T04",
+      "detail": "missing W4 blocked (old was PASS)",
+      "passed": true
+    },
+    {
+      "case_id": "C2T05",
+      "detail": "missing science w=1_repeat blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T06",
+      "detail": "duplicate w=2 blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T07",
+      "detail": "rejected bad duration=None",
+      "passed": true
+    },
+    {
+      "case_id": "C2T08",
+      "detail": "rejected bad duration=0.0",
+      "passed": true
+    },
+    {
+      "case_id": "C2T09",
+      "detail": "rejected bad duration=-2.5",
+      "passed": true
+    },
+    {
+      "case_id": "C2T10",
+      "detail": "rejected bad duration=nan",
+      "passed": true
+    },
+    {
+      "case_id": "C2T11",
+      "detail": "rejected bad duration=inf",
+      "passed": true
+    },
+    {
+      "case_id": "C2T12",
+      "detail": "rejected bad duration=True",
+      "passed": true
+    },
+    {
+      "case_id": "C2T13",
+      "detail": "rejected bad duration='14.119'",
+      "passed": true
+    },
+    {
+      "case_id": "C2T14",
+      "detail": "cross-kind rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T15",
+      "detail": "conflicting duration rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T16",
+      "detail": "strict kind inference ok & mixed blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T17",
+      "detail": "W4 workers=2 rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T18",
+      "detail": "W4 3 pids rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T19",
+      "detail": "duplicate pids rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T20",
+      "detail": "science chunks mismatch rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T21",
+      "detail": "forged identical SHA rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T22",
+      "detail": "count drift rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T23",
+      "detail": "forged PASS on invalid raw caught",
+      "passed": true
+    },
+    {
+      "case_id": "C2T24",
+      "detail": "string 'true' can_certify rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T25",
+      "detail": "empty mean map rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T26",
+      "detail": "wrong fastest W1 vs W4 rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T27",
+      "detail": "w1_repeat SHA mismatch rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T28",
+      "detail": "applied_worker_count=5 rejected",
+      "passed": true
+    },
+    {
+      "case_id": "C2T29",
+      "detail": "runtime disk <20 blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T30",
+      "detail": "preflight disk <20.5 blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T31",
+      "detail": "RAM <512 blocked",
+      "passed": true
+    },
+    {
+      "case_id": "C2T32",
+      "detail": "waiver rejected FAIL",
+      "passed": true
+    },
+    {
+      "case_id": "C2T33",
+      "detail": "can_run_heavy=False never PASS",
+      "passed": true
+    },
+    {
+      "case_id": "C2T34",
+      "detail": "stale archived R3 refused",
+      "passed": true
+    },
+    {
+      "case_id": "C2T35",
+      "detail": "historical R3 descriptive-only",
+      "passed": true
+    },
+    {
+      "case_id": "C2T36",
+      "detail": "W1_repeat noise warning",
+      "passed": true
+    },
+    {
+      "case_id": "C2T37",
+      "detail": "W4 measured vs W3 cap separated",
+      "passed": true
+    },
+    {
+      "case_id": "C2T38",
+      "detail": "science W2 scoped to 8k slice",
+      "passed": true
+    },
+    {
+      "case_id": "C2T39",
+      "detail": "G22 FAIL forces engineering FAIL",
+      "passed": true
+    },
+    {
+      "case_id": "C2T40",
+      "detail": "mutated G22 PASS drift caught",
+      "passed": true
+    }
+  ],
+  "cases_failed": 0,
+  "cases_passed": 40,
+  "cases_total": 40,
+  "g22_invalid_blocks_overall_engineering_pass": true,
+  "nonfinite_mixed_missing_forged_all_rejected": true,
+  "run_id": "20261123T133101Z_06c02e626b99",
+  "schema_version": "kh_03_r3_c2_legacy_fail_closed_v1",
+  "spec_version": "KH-03.R3.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "06c02e626b9993de6d21d906e2340b8a22ed37b3"
+}
