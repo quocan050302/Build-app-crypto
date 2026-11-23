@@ -759,6 +759,10 @@ def reconcile_c4_full_universe_cost_fees(
             zero_display_bug = bool(closed_n > 0 and raw_fee_d == Decimal("0") and implied_fee_d > Decimal("0.01"))
             if zero_display_bug:
                 upstream_zero_fee_display_hits += 1
+            elif closed_n > 0 and abs(raw_fee_d - implied_fee_d) > Decimal("0.01"):
+                reconciliation_mismatches.append(
+                    f"NONZERO_FEE_VS_IMPLIED_MISMATCH:{sc_name}:{ac}:raw_fee={raw_fee_d},implied={implied_fee_d}"
+                )
             if implied_fee_d < Decimal("-0.01"):
                 reconciliation_mismatches.append(f"NEGATIVE_IMPLIED_FEE:{sc_name}:{ac}:gross={gross_d},net={net_d}")
             # Cross-check 1X_BASE_0p0004 implied fees directly against fixed-fill 1x fees_usd

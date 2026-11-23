@@ -2561,6 +2561,16 @@ def _summarize_episodes(eps: Sequence[Mapping[str, Any]], *, seed: int = DEFAULT
     losses = len(closed) - wins
     net_usd = sum((Decimal(str(e.get("realized_net_pnl_usd") or 0.0)) for e in closed), Decimal("0"))
     fees_usd = sum((Decimal(str(e.get("total_fees_usd") or 0.0)) for e in closed), Decimal("0"))
+    entry_fees_usd = sum((Decimal(str(e.get("entry_fee_usd") or 0.0)) for e in closed), Decimal("0"))
+    exit_fees_usd = sum((Decimal(str(e.get("exit_fee_usd") or 0.0)) for e in closed), Decimal("0"))
+    open_accrued_fees_usd = sum(
+        (
+            Decimal(str(e.get("accrued_open_entry_fee_usd") or 0.0))
+            for e in eps
+            if e.get("filled") and str(e.get("outcome_label")) in ("OPEN_AT_HORIZON", "DATA_GAP_UNRESOLVED")
+        ),
+        Decimal("0"),
+    )
     gross_usd = sum((Decimal(str(e.get("realized_gross_pnl_usd") or 0.0)) for e in closed), Decimal("0"))
     r_vals = [float(e.get("realized_net_r") or 0.0) for e in closed]
     ny_days = [str(e.get("ny_date") or "UNK") for e in closed]
@@ -2588,7 +2598,10 @@ def _summarize_episodes(eps: Sequence[Mapping[str, Any]], *, seed: int = DEFAULT
         "unfilled": unfilled,
         "win_rate": round(wins / len(closed), 4) if closed else None,
         "gross_pnl_usd": _dec4(gross_usd),
+        "entry_fees_closed_usd": _dec4(entry_fees_usd),
+        "exit_fees_closed_usd": _dec4(exit_fees_usd),
         "total_fees_usd": _dec4(fees_usd),
+        "accrued_open_entry_fees_usd": _dec4(open_accrued_fees_usd),
         "net_pnl_usd": _dec4(net_usd),
         "expectancy_r": round(sum(r_vals) / len(r_vals), 4) if r_vals else None,
         "max_drawdown_usd": round(max_dd, 4),
@@ -3733,12 +3746,16 @@ def _replay_chronological_custom_cost_scenario(
     slippage_usd: float,
     taker_fee_rate: float,
     maker_fee_rate: float,
-) -> Dict[str, Any]:
+    return_episodes: bool = False,
+) -> Any:
     """
     Runs a strict chronological 1-position deterministic replay from scratch for a custom
     cost scenario (`spread_usd`, `slippage_usd`, `taker_fee_rate`, `maker_fee_rate`) using
     authoritative read-only `simulate_v17931_trade_execution_net`.
+    KH-03.R1 root fix: extracts authoritative `entry_fee_usd` + `exit_fee_usd` via
+    `extract_authoritative_ledger_fees_kh03` without changing execution/sizing/PnL mechanics.
     """
+    from services.kh_03_fee_integrity_service import extract_authoritative_ledger_fees_kh03
     sorted_cands = sorted(
         candidates,
         key=lambda c: (int(c["decision_timestamp_ms"]), str(c["direction"]), str(c["opportunity_id"])),
@@ -3792,6 +3809,11 @@ def _replay_chronological_custom_cost_scenario(
         if led.filled:
             busy_until_ms = max(busy_until_ms, release_ts)
 
+        fee_info = extract_authoritative_ledger_fees_kh03(
+            ld,
+            filled=bool(led.filled),
+            outcome_label=outcome_label,
+        )
         episodes.append(
             {
                 "opportunity_id": c["opportunity_id"],
@@ -3805,7 +3827,11 @@ def _replay_chronological_custom_cost_scenario(
                 "executed_quantity": round(float(led.quantity or 0.0), 4),
                 "planned_net_risk_usd": round(float(led.planned_net_risk_usd or 0.0), 4),
                 "realized_gross_pnl_usd": round(float(ld.get("realized_gross_pnl_usd") or 0.0), 4),
-                "total_fees_usd": round(float(ld.get("total_fees_usd") or 0.0), 4),
+                "entry_fee_usd": fee_info["entry_fee_usd"],
+                "exit_fee_usd": fee_info["exit_fee_usd"],
+                "total_fees_usd": fee_info["total_fees_usd"],
+                "accrued_open_entry_fee_usd": fee_info["accrued_open_entry_fee_usd"],
+                "gross_fee_net_residual_usd": fee_info["gross_fee_net_residual_usd"],
                 "realized_net_pnl_usd": round(float(ld.get("realized_net_pnl_usd") or 0.0), 4),
                 "realized_net_r": round(
                     float(
@@ -3827,6 +3853,8 @@ def _replay_chronological_custom_cost_scenario(
     summary["skipped_due_to_active_position"] = skipped_busy
     summary["overlap_violations"] = overlap_violations
     summary["executed_ids_sha256"] = canonical_hash([e["opportunity_id"] for e in episodes])
+    if return_episodes:
+        return summary, episodes
     return summary
 
 
