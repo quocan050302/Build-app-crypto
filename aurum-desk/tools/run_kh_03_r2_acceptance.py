@@ -773,21 +773,18 @@ def run_kh03_r2_acceptance(
     _, remote_out = _git_cmd(["ls-remote", "origin", f"refs/heads/{MANDATORY_BRANCH_KH02_R2}"])
     remote_sha = remote_out.split()[0] if remote_out.strip() else ""
 
-    run_id = f"{utc_now.strftime('%Y%m%dT%H%M%SZ')}_{start_head[:12]}"
-    run_dir = REPO_ROOT / KH03_R2_ARTIFACTS_BASE_REL / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "logs").mkdir(exist_ok=True)
-    (run_dir / "junit").mkdir(exist_ok=True)
-    (run_dir / "checksums").mkdir(exist_ok=True)
-
-    sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1(run_id)
+    utc_stamp = utc_now.strftime("%Y%m%dT%H%M%SZ")
+    run_id = f"{utc_stamp}_{start_head[:12]}"
+    art_base = (REPO_ROOT / KH03_R2_ARTIFACTS_BASE_REL).resolve()
+    sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1(f"kh03r2_{utc_stamp}_", run_id=run_id, owner_pid=orch_pid)
     write_mount_paths = {
-        "repo_root": REPO_ROOT,
-        "artifacts": REPO_ROOT / KH03_R2_ARTIFACTS_BASE_REL,
+        "repo_volume": REPO_ROOT,
+        "app_volume": APP_ROOT,
+        "artifacts_output": art_base if art_base.exists() else APP_ROOT,
         "temp_volume": sentinel_tmp,
         "python_venv": Path(sys.executable).resolve().parent,
         "caches": Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")),
-        "logs": run_dir / "logs",
+        "logs": art_base / run_id / "logs",
     }
     strict_probe = probe_r2_c1_write_mounts_strict(
         write_mount_paths, atomic_probe_dirs=[(sentinel_tmp, True, run_id)]
@@ -797,6 +794,12 @@ def run_kh03_r2_acceptance(
     ram_ok = avail_ram_mib >= PREFLIGHT_RAM_MIN_MIB_KH02_R2
     can_run_heavy = strict_disk_ok and ram_ok
     eff_workers = max(1, min(int(max_workers), GLOBAL_MAX_DESCENDANTS_KH02_R2))
+
+    run_dir = art_base / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    (run_dir / "logs").mkdir(exist_ok=True)
+    (run_dir / "junit").mkdir(exist_ok=True)
+    (run_dir / "checksums").mkdir(exist_ok=True)
 
     watch_paths = [REPO_ROOT, APP_ROOT, run_dir, sentinel_tmp, Path(sys.executable).resolve().parent]
     sampler = _BoundedResourceSampler(
