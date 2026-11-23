@@ -50,7 +50,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Mapping, Set, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
 
 import psutil
 
@@ -117,6 +117,12 @@ from services.kh_03_r3_experiment_service import (
     query_nearest_causal_unswept_m5_target,
     run_r3_forward_only_dev_evaluation,
     run_r3_paired_and_strict_dev_evaluation_15_16,
+)
+from services.kh_03_r3_c1_worker_policy_service import (
+    BENCHMARK_KIND_PYTEST,
+    BENCHMARK_KIND_SCIENCE,
+    infer_benchmark_kind_strict,
+    select_measured_worker_policy_strict,
 )
 from services.kh_03_r3_legacy_research_guard import (
     SCHEMA_VERSION_KH03_R3,
@@ -578,17 +584,44 @@ def _run_kh03_r3_full_repo_pytest_sharded(
     }
 
 
-def _compute_optimum_worker_policy(bench_doc: Mapping[str, Any]) -> Dict[str, Any]:
-    runs = list(bench_doc.get("runs") or ())
-    by_mode: Dict[str, List[float]] = {}
-    for r in runs:
-        ml = str(r.get("mode_label") or "")
-        t = r.get("elapsed_sec") if r.get("elapsed_sec") is not None else (r.get("wall_sec") if r.get("wall_sec") is not None else r.get("duration_sec"))
-        if t is not None and ml in ("w=1", "w=2", "w=4"):
-            by_mode.setdefault(ml, []).append(float(t))
-    means = {m: round(sum(v) / len(v), 4) for m, v in by_mode.items() if v}
-    opt = min(means.items(), key=lambda kv: kv[1])[0] if means else "w=1"
-    return {"mean_wall_sec_by_mode": means, "optimum_worker_policy": opt}
+def _compute_optimum_worker_policy(
+    bench_doc: Mapping[str, Any],
+    *,
+    benchmark_kind: Optional[str] = None,
+    system_limits: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Backward-compatible KH-03.R3.C1 shim delegating to pure `kh_03_r3_c1_worker_policy_service`.
+    Correctly parses actual producer duration keys (`wall_clock_seconds` for pytest subset,
+    `wall_seconds` for 8,000-bar R2 science slice), rejects invalid/ambiguous schemas fail-closed,
+    and returns backward-compatible keys (`mean_wall_sec_by_mode`, `optimum_worker_policy`)
+    plus validated policy metadata (`measured_fastest_mode`, `applied_worker_count`, etc.).
+    """
+    kind = benchmark_kind
+    if kind is None:
+        inferred, infer_errs = infer_benchmark_kind_strict(bench_doc)
+        if inferred is None:
+            return {
+                "status": "BLOCKED_INVALID_BENCHMARK",
+                "policy_status": "POLICY_BLOCKED_WITH_SAFE_FALLBACK",
+                "can_certify": False,
+                "benchmark_kind": None,
+                "mean_wall_sec_by_mode": {},
+                "measured_fastest_mode": None,
+                "optimum_worker_policy": "w=1",
+                "applied_worker_count": 1,
+                "applied_worker_mode": "w=1_SAFE_FALLBACK_BLOCKED",
+                "full_suite_speedup_extrapolated": False,
+                "safe_fallback_reason": "; ".join(infer_errs),
+                "violations": infer_errs,
+            }
+        kind = inferred
+
+    return select_measured_worker_policy_strict(
+        bench_doc,
+        benchmark_kind=kind,
+        system_limits=system_limits,
+    )
 
 
 def _render_kh03_r3_readme_and_handover(
@@ -856,8 +889,24 @@ def run_kh03_r3_acceptance(
             "measured_pytest_speedup_w4_vs_w1": pb.get("measured_speedup_w4_vs_w1"),
             "measured_science_speedup_w2_vs_w1": sb.get("measured_speedup_w2_vs_w1"),
             "measured_science_speedup_w4_vs_w1": sb.get("measured_speedup_w4_vs_w1"),
-            "pytest_optimum_worker_policy": _compute_optimum_worker_policy(pb),
-            "science_optimum_worker_policy": _compute_optimum_worker_policy(sb),
+            "pytest_optimum_worker_policy": _compute_optimum_worker_policy(
+                pb,
+                benchmark_kind=BENCHMARK_KIND_PYTEST,
+                system_limits={
+                    "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
+                    "currently_allowed_worker_cap": eff_workers,
+                    "full_suite_safe_worker_cap": min(3, eff_workers),
+                },
+            ),
+            "science_optimum_worker_policy": _compute_optimum_worker_policy(
+                sb,
+                benchmark_kind=BENCHMARK_KIND_SCIENCE,
+                system_limits={
+                    "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
+                    "currently_allowed_worker_cap": eff_workers,
+                    "full_suite_safe_worker_cap": eff_workers,
+                },
+            ),
             "all_determinism_identical": bool(pb.get("all_4_runs_identical") and sb.get("all_4_runs_identical")),
             "status": "NOT_RUN_BLOCKED_LOW_DISK" if not can_run_heavy else ("PASS" if (pb.get("all_4_runs_identical") and sb.get("all_4_runs_identical")) else "FAIL"),
         }
