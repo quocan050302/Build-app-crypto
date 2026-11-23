@@ -494,6 +494,62 @@ def _run_kh03_verifier_mutation_suite_21(sentinel_tmp: Path) -> Dict[str, Any]:
     }
 
 
+def _collect_and_build_kh03_lpt_shards(owned_temp_root: Path) -> Tuple[Dict[str, List[str]], List[Dict[str, Any]]]:
+    all_test_files = sorted(
+        str(p.relative_to(APP_ROOT)).replace("\\", "/")
+        for p in (BACKEND_ROOT / "tests").glob("test_*.py")
+        if p.is_file()
+    )
+    col_out = owned_temp_root / "collect_kh03_stdout.log"
+    col_err = owned_temp_root / "collect_kh03_stderr.log"
+    col_snippet = (
+        "import os, sys, pytest; "
+        "fo = open(sys.argv[1], 'w', encoding='utf-8', errors='replace'); "
+        "fe = open(sys.argv[2], 'w', encoding='utf-8', errors='replace'); "
+        "sys.stdout = fo; sys.stderr = fe; "
+        "rc = pytest.main(sys.argv[3:]); "
+        "fo.flush(); fe.flush(); fo.close(); fe.close(); "
+        "os._exit(int(rc))"
+    )
+    col_env = dict(os.environ)
+    col_env["PYTHONHASHSEED"] = "0"
+    col_env["PYTHONPATH"] = _pypath_str()
+    proc = subprocess.run(
+        [sys.executable, "-c", col_snippet, str(col_out), str(col_err), str(BACKEND_ROOT / "tests"), "--collect-only", "-q"],
+        cwd=str(APP_ROOT), env=col_env, capture_output=True, check=False, timeout=300,
+    )
+    if proc.returncode != 0:
+        err_txt = col_err.read_text("utf-8", errors="replace")[-800:] if col_err.is_file() else ""
+        raise RuntimeError(f"KH03_PYTEST_COLLECTION_FAILED:rc={proc.returncode}:{err_txt}")
+
+    collected_by_file: Dict[str, List[str]] = {}
+    for ln in col_out.read_text("utf-8", errors="replace").splitlines():
+        cid = canonicalize_collect_node_id_v1793122(ln)
+        if cid is not None:
+            collected_by_file.setdefault(cid.split("::", 1)[0], []).append(cid)
+    for k in collected_by_file:
+        collected_by_file[k].sort()
+
+    empirical_ms = _load_empirical_file_durations_ms_from_kh01b()
+    non_sub = [f for f in all_test_files if Path(f).name not in KH03_EXCLUSIVE_SUBPROCESS_TEST_FILES]
+    sub_files = [f for f in all_test_files if Path(f).name in KH03_EXCLUSIVE_SUBPROCESS_TEST_FILES]
+    shards = _build_lpt_shards_kh01b_r1(non_sub, collected_by_file, empirical_ms)
+    for sh in shards:
+        if sh.get("shard_name") == "SHARD_SINGLE_CHILD_02_BUDGET2":
+            sh["exclusive"] = True
+            sh["slot_cost"] = 4
+    for idx_s, sf in enumerate(sorted(sub_files), 1):
+        shards.append({
+            "shard_name": f"SHARD_SINGLE_CHILD_KH03_SUBPROC_{idx_s:02d}",
+            "files": [sf],
+            "exclusive": True,
+            "slot_cost": 4,
+            "priority_weight": 260_000,
+            "needs_venv": False,
+        })
+    return collected_by_file, shards
+
+
 def _run_kh03_full_repo_pytest_sharded(
     run_dir: Path,
     sentinel_tmp: Path,
@@ -504,48 +560,7 @@ def _run_kh03_full_repo_pytest_sharded(
     max_workers: int,
 ) -> Dict[str, Any]:
     t0 = time.perf_counter()
-    env = os.environ.copy()
-    env["PYTHONPATH"] = _pypath_str()
-    proc_col = subprocess.run(
-        [sys.executable, "-m", "pytest", "backend/tests", "--collect-only", "-q"],
-        cwd=str(APP_ROOT), env=env, capture_output=True, text=True, timeout=180,
-    )
-    if proc_col.returncode != 0:
-        raise RuntimeError(f"KH03_PYTEST_COLLECTION_FAILED:rc={proc_col.returncode}:{proc_col.stderr[:400]}")
-
-    collected_by_file: Dict[str, List[str]] = {}
-    for line in proc_col.stdout.splitlines():
-        s = line.strip()
-        if "::" in s and s.startswith("backend/tests/"):
-            nid = canonicalize_collect_node_id_v1793122(s)
-            fpath = nid.split("::", 1)[0]
-            collected_by_file.setdefault(fpath, []).append(nid)
-
-    emp_dur = _load_empirical_file_durations_ms_from_kh01b()
-    base_shards = _build_lpt_shards_kh01b_r1(collected_by_file, emp_dur)
-    kh03_shards: List[Dict[str, Any]] = []
-    extracted_subproc_files: List[str] = []
-    for sh in base_shards:
-        keep_files: List[str] = []
-        for f in sh["files"]:
-            if Path(f).name in KH03_EXCLUSIVE_SUBPROCESS_TEST_FILES:
-                extracted_subproc_files.append(f)
-            else:
-                keep_files.append(f)
-        if keep_files:
-            ns = dict(sh)
-            ns["files"] = keep_files
-            kh03_shards.append(ns)
-    for idx, sf in enumerate(sorted(set(extracted_subproc_files)), 1):
-        kh03_shards.append(
-            {
-                "shard_id": f"SHARD_SINGLE_CHILD_KH03_SUBPROC_{idx:02d}",
-                "files": [sf],
-                "exclusive": True,
-                "child_budget_cost": 4,
-            }
-        )
-
+    collected_by_file, kh03_shards = _collect_and_build_kh03_lpt_shards(sentinel_tmp)
     active_shards_tracker: Dict[str, Any] = {}
     junit_res = asyncio.run(
         run_async_lpt_pytest_shards_kh01b_r1(
