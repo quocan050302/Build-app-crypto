@@ -27,10 +27,11 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
-from typing import Any, Dict, List, Mapping, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = APP_ROOT.parent
@@ -252,6 +253,324 @@ def _recompute_r3_dev_gates_from_raw_16(
     return len(violations) == 0, violations, passing_arms
 
 
+ARCHIVED_ORIGINAL_R3_RUN_ID_VERIF = "20261123T085134Z_2301d9c64898"
+ARCHIVED_ORIGINAL_R3_TESTED_SHA_VERIF = "2301d9c648984f6b06ccb4e22f47174c3990d7af"
+
+
+def _strict_json_loads_r3(raw_text: str) -> Any:
+    def _reject_const(tok: str) -> Any:
+        raise ValueError(f"NONSTANDARD_JSON_CONSTANT_FORBIDDEN:{tok}")
+
+    return json.loads(raw_text, parse_constant=_reject_const)
+
+
+def _r3v_is_int(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _r3v_is_num(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _r3v_is_hex64(v: Any) -> bool:
+    return isinstance(v, str) and len(v) == 64 and all(c in "0123456789abcdefABCDEF" for c in v)
+
+
+def recompute_r3_worker_policy_from_raw_for_verifier(
+    f19: Mapping[str, Any],
+    *,
+    expected_run_id: str,
+    expected_tested_sha: str,
+    expected_dataset_sha: str = CANONICAL_DATASET_SHA256_KH03_R3,
+    allow_legacy_descriptive_only: bool = False,
+) -> Dict[str, Any]:
+    """
+    COMPLETELY INDEPENDENT verifier-owned raw benchmark & worker-policy recomputer for R3 f19.
+    NEVER imports run_kh_03_r3_acceptance or kh_03_r3_c1_worker_policy_service (no common-mode bug).
+    Default mode is STRICT fail-closed; archived original R3 run may ONLY be audited read-only
+    under explicit `allow_legacy_descriptive_only=True` and is NEVER admitted as C2 certification.
+    """
+    is_archived_r3 = (
+        expected_run_id == ARCHIVED_ORIGINAL_R3_RUN_ID_VERIF
+        or expected_tested_sha == ARCHIVED_ORIGINAL_R3_TESTED_SHA_VERIF
+    )
+    if allow_legacy_descriptive_only:
+        if expected_run_id == ARCHIVED_ORIGINAL_R3_RUN_ID_VERIF and expected_tested_sha == ARCHIVED_ORIGINAL_R3_TESTED_SHA_VERIF:
+            sem_ok = _recompute_w1_w2_w4_c4(f19)
+            return {
+                "valid": bool(sem_ok),
+                "classification": "LEGACY_DESCRIPTIVE_ONLY",
+                "admitted_for_new_c2_certification": False,
+                "violations": [] if sem_ok else ["LEGACY_R3_SEMANTIC_DETERMINISM_FAILED"],
+                "recomputed_pytest": None,
+                "recomputed_science": None,
+            }
+        return {
+            "valid": False,
+            "classification": "LEGACY_DESCRIPTIVE_REJECTED_NON_ARCHIVED_RUN",
+            "admitted_for_new_c2_certification": False,
+            "violations": ["LEGACY_DESCRIPTIVE_MODE_ONLY_PERMITTED_FOR_ARCHIVED_R3_RUN"],
+            "recomputed_pytest": None,
+            "recomputed_science": None,
+        }
+
+    viols: List[str] = []
+    if is_archived_r3:
+        viols.append("STALE_ARCHIVED_R3_REFUSED_FOR_NEW_CERTIFICATION")
+
+    if not isinstance(f19, Mapping):
+        return {
+            "valid": False,
+            "classification": "STRICT_C2_CERTIFICATION_FAILED",
+            "admitted_for_new_c2_certification": False,
+            "violations": ["F19_NOT_MAPPING"],
+            "recomputed_pytest": None,
+            "recomputed_science": None,
+        }
+
+    # Protocol & top-level certification guard (prevents silent downgrade by stripping fields!)
+    wpv = str(f19.get("worker_policy_version") or "")
+    if not wpv.startswith("KH-03.R3.C2"):
+        viols.append(f"F19_MISSING_OR_FORGED_C2_WORKER_POLICY_VERSION:{wpv!r}")
+    if f19.get("policy_certification_status") != "PASS":
+        viols.append(f"F19_POLICY_CERTIFICATION_STATUS_NOT_PASS:{f19.get('policy_certification_status')!r}")
+    if f19.get("can_certify") is not True:
+        viols.append(f"F19_CAN_CERTIFY_NOT_STRICT_TRUE:{f19.get('can_certify')!r}")
+
+    ident = f19.get("raw_benchmark_identity")
+    if not isinstance(ident, Mapping):
+        viols.append("F19_MISSING_RAW_BENCHMARK_IDENTITY")
+    else:
+        if ident.get("run_id") != expected_run_id:
+            viols.append(f"F19_IDENTITY_RUN_ID_MISMATCH:got={ident.get('run_id')}!=exp={expected_run_id}")
+        if ident.get("tested_executable_sha") != expected_tested_sha:
+            viols.append(f"F19_IDENTITY_TESTED_SHA_MISMATCH:got={ident.get('tested_executable_sha')}!=exp={expected_tested_sha}")
+        if ident.get("canonical_dataset_sha256") != expected_dataset_sha:
+            viols.append("F19_IDENTITY_DATASET_SHA_MISMATCH")
+
+    req_workers = {"w=1": 1, "w=2": 2, "w=4": 4, "w=1_repeat": 1}
+
+    def _audit_one(
+        raw_sub: Any,
+        rep_pol: Any,
+        *,
+        tag: str,
+        canon_dur_key: str,
+        cross_keys: Tuple[str, ...],
+        cnt_key: str,
+        sha_key: str,
+        max_cap: int,
+        top_sp2: Any,
+        top_sp4: Any,
+    ) -> Dict[str, Any]:
+        sub_v: List[str] = []
+        if not isinstance(raw_sub, Mapping):
+            sub_v.append(f"R3V_{tag}_RAW_NOT_MAPPING")
+            return {"valid": False, "violations": sub_v}
+        if raw_sub.get("all_4_runs_identical") is not True:
+            sub_v.append(f"R3V_{tag}_ALL_4_RUNS_IDENTICAL_NOT_TRUE")
+        if "run_id" in raw_sub and raw_sub.get("run_id") != expected_run_id:
+            sub_v.append(f"R3V_{tag}_RAW_RUN_ID_MISMATCH")
+        if "tested_executable_sha" in raw_sub and raw_sub.get("tested_executable_sha") != expected_tested_sha:
+            sub_v.append(f"R3V_{tag}_RAW_TESTED_SHA_MISMATCH")
+
+        raw_runs = raw_sub.get("runs")
+        if not isinstance(raw_runs, list) or len(raw_runs) == 0:
+            sub_v.append(f"R3V_{tag}_EMPTY_RUNS")
+            return {"valid": False, "violations": sub_v}
+
+        durs: Dict[str, float] = {}
+        cnts: Dict[str, int] = {}
+        shas: Dict[str, str] = {}
+
+        for idx, row in enumerate(raw_runs):
+            if not isinstance(row, Mapping):
+                sub_v.append(f"R3V_{tag}_ROW_NOT_OBJ:{idx}")
+                continue
+            for ck in cross_keys:
+                if ck in row:
+                    sub_v.append(f"R3V_{tag}_CROSS_KIND_KEY:{ck}")
+            ml = row.get("mode_label")
+            if ml not in req_workers:
+                sub_v.append(f"R3V_{tag}_BAD_MODE:{ml!r}")
+                continue
+            if ml in durs:
+                sub_v.append(f"R3V_{tag}_DUPLICATE_MODE:{ml}")
+                continue
+            wk = row.get("workers")
+            if not _r3v_is_int(wk) or int(wk) != req_workers[ml]:
+                sub_v.append(f"R3V_{tag}_WORKERS_MISMATCH:{ml}:{wk!r}")
+
+            if tag == "PYTEST" and "worker_pids" in row:
+                pids = row.get("worker_pids")
+                if (
+                    not isinstance(pids, list)
+                    or len(pids) != req_workers[ml]
+                    or len(set(pids)) != req_workers[ml]
+                    or any((not _r3v_is_int(p) or int(p) <= 0) for p in pids)
+                ):
+                    sub_v.append(f"R3V_{tag}_BAD_WORKER_PIDS:{ml}")
+            if tag == "SCIENCE" and "chunks_count" in row:
+                cc = row.get("chunks_count")
+                if not _r3v_is_int(cc) or int(cc) != req_workers[ml]:
+                    sub_v.append(f"R3V_{tag}_BAD_CHUNKS_COUNT:{ml}:{cc!r}")
+
+            if canon_dur_key not in row:
+                sub_v.append(f"R3V_{tag}_MISSING_DURATION_KEY:{ml}:{canon_dur_key}")
+            else:
+                all_dks = [k for k in (canon_dur_key, "elapsed_sec", "wall_sec", "duration_sec") if k in row]
+                vals: List[float] = []
+                bad_d = False
+                for dk in all_dks:
+                    dv = row.get(dk)
+                    if not _r3v_is_num(dv):
+                        sub_v.append(f"R3V_{tag}_NON_NUMERIC_DURATION:{ml}:{dk}:{dv!r}")
+                        bad_d = True
+                        continue
+                    fv = float(dv)
+                    if not math.isfinite(fv) or fv <= 0.0 or fv > 86_400.0:
+                        sub_v.append(f"R3V_{tag}_INVALID_DURATION_RANGE:{ml}:{dk}:{dv!r}")
+                        bad_d = True
+                        continue
+                    vals.append(fv)
+                if not bad_d and len(vals) > 1 and any(abs(x - vals[0]) > 1e-9 for x in vals[1:]):
+                    sub_v.append(f"R3V_{tag}_CONFLICTING_DURATION_KEYS:{ml}")
+                if not bad_d and _r3v_is_num(row.get(canon_dur_key)):
+                    durs[ml] = float(row[canon_dur_key])
+
+            cv = row.get(cnt_key)
+            if not _r3v_is_int(cv) or int(cv) <= 0:
+                sub_v.append(f"R3V_{tag}_INVALID_COUNT:{ml}:{cv!r}")
+            else:
+                cnts[ml] = int(cv)
+            sv = row.get(sha_key)
+            if not _r3v_is_hex64(sv):
+                sub_v.append(f"R3V_{tag}_INVALID_SHA:{ml}:{sv!r}")
+            else:
+                shas[ml] = str(sv).lower()
+
+        for req_m in ("w=1", "w=2", "w=4", "w=1_repeat"):
+            if req_m not in durs:
+                sub_v.append(f"R3V_{tag}_MISSING_MODE:{req_m}")
+        if len(cnts) == 4 and len(set(cnts.values())) != 1:
+            sub_v.append(f"R3V_{tag}_COUNT_DRIFT:{cnts}")
+        if "w=1" in shas and "w=1_repeat" in shas and shas["w=1"] != shas["w=1_repeat"]:
+            sub_v.append(f"R3V_{tag}_W1_REPEAT_SHA_MISMATCH")
+        if len(shas) == 4 and len(set(shas.values())) != 1:
+            sub_v.append(f"R3V_{tag}_SEMANTIC_SHA_MISMATCH")
+
+        if any(m not in durs for m in ("w=1", "w=2", "w=4", "w=1_repeat")):
+            return {"valid": False, "violations": sub_v}
+
+        means = {m: round(durs[m], 4) for m in ("w=1", "w=2", "w=4")}
+        fastest = min(("w=1", "w=2", "w=4"), key=lambda m: (round(means[m], 6), req_workers[m]))
+        sp2 = round(durs["w=1"] / max(1e-9, durs["w=2"]), 3)
+        sp4 = round(durs["w=1"] / max(1e-9, durs["w=4"]), 3)
+        w1_rep = round(durs["w=1_repeat"], 4)
+        w1_var = round(abs(durs["w=1_repeat"] - durs["w=1"]) / max(1e-9, min(durs["w=1"], durs["w=1_repeat"])), 4)
+
+        if not isinstance(rep_pol, Mapping):
+            sub_v.append(f"R3V_{tag}_POLICY_NOT_MAPPING")
+            return {"valid": False, "violations": sub_v}
+
+        if rep_pol.get("status") != "PASS":
+            sub_v.append(f"R3V_{tag}_POLICY_STATUS_NOT_PASS:{rep_pol.get('status')!r}")
+        if rep_pol.get("can_certify") is not True:
+            sub_v.append(f"R3V_{tag}_POLICY_CAN_CERTIFY_NOT_STRICT_TRUE:{rep_pol.get('can_certify')!r}")
+        if rep_pol.get("policy_status") != "PASS_MEASURED_AND_SAFE_CAP_APPLIED":
+            sub_v.append(f"R3V_{tag}_POLICY_ENUM_INVALID:{rep_pol.get('policy_status')!r}")
+
+        rep_means = rep_pol.get("mean_wall_sec_by_mode")
+        if not isinstance(rep_means, Mapping) or len(rep_means) == 0:
+            sub_v.append(f"R3V_{tag}_EMPTY_MEAN_WALL_MAP")
+        else:
+            for m in ("w=1", "w=2", "w=4"):
+                gv = rep_means.get(m)
+                if not _r3v_is_num(gv) or abs(float(gv) - means[m]) > 1e-3:
+                    sub_v.append(f"R3V_{tag}_MEAN_WALL_MISMATCH:{m}:rep={gv}!=recomp={means[m]}")
+
+        if rep_pol.get("measured_fastest_mode") != fastest or rep_pol.get("optimum_worker_policy") != fastest:
+            sub_v.append(f"R3V_{tag}_FASTEST_MODE_MISMATCH:rep={rep_pol.get('measured_fastest_mode')}/{rep_pol.get('optimum_worker_policy')}!=recomp={fastest}")
+
+        rep_sp2 = rep_pol.get("measured_speedup_w2_vs_w1")
+        rep_sp4 = rep_pol.get("measured_speedup_w4_vs_w1")
+        if not _r3v_is_num(rep_sp2) or abs(float(rep_sp2) - sp2) > 0.01:
+            sub_v.append(f"R3V_{tag}_SPEEDUP_W2_MISMATCH:rep={rep_sp2}!=recomp={sp2}")
+        if not _r3v_is_num(rep_sp4) or abs(float(rep_sp4) - sp4) > 0.01:
+            sub_v.append(f"R3V_{tag}_SPEEDUP_W4_MISMATCH:rep={rep_sp4}!=recomp={sp4}")
+        if top_sp2 is not None and (not _r3v_is_num(top_sp2) or abs(float(top_sp2) - sp2) > 0.01):
+            sub_v.append(f"R3V_{tag}_TOP_SPEEDUP_W2_FORGED:top={top_sp2}!=recomp={sp2}")
+        if top_sp4 is not None and (not _r3v_is_num(top_sp4) or abs(float(top_sp4) - sp4) > 0.01):
+            sub_v.append(f"R3V_{tag}_TOP_SPEEDUP_W4_FORGED:top={top_sp4}!=recomp={sp4}")
+
+        rep_w1r = rep_pol.get("w1_repeat_wall_sec")
+        rep_var = rep_pol.get("w1_repeat_variance_pct")
+        if not _r3v_is_num(rep_w1r) or abs(float(rep_w1r) - w1_rep) > 1e-3:
+            sub_v.append(f"R3V_{tag}_W1_REPEAT_WALL_MISMATCH")
+        if not _r3v_is_num(rep_var) or abs(float(rep_var) - w1_var) > 1e-3:
+            sub_v.append(f"R3V_{tag}_W1_REPEAT_VARIANCE_MISMATCH")
+
+        sc = rep_pol.get("safe_worker_cap")
+        aw = rep_pol.get("applied_worker_count")
+        if not _r3v_is_int(sc) or int(sc) < 1 or int(sc) > max_cap or int(sc) > GLOBAL_MAX_DESCENDANTS_KH03_R3:
+            sub_v.append(f"R3V_{tag}_INVALID_SAFE_WORKER_CAP:{sc!r}:max={max_cap}")
+        if not _r3v_is_int(aw) or int(aw) < 1 or int(aw) > max_cap or int(aw) > GLOBAL_MAX_DESCENDANTS_KH03_R3 or (_r3v_is_int(sc) and int(aw) > int(sc)):
+            sub_v.append(f"R3V_{tag}_APPLIED_WORKER_CAP_EXCEEDED:{aw!r}:safe_cap={sc!r}:max={max_cap}")
+        if rep_pol.get("full_suite_speedup_extrapolated") is not False:
+            sub_v.append(f"R3V_{tag}_FULL_SUITE_EXTRAPOLATED_FORBIDDEN")
+        if rep_pol.get("timing_determinism_claimed") is not False:
+            sub_v.append(f"R3V_{tag}_TIMING_DETERMINISM_CLAIMED_FORBIDDEN")
+
+        return {
+            "valid": len(sub_v) == 0,
+            "means": means,
+            "fastest": fastest,
+            "speedup_w2_vs_w1": sp2,
+            "speedup_w4_vs_w1": sp4,
+            "w1_repeat_wall_sec": w1_rep,
+            "w1_repeat_variance_pct": w1_var,
+            "semantic_sha256": next(iter(shas.values())) if len(set(shas.values())) == 1 else None,
+            "violations": sub_v,
+        }
+
+    p_aud = _audit_one(
+        f19.get("pytest_controlled_subset_w1_w2_w4_repeat"),
+        f19.get("pytest_optimum_worker_policy"),
+        tag="PYTEST",
+        canon_dur_key="wall_clock_seconds",
+        cross_keys=("wall_seconds", "canonical_sorted_sha256", "rows_count"),
+        cnt_key="executed_tests_count",
+        sha_key="canonical_sorted_outcome_sha256",
+        max_cap=3,
+        top_sp2=f19.get("measured_pytest_speedup_w2_vs_w1"),
+        top_sp4=f19.get("measured_pytest_speedup_w4_vs_w1"),
+    )
+    s_aud = _audit_one(
+        f19.get("r2_science_slice_w1_w2_w4_repeat"),
+        f19.get("science_optimum_worker_policy"),
+        tag="SCIENCE",
+        canon_dur_key="wall_seconds",
+        cross_keys=("wall_clock_seconds", "canonical_sorted_outcome_sha256", "executed_tests_count"),
+        cnt_key="rows_count",
+        sha_key="canonical_sorted_sha256",
+        max_cap=GLOBAL_MAX_DESCENDANTS_KH03_R3,
+        top_sp2=f19.get("measured_science_speedup_w2_vs_w1"),
+        top_sp4=f19.get("measured_science_speedup_w4_vs_w1"),
+    )
+    viols.extend(p_aud.get("violations") or [])
+    viols.extend(s_aud.get("violations") or [])
+
+    ok = len(viols) == 0
+    return {
+        "valid": ok,
+        "classification": "STRICT_C2_CERTIFICATION_PASS" if ok else "STRICT_C2_CERTIFICATION_FAILED",
+        "admitted_for_new_c2_certification": ok,
+        "violations": viols,
+        "recomputed_pytest": p_aud,
+        "recomputed_science": s_aud,
+    }
+
+
 def recompute_kh03_r3_30_gates_and_verdicts(
     *,
     docs: Mapping[str, Mapping[str, Any]],
@@ -260,6 +579,8 @@ def recompute_kh03_r3_30_gates_and_verdicts(
     junit_bijection_ok: bool,
     verifier_violations_count: int = 0,
     for_final_verifier_manifest: bool = False,
+    r3_f19_policy_audit: Optional[Mapping[str, Any]] = None,
+    allow_legacy_descriptive_only: bool = False,
 ) -> Dict[str, Any]:
     """Independently recomputes ALL 30 orthogonal KH-03.R3 gates (G01..G30) and axis verdicts."""
     f00, f01, f02, f03, f04, f05 = docs["00"], docs["01"], docs["02"], docs["03"], docs["04"], docs["05"]
@@ -542,14 +863,38 @@ def recompute_kh03_r3_30_gates_and_verdicts(
     else:
         gates["G21_FULL_PYTEST_JUNIT_1_TO_1"] = "FAIL"
 
-    # G22: W1/W2/W4/W1_repeat determinism
+    # G22: W1/W2/W4/W1_repeat determinism AND strict independent worker-policy certification (KH-03.R3.C2)
     r19 = str(f19.get("status") or "FAIL")
     if r19 == "NOT_RUN_BLOCKED_LOW_DISK":
-        gates["G22_W1_W2_W4_W1REPEAT_SEMANTIC_DETERMINISM"] = "NOT_RUN_BLOCKED_LOW_DISK" if gates["G23_DISK_RAM_CHILD_PROCESS_SAFETY"] == "BLOCKED_LOW_DISK" else "FAIL"
-    elif r19 == "PASS" and gates["G23_DISK_RAM_CHILD_PROCESS_SAFETY"] == "PASS" and _recompute_w1_w2_w4_c4(f19):
-        gates["G22_W1_W2_W4_W1REPEAT_SEMANTIC_DETERMINISM"] = "PASS"
+        gates["G22_W1_W2_W4_W1REPEAT_SEMANTIC_DETERMINISM"] = (
+            "NOT_RUN_BLOCKED_LOW_DISK" if gates["G23_DISK_RAM_CHILD_PROCESS_SAFETY"] == "BLOCKED_LOW_DISK" else "FAIL"
+        )
     else:
-        gates["G22_W1_W2_W4_W1REPEAT_SEMANTIC_DETERMINISM"] = "FAIL"
+        pol_aud = (
+            r3_f19_policy_audit
+            if r3_f19_policy_audit is not None
+            else recompute_r3_worker_policy_from_raw_for_verifier(
+                f19,
+                expected_run_id=str(f00.get("run_id") or ""),
+                expected_tested_sha=str(f00.get("tested_executable_sha") or ""),
+                allow_legacy_descriptive_only=allow_legacy_descriptive_only,
+            )
+        )
+        g22_strict_ok = (
+            r19 == "PASS"
+            and gates["G23_DISK_RAM_CHILD_PROCESS_SAFETY"] == "PASS"
+            and _recompute_w1_w2_w4_c4(f19)
+            and bool(pol_aud.get("valid", False))
+            and (
+                allow_legacy_descriptive_only
+                or (
+                    f19.get("policy_certification_status") == "PASS"
+                    and f19.get("can_certify") is True
+                    and bool(pol_aud.get("admitted_for_new_c2_certification", False))
+                )
+            )
+        )
+        gates["G22_W1_W2_W4_W1REPEAT_SEMANTIC_DETERMINISM"] = "PASS" if g22_strict_ok else "FAIL"
 
     # G24 & G25: Faults >= 194 (174 inherited + >= 20 new R3) & Mutations >= 16 new R3
     gates["G24_UNIQUE_RED_GREEN_FAULTS"] = (
@@ -678,6 +1023,7 @@ def verify_kh03_r3_artifacts_independently_from_disk(
     check_live_repo_pointers: bool = True,
     enforce_distinct_pid: bool = True,
     write_manifest: bool = True,
+    allow_legacy_descriptive_only: bool = False,
 ) -> Dict[str, Any]:
     """Separate-OS-process disk verifier recomputing all KH-03.R3 invariants & G01..G30."""
     run_dir = Path(run_dir).resolve()
@@ -695,7 +1041,7 @@ def verify_kh03_r3_artifacts_independently_from_disk(
         return {"spec_version": SPEC_VERSION_KH03_R3, "independent_verifier_status": "FAIL", "verifier_pid": verifier_pid, "exit_code_recommended": 1, "violations": violations}
 
     def _rd(fn: str) -> Dict[str, Any]:
-        return json.loads((run_dir / fn).read_text("utf-8"))
+        return _strict_json_loads_r3((run_dir / fn).read_text("utf-8"))
 
     try:
         docs: Dict[str, Dict[str, Any]] = {
@@ -826,9 +1172,18 @@ def verify_kh03_r3_artifacts_independently_from_disk(
         if not junit_ok:
             violations.extend(j_errs)
 
-    # 10. W1/W2/W4/W1_repeat determinism
-    if f19.get("status") == "PASS" and not _recompute_w1_w2_w4_c4(f19):
-        violations.append("W1_W2_W4_DETERMINISM_HASH_MISMATCH")
+    # 10. W1/W2/W4/W1_repeat determinism AND strict independent worker-policy certification (KH-03.R3.C2)
+    r3_f19_policy_audit = recompute_r3_worker_policy_from_raw_for_verifier(
+        f19,
+        expected_run_id=run_id,
+        expected_tested_sha=tested_sha,
+        allow_legacy_descriptive_only=allow_legacy_descriptive_only,
+    )
+    if f19.get("status") != "NOT_RUN_BLOCKED_LOW_DISK":
+        if f19.get("status") == "PASS" and not _recompute_w1_w2_w4_c4(f19):
+            violations.append("W1_W2_W4_DETERMINISM_HASH_MISMATCH")
+        if not r3_f19_policy_audit.get("valid", False):
+            violations.extend(r3_f19_policy_audit.get("violations") or ["R3_F19_POLICY_VERIFICATION_FAILED"])
 
     # 11. Memory/disk/PID telemetry directly from gzip log
     mem_log = run_dir / "logs" / "runtime_memory_samples_0p5s.jsonl.gz"
@@ -852,6 +1207,7 @@ def verify_kh03_r3_artifacts_independently_from_disk(
     recomp_pre = recompute_kh03_r3_30_gates_and_verdicts(
         docs=docs, mem_audit=mem_audit, forensic_ledger_audit=forensic_audit,
         junit_bijection_ok=junit_ok, verifier_violations_count=len(violations), for_final_verifier_manifest=False,
+        r3_f19_policy_audit=r3_f19_policy_audit, allow_legacy_descriptive_only=allow_legacy_descriptive_only,
     )
     stored_gates = f23.get("gates_30") or {}
     for gk, gv in recomp_pre["gates_30"].items():
@@ -871,6 +1227,7 @@ def verify_kh03_r3_artifacts_independently_from_disk(
     recomp_final = recompute_kh03_r3_30_gates_and_verdicts(
         docs=docs, mem_audit=mem_audit, forensic_ledger_audit=forensic_audit,
         junit_bijection_ok=junit_ok, verifier_violations_count=len(violations), for_final_verifier_manifest=True,
+        r3_f19_policy_audit=r3_f19_policy_audit, allow_legacy_descriptive_only=allow_legacy_descriptive_only,
     )
 
     artifact_sha256_map: Dict[str, Dict[str, Any]] = {}
@@ -907,6 +1264,9 @@ def verify_kh03_r3_artifacts_independently_from_disk(
         "independent_forensic_ledger_audit": forensic_audit,
         "independent_wf_causality_audit": wf_caus,
         "independent_memory_telemetry_audit": mem_audit,
+        "independent_r3_f19_policy_audit": r3_f19_policy_audit,
+        "r3_certification_mode": r3_f19_policy_audit.get("classification"),
+        "admitted_for_new_c2_certification": bool(r3_f19_policy_audit.get("admitted_for_new_c2_certification", False)),
         "independent_junit_bijection_ok": junit_ok,
         "violations_count": len(violations),
         "violations": violations,
@@ -927,6 +1287,7 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument("--skip-live-repo-pointers", action="store_true")
     ap.add_argument("--allow-same-pid", action="store_true")
     ap.add_argument("--no-write-manifest", action="store_true")
+    ap.add_argument("--legacy-descriptive-audit-only", action="store_true")
     args = ap.parse_args(argv)
 
     res = verify_kh03_r3_artifacts_independently_from_disk(
@@ -936,6 +1297,7 @@ def main(argv: List[str] | None = None) -> int:
         check_live_repo_pointers=(not args.skip_live_repo_pointers),
         enforce_distinct_pid=(not args.allow_same_pid),
         write_manifest=(not args.no_write_manifest),
+        allow_legacy_descriptive_only=bool(args.legacy_descriptive_audit_only),
     )
     print(
         json.dumps(

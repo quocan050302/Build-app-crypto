@@ -121,8 +121,11 @@ from services.kh_03_r3_experiment_service import (
 from services.kh_03_r3_c1_worker_policy_service import (
     BENCHMARK_KIND_PYTEST,
     BENCHMARK_KIND_SCIENCE,
+    GLOBAL_MAX_CHILD_PROCESSES_CAP,
     infer_benchmark_kind_strict,
+    recompute_worker_policy_from_raw_receipt,
     select_measured_worker_policy_strict,
+    validate_benchmark_semantic_equivalence_strict,
 )
 from services.kh_03_r3_legacy_research_guard import (
     SCHEMA_VERSION_KH03_R3,
@@ -624,6 +627,210 @@ def _compute_optimum_worker_policy(
     )
 
 
+R3_C2_WORKER_POLICY_VERSION = "KH-03.R3.C2-v1.0"
+R3_C2_PASS_POLICY_STATUS_WHITELIST: Tuple[str, ...] = ("PASS_MEASURED_AND_SAFE_CAP_APPLIED",)
+ARCHIVED_ORIGINAL_R3_RUN_ID = "20261123T085134Z_2301d9c64898"
+ARCHIVED_ORIGINAL_R3_TESTED_SHA = "2301d9c648984f6b06ccb4e22f47174c3990d7af"
+
+
+def _legacy_prefixed_r3_f19_status_red_repro_only(
+    pb_raw: Mapping[str, Any],
+    sb_raw: Mapping[str, Any],
+    *,
+    can_run_heavy: bool = True,
+) -> str:
+    """
+    EXACT verbatim pre-fix KH-03.R3 line 911 formula.
+    FOR RED-FIXTURE DEFECT REPRODUCTION ONLY — NEVER USE FOR CERTIFICATION.
+    """
+    return (
+        "NOT_RUN_BLOCKED_LOW_DISK"
+        if not can_run_heavy
+        else ("PASS" if (pb_raw.get("all_4_runs_identical") and sb_raw.get("all_4_runs_identical")) else "FAIL")
+    )
+
+
+def _evaluate_r3_f19_policy_certification(
+    *,
+    pb_raw: Mapping[str, Any],
+    sb_raw: Mapping[str, Any],
+    pytest_policy: Mapping[str, Any],
+    science_policy: Mapping[str, Any],
+    run_id: str,
+    tested_sha: str,
+    dataset_sha: str,
+    resource_state: Mapping[str, Any],
+    can_run_heavy: bool,
+) -> Dict[str, Any]:
+    """
+    PURE fail-closed certification gate for legacy R3 artifact 19 (`f19`).
+    Requires BOTH raw 4-mode semantic equivalence AND strict validated C1/C2 worker policies
+    (`status == 'PASS'`, `can_certify is True`, whitelisted `policy_status`, non-empty means,
+    safe applied caps, zero full-suite extrapolation, fresh identity, and passing resource floors).
+    Separates `all_determinism_identical` (output equality) from `policy_certification_status`.
+    """
+    import math as _math
+
+    identity = {
+        "run_id": str(run_id or ""),
+        "tested_executable_sha": str(tested_sha or ""),
+        "canonical_dataset_sha256": str(dataset_sha or ""),
+    }
+
+    if not can_run_heavy:
+        return {
+            "worker_policy_version": R3_C2_WORKER_POLICY_VERSION,
+            "status": "NOT_RUN_BLOCKED_LOW_DISK",
+            "policy_certification_status": "NOT_RUN_BLOCKED_LOW_DISK",
+            "can_certify": False,
+            "all_determinism_identical": False,
+            "raw_semantic_sha": {"pytest": None, "science": None},
+            "raw_benchmark_identity": identity,
+            "policy_failure_reasons": ["HEAVY_STAGES_NOT_RUN_BLOCKED_LOW_DISK"],
+        }
+
+    violations: List[str] = []
+    resource_blocked = False
+
+    # 1. Resource ceilings & zero-waiver check
+    rs = dict(resource_state or {})
+    if bool(rs.get("owner_disk_preflight_waiver", False)):
+        violations.append("UNAPPROVED_OWNER_DISK_WAIVER_FORBIDDEN")
+
+    pre_disk = rs.get("preflight_disk_free_gib")
+    rt_disk = rs.get("runtime_disk_free_gib")
+    min_ram = rs.get("min_available_ram_mib")
+    if pre_disk is None or isinstance(pre_disk, bool) or not isinstance(pre_disk, (int, float)) or not _math.isfinite(float(pre_disk)) or float(pre_disk) < STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2:
+        violations.append(f"PREFLIGHT_DISK_FLOOR_BREACHED:{pre_disk}<{STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2}")
+        resource_blocked = True
+    if rt_disk is None or isinstance(rt_disk, bool) or not isinstance(rt_disk, (int, float)) or not _math.isfinite(float(rt_disk)) or float(rt_disk) < STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2:
+        violations.append(f"RUNTIME_DISK_FLOOR_BREACHED:{rt_disk}<{STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2}")
+        resource_blocked = True
+    if min_ram is None or isinstance(min_ram, bool) or not isinstance(min_ram, (int, float)) or not _math.isfinite(float(min_ram)) or float(min_ram) < 512.0:
+        violations.append(f"RAM_FLOOR_BREACHED:{min_ram}<512.0")
+        resource_blocked = True
+
+    # 2. Fresh run identity check (refuse stale archived R3 identity for new certification)
+    if not run_id or not isinstance(run_id, str):
+        violations.append("MISSING_BENCHMARK_RUN_ID")
+    if not tested_sha or not isinstance(tested_sha, str) or len(tested_sha) != 40:
+        violations.append(f"INVALID_TESTED_EXECUTABLE_SHA:{tested_sha!r}")
+    if not dataset_sha or not isinstance(dataset_sha, str) or len(dataset_sha) != 64:
+        violations.append(f"INVALID_CANONICAL_DATASET_SHA:{dataset_sha!r}")
+    if run_id == ARCHIVED_ORIGINAL_R3_RUN_ID or tested_sha == ARCHIVED_ORIGINAL_R3_TESTED_SHA:
+        violations.append("STALE_ARCHIVED_R3_IDENTITY_REFUSED_FOR_NEW_CERTIFICATION")
+
+    # 3. Independent raw 4-mode semantic equivalence & raw-vs-policy recomputation
+    p_equiv = validate_benchmark_semantic_equivalence_strict(
+        pb_raw,
+        benchmark_kind=BENCHMARK_KIND_PYTEST,
+        expected_run_id=run_id if isinstance(pb_raw, Mapping) and "run_id" in pb_raw else None,
+        expected_tested_sha=tested_sha if isinstance(pb_raw, Mapping) and "tested_executable_sha" in pb_raw else None,
+        expected_dataset_sha=dataset_sha if isinstance(pb_raw, Mapping) and "canonical_dataset_sha256" in pb_raw else None,
+    )
+    s_equiv = validate_benchmark_semantic_equivalence_strict(
+        sb_raw,
+        benchmark_kind=BENCHMARK_KIND_SCIENCE,
+        expected_run_id=run_id if isinstance(sb_raw, Mapping) and "run_id" in sb_raw else None,
+        expected_tested_sha=tested_sha if isinstance(sb_raw, Mapping) and "tested_executable_sha" in sb_raw else None,
+        expected_dataset_sha=dataset_sha if isinstance(sb_raw, Mapping) and "canonical_dataset_sha256" in sb_raw else None,
+    )
+    if not p_equiv["valid"]:
+        violations.extend([f"PYTEST_RAW_EQUIV:{v}" for v in p_equiv["violations"]])
+    if not s_equiv["valid"]:
+        violations.extend([f"SCIENCE_RAW_EQUIV:{v}" for v in s_equiv["violations"]])
+
+    if not isinstance(pb_raw, Mapping) or pb_raw.get("all_4_runs_identical") is not True:
+        violations.append("PYTEST_WRAPPER_ALL_4_RUNS_IDENTICAL_NOT_TRUE")
+    if not isinstance(sb_raw, Mapping) or sb_raw.get("all_4_runs_identical") is not True:
+        violations.append("SCIENCE_WRAPPER_ALL_4_RUNS_IDENTICAL_NOT_TRUE")
+
+    sem_det_ok = bool(
+        p_equiv.get("all_4_runs_semantically_identical")
+        and s_equiv.get("all_4_runs_semantically_identical")
+        and isinstance(pb_raw, Mapping) and pb_raw.get("all_4_runs_identical") is True
+        and isinstance(sb_raw, Mapping) and sb_raw.get("all_4_runs_identical") is True
+    )
+
+    def _validate_policy_obj(
+        pol: Mapping[str, Any], raw_doc: Mapping[str, Any], *, kind: str, max_cap: int
+    ) -> None:
+        tag = "PYTEST_POLICY" if kind == BENCHMARK_KIND_PYTEST else "SCIENCE_POLICY"
+        if not isinstance(pol, Mapping):
+            violations.append(f"{tag}:NOT_MAPPING")
+            return
+        if pol.get("status") != "PASS":
+            violations.append(f"{tag}:STATUS_NOT_PASS:{pol.get('status')!r}")
+        if pol.get("can_certify") is not True:
+            violations.append(f"{tag}:CAN_CERTIFY_NOT_STRICT_TRUE:{pol.get('can_certify')!r}")
+        if pol.get("policy_status") not in R3_C2_PASS_POLICY_STATUS_WHITELIST:
+            violations.append(f"{tag}:POLICY_STATUS_NOT_WHITELISTED:{pol.get('policy_status')!r}")
+
+        means = pol.get("mean_wall_sec_by_mode")
+        if not isinstance(means, Mapping) or set(means.keys()) != {"w=1", "w=2", "w=4"}:
+            violations.append(f"{tag}:INVALID_OR_EMPTY_MEAN_WALL_MAP")
+        else:
+            for mk in ("w=1", "w=2", "w=4"):
+                mv = means.get(mk)
+                if isinstance(mv, bool) or not isinstance(mv, (int, float)) or not _math.isfinite(float(mv)) or float(mv) <= 0.0:
+                    violations.append(f"{tag}:INVALID_MEAN_VALUE:{mk}:{mv!r}")
+
+        sc = pol.get("safe_worker_cap")
+        aw = pol.get("applied_worker_count")
+        if isinstance(sc, bool) or not isinstance(sc, int) or sc < 1 or sc > max_cap or sc > GLOBAL_MAX_CHILD_PROCESSES_CAP:
+            violations.append(f"{tag}:INVALID_SAFE_WORKER_CAP:{sc!r}:max={max_cap}")
+        if isinstance(aw, bool) or not isinstance(aw, int) or aw < 1 or aw > max_cap or aw > GLOBAL_MAX_CHILD_PROCESSES_CAP or (isinstance(sc, int) and not isinstance(sc, bool) and aw > sc):
+            violations.append(f"{tag}:APPLIED_WORKER_COUNT_EXCEEDS_CAP:{aw!r}:safe_cap={sc!r}:max={max_cap}")
+        if pol.get("full_suite_speedup_extrapolated") is not False:
+            violations.append(f"{tag}:FULL_SUITE_SPEEDUP_EXTRAPOLATED_FORBIDDEN")
+        if pol.get("timing_determinism_claimed") is not False:
+            violations.append(f"{tag}:TIMING_DETERMINISM_CLAIMED_FORBIDDEN")
+
+        p_lim = {
+            "configured_child_process_cap": GLOBAL_MAX_CHILD_PROCESSES_CAP,
+            "currently_allowed_worker_cap": max_cap,
+            "full_suite_safe_worker_cap": max_cap,
+            "shard_exclusive_cap": max_cap,
+        }
+        recomp = recompute_worker_policy_from_raw_receipt(
+            raw_doc,
+            pol,
+            benchmark_kind=kind,
+            reported_speedup_w2_vs_w1=raw_doc.get("measured_speedup_w2_vs_w1") if isinstance(raw_doc, Mapping) else None,
+            reported_speedup_w4_vs_w1=raw_doc.get("measured_speedup_w4_vs_w1") if isinstance(raw_doc, Mapping) else None,
+            system_limits=p_lim,
+        )
+        if not recomp["valid"]:
+            violations.extend([f"{tag}:RECOMPUTE:{d}" for d in recomp["discrepancies"]])
+
+    _validate_policy_obj(pytest_policy, pb_raw, kind=BENCHMARK_KIND_PYTEST, max_cap=3)
+    _validate_policy_obj(science_policy, sb_raw, kind=BENCHMARK_KIND_SCIENCE, max_cap=GLOBAL_MAX_CHILD_PROCESSES_CAP)
+
+    if len(violations) == 0 and sem_det_ok:
+        st = "PASS"
+        can_cert = True
+    elif resource_blocked and not bool(rs.get("owner_disk_preflight_waiver", False)):
+        st = "BLOCKED_RESOURCE"
+        can_cert = False
+    else:
+        st = "FAIL"
+        can_cert = False
+
+    return {
+        "worker_policy_version": R3_C2_WORKER_POLICY_VERSION,
+        "status": st,
+        "policy_certification_status": st,
+        "can_certify": can_cert,
+        "all_determinism_identical": sem_det_ok,
+        "raw_semantic_sha": {
+            "pytest": p_equiv.get("canonical_semantic_sha256"),
+            "science": s_equiv.get("canonical_semantic_sha256"),
+        },
+        "raw_benchmark_identity": identity,
+        "policy_failure_reasons": violations,
+    }
+
+
 def _render_kh03_r3_readme_and_handover(
     *, run_id: str, f00: Mapping[str, Any], f04: Mapping[str, Any], f07: Mapping[str, Any],
     f08: Mapping[str, Any], f16: Mapping[str, Any], f17: Mapping[str, Any], f18: Mapping[str, Any],
@@ -856,6 +1063,12 @@ def run_kh03_r3_acceptance(
             print("[KH-03.R3] Stage 6B: Running W1/W2/W4/W1_repeat pytest + R2 science determinism (19)...", flush=True)
             pb = asyncio.run(_run_controlled_pytest_w1_w2_w4_benchmark_r1(sentinel_tmp, enforce_r3_ram_guard=True))
             sb = asyncio.run(_run_r2_science_slice_w1_w2_w4_determinism(sentinel_tmp))
+            pb["run_id"] = run_id
+            pb["tested_executable_sha"] = start_head
+            pb["canonical_dataset_sha256"] = CANONICAL_DATASET_SHA256_KH02_R2
+            sb["run_id"] = run_id
+            sb["tested_executable_sha"] = start_head
+            sb["canonical_dataset_sha256"] = CANONICAL_DATASET_SHA256_KH02_R2
             gc.collect()
 
             print("[KH-03.R3] Stage 6C: Running FULL 56,710 A1 + 6,375 SI8 + 246 adapter + D4 parity (17)...", flush=True)
@@ -881,34 +1094,73 @@ def run_kh03_r3_acceptance(
         telem = sampler.stop_and_flush()
         sampler_stopped = True
 
+        min_pre_disk_gib = (
+            min(float(m.get("free_gib", 0.0)) for m in (strict_probe.get("distinct_mounts") or ()))
+            if (strict_probe.get("distinct_mounts") or ())
+            else 0.0
+        )
+        rt_disk_gib = float(telem.get("min_disk_free_gib") or 0.0)
+        rt_ram_mib = float(telem.get("min_available_ram_mib") or 0.0)
+        p_sys_limits = {
+            "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
+            "currently_allowed_worker_cap": min(3, eff_workers),
+            "full_suite_safe_worker_cap": min(3, eff_workers),
+            "shard_exclusive_cap": min(3, eff_workers),
+            "preflight_disk_free_gib": min_pre_disk_gib,
+            "disk_free_gib": rt_disk_gib,
+            "available_ram_mib": rt_ram_mib,
+        }
+        s_sys_limits = {
+            "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
+            "currently_allowed_worker_cap": eff_workers,
+            "full_suite_safe_worker_cap": eff_workers,
+            "shard_exclusive_cap": eff_workers,
+            "preflight_disk_free_gib": min_pre_disk_gib,
+            "disk_free_gib": rt_disk_gib,
+            "available_ram_mib": rt_ram_mib,
+        }
+        p_pol = _compute_optimum_worker_policy(
+            pb, benchmark_kind=BENCHMARK_KIND_PYTEST, system_limits=p_sys_limits
+        )
+        s_pol = _compute_optimum_worker_policy(
+            sb, benchmark_kind=BENCHMARK_KIND_SCIENCE, system_limits=s_sys_limits
+        )
+        f19_cert = _evaluate_r3_f19_policy_certification(
+            pb_raw=pb,
+            sb_raw=sb,
+            pytest_policy=p_pol,
+            science_policy=s_pol,
+            run_id=run_id,
+            tested_sha=start_head,
+            dataset_sha=CANONICAL_DATASET_SHA256_KH02_R2,
+            resource_state={
+                "preflight_disk_free_gib": min_pre_disk_gib,
+                "runtime_disk_free_gib": rt_disk_gib,
+                "min_available_ram_mib": rt_ram_mib,
+                "owner_disk_preflight_waiver": False,
+            },
+            can_run_heavy=can_run_heavy,
+        )
+
         f19 = {
-            "spec_version": SPEC_VERSION_KH03_R3, "schema_version": SCHEMA_VERSION_KH03_R3,
+            "spec_version": SPEC_VERSION_KH03_R3,
+            "schema_version": SCHEMA_VERSION_KH03_R3,
+            "worker_policy_version": f19_cert["worker_policy_version"],
+            "raw_benchmark_identity": f19_cert["raw_benchmark_identity"],
+            "raw_semantic_sha": f19_cert["raw_semantic_sha"],
             "pytest_controlled_subset_w1_w2_w4_repeat": pb,
             "r2_science_slice_w1_w2_w4_repeat": sb,
             "measured_pytest_speedup_w2_vs_w1": pb.get("measured_speedup_w2_vs_w1"),
             "measured_pytest_speedup_w4_vs_w1": pb.get("measured_speedup_w4_vs_w1"),
             "measured_science_speedup_w2_vs_w1": sb.get("measured_speedup_w2_vs_w1"),
             "measured_science_speedup_w4_vs_w1": sb.get("measured_speedup_w4_vs_w1"),
-            "pytest_optimum_worker_policy": _compute_optimum_worker_policy(
-                pb,
-                benchmark_kind=BENCHMARK_KIND_PYTEST,
-                system_limits={
-                    "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
-                    "currently_allowed_worker_cap": eff_workers,
-                    "full_suite_safe_worker_cap": min(3, eff_workers),
-                },
-            ),
-            "science_optimum_worker_policy": _compute_optimum_worker_policy(
-                sb,
-                benchmark_kind=BENCHMARK_KIND_SCIENCE,
-                system_limits={
-                    "configured_child_process_cap": GLOBAL_MAX_DESCENDANTS_KH02_R2,
-                    "currently_allowed_worker_cap": eff_workers,
-                    "full_suite_safe_worker_cap": eff_workers,
-                },
-            ),
-            "all_determinism_identical": bool(pb.get("all_4_runs_identical") and sb.get("all_4_runs_identical")),
-            "status": "NOT_RUN_BLOCKED_LOW_DISK" if not can_run_heavy else ("PASS" if (pb.get("all_4_runs_identical") and sb.get("all_4_runs_identical")) else "FAIL"),
+            "pytest_optimum_worker_policy": p_pol,
+            "science_optimum_worker_policy": s_pol,
+            "policy_certification_status": f19_cert["policy_certification_status"],
+            "can_certify": f19_cert["can_certify"],
+            "policy_failure_reasons": f19_cert["policy_failure_reasons"],
+            "all_determinism_identical": f19_cert["all_determinism_identical"],
+            "status": f19_cert["status"],
         }
         write_json_durable_atomic(run_dir / "19_w1_w2_w4_w1repeat_hashes_timings_speedups.json", f19)
 

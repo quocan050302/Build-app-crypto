@@ -32,6 +32,11 @@ from services.kh_03_r2_methodology_service import (
     KH03_R2_H3_ADVISORY_ARM,
     evaluate_kh03_dev_ci_and_advancement,
 )
+from services.kh_03_r3_c1_worker_policy_service import (
+    BENCHMARK_KIND_PYTEST,
+    BENCHMARK_KIND_SCIENCE,
+    select_measured_worker_policy_strict,
+)
 from services.kh_03_r3_diagnostic_service import validate_r3_forensic_ledger_independently
 from services.kh_03_r3_experiment_service import KH03_R3_PRIMARY_ARMS
 from services.kh_03_r3_legacy_research_guard import SCHEMA_VERSION_KH03_R3, SPEC_VERSION_KH03_R3
@@ -147,6 +152,51 @@ def build_synthetic_valid_kh03_r3_run_dir(run_dir: Path) -> Tuple[str, str]:
     tcs = "".join(f'<testcase classname="backend.tests.test_kh03_r3_synth" name="test_case_{i:04d}" time="0.001"/>' for i in range(n_tc))
     xml_path.write_text(f'<?xml version="1.0" encoding="utf-8"?><testsuite tests="{n_tc}" failures="0" errors="0" skipped="0">{tcs}</testsuite>', encoding="utf-8")
 
+    pb_19 = {
+        "run_id": rid, "tested_executable_sha": tsha, "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH02,
+        "all_4_runs_identical": True, "measured_speedup_w2_vs_w1": 1.25, "measured_speedup_w4_vs_w1": 1.667,
+        "runs": [
+            {"mode_label": "w=1", "workers": 1, "worker_pids": [101], "wall_clock_seconds": 50.0, "executed_tests_count": 155, "canonical_sorted_outcome_sha256": "1" * 64},
+            {"mode_label": "w=2", "workers": 2, "worker_pids": [201, 202], "wall_clock_seconds": 40.0, "executed_tests_count": 155, "canonical_sorted_outcome_sha256": "1" * 64},
+            {"mode_label": "w=4", "workers": 4, "worker_pids": [401, 402, 403, 404], "wall_clock_seconds": 30.0, "executed_tests_count": 155, "canonical_sorted_outcome_sha256": "1" * 64},
+            {"mode_label": "w=1_repeat", "workers": 1, "worker_pids": [501], "wall_clock_seconds": 52.0, "executed_tests_count": 155, "canonical_sorted_outcome_sha256": "1" * 64},
+        ],
+    }
+    sb_19 = {
+        "run_id": rid, "tested_executable_sha": tsha, "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH02,
+        "all_4_runs_identical": True, "measured_speedup_w2_vs_w1": 0.909, "measured_speedup_w4_vs_w1": 0.833,
+        "runs": [
+            {"mode_label": "w=1", "workers": 1, "chunks_count": 1, "evaluated_bars_count": 8000, "rows_count": 12062, "wall_seconds": 2.0, "canonical_sorted_sha256": "2" * 64},
+            {"mode_label": "w=2", "workers": 2, "chunks_count": 2, "evaluated_bars_count": 8000, "rows_count": 12062, "wall_seconds": 2.2, "canonical_sorted_sha256": "2" * 64},
+            {"mode_label": "w=4", "workers": 4, "chunks_count": 4, "evaluated_bars_count": 8000, "rows_count": 12062, "wall_seconds": 2.4, "canonical_sorted_sha256": "2" * 64},
+            {"mode_label": "w=1_repeat", "workers": 1, "chunks_count": 1, "evaluated_bars_count": 8000, "rows_count": 12062, "wall_seconds": 2.1, "canonical_sorted_sha256": "2" * 64},
+        ],
+    }
+    p_pol_19 = select_measured_worker_policy_strict(
+        pb_19, benchmark_kind=BENCHMARK_KIND_PYTEST,
+        system_limits={"configured_child_process_cap": 4, "currently_allowed_worker_cap": 3, "full_suite_safe_worker_cap": 3, "shard_exclusive_cap": 3},
+        expected_run_id=rid, expected_tested_sha=tsha, expected_dataset_sha=CANONICAL_DATASET_SHA256_KH02,
+    )
+    s_pol_19 = select_measured_worker_policy_strict(
+        sb_19, benchmark_kind=BENCHMARK_KIND_SCIENCE,
+        system_limits={"configured_child_process_cap": 4, "currently_allowed_worker_cap": 4, "full_suite_safe_worker_cap": 4, "shard_exclusive_cap": 4},
+        expected_run_id=rid, expected_tested_sha=tsha, expected_dataset_sha=CANONICAL_DATASET_SHA256_KH02,
+    )
+    f19_doc = {
+        "spec_version": SPEC_VERSION_KH03_R3, "schema_version": SCHEMA_VERSION_KH03_R3,
+        "worker_policy_version": "KH-03.R3.C2-v1.0",
+        "raw_benchmark_identity": {"run_id": rid, "tested_executable_sha": tsha, "canonical_dataset_sha256": CANONICAL_DATASET_SHA256_KH02},
+        "raw_semantic_sha": {"pytest": "1" * 64, "science": "2" * 64},
+        "pytest_controlled_subset_w1_w2_w4_repeat": pb_19,
+        "r2_science_slice_w1_w2_w4_repeat": sb_19,
+        "measured_pytest_speedup_w2_vs_w1": 1.25, "measured_pytest_speedup_w4_vs_w1": 1.667,
+        "measured_science_speedup_w2_vs_w1": 0.909, "measured_science_speedup_w4_vs_w1": 0.833,
+        "pytest_optimum_worker_policy": p_pol_19,
+        "science_optimum_worker_policy": s_pol_19,
+        "policy_certification_status": "PASS", "can_certify": True, "policy_failure_reasons": [],
+        "all_determinism_identical": True, "status": "PASS",
+    }
+
     docs: Dict[str, Dict[str, Any]] = {
         "00": {
             "spec_version": SPEC_VERSION_KH03_R3, "run_id": rid, "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
@@ -174,7 +224,7 @@ def build_synthetic_valid_kh03_r3_run_dir(run_dir: Path) -> Tuple[str, str]:
         "16": {"spec_version": SPEC_VERSION_KH03_R3, "status": "PASS", "preregistered_plan_sha256": f11["plan_frozen_sha256"], "preregistered_hypothesis_budget_m": 3, "primary_arm_evaluations": prim_16, "matching_reports": match_16, "negative_control_summaries_1x": {"NC_NULL_TRIGGER": {}, "NC_PLACEBO_SHUFFLED_TRIGGER": {}, "NC_TIME_OFFSET_SHIFT": {}}, "synthetic_positive_gate_capability_proof": {"passes_preregistered_dev_advancement": True}, "passing_dev_candidate_arms": [], "DEV_RESEARCH_CANDIDATE": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE", "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE", "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA", "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE", "OOS_EVALUATIONS": 0, "ACTIVATION_READY": "NO", "runtime_safety_modes": {"PRODUCTION": "OFF", "LIVE": "OFF", "PAPER": "OFF", "AUTO": "OFF"}},
         "17": {"BASELINE_PARITY_VERDICT": "PASS", "per_decision_and_episode_fingerprints": {"all_sealed_fingerprints_exact_match": True}, "a1_population_count": 56710, "a1_mismatches_count": 0, "si8_population_count": 6375, "si8_mismatches_count": 0, "three_adapter_population_count": 246, "three_adapter_mismatches_count": 0, "d4_historical_closed_trades": 0},
         "18": {"status": "PASS", "collected_count": n_tc, "executed_count": n_tc, "passed_count": n_tc, "skipped_count": 0, "mandatory_skipped_count": 0, "failed_count": 0, "error_count": 0, "junit_bijection_exact": True, "collection_manifest": {"run_id": rid, "tested_executable_sha": tsha, "collected_node_ids_count": n_tc, "collected_node_ids": c_ids}, "shard_manifest": {"run_id": rid, "tested_executable_sha": tsha, "nonzero_exit_shards_count": 0, "shards": [{"shard_id": "SHARD_01", "exit_code": 0, "timed_out": False, "reused": False, "junit_xml_path": "junit/SHARD_01.xml", "xml_sha256": _sha256_file(xml_path), "scheduled_node_ids": c_ids}]}},
-        "19": {"status": "PASS", "pytest_controlled_subset_w1_w2_w4_repeat": {"all_4_runs_identical": True, "runs": [{"mode_label": m, "executed_tests_count": 155, "canonical_sorted_outcome_sha256": "1" * 64, "worker_pids": [1, 2]} for m in ("w=1", "w=2", "w=4", "w=1_repeat")]}, "r2_science_slice_w1_w2_w4_repeat": {"all_4_runs_identical": True, "runs": [{"mode_label": m, "rows_count": 12062, "canonical_sorted_sha256": "2" * 64} for m in ("w=1", "w=2", "w=4", "w=1_repeat")]}},
+        "19": f19_doc,
         "20": {"min_disk_free_gib": 35.0, "min_available_ram_mib": 3800.0, "max_descendant_children": 4, "orphan_children_after_cleanup": 0, "sentinel_temp_cleaned_up": True, "owner_disk_preflight_waiver": False},
         "21": {"status": "PASS", "inherited_r2_controls_count": 174, "new_kh03_r3_controls_count": 20, "total_controls": 194, "unique_fault_ids": 194, "failed_controls": 0},
         "22": {"status": "PASS", "clean_clone_verifier_green": True, "mutations_tested_count": 16, "mutations_failed_detection_count": 0},
