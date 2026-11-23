@@ -315,7 +315,7 @@ def _build_minimal_valid_synthetic_r2_run_dir(run_dir: Path, *, disk_free_gib: f
 
 def _run_verifier_subprocess(run_dir: Path, run_id: str, sha: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     return subprocess.run(
         [
             sys.executable,

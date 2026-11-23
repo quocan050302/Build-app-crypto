@@ -413,12 +413,18 @@ def _run_artifact_03_disk_waiver_negative_controls(sentinel_tmp: Path) -> Dict[s
         f"ok_0p05={r_exact_ok['status']}, oversub_0p60={r_exact_oversub['status']}",
     )
 
-    # 6: Symlink / alias mount duplicates deduplicated by st_dev (no double counting)
+    # 6: Symlink / NTFS junction alias mount duplicates deduplicated by st_dev (no double counting)
     real_dir = sentinel_tmp / "alias_real"
     real_dir.mkdir(exist_ok=True)
     sym_dir = sentinel_tmp / "alias_sym"
     if not sym_dir.exists():
-        os.symlink(real_dir, sym_dir)
+        try:
+            os.symlink(real_dir, sym_dir)
+        except OSError as exc:
+            if sys.platform == "win32" and getattr(exc, "winerror", None) == 1314:
+                subprocess.run(["cmd", "/c", "mklink", "/J", str(sym_dir), str(real_dir)], check=True, capture_output=True)
+            else:
+                raise
     r_sym = probe_r2_c1_write_mounts_strict(
         {"repo": real_dir, "temp": sym_dir},
         stat_fn=lambda s: SimpleNamespace(st_dev=777),
@@ -455,7 +461,7 @@ def _run_artifact_03_disk_waiver_negative_controls(sentinel_tmp: Path) -> Dict[s
 
     # 9: Injected --owner-waive-disk-preflight rejected on CLI & Python API
     env_cli = os.environ.copy()
-    env_cli["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env_cli["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     p_r2_cli = subprocess.run(
         [sys.executable, str(APP_ROOT / "tools" / "run_kh_02_r2_verification.py"), "--owner-waive-disk-preflight"],
         cwd=str(APP_ROOT),
@@ -570,7 +576,7 @@ def _run_c1_56_red_green_fault_suite(repo_root: Path, sentinel_tmp: Path) -> Dic
 
     # C1-F43: Owner disk waiver CLI rejected
     env_cli = os.environ.copy()
-    env_cli["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env_cli["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     p_w = subprocess.run(
         [sys.executable, str(APP_ROOT / "tools" / "run_kh_02_r2_verification.py"), "--owner-waive-disk-preflight"],
         cwd=str(APP_ROOT),
@@ -687,7 +693,7 @@ def _run_safe_focused_c1_and_r2_pytest(sentinel_tmp: Path) -> Dict[str, Any]:
         return {"executed": False, "status": "NO_FOCUSED_TESTS_FOUND"}
     t0 = time.perf_counter()
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     env["TMPDIR"] = str(sentinel_tmp)
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", *existing, "-q"],
@@ -1431,7 +1437,7 @@ def run_kh02_r2_c1_strict_closure(
         print("[KH-02.R2.C1] Launching separate-OS-process independent disk verifier (16)...", flush=True)
         verifier_script = APP_ROOT / "tools" / "kh_02_r2_c1_independent_verifier.py"
         env_v = os.environ.copy()
-        env_v["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+        env_v["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
         v_proc = subprocess.run(
             [
                 sys.executable,

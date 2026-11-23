@@ -673,7 +673,7 @@ def _run_artifacts_08_09_escrow_concurrency_and_crash(sentinel_tmp: Path) -> Tup
         "print(json.dumps(outs))",
     ])
     env_mp = os.environ.copy()
-    env_mp["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env_mp["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     procs = [
         subprocess.Popen([sys.executable, "-c", child_py, str(mp_dir), str(w)], cwd=str(APP_ROOT), env=env_mp, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         for w in range(3)

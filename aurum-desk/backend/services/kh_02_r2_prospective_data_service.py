@@ -10,15 +10,24 @@ Zero order/exchange execution calls, zero wallet/API-key reads, zero OOS peeking
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import fcntl
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows uses msvcrt OS file locking
+    fcntl = None  # type: ignore[assignment]
 import gzip
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
+import sys
+import threading
+import time
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
+
+if sys.platform == "win32":
+    import msvcrt
 
 from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 
@@ -1024,8 +1033,26 @@ class ProspectiveHashLinkedEscrowRegistryR2C1:
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
         lock_p = self.registry_path.with_name(f".{self.registry_path.name}.lock")
         lfd = os.open(os.fspath(lock_p), os.O_RDWR | os.O_CREAT, 0o600)
+        locked = False
         try:
-            fcntl.flock(lfd, fcntl.LOCK_EX)
+            if fcntl is not None:
+                fcntl.flock(lfd, fcntl.LOCK_EX)
+                locked = True
+            else:
+                if os.fstat(lfd).st_size < 1:
+                    os.lseek(lfd, 0, os.SEEK_SET)
+                    os.write(lfd, b"0\n")
+                deadline = time.monotonic() + 30.0
+                while True:
+                    os.lseek(lfd, 0, os.SEEK_SET)
+                    try:
+                        msvcrt.locking(lfd, msvcrt.LK_NBLCK, 1)
+                        locked = True
+                        break
+                    except OSError:
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError(f"WINDOWS_OS_FILE_LOCK_TIMEOUT:{lock_p}")
+                        time.sleep(0.005)
             chain_check = self.verify_chain_integrity()
             if not chain_check["valid"]:
                 raise ValueError(f"TAMPERED_REGISTRY_CANNOT_APPEND:{chain_check['violations']}")
@@ -1068,11 +1095,12 @@ class ProspectiveHashLinkedEscrowRegistryR2C1:
                 os.fsync(jfd)
             finally:
                 os.close(jfd)
-            dfd = os.open(os.fspath(self.registry_path.parent), os.O_RDONLY)
-            try:
-                os.fsync(dfd)
-            finally:
-                os.close(dfd)
+            if sys.platform != "win32":
+                dfd = os.open(os.fspath(self.registry_path.parent), os.O_RDONLY)
+                try:
+                    os.fsync(dfd)
+                finally:
+                    os.close(dfd)
             return {
                 "action": "APPENDED_NEW_ENTRY",
                 "snapshot_id": sid,
@@ -1082,7 +1110,12 @@ class ProspectiveHashLinkedEscrowRegistryR2C1:
             }
         finally:
             try:
-                fcntl.flock(lfd, fcntl.LOCK_UN)
+                if locked:
+                    if fcntl is not None:
+                        fcntl.flock(lfd, fcntl.LOCK_UN)
+                    else:
+                        os.lseek(lfd, 0, os.SEEK_SET)
+                        msvcrt.locking(lfd, msvcrt.LK_UNLCK, 1)
             finally:
                 os.close(lfd)
 

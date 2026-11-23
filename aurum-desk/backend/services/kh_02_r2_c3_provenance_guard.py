@@ -34,6 +34,12 @@ import secrets
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import zlib
 
+from services.kh_02_r2_c4_trusted_transport_boundary import (
+    TCB_THREAT_MODEL_DISCLOSURE_C4,
+    VerifiedCaptureProofC4,
+    verify_capture_proof_by_id_c4,
+    verify_capture_proof_c4,
+)
 from services.kh_02_r2_prospective_data_service import (
     BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1,
     CANONICAL_DATASET_SHA256_KH02,
@@ -118,6 +124,7 @@ class TrustedCaptureReceiptC3:
     transport_kind: str
     real_rate_limiter_active: bool
     receipt_mac_hex: str
+    capture_proof_id: str = ""
 
     def to_audit_dict(self) -> Dict[str, Any]:
         return {
@@ -141,6 +148,7 @@ class TrustedCaptureReceiptC3:
             "transport_class_name": self.transport_class_name,
             "transport_kind": self.transport_kind,
             "real_rate_limiter_active": self.real_rate_limiter_active,
+            "capture_proof_id": self.capture_proof_id,
             "receipt_mac_sha256_prefix": self.receipt_mac_hex[:16],
         }
 
@@ -170,6 +178,7 @@ def _receipt_mac_fields(receipt: TrustedCaptureReceiptC3) -> Dict[str, Any]:
         "transport_class_name": receipt.transport_class_name,
         "transport_kind": receipt.transport_kind,
         "real_rate_limiter_active": bool(receipt.real_rate_limiter_active),
+        "capture_proof_id": str(receipt.capture_proof_id or ""),
     }
 
 
@@ -242,19 +251,20 @@ def mint_trusted_capture_receipt_c3(
     live_transport_verified: bool,
     live_authorization_verified: bool,
     real_rate_limiter_active: bool,
+    capture_proof_c4: Optional[VerifiedCaptureProofC4] = None,
 ) -> TrustedCaptureReceiptC3:
     """
     Constructs and MAC-seals a TrustedCaptureReceiptC3.
-    CRITICAL FIREWALL INVARIANT (P0-A):
-      `LIVE_AUTHORIZED_PUBLIC_HTTP` is granted ONLY when ALL of the following hold simultaneously:
-        1. `not is_fake_transport_qa`
-        2. `live_transport_verified is True` (exact StdlibUrllibPublicTransportC2 with real socket TLS)
-        3. `live_authorization_verified is True` (explicit OperatorCaptureAuthorizationC2 with live session)
-        4. `transport_kind == "STDLIB_URLLIB_HTTPS_GET"`
-        5. `tls_host == OFFICIAL_BITGET_PUBLIC_HOST_C3`
-        6. `real_rate_limiter_active is True`
-      Otherwise, provenance is FORCED to `QA_FAKE_TRANSPORT` (or `UNVERIFIED`) — even if the
-      caller passed `is_fake_transport_qa=False` and believable live metadata!
+    KH-02.R2.C4 P0-A HARDENED FIREWALL INVARIANT (CLOSED BY CONSTRUCTION):
+      Caller-controlled booleans (`is_fake_transport_qa=False`, `live_transport_verified=True`,
+      `live_authorization_verified=True`, `transport_kind="STDLIB_URLLIB_HTTPS_GET"`, `tls_host="api.bitget.com"`)
+      are NEVER sufficient to mint `LIVE_AUTHORIZED_PUBLIC_HTTP`!
+      `LIVE_AUTHORIZED_PUBLIC_HTTP` is granted ONLY when `capture_proof_c4` is a process-local,
+      registry-verified, non-expired `VerifiedCaptureProofC4` issued by `CaptureAuthorityC4`
+      inside `execute_trusted_stdlib_https_get_c4(...)` AND bound byte-for-byte to `(raw_response_bytes,
+      url, endpoint_key, params, capture_session_id, http_status)`!
+      Without a verified live `capture_proof_c4`, classification fails CLOSED to `QA_FAKE_TRANSPORT`
+      or `UNVERIFIED`.
     """
     if not isinstance(raw_response_bytes, (bytes, bytearray)) or len(raw_response_bytes) == 0:
         raise ValueError("CANNOT_MINT_RECEIPT_WITHOUT_RAW_BYTES")
@@ -263,8 +273,34 @@ def mint_trusted_capture_receipt_c3(
         {str(k): str(v) for k, v in sorted(params.items(), key=lambda kv: str(kv[0]))}
     )
 
+    proof_live_ok = False
+    proof_id_bound = ""
+    if capture_proof_c4 is not None:
+        ok_p_any, _errs_any, verified_p = verify_capture_proof_c4(
+            capture_proof_c4,
+            expected_raw_sha256=raw_sha,
+            expected_url=str(url),
+            expected_endpoint_key=str(endpoint_key),
+            expected_capture_session_id=str(capture_session_id or "UNASSIGNED_SESSION"),
+            expected_params_sha256=params_sha,
+            require_live=False,
+        )
+        if ok_p_any and verified_p is not None:
+            proof_id_bound = verified_p.proof_id
+            ok_p_live, _errs_live, _ = verify_capture_proof_c4(
+                capture_proof_c4,
+                expected_raw_sha256=raw_sha,
+                expected_url=str(url),
+                expected_endpoint_key=str(endpoint_key),
+                expected_capture_session_id=str(capture_session_id or "UNASSIGNED_SESSION"),
+                expected_params_sha256=params_sha,
+                require_live=True,
+            )
+            proof_live_ok = bool(ok_p_live)
+
     qualifies_live = (
-        (not bool(is_fake_transport_qa))
+        proof_live_ok
+        and (not bool(is_fake_transport_qa))
         and bool(live_transport_verified)
         and bool(live_authorization_verified)
         and str(transport_kind) == "STDLIB_URLLIB_HTTPS_GET"
@@ -290,6 +326,7 @@ def mint_trusted_capture_receipt_c3(
             "parsed_sha": str(canonical_parsed_sha256),
             "req_ms": int(request_utc_ms),
             "resp_ms": int(response_utc_ms),
+            "proof_id": proof_id_bound,
         }
     )
     receipt_id = f"rcpt_c3_{rid_seed[:24]}"
@@ -312,6 +349,7 @@ def mint_trusted_capture_receipt_c3(
         "transport_class_name": type(transport_obj).__name__ if transport_obj is not None else "None",
         "transport_kind": str(transport_kind),
         "real_rate_limiter_active": bool(real_rate_limiter_active),
+        "capture_proof_id": proof_id_bound,
     }
     mac = _compute_receipt_mac_c3(fields)
     return TrustedCaptureReceiptC3(
@@ -334,6 +372,53 @@ def mint_trusted_capture_receipt_c3(
         transport_kind=fields["transport_kind"],
         real_rate_limiter_active=fields["real_rate_limiter_active"],
         receipt_mac_hex=mac,
+        capture_proof_id=proof_id_bound,
+    )
+
+
+def mint_trusted_capture_receipt_c4(
+    *,
+    capture_proof: Optional[VerifiedCaptureProofC4],
+    capture_session_id: str,
+    endpoint_key: str,
+    url: str,
+    params: Mapping[str, Any],
+    http_status: int,
+    raw_response_bytes: bytes,
+    canonical_parsed_sha256: str,
+    request_utc_ms: int,
+    response_utc_ms: int,
+    monotonic_duration_ms: int,
+    provider_event_utc_ms: int,
+    transport_obj: Any,
+    transport_kind: str,
+    tls_host: str,
+    is_fake_transport_qa: bool,
+    live_transport_verified: bool,
+    live_authorization_verified: bool,
+    real_rate_limiter_active: bool,
+) -> TrustedCaptureReceiptC3:
+    """Explicit KH-02.R2.C4 receipt minter binding the verified CaptureAuthorityC4 proof."""
+    return mint_trusted_capture_receipt_c3(
+        capture_session_id=capture_session_id,
+        endpoint_key=endpoint_key,
+        url=url,
+        params=params,
+        http_status=http_status,
+        raw_response_bytes=raw_response_bytes,
+        canonical_parsed_sha256=canonical_parsed_sha256,
+        request_utc_ms=request_utc_ms,
+        response_utc_ms=response_utc_ms,
+        monotonic_duration_ms=monotonic_duration_ms,
+        provider_event_utc_ms=provider_event_utc_ms,
+        transport_obj=transport_obj,
+        transport_kind=transport_kind,
+        tls_host=tls_host,
+        is_fake_transport_qa=is_fake_transport_qa,
+        live_transport_verified=live_transport_verified,
+        live_authorization_verified=live_authorization_verified,
+        real_rate_limiter_active=real_rate_limiter_active,
+        capture_proof_c4=capture_proof,
     )
 
 
@@ -644,8 +729,9 @@ def evaluate_c3_prospective_admission(
     if bool(entry.get("is_synthetic_fixture", False)):
         violations.append("SYNTHETIC_FIXTURE_FLAG_SET")
 
-    # 3. Trusted capture receipt MAC & provenance class check
+    # 3. Trusted capture receipt MAC, provenance class & C4 CaptureAuthority proof binding check
     provenance_class = ProvenanceClassC3.UNVERIFIED
+    c4_proof_verified = False
     if capture_receipt is None:
         violations.append("MISSING_TRUSTED_CAPTURE_RECEIPT")
     else:
@@ -654,12 +740,45 @@ def evaluate_c3_prospective_admission(
             violations.extend(mac_errs)
         else:
             provenance_class = capture_receipt.provenance_class
-            if require_live_real_oos and provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP:
-                violations.append(
-                    f"UNTRUSTED_PROVENANCE_CLASS_FOR_REAL_OOS:{provenance_class.value}"
+            raw_sha_for_proof = (
+                hashlib.sha256(raw_payload_bytes).hexdigest()
+                if isinstance(raw_payload_bytes, (bytes, bytearray)) and len(raw_payload_bytes) > 0
+                else None
+            )
+            if require_live_real_oos:
+                if provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP:
+                    violations.append(
+                        f"UNTRUSTED_PROVENANCE_CLASS_FOR_REAL_OOS:{provenance_class.value}"
+                    )
+                if not capture_receipt.real_rate_limiter_active:
+                    violations.append("LIVE_RATE_LIMITER_NOT_ACTIVE_IN_RECEIPT")
+                p_ok, p_errs, _ = verify_capture_proof_by_id_c4(
+                    capture_receipt.capture_proof_id,
+                    expected_raw_sha256=raw_sha_for_proof,
+                    expected_url=str(entry.get("endpoint") or capture_receipt.url),
+                    expected_endpoint_key=capture_receipt.endpoint_key,
+                    expected_capture_session_id=capture_receipt.capture_session_id,
+                    expected_params_sha256=capture_receipt.params_canonical_sha256,
+                    require_live=True,
                 )
-            if not capture_receipt.real_rate_limiter_active and require_live_real_oos:
-                violations.append("LIVE_RATE_LIMITER_NOT_ACTIVE_IN_RECEIPT")
+                if not p_ok:
+                    violations.extend(p_errs)
+                else:
+                    c4_proof_verified = True
+            elif str(capture_receipt.capture_proof_id or "").strip():
+                p_ok_qa, p_errs_qa, _ = verify_capture_proof_by_id_c4(
+                    capture_receipt.capture_proof_id,
+                    expected_raw_sha256=raw_sha_for_proof,
+                    expected_url=str(entry.get("endpoint") or capture_receipt.url),
+                    expected_endpoint_key=capture_receipt.endpoint_key,
+                    expected_capture_session_id=capture_receipt.capture_session_id,
+                    expected_params_sha256=capture_receipt.params_canonical_sha256,
+                    require_live=False,
+                )
+                if not p_ok_qa:
+                    violations.extend(p_errs_qa)
+                else:
+                    c4_proof_verified = True
 
     # 4. Mandatory raw-byte re-parse verification (ZERO metadata-only admission for OOS!)
     reparse = reparse_and_verify_raw_market_bytes_c3(
@@ -675,6 +794,7 @@ def evaluate_c3_prospective_admission(
     admitted_real_oos = (
         len(violations) == 0
         and require_live_real_oos
+        and c4_proof_verified
         and provenance_class == ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
     )
     if admitted_real_oos:

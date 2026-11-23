@@ -148,7 +148,7 @@ def test_c3_attack_22_concurrent_2_4_8_and_3_os_proc_flock_plus_low_disk_abort(t
         "print(json.dumps(res))",
     ])
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     procs = [
         subprocess.Popen([sys.executable, "-c", code, str(mp_dir), str(i)], cwd=str(APP_ROOT), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         for i in range(3)

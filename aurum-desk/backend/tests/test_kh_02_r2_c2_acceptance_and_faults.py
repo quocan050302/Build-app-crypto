@@ -309,7 +309,7 @@ def _write_synthetic_c2_run_dir(
 
 def _run_verifier_subproc(run_dir: Path, run_id: str, tested_sha: str) -> Tuple[int, Dict[str, Any]]:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     proc = subprocess.run(
         [
             sys.executable,
@@ -335,7 +335,7 @@ def _run_verifier_subproc(run_dir: Path, run_id: str, tested_sha: str) -> Tuple[
 
 def test_t03_cli_env_and_api_disk_waiver_strictly_rejected() -> None:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     p_cli = subprocess.run(
         [sys.executable, str(ORCH_SCRIPT), "--owner-waive-disk-preflight"],
         cwd=str(APP_ROOT),

@@ -560,12 +560,18 @@ def _run_c2_74_red_green_fault_suite(repo_root: Path, sentinel_tmp: Path) -> Dic
     g62 = j62.append_snapshot(s1, _expected_lock_owner_pid=os.getpid())["action"] == "APPENDED_NEW_ENTRY"
     _rec("C2-F62", "WRONG_LOCK_OWNER_REJECTED", "C2DurableEscrowJournal.exclusive_lock", r62, g62, "lock owner mismatch blocked")
 
-    # C2-F63: Symlink escape into escrow root rejected
+    # C2-F63: Symlink / NTFS directory junction escape into escrow root rejected
     real63 = sentinel_tmp / "f63_real"
     real63.mkdir(exist_ok=True)
     sym63 = sentinel_tmp / "f63_sym"
     if not sym63.exists():
-        os.symlink(real63, sym63)
+        try:
+            os.symlink(real63, sym63)
+        except OSError as exc:
+            if sys.platform == "win32" and getattr(exc, "winerror", None) == 1314:
+                subprocess.run(["cmd", "/c", "mklink", "/J", str(sym63), str(real63)], check=True, capture_output=True)
+            else:
+                raise
     r63 = False
     try:
         C2DurableEscrowJournal(sym63)
@@ -825,7 +831,7 @@ def _run_safe_focused_c2_pytest(sentinel_tmp: Path) -> Dict[str, Any]:
     existing = [tf for tf in test_files if (APP_ROOT / tf).is_file()]
     t0 = time.perf_counter()
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     env["TMPDIR"] = str(sentinel_tmp)
     proc = subprocess.run([sys.executable, "-m", "pytest", *existing, "-q"], cwd=str(APP_ROOT), env=env, capture_output=True, text=True, timeout=300)
     return {

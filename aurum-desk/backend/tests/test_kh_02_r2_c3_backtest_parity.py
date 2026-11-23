@@ -166,7 +166,7 @@ def _write_synthetic_c3_run_dir(
 
 def _run_c3_verifier_subproc(run_dir: Path, run_id: str, tested_sha: str) -> Tuple[int, Dict[str, Any]]:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     proc = subprocess.run(
         [sys.executable, str(VERIFIER_SCRIPT), "--run-dir", str(run_dir), "--expected-run-id", run_id, "--expected-tested-sha", tested_sha, "--skip-live-repo-pointers", "--no-write-manifest"],
         cwd=str(APP_ROOT),
@@ -180,7 +180,7 @@ def _run_c3_verifier_subproc(run_dir: Path, run_id: str, tested_sha: str) -> Tup
 
 def test_c3_cli_env_api_disk_waiver_rejected() -> None:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     p_cli = subprocess.run([sys.executable, str(ORCH_SCRIPT), "--owner-waive-disk-preflight"], cwd=str(APP_ROOT), env=env, capture_output=True, text=True, timeout=30)
     assert p_cli.returncode == 2
     p_env = subprocess.run([sys.executable, str(ORCH_SCRIPT)], cwd=str(APP_ROOT), env=dict(env, KH02_OWNER_WAIVE_DISK_PREFLIGHT="1"), capture_output=True, text=True, timeout=30)

@@ -27,6 +27,7 @@ from pathlib import Path
 import random
 import shutil
 import ssl
+import threading
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 import urllib.error
@@ -42,7 +43,15 @@ from services.kh_02_r2_c3_provenance_guard import (
     TCB_LIMITATIONS_DISCLOSURE_C3,
     TrustedCaptureReceiptC3,
     mint_trusted_capture_receipt_c3,
+    mint_trusted_capture_receipt_c4,
     safe_bounded_decompress_if_gzip_c3,
+)
+from services.kh_02_r2_c4_trusted_transport_boundary import (
+    TCB_THREAT_MODEL_DISCLOSURE_C4,
+    VerifiedCaptureProofC4,
+    execute_trusted_stdlib_https_get_c4,
+    is_exact_unmodified_stdlib_transport_c4,
+    issue_qa_or_unverified_capture_proof_c4,
 )
 from services.kh_02_r2_prospective_data_service import (
     BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1,
@@ -255,7 +264,12 @@ class StdlibUrllibPublicTransportC2:
         self._opener_fn = _opener_fn
 
     def is_genuine_live_socket_transport(self) -> bool:
-        return self._opener_fn is None
+        ok, _ = is_exact_unmodified_stdlib_transport_c4(
+            self,
+            expected_transport_cls=StdlibUrllibPublicTransportC2,
+            expected_get_func=StdlibUrllibPublicTransportC2.get,
+        )
+        return ok
 
     def get(
         self,
@@ -264,67 +278,25 @@ class StdlibUrllibPublicTransportC2:
         *,
         timeout_sec: float,
     ) -> RawHttpResponseC2:
-        full_url, host = _validate_public_bitget_https_url_c3(url, params)
-        req = urllib.request.Request(
-            full_url,
-            method="GET",
-            headers={"Accept": "application/json", "User-Agent": "AurumDesk-KH02-R2-C3-ReadOnly/1.0"},
+        res = execute_trusted_stdlib_https_get_c4(
+            transport=self,
+            expected_transport_cls=StdlibUrllibPublicTransportC2,
+            expected_get_func=StdlibUrllibPublicTransportC2.get,
+            validate_url_fn=_validate_public_bitget_https_url_c3,
+            no_redirect_handler_cls=_NoRedirectHandlerC3,
+            secret_scanner_fn=scan_for_forbidden_secrets_r2_c1,
+            decompress_check_fn=safe_bounded_decompress_if_gzip_c3,
+            raw_response_cls=RawHttpResponseC2,
+            url=url,
+            params=params,
+            endpoint_key="direct_transport_get",
+            timeout_sec=float(timeout_sec),
+            capture_session_id="",
+            live_authorization_verified=False,
+            real_rate_limiter_active=False,
+            is_fake_transport_qa=self._opener_fn is not None,
         )
-        req_ms = int(time.time() * 1000)
-        t_mono_0 = time.monotonic()
-
-        if self._opener_fn is not None:
-            resp = self._opener_fn(req, float(timeout_sec))
-            t_kind = "TEST_INJECTED_OPENER_NOT_LIVE_HTTP"
-        else:
-            tls_ctx = ssl.create_default_context()
-            opener = urllib.request.build_opener(
-                _NoRedirectHandlerC3(),
-                urllib.request.HTTPSHandler(context=tls_ctx),
-            )
-            resp = opener.open(req, timeout=float(timeout_sec))
-            t_kind = "STDLIB_URLLIB_HTTPS_GET"
-
-        with resp:
-            status = int(getattr(resp, "status", getattr(resp, "code", 0)))
-            hdrs = {str(k).lower(): str(v) for k, v in dict(getattr(resp, "headers", {})).items()}
-            if status in (301, 302, 303, 307, 308) or "location" in hdrs:
-                raise PermissionError(
-                    f"HTTP_REDIRECT_FORBIDDEN_FAIL_CLOSED:status={status}:target={hdrs.get('location', '')}"
-                )
-            hdr_secrets = scan_for_forbidden_secrets_r2_c1(hdrs)
-            if hdr_secrets:
-                raise PermissionError(f"FORBIDDEN_SECRET_OR_COOKIE_IN_RESPONSE_HEADERS:{','.join(hdr_secrets)}")
-            final_url = str(getattr(resp, "url", full_url) or full_url)
-            final_parsed = urlsplit(final_url)
-            if final_parsed.scheme.lower() != "https" or (final_parsed.hostname or "").lower() != OFFICIAL_BITGET_PUBLIC_HOST_C3:
-                raise PermissionError(f"REDIRECTED_OR_MISMATCHED_FINAL_HOST:{final_url}")
-
-            raw = resp.read(self.max_response_bytes + 1)
-            if len(raw) > self.max_response_bytes:
-                raise ValueError(
-                    f"OVERSIZED_HTTP_RESPONSE_BODY:len>{self.max_response_bytes}"
-                )
-            # Validate gzip bomb cap immediately if compressed
-            if hdrs.get("content-encoding", "").lower() == "gzip" or (len(raw) >= 2 and raw[0] == 0x1F and raw[1] == 0x8B):
-                _ = safe_bounded_decompress_if_gzip_c3(
-                    raw,
-                    max_raw_bytes=self.max_response_bytes,
-                    max_decompressed_bytes=self.max_decompressed_bytes,
-                )
-            resp_ms = int(time.time() * 1000)
-            mono_ms = max(0, int((time.monotonic() - t_mono_0) * 1000))
-            return RawHttpResponseC2(
-                status_code=status,
-                body_bytes=raw,
-                headers=hdrs,
-                request_utc_ms=req_ms,
-                response_utc_ms=resp_ms,
-                transport_kind=t_kind,
-                tls_verified_host=host if self._opener_fn is None else "",
-                final_url=final_url,
-                monotonic_duration_ms=mono_ms,
-            )
+        return res.response
 
 
 class C2PublicReadOnlyBitgetCollector:
@@ -374,7 +346,12 @@ class C2PublicReadOnlyBitgetCollector:
         self._write_target_paths = tuple(Path(p) for p in (write_target_paths or ()))
         self.sleep_audit_log: List[Dict[str, Any]] = []
 
-        is_live_stdlib = isinstance(transport, StdlibUrllibPublicTransportC2) and transport.is_genuine_live_socket_transport()
+        self._state_lock = threading.Lock()
+        is_live_stdlib, _ = is_exact_unmodified_stdlib_transport_c4(
+            transport,
+            expected_transport_cls=StdlibUrllibPublicTransportC2,
+            expected_get_func=StdlibUrllibPublicTransportC2.get,
+        )
         if (not self.is_fake_transport_qa) and (sleep_fn is not None or clock_ms_fn is not None):
             raise PermissionError(
                 "FAKE_CLOCK_OR_SLEEP_BYPASS_FORBIDDEN_IN_LIVE_TRANSPORT: "
@@ -406,17 +383,26 @@ class C2PublicReadOnlyBitgetCollector:
         self.session_gap_log: List[Dict[str, Any]] = []
         self.retry_audit_log: List[Dict[str, Any]] = []
 
+    def _check_live_transport_exact_now(self) -> Tuple[bool, List[str]]:
+        return is_exact_unmodified_stdlib_transport_c4(
+            self.transport,
+            expected_transport_cls=StdlibUrllibPublicTransportC2,
+            expected_get_func=StdlibUrllibPublicTransportC2.get,
+        )
+
     def _trusted_transport_classification(self) -> ProvenanceClassC3:
+        live_exact_now, _ = self._check_live_transport_exact_now()
         live_auth = bool(
             self.authorization is not None
             and self.authorization.network_capture_enabled
             and self.authorization.live_network_session_authorized
             and bool(str(self.authorization.approval_id).strip())
+            and bool(str(self.authorization.approved_by).strip())
             and bool(str(self.authorization.capture_session_id).strip())
         )
         if (
             (not self.is_fake_transport_qa)
-            and self._is_live_stdlib_transport
+            and live_exact_now
             and live_auth
             and self._real_rate_limiter_active
         ):
@@ -528,34 +514,73 @@ class C2PublicReadOnlyBitgetCollector:
             raise PermissionError("NO_HTTP_TRANSPORT_CONFIGURED_LIVE_NETWORK_DISABLED")
         return spec
 
-    def _execute_get_with_retry(
+    def _execute_get_with_proof_c4(
         self,
         endpoint_key: str,
         url: str,
         params: Mapping[str, Any],
-    ) -> RawHttpResponseC2:
-        now_ms = self._clock_ms()
-        if self._last_request_ms is not None:
-            dt = now_ms - self._last_request_ms
-            if dt > self.disconnect_gap_threshold_ms:
-                self.session_gap_log.append(
-                    {
-                        "kind": "SESSION_DISCONNECT_OR_DEVICE_SLEEP_GAP",
-                        "prev_ms": self._last_request_ms,
-                        "curr_ms": now_ms,
-                        "gap_ms": dt,
-                    }
-                )
-            elif 0 <= dt < self.min_request_interval_ms:
-                self._sleep((self.min_request_interval_ms - dt) / 1000.0)
-        self._last_request_ms = now_ms
+    ) -> Tuple[RawHttpResponseC2, VerifiedCaptureProofC4]:
+        with self._state_lock:
+            now_ms = self._clock_ms()
+            if self._last_request_ms is not None:
+                dt = now_ms - self._last_request_ms
+                if dt > self.disconnect_gap_threshold_ms:
+                    self.session_gap_log.append(
+                        {
+                            "kind": "SESSION_DISCONNECT_OR_DEVICE_SLEEP_GAP",
+                            "prev_ms": self._last_request_ms,
+                            "curr_ms": now_ms,
+                            "gap_ms": dt,
+                        }
+                    )
+                elif 0 <= dt < self.min_request_interval_ms:
+                    self._sleep((self.min_request_interval_ms - dt) / 1000.0)
+            self._last_request_ms = now_ms
+
+        session_id = (
+            (self.authorization.capture_session_id or self.authorization.approval_id)
+            if self.authorization is not None
+            else ""
+        )
+        live_auth_ok = bool(
+            self.authorization is not None
+            and self.authorization.network_capture_enabled
+            and self.authorization.live_network_session_authorized
+            and bool(str(self.authorization.approval_id).strip())
+            and bool(str(self.authorization.approved_by).strip())
+            and bool(str(self.authorization.capture_session_id).strip())
+        )
 
         last_err: Optional[str] = None
         total_wait_sec = 0.0
         for attempt in range(self.max_retries + 1):
+            capture_proof: Optional[VerifiedCaptureProofC4] = None
             try:
                 assert self.transport is not None
-                resp = self.transport.get(url, params, timeout_sec=self.timeout_sec)
+                exact_live_now, _ = self._check_live_transport_exact_now()
+                if exact_live_now:
+                    tr_res = execute_trusted_stdlib_https_get_c4(
+                        transport=self.transport,
+                        expected_transport_cls=StdlibUrllibPublicTransportC2,
+                        expected_get_func=StdlibUrllibPublicTransportC2.get,
+                        validate_url_fn=_validate_public_bitget_https_url_c3,
+                        no_redirect_handler_cls=_NoRedirectHandlerC3,
+                        secret_scanner_fn=scan_for_forbidden_secrets_r2_c1,
+                        decompress_check_fn=safe_bounded_decompress_if_gzip_c3,
+                        raw_response_cls=RawHttpResponseC2,
+                        url=url,
+                        params=params,
+                        endpoint_key=endpoint_key,
+                        timeout_sec=self.timeout_sec,
+                        capture_session_id=session_id,
+                        live_authorization_verified=live_auth_ok,
+                        real_rate_limiter_active=self._real_rate_limiter_active,
+                        is_fake_transport_qa=self.is_fake_transport_qa,
+                    )
+                    resp = tr_res.response
+                    capture_proof = tr_res.capture_proof
+                else:
+                    resp = self.transport.get(url, params, timeout_sec=self.timeout_sec)
             except (PermissionError, ValueError):
                 # Never retry security, redirect, SSRF, secret, gzip-bomb, or oversized-body errors!
                 raise
@@ -619,9 +644,47 @@ class C2PublicReadOnlyBitgetCollector:
                 raise ValueError("TRUNCATED_OR_EMPTY_HTTP_BODY")
             if len(resp.body_bytes) > MAX_RAW_HTTP_BODY_BYTES_C3:
                 raise ValueError(f"OVERSIZED_HTTP_RESPONSE_BODY:len={len(resp.body_bytes)}>{MAX_RAW_HTTP_BODY_BYTES_C3}")
-            return resp
+
+            # Non-exact transport (fake / subclass / monkeypatched / injected opener) ALWAYS receives a non-live QA/UNVERIFIED proof!
+            if capture_proof is None:
+                eff_kind = (
+                    "INJECTED_FAKE_TRANSPORT"
+                    if self.is_fake_transport_qa
+                    else (
+                        "TEST_INJECTED_OPENER_NOT_LIVE_HTTP"
+                        if getattr(self.transport, "_opener_fn", None) is not None
+                        else "UNVERIFIED_NON_TRUSTED_TRANSPORT"
+                    )
+                )
+                capture_proof = issue_qa_or_unverified_capture_proof_c4(
+                    capture_session_id=session_id,
+                    endpoint_key=endpoint_key,
+                    url=url,
+                    final_url=str(resp.final_url or url),
+                    tls_host="",
+                    http_status=sc,
+                    params=params,
+                    raw_response_bytes=resp.body_bytes,
+                    request_utc_ms=int(resp.request_utc_ms),
+                    response_utc_ms=int(resp.response_utc_ms),
+                    monotonic_duration_ms=int(resp.monotonic_duration_ms),
+                    transport_class_name=type(self.transport).__name__,
+                    transport_kind=eff_kind,
+                    real_rate_limiter_active=self._real_rate_limiter_active,
+                    is_fake_transport_qa=self.is_fake_transport_qa,
+                )
+            return resp, capture_proof
 
         raise RuntimeError(f"HTTP_RETRY_EXHAUSTED:{last_err}")
+
+    def _execute_get_with_retry(
+        self,
+        endpoint_key: str,
+        url: str,
+        params: Mapping[str, Any],
+    ) -> RawHttpResponseC2:
+        resp, _proof = self._execute_get_with_proof_c4(endpoint_key, url, params)
+        return resp
 
     def fetch_public_l1_bbo_snapshot(
         self,
@@ -651,7 +714,7 @@ class C2PublicReadOnlyBitgetCollector:
             )
         )
         spec = self._check_guards(endpoint_key, params, write_mount_probe)
-        resp = self._execute_get_with_retry(endpoint_key, spec["url"], params)
+        resp, capture_proof = self._execute_get_with_proof_c4(endpoint_key, spec["url"], params)
 
         raw_sha = hashlib.sha256(resp.body_bytes).hexdigest()
         decoded_raw = safe_bounded_decompress_if_gzip_c3(resp.body_bytes)
@@ -779,7 +842,9 @@ class C2PublicReadOnlyBitgetCollector:
         if not val["valid_for_escrow_admission"]:
             raise ValueError(f"SNAPSHOT_CONTRACT_VALIDATION_FAILED:{val['violations']}")
 
-        receipt = mint_trusted_capture_receipt_c3(
+        live_exact_now, _ = self._check_live_transport_exact_now()
+        receipt = mint_trusted_capture_receipt_c4(
+            capture_proof=capture_proof,
             capture_session_id=(self.authorization.capture_session_id or self.authorization.approval_id) if self.authorization else "",
             endpoint_key=endpoint_key,
             url=spec["url"],
@@ -795,7 +860,7 @@ class C2PublicReadOnlyBitgetCollector:
             transport_kind=resp.transport_kind,
             tls_host=resp.tls_verified_host,
             is_fake_transport_qa=self.is_fake_transport_qa,
-            live_transport_verified=self._is_live_stdlib_transport,
+            live_transport_verified=live_exact_now,
             live_authorization_verified=bool(
                 self.authorization is not None and self.authorization.live_network_session_authorized
             ),
@@ -810,6 +875,8 @@ class C2PublicReadOnlyBitgetCollector:
                 if receipt.provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
                 else "PUBLIC_READONLY_POLL_SNAPSHOT"
             ),
+            "capture_proof_c4": capture_proof,
+            "capture_proof_audit_c4": capture_proof.to_audit_dict(),
             "capture_receipt": receipt,
             "capture_receipt_audit": receipt.to_audit_dict(),
             "raw_response_bytes": resp.body_bytes,
@@ -856,7 +923,7 @@ class C2PublicReadOnlyBitgetCollector:
             "limit": "200",
         }
         spec = self._check_guards(endpoint_key, params, write_mount_probe)
-        resp = self._execute_get_with_retry(endpoint_key, spec["url"], params)
+        resp, capture_proof = self._execute_get_with_proof_c4(endpoint_key, spec["url"], params)
 
         raw_sha = hashlib.sha256(resp.body_bytes).hexdigest()
         decoded_raw = safe_bounded_decompress_if_gzip_c3(resp.body_bytes)
@@ -979,7 +1046,9 @@ class C2PublicReadOnlyBitgetCollector:
         if not val["valid_for_escrow_admission"]:
             raise ValueError(f"SNAPSHOT_CONTRACT_VALIDATION_FAILED:{val['violations']}")
 
-        receipt = mint_trusted_capture_receipt_c3(
+        live_exact_now, _ = self._check_live_transport_exact_now()
+        receipt = mint_trusted_capture_receipt_c4(
+            capture_proof=capture_proof,
             capture_session_id=(self.authorization.capture_session_id or self.authorization.approval_id) if self.authorization else "",
             endpoint_key=endpoint_key,
             url=spec["url"],
@@ -995,7 +1064,7 @@ class C2PublicReadOnlyBitgetCollector:
             transport_kind=resp.transport_kind,
             tls_host=resp.tls_verified_host,
             is_fake_transport_qa=self.is_fake_transport_qa,
-            live_transport_verified=self._is_live_stdlib_transport,
+            live_transport_verified=live_exact_now,
             live_authorization_verified=bool(
                 self.authorization is not None and self.authorization.live_network_session_authorized
             ),
@@ -1010,6 +1079,8 @@ class C2PublicReadOnlyBitgetCollector:
                 if receipt.provenance_class != ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP
                 else "PUBLIC_READONLY_OHLCV_SNAPSHOT"
             ),
+            "capture_proof_c4": capture_proof,
+            "capture_proof_audit_c4": capture_proof.to_audit_dict(),
             "capture_receipt": receipt,
             "capture_receipt_audit": receipt.to_audit_dict(),
             "raw_response_bytes": resp.body_bytes,

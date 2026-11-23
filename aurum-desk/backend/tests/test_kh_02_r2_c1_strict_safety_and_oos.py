@@ -98,11 +98,17 @@ def test_stage_a_strict_disk_boundaries_dedup_mounts_and_waiver_rejection(tmp_pa
     assert exact_oversub["status"] == "BLOCKED_LOW_DISK"
     assert exact_oversub["can_run_heavy_stages"] is False
 
-    # 3. Alias/symlink mount duplicates deduplicated by st_dev (no double counting)
+    # 3. Alias/symlink/NTFS-junction mount duplicates deduplicated by st_dev (no double counting)
     real_d = tmp_path / "real_vol"
     real_d.mkdir()
     sym_d = tmp_path / "sym_vol"
-    os.symlink(real_d, sym_d)
+    try:
+        os.symlink(real_d, sym_d)
+    except OSError as exc:
+        if sys.platform == "win32" and getattr(exc, "winerror", None) == 1314:
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(sym_d), str(real_d)], check=True, capture_output=True)
+        else:
+            raise
     r_sym = probe_r2_c1_write_mounts_strict(
         {"repo": real_d, "temp": sym_d},
         stat_fn=lambda _s: SimpleNamespace(st_dev=99),
@@ -132,7 +138,7 @@ def test_stage_a_strict_disk_boundaries_dedup_mounts_and_waiver_rejection(tmp_pa
 
     # 7. CLI & API --owner-waive-disk-preflight REJECTED everywhere
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     for script in (R2_RUNNER_SCRIPT, C1_RUNNER_SCRIPT):
         p = subprocess.run(
             [sys.executable, str(script), "--owner-waive-disk-preflight"],
@@ -525,7 +531,7 @@ def _build_minimal_valid_synthetic_c1_run_dir(
 
 def _run_c1_verifier_proc(run_dir: Path, run_id: str, sha: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     return subprocess.run(
         [
             sys.executable,

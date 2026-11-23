@@ -147,7 +147,7 @@ def test_t05_real_interprocess_flock_contention_3_os_subprocesses(tmp_path: Path
         "print(json.dumps(outs))",
     ])
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{BACKEND_ROOT}:{APP_ROOT}:{REPO_ROOT}"
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
     procs = [
         subprocess.Popen(
             [sys.executable, "-c", child_code, str(escrow_dir), str(wi)],
@@ -246,11 +246,22 @@ def test_t06_crash_injection_every_phase_and_explicit_quarantine_recovery(tmp_pa
 
 
 def test_t06_security_controls_symlink_blob_tamper_missing_blob_and_wrong_lock_owner(tmp_path: Path) -> None:
-    # Symlink escrow root rejected
+    # Symlink / NTFS directory junction escrow root rejected
     real_dir = tmp_path / "real_target"
     real_dir.mkdir()
     sym_dir = tmp_path / "sym_escrow"
-    sym_dir.symlink_to(real_dir)
+    try:
+        sym_dir.symlink_to(real_dir)
+    except OSError as exc:
+        if sys.platform == "win32" and getattr(exc, "winerror", None) == 1314:
+            # Windows non-admin fallback: create a real OS-level NTFS directory junction (no admin needed!)
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(sym_dir), str(real_dir)],
+                check=True,
+                capture_output=True,
+            )
+        else:
+            raise
     with pytest.raises(PermissionError, match="SYMLINK_ESCROW_ROOT_FORBIDDEN"):
         C2DurableEscrowJournal(sym_dir)
 

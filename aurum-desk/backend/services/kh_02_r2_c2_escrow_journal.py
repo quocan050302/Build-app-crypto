@@ -18,20 +18,32 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import errno
-import fcntl
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows uses msvcrt OS file locking
+    fcntl = None  # type: ignore[assignment]
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import sys
+import threading
+import time
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
+
+if sys.platform == "win32":
+    import msvcrt
 
 from services.kh_02_r2_c3_provenance_guard import (
     ProvenanceClassC3,
     TrustedCaptureReceiptC3,
     evaluate_c3_prospective_admission,
     reparse_and_verify_raw_market_bytes_c3,
+)
+from services.kh_02_r2_c4_trusted_transport_boundary import (
+    bind_capture_proof_consumption_c4,
 )
 from services.kh_02_r2_prospective_data_service import (
     CANONICAL_DATASET_SHA256_KH02,
@@ -58,8 +70,72 @@ def _canonical_json_bytes(obj: Mapping[str, Any]) -> bytes:
     return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
+_WIN_PATH_LOCKS_GUARD = threading.Lock()
+_WIN_PATH_LOCKS: Dict[str, threading.RLock] = {}
+
+
+def _get_thread_lock_for_path(lock_path: Path) -> threading.RLock:
+    key = os.path.normcase(os.path.abspath(os.fspath(lock_path)))
+    with _WIN_PATH_LOCKS_GUARD:
+        lk = _WIN_PATH_LOCKS.get(key)
+        if lk is None:
+            lk = threading.RLock()
+            _WIN_PATH_LOCKS[key] = lk
+        return lk
+
+
+@contextmanager
+def _cross_platform_exclusive_fd_lock(lock_path: Path) -> Iterator[int]:
+    """
+    Inter-process + inter-thread exclusive OS file lock:
+      - POSIX (macOS/Linux): fcntl.flock(LOCK_EX / LOCK_UN)
+      - Windows (win32): per-path threading.RLock + msvcrt.locking(LK_NBLCK) retry loop on byte 0.
+    """
+    tlock = _get_thread_lock_for_path(lock_path) if sys.platform == "win32" else None
+    if tlock is not None:
+        tlock.acquire()
+    lfd = os.open(os.fspath(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    locked = False
+    try:
+        if fcntl is not None:
+            fcntl.flock(lfd, fcntl.LOCK_EX)
+            locked = True
+        else:
+            # Ensure >= 1 byte exists for Windows byte-range locking on byte 0
+            st_size = os.fstat(lfd).st_size
+            if st_size < 1:
+                os.lseek(lfd, 0, os.SEEK_SET)
+                os.write(lfd, b"0\n")
+            deadline = time.monotonic() + 30.0
+            while True:
+                os.lseek(lfd, 0, os.SEEK_SET)
+                try:
+                    msvcrt.locking(lfd, msvcrt.LK_NBLCK, 1)
+                    locked = True
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"WINDOWS_OS_FILE_LOCK_TIMEOUT:{lock_path}")
+                    time.sleep(0.005)
+        yield lfd
+    finally:
+        try:
+            if locked:
+                if fcntl is not None:
+                    fcntl.flock(lfd, fcntl.LOCK_UN)
+                else:
+                    os.lseek(lfd, 0, os.SEEK_SET)
+                    msvcrt.locking(lfd, msvcrt.LK_UNLCK, 1)
+        finally:
+            os.close(lfd)
+            if tlock is not None:
+                tlock.release()
+
+
 def _fsync_directory(dir_path: Path) -> None:
-    """Durable directory fsync so newly created/linked entries survive power loss."""
+    """Durable directory fsync on POSIX; safe NTFS no-op on Windows after file fsync."""
+    if sys.platform == "win32":
+        return
     flags = os.O_RDONLY
     if hasattr(os, "O_DIRECTORY"):
         flags |= os.O_DIRECTORY
@@ -70,8 +146,28 @@ def _fsync_directory(dir_path: Path) -> None:
         os.close(dfd)
 
 
-def _assert_not_symlink_and_contained(path: Path, root: Path) -> None:
+def _win_long_path(path: Path) -> str:
+    """Applies Windows extended-length path prefix (`\\\\?\\`) when path exceeds 240 chars."""
+    s = os.path.abspath(os.fspath(path))
+    if sys.platform == "win32" and len(s) >= 240 and not s.startswith("\\\\?\\"):
+        return "\\\\?\\" + s
+    return s
+
+
+def _is_symlink_or_junction(path: Path) -> bool:
+    """Detects POSIX symlinks AND Windows NTFS directory junctions."""
     if path.is_symlink():
+        return True
+    if hasattr(os.path, "isjunction"):
+        try:
+            return bool(os.path.isjunction(path))
+        except OSError:
+            return False
+    return False
+
+
+def _assert_not_symlink_and_contained(path: Path, root: Path) -> None:
+    if _is_symlink_or_junction(path):
         raise PermissionError(f"SYMLINK_ESCAPE_FORBIDDEN:{path}")
     try:
         resolved_root = root.resolve()
@@ -171,9 +267,7 @@ class ExternalHeadAnchorC2:
         self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
         if self.anchor_path.is_symlink() or self.anchor_lock_path.is_symlink():
             raise PermissionError(f"SYMLINK_EXTERNAL_ANCHOR_FORBIDDEN:{self.anchor_path}")
-        lfd = os.open(os.fspath(self.anchor_lock_path), os.O_RDWR | os.O_CREAT, 0o600)
-        try:
-            fcntl.flock(lfd, fcntl.LOCK_EX)
+        with _cross_platform_exclusive_fd_lock(self.anchor_lock_path):
             existing = self.read_anchors()
             prev_sha = existing[-1]["anchor_entry_sha256"] if existing else GENESIS_PREV_SHA256_C2
             if existing and int(journal_record_count) < int(existing[-1]["journal_record_count"]):
@@ -200,11 +294,6 @@ class ExternalHeadAnchorC2:
                 os.close(fd)
             _fsync_directory(self.anchor_path.parent)
             return rec
-        finally:
-            try:
-                fcntl.flock(lfd, fcntl.LOCK_UN)
-            finally:
-                os.close(lfd)
 
 
 class C2DurableEscrowJournal:
@@ -229,7 +318,7 @@ class C2DurableEscrowJournal:
         os_disk_probe_fn: Optional[Callable[[], float]] = None,
     ) -> None:
         raw_root = Path(escrow_root)
-        if raw_root.is_symlink():
+        if _is_symlink_or_junction(raw_root):
             raise PermissionError(f"SYMLINK_ESCROW_ROOT_FORBIDDEN:{raw_root}")
         self.escrow_root = raw_root.resolve()
         self.blobs_dir = self.escrow_root / "blobs"
@@ -278,26 +367,26 @@ class C2DurableEscrowJournal:
 
     @contextmanager
     def exclusive_lock(self, *, expected_owner_pid: Optional[int] = None) -> Iterator[int]:
-        """Acquires inter-process exclusive OS lock (fcntl.flock LOCK_EX) over escrow operations."""
+        """Acquires inter-process exclusive OS lock (POSIX fcntl.flock / Windows msvcrt.locking)."""
         self._ensure_layout()
         pid_now = os.getpid()
         if expected_owner_pid is not None and int(expected_owner_pid) != pid_now:
             raise PermissionError(f"WRONG_LOCK_OWNER:expected={expected_owner_pid},actual={pid_now}")
-        lfd = os.open(os.fspath(self.lock_path), os.O_RDWR | os.O_CREAT, 0o600)
-        try:
-            fcntl.flock(lfd, fcntl.LOCK_EX)
-            self._active_lock_owner_pid = pid_now
-            os.ftruncate(lfd, 0)
-            os.lseek(lfd, 0, os.SEEK_SET)
-            os.write(lfd, f"{pid_now}\n".encode("utf-8"))
-            os.fsync(lfd)
-            yield lfd
-        finally:
-            self._active_lock_owner_pid = None
+        with _cross_platform_exclusive_fd_lock(self.lock_path) as lfd:
             try:
-                fcntl.flock(lfd, fcntl.LOCK_UN)
+                self._active_lock_owner_pid = pid_now
+                if sys.platform != "win32":
+                    os.ftruncate(lfd, 0)
+                    os.lseek(lfd, 0, os.SEEK_SET)
+                    os.write(lfd, f"{pid_now}\n".encode("utf-8"))
+                else:
+                    # Keep byte 0 locked intact; write PID metadata starting at byte 1
+                    os.lseek(lfd, 1, os.SEEK_SET)
+                    os.write(lfd, f"{pid_now:<15}\n".encode("utf-8"))
+                os.fsync(lfd)
+                yield lfd
             finally:
-                os.close(lfd)
+                self._active_lock_owner_pid = None
 
     def _parse_journal_bytes(self) -> Tuple[List[Dict[str, Any]], List[str], Optional[bytes]]:
         """
@@ -594,6 +683,11 @@ class C2DurableEscrowJournal:
                             "MISSING_TRUSTED_CAPTURE_RECEIPT",
                             "RECEIPT_NOT_TRUSTED",
                             "LIVE_RATE_LIMITER_NOT_ACTIVE",
+                            "C4_PROOF_",
+                            "EXPIRED_C4_CAPTURE_PROOF",
+                            "UNREGISTERED_OR_CROSS_PROCESS",
+                            "MISSING_C4_CAPTURE_PROOF",
+                            "FORGED_OR_CLONED_C4_ORIGIN_TOKEN",
                         )
                     ):
                         raise PermissionError(f"UNTRUSTED_OR_SYNTHETIC_PROVENANCE_FORBIDDEN:{viols_str}")
@@ -652,6 +746,15 @@ class C2DurableEscrowJournal:
         with self.exclusive_lock(expected_owner_pid=_expected_lock_owner_pid):
             # Re-validate INSIDE exclusive lock (zero TOCTOU between validator and durable append!)
             val, adm_info = _validate_all()
+
+            if enforce_c3 and isinstance(capture_receipt, TrustedCaptureReceiptC3) and str(capture_receipt.capture_proof_id or "").strip():
+                ok_bind, bind_errs = bind_capture_proof_consumption_c4(
+                    capture_receipt.capture_proof_id,
+                    snapshot_id=sid,
+                    content_sha256=content_sha,
+                )
+                if not ok_bind:
+                    raise PermissionError(";".join(bind_errs))
 
             if enforce_c3 or self._os_disk_probe_fn is not None:
                 free_gib = (
@@ -860,8 +963,11 @@ class C2DurableEscrowJournal:
                     if bp.is_file() and bp.name.endswith(".blob") and bp.name not in referenced_names:
                         _assert_not_symlink_and_contained(bp, self.escrow_root)
                         dst = q_dir / bp.name
-                        b_bytes = bp.read_bytes()
-                        os.replace(bp, dst)
+                        bp_s = _win_long_path(bp)
+                        dst_s = _win_long_path(dst)
+                        with open(bp_s, "rb") as _bfh:
+                            b_bytes = _bfh.read()
+                        os.replace(bp_s, dst_s)
                         quarantined_items.append(
                             {
                                 "kind": "ORPHAN_UNCOMMITTED_BLOB",
