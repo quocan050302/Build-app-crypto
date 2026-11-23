@@ -126,6 +126,7 @@ from services.kh_02_r2_research_integrity_service import (
     MANDATORY_BRANCH_KH02_R2,
     PREFLIGHT_RAM_MIN_MIB_KH02_R2,
     RUNTIME_SAFETY_MODES_KH02_R2,
+    SENTINEL_FILENAME_KH02_R2_C1,
     STRICT_PREFLIGHT_DISK_MIN_GIB_KH02_R2,
     STRICT_RUNTIME_DISK_MIN_GIB_KH02_R2,
     _ast_function_inventory,
@@ -148,6 +149,7 @@ from services.kh_02_r2_research_integrity_service import (
     run_r2_t01_to_t10_adversarial_target_scenarios,
     safe_cleanup_sentinel_owned_temp_dir_r2_c1,
     validate_r2_cost_scope_honesty,
+    verify_sentinel_owned_dir_r2_c1,
 )
 from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 from services.v17_9_3_1_2_11_verification_truth_and_exit_lineage import (
@@ -245,6 +247,39 @@ S01_PRE_PATCH_RED_PROOFS_CA5BA096: Dict[str, Any] = {
 
 def _pypath_str() -> str:
     return os.pathsep.join([str(BACKEND_ROOT), str(APP_ROOT), str(REPO_ROOT)])
+
+
+def _cleanup_sentinel_temp_c4_win_safe(sentinel_tmp: Path, *, expected_run_id: str) -> Dict[str, Any]:
+    """
+    Windows long-path-safe wrapper around `safe_cleanup_sentinel_owned_temp_dir_r2_c1`.
+    Verifies sentinel ownership via `verify_sentinel_owned_dir_r2_c1` first, removes deeply
+    nested >260-char children inside `sentinel_tmp` using `\\\\?\\` extended paths
+    (never following junctions/symlinks), then delegates final sentinel verification & root
+    deletion to the canonical R2.C1 cleaner.
+    """
+    verify_sentinel_owned_dir_r2_c1(sentinel_tmp, expected_run_id=expected_run_id)
+    if sys.platform == "win32":
+        long_root = os.path.abspath(os.fspath(sentinel_tmp))
+        if not long_root.startswith("\\\\?\\"):
+            long_root = "\\\\?\\" + long_root
+        for cur_root, dirs, files in os.walk(long_root, topdown=False, followlinks=False):
+            for fname in files:
+                if cur_root == long_root and fname == SENTINEL_FILENAME_KH02_R2_C1:
+                    continue
+                fpath = os.path.join(cur_root, fname)
+                try:
+                    os.unlink(fpath)
+                except PermissionError:
+                    os.chmod(fpath, 0o700)
+                    os.unlink(fpath)
+            for dname in dirs:
+                dpath = os.path.join(cur_root, dname)
+                try:
+                    os.rmdir(dpath)
+                except PermissionError:
+                    os.chmod(dpath, 0o700)
+                    os.rmdir(dpath)
+    return safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=expected_run_id)
 
 
 def _build_bbo_fixture(snapshot_id: str, offset_ms: int = 120_000, transport_kind: str = "STDLIB_URLLIB_HTTPS_GET") -> Tuple[bytes, Dict[str, Any], int, int, int, str]:
@@ -1279,6 +1314,7 @@ def run_kh02_r2_c4_acceptance(
         enforce_runtime_disk_abort=can_run_heavy,
     )
     sampler.start()
+    sampler_stopped = False
 
     try:
         print(f"[KH-02.R2.C4] Run ID: {run_id} | Branch: {branch} | Tested SHA: {start_head[:12]} | clean={git_clean}", flush=True)
@@ -1386,9 +1422,10 @@ def run_kh02_r2_c4_acceptance(
             write_json_durable_atomic(run_dir / "18_a1_si8_adapter_d4_full_parity_fingerprints.json", f18)
 
         # Clean sentinel temp BEFORE final telemetry flush
-        cl_info = safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=run_id)
+        cl_info = _cleanup_sentinel_temp_c4_win_safe(sentinel_tmp, expected_run_id=run_id)
         sentinel_cleaned = bool(cl_info["cleaned"])
         telem = sampler.stop_and_flush()
+        sampler_stopped = True
 
         _, end_head = _git_cmd(["rev-parse", "HEAD"])
         f00 = {
@@ -1511,9 +1548,14 @@ def run_kh02_r2_c4_acceptance(
             "violations": f24.get("violations"),
         }
     finally:
+        if not sampler_stopped:
+            try:
+                sampler.stop_and_flush()
+            except Exception:
+                pass
         if sentinel_tmp.exists():
             try:
-                safe_cleanup_sentinel_owned_temp_dir_r2_c1(sentinel_tmp, expected_run_id=run_id)
+                _cleanup_sentinel_temp_c4_win_safe(sentinel_tmp, expected_run_id=run_id)
             except Exception:
                 pass
 
