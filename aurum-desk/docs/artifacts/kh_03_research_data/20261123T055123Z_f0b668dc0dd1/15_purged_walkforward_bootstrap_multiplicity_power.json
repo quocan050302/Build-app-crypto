@@ -1,0 +1,248 @@
+{
+  "ACTIVATION_READY": "NO",
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "KH03_DEV_CANDIDATE_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+  "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+  "OOS_EVALUATIONS": 0,
+  "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+  "artifact_canonical_sha256": "a2e8493a15cffa42bd43b99479ad86a1e1365108dc47826252306e3c4bada2d8",
+  "embargo_minutes": 240,
+  "low_power_positive_arms": [],
+  "multiplicity_family_size": 3,
+  "passing_dev_candidates": [],
+  "preregistered_plan_sha256": "3b8c6e02b600806518e3a43e4d76d3a1c678f83a55d3f4a8e683cd7f23d5fba3",
+  "primary_arm_evaluations": {
+    "KH03_H1_MTF_UNSWEPT_ALIGN": {
+      "closed_trades_1x": 75,
+      "effective_ny_days_1x": 14,
+      "episode_cluster_95ci_r": [
+        -1.0182,
+        -0.8838
+      ],
+      "expectancy_r_1x": -0.9749,
+      "expectancy_r_2x": -1.0203,
+      "expectancy_r_3x": -1.0211,
+      "expectancy_r_fee_only_0p0006": -0.8459,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.9749,net=-180.434",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8459",
+        "NON_POSITIVE_2X_STRESS:expR=-1.0203",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.1167",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "PURGED_WF_UNSTABLE:med=-1.015,pos_ratio=0.0"
+      ],
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "net_pnl_usd_1x": -180.434,
+      "net_pnl_usd_2x": -59.8505,
+      "net_pnl_usd_fee_only_0p0006": -87.3386,
+      "ny_day_cluster_95ci_r": [
+        -1.0184,
+        -0.8625
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "purged_wf_folds": [
+        {
+          "closed_trades": 14,
+          "expectancy_r": -1.015,
+          "fold_id": "DEV_PURGED_FOLD_1",
+          "net_pnl_usd": -34.9054
+        },
+        {
+          "closed_trades": 20,
+          "expectancy_r": -1.0172,
+          "fold_id": "DEV_PURGED_FOLD_2",
+          "net_pnl_usd": -50.1818
+        },
+        {
+          "closed_trades": 23,
+          "expectancy_r": -0.8784,
+          "fold_id": "DEV_PURGED_FOLD_3",
+          "net_pnl_usd": -49.9345
+        },
+        {
+          "closed_trades": 18,
+          "expectancy_r": -1.0198,
+          "fold_id": "DEV_PURGED_FOLD_4",
+          "net_pnl_usd": -45.4123
+        }
+      ],
+      "purged_wf_median_fold_expectancy_r": -1.015,
+      "purged_wf_positive_fold_ratio": 0.0,
+      "raw_one_sided_pvalue_gt_zero": 1.0
+    },
+    "KH03_H2_LOW_FRICTION_VOL_REGIME": {
+      "closed_trades_1x": 25,
+      "effective_ny_days_1x": 10,
+      "episode_cluster_95ci_r": [
+        -1.0151,
+        -1.0122
+      ],
+      "expectancy_r_1x": -1.0136,
+      "expectancy_r_2x": -0.6595,
+      "expectancy_r_3x": -1.0198,
+      "expectancy_r_fee_only_0p0006": -0.7406,
+      "failed_advancement_criteria": [
+        "INSUFFICIENT_SAMPLE_OR_DAYS:n=25,days=10",
+        "NON_POSITIVE_1X_NET:expR=-1.0136,net=-62.7336",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.7406",
+        "NON_POSITIVE_2X_STRESS:expR=-0.6595",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.0001",
+        "FAILED_TO_BEAT_PLACEBO_AND_TIME_OFFSET_CONTROLS",
+        "PURGED_WF_UNSTABLE:med=-1.0145,pos_ratio=0.0"
+      ],
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "net_pnl_usd_1x": -62.7336,
+      "net_pnl_usd_2x": -16.0705,
+      "net_pnl_usd_fee_only_0p0006": -28.8293,
+      "ny_day_cluster_95ci_r": [
+        -1.0149,
+        -1.0125
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "purged_wf_folds": [
+        {
+          "closed_trades": 3,
+          "expectancy_r": -1.0149,
+          "fold_id": "DEV_PURGED_FOLD_1",
+          "net_pnl_usd": -7.5608
+        },
+        {
+          "closed_trades": 11,
+          "expectancy_r": -1.0125,
+          "fold_id": "DEV_PURGED_FOLD_2",
+          "net_pnl_usd": -27.5993
+        },
+        {
+          "closed_trades": 4,
+          "expectancy_r": -1.0145,
+          "fold_id": "DEV_PURGED_FOLD_3",
+          "net_pnl_usd": -10.0742
+        },
+        {
+          "closed_trades": 7,
+          "expectancy_r": -1.0145,
+          "fold_id": "DEV_PURGED_FOLD_4",
+          "net_pnl_usd": -17.4993
+        }
+      ],
+      "purged_wf_median_fold_expectancy_r": -1.0145,
+      "purged_wf_positive_fold_ratio": 0.0,
+      "raw_one_sided_pvalue_gt_zero": 1.0
+    },
+    "KH03_H3_FILL_TIME_CAUSAL_RR_GATE": {
+      "closed_trades_1x": 202,
+      "effective_ny_days_1x": 17,
+      "episode_cluster_95ci_r": [
+        -0.9683,
+        -0.7747
+      ],
+      "expectancy_r_1x": -0.8799,
+      "expectancy_r_2x": -0.9307,
+      "expectancy_r_3x": -1.0233,
+      "expectancy_r_fee_only_0p0006": -0.8833,
+      "failed_advancement_criteria": [
+        "NON_POSITIVE_1X_NET:expR=-0.8799,net=-439.0029",
+        "NON_POSITIVE_FEE_ONLY_0p0006:expR=-0.8833",
+        "NON_POSITIVE_2X_STRESS:expR=-0.9307",
+        "NY_DAY_95CI_CROSSES_ZERO:ci_low=None",
+        "HOLM_BONFERRONI_P_GE_0p05:p_adj=1.0",
+        "MATCHED_NULL_LIFT_FAILED:mq=BALANCED_COMMON_SUPPORT,delta=-0.0",
+        "PURGED_WF_UNSTABLE:med=-0.8492,pos_ratio=0.0"
+      ],
+      "holm_bonferroni_adjusted_pvalue": 1.0,
+      "net_pnl_usd_1x": -439.0029,
+      "net_pnl_usd_2x": -253.7513,
+      "net_pnl_usd_fee_only_0p0006": -299.6037,
+      "ny_day_cluster_95ci_r": [
+        -0.9764,
+        -0.7755
+      ],
+      "passes_preregistered_dev_advancement": false,
+      "purged_wf_folds": [
+        {
+          "closed_trades": 42,
+          "expectancy_r": -1.0181,
+          "fold_id": "DEV_PURGED_FOLD_1",
+          "net_pnl_usd": -105.7607
+        },
+        {
+          "closed_trades": 52,
+          "expectancy_r": -0.8492,
+          "fold_id": "DEV_PURGED_FOLD_2",
+          "net_pnl_usd": -109.1444
+        },
+        {
+          "closed_trades": 53,
+          "expectancy_r": -0.7949,
+          "fold_id": "DEV_PURGED_FOLD_3",
+          "net_pnl_usd": -104.0457
+        },
+        {
+          "closed_trades": 55,
+          "expectancy_r": -0.8852,
+          "fold_id": "DEV_PURGED_FOLD_4",
+          "net_pnl_usd": -120.0521
+        }
+      ],
+      "purged_wf_median_fold_expectancy_r": -0.8492,
+      "purged_wf_positive_fold_ratio": 0.0,
+      "raw_one_sided_pvalue_gt_zero": 1.0
+    }
+  },
+  "prospective_oos_power_requirements": {
+    "assumed_trade_r_std": 1.25,
+    "bonferroni_strict_alpha_per_arm": 0.016667,
+    "familywise_alpha_two_sided": 0.05,
+    "fixed_30_trades_proves_edge": false,
+    "num_primary_arms_holm_family": 3,
+    "ny_day_clustering_vif": 1.5,
+    "sample_size_grid": [
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0316,
+        "required_closed_trades_clustered_vif": 1092,
+        "required_closed_trades_iid": 728,
+        "target_net_expectancy_r": 0.15
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0669,
+        "required_closed_trades_clustered_vif": 393,
+        "required_closed_trades_iid": 262,
+        "target_net_expectancy_r": 0.25
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.1268,
+        "required_closed_trades_clustered_vif": 201,
+        "required_closed_trades_iid": 134,
+        "target_net_expectancy_r": 0.35
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.2725,
+        "required_closed_trades_clustered_vif": 99,
+        "required_closed_trades_iid": 66,
+        "target_net_expectancy_r": 0.5
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "statistical_disclosure": "A fixed N = 30 closed trades is severely UNDERPOWERED under clustered gold-futures returns and multi-arm Holm-Bonferroni correction. Prospective OOS must span multiple distinct volatility/trend regimes, record observed L1 BBO quotes, verify actual account fees, and meet pre-registered cluster-adjusted sample-size thresholds before any unsealing.",
+    "z_alpha_two_sided": 2.394,
+    "z_beta_power_80pct": 0.8416
+  },
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS",
+  "walkforward_data_regime": "REUSED_RESEARCH_PURGED_WALKFORWARD_NOT_FRESH_OOS"
+}

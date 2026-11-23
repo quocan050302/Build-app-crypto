@@ -1,0 +1,114 @@
+{
+  "arm_tail_and_fee_disclosures_1x": {
+    "KH03_H1_MTF_UNSWEPT_ALIGN": {
+      "accrued_open_entry_fees_usd": 3.6932,
+      "closed": 75,
+      "closed_total_fees_usd": 104.9209,
+      "losses": 74,
+      "max_realized_net_loss_usd": 2.563,
+      "open_at_horizon": 8,
+      "realized_loss_quantiles_usd": {
+        "max": 2.563,
+        "p50": 2.5162,
+        "p90": 2.5414,
+        "p95": 2.5484
+      },
+      "realized_losses_exceeding_2p50_count": 53,
+      "scheduled": 83
+    },
+    "KH03_H2_LOW_FRICTION_VOL_REGIME": {
+      "accrued_open_entry_fees_usd": 2.4857,
+      "closed": 25,
+      "closed_total_fees_usd": 27.383,
+      "losses": 25,
+      "max_realized_net_loss_usd": 2.5407,
+      "open_at_horizon": 5,
+      "realized_loss_quantiles_usd": {
+        "max": 2.5407,
+        "p50": 2.52,
+        "p90": 2.5345,
+        "p95": 2.5345
+      },
+      "realized_losses_exceeding_2p50_count": 20,
+      "scheduled": 30
+    },
+    "KH03_H3_FILL_TIME_CAUSAL_RR_GATE": {
+      "accrued_open_entry_fees_usd": 16.3231,
+      "closed": 202,
+      "closed_total_fees_usd": 274.7931,
+      "losses": 195,
+      "max_realized_net_loss_usd": 2.5574,
+      "open_at_horizon": 28,
+      "realized_loss_quantiles_usd": {
+        "max": 2.5574,
+        "p50": 2.5172,
+        "p90": 2.5423,
+        "p95": 2.5462
+      },
+      "realized_losses_exceeding_2p50_count": 138,
+      "scheduled": 232
+    },
+    "NC_NULL_TRIGGER": {
+      "accrued_open_entry_fees_usd": 16.3231,
+      "closed": 203,
+      "closed_total_fees_usd": 276.6577,
+      "losses": 196,
+      "max_realized_net_loss_usd": 2.5574,
+      "open_at_horizon": 28,
+      "realized_loss_quantiles_usd": {
+        "max": 2.5574,
+        "p50": 2.5172,
+        "p90": 2.5423,
+        "p95": 2.5462
+      },
+      "realized_losses_exceeding_2p50_count": 139,
+      "scheduled": 233
+    },
+    "NC_PLACEBO_SHUFFLED_TRIGGER": {
+      "accrued_open_entry_fees_usd": 6.4627,
+      "closed": 101,
+      "closed_total_fees_usd": 138.5007,
+      "losses": 100,
+      "max_realized_net_loss_usd": 2.5572,
+      "open_at_horizon": 14,
+      "realized_loss_quantiles_usd": {
+        "max": 2.5572,
+        "p50": 2.5161,
+        "p90": 2.5423,
+        "p95": 2.5469
+      },
+      "realized_losses_exceeding_2p50_count": 70,
+      "scheduled": 115
+    },
+    "NC_TIME_OFFSET_SHIFT": {
+      "accrued_open_entry_fees_usd": 4.4608,
+      "closed": 74,
+      "closed_total_fees_usd": 107.0112,
+      "losses": 72,
+      "max_realized_net_loss_usd": 2.563,
+      "open_at_horizon": 8,
+      "realized_loss_quantiles_usd": {
+        "max": 2.563,
+        "p50": 2.5223,
+        "p90": 2.5438,
+        "p95": 2.5484
+      },
+      "realized_losses_exceeding_2p50_count": 54,
+      "scheduled": 83
+    }
+  },
+  "artifact_canonical_sha256": "23b3b896a0bff46426caf5f211323a56245a8ecbfa11c937bcf53b6129950555",
+  "explicit_regime_separation": {
+    "A_executed_modeled_historical_1x": "REUSED_DEV_MODELED_BID_ASK_SPREAD_0p20_NOT_OBSERVED_L1",
+    "B_hypothetical_fill_time_policy": "RESEARCH_COUNTERFACTUAL_ONLY_NOT_PRODUCTION_RUNTIME",
+    "C_production_engine_behavior": "UNCHANGED_KEEP_AS_IS_ALL_MODES_OFF",
+    "D_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED"
+  },
+  "global_max_realized_net_loss_kh03_1x_usd": 2.563,
+  "planned_cap_is_physical_guarantee": false,
+  "realized_tail_loss_disclosure": "planned_net_risk_usd <= 2.50 USD is a causal pre-exit stop-loss estimate, NOT a physical guarantee against adverse gaps, liquidity shocks, or stop-fill slippage. Do NOT sum overlapping arm x scenario rows into unique independent trades.",
+  "risk_cap_usd": 2.5,
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS"
+}

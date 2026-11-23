@@ -1,0 +1,96 @@
+{
+  "clean_clone_verifier_green": true,
+  "isolated_temp_clones_only": true,
+  "mutations_detected_count": 14,
+  "mutations_failed_detection_count": 0,
+  "mutations_tested_count": 14,
+  "results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "INDEPENDENT_FEE_LEDGER",
+      "mutation_id": "M01_ZERO_FEE_CELL_WHILE_GROSS_MINUS_NET_GT_0",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_RESEARCH_ECONOMIC_VERDICT",
+      "mutation_id": "M02_FORGED_PROVEN_EDGE_VERDICT",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "NONZERO_OOS_EVALUATIONS_PEEK",
+      "mutation_id": "M03_NONZERO_OOS_EVALUATIONS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "INDEPENDENT_FEE_LEDGER",
+      "mutation_id": "M04_DROPPED_FEE_LEDGER_ROW",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "INDEPENDENT_FEE_LEDGER",
+      "mutation_id": "M05_DUPLICATE_FEE_LEDGER_UID",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "CANONICAL_DATASET_SHA256_TAMPERED",
+      "mutation_id": "M06_TAMPERED_DATASET_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PREREG_PLAN_SHA256_TAMPERED",
+      "mutation_id": "M07_TAMPERED_PREREG_PLAN_SHA",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FORGED_ACTIVATION_READY_ON",
+      "mutation_id": "M08_FORGED_ACTIVATION_READY_YES",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "JUNIT_COUNTS_TAMPERED_VS_RAW_XML",
+      "mutation_id": "M09_TAMPERED_JUNIT_COUNTS",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "W1_W2_W4_DETERMINISM_HASH_MISMATCH",
+      "mutation_id": "M10_W1_W4_HASH_DRIFT",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "FALSE_REMOTE_READBACK_CLAIM",
+      "mutation_id": "M11_FALSE_REMOTE_READBACK_CLAIM",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "UNAUTHORIZED_LIVE_NETWORK",
+      "mutation_id": "M12_UNAUTHORIZED_LIVE_NETWORK_FLAG",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "MEMORY_TELEMETRY_BREACHED_512MIB_FLOOR",
+      "mutation_id": "M13_MEMORY_LOG_512MIB_BREACH",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "UNAPPROVED_OWNER_DISK_WAIVER_FORBIDDEN",
+      "mutation_id": "M14_DISK_WAIVER_FLAG_SET",
+      "verifier_exit_code": 1
+    }
+  ],
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS"
+}

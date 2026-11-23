@@ -1,0 +1,177 @@
+{
+  "ACTIVATION_READY": "NO",
+  "changed_files_vs_c4": [
+    "aurum-desk/backend/services/kh_02_r2_c4_risk_tail_evidence.py",
+    "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+    "aurum-desk/backend/services/kh_03_data_governance_service.py",
+    "aurum-desk/backend/services/kh_03_fee_integrity_service.py",
+    "aurum-desk/backend/services/kh_03_research_service.py",
+    "aurum-desk/backend/tests/test_kh_03_async_and_resource_safety.py",
+    "aurum-desk/backend/tests/test_kh_03_causal_research_and_negative_controls.py",
+    "aurum-desk/backend/tests/test_kh_03_fee_root_and_costs.py",
+    "aurum-desk/backend/tests/test_kh_03_partition_seal_and_provenance.py",
+    "aurum-desk/backend/tests/test_kh_03_verifier_mutations.py",
+    "aurum-desk/tools/kh_03_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_acceptance.py"
+  ],
+  "cost_assumptions_defaults_intact": true,
+  "forbidden_order_import_hits": [],
+  "kh03_new_and_edited_inventory": [
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/services/kh_03_fee_integrity_service.py",
+      "sha256": "e60427df3fe5d99f8c221915f2f94350ae66fecc55a5d9a8fb52685e792e953c"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/services/kh_03_data_governance_service.py",
+      "sha256": "6c5165c0e3f456ec7e9d9ab8d439f7b02a143727c797af5487fa8286e496af09"
+    },
+    {
+      "functions_count": 11,
+      "rel_path": "aurum-desk/backend/services/kh_03_research_service.py",
+      "sha256": "470ae2a262a725a15f0ff382825a70c7ce38f62f66ab76afb510d67ee2bb1224"
+    },
+    {
+      "functions_count": 2,
+      "rel_path": "aurum-desk/backend/tests/test_kh_03_fee_root_and_costs.py",
+      "sha256": "21a7f9936fe3a3c03f8929622fed72bd04e0d2d163223e59aece3041f097cd09"
+    },
+    {
+      "functions_count": 2,
+      "rel_path": "aurum-desk/backend/tests/test_kh_03_partition_seal_and_provenance.py",
+      "sha256": "7d127dd4339e81d5f174a04f35844274b8d5a7cf18ef65c7b1fe77bbdeea214f"
+    },
+    {
+      "functions_count": 2,
+      "rel_path": "aurum-desk/backend/tests/test_kh_03_causal_research_and_negative_controls.py",
+      "sha256": "49368bb0d03165a4504b8f8a6e9a3a3288a784f33ba502cc870168f277f1288d"
+    },
+    {
+      "functions_count": 4,
+      "rel_path": "aurum-desk/backend/tests/test_kh_03_async_and_resource_safety.py",
+      "sha256": "9ffed65eed6be1b3debf24061c98a9f1ab70f4e4bd038d3cd5801127042a579c"
+    },
+    {
+      "functions_count": 20,
+      "rel_path": "aurum-desk/backend/tests/test_kh_03_verifier_mutations.py",
+      "sha256": "fd2d3c074beacafa74de591e355fb9677aa992a0543d3c986984a8338473ae6d"
+    },
+    {
+      "functions_count": 11,
+      "rel_path": "aurum-desk/tools/run_kh_03_acceptance.py",
+      "sha256": "5fb47b52329c75f0b5ab9aa887ff598bccfbf0007ab966f2344165a1c8a0d1af"
+    },
+    {
+      "functions_count": 5,
+      "rel_path": "aurum-desk/tools/kh_03_independent_verifier.py",
+      "sha256": "e28da1b22161da03997c798dbf9b4895e58f7bfd7183b3930c7997300613c3c6"
+    }
+  ],
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "locked_keep_as_is_count": 15,
+  "locked_keep_as_is_inventory": [
+    {
+      "ast_function_count": 83,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "sha256": "22a4c52521657ceea6f3462bcda830250403092091f663c804eab6565c3472b2"
+    },
+    {
+      "ast_function_count": 6,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/domain_calculator.py",
+      "sha256": "f17f4d0181c282321b30d65e9f6519d3b06ff9712b0bb918091df8513e4477a7"
+    },
+    {
+      "ast_function_count": 48,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75"
+    },
+    {
+      "ast_function_count": 22,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd"
+    },
+    {
+      "ast_function_count": 12,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249"
+    },
+    {
+      "ast_function_count": 24,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98"
+    },
+    {
+      "ast_function_count": 51,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794"
+    },
+    {
+      "ast_function_count": 30,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf"
+    },
+    {
+      "ast_function_count": 21,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "sha256": "5ff22a0fa55e10f5ce4e5d1e99a96dfd619081f04cf24d3215d1492cbbf3e283"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_02_entry_foundation_research_service.py",
+      "sha256": "bcc26e0a6149fb33145ba97052eab6ad85b250ebdee93975f27eddf143db7034"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_02_entry_foundation_research.py",
+      "sha256": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924"
+    },
+    {
+      "ast_function_count": 3,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_02_entry_foundation_independent_verifier.py",
+      "sha256": "b9f181801ffc55b77a64c8123e8d661b3cb1ed0e02a1d314692ab2fa2a50503a"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json",
+      "sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    }
+  ],
+  "prior_c4_pub_head_sha": "9200c802a38b50606f388e26fce26acc7275bf0c",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "f0b668dc0dd1c25c880121517b7580640ba4987b"
+}

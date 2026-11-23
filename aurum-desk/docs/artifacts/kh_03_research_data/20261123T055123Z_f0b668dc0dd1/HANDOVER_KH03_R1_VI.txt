@@ -1,0 +1,23 @@
+================================================================================
+BAN GIAO CHU SO HUU (TIENG VIET) — AURUM DESK | KH-03.R1
+================================================================================
+Phan loai ky thuat        : PASS_KH03_ENGINEERING_RESEARCH_NO_PROVEN_EDGE_OOS_BLOCKED
+Run ID                    : 20261123T055123Z_f0b668dc0dd1
+Nhanh                     : feature/v17-9-2-structural-sl-tp-from-qa
+Tested Executable SHA     : f0b668dc0dd1c25c880121517b7580640ba4987b
+An toan giao dich         : PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO
+KH03_DEV_CANDIDATE_VERDICT: NO_ECONOMIC_ADVANCEMENT_CANDIDATE
+RESEARCH_ECONOMIC_VERDICT : NO_PROVEN_EDGE (NO_PROVEN_EDGE)
+FRESH_OOS_VERDICT         : BLOCKED_NO_UNTOUCHED_DATA (OOS_EVALUATIONS=0)
+KH04_ENTRY                : BLOCKED_NO_DEV_CANDIDATE
+Fee root fix (03/04/05)   : fixed=True zero_hits=0 rows=1968
+O dia preflight / min     : 44.6009 GiB / 44.5873 GiB
+RAM min / children / orph : 2051.31 MiB / 4 / 0
+Full pytest (17)          : PASS (5579/5587 passed, 8 skipped, 0 failed)
+Async W1/W2/W4 (18)       : PASS
+Parity 56710 (20)         : PASS
+Faults RED/GREEN (19)     : 150/150 PASS (24 new KH-03)
+Verifier Mutations (21)   : 14/14 detected PASS
+Publication (23)          : PRE_PUSH_PENDING
+Thu muc bang chung        : D:\build app-crypto\aurum-desk\docs\artifacts\kh_03_research_data\20261123T055123Z_f0b668dc0dd1
+================================================================================

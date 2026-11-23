@@ -1,0 +1,117 @@
+{
+  "ACTIVATION_READY": "NO",
+  "OOS_EVALUATIONS": 0,
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "data_regime": "REUSED_RESEARCH_PURGED_WALKFORWARD_NOT_FRESH_OOS",
+  "dev_advancement_criteria": {
+    "dev_pass_label_only": "DEV_CANDIDATE_UNPROVEN_OOS",
+    "min_closed_trades": 50,
+    "min_effective_ny_days": 10,
+    "never_claims_proven_edge_on_dev": true,
+    "require_balanced_matched_delta_vs_null_gt_zero": true,
+    "require_beats_placebo_and_time_offset_controls": true,
+    "require_holm_bonferroni_p_lt_0p05": true,
+    "require_ny_day_95ci_lower_gt_zero": true,
+    "require_positive_net_at_1x_feeonly_and_2x": true,
+    "require_purged_wf_median_fold_gt_zero_and_60pct_pos": true
+  },
+  "embargo_minutes": 240,
+  "finite_search_budget": {
+    "declared_negative_controls_count": 3,
+    "declared_primary_arms_count": 3,
+    "discarded_variants_count": 0,
+    "max_primary_arms": 3,
+    "multiplicity_correction": "HOLM_BONFERRONI_FAMILY_M3",
+    "threshold_iteration_after_outcome_peek_permitted": false
+  },
+  "fixed_cost_scenarios": [
+    "1X_BASE_0p0004",
+    "FEE_ONLY_0p0006",
+    "2X_ALL_COST_0p0004",
+    "2X_ALL_COST_0p0006",
+    "3X_ALL_COST_0p0004",
+    "3X_ALL_COST_0p0006"
+  ],
+  "hypotheses": [
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "KH03_H1_MTF_UNSWEPT_ALIGN",
+      "causal_mechanism": "Restrict R2 unswept-target triggers to strict as-of H1 & M15 directional trend agreement (`h1_trend_dir == dir` AND `m15_trend_dir == dir`) with positive as-of M15 8-bar directional efficiency (`>= 0.25` for LONG / `<= -0.25` for SHORT), eliminating counter-HTF stop-outs observed in KH-01B.R1 failure attribution.",
+      "estimand_class": "PURE_GATING_FILTER_ON_R2_UNSWEPT_UNIVERSE",
+      "expected_direction": "HIGHER_NET_EXPECTANCY_R_VS_NC_NULL_TRIGGER",
+      "falsification_rule": "Falsified if net expectancy <= 0 at 1X or 2X, OR 95% NY-day cluster CI crosses 0, OR Holm-Bonferroni p >= 0.05, OR matched delta vs NC_NULL_TRIGGER <= 0, OR beats neither placebo.",
+      "priority_order": 1,
+      "role": "PRIMARY_HYPOTHESIS"
+    },
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "KH03_H2_LOW_FRICTION_VOL_REGIME",
+      "causal_mechanism": "Restrict R2 unswept-target triggers to liquid NY sessions (`is_liquid_session == True`) with causal low friction drag (`spread_to_m1_atr_ratio <= 0.12`) and non-extreme trailing H1 ATR causal prefix quantile (`0.30 <= h1_atr_causal_prefix_quantile <= 0.85`) to address the severe fee/spread drag documented in KH-02.R2.",
+      "estimand_class": "PURE_GATING_FILTER_ON_R2_UNSWEPT_UNIVERSE",
+      "expected_direction": "HIGHER_NET_EXPECTANCY_R_VS_NC_NULL_TRIGGER",
+      "falsification_rule": "Falsified if net expectancy <= 0 at 1X or 2X, OR 95% NY-day cluster CI crosses 0, OR Holm-Bonferroni p >= 0.05, OR fails purged walk-forward stability.",
+      "priority_order": 2,
+      "role": "PRIMARY_HYPOTHESIS"
+    },
+    {
+      "alters_entry_sl_tp_qty": true,
+      "arm_code": "KH03_H3_FILL_TIME_CAUSAL_RR_GATE",
+      "causal_mechanism": "Research-only counterfactual fill-time gate using strictly observable next-bar open price (`evaluate_causal_fill_time_policy_single_trade`) BEFORE fill commitment to reject entries whose adverse open gap degrades net R:R below 2.0 or breaches min-lot under $2.50 cap. Explicitly separated from pure gating filters and never mutates frozen production engine.",
+      "estimand_class": "MATERIALIZED_RESEARCH_COUNTERFACTUAL",
+      "expected_direction": "REDUCED_TAIL_SLIPPAGE_AND_HIGHER_NET_EXPECTANCY_R",
+      "falsification_rule": "Falsified if net expectancy <= 0 at 1X or 2X, OR 95% NY-day cluster CI crosses 0, OR Holm-Bonferroni p >= 0.05, OR closed_trades < 50.",
+      "priority_order": 3,
+      "role": "PRIMARY_HYPOTHESIS"
+    },
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "NC_NULL_TRIGGER",
+      "causal_mechanism": "All R2 geometry-and-risk-eligible triggers without extra KH-03 selectivity.",
+      "estimand_class": "R2_UNSWEPT_NULL_CONTROL",
+      "expected_direction": "BASELINE_NEGATIVE_CONTROL",
+      "falsification_rule": "Reference control arm; primary arms must outperform on matched common support.",
+      "priority_order": 4,
+      "role": "NEGATIVE_CONTROL_BASELINE"
+    },
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "NC_PLACEBO_SHUFFLED_TRIGGER",
+      "causal_mechanism": "Deterministic seeded within-NY-day permutation of KH03_H1 trigger selection preserving exact per-day trade density while destroying feature-to-bar causal alignment.",
+      "estimand_class": "WITHIN_NY_DAY_SHUFFLED_PLACEBO",
+      "expected_direction": "NO_GENUINE_EDGE",
+      "falsification_rule": "If a primary arm fails to beat this placebo, its lift is noise/density artifact.",
+      "priority_order": 5,
+      "role": "NEGATIVE_CONTROL_PLACEBO"
+    },
+    {
+      "alters_entry_sl_tp_qty": false,
+      "arm_code": "NC_TIME_OFFSET_SHIFT",
+      "causal_mechanism": "Applies KH03_H1 predicates read from `bar_index_1m - 15` (15-minute stale as-of offset) to test whether timing alignment actually contributes economic value.",
+      "estimand_class": "STALE_ASOF_SHIFT_NEGATIVE_CONTROL",
+      "expected_direction": "NO_GENUINE_EDGE",
+      "falsification_rule": "If stale time-shifted control matches/beats primary arm, timing causality is falsified.",
+      "priority_order": 6,
+      "role": "NEGATIVE_CONTROL_TIME_SHIFT"
+    }
+  ],
+  "plan_frozen_sha256": "3b8c6e02b600806518e3a43e4d76d3a1c678f83a55d3f4a8e683cd7f23d5fba3",
+  "preregistered_utc": "2026-11-23T05:51:38Z",
+  "random_seed": 20261121,
+  "retained_r2_reference_arms": [
+    "B2_H1",
+    "B2_H2",
+    "B2_H3",
+    "B2_H123"
+  ],
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS",
+  "tested_code_sha": "f0b668dc0dd1c25c880121517b7580640ba4987b",
+  "written_before_any_kh03_replay": true
+}

@@ -1,0 +1,108 @@
+{
+  "all_prior_sealed_artifacts_intact": true,
+  "canonical_dataset_expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_dataset_rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_dataset_sha256_match": true,
+  "prior_sealed_artifacts_immutability": {
+    "CANONICAL_DATASET": {
+      "actual_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "match": true,
+      "rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz"
+    },
+    "KH01B_R2_LATEST_PTR": {
+      "actual_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "expected_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/latest_run.json"
+    },
+    "KH01B_R3_LATEST_PTR": {
+      "actual_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "expected_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/latest_run.json"
+    },
+    "KH02_R1_LATEST_PTR": {
+      "actual_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "expected_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json"
+    },
+    "KH02_R2_ARTIFACT_14": {
+      "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json"
+    },
+    "KH02_R2_C1_MANIFEST_16": {
+      "actual_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "expected_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094/16_independent_disk_verifier_content_sha256_manifest.json"
+    },
+    "KH02_R2_C2_LATEST_PTR": {
+      "actual_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "expected_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/latest_run.json"
+    },
+    "KH02_R2_C2_MANIFEST_17": {
+      "actual_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "expected_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C3_LATEST_PTR": {
+      "actual_sha256": "48349333e7cd9dae8b480d859af5bb266f601382236f2bfb869fbbd50eb4a6d8",
+      "expected_sha256": "48349333e7cd9dae8b480d859af5bb266f601382236f2bfb869fbbd50eb4a6d8",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/latest_run.json"
+    },
+    "KH02_R2_C3_MANIFEST_20": {
+      "actual_sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+      "expected_sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/20_independent_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C3_POSTPUSH_RECEIPT": {
+      "actual_sha256": "589bf037eb0452e088df767a9f6fbd37c62a519a2a1abcf0599ef7af0682679c",
+      "expected_sha256": "589bf037eb0452e088df767a9f6fbd37c62a519a2a1abcf0599ef7af0682679c",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/23_postpush_remote_blobs_sha256_receipt_20261122T124741Z_d7eff11058e7.json"
+    },
+    "KH02_R2_C4_LATEST_PTR": {
+      "actual_sha256": "690a2dc3ce594ad34635086087f4522d37fdb6cdc3ffc529f39808c8f37241f2",
+      "expected_sha256": "690a2dc3ce594ad34635086087f4522d37fdb6cdc3ffc529f39808c8f37241f2",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/latest_run.json"
+    },
+    "KH02_R2_C4_MANIFEST_24": {
+      "actual_sha256": "b0e754d9b5ecbad5a1d9024c5b05de9ea49f5f6cf5f1e0e64aadc23aa88b6e93",
+      "expected_sha256": "b0e754d9b5ecbad5a1d9024c5b05de9ea49f5f6cf5f1e0e64aadc23aa88b6e93",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/20261123T035128Z_ed8b190c8f0f/24_independent_os_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C4_POSTPUSH_RECEIPT": {
+      "actual_sha256": "f29100fed30165c2b8fd5d30959d2b004471e2ba74c030084eeb1b73b98e94a6",
+      "expected_sha256": "f29100fed30165c2b8fd5d30959d2b004471e2ba74c030084eeb1b73b98e94a6",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/20261123T035128Z_ed8b190c8f0f_postpush_remote_receipt.json"
+    },
+    "KH02_R2_LATEST_PTR": {
+      "actual_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "expected_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/latest_run.json"
+    },
+    "KH02_R2_MANIFEST_22": {
+      "actual_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "expected_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json"
+    }
+  },
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS"
+}

@@ -1,0 +1,387 @@
+{
+  "artifact_count_hashed": 79,
+  "artifact_sha256_map": {
+    "00_source_branch_sha_and_resource_preflight.json": {
+      "sha256": "840e2b05f1793f46836dbe06ab8e9bdacb923fd30cf4f78eae52eab631ff3bc2",
+      "size_bytes": 7398
+    },
+    "01_file_function_ownership_and_keep_as_is_ast_diff.json": {
+      "sha256": "3fdb4a538b4409e551b4900191c7bfae07bda6a8e7dacd51263c6c597b909fd7",
+      "size_bytes": 7055
+    },
+    "02_prior_dataset_and_sealed_sha256_immutability.json": {
+      "sha256": "42cec45a79e72702043bbe651af3e7477d3428e368be0c3704e7eb7c4e4d8be3",
+      "size_bytes": 6329
+    },
+    "03_fee_root_bug_red_proof_and_diff.json": {
+      "sha256": "d1da2ed6f75356ce22616e495dfac21ba354afb59ef34e4ae36e4e9af71174c4",
+      "size_bytes": 13357
+    },
+    "04_fee_per_episode_ledger.jsonl.gz": {
+      "sha256": "9c73c4b87b9774ad3522f63b0faf153f03e0130f65c6272d3404e1278fb82ade",
+      "size_bytes": 112180
+    },
+    "05_fee_full_universe_six_scenario_reconciliation.json": {
+      "sha256": "bb79fddd252cd118038e7009ad4413beddf6deb763c79565b60f9e3b792ee435",
+      "size_bytes": 38100
+    },
+    "06_data_source_contract_and_quality_inventory.json": {
+      "sha256": "d5aa91f63b8967655e03c19fe8d65de86d2525be3c8e328c98bfbfe9846d3a9a",
+      "size_bytes": 7547
+    },
+    "07_partition_freeze_pre_registration_and_noncontamination.json": {
+      "sha256": "90b9cbd15f04842156958ec9efb31fd243365671b3228061776acb5a52040462",
+      "size_bytes": 7074
+    },
+    "08_public_collector_readiness_authorization_and_provenance.json": {
+      "sha256": "0ecea07ed7ddc190fb3aba75bb1ed83b319c627f41830632f3d1816f6514c534",
+      "size_bytes": 6535
+    },
+    "09_escrow_integrity_and_hash_linked_readiness.json": {
+      "sha256": "793b96b54006cbb0fa1f1b584d7e74a67f860a6fb035dd10688ea5a0fa4facb0",
+      "size_bytes": 889
+    },
+    "10_kh03_frozen_hypotheses_with_falsification_budget.json": {
+      "sha256": "7173af8178dd33cfdd88905e586578a451f930357f376005d7b1270136d6be0d",
+      "size_bytes": 6070
+    },
+    "11_causal_asof_mtf_and_future_mutation_tests.json": {
+      "sha256": "986e2299774feeeb736bcbcdf23de4a6f8d0e98c2971aff9194b5e28d1ab07fd",
+      "size_bytes": 2604
+    },
+    "12_full_opportunity_conservation_and_candidate_replay.json": {
+      "sha256": "3a6cd4b66377d2a4f2b50f22c12d30562adca51b85ead78b6ab0dcc3eda89fc3",
+      "size_bytes": 8510
+    },
+    "13_paired_null_matching_and_balance.json": {
+      "sha256": "9ee7b2fe037a086049f3b2c85dec3dd036d80ab826f784696928d594fb821bbc",
+      "size_bytes": 6213
+    },
+    "14_net_economics_cost_1x_2x_3x_stress.json": {
+      "sha256": "c65761fbd425f8b57d6a173bf374877d64625b1182be31b97357ac9695afe832",
+      "size_bytes": 40308
+    },
+    "15_purged_walkforward_bootstrap_multiplicity_power.json": {
+      "sha256": "959281f7d13d3ceccecb543a789b7cd42ebf1c04ec4057042bf127008e2df129",
+      "size_bytes": 8507
+    },
+    "16_risk_tail_gap_fill_time_and_fee_disclosure.json": {
+      "sha256": "6d8a10e99b34be8421ec90a61556b394a787c3b45314cd0322bc3ac604bc9516",
+      "size_bytes": 3723
+    },
+    "17_full_regression_collected_executed_junit_bijection.json": {
+      "sha256": "e9da3700c2051eb92686d7a9fbb1989e0e52e540d721e188acd0e6b57ab4724b",
+      "size_bytes": 1519459
+    },
+    "18_w1_w2_w4_w1repeat_speed_hash_and_resource.json": {
+      "sha256": "7093c259c1062bd33fa684802d16bb26f2d274b4aaeec06c63f657f82d11d687",
+      "size_bytes": 4473
+    },
+    "19_all_faults_unique_red_green_receipts.json": {
+      "sha256": "a8843b984f21a7e0e6a9faf5a7c6ab34f5b6bbda62c5a52f7591d0c052feecfa",
+      "size_bytes": 46459
+    },
+    "20_full_A1_SI8_246_adapter_D4_parity.json": {
+      "sha256": "a936a303e1c6f73c5d8486801ddc263b6c6e42e22c3df6d1b0ec6914936bee30",
+      "size_bytes": 2479
+    },
+    "21_independent_verifier_mutation_resistance.json": {
+      "sha256": "a72d012196465c3b14317ddc37ca4e1571649c1f0cf37016804f11e24dbb38f5",
+      "size_bytes": 3088
+    },
+    "22_orthogonal_gate_matrix_prepush.json": {
+      "sha256": "a5e36c9bad88dc3308a4c53d32c2d42f925612f19716a62042e517368feb2f50",
+      "size_bytes": 2163
+    },
+    "23_phase1_code_commit_push_receipt.json": {
+      "sha256": "da7efb49406f0d806c52f06d25f792a4cc750c7c9a6639269151f20f44aca5d7",
+      "size_bytes": 504
+    },
+    "HANDOVER_KH03_R1_VI.txt": {
+      "sha256": "2d27bbb7c355db61bc5aa05036e76476774505779f99f4673e666a74c88cee3f",
+      "size_bytes": 1530
+    },
+    "README_KH03_R1.md": {
+      "sha256": "8b86ffbc0147eae1799a5701fb7c71cbd9b80db2d02388a4fcf3682d1618c3ef",
+      "size_bytes": 3547
+    },
+    "junit/SHARD_EXCL_00_REALTIME_30MS.xml": {
+      "sha256": "946abf9a68f2cdb92291a5476a1b0160d7c44ead326b64824da18fa2d50735d7",
+      "size_bytes": 3489
+    },
+    "junit/SHARD_EXCL_01_MULTI_CHILD.xml": {
+      "sha256": "eebb13423b452d7cd286ffb7edd39c60eb231c2ace0fa44322dd7f24c1c10294",
+      "size_bytes": 48955
+    },
+    "junit/SHARD_EXCL_03_DB_OWNERSHIP.xml": {
+      "sha256": "7f742169ac74b5ff342cb28957e5028eed8436d995ceab2e39595e77f3799ecf",
+      "size_bytes": 5792
+    },
+    "junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml": {
+      "sha256": "d0296875e1f6fa6933e7596731ee918b65d871dd6beb0475870b72981e55d142",
+      "size_bytes": 2858
+    },
+    "junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml": {
+      "sha256": "30d7d898368d5180015619b801e4437837fd9a787ef1ff8be0f9505d1da768f0",
+      "size_bytes": 38111
+    },
+    "junit/SHARD_INPROC_02A_V16_23_RED_ISOLATED.xml": {
+      "sha256": "ac38f989eb797e5c99cd6b34cecce27e94c2f5faf880307dafba58d3bd558043",
+      "size_bytes": 1617
+    },
+    "junit/SHARD_INPROC_02B_V16_23_FLOW_ISOLATED.xml": {
+      "sha256": "693a9e9ed09319b3b6bc681ea38983abb74746db4bab54cb1e1895e45a61a9fb",
+      "size_bytes": 1215
+    },
+    "junit/SHARD_INPROC_02C_V16_24_FLOW_ISOLATED.xml": {
+      "sha256": "56c676612d54e60b326167c862857b046e2a00cb897be1d4a972234c5292aec4",
+      "size_bytes": 1405
+    },
+    "junit/SHARD_INPROC_02D_V16_25_FLOW_ISOLATED.xml": {
+      "sha256": "fc92e32a63ec888cf11325ddac2cd10578f85ca071665f1ef32894582677518e",
+      "size_bytes": 1268
+    },
+    "junit/SHARD_INPROC_02E_V16_20_RED_ISOLATED.xml": {
+      "sha256": "f721df63f492b9f042748fbafa8d07ee29ad69db54c5a6596a802e1362c7ef48",
+      "size_bytes": 1561
+    },
+    "junit/SHARD_INPROC_02F_V16_20_FLOW_ISOLATED.xml": {
+      "sha256": "8c5f7d14653d075020b37404c5effc3e96226b3bbb849e4704ae6e321232dc4d",
+      "size_bytes": 1201
+    },
+    "junit/SHARD_INPROC_02G_V16_21_RED_ISOLATED.xml": {
+      "sha256": "57b475e8b9b03b6726cba74745a81eaccedac107befb371e25f5b43536c2d002",
+      "size_bytes": 1627
+    },
+    "junit/SHARD_INPROC_02H_V16_21_FLOW_ISOLATED.xml": {
+      "sha256": "f12b6753f3e72ac8c508e9ae0ec833934d0ab76ef99a804bda7b03170f17d285",
+      "size_bytes": 1194
+    },
+    "junit/SHARD_INPROC_02I_V16_22_RED_ISOLATED.xml": {
+      "sha256": "ae1f61b208874666b65c780d5d3d22daaa2734506d988ed007979b58b4e737a6",
+      "size_bytes": 1679
+    },
+    "junit/SHARD_INPROC_02J_V16_22_FLOW_ISOLATED.xml": {
+      "sha256": "fe1ad264038b934c694267114d62171f41cada3444954b3aaa24996f44c96d03",
+      "size_bytes": 1218
+    },
+    "junit/SHARD_INPROC_02K_V16_24_RED_ISOLATED.xml": {
+      "sha256": "51cd87078fe66806d6d9af9f3c6b544bd2ad2cbd47a22bce55848a6fe9ef0d80",
+      "size_bytes": 1732
+    },
+    "junit/SHARD_INPROC_02L_V16_25_RED_ISOLATED.xml": {
+      "sha256": "d152f4294c57fda2588199d7c2dbda5aa5a8251a8f02263f56ccc7d67d9fe1ff",
+      "size_bytes": 1731
+    },
+    "junit/SHARD_INPROC_03_BALANCED.xml": {
+      "sha256": "ddf77ff0661823cc4c7e12b6c94685f916fc5de4911d0cae9954c31fce8fd4bd",
+      "size_bytes": 1615
+    },
+    "junit/SHARD_INPROC_04_BALANCED.xml": {
+      "sha256": "da8d83d2bd317304dc3b130fac7cfb930047297018e331e984f12ce917609ee6",
+      "size_bytes": 26516
+    },
+    "junit/SHARD_INPROC_05_BALANCED.xml": {
+      "sha256": "bdf2cf59398f1af30aacc330c08e3595b8bf9a4b4b10b70b76f2adf4c646420c",
+      "size_bytes": 25559
+    },
+    "junit/SHARD_INPROC_06_BALANCED.xml": {
+      "sha256": "be3f2d69759834b09c331f120f71edd9e6c1e5fd0267b0c5bccc6fd986d10245",
+      "size_bytes": 56856
+    },
+    "junit/SHARD_INPROC_07_BALANCED.xml": {
+      "sha256": "c31a6019a2475103ad644c2b91f383c9ea194f88af1e047c7a1e6b98c41c5b08",
+      "size_bytes": 29333
+    },
+    "junit/SHARD_INPROC_08_BALANCED.xml": {
+      "sha256": "a6250bf9440c8279eda3179abc096d2713f0dd58ab9dee9c853246ae764119ed",
+      "size_bytes": 32665
+    },
+    "junit/SHARD_INPROC_09_BALANCED.xml": {
+      "sha256": "0cabbdcb857c60b1dae2b197a698cfa52792b8f0d4a718ae5b2a589f62e5762f",
+      "size_bytes": 25034
+    },
+    "junit/SHARD_INPROC_10_BALANCED.xml": {
+      "sha256": "1c065b09fb81e4415f8463dd120dcabce83c9c58456ec028d4c27d8611404cd1",
+      "size_bytes": 23577
+    },
+    "junit/SHARD_INPROC_11_BALANCED.xml": {
+      "sha256": "fcd62e4da4f5c9a8467ecada4d61e5066d9136bb0f18582c78e4b08084ac0e37",
+      "size_bytes": 40097
+    },
+    "junit/SHARD_INPROC_12_BALANCED.xml": {
+      "sha256": "e50163163a9d9b149848a177c5d5a580c3025d8832fd9eced17e1f210b53f0f6",
+      "size_bytes": 43980
+    },
+    "junit/SHARD_INPROC_13_BALANCED.xml": {
+      "sha256": "4fb22f6e58cf0f5e52ac2496c80a35b7fbe17ffa1aa3a9c5c728128b2083e963",
+      "size_bytes": 39344
+    },
+    "junit/SHARD_INPROC_14_BALANCED.xml": {
+      "sha256": "628bf97667fec1ac2b171ce317864926e9f2e4c504b9b739d3213cbe7f507a65",
+      "size_bytes": 32166
+    },
+    "junit/SHARD_INPROC_15_BALANCED.xml": {
+      "sha256": "7e940d58958f61ec3efd04a1702478f5e29c1512d678e162dc42721224ccb88a",
+      "size_bytes": 28731
+    },
+    "junit/SHARD_INPROC_16_BALANCED.xml": {
+      "sha256": "144c403a3282a672e57e9428045099c1949042268d37e6248e7bf547995f8e81",
+      "size_bytes": 29477
+    },
+    "junit/SHARD_INPROC_17_BALANCED.xml": {
+      "sha256": "b79f715a4a5bcf67a6d8b8441d3280281e82bcdff3796739c334ac1f750eee47",
+      "size_bytes": 27409
+    },
+    "junit/SHARD_INPROC_18_BALANCED.xml": {
+      "sha256": "84adde8c2a985816cf54cd058ba3305c931ad9cee4db365b88fca2df62121b79",
+      "size_bytes": 49683
+    },
+    "junit/SHARD_INPROC_19_BALANCED.xml": {
+      "sha256": "e983535b45b534c2f15df21a39afdecaa5f9a0fbe4a7989471fd636d89c14aa0",
+      "size_bytes": 30037
+    },
+    "junit/SHARD_INPROC_20_BALANCED.xml": {
+      "sha256": "0ab13a3be39944025d0f8e51d6875970ca199ae0055ef3980987a8ee1ab1ffdf",
+      "size_bytes": 35554
+    },
+    "junit/SHARD_INPROC_21_BALANCED.xml": {
+      "sha256": "105cca19f39f1acf7fbd37c9573b9246b24bc790dd30d625ae3287aa025792d2",
+      "size_bytes": 28237
+    },
+    "junit/SHARD_INPROC_22_BALANCED.xml": {
+      "sha256": "88c57ee359a02f4c6c91355fcc75d663eeda631634171d9336cd28aaccff006f",
+      "size_bytes": 26377
+    },
+    "junit/SHARD_SINGLE_CHILD_01_BUDGET2.xml": {
+      "sha256": "12bacb798b0b467d33bcbb787056e6c0c59525f592c97d7758171ee570d7a909",
+      "size_bytes": 6157
+    },
+    "junit/SHARD_SINGLE_CHILD_02_BUDGET2.xml": {
+      "sha256": "95ce87af275a6b632d607a9ac958bc40597d939d5d3bbc0c13c6f6c0db6fd7f2",
+      "size_bytes": 25523
+    },
+    "junit/SHARD_SINGLE_CHILD_03_BUDGET2.xml": {
+      "sha256": "5b59284394a8ea29dd4750e5a261debbf5442cae64c7e671dca83e61ae5c34e5",
+      "size_bytes": 39608
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_01.xml": {
+      "sha256": "65b49a7739a05598c27b67a7fdaf09eb16522d9abaabf31c729ddf654ee82726",
+      "size_bytes": 729
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_02.xml": {
+      "sha256": "36c7be9a17d7290b5993a9654f820338933a00199fde408fd421094a9c747ee0",
+      "size_bytes": 934
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_03.xml": {
+      "sha256": "54dab69e16c35da3362ecdf4295c94e8c7dabada02f4a6d855fdb097a8adb187",
+      "size_bytes": 723
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_04.xml": {
+      "sha256": "ad5561bc4af1c9d64e97467511f152964a5acba678a6efeb34a691cfbd491c01",
+      "size_bytes": 1523
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_05.xml": {
+      "sha256": "c714d35d9c3681b189bd7bd5d4f25efa736f6372984c03fd678433d1a8fbe337",
+      "size_bytes": 685
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_06.xml": {
+      "sha256": "9962ba74e781c7de2078403bc3147833322ae49131fc90621f55ae6412665d18",
+      "size_bytes": 789
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_07.xml": {
+      "sha256": "1aa09758ad752608d4cd38e98f0545d31bbddaf6bd1d325544bae9bb5e774c81",
+      "size_bytes": 577
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_08.xml": {
+      "sha256": "c7682dc2ad3057c4968dd490b43fa43b93f3418f63c7d528e195718bac6e9df7",
+      "size_bytes": 419
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_09.xml": {
+      "sha256": "0a424b3672ecf3cd913e4539c29c194e8fb009f3f056859aa78234172f5a9209",
+      "size_bytes": 1026
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_10.xml": {
+      "sha256": "e81d8bd08e3f078505c3d6c3cab21c22060d243e6fc30bf9332b5f93bd874a83",
+      "size_bytes": 572
+    },
+    "junit/SHARD_SINGLE_CHILD_KH03_SUBPROC_11.xml": {
+      "sha256": "e61d4e697df630b3ee215344d5bc1b184fd1401e62d1391bc5be57af193b72f4",
+      "size_bytes": 417
+    },
+    "logs/pytest_shards_logs.jsonl.gz": {
+      "sha256": "80ca3a0b8334cc516648fc2273d29b3d1ad4dcb89a584c50016447d23a6fddf4",
+      "size_bytes": 3223
+    },
+    "logs/runtime_memory_samples_0p5s.jsonl.gz": {
+      "sha256": "034669c88012e7bcc2c6a1220ba6c3bb1ac6d5915fa6104b590a0fbf4a7d9a1b",
+      "size_bytes": 114694
+    }
+  },
+  "distinct_os_process_verified": true,
+  "exit_code_recommended": 0,
+  "independent_fee_ledger_audit": {
+    "ledger_file_sha256": "9c73c4b87b9774ad3522f63b0faf153f03e0130f65c6272d3404e1278fb82ade",
+    "max_episode_gross_fee_net_residual_usd": 0.0,
+    "status": "PASS",
+    "total_episode_rows": 1968
+  },
+  "independent_verifier_status": "PASS",
+  "junit_bijection_verified": true,
+  "manifest_content_sha256": "4201d401c5a3ed2858ad39461571c755fb0cf3b8b8a6a8d8c0121d78f12d444c",
+  "memory_telemetry_disk_audit": {
+    "below_floor_samples_count": 0,
+    "max_workers_observed_in_samples": 4,
+    "min_available_ram_bytes": 2150952960,
+    "sample_count": 4414,
+    "status": "PASS"
+  },
+  "orchestrator_pid": 17692,
+  "overall_classification": "PASS_KH03_ENGINEERING_RESEARCH_NO_PROVEN_EDGE_OOS_BLOCKED",
+  "recomputed_24_gates": {
+    "G01_SOURCE_BRANCH_CLEAN_SHA": "PASS",
+    "G02_PRODUCTION_IMMUTABILITY_PARITY": "PASS",
+    "G03_FEE_ROOT_CORRECTNESS": "PASS",
+    "G04_FEE_PER_TRADE_DECIMAL": "PASS",
+    "G05_FULL_SIX_SCENARIO_COST_PARITY": "PASS",
+    "G06_DATA_CONTRACT_QUALITY": "PASS",
+    "G07_DEV_OOS_PARTITION_NONCONTAMINATION": "PASS",
+    "G08_C4_TRUSTED_CAPTURE_INVARIANTS": "PASS",
+    "G09_ESCROW_INTEGRITY": "PASS",
+    "G10_PREREG_FALSIFICATION_BUDGET": "PASS",
+    "G11_CAUSAL_ASOF_FUTURE_MUTATION": "PASS",
+    "G12_ONE_POSITION_TARGET_CONSERVATION": "PASS",
+    "G13_PAIRED_NULL_MATCHING_BALANCE": "PASS",
+    "G14_COST_RISK_TAIL_HONESTY": "PASS",
+    "G15_FULL_JUNIT_REGRESSION": "PASS",
+    "G16_ASYNC_W1_W2_W4_DETERMINISM": "PASS",
+    "G17_DISK_RAM_PID_SAFETY": "PASS",
+    "G18_FAULT_SUITE_RED_GREEN": "PASS",
+    "G19_INDEPENDENT_OS_VERIFIER": "PASS",
+    "G20_PUBLICATION_REMOTE": "PRE_PUSH_PENDING",
+    "G21_ECONOMIC_DEV_EVIDENCE": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+    "G22_FRESH_OOS_READINESS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "G23_KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "G24_ACTIVATION_ALWAYS_NO": "NO"
+  },
+  "recomputed_verdicts": {
+    "ACCOUNT_EFFECTIVE_FEE_VERDICT": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "KH03_DATA_READINESS": "DEV_VERIFIED_FRESH_OOS_BLOCKED_NO_NEW_DATA",
+    "KH03_DEV_CANDIDATE_VERDICT": "NO_ECONOMIC_ADVANCEMENT_CANDIDATE",
+    "KH03_ENGINEERING": "PASS",
+    "KH03_FEE_ROOT_FIX": "PASS",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+    "PUBLICATION": "PRE_PUSH_PENDING",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE"
+  },
+  "run_id": "20261123T055123Z_f0b668dc0dd1",
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "tested_executable_sha": "f0b668dc0dd1c25c880121517b7580640ba4987b",
+  "verified_at_utc": "2026-11-23T06:33:09Z",
+  "verifier_pid": 13632,
+  "violations": []
+}

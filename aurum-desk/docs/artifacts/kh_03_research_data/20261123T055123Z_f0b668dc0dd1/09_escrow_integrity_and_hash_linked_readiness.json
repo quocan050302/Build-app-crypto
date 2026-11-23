@@ -1,0 +1,16 @@
+{
+  "OOS_EVALUATIONS": 0,
+  "qa_fixture_refused_by_real_oos_escrow": true,
+  "qa_isolated_admission_tier": "TEST_ONLY_NOT_ELIGIBLE_OOS",
+  "qa_isolated_append_action": "APPENDED_NEW_ENTRY",
+  "qa_isolated_eligible_for_fresh_oos": false,
+  "qa_isolated_escrow_integrity_valid": true,
+  "real_oos_escrow_final_record_count": 0,
+  "real_oos_escrow_integrity_valid": true,
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS",
+  "threat_model_disclosure": "An append-only local hash chain detects accidental corruption and naive edits (LOCAL_TAMPER_EVIDENT_ONLY), but a privileged actor with write/root access to the same host filesystem could rewrite both journal and local anchor unless anchored to an independent remote WORM/signed store.",
+  "unanchored_immutability_class": "LOCAL_TAMPER_EVIDENT_ONLY",
+  "unanchored_worm_verified": false
+}

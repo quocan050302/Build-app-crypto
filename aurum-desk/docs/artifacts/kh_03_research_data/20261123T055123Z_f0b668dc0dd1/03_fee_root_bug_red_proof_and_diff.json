@@ -1,0 +1,375 @@
+{
+  "baseline_sha": "9200c802a38b50606f388e26fce26acc7275bf0c",
+  "captured_before_kh03_edits": true,
+  "classification": "REAL_RED",
+  "dataflow_graph": [
+    "simulate_v17931_trade_execution_net() [v17_9_2_structural_stop_intelligence.py]",
+    "-> ExecutableTradeLedgerEntryV17931.to_dict() [emits entry_fee_usd, exit_fee_usd, total_friction_usd]",
+    "-> extract_authoritative_ledger_fees_kh03() [kh_03_fee_integrity_service.py: strict Decimal entry+exit]",
+    "-> _replay_chronological_custom_cost_scenario() [kh_02_r2_research_integrity_service.py]",
+    "-> _summarize_episodes() -> rerun_r2_full_universe_by_cost_scenario() -> 04_fee_per_episode_ledger.jsonl.gz & 05"
+  ],
+  "root_bug_explanation": "Read `ld.get('total_fees_usd') or 0.0`, which is absent from `ExecutableTradeLedgerEntryV17931.to_dict()` (authoritative fields are `entry_fee_usd` and `exit_fee_usd`). Caused 29/30 scenario x arm cells to display `total_fees_usd = 0.0` while `realized_net_pnl_usd` already deducted fees.",
+  "root_bug_location": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py:_replay_chronological_custom_cost_scenario:3808",
+  "single_simulator_trade_red_proof": {
+    "entry_fee_usd": 0.5058,
+    "entry_fill_price": 4214.65,
+    "entry_plus_exit_fee_usd": 1.011,
+    "exit_fee_usd": 0.5052,
+    "exit_fill_price": 4209.84,
+    "exit_type": "LOSS",
+    "gross_minus_net_usd": 1.011,
+    "has_total_fees_usd_key_in_to_dict": false,
+    "opportunity_id": "kh02_b2_LONG_idx3063_ts1791766800000",
+    "quantity": 0.3,
+    "realized_gross_pnl_usd": -1.443,
+    "realized_net_pnl_usd": -2.454,
+    "total_friction_usd": 1.011
+  },
+  "six_scenario_old_cells": {
+    "1X_BASE_0p0004": {
+      "B2_H1": {
+        "closed": 73,
+        "executed_ids_sha256": "2e31a75b3e83fbe13ed88adfae5d57cfc0ef1ccb86d98aa30dfadfe445f7cadd",
+        "gross_pnl_usd": -73.1555,
+        "implied_gross_minus_net_usd": 102.2825,
+        "losses": 72,
+        "net_pnl_usd": -175.438,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 9,
+        "wins": 1
+      },
+      "B2_H123": {
+        "closed": 23,
+        "executed_ids_sha256": "54e41563dcd8464b5f19502fdbf5d6aeeaa44244f65102cd5f2fbf5daf9c12ef",
+        "gross_pnl_usd": -26.2462,
+        "implied_gross_minus_net_usd": 31.4345,
+        "losses": 23,
+        "net_pnl_usd": -57.6807,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 8,
+        "wins": 0
+      },
+      "B2_H2": {
+        "closed": 203,
+        "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+        "gross_pnl_usd": -164.9541,
+        "implied_gross_minus_net_usd": 276.6577,
+        "losses": 196,
+        "net_pnl_usd": -441.6118,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 28,
+        "wins": 7
+      },
+      "B2_H3": {
+        "closed": 114,
+        "executed_ids_sha256": "a144cd86c018afb5a9e1cb02ac48d2d809969c2939a7f9760f92ce465997bb54",
+        "gross_pnl_usd": -89.8935,
+        "implied_gross_minus_net_usd": 149.7653,
+        "losses": 109,
+        "net_pnl_usd": -239.6588,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 16,
+        "wins": 5
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 203,
+        "executed_ids_sha256": "5f9252f91c3d3e3da3e320c80b89e01556f97dcd624327b27f27c05e881348d7",
+        "gross_pnl_usd": -164.9541,
+        "implied_gross_minus_net_usd": 276.6577,
+        "losses": 196,
+        "net_pnl_usd": -441.6118,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 28,
+        "wins": 7
+      }
+    },
+    "2X_ALL_COST_0p0004": {
+      "B2_H1": {
+        "closed": 24,
+        "executed_ids_sha256": "46b5a18582cd4723482eb96736c15c844d1263c0ce44e6576aceec7572c434fe",
+        "gross_pnl_usd": -20.8608,
+        "implied_gross_minus_net_usd": 38.9367,
+        "losses": 24,
+        "net_pnl_usd": -59.7975,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      },
+      "B2_H123": {
+        "closed": 6,
+        "executed_ids_sha256": "cc3d80540303fed703d8146759d319b865f92df06a03c7003cdc0f7d138c24e7",
+        "gross_pnl_usd": -5.8829,
+        "implied_gross_minus_net_usd": 8.9872,
+        "losses": 6,
+        "net_pnl_usd": -14.8701,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      },
+      "B2_H2": {
+        "closed": 111,
+        "executed_ids_sha256": "a5e6c214f46a167f90ef25bb124f8f212851e68dffbab52cb3f56b888689918e",
+        "gross_pnl_usd": -64.1289,
+        "implied_gross_minus_net_usd": 189.6224,
+        "losses": 108,
+        "net_pnl_usd": -253.7513,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 20,
+        "wins": 3
+      },
+      "B2_H3": {
+        "closed": 70,
+        "executed_ids_sha256": "ed8497b201d1805adf80bce9bb1026f43a69e56e536207203cb908db1b229d71",
+        "gross_pnl_usd": -39.9362,
+        "implied_gross_minus_net_usd": 118.8946,
+        "losses": 68,
+        "net_pnl_usd": -158.8308,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 12,
+        "wins": 2
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 111,
+        "executed_ids_sha256": "a5e6c214f46a167f90ef25bb124f8f212851e68dffbab52cb3f56b888689918e",
+        "gross_pnl_usd": -64.1289,
+        "implied_gross_minus_net_usd": 189.6224,
+        "losses": 108,
+        "net_pnl_usd": -253.7513,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 20,
+        "wins": 3
+      }
+    },
+    "2X_ALL_COST_0p0006": {
+      "B2_H1": {
+        "closed": 5,
+        "executed_ids_sha256": "a4abdacefeaa5eff03ab7760965ea106d449c0f67b2997c04086e4f5cbbfd8d0",
+        "gross_pnl_usd": -3.694,
+        "implied_gross_minus_net_usd": 8.6442,
+        "losses": 5,
+        "net_pnl_usd": -12.3382,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H123": {
+        "closed": 5,
+        "executed_ids_sha256": "5b343999a4de0a049c84b058d86430358bdb0b94287bc57bb9be6f1e313e1fae",
+        "gross_pnl_usd": -2.7415,
+        "implied_gross_minus_net_usd": 9.7802,
+        "losses": 5,
+        "net_pnl_usd": -12.5217,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H2": {
+        "closed": 46,
+        "executed_ids_sha256": "11f298ff49adafb7d92ba5e3423c916647549d661b746b70510a5dc37f8b504a",
+        "gross_pnl_usd": -26.1278,
+        "implied_gross_minus_net_usd": 87.738,
+        "losses": 46,
+        "net_pnl_usd": -113.8658,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 10,
+        "wins": 0
+      },
+      "B2_H3": {
+        "closed": 39,
+        "executed_ids_sha256": "79c136ca843bf773050abda0a1d950cdb1fc582405d599dd90a16e144f4a4ca8",
+        "gross_pnl_usd": -22.1387,
+        "implied_gross_minus_net_usd": 74.56,
+        "losses": 39,
+        "net_pnl_usd": -96.6987,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 46,
+        "executed_ids_sha256": "11f298ff49adafb7d92ba5e3423c916647549d661b746b70510a5dc37f8b504a",
+        "gross_pnl_usd": -26.1278,
+        "implied_gross_minus_net_usd": 87.738,
+        "losses": 46,
+        "net_pnl_usd": -113.8658,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 10,
+        "wins": 0
+      }
+    },
+    "3X_ALL_COST_0p0004": {
+      "B2_H1": {
+        "closed": 5,
+        "executed_ids_sha256": "a4abdacefeaa5eff03ab7760965ea106d449c0f67b2997c04086e4f5cbbfd8d0",
+        "gross_pnl_usd": -3.864,
+        "implied_gross_minus_net_usd": 8.4506,
+        "losses": 5,
+        "net_pnl_usd": -12.3146,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H123": {
+        "closed": 5,
+        "executed_ids_sha256": "5b343999a4de0a049c84b058d86430358bdb0b94287bc57bb9be6f1e313e1fae",
+        "gross_pnl_usd": -2.9364,
+        "implied_gross_minus_net_usd": 9.4896,
+        "losses": 5,
+        "net_pnl_usd": -12.426,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H2": {
+        "closed": 45,
+        "executed_ids_sha256": "617cbd197d204d8d43307a5c3b3b8ed4ce6fe2a324e8fdfb2f4e5b67533f8852",
+        "gross_pnl_usd": -27.3175,
+        "implied_gross_minus_net_usd": 84.9594,
+        "losses": 45,
+        "net_pnl_usd": -112.2769,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 10,
+        "wins": 0
+      },
+      "B2_H3": {
+        "closed": 37,
+        "executed_ids_sha256": "91e9533ef9395342b9564da5b9e9a1052df1727ae87f2e3f3c0e25dbaa9e8703",
+        "gross_pnl_usd": -23.1675,
+        "implied_gross_minus_net_usd": 68.8943,
+        "losses": 37,
+        "net_pnl_usd": -92.0618,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 45,
+        "executed_ids_sha256": "617cbd197d204d8d43307a5c3b3b8ed4ce6fe2a324e8fdfb2f4e5b67533f8852",
+        "gross_pnl_usd": -27.3175,
+        "implied_gross_minus_net_usd": 84.9594,
+        "losses": 45,
+        "net_pnl_usd": -112.2769,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 10,
+        "wins": 0
+      }
+    },
+    "3X_ALL_COST_0p0006": {
+      "B2_H1": {
+        "closed": 2,
+        "executed_ids_sha256": "e36758d9bcd1d665f5071b2cd45898e48fbff8025197dba19add3e2b66f9e20f",
+        "gross_pnl_usd": -1.3787,
+        "implied_gross_minus_net_usd": 3.4364,
+        "losses": 2,
+        "net_pnl_usd": -4.8151,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H123": {
+        "closed": 0,
+        "executed_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "gross_pnl_usd": 0.0,
+        "implied_gross_minus_net_usd": 0.0,
+        "losses": 0,
+        "net_pnl_usd": 0.0,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 0,
+        "wins": 0
+      },
+      "B2_H2": {
+        "closed": 14,
+        "executed_ids_sha256": "61fe83008dd858a58d7801785be5f09c2963e3992a95c6b2ff78055a0b7a7f12",
+        "gross_pnl_usd": -7.2788,
+        "implied_gross_minus_net_usd": 26.7959,
+        "losses": 14,
+        "net_pnl_usd": -34.0747,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      },
+      "B2_H3": {
+        "closed": 9,
+        "executed_ids_sha256": "4a1348d1cc0f192ee1600a63169b7190b3f73ffc05e61197f7ef30a7c3e6e2b2",
+        "gross_pnl_usd": -4.4576,
+        "implied_gross_minus_net_usd": 17.3997,
+        "losses": 9,
+        "net_pnl_usd": -21.8573,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 1,
+        "wins": 0
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 14,
+        "executed_ids_sha256": "61fe83008dd858a58d7801785be5f09c2963e3992a95c6b2ff78055a0b7a7f12",
+        "gross_pnl_usd": -7.2788,
+        "implied_gross_minus_net_usd": 26.7959,
+        "losses": 14,
+        "net_pnl_usd": -34.0747,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 4,
+        "wins": 0
+      }
+    },
+    "FEE_ONLY_0p0006": {
+      "B2_H1": {
+        "closed": 41,
+        "executed_ids_sha256": "30be7016bad0e406e8e010bde5550bf2cee2ed7f60b5a7592d19ba446444014a",
+        "gross_pnl_usd": -20.041,
+        "implied_gross_minus_net_usd": 64.839,
+        "losses": 39,
+        "net_pnl_usd": -84.88,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 6,
+        "wins": 2
+      },
+      "B2_H123": {
+        "closed": 12,
+        "executed_ids_sha256": "88c5e55beaecb4371af529992e361b405266215c888eb4e9176c724a8007fec9",
+        "gross_pnl_usd": -0.9485,
+        "implied_gross_minus_net_usd": 20.1012,
+        "losses": 11,
+        "net_pnl_usd": -21.0497,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 6,
+        "wins": 1
+      },
+      "B2_H2": {
+        "closed": 138,
+        "executed_ids_sha256": "55974211cd6b9cee64e016f8cc7938d6657694099ade102175476782554d65a0",
+        "gross_pnl_usd": -81.5907,
+        "implied_gross_minus_net_usd": 218.0477,
+        "losses": 133,
+        "net_pnl_usd": -299.6384,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 28,
+        "wins": 5
+      },
+      "B2_H3": {
+        "closed": 84,
+        "executed_ids_sha256": "5cdaa316d0c130d2b5cbd8cf0142db7f110fc52d0bcad72f4e3410869718c3ef",
+        "gross_pnl_usd": -59.7984,
+        "implied_gross_minus_net_usd": 130.5379,
+        "losses": 82,
+        "net_pnl_usd": -190.3363,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 15,
+        "wins": 2
+      },
+      "NC_NULL_TRIGGER": {
+        "closed": 138,
+        "executed_ids_sha256": "69f818f779b73fa04c6b1e95fdb19c2991517ff7ce5042d2e9b02300266da742",
+        "gross_pnl_usd": -82.0567,
+        "implied_gross_minus_net_usd": 217.547,
+        "losses": 133,
+        "net_pnl_usd": -299.6037,
+        "old_displayed_total_fees_usd": 0.0,
+        "open_at_horizon": 28,
+        "wins": 5
+      }
+    }
+  },
+  "spec_version": "KH-03.R1-v1.0",
+  "zero_fee_display_bug_cells_count": 29
+}

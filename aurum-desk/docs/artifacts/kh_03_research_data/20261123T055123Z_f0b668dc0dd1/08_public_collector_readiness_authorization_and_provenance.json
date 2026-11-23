@@ -1,0 +1,148 @@
+{
+  "CAPTURE_APPROVAL_REQUIRED": true,
+  "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+  "OOS_EVALUATIONS": 0,
+  "c4_boundary_direct_mint_blocked": true,
+  "c4_boundary_evil_subclass_blocked": true,
+  "c4_boundary_monkeypatch_blocked": true,
+  "collector_readiness_snapshot": {
+    "actual_account_effective_fee_tier": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "api_key_or_secret_reads_present": false,
+    "historical_l1_bbo_available_from_rest": false,
+    "is_fake_transport_qa": false,
+    "live_network_session_authorized": false,
+    "live_network_test_status": "LIVE_NETWORK_TEST_NOT_RUN_BY_DESIGN",
+    "network_capture_enabled": false,
+    "official_bitget_public_allowlist": {
+      "candles": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol",
+          "granularity"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/candles"
+      },
+      "contracts": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/contracts"
+      },
+      "history_candles": {
+        "auth_required": false,
+        "data_origin": "OHLCV_SNAPSHOT",
+        "doc_verified_utc": "2026-11-22",
+        "method": "GET",
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol",
+          "granularity"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+      },
+      "merge_depth": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/merge-depth"
+      },
+      "orderbook_v3": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "category",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v3/market/orderbook"
+      },
+      "public_ticker": {
+        "auth_required": false,
+        "data_origin": "OBSERVED_QUOTE",
+        "doc_verified_utc": "2026-11-22",
+        "historical_l1_bbo_available": false,
+        "method": "GET",
+        "prospective_poll_snapshot_only": true,
+        "read_only": true,
+        "required_params": [
+          "productType",
+          "symbol"
+        ],
+        "url": "https://api.bitget.com/api/v2/mix/market/ticker"
+      }
+    },
+    "order_or_private_endpoints_present": false,
+    "persistent_capture_active": false,
+    "read_only": true,
+    "real_rate_limiter_default_active": true,
+    "sampling_caveat": "REST ticker/merge-depth/orderbook endpoints provide polled point-in-time top-of-book snapshots, NOT full tick-by-tick WebSocket orderbook completeness and NEVER historical L1 BBO backfill.",
+    "spec_version": "KH-02.R2.C2-v1.0",
+    "trusted_transport_classification": "UNVERIFIED",
+    "unanchored_integrity_caveat": "In-process HMAC capture receipts and raw-byte reparsing enforce a strict fail-closed provenance firewall between fake/synthetic QA fixtures and real authorized public HTTP capture within this codebase, preventing accidental or caller-flag crossing. HOWEVER, code executing with full local host/root privileges could modify local files or memory; this boundary does NOT provide hardware TPM attestation or hardware WORM."
+  },
+  "fake_transport_20_case_passed": 20,
+  "fake_transport_20_case_suite_status": "PASS",
+  "live_network_capture_executed": false,
+  "live_network_session_authorized": false,
+  "network_capture_enabled": false,
+  "operator_checklist_for_future_authorized_capture": [
+    "1. Obtain separate affirmative owner-signed approval ID, approver, and bounded UTC capture window.",
+    "2. Confirm >=20.5 GiB free on every write mount and strict PUBLIC_READONLY_MARKET_DATA_ONLY scope.",
+    "3. Instantiate OperatorCaptureAuthorizationC2 + C2PublicReadOnlyBitgetCollector (no credentials/orders).",
+    "4. Verify VerifiedCaptureProofC4 + TrustedCaptureReceiptC3 + C2DurableEscrowJournal integrity after append.",
+    "5. Keep newly captured real data SEALED_UNTOUCHED_NOT_EVALUATED (OOS_EVALUATIONS=0) until KH-04 protocol."
+  ],
+  "persistent_capture_active": false,
+  "real_prospective_snapshots_collected": 0,
+  "schema_version": "kh_03_research_data_v1",
+  "secret_redaction_scanner_active": true,
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS",
+  "tcb_threat_model_disclosure": {
+    "cannot_prove_within_python_process_tcb": [
+      "Same-process arbitrary code execution or full interpreter/stdlib patching by a privileged local developer or root",
+      "Direct process memory inspection/modification of ephemeral process keys",
+      "Compromised host OS TLS root store or kernel network stack",
+      "Compromised upstream Bitget API servers",
+      "Local disk rollback/rewrite without an independent remote WORM or external signed attestation store"
+    ],
+    "hardware_tpm_or_remote_worm": false,
+    "policy_version": "kh02_r2_c4_boundary_v1",
+    "prevents": [
+      "Direct mint_trusted_capture_receipt_c3/c4 boolean or metadata spoofing",
+      "Evil subclass of StdlibUrllibPublicTransportC2 overriding .get() or is_genuine_live_socket_transport()",
+      "Instance-level transport.get monkeypatching or post-__init__ _opener_fn mutation",
+      "Naked fabricated RawHttpResponseC2 carrying matching transport_kind/tls_verified_host strings",
+      "Forged capture_receipt MAC, cross-process serialized receipt forgery, or expired capture proof",
+      "Replay of a genuine proof with modified raw bytes or mismatched snapshot_id",
+      "Forged caller disk probe or unapproved owner disk waiver",
+      "Accidental QA/synthetic fixture promotion into REAL_OOS escrow"
+    ],
+    "spec_version": "KH-02.R2.C4-v1.0"
+  },
+  "unauthorized_live_fetch_refused": true
+}

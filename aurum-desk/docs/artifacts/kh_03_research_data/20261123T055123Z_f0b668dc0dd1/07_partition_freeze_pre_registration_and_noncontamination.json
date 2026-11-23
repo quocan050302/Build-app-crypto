@@ -1,0 +1,180 @@
+{
+  "FRESH_OOS_VERDICT": "BLOCKED_NO_UNTOUCHED_DATA",
+  "OOS_EVALUATIONS": 0,
+  "artifact_canonical_sha256": "5fc06d3c7a7ea9b3e90d7fcbd9a49813ed2ac035572597272392302c08a72b87",
+  "authoritative_r2_freeze_manifest_audit": {
+    "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "authoritative_source_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json",
+    "embargo_boundary_semantics": "INCLUSIVE_START_GE_EMBARGO_CUTOFF_MS__EXCLUSIVE_LT_CUTOFF_REJECTED",
+    "expected_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+    "inclusive_boundary_example": {
+      "accepted_earliest_start_utc_ms": 1795290232732,
+      "rejected_latest_blocked_start_utc_ms": 1795290232731
+    },
+    "observed_freeze_coordinates": {
+      "embargo_cutoff_ms": 1795290232732,
+      "embargo_cutoff_utc": "2026-11-21T19:43:52Z",
+      "embargo_minutes": 240,
+      "freeze_timestamp_ms": 1795275832732,
+      "freeze_timestamp_utc": "2026-11-21T15:43:52Z",
+      "frozen_candidate_code_sha": "8ca245bcf4d849c44426d047dc025609259bc21d",
+      "frozen_config_sha256": "e8255e80528e7477a92e46134257bef669128c24b6ebcabc72aefe9ae4aac421"
+    },
+    "sha256_match": true,
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "status": "PASS",
+    "violations": []
+  },
+  "embargo_cutoff_ms": 1795290232732,
+  "embargo_minutes": 240,
+  "kh04_prospective_oos_power_requirements": {
+    "assumed_trade_r_std": 1.25,
+    "bonferroni_strict_alpha_per_arm": 0.016667,
+    "familywise_alpha_two_sided": 0.05,
+    "fixed_30_trades_proves_edge": false,
+    "num_primary_arms_holm_family": 3,
+    "ny_day_clustering_vif": 1.5,
+    "sample_size_grid": [
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0316,
+        "required_closed_trades_clustered_vif": 1092,
+        "required_closed_trades_iid": 728,
+        "target_net_expectancy_r": 0.15
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.0669,
+        "required_closed_trades_clustered_vif": 393,
+        "required_closed_trades_iid": 262,
+        "target_net_expectancy_r": 0.25
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.1268,
+        "required_closed_trades_clustered_vif": 201,
+        "required_closed_trades_iid": 134,
+        "target_net_expectancy_r": 0.35
+      },
+      {
+        "fixed_n_30_sufficient": false,
+        "power_at_fixed_n_30_clustered": 0.2725,
+        "required_closed_trades_clustered_vif": 99,
+        "required_closed_trades_iid": 66,
+        "target_net_expectancy_r": 0.5
+      }
+    ],
+    "spec_version": "KH-02.R2.C1-v1.0",
+    "statistical_disclosure": "A fixed N = 30 closed trades is severely UNDERPOWERED under clustered gold-futures returns and multi-arm Holm-Bonferroni correction. Prospective OOS must span multiple distinct volatility/trend regimes, record observed L1 BBO quotes, verify actual account fees, and meet pre-registered cluster-adjusted sample-size thresholds before any unsealing.",
+    "z_alpha_two_sided": 2.394,
+    "z_beta_power_80pct": 0.8416
+  },
+  "mutually_exclusive_roles_verified": true,
+  "noncontamination_controls": {
+    "all_passed": true,
+    "embargo_boundary_minus_1ms_rejected": true,
+    "peeked_sha_permanently_contaminated": true,
+    "reused_canonical_dev_rejected": true,
+    "reused_extended_dev_rejected": true,
+    "valid_post_embargo_unseen_sha_admissible": true
+  },
+  "partitions": {
+    "FUTURE_FRESH_SEALED_UNTOUCHED": {
+      "OOS_EVALUATIONS": 0,
+      "admitted_real_records_count": 0,
+      "authoritative_embargo_cutoff_ms": 1795290232732,
+      "authoritative_freeze_timestamp_ms": 1795275832732,
+      "contaminated_peeked_shas": [],
+      "embargo_minutes": 240,
+      "role": "FUTURE_FRESH_SEALED_UNTOUCHED",
+      "status": "BLOCKED_NO_UNTOUCHED_DATA",
+      "unseal_count": 0
+    },
+    "QA_SYNTHETIC": {
+      "admitted_into_real_oos_count": 0,
+      "eligible_for_fresh_oos": false,
+      "isolated_namespace_only": true,
+      "role": "QA_SYNTHETIC"
+    },
+    "REUSED_DEV_TRAIN": {
+      "can_ever_be_fresh_oos": false,
+      "interval_utc_ms": [
+        1791437880000,
+        1793196000000
+      ],
+      "role": "REUSED_DEV_TRAIN",
+      "source_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "unseal_count": 0,
+      "used_to_explore_or_validate_variants": true
+    },
+    "REUSED_DEV_VALIDATION_PURGED": {
+      "can_ever_be_fresh_oos": false,
+      "embargo_minutes": 240,
+      "folds": [
+        {
+          "embargo_minutes": 240,
+          "fold_id": "DEV_PURGED_FOLD_1",
+          "is_fresh_oos": false,
+          "role": "REUSED_DEV_VALIDATION_PURGED",
+          "train_bars_after_240m_embargo_count": 16542,
+          "val_bars_count": 5594,
+          "val_end_idx": 5593,
+          "val_end_utc_ms": 1791929040000,
+          "val_start_idx": 0,
+          "val_start_utc_ms": 1791437880000
+        },
+        {
+          "embargo_minutes": 240,
+          "fold_id": "DEV_PURGED_FOLD_2",
+          "is_fresh_oos": false,
+          "role": "REUSED_DEV_VALIDATION_PURGED",
+          "train_bars_after_240m_embargo_count": 16302,
+          "val_bars_count": 5594,
+          "val_end_idx": 11187,
+          "val_end_utc_ms": 1792524540000,
+          "val_start_idx": 5594,
+          "val_start_utc_ms": 1791929040000
+        },
+        {
+          "embargo_minutes": 240,
+          "fold_id": "DEV_PURGED_FOLD_3",
+          "is_fresh_oos": false,
+          "role": "REUSED_DEV_VALIDATION_PURGED",
+          "train_bars_after_240m_embargo_count": 16302,
+          "val_bars_count": 5594,
+          "val_end_idx": 16781,
+          "val_end_utc_ms": 1792860180000,
+          "val_start_idx": 11188,
+          "val_start_utc_ms": 1792524540000
+        },
+        {
+          "embargo_minutes": 240,
+          "fold_id": "DEV_PURGED_FOLD_4",
+          "is_fresh_oos": false,
+          "role": "REUSED_DEV_VALIDATION_PURGED",
+          "train_bars_after_240m_embargo_count": 16542,
+          "val_bars_count": 5594,
+          "val_end_idx": 22375,
+          "val_end_utc_ms": 1793196000000,
+          "val_start_idx": 16782,
+          "val_start_utc_ms": 1792860180000
+        }
+      ],
+      "role": "REUSED_DEV_VALIDATION_PURGED",
+      "source_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "unseal_count": 0
+    }
+  },
+  "schema_version": "kh_03_research_data_v1",
+  "spec_version": "KH-03.R1-v1.0",
+  "status": "PASS"
+}
