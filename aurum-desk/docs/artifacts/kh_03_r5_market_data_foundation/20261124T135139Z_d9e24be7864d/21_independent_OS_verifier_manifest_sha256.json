@@ -1,0 +1,218 @@
+{
+  "distinct_os_process_verified": true,
+  "independent_junit_bijection_ok": true,
+  "independent_pytest_benchmark_recompute": {
+    "fastest": "w=4",
+    "means": {
+      "w=1": 25.986,
+      "w=2": 17.229,
+      "w=4": 13.19
+    },
+    "sp2": 1.508,
+    "sp4": 1.97,
+    "valid": true,
+    "violations": []
+  },
+  "independent_r4_replay_audit": {
+    "recomputed_net_usd": -441.6118,
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "independent_recomputed_26_gates": {
+    "G01_BRANCH_CLEAN_FROZEN_SHA": "PASS",
+    "G02_PROTECTED_BYTES_AST_SOURCE_OWNERSHIP": "PASS",
+    "G03_PRIOR_DATASET_ARTIFACT_ESCROW_INTEGRITY": "PASS",
+    "G04_PUBLIC_CONTRACT_SOURCE_CAPABILITY_TRUTH": "PASS",
+    "G05_AUTHORIZATION_FAIL_CLOSED": "PASS",
+    "G06_CAPTURE_BUDGET_TRANSPORT_INTEGRITY": "PASS",
+    "G07_RAW_NORMALIZED_PROVENANCE": "PASS",
+    "G08_METADATA_IDENTITY_PRECISION": "PASS",
+    "G09_OHLCV_LINEAGE_GAP_SEMANTICS": "PASS",
+    "G10_BBO_COVERAGE_HONESTY": "PASS",
+    "G11_FUNDING_SCHEDULE_RATE_TRUTH": "PASS",
+    "G12_ACCOUNT_FEE_SLIPPAGE_UNKNOWN_HONESTY": "PASS",
+    "G13_DEV_OOS_PARTITION_NO_ACCESS": "PASS",
+    "G14_CUSTODY_RACE_CRASH_LOCK_ANCHOR": "PASS",
+    "G15_R4_REAL_REPLAY_EXACT_ACCOUNTING_ANCHORS": "PASS",
+    "G16_NO_SCIENCE_PROD_CHANGE_RISK_TAIL_DISCLOSURE": "PASS",
+    "G17_FULL_FRESH_PYTEST_COLLECTION_JUNIT_BIJECTION": "PASS",
+    "G18_A1_SI8_ADAPTERS_D4_FULL_PARITY": "PASS",
+    "G19_DETERMINISTIC_W1_W2_W4_W1REPEAT": "PASS",
+    "G20_MEASURED_WORKER_POLICY": "PASS",
+    "G21_DISK_RAM_PID_NO_WAIVER": "PASS",
+    "G22_INHERITED_AND_NEW_RED_GREEN_FAULTS": "PASS",
+    "G23_SEPARATE_OS_VERIFIER_RAW_EVIDENCE": "PASS",
+    "G24_VERIFIER_MUTATION_ATTACKS": "PASS",
+    "G25_NO_ACTIVATION_OOS_ALPHA_CLAIM": "PASS",
+    "G26_PUBLICATION_REMOTE_PROOF": "PRE_PUSH_PENDING"
+  },
+  "independent_recomputed_verdicts": {
+    "ACCOUNT_FEE_READINESS": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "BACKTEST_PARITY": "PASS",
+    "CAPTURE_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_EXECUTION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_PROVENANCE": "NO_REAL_CAPTURE",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "DATA_READINESS": "INCOMPLETE",
+    "ENGINEERING": "PASS",
+    "EXECUTION_FIDELITY": "INCOMPLETE",
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FULL_REGRESSION": "PASS",
+    "FUNDING_READINESS": "MISSING",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE": "OFF",
+    "OBSERVED_BBO_COVERAGE": "MISSING",
+    "OOS_EVALUATIONS": 0,
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "PUBLICATION": "PRE_PUSH_PENDING",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY": "PASS"
+  },
+  "independent_science_benchmark_recompute": {
+    "fastest": "w=2",
+    "means": {
+      "w=1": 1.219,
+      "w=2": 0.957,
+      "w=4": 1.008
+    },
+    "sp2": 1.274,
+    "sp4": 1.209,
+    "valid": true,
+    "violations": []
+  },
+  "independent_telemetry_audit": {
+    "below_floor_samples_count": 0,
+    "max_workers_observed_in_samples": 4,
+    "min_available_ram_mib": 2246.22,
+    "min_disk_free_gib": 23.4394,
+    "samples_count": 3205,
+    "status": "PASS",
+    "violations": []
+  },
+  "manifest_excludes_self_from_hash_index": true,
+  "orchestrator_pid": 12839,
+  "overall_classification": "ENGINEERING_PASS_DATA_FOUNDATION_READY_CAPTURE_BLOCKED_OWNER_AUTHORIZATION_ECONOMIC_NO_PROVEN_EDGE",
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275",
+  "verified_artifact_sha256_manifest": {
+    "00_branch_sha_clean_preflight_resource.json": {
+      "bytes": 6720,
+      "sha256": "d6bdbd0515727f1710877f0e5cfd6191117bf66e14529265f219ec2fc8b27ef2"
+    },
+    "01_function_ownership_keep_as_is_manifest.json": {
+      "bytes": 15690,
+      "sha256": "0e3773108b7349142e6581d45dee5c4bb22a9f07a8c7aa5ab882df0db9dc42f5"
+    },
+    "02_prior_run_dataset_escrow_pointer_integrity.json": {
+      "bytes": 24313,
+      "sha256": "99863f842e2325baf03cede26495a8109c6834b7d6fd054d225c41a089d396f2"
+    },
+    "03_source_capability_contract_inventory.json": {
+      "bytes": 8997,
+      "sha256": "0b28e6ee0b33436552d9881a732090510f35ffe00533551b0186fced015e9136"
+    },
+    "04_operator_scope_and_capture_plan.json": {
+      "bytes": 3057,
+      "sha256": "8f3b323fee6e01c3fbfd6cb092479fc5734efcea083c2b4c76d78b0da28ac557"
+    },
+    "05_capture_execution_and_provenance_receipts.json": {
+      "bytes": 7103,
+      "sha256": "74b1f787a04b45c99ea71a1a815a2a4068138e06d7928fcd29bbac2f2164e991"
+    },
+    "06_contract_metadata_validation.json": {
+      "bytes": 1024,
+      "sha256": "3301f7349cb43136b3d4b7cffcc392bfcbc44e8806c1f2c2cfec8b94055cb9b4"
+    },
+    "07_ohlcv_lineage_gap_coverage.json": {
+      "bytes": 1491,
+      "sha256": "e6aad41a6b2cd25964ef400cb8ec184b003e7e2ff5d1d451ed8f060316cc00bc"
+    },
+    "08_bbo_sample_cadence_quality_coverage.json": {
+      "bytes": 1580,
+      "sha256": "58555339167b715c65b08eb546cc01fcedd54afa2e6b49f4c88fc3469e59089b"
+    },
+    "09_funding_settlement_completeness.json": {
+      "bytes": 1051,
+      "sha256": "e54e3a8a6e11e61935e3329f2ebf90527d79fb46efebb2e30d86b418ce6b8956"
+    },
+    "10_owner_fee_and_slippage_readiness.json": {
+      "bytes": 711,
+      "sha256": "0ca0d28c645ac0290487994bcb5d56b2b2af5c06685d8899068a3ddb000ca5c8"
+    },
+    "11_dev_custody_partition_chain_and_no_oos_access.json": {
+      "bytes": 1529,
+      "sha256": "97e29c43f41d6c99ded0c64d6933c3edee25a1dcae018d207cfb3c0722563e43"
+    },
+    "12_observed_execution_fidelity_register.json": {
+      "bytes": 6869,
+      "sha256": "89f969fe9f86059f69f2567a2d1b54b4772a257ed116ad6e9f8752199320b850"
+    },
+    "13_r4_replay_parity_economic_bridge.json": {
+      "bytes": 7364,
+      "sha256": "3c085c62adb27a3b7230ee5cac4e13923327af183d188f7d02a43f41fb04129e"
+    },
+    "14_A1_SI8_adapter_D4_full_baseline_parity.json": {
+      "bytes": 2599,
+      "sha256": "7f32a69b3d4ec88d9ff5f8073d785379d2b2fd51c93799fed00a2023da0f094a"
+    },
+    "15_full_pytest_fresh_collection_junit_bijection.json": {
+      "bytes": 969842,
+      "sha256": "42af3bf5483ec4c6b1b5f41a53859ca5e59048b50a9c0f279c65c8fc016fda62"
+    },
+    "16_W1_W2_W4_W1repeat_benchmark_worker_selection.json": {
+      "bytes": 9696,
+      "sha256": "8697866691214cde7bc131309774eae8d14c85f64d67cb6818f8e8970cbaecee"
+    },
+    "17_disk_ram_pid_samples_cleanup.json": {
+      "bytes": 973,
+      "sha256": "4ef1d06b1ca0e69dae30b0b3526cd3af66ba721802eb4fbd1531d40ac5dde59e"
+    },
+    "18_inherited_new_red_green_fault_receipts.json": {
+      "bytes": 85376,
+      "sha256": "dbbde85bbb228579f9309980c894b4b33299ac563b6eab17ef21b3ddf3292f79"
+    },
+    "19_independent_verifier_mutation_attack_results.json": {
+      "bytes": 5038,
+      "sha256": "941924e18310f10afe98acb2d253fad9f8ac9454d3ff8a7de10c7df4ad91a80a"
+    },
+    "20_orthogonal_gates_and_verdicts.json": {
+      "bytes": 2590,
+      "sha256": "1c639b6e135444965a3174742c65c719e7cda0d64bf3a58ea13fdb3e96a2bd7a"
+    },
+    "22_phase1_phase2_remote_publication_receipts.json": {
+      "bytes": 685,
+      "sha256": "561ddf0b6a5c63505e54afa779d0fa6180aed55d53dae85449a913c67b8c51e2"
+    },
+    "HANDOVER_KH03_R5_VI.txt": {
+      "bytes": 4426,
+      "sha256": "39ae8b83509a06b1c1815232be6c5c43f79e15a72d4ecf920a2e75314679ade6"
+    },
+    "README.md": {
+      "bytes": 4957,
+      "sha256": "f3e32be0690b629b0b0ed6679ae78907b860b1ed5d1edc3e8340d91745afc583"
+    },
+    "logs/pytest_collected_executed_nodeids.jsonl.gz": {
+      "bytes": 97422,
+      "sha256": "38ed72417612d219fc6f4d8255e50d21885f4972198395f468f4f08d64c6c2b1"
+    },
+    "logs/r4_replay_forensic_ledger_1x.jsonl.gz": {
+      "bytes": 23776,
+      "sha256": "7c2a5fbb0440950a6eef87d53fc5d223eeb2752e80803a19b24cbe21dc4de145"
+    },
+    "logs/runtime_memory_samples_0p5s.jsonl.gz": {
+      "bytes": 99800,
+      "sha256": "0fe6596a5c759b53782d7f4982461a9d48385b6895141b66aeb48764d54b4cd5"
+    }
+  },
+  "verified_utc": "2026-11-24T14:19:23Z",
+  "verifier_pid": 15445,
+  "violations": [],
+  "violations_count": 0
+}

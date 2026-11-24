@@ -1,0 +1,17 @@
+{
+  "actual_github_actions_run_verified": false,
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "evidence_commit_sha": null,
+  "latest_run_pointer_updated": false,
+  "owner_disk_preflight_waiver": false,
+  "publication_head_sha": null,
+  "publication_status": "PRE_PUSH_PENDING",
+  "remote_readback_sha256_verified": false,
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "start_head_sha": "d9e24be7864de6ad886b8581c65df86bbd531275",
+  "status": "PRE_PUSH_PENDING",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

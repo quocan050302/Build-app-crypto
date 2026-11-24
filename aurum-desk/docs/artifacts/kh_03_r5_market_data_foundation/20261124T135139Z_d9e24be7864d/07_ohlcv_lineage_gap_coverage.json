@@ -1,0 +1,46 @@
+{
+  "forward_fill_applied": false,
+  "live_observed_new_dev_ohlcv_status": "MISSING",
+  "offline_ohlcv_validation_passed": true,
+  "qa_fixture_ohlcv_validation": {
+    "canonical_normalized_sha256": "85db43d24d104ba394598d55535c430cc17e8c46bedcc60dd4a43022807d5707",
+    "conflicting_duplicate_rows": 0,
+    "coverage_ratio_in_requested_range": 1.0,
+    "distinct_ny_days": [
+      "2026-11-06"
+    ],
+    "distinct_ny_days_count": 1,
+    "evidence_class": "QA_FIXTURE",
+    "exact_duplicate_rows_deduplicated": 0,
+    "expected_slots_in_requested_range": 3,
+    "first_open_ms": 1794000000000,
+    "forward_fill_applied": false,
+    "gap_intervals_count": 0,
+    "gaps_ledger": [],
+    "is_derived_aggregate": false,
+    "last_close_ms": 1794000180000,
+    "missing_bars_internal_gaps": 0,
+    "normalized_unique_bars_count": 3,
+    "observed_bars_in_requested_range": 3,
+    "page_lineage": [
+      {
+        "page_index": 0,
+        "raw_row_count": 3,
+        "raw_sha256": "7a6075752231a2e476f669dcd277cec3d87546900394ab4d71dcd1c82fbc8b0f"
+      }
+    ],
+    "raw_out_of_order_transitions": 0,
+    "raw_rows_total": 3,
+    "status": "PASS",
+    "step_ms": 60000,
+    "symbol": "XAUUSDT",
+    "timeframe": "1m",
+    "valid": true,
+    "violations": []
+  },
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

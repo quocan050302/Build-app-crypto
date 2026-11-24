@@ -1,0 +1,350 @@
+{
+  "ACTIVATION_READY": "NO",
+  "changed_files_vs_r4_pub_head": [
+    "aurum-desk/backend/services/kh_03_r5_capture_and_custody_service.py",
+    "aurum-desk/backend/services/kh_03_r5_market_data_foundation_service.py",
+    "aurum-desk/backend/services/kh_03_r5_readiness_gate_service.py",
+    "aurum-desk/backend/tests/test_kh03_r5_capture_provenance.py",
+    "aurum-desk/backend/tests/test_kh03_r5_custody_and_partitions.py",
+    "aurum-desk/backend/tests/test_kh03_r5_market_data_contracts.py",
+    "aurum-desk/backend/tests/test_kh03_r5_readiness_and_verifier.py",
+    "aurum-desk/backend/tests/test_kh03_r5_resource_and_async.py",
+    "aurum-desk/tools/kh_03_r5_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r5_verification.py"
+  ],
+  "cost_assumptions_defaults_intact": true,
+  "forbidden_order_import_hits": [],
+  "kh03_r5_module_inventory": [
+    {
+      "functions_count": 17,
+      "rel_path": "aurum-desk/backend/services/kh_03_r5_market_data_foundation_service.py",
+      "sha256": "2c2623ef695d0e6c57cc1d370c10e96e21723a632ea0ac6a4d57fc2c78a2b2f2"
+    },
+    {
+      "functions_count": 20,
+      "rel_path": "aurum-desk/backend/services/kh_03_r5_capture_and_custody_service.py",
+      "sha256": "c4cf5757894b86d8e85429338816dc23fca60fe7b7dec6ac1dade1f00ceb66d2"
+    },
+    {
+      "functions_count": 5,
+      "rel_path": "aurum-desk/backend/services/kh_03_r5_readiness_gate_service.py",
+      "sha256": "a3df567f01653249457b46948b624e89e6eecf24a61f4df5e9b8490fedfe8d3d"
+    },
+    {
+      "functions_count": 15,
+      "rel_path": "aurum-desk/tools/kh_03_r5_independent_verifier.py",
+      "sha256": "a6ac6bf6ae472c7817607afda7d1dba7c9dce1b8cdd9ea08e45256ffbbffb75f"
+    },
+    {
+      "functions_count": 10,
+      "rel_path": "aurum-desk/tools/run_kh_03_r5_verification.py",
+      "sha256": "73d9e14d1ffbb7623b7edcb9c9f6e2d6e37368cd5d96b99fa5ed1997bc058cec"
+    },
+    {
+      "functions_count": 5,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r5_market_data_contracts.py",
+      "sha256": "867eb4a00cabe5dadab338bdc25ab5df73cd5c2e953ca76bead60ec034a0a425"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r5_capture_provenance.py",
+      "sha256": "45114595e83338a237c6d3c3626dccc0b999d285becfa269b545babc83edf256"
+    },
+    {
+      "functions_count": 4,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r5_custody_and_partitions.py",
+      "sha256": "2bc562faf5ef5ad49368731f43ac6831283033c064c1ef1b6845115e9245a0de"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r5_resource_and_async.py",
+      "sha256": "19d7c2ed332e0766abd0f87fa6187926ec09c6d82601a9a90b70f6d6485afee9"
+    },
+    {
+      "functions_count": 10,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r5_readiness_and_verifier.py",
+      "sha256": "8c070e85fecc6ecc826925979df6e8c27d5a2a4b9008923afe21635dd54d3951"
+    }
+  ],
+  "legacy_guard_status": "PASS",
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "locked_keep_as_is_count": 33,
+  "locked_keep_as_is_inventory": [
+    {
+      "ast_function_count": 83,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/shared_strategy_evaluator.py",
+      "sha256": "22a4c52521657ceea6f3462bcda830250403092091f663c804eab6565c3472b2"
+    },
+    {
+      "ast_function_count": 6,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/domain_calculator.py",
+      "sha256": "1f074ee5c0ba8d0647fb422976b67be89a9f5d96eccb0bccdd5fac8abdafb94f"
+    },
+    {
+      "ast_function_count": 48,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_2_signal_intelligence.py",
+      "sha256": "b7afdc48ff45aed12e1fc100367549e627a0dc151eb0704c50974ee54774cd75"
+    },
+    {
+      "ast_function_count": 22,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_macro_unicorn_intelligence.py",
+      "sha256": "42f6c170a2068bbdd3bf63673ed5ac27962fc65494efe69c7a8f6ef11519accd"
+    },
+    {
+      "ast_function_count": 12,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/unicorn_evidence_service.py",
+      "sha256": "1772ed54e686670e0f309c972ec3e1c956694be24670ca762b8f6c274e0ae249"
+    },
+    {
+      "ast_function_count": 24,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_14_accounting_target_and_d4_truth_service.py",
+      "sha256": "b7a8061449ba480ee54574c821018f52fa6cb3b7fb17535d9cd5561d5b48ed98"
+    },
+    {
+      "ast_function_count": 51,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/v17_9_3_1_2_executable_intervention_replay_service.py",
+      "sha256": "5b86c04ad3ec1dcca7ede306d9536471ffd9b1c1f0f6c347480ee8e05c5c6095"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_entry_unicorn_research_service.py",
+      "sha256": "3117eb79c26a8b0f3a0d0d3cd1653b3b051962e36578c1dfacdea058ca034794"
+    },
+    {
+      "ast_function_count": 30,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_entry_edge_discovery_service.py",
+      "sha256": "18e77789e0660e6319ed3b3940a26d93b34ceffc016c99519125c84b32335cdf"
+    },
+    {
+      "ast_function_count": 21,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_01b_r1_ram_safety_r3_service.py",
+      "sha256": "5ff22a0fa55e10f5ce4e5d1e99a96dfd619081f04cf24d3215d1492cbbf3e283"
+    },
+    {
+      "ast_function_count": 32,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_02_entry_foundation_research_service.py",
+      "sha256": "bcc26e0a6149fb33145ba97052eab6ad85b250ebdee93975f27eddf143db7034"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_02_entry_foundation_research.py",
+      "sha256": "02f6bb97c244817c3edfb962b4e4cd97d38af618e044468b906a92157d487924"
+    },
+    {
+      "ast_function_count": 3,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_02_entry_foundation_independent_verifier.py",
+      "sha256": "b9f181801ffc55b77a64c8123e8d661b3cb1ed0e02a1d314692ab2fa2a50503a"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json",
+      "sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4"
+    },
+    {
+      "ast_function_count": null,
+      "exists": true,
+      "rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+      "sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18"
+    },
+    {
+      "ast_function_count": 58,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_02_r2_research_integrity_service.py",
+      "sha256": "fa60c5d6fe48fd13303334a12eb2f3b5c4e7c4d87f22f6d616d019bbfaa64b49"
+    },
+    {
+      "ast_function_count": 19,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r2_methodology_service.py",
+      "sha256": "ee3b0cd03fdf7c9cbe30992dcb2a994ef208dd2f967c9530ddb8bd3375e64e88"
+    },
+    {
+      "ast_function_count": 10,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_diagnostic_service.py",
+      "sha256": "f145c6703ab974683809f7c6cbb43e282732260e59832829265e71f19ad9aa03"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_experiment_service.py",
+      "sha256": "6dcba6e9f2be06f555f7c445198222045d14e4e0b70ed4ee8d248344c9f01422"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_legacy_research_guard.py",
+      "sha256": "e9b856e398b6276ce4762b6162a2bf956966f7450380b9137c7b711254ecfb17"
+    },
+    {
+      "ast_function_count": 12,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py",
+      "sha256": "ca5a209b538145621c503b888465eee55fb64eccb92ef175cef6fe4af8200120"
+    },
+    {
+      "ast_function_count": 14,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_03_r3_acceptance.py",
+      "sha256": "fbe56944654e826d926748fe7aa3a08737091efe4c54defe03ad7325d5dac62b"
+    },
+    {
+      "ast_function_count": 13,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_03_r3_independent_verifier.py",
+      "sha256": "f6b7dceb31bb85a7a03ba0e7b550094a961339baccde7bd2111580848b3e64c6"
+    },
+    {
+      "ast_function_count": 13,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_03_r3_c2_acceptance.py",
+      "sha256": "f63a11e7259c3a33a6a8645fcde36f420422a9aa2074f6b35ce7de27fee54978"
+    },
+    {
+      "ast_function_count": 14,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_03_r3_c2_independent_verifier.py",
+      "sha256": "f7538f18bdcf973f47861f6447cd76d39ab17e902b2a91934e01903cbe18cd0f"
+    },
+    {
+      "ast_function_count": 17,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/services/kh_03_r4_economic_diagnostic_service.py",
+      "sha256": "863155e7537a696ff60b1e6004aa2dff5b90fbb47e0f8bbcba419b2878abd730"
+    },
+    {
+      "ast_function_count": 17,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/kh_03_r4_independent_verifier.py",
+      "sha256": "bac202a80bd7d4d4f539016ea6fa061cf654fe7314070470b4a6ec6ea693b6ca"
+    },
+    {
+      "ast_function_count": 11,
+      "exists": true,
+      "rel_path": "aurum-desk/tools/run_kh_03_r4_acceptance.py",
+      "sha256": "25459e63aa6a31101e23932ff84c0440accf836a0c9ef9a70f84cb54cdda2015"
+    },
+    {
+      "ast_function_count": 5,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r4_economic_accounting.py",
+      "sha256": "35e29711d3c89fdf7622249506be0abd1ab5ec8b5e52208ec3fc9fdfc5ec8e09"
+    },
+    {
+      "ast_function_count": 4,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r4_population_and_censoring.py",
+      "sha256": "405978a3497884ec8be349e585944e5005360199ced03b32f408345926b943d5"
+    },
+    {
+      "ast_function_count": 6,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r4_no_alpha_no_causal_claims.py",
+      "sha256": "0f5d613ae165bd49c52e52423ab6ca3b50d5931eff79f21c1656e1266850e2ba"
+    },
+    {
+      "ast_function_count": 7,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r4_resource_and_async.py",
+      "sha256": "a19d37772ef876de351e7c8a051a7d47439b3a5694105d0fef39782fe6bef014"
+    },
+    {
+      "ast_function_count": 8,
+      "exists": true,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r4_independent_verifier_mutations.py",
+      "sha256": "003b3490308279774c9e6b14738a1de2fc050748ecc339273503939b301f3ce9"
+    }
+  ],
+  "prior_r4_pub_head_sha": "42b0573ed18f0678847c6deb25db395aad7f492e",
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "runtime_safety_modes": {
+    "AUTO": "OFF",
+    "LIVE": "OFF",
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF"
+  },
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "source_function_ownership_matrix": [
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2, FORBIDDEN_URL_TOKENS_C2, StdlibUrllibPublicTransportC2, _NoRedirectHandlerC3, _validate_public_bitget_https_url_c3, RawHttpResponseC2",
+      "r5_consumer": "kh_03_r5_market_data_foundation_service.py & kh_03_r5_capture_and_custody_service.py",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_c2_public_capture.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "execute_trusted_stdlib_https_get_c4, is_exact_unmodified_stdlib_transport_c4, verify_capture_proof_c4, bind_capture_proof_consumption_c4, issue_qa_or_unverified_capture_proof_c4",
+      "r5_consumer": "kh_03_r5_capture_and_custody_service.py::capture_r5_public_batch & persist_r5_verified_dev_snapshot",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_c4_trusted_transport_boundary.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "safe_bounded_decompress_if_gzip_c3, mint_trusted_capture_receipt_c4, ProvenanceClassC3, OFFICIAL_BITGET_PUBLIC_HOST_C3, OFFICIAL_BITGET_PUBLIC_PATHS_C3",
+      "r5_consumer": "kh_03_r5_market_data_foundation_service.py & kh_03_r5_capture_and_custody_service.py",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_c3_provenance_guard.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE_NEW_DEV_NAMESPACE_ONLY",
+      "functions_reused": "ExternalHeadAnchorC2, _cross_platform_exclusive_fd_lock, _fsync_directory, _assert_not_symlink_and_contained, _is_symlink_or_junction, _write_all_eintr_safe",
+      "r5_consumer": "kh_03_r5_capture_and_custody_service.py::R5DevCustodyJournal",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_c2_escrow_journal.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "BITGET_XAUUSDT_CONTRACT_SPEC_KH02_R2_C1, CANONICAL_DATASET_SHA256_KH02, scan_for_forbidden_secrets_r2_c1",
+      "r5_consumer": "kh_03_r5_market_data_foundation_service.py",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_prospective_data_service.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE_EXCLUDING_FORBIDDEN_R1_SYMBOL",
+      "functions_reused": "audit_kh03_collector_and_escrow_readiness, validate_kh03_source_contracts, validate_kh03_noncontamination_entry",
+      "r5_consumer": "tools/run_kh_03_r5_verification.py (escrow metadata audit only)",
+      "source_file": "aurum-desk/backend/services/kh_03_data_governance_service.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REPLAY_ANCHOR",
+      "functions_reused": "load_r4_immutable_research_inputs_readonly, build_r4_trade_population_conservation, recompute_r4_decimal_economic_bridge, build_r4_counterfactual_cost_only_diagnostics, build_r4_mechanism_evidence_table, audit_r4_covariate_overlap_and_effective_n, derive_r4_breakeven_feasibility_bounds, build_r4_data_gap_register, decide_r4_research_next_action, validate_r4_no_claim_inflation",
+      "r5_consumer": "tools/run_kh_03_r5_verification.py::Stage R4 real replay parity (13)",
+      "source_file": "aurum-desk/backend/services/kh_03_r4_economic_diagnostic_service.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REPLAY_ANCHOR",
+      "functions_reused": "build_c4_per_episode_risk_ledger, recompute_c4_tail_counters_from_episode_ledger, validate_c4_tail_disclosure_vs_risk_ledger",
+      "r5_consumer": "tools/run_kh_03_r5_verification.py (historical modeled risk-tail disclosure)",
+      "source_file": "aurum-desk/backend/services/kh_02_r2_c4_risk_tail_evidence.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "parse_json_strict_no_nonfinite, parse_benchmark_run_duration_strict, validate_benchmark_semantic_equivalence_strict, select_measured_worker_policy_strict",
+      "r5_consumer": "tools/run_kh_03_r5_verification.py (16 benchmark policy)",
+      "source_file": "aurum-desk/backend/services/kh_03_r3_c1_worker_policy_service.py"
+    },
+    {
+      "action": "KEEP_AS_IS_READONLY_REUSE",
+      "functions_reused": "audit_kh03_r3_legacy_research_callgraph, require_kh03_r2_or_newer_research_protocol",
+      "r5_consumer": "tools/run_kh_03_r5_verification.py (01 legacy R1 guard audit)",
+      "source_file": "aurum-desk/backend/services/kh_03_r3_legacy_research_guard.py"
+    }
+  ],
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275",
+  "unauthorized_changed_files": [],
+  "unauthorized_changed_files_count": 0,
+  "unauthorized_r1_callers_count": 0
+}

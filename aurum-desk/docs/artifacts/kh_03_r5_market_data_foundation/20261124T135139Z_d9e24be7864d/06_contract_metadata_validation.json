@@ -1,0 +1,31 @@
+{
+  "live_observed_metadata_status": "MISSING",
+  "offline_contract_validation_passed": true,
+  "qa_fixture_metadata_validation": {
+    "evidence_class": "QA_FIXTURE",
+    "normalized_metadata": {
+      "contract_type": "perpetual",
+      "effective_timestamp_ms": 1794000000000,
+      "max_leverage": "20",
+      "min_notional_usd": "5",
+      "min_qty": "0.001",
+      "product_type": "USDT-FUTURES",
+      "qty_step": "0.001",
+      "settlement_currency": "USDT",
+      "stop_trigger_price_source": "UNKNOWN",
+      "symbol": "XAUUSDT",
+      "tick_size": "0.01",
+      "used_in_production_sizing": false
+    },
+    "quarantined": false,
+    "raw_sha256": "de7f58247598d2aec24f30cb852468ea786234652376f8f6c88a0a15d4028565",
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

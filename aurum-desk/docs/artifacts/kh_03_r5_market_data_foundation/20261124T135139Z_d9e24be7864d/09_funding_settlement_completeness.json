@@ -1,0 +1,29 @@
+{
+  "observed_funding_readiness": "MISSING",
+  "offline_funding_validation_passed": true,
+  "qa_fixture_funding_validation": {
+    "canonical_normalized_sha256": "61876aa0352980d294c3f3476554fb1e436c1a227dc34c4a2f58fce4209f6ea7",
+    "conflicting_duplicates": 0,
+    "evidence_class": "QA_FIXTURE",
+    "exact_duplicates_deduplicated": 0,
+    "funding_readiness": "VERIFIED_DECLARED_WINDOW",
+    "missing_settlement_timestamps_ms": [],
+    "missing_settlements_count": 0,
+    "predicted_records_rejected": 0,
+    "retroactive_r4_pnl_modified": false,
+    "schedule_verified": true,
+    "settled_records_count": 2,
+    "status": "PASS",
+    "valid": true,
+    "verified_interval_ms": 28800000,
+    "violations": [],
+    "zero_fill_applied": false
+  },
+  "retroactive_r4_pnl_modified": false,
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275",
+  "zero_fill_applied": false
+}

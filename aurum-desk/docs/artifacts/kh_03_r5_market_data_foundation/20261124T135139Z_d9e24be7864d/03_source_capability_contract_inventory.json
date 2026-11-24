@@ -1,0 +1,243 @@
+{
+  "c3_trusted_paths_allowlist": [
+    "/api/v2/mix/market/candles",
+    "/api/v2/mix/market/contracts",
+    "/api/v2/mix/market/history-candles",
+    "/api/v2/mix/market/merge-depth",
+    "/api/v2/mix/market/ticker",
+    "/api/v3/market/orderbook"
+  ],
+  "external_network_queried": false,
+  "extra_verified_source_specs": {},
+  "forbidden_private_or_order_tokens": [
+    "/order/",
+    "/orders",
+    "/trade/",
+    "/place-",
+    "/cancel-",
+    "/account",
+    "/wallet",
+    "/position",
+    "/assets",
+    "/transfer",
+    "/withdraw",
+    "/private",
+    "/trade/"
+  ],
+  "missing_or_blocked_capabilities": {
+    "account_effective_fee_tier": {
+      "reason": "Private account endpoints are forbidden; generic public USDT-futures fee schedules MUST NOT be assumed for gold/owner account.",
+      "status": "UNKNOWN_NOT_LOCALLY_VERIFIED"
+    },
+    "continuous_l1_bbo_1s_stream": {
+      "reason": "Existing C2/C3/C4 trusted transport supports bounded HTTPS GET snapshot endpoints only; public REST ticker/orderbook endpoints return latest snapshot only (not historical BBO, not continuous <=1s stream), and WebSocket streaming is NOT verified under the C4 trusted transport boundary.",
+      "status": "BLOCKED_CONTINUOUS_BBO"
+    },
+    "live_contract_identity_xauusdt": {
+      "local_reference_only_not_live_proof": {
+        "exchange": "bitget",
+        "exchange_contract_id": "XAUUSDT_UMCBL",
+        "price_precision": 2,
+        "product_type": "USDT-FUTURES",
+        "qty_precision": 2,
+        "qty_step": "0.01",
+        "symbol": "XAUUSDT",
+        "tick_size": "0.01"
+      },
+      "reason": "Local reference spec lists XAUUSDT USDT-FUTURES (tick=0.01), but live contract existence, active status, settlement rules, open-session calendar, and current tick/lot precision have NOT been queried live in this offline run.",
+      "status": "BLOCKED_CONTRACT_IDENTITY_UNVERIFIED_LIVE"
+    },
+    "observed_execution_slippage_and_fill_mix": {
+      "reason": "Public market endpoints never provide owner's realized fill slippage or maker/taker execution mix.",
+      "status": "MISSING"
+    },
+    "public_funding_rate_history": {
+      "reason": "No public funding history endpoint is currently registered in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2 / OFFICIAL_BITGET_PUBLIC_PATHS_C3. Do not invent endpoint URL or assume 8h funding interval without verified raw source proof.",
+      "status": "UNSUPPORTED_OR_UNVERIFIED_ENDPOINT"
+    }
+  },
+  "public_host_allowlist": [
+    "api.bitget.com"
+  ],
+  "r4_canonical_timeframes_target": [
+    "15m",
+    "1D",
+    "1H",
+    "1m",
+    "4H",
+    "5m"
+  ],
+  "repo_root_checked": true,
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "supported_endpoints_inventory": {
+    "candles": {
+      "allowed_required_params": [
+        "productType",
+        "symbol",
+        "granularity"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_GET_PENDING_OWNER_AUTH",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OHLCV_SNAPSHOT",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "candles",
+      "history_retention": "UNKNOWN_UNVERIFIED_LIVE",
+      "http_method": "GET",
+      "path": "/api/v2/mix/market/candles",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v2/mix/market/candles",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    },
+    "contracts": {
+      "allowed_required_params": [
+        "productType",
+        "symbol"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_GET_PENDING_OWNER_AUTH",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OHLCV_SNAPSHOT",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "contracts",
+      "history_retention": "UNKNOWN_UNVERIFIED_LIVE",
+      "http_method": "GET",
+      "path": "/api/v2/mix/market/contracts",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v2/mix/market/contracts",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    },
+    "history_candles": {
+      "allowed_required_params": [
+        "productType",
+        "symbol",
+        "granularity"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_GET_PENDING_OWNER_AUTH",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OHLCV_SNAPSHOT",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "history_candles",
+      "history_retention": "UNKNOWN_UNVERIFIED_LIVE",
+      "http_method": "GET",
+      "path": "/api/v2/mix/market/history-candles",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v2/mix/market/history-candles",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    },
+    "merge_depth": {
+      "allowed_required_params": [
+        "productType",
+        "symbol"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_SNAPSHOT_ONLY_NOT_CONTINUOUS_BBO",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OBSERVED_QUOTE",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "merge_depth",
+      "history_retention": "LATEST_SNAPSHOT_ONLY_NO_HISTORICAL_BBO",
+      "http_method": "GET",
+      "path": "/api/v2/mix/market/merge-depth",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v2/mix/market/merge-depth",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    },
+    "orderbook_v3": {
+      "allowed_required_params": [
+        "category",
+        "symbol"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_SNAPSHOT_ONLY_NOT_CONTINUOUS_BBO",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OBSERVED_QUOTE",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "orderbook_v3",
+      "history_retention": "LATEST_SNAPSHOT_ONLY_NO_HISTORICAL_BBO",
+      "http_method": "GET",
+      "path": "/api/v3/market/orderbook",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v3/market/orderbook",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    },
+    "public_ticker": {
+      "allowed_required_params": [
+        "productType",
+        "symbol"
+      ],
+      "auth_required": false,
+      "capability_status": "SUPPORTED_PUBLIC_SNAPSHOT_ONLY_NOT_CONTINUOUS_BBO",
+      "continuous_1s_bbo_supported": false,
+      "data_origin": "OBSERVED_QUOTE",
+      "doc_verified_utc": "2026-11-22",
+      "endpoint_key": "public_ticker",
+      "history_retention": "LATEST_SNAPSHOT_ONLY_NO_HISTORICAL_BBO",
+      "http_method": "GET",
+      "path": "/api/v2/mix/market/ticker",
+      "rate_bounds_local_guard": {
+        "max_response_bytes": 4194304,
+        "max_retries": 3,
+        "min_request_interval_ms": 50
+      },
+      "read_only": true,
+      "source_category": "PUBLIC_READONLY_MARKET_DATA",
+      "timestamp_semantics": "UTC_EPOCH_MS_EXCHANGE_REPORTED_UNVERIFIED_LIVE_UNTIL_AUTHORIZED_QUERY",
+      "url": "https://api.bitget.com/api/v2/mix/market/ticker",
+      "venue": "BITGET_PUBLIC_REST",
+      "verified_in_c3_trust_boundary": true
+    }
+  },
+  "supported_ohlcv_granularities_c2": [
+    "15m",
+    "1H",
+    "1h",
+    "1m",
+    "5m"
+  ],
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

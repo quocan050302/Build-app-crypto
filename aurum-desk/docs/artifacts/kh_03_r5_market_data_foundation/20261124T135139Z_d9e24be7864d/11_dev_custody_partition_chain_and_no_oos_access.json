@@ -1,0 +1,42 @@
+{
+  "crash_recovery_quarantine_verified": true,
+  "custody_chain_verification": {
+    "head_entry_sha256": "973149ffde780846a67cdc1810cce794fd92ac55dccde6f5a58fec358d8f21b2",
+    "observed_verified_records_count": 0,
+    "oos_access_guard_summary": {
+      "deny_before_open_enforced": true,
+      "oos_denied_before_open_count": 1,
+      "oos_evaluations": 0,
+      "oos_reads_executed": 0,
+      "total_access_log_entries": 1
+    },
+    "protected_prior_checked_count": 53,
+    "protected_prior_mismatches": [],
+    "qa_fixture_records_count": 1,
+    "records_verified_count": 1,
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "dev_relabel_as_oos_blocked": true,
+  "double_writer_lock_race_verified": true,
+  "external_head_anchor_verified": true,
+  "oos_deny_before_open_verified": true,
+  "partition_assignment": {
+    "assigned_before_capture": true,
+    "destination_root_rel": "r5_custody_qa",
+    "overlaps_detected": [],
+    "partition_role": "QA_FIXTURE",
+    "permanent_dev_never_promotable_to_oos": true,
+    "plan_digest_sha256": "54827d58f12cbecb9ea06f2dda572d5efc0ac2a19e8625378474cb235bb1e865",
+    "scope_digest_sha256": "335d099025445b7b43534e35d285f202d7dc0f0cc961f66cf61f167aa608ba54",
+    "status": "ASSIGNED",
+    "valid": true,
+    "violations": []
+  },
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

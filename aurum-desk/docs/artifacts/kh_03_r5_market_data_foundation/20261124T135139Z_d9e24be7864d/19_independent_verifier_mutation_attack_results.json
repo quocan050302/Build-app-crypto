@@ -1,0 +1,143 @@
+{
+  "clean_clone_verifier_green": true,
+  "inherited_r4_c2_c1_r3_mutations_detected_count": 69,
+  "inherited_r4_c2_c1_r3_mutations_failed_detection_count": 0,
+  "inherited_r4_c2_c1_r3_mutations_tested_count": 69,
+  "inherited_results_summary": {
+    "c1_c2_r4": "53/53",
+    "r3": "16/16"
+  },
+  "isolated_temp_clones_only": true,
+  "new_r5_mutations_detected_count": 20,
+  "new_r5_mutations_failed_detection_count": 0,
+  "new_r5_mutations_tested_count": 20,
+  "new_r5_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_UNAPPROVED_LIVE_CAPTURE_OR_FAKE_OBSERVED_RECORDS",
+      "mutation_id": "R5M01_UNAPPROVED_LIVE_REQUESTS_IN_05",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_UNAPPROVED_LIVE_CAPTURE_OR_FAKE_OBSERVED_RECORDS",
+      "mutation_id": "R5M02_FAKE_OBSERVED_RECORDS_WITHOUT_AUTH",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FAKE_EXECUTION_FIDELITY_READY_WITHOUT_OBSERVED_DATA",
+      "mutation_id": "R5M03_FAKE_EXECUTION_FIDELITY_READY_IN_12",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORGED_DATA_READINESS_PASS",
+      "mutation_id": "R5M04_FORGED_DATA_READINESS_IN_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORGED_FEE_CREDENTIALS_OR_SLIPPAGE",
+      "mutation_id": "R5M05_CREDENTIALS_REQUESTED_TRUE_IN_10",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORBIDDEN_OOS_READ_EXECUTED",
+      "mutation_id": "R5M06_OOS_READ_EXECUTED_IN_11",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_13_TAMPERED_VS_RAW_LEDGER",
+      "mutation_id": "R5M07_TAMPERED_R4_NET_PNL_IN_13",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_PLANNED_CAP_GUARANTEE_FORGED",
+      "mutation_id": "R5M08_PLANNED_CAP_AS_GUARANTEE_IN_13",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORGED_ECONOMIC_KH04_OR_ACTIVATION_IN_20",
+      "mutation_id": "R5M09_FORGED_PROVEN_EDGE_IN_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORGED_ECONOMIC_KH04_OR_ACTIVATION_IN_20",
+      "mutation_id": "R5M10_FORGED_ACTIVATION_YES_IN_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_DATASET_OR_PRIOR_SHA_MISMATCH",
+      "mutation_id": "R5M11_WRONG_DATASET_SHA_IN_02",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_PROTECTED_SOURCE_MODIFIED_OR_ORDER_IMPORT",
+      "mutation_id": "R5M12_LOCKED_FILE_MODIFIED_IN_01",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_JUNIT_COUNTS_TAMPERED_VS_RAW_XML",
+      "mutation_id": "R5M13_JUNIT_COUNTS_TAMPERED_IN_15",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_BENCH_SPEEDUP_TAMPERED",
+      "mutation_id": "R5M14_INFLATED_SPEEDUP_IN_16",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_TELEMETRY_CHILD_EXCEEDED_4",
+      "mutation_id": "R5M15_MAX_CHILD_BREACH_IN_TELEMETRY_GZ",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_MISSING_TELEMETRY_LOG",
+      "mutation_id": "R5M16_MISSING_TELEMETRY_LOG",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FALSE_PUBLICATION_OR_CI_CLAIM",
+      "mutation_id": "R5M17_FALSE_GITHUB_READBACK_IN_22",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_STALE_PRIOR_RUN_OR_SHA_REUSED",
+      "mutation_id": "R5M18_STALE_R4_RUN_REUSED_IN_00",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_MISSING_R4_REPLAY_LEDGER_GZ",
+      "mutation_id": "R5M19_MISSING_R4_REPLAY_LEDGER_GZ",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R5V_FORGED_GATE_INFLATION:G21_DISK_RAM_PID_NO_WAIVER",
+      "mutation_id": "R5M20_DISK_WAIVER_TRUE_IN_00",
+      "verifier_exit_code": 1
+    }
+  ],
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275",
+  "total_mutations_tested_count": 89
+}

@@ -1,0 +1,21 @@
+{
+  "account_fee_readiness": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "credentials_requested": false,
+  "default_fee_audit": {
+    "account_fee_readiness": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "credentials_requested": false,
+    "evidence_class": "MISSING",
+    "status": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "store_local_only": true,
+    "valid": false,
+    "violations": []
+  },
+  "observed_slippage_status": "MISSING",
+  "owner_fee_document_supplied": false,
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "store_local_only": true,
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}

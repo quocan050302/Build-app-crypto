@@ -1,0 +1,164 @@
+{
+  "allowed_evidence_classes": [
+    "OBSERVED_VERIFIED",
+    "OWNER_ATTESTED",
+    "DERIVED_FROM_OBSERVED",
+    "MODELED",
+    "QA_FIXTURE",
+    "MISSING",
+    "UNVERIFIED"
+  ],
+  "coverage_report": {
+    "bbo_summary": {
+      "bbo_coverage_classification": "SINGLE_OBSERVED_SNAPSHOT",
+      "evidence_class": "QA_FIXTURE",
+      "grid_coverage_ratio": 1.0,
+      "max_gap_ms": 0,
+      "strategy_decision_fill_coverage": "UNKNOWN_NO_AUTHORIZED_ALIGNMENT_PROTOCOL",
+      "valid_unique_timestamp_quotes_count": 1
+    },
+    "calendar_days_not_independent_trials_note": "Calendar/NY days are descriptive regime span only, never proof of statistical power.",
+    "dev_coverage_classification": "INSUFFICIENT_COVERAGE",
+    "funding_summary": {
+      "evidence_class": "QA_FIXTURE",
+      "funding_readiness": "VERIFIED_DECLARED_WINDOW",
+      "missing_settlements_count": 0,
+      "settled_records_count": 2
+    },
+    "observed_verified_ohlcv_ny_days": 0,
+    "ohlcv_summary": {
+      "coverage_ratio_in_requested_range": 1.0,
+      "evidence_class": "QA_FIXTURE",
+      "gap_intervals_count": 0,
+      "missing_bars_internal_gaps": 0,
+      "normalized_unique_bars_count": 3
+    },
+    "qa_fixture_ohlcv_ny_days_separate": 1,
+    "r4_dev_expansion_planning_target_ny_days": 60,
+    "schema_version": "kh_03_r5_market_data_foundation_v1",
+    "session_calendar_supplied": false,
+    "spec_version": "KH-03.R5-v1.0",
+    "status": "PASS",
+    "strategy_metrics_computed_on_new_data": false,
+    "timezone_rule": "America/New_York (DST-aware via stdlib zoneinfo)"
+  },
+  "domains": [
+    {
+      "blockers": [
+        "REUSED_DEV_EXHAUSTED_DO_NOT_TUNE_OR_USE_AS_OOS"
+      ],
+      "can_infer": "Deterministic regression parity and historical Decimal P&L reconciliation only.",
+      "cannot_infer": "Out-of-sample alpha, live fills, or real L1 bid/ask spreads.",
+      "domain": "historical_reused_dev_ohlcv_canonical",
+      "evidence_class": "OBSERVED_VERIFIED",
+      "evidence_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "latest_effective_date": "2026-10-28T14:00:00Z",
+      "required": true
+    },
+    {
+      "blockers": [
+        "CAPTURE_BLOCKED_OWNER_AUTHORIZATION_OR_QA_ONLY"
+      ],
+      "can_infer": "Parser & contract precision validation contract (QA offline)",
+      "cannot_infer": "Production sizing rules or unverified stop-trigger mark vs last price behavior.",
+      "domain": "live_exchange_instrument_metadata_and_stop_trigger_rules",
+      "evidence_class": "QA_FIXTURE",
+      "evidence_sha256": "de7f58247598d2aec24f30cb852468ea786234652376f8f6c88a0a15d4028565",
+      "latest_effective_date": 1794000000000,
+      "required": true
+    },
+    {
+      "blockers": [
+        "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+        "BLOCKED_CONTINUOUS_BBO_REST_SNAPSHOT_ONLY"
+      ],
+      "can_infer": "Modeled $0.20 spread used in legacy DEV replay only; QA parser tested offline.",
+      "cannot_infer": "Real orderbook depth, fill slippage, or strategy decision/fill coverage.",
+      "domain": "observed_l1_bbo_bid_ask_spread_dynamics",
+      "evidence_class": "QA_FIXTURE",
+      "evidence_sha256": "b276c2390936beba934596ccf3442cde6690189c1ba3e25a9621d5bc24aa2bb3",
+      "latest_effective_date": null,
+      "required": true
+    },
+    {
+      "blockers": [
+        "UNKNOWN_NOT_LOCALLY_VERIFIED"
+      ],
+      "can_infer": "Modeled 0.04% taker fee sensitivity only (non-account-verified).",
+      "cannot_infer": "Owner's actual VIP/rebate/regional fee tier without redacted owner confirmation.",
+      "domain": "exchange_account_effective_fee_schedule",
+      "evidence_class": "MISSING",
+      "evidence_sha256": null,
+      "latest_effective_date": null,
+      "required": true
+    },
+    {
+      "blockers": [
+        "UNSUPPORTED_OR_UNVERIFIED_PUBLIC_FUNDING_ENDPOINT",
+        "CAPTURE_BLOCKED_OWNER_AUTHORIZATION"
+      ],
+      "can_infer": "Funding arithmetic & schedule completeness checks (QA offline); legacy R4 remains EXCLUDED_UNMODELED.",
+      "cannot_infer": "Actual historical carrying cost or adjusted R4 net P&L.",
+      "domain": "perpetual_funding_rate_settlement_history",
+      "evidence_class": "QA_FIXTURE",
+      "evidence_sha256": "61876aa0352980d294c3f3476554fb1e436c1a227dc34c4a2f58fce4209f6ea7",
+      "latest_effective_date": null,
+      "required": true
+    },
+    {
+      "blockers": [
+        "NO_AUTHORIZED_REDACTED_FILL_EVIDENCE_SUPPLIED"
+      ],
+      "can_infer": "Modeled $0.10 slippage sensitivity only.",
+      "cannot_infer": "Real fill slippage, partial fills, or live tail loss beyond $2.50 planned cap.",
+      "domain": "observed_execution_slippage_and_maker_taker_fill_mix",
+      "evidence_class": "MISSING",
+      "evidence_sha256": null,
+      "latest_effective_date": null,
+      "required": true
+    },
+    {
+      "blockers": [
+        "INSUFFICIENT_OBSERVED_DEV_COVERAGE_ZERO_NEW_REAL_CAPTURE"
+      ],
+      "can_infer": "Offline coverage & NY-day DST calculator verified.",
+      "cannot_infer": "Cross-regime generalization or statistical power.",
+      "domain": "expanded_dev_market_data_coverage_60_ny_days",
+      "evidence_class": "MISSING",
+      "evidence_sha256": null,
+      "latest_effective_date": null,
+      "required": true
+    },
+    {
+      "blockers": [
+        "BLOCKED_NO_UNTOUCHED_DATA",
+        "BLOCKED_NO_DEV_CANDIDATE"
+      ],
+      "can_infer": "Deny-before-open escrow isolation & OOS_EVALUATIONS=0 enforced.",
+      "cannot_infer": "Out-of-sample viability; new DEV capture is NEVER OOS.",
+      "domain": "fresh_untouched_prospective_oos_window",
+      "evidence_class": "MISSING",
+      "evidence_sha256": null,
+      "latest_effective_date": null,
+      "required": true
+    }
+  ],
+  "execution_fidelity_status": "INCOMPLETE",
+  "incomplete_required_domains": [
+    "live_exchange_instrument_metadata_and_stop_trigger_rules",
+    "observed_l1_bbo_bid_ask_spread_dynamics",
+    "exchange_account_effective_fee_schedule",
+    "perpetual_funding_rate_settlement_history",
+    "observed_execution_slippage_and_maker_taker_fill_mix",
+    "expanded_dev_market_data_coverage_60_ny_days",
+    "fresh_untouched_prospective_oos_window"
+  ],
+  "incomplete_required_domains_count": 7,
+  "legacy_r4_register_linked": true,
+  "next_owner_action": "Decide between (A) pausing research completely, or (B) issuing an explicit separate bounded public DEV capture authorization (symbol, product_type, public GET endpoints, max requests/bytes/duration, local data root) plus a redacted owner fee confirmation (NO API keys, secrets, or passwords). Never activate trading or tune reused Oct-2026 DEV.",
+  "run_id": "20261124T135139Z_d9e24be7864d",
+  "schema_version": "kh_03_r5_market_data_foundation_v1",
+  "spec_version": "KH-03.R5-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "d9e24be7864de6ad886b8581c65df86bbd531275"
+}
