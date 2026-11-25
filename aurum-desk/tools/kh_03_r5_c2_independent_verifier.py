@@ -95,7 +95,7 @@ PRIOR_SEALED_POINTERS_AND_ARTIFACTS_KH03_R5_C2: Tuple[Tuple[str, str, str], ...]
     ),
     (
         f"aurum-desk/docs/artifacts/kh_03_r5_c1_capture_safety/23_phase2_remote_readback_{PRIOR_C1_RUN_ID}.json",
-        "0e7c1d5fb76791053561538a098dca643416ec1724713a3507dc94bf1942abf6",
+        "0e7c1d5fb76791053561538a398dca643416ec1724713a3507dc94bf1942abf6",
         "KH03_R5_C1_SEALED_POSTPUSH_READBACK_23",
     ),
     (
