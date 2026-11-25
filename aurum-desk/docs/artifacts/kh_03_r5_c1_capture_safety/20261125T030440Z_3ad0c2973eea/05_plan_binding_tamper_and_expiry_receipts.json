@@ -1,0 +1,16 @@
+{
+  "expiry_during_wait_rejected": true,
+  "forged_unbound_plan_rejected": true,
+  "mutated_plan_recomputed_digest_rejected": true,
+  "mutated_plan_same_digest_rejected": true,
+  "post_enqueue_mutation_rejected": true,
+  "post_expiry_observed_calls": 0,
+  "recomputed_digest_observed_calls": 0,
+  "recomputed_digest_zero_dispatches": true,
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "run_id_and_destination_mismatch_rejected": true,
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8"
+}

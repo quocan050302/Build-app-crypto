@@ -1,0 +1,14 @@
+{
+  "actual_dispatch_cadence_monotonic": true,
+  "bounded_drain_verified": true,
+  "late_inflight_response_discarded": true,
+  "non_retryable_classes_never_retried": true,
+  "retry_after_exceeding_budget_stops": true,
+  "retry_after_never_shortened_verified": true,
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "undrained_inflight_workers": 0
+}

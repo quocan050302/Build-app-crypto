@@ -1,0 +1,68 @@
+{
+  "all_p1_red_reproduced": true,
+  "baseline_sha": "09493feb845210a629f3c0f174a2c6edfaf2ef23",
+  "command_display": "python <isolated_tmp>/run_baseline_red_harness.py <repo_root>",
+  "external_network_sockets_used": false,
+  "extracted_baseline_file_sha256": {
+    "aurum-desk/backend/services/kh_03_r5_capture_and_custody_service.py": "c4cf5757894b86d8e85429338816dc23fca60fe7b7dec6ac1dade1f00ceb66d2",
+    "aurum-desk/backend/services/kh_03_r5_market_data_foundation_service.py": "2c2623ef695d0e6c57cc1d370c10e96e21723a632ea0ac6a4d57fc2c78a2b2f2"
+  },
+  "isolated_temp_overlay_used": true,
+  "observations": {
+    "P1A_forged_trust_context_dict_live": {
+      "admitted": true,
+      "live_network_permitted": true,
+      "weakness_reproduced": true
+    },
+    "P1A_forged_unbound_plan_dispatches": {
+      "capture_status": "QA_FIXTURE_OFFLINE_PASS",
+      "observed_calls": 1,
+      "weakness_reproduced": true
+    },
+    "P1A_grant_A_planner_B_bypass": {
+      "dispatched_symbol": "BTCUSDT",
+      "dispatched_url": "https://api.bitget.com/api/v2/mix/market/contracts",
+      "observed_calls": 1,
+      "weakness_reproduced": true
+    },
+    "P1B_post_wait_deadline_cancel_race": {
+      "observed_calls": 2,
+      "second_call_timeout_sec": 0.2,
+      "weakness_reproduced": true
+    },
+    "P1B_retry_after_120s_shortened_to_2s": {
+      "observed_calls": 2,
+      "recorded_backoff_sec": 2.0,
+      "weakness_reproduced": true
+    },
+    "P1C_monitor_NaN_fail_open": {
+      "capture_status": "QA_FIXTURE_OFFLINE_PASS",
+      "observed_calls": 1,
+      "weakness_reproduced": true
+    },
+    "P1C_monitor_None_fail_open": {
+      "capture_status": "QA_FIXTURE_OFFLINE_PASS",
+      "observed_calls": 1,
+      "weakness_reproduced": true
+    },
+    "P1C_monitor_empty_dict_fail_open": {
+      "capture_status": "QA_FIXTURE_OFFLINE_PASS",
+      "observed_calls": 1,
+      "weakness_reproduced": true
+    }
+  },
+  "p1_a_red_reproduced": true,
+  "p1_b_red_reproduced": true,
+  "p1_c_red_reproduced": true,
+  "parse_error": null,
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "stderr_len": 0,
+  "stdout_sha256": "bb8e5a92639cb410c62243e6b1bde016550220ffb0374d6c7be29077026c2d03",
+  "subprocess_exit_code": 0,
+  "tested_c1_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "working_tree_mutated": false
+}

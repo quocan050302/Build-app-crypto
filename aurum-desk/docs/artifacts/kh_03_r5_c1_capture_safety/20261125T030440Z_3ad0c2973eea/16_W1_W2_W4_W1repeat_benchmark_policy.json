@@ -1,0 +1,302 @@
+{
+  "c1_capture_fixture_w1_w2_w4_benchmark": {
+    "all_4_identical": true,
+    "canonical_semantic_sha256": "0e9e828521348e1408417919fb0be5979d5a2562c0b50720d5c78ee34c08e260",
+    "runs": [
+      {
+        "mode_label": "w=1",
+        "semantic_result_sha256": "0e9e828521348e1408417919fb0be5979d5a2562c0b50720d5c78ee34c08e260",
+        "status": "QA_FIXTURE_OFFLINE_PASS",
+        "wall_sec": 0.0112,
+        "workers": 1
+      },
+      {
+        "mode_label": "w=2",
+        "semantic_result_sha256": "0e9e828521348e1408417919fb0be5979d5a2562c0b50720d5c78ee34c08e260",
+        "status": "QA_FIXTURE_OFFLINE_PASS",
+        "wall_sec": 0.0186,
+        "workers": 2
+      },
+      {
+        "mode_label": "w=4",
+        "semantic_result_sha256": "0e9e828521348e1408417919fb0be5979d5a2562c0b50720d5c78ee34c08e260",
+        "status": "QA_FIXTURE_OFFLINE_PASS",
+        "wall_sec": 0.0131,
+        "workers": 4
+      },
+      {
+        "mode_label": "w=1_repeat",
+        "semantic_result_sha256": "0e9e828521348e1408417919fb0be5979d5a2562c0b50720d5c78ee34c08e260",
+        "status": "QA_FIXTURE_OFFLINE_PASS",
+        "wall_sec": 0.0103,
+        "workers": 1
+      }
+    ]
+  },
+  "c1_capture_fixture_w1_w2_w4_identical": true,
+  "full_suite_actual_max_workers_applied": 3,
+  "full_suite_speedup_extrapolated": false,
+  "pytest_controlled_subset_raw": {
+    "all_4_runs_identical": true,
+    "all_executed_runs_identical": true,
+    "benchmark_kind": "pytest_controlled_subset",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "files_count": 10,
+    "measured_speedup_w2_vs_w1": 1.211,
+    "measured_speedup_w4_vs_w1": 1.437,
+    "r2_reference_timings_seconds": {
+      "w=1": 59.733,
+      "w=1_repeat": 58.891,
+      "w=2": 49.024,
+      "w=4": 43.088
+    },
+    "run_id": "20261125T030440Z_3ad0c2973eea",
+    "runs": [
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 53.638,
+        "worker_pids": [
+          6656
+        ],
+        "workers": 1
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 44.295,
+        "worker_pids": [
+          4728,
+          41564
+        ],
+        "workers": 2
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 37.325,
+        "worker_pids": [
+          6208,
+          16148,
+          20444,
+          28464
+        ],
+        "workers": 4
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 51.901,
+        "worker_pids": [
+          19904
+        ],
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r5_c1_capture_safety_v1",
+    "spec_version": "KH-03.R5.C1-v1.0",
+    "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+    "status": "PASS",
+    "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+    "w4_status": "EXECUTED"
+  },
+  "pytest_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 53.638,
+      "w=1_repeat": 51.901,
+      "w=2": 44.295,
+      "w=4": 37.325
+    },
+    "applied_worker_count": 3,
+    "applied_worker_count_is_benchmark_measured": false,
+    "applied_worker_mode": "w=3_SAFE_CAP_NOT_BENCHMARK_MEASURED",
+    "benchmark_kind": "pytest_controlled_subset",
+    "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+    "borderline_or_noisy_gain_warning": false,
+    "can_certify": true,
+    "canonical_semantic_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 3,
+      "full_suite_safe_worker_cap": 3,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 3
+    },
+    "duration_source_key": "wall_clock_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": true,
+    "gain_exceeds_w1_repeat_noise": true,
+    "gain_vs_w1_pct": 0.3041,
+    "input_doc_sha256": "9fcfbc2df70dca39582b3ddb3de4d4be6eefa52db35f6a1e9ab6bec6377ae87b",
+    "mean_wall_sec_by_mode": {
+      "w=1": 53.638,
+      "w=2": 44.295,
+      "w=4": 37.325
+    },
+    "measured_fastest_mode": "w=4",
+    "measured_fastest_workers": 4,
+    "measured_speedup_w2_vs_w1": 1.211,
+    "measured_speedup_w4_vs_w1": 1.437,
+    "measured_speedup_w4_vs_w1_mean": 1.414,
+    "median_wall_sec_by_mode": {
+      "w=1": 53.638,
+      "w=2": 44.295,
+      "w=4": 37.325
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=4",
+    "policy_decision_sha256": "6544243a6f3ae608c648545bababd984b04a248dd64522ed3523f4f187d3d16b",
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "policy_recommended_mode_after_gain_rule": "w=4",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 3,
+    "sample_size": 155,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=4 fastest in measured scope (30.41% faster than w=1, exceeding 5.00% threshold and 3.35% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+    "violations": [],
+    "w1_repeat_delta_sec": -1.737,
+    "w1_repeat_drift_vs_w1_pct": 0.0324,
+    "w1_repeat_variance_pct": 0.0335,
+    "w1_repeat_wall_sec": 51.901
+  },
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "science_slice_8000_raw": {
+    "all_4_runs_identical": true,
+    "benchmark_kind": "r2_science_slice",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "evaluated_bar_range": [
+      30,
+      8030
+    ],
+    "measured_optimal_worker_count_for_slice": 2,
+    "measured_speedup_w2_vs_w1": 1.196,
+    "measured_speedup_w4_vs_w1": 1.123,
+    "run_id": "20261125T030440Z_3ad0c2973eea",
+    "runs": [
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1",
+        "rows_count": 12062,
+        "wall_seconds": 2.406,
+        "workers": 1
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 2,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=2",
+        "rows_count": 12062,
+        "wall_seconds": 2.011,
+        "workers": 2
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 4,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=4",
+        "rows_count": 12062,
+        "wall_seconds": 2.143,
+        "workers": 4
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1_repeat",
+        "rows_count": 12062,
+        "wall_seconds": 2.701,
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r5_c1_capture_safety_v1",
+    "spec_version": "KH-03.R5.C1-v1.0",
+    "status": "PASS",
+    "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8"
+  },
+  "science_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 2.406,
+      "w=1_repeat": 2.701,
+      "w=2": 2.011,
+      "w=4": 2.143
+    },
+    "applied_worker_count": 2,
+    "applied_worker_count_is_benchmark_measured": true,
+    "applied_worker_mode": "w=2",
+    "benchmark_kind": "r2_science_slice",
+    "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+    "borderline_or_noisy_gain_warning": false,
+    "can_certify": true,
+    "canonical_semantic_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 4,
+      "full_suite_safe_worker_cap": 4,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 4
+    },
+    "duration_source_key": "wall_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": true,
+    "gain_exceeds_w1_repeat_noise": true,
+    "gain_vs_w1_pct": 0.1642,
+    "input_doc_sha256": "333dbf1a99346795e2c90608fa2cb63a638ed2ebf23a530f5cdf4a83bd03d5e8",
+    "mean_wall_sec_by_mode": {
+      "w=1": 2.406,
+      "w=2": 2.011,
+      "w=4": 2.143
+    },
+    "measured_fastest_mode": "w=2",
+    "measured_fastest_workers": 2,
+    "measured_speedup_w2_vs_w1": 1.196,
+    "measured_speedup_w4_vs_w1": 1.123,
+    "measured_speedup_w4_vs_w1_mean": 1.192,
+    "median_wall_sec_by_mode": {
+      "w=1": 2.406,
+      "w=2": 2.011,
+      "w=4": 2.143
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=2",
+    "policy_decision_sha256": "5f904c452a2731c74bff4226e167f891b96312c2315769968a683f912644cbdb",
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "policy_recommended_mode_after_gain_rule": "w=2",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 4,
+    "sample_size": 12062,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=2 fastest in measured scope (16.42% faster than w=1, exceeding 5.00% threshold and 12.26% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "MODERATE_TIMING_NOISE_WARNING",
+    "violations": [],
+    "w1_repeat_delta_sec": 0.295,
+    "w1_repeat_drift_vs_w1_pct": 0.1226,
+    "w1_repeat_variance_pct": 0.1226,
+    "w1_repeat_wall_sec": 2.701
+  },
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8"
+}

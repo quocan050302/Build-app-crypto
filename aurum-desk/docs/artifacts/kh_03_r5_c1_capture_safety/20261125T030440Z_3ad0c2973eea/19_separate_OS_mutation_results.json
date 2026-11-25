@@ -1,0 +1,155 @@
+{
+  "clean_clone_verifier_green": true,
+  "inherited_r5_r4_c2_c1_r3_mutations_detected_count": 89,
+  "inherited_r5_r4_c2_c1_r3_mutations_failed_detection_count": 0,
+  "inherited_r5_r4_c2_c1_r3_mutations_tested_count": 89,
+  "inherited_results_summary": {
+    "c1_c2_r4_r5": "73/73",
+    "r3": "16/16"
+  },
+  "isolated_temp_clones_only": true,
+  "new_c1_mutations_detected_count": 22,
+  "new_c1_mutations_failed_detection_count": 0,
+  "new_c1_mutations_tested_count": 22,
+  "new_c1_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_STALE_PRIOR_RUN_OR_SHA_REUSED",
+      "mutation_id": "C1M01_D01_STALE_R5_RUN_SHA_REUSED",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_FORGED_GATE_INFLATION:G05_STRICT_GRANT_SCHEMA",
+      "mutation_id": "C1M02_D02_FORGED_PASS_STATUS_IN_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_MISSING_OR_FORGED_REAL_RED_TRACE",
+      "mutation_id": "C1M03_D03_MISSING_RAW_RED_TRACE_03",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_PLAN_RECOMPUTED_DIGEST_BYPASS_NOT_BLOCKED",
+      "mutation_id": "C1M04_D04_RECOMPUTED_DIGEST_BYPASS_05",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_DISPATCH_AFTER_EXPIRY_DETECTED",
+      "mutation_id": "C1M05_D05_DISPATCH_AFTER_EXPIRY_05",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_DEADLINE_OVERRUN_OR_POST_WAIT_DISPATCH",
+      "mutation_id": "C1M06_D06_DEADLINE_OVERRUN_06",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_INVALID_RESOURCE_MONITOR_CLAIMED_SAFE",
+      "mutation_id": "C1M07_D07_INVALID_MONITOR_CLAIMED_SAFE_09",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_REQUEST_COUNTER_OR_CAP_MISMATCH",
+      "mutation_id": "C1M08_D08_REQUEST_COUNTER_EXCESS_08",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_BYTE_BUDGET_FALSE_PASS",
+      "mutation_id": "C1M09_D09_BYTE_BUDGET_FALSE_PASS_08",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_ABORT_DELETED_FILES_COUNTED_ACCEPTED",
+      "mutation_id": "C1M10_D10_ABORT_DELETED_FILES_ACCEPTED_10",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_DISK_WAIVER_OR_ORPHAN_BREACH",
+      "mutation_id": "C1M11_D11_DISK_WAIVER_OR_ORPHAN_17",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_NONZERO_EXTERNAL_MARKET_REQUESTS_OR_FAKE_OBSERVED",
+      "mutation_id": "C1M12_D12_FAKE_OBSERVED_RECORDS_11",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_FORGED_ECONOMIC_OOS_OR_ACTIVATION_IN_20",
+      "mutation_id": "C1M13_D13_FORGED_OOS_OR_ACTIVATION_20",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_JUNIT_COUNTS_TAMPERED_VS_RAW_XML",
+      "mutation_id": "C1M14_D14_JUNIT_MISSING_NODEID_15",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_JUNIT_FAIL_ERR_OR_MANDATORY_SKIP",
+      "mutation_id": "C1M15_D15_MANDATORY_SKIP_IN_JUNIT_XML",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_BENCH:pytest_controlled_subset",
+      "mutation_id": "C1M16_D16_FORGED_BENCHMARK_W1_FALLBACK_16",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_INVALID_JSON",
+      "mutation_id": "C1M17_D17_NONFINITE_NAN_IN_JSON_16",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_PARITY_ANCHOR_MUTATED",
+      "mutation_id": "C1M18_D18_PARITY_AND_ECONOMIC_MUTATION",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_FALSE_REMOTE_PUBLICATION_OR_WRONG_SHA",
+      "mutation_id": "C1M19_D19_REMOTE_RECEIPT_FALSE_CI_22",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "DUPLICATE_JSON_KEY",
+      "mutation_id": "C1M20_D20_DUPLICATE_JSON_KEY_TAMPER_04",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_MISSING_OR_EMPTY_ARTIFACT",
+      "mutation_id": "C1M21_D21_MISSING_REQUIRED_ARTIFACT_09",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C1V_NONZERO_EXTERNAL_MARKET_REQUESTS_OR_FAKE_OBSERVED",
+      "mutation_id": "C1M22_D22_NONZERO_EXTERNAL_MARKET_REQUESTS_11",
+      "verifier_exit_code": 1
+    }
+  ],
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "total_mutations_tested_count": 111
+}

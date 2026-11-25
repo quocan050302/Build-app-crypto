@@ -1,0 +1,504 @@
+{
+  "all_prior_sealed_artifacts_intact": true,
+  "c4_provenance_and_oos_boundary": {
+    "live_network_capture_executed": false,
+    "network_capture_enabled": false,
+    "real_oos_escrow_final_record_count": 0,
+    "real_oos_escrow_integrity_valid": true,
+    "status": "PASS"
+  },
+  "canonical_dataset_expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_dataset_rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz",
+  "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+  "canonical_dataset_sha256_match": true,
+  "prior_sealed_artifacts_count": 60,
+  "prior_sealed_artifacts_immutability": {
+    "CANONICAL_DATASET": {
+      "actual_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "exists": true,
+      "expected_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+      "match": true,
+      "rel_path": "aurum-desk/backtest/historical_dataset_XAUUSDT.json.gz"
+    },
+    "KH01B_R2_LATEST_PTR": {
+      "actual_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "exists": true,
+      "expected_sha256": "284efdfec507d70266e4ea18a9e4d91cf06f325fd2c0ab0eeeb89970f2f2f013",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_01b_r1_data_safety_r2/latest_run.json"
+    },
+    "KH01B_R3_LATEST_PTR": {
+      "actual_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "exists": true,
+      "expected_sha256": "3af706d98b7980120cc124e9616e18b17de4d5067121475c4e38c5408b18e283",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_01b_r1_ram_safety_r3/latest_run.json"
+    },
+    "KH02_R1_LATEST_PTR": {
+      "actual_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "exists": true,
+      "expected_sha256": "0e97fe682c7908653ca18002236e4839863108b69ec37784b838e1e98c35e5a4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_entry_foundation/latest_run.json"
+    },
+    "KH02_R2_ARTIFACT_14": {
+      "actual_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "exists": true,
+      "expected_sha256": "cb22bef6d958b9f7de13fa4812a3bf72a577606aa8ea9d8db628cb71ae26c38e",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/14_prospective_oos_escrow_collection_readiness_no_peek.json"
+    },
+    "KH02_R2_C1_MANIFEST_16": {
+      "actual_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "exists": true,
+      "expected_sha256": "050a427e4dc6972af180be7c4ce872e656e7b202bb2369d07eeefa9439ac4b06",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_strict_safety_oos_readiness/20261122T013329Z_1d5b82a9e094/16_independent_disk_verifier_content_sha256_manifest.json"
+    },
+    "KH02_R2_C2_LATEST_PTR": {
+      "actual_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "exists": true,
+      "expected_sha256": "2aaadffc2bb3c810cd088e06e56f18c980174df6b174295499d875660d664d91",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/latest_run.json"
+    },
+    "KH02_R2_C2_MANIFEST_17": {
+      "actual_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "exists": true,
+      "expected_sha256": "70373079db7bf1802aca5947e7a62564bb03c65c873bf923942b9fd6668ab518",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c2_acceptance/20261122T113807Z_732a22fbdeda/17_independent_os_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C3_LATEST_PTR": {
+      "actual_sha256": "48349333e7cd9dae8b480d859af5bb266f601382236f2bfb869fbbd50eb4a6d8",
+      "exists": true,
+      "expected_sha256": "48349333e7cd9dae8b480d859af5bb266f601382236f2bfb869fbbd50eb4a6d8",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/latest_run.json"
+    },
+    "KH02_R2_C3_MANIFEST_20": {
+      "actual_sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+      "exists": true,
+      "expected_sha256": "292f8f4a988fbd8a099522caca71de72d89ca871b0793862cd9804d266d5bff6",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/20261122T124741Z_d7eff11058e7/20_independent_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C3_POSTPUSH_RECEIPT": {
+      "actual_sha256": "589bf037eb0452e088df767a9f6fbd37c62a519a2a1abcf0599ef7af0682679c",
+      "exists": true,
+      "expected_sha256": "589bf037eb0452e088df767a9f6fbd37c62a519a2a1abcf0599ef7af0682679c",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c3_provenance_qc/23_postpush_remote_blobs_sha256_receipt_20261122T124741Z_d7eff11058e7.json"
+    },
+    "KH02_R2_C4_LATEST_PTR": {
+      "actual_sha256": "690a2dc3ce594ad34635086087f4522d37fdb6cdc3ffc529f39808c8f37241f2",
+      "exists": true,
+      "expected_sha256": "690a2dc3ce594ad34635086087f4522d37fdb6cdc3ffc529f39808c8f37241f2",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/latest_run.json"
+    },
+    "KH02_R2_C4_MANIFEST_24": {
+      "actual_sha256": "b0e754d9b5ecbad5a1d9024c5b05de9ea49f5f6cf5f1e0e64aadc23aa88b6e93",
+      "exists": true,
+      "expected_sha256": "b0e754d9b5ecbad5a1d9024c5b05de9ea49f5f6cf5f1e0e64aadc23aa88b6e93",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/20261123T035128Z_ed8b190c8f0f/24_independent_os_verifier_sha256_manifest.json"
+    },
+    "KH02_R2_C4_POSTPUSH_RECEIPT": {
+      "actual_sha256": "f29100fed30165c2b8fd5d30959d2b004471e2ba74c030084eeb1b73b98e94a6",
+      "exists": true,
+      "expected_sha256": "f29100fed30165c2b8fd5d30959d2b004471e2ba74c030084eeb1b73b98e94a6",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_c4_integrity_closure/20261123T035128Z_ed8b190c8f0f_postpush_remote_receipt.json"
+    },
+    "KH02_R2_LATEST_PTR": {
+      "actual_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "exists": true,
+      "expected_sha256": "3f99e10d75138914570ee25b4d3d4af1b4e0160716b8fc082062f67882f86e8f",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/latest_run.json"
+    },
+    "KH02_R2_MANIFEST_22": {
+      "actual_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "exists": true,
+      "expected_sha256": "9e7aad29cd963da17170634ea363120dcf02f92a43fa5efc8ed37048186b9169",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_02_r2_research_integrity/20261121T154352Z_8ca245bcf4d8/22_independent_os_disk_verifier_sha256_manifest.json"
+    },
+    "KH03_R1_LATEST_PTR": {
+      "actual_sha256": "9bc9d1b2dac13a7a43253b418edb30efcfa3148917a76250ea18fd1ba2e87630",
+      "exists": true,
+      "expected_sha256": "9bc9d1b2dac13a7a43253b418edb30efcfa3148917a76250ea18fd1ba2e87630",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_research_data/latest_run.json"
+    },
+    "KH03_R1_MANIFEST_24": {
+      "actual_sha256": "62beec9db13d0b3649f16d9c7545645434d7362bfaa784dc30d8de412237ad70",
+      "exists": true,
+      "expected_sha256": "62beec9db13d0b3649f16d9c7545645434d7362bfaa784dc30d8de412237ad70",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_research_data/20261123T055123Z_f0b668dc0dd1/24_independent_os_verifier_manifest_sha256.json"
+    },
+    "KH03_R1_POSTPUSH_RECEIPT": {
+      "actual_sha256": "2cb52042d7df0fc615fd9272780477c20555bc46b030aa51560477a9f80d9901",
+      "exists": true,
+      "expected_sha256": "2cb52042d7df0fc615fd9272780477c20555bc46b030aa51560477a9f80d9901",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_research_data/25_phase2_evidence_commit_remote_readback_receipt_20261123T055123Z_f0b668dc0dd1.json"
+    },
+    "KH03_R2_LATEST_PTR": {
+      "actual_sha256": "380caaae077bd9c712587c2ed2b1506347f192b42e5f1bf1ba8af4ab0c69d1e7",
+      "exists": true,
+      "expected_sha256": "380caaae077bd9c712587c2ed2b1506347f192b42e5f1bf1ba8af4ab0c69d1e7",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r2_methodology_closure/latest_run.json"
+    },
+    "KH03_R2_MANIFEST_25": {
+      "actual_sha256": "3ea7188d0efe7920fa6777ec1d65cd17af7300d1b2c55073de8de4678af3909c",
+      "exists": true,
+      "expected_sha256": "3ea7188d0efe7920fa6777ec1d65cd17af7300d1b2c55073de8de4678af3909c",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r2_methodology_closure/20261123T073028Z_a7f6fd52bfb3/25_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R2_POSTPUSH_RECEIPT": {
+      "actual_sha256": "b3c0c7f82c5ebd130451d77c3fdce639602500df18804812e5517e5aa7a2891e",
+      "exists": true,
+      "expected_sha256": "b3c0c7f82c5ebd130451d77c3fdce639602500df18804812e5517e5aa7a2891e",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r2_methodology_closure/27_phase2_remote_evidence_readback_receipt_20261123T073028Z_a7f6fd52bfb3.json"
+    },
+    "KH03_R3_C1_LATEST_RUN_POINTER": {
+      "actual_sha256": "18faf344c8a51073016367458fa66cc08ef3294b48a7680297c954975069c4d0",
+      "exists": true,
+      "expected_sha256": "18faf344c8a51073016367458fa66cc08ef3294b48a7680297c954975069c4d0",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/latest_run.json"
+    },
+    "KH03_R3_C1_SEALED_ECONOMIC_13": {
+      "actual_sha256": "79d5bf9737cf8fb04e91b6bb8e4ef738b09be6330c7d813715fdeee47b3e6de7",
+      "exists": true,
+      "expected_sha256": "79d5bf9737cf8fb04e91b6bb8e4ef738b09be6330c7d813715fdeee47b3e6de7",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/13_six_scenario_backtest_and_E1_E2_E3_null_economic_regression.json"
+    },
+    "KH03_R3_C1_SEALED_JUNIT_11": {
+      "actual_sha256": "c85f5df06a7b45e4c8feaac9a923630e942ca39072a26fb02b29c286e032e08f",
+      "exists": true,
+      "expected_sha256": "c85f5df06a7b45e4c8feaac9a923630e942ca39072a26fb02b29c286e032e08f",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/11_full_pytest_junit_collected_executed_bijection.json"
+    },
+    "KH03_R3_C1_SEALED_MANIFEST_18": {
+      "actual_sha256": "2c625eedcd3dcf636b32306b63d9534d37aa618805b12eb21f8f0ac8f5dd25f4",
+      "exists": true,
+      "expected_sha256": "2c625eedcd3dcf636b32306b63d9534d37aa618805b12eb21f8f0ac8f5dd25f4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/18_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R3_C1_SEALED_PARITY_12": {
+      "actual_sha256": "4ada96a0e09de0ec256a178810e891a2b131a5ea2da624c8f5cdc0478d131aa5",
+      "exists": true,
+      "expected_sha256": "4ada96a0e09de0ec256a178810e891a2b131a5ea2da624c8f5cdc0478d131aa5",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/12_full_A1_SI8_adapter_D4_parity_and_fingerprints.json"
+    },
+    "KH03_R3_C1_SEALED_POLICY_08": {
+      "actual_sha256": "8f31be369c73b999c32d8a648ba156487e62edfb49ecd043d0bfa01341cc0826",
+      "exists": true,
+      "expected_sha256": "8f31be369c73b999c32d8a648ba156487e62edfb49ecd043d0bfa01341cc0826",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/08_worker_policy_measured_vs_applied_caps_and_provenance.json"
+    },
+    "KH03_R3_C1_SEALED_POSTPUSH_READBACK_21": {
+      "actual_sha256": "f67a89efdf52eaf56aec296770b8d995e07e43572dd133ea4e4957b63ad94c16",
+      "exists": true,
+      "expected_sha256": "f67a89efdf52eaf56aec296770b8d995e07e43572dd133ea4e4957b63ad94c16",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/21_phase2_evidence_publish_remote_readback_20261123T123153Z_0d81a6e4b4f2.json"
+    },
+    "KH03_R3_C1_SEALED_PYTEST_BENCH_06": {
+      "actual_sha256": "46c464f570ff9e4365b33aa9409565c64b4ae9afbae175e091c359ee1d638330",
+      "exists": true,
+      "expected_sha256": "46c464f570ff9e4365b33aa9409565c64b4ae9afbae175e091c359ee1d638330",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/06_fresh_pytest_w1_w2_w4_w1repeat_raw_receipts.json"
+    },
+    "KH03_R3_C1_SEALED_SCIENCE_BENCH_07": {
+      "actual_sha256": "8eb4edc404d09362ea4df6dd37ccc966cba73e1b836513379612ff0a4e5e13dc",
+      "exists": true,
+      "expected_sha256": "8eb4edc404d09362ea4df6dd37ccc966cba73e1b836513379612ff0a4e5e13dc",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c1_worker_policy/20261123T123153Z_0d81a6e4b4f2/07_fresh_science_w1_w2_w4_w1repeat_raw_receipts.json"
+    },
+    "KH03_R3_C2_LATEST_RUN_POINTER": {
+      "actual_sha256": "d61a1ad520cc6fccfd04673604d59e6a5c60a8b9940dedcd72fdc35d64f7d431",
+      "exists": true,
+      "expected_sha256": "d61a1ad520cc6fccfd04673604d59e6a5c60a8b9940dedcd72fdc35d64f7d431",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/latest_run.json"
+    },
+    "KH03_R3_C2_SEALED_ECONOMIC_11": {
+      "actual_sha256": "2664f12a8a7e4b49e50fc58c21bc2ffabb7e3efbbe5d68768b9a63af934f34c0",
+      "exists": true,
+      "expected_sha256": "2664f12a8a7e4b49e50fc58c21bc2ffabb7e3efbbe5d68768b9a63af934f34c0",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/20261123T133101Z_06c02e626b99/11_six_cost_e1_e2_e3_null_regression.json"
+    },
+    "KH03_R3_C2_SEALED_GATES_17": {
+      "actual_sha256": "0b1a13b9a95c8d81a1c7385c7c5028e51b03490e168687059611d7fbf8758ee4",
+      "exists": true,
+      "expected_sha256": "0b1a13b9a95c8d81a1c7385c7c5028e51b03490e168687059611d7fbf8758ee4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/20261123T133101Z_06c02e626b99/17_orthogonal_gate_matrix_and_verdicts.json"
+    },
+    "KH03_R3_C2_SEALED_JUNIT_09": {
+      "actual_sha256": "d5a9131f87e6cb920e57adea27370ba9479fc8ded9e5d3159faf2ccbb12d5f7a",
+      "exists": true,
+      "expected_sha256": "d5a9131f87e6cb920e57adea27370ba9479fc8ded9e5d3159faf2ccbb12d5f7a",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/20261123T133101Z_06c02e626b99/09_full_repo_pytest_junit_1to1.json"
+    },
+    "KH03_R3_C2_SEALED_MANIFEST_16": {
+      "actual_sha256": "37a40f5d2c9df87734c40866ed04dffc0bcdea06fe8522f090a0a33323a2eb60",
+      "exists": true,
+      "expected_sha256": "37a40f5d2c9df87734c40866ed04dffc0bcdea06fe8522f090a0a33323a2eb60",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/20261123T133101Z_06c02e626b99/16_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R3_C2_SEALED_PARITY_10": {
+      "actual_sha256": "6fd145bb61742a1ffc48772b269f37bf4563b86b47ef35cd18a951d7bd7c8c86",
+      "exists": true,
+      "expected_sha256": "6fd145bb61742a1ffc48772b269f37bf4563b86b47ef35cd18a951d7bd7c8c86",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/20261123T133101Z_06c02e626b99/10_full_A1_SI8_adapter_D4_parity.json"
+    },
+    "KH03_R3_C2_SEALED_POSTPUSH_READBACK_19": {
+      "actual_sha256": "fd89dc9eddb6b841e5c0e560db3afbfe8ed364c54d5a2d59d5209b8f2d43c47f",
+      "exists": true,
+      "expected_sha256": "fd89dc9eddb6b841e5c0e560db3afbfe8ed364c54d5a2d59d5209b8f2d43c47f",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_c2_legacy_fail_closed/19_phase2_evidence_publish_remote_https_readback_20261123T133101Z_06c02e626b99.json"
+    },
+    "KH03_R3_LATEST_RUN_POINTER": {
+      "actual_sha256": "ddd52e1d75469e47b14cc36a76e836f020eb05fa0e77a1958b2b4f9920737aec",
+      "exists": true,
+      "expected_sha256": "ddd52e1d75469e47b14cc36a76e836f020eb05fa0e77a1958b2b4f9920737aec",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/latest_run.json"
+    },
+    "KH03_R3_SEALED_ARTIFACT_19_BENCHMARK_RED_FIXTURE": {
+      "actual_sha256": "85d7e5f7ed41192688c062e27114cec05e54b611f39822dd4c37496fd4471356",
+      "exists": true,
+      "expected_sha256": "85d7e5f7ed41192688c062e27114cec05e54b611f39822dd4c37496fd4471356",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/19_w1_w2_w4_w1repeat_hashes_timings_speedups.json"
+    },
+    "KH03_R3_SEALED_BASELINE_PARITY_17": {
+      "actual_sha256": "cc46449889f0cc09cf33cb6cd45062c84aeff84a4f36cff5fcfcd0be3d461fca",
+      "exists": true,
+      "expected_sha256": "cc46449889f0cc09cf33cb6cd45062c84aeff84a4f36cff5fcfcd0be3d461fca",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/17_baseline_parity_A1_SI8_adapter_D4.json"
+    },
+    "KH03_R3_SEALED_MANIFEST_24": {
+      "actual_sha256": "0edda8c11834bea2158e20dd93fcbd28a70170d36de59b6dbbcbaef8969cae97",
+      "exists": true,
+      "expected_sha256": "0edda8c11834bea2158e20dd93fcbd28a70170d36de59b6dbbcbaef8969cae97",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/24_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R3_SEALED_POSTPUSH_READBACK_26": {
+      "actual_sha256": "6ec5c19f048165c92c1810e434689cebeda08cc5c655a3e53344a39995c4a9ff",
+      "exists": true,
+      "expected_sha256": "6ec5c19f048165c92c1810e434689cebeda08cc5c655a3e53344a39995c4a9ff",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/26_phase2_evidence_publish_remote_readback_20261123T085134Z_2301d9c64898.json"
+    },
+    "KH03_R3_SEALED_SIX_SCENARIO_15": {
+      "actual_sha256": "c5fef84826a52e11c695fb9f8703d264423cb7f450af903a750e55fdda2e90e4",
+      "exists": true,
+      "expected_sha256": "c5fef84826a52e11c695fb9f8703d264423cb7f450af903a750e55fdda2e90e4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/15_fixed_fill_vs_dynamic_rerisk_and_expense_truth.json"
+    },
+    "KH03_R3_SEALED_STRICT_DEV_GATE_16": {
+      "actual_sha256": "8bcb247342bca84d830534d1748d9946bf0c9ae94394ff8331d7b228ab17682e",
+      "exists": true,
+      "expected_sha256": "8bcb247342bca84d830534d1748d9946bf0c9ae94394ff8331d7b228ab17682e",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r3_entry_exit_diagnosis/20261123T085134Z_2301d9c64898/16_strict_dev_gate_power_holm_cluster_bootstrap.json"
+    },
+    "KH03_R4_LATEST_RUN_POINTER": {
+      "actual_sha256": "d1f63639735638dc3bee9c47e14d3ac29c5778cfdc330a097ed2440f16173d2d",
+      "exists": true,
+      "expected_sha256": "d1f63639735638dc3bee9c47e14d3ac29c5778cfdc330a097ed2440f16173d2d",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/latest_run.json"
+    },
+    "KH03_R4_SEALED_30_GATES_19": {
+      "actual_sha256": "72b048a10b75f391ce3c6537609bf736d97f1ef0f67db2a092546ebe86858b93",
+      "exists": true,
+      "expected_sha256": "72b048a10b75f391ce3c6537609bf736d97f1ef0f67db2a092546ebe86858b93",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/19_orthogonal_30_gates_and_verdict_matrix.json"
+    },
+    "KH03_R4_SEALED_DATA_READINESS_11": {
+      "actual_sha256": "9a104584362daf4acf575a7732edaea8f91470ad45293cf5e57b5210cf2f7e88",
+      "exists": true,
+      "expected_sha256": "9a104584362daf4acf575a7732edaea8f91470ad45293cf5e57b5210cf2f7e88",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/11_data_readiness_register_and_missing_evidence.json"
+    },
+    "KH03_R4_SEALED_DECIMAL_BRIDGE_04": {
+      "actual_sha256": "57ce82a79570301680bcf2e165a8afacc3a436dcda8e80ce7db87d4f480573cf",
+      "exists": true,
+      "expected_sha256": "57ce82a79570301680bcf2e165a8afacc3a436dcda8e80ce7db87d4f480573cf",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/04_closed_trade_decimal_gross_fee_net_bridge.json"
+    },
+    "KH03_R4_SEALED_FORENSIC_LEDGER_GZ": {
+      "actual_sha256": "11b15d2ce6385ced0ce8a3c18ff053a59a204a2da0cde77cd52b8c43f965c344",
+      "exists": true,
+      "expected_sha256": "11b15d2ce6385ced0ce8a3c18ff053a59a204a2da0cde77cd52b8c43f965c344",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/logs/forensic_closed_open_gap_ledger_1x.jsonl.gz"
+    },
+    "KH03_R4_SEALED_MANIFEST_21": {
+      "actual_sha256": "67893977482c2e9028536683ebaac8267769197b5b160d238d4e9e2acf4460b1",
+      "exists": true,
+      "expected_sha256": "67893977482c2e9028536683ebaac8267769197b5b160d238d4e9e2acf4460b1",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/21_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R4_SEALED_PARITY_14": {
+      "actual_sha256": "8dd93391fed7f9974ecdcd3d62b6bf38884b2e3b15a797bb8f435dd64ba66070",
+      "exists": true,
+      "expected_sha256": "8dd93391fed7f9974ecdcd3d62b6bf38884b2e3b15a797bb8f435dd64ba66070",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/20261123T162838Z_c42a14321224/14_A1_SI8_adapter_D4_production_baseline_parity.json"
+    },
+    "KH03_R4_SEALED_POSTPUSH_READBACK_22": {
+      "actual_sha256": "8b1af6e8d162bdebd1f471bd52abc4de4f5265ba658a0515e9c7b5d63d88cdc4",
+      "exists": true,
+      "expected_sha256": "8b1af6e8d162bdebd1f471bd52abc4de4f5265ba658a0515e9c7b5d63d88cdc4",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r4_economic_feasibility/22_phase2_evidence_publish_remote_readback_20261123T162838Z_c42a14321224.json"
+    },
+    "KH03_R5_LATEST_RUN_POINTER": {
+      "actual_sha256": "39bafa28ffa73cd28b38c94764a745cb6cf0319c63a44c5640c26c99fe556982",
+      "exists": true,
+      "expected_sha256": "39bafa28ffa73cd28b38c94764a745cb6cf0319c63a44c5640c26c99fe556982",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/latest_run.json"
+    },
+    "KH03_R5_SEALED_26_GATES_20": {
+      "actual_sha256": "1c639b6e135444965a3174742c65c719e7cda0d64bf3a58ea13fdb3e96a2bd7a",
+      "exists": true,
+      "expected_sha256": "1c639b6e135444965a3174742c65c719e7cda0d64bf3a58ea13fdb3e96a2bd7a",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/20261124T135139Z_d9e24be7864d/20_orthogonal_gates_and_verdicts.json"
+    },
+    "KH03_R5_SEALED_FORENSIC_LEDGER_GZ": {
+      "actual_sha256": "7c2a5fbb0440950a6eef87d53fc5d223eeb2752e80803a19b24cbe21dc4de145",
+      "exists": true,
+      "expected_sha256": "7c2a5fbb0440950a6eef87d53fc5d223eeb2752e80803a19b24cbe21dc4de145",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/20261124T135139Z_d9e24be7864d/logs/r4_replay_forensic_ledger_1x.jsonl.gz"
+    },
+    "KH03_R5_SEALED_MANIFEST_21": {
+      "actual_sha256": "9751317ef930944768c26f488b3a71ccfdb2a96c14076bfb12a705b70eedb7e2",
+      "exists": true,
+      "expected_sha256": "9751317ef930944768c26f488b3a71ccfdb2a96c14076bfb12a705b70eedb7e2",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/20261124T135139Z_d9e24be7864d/21_independent_OS_verifier_manifest_sha256.json"
+    },
+    "KH03_R5_SEALED_PARITY_14": {
+      "actual_sha256": "7f32a69b3d4ec88d9ff5f8073d785379d2b2fd51c93799fed00a2023da0f094a",
+      "exists": true,
+      "expected_sha256": "7f32a69b3d4ec88d9ff5f8073d785379d2b2fd51c93799fed00a2023da0f094a",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/20261124T135139Z_d9e24be7864d/14_A1_SI8_adapter_D4_full_baseline_parity.json"
+    },
+    "KH03_R5_SEALED_POSTPUSH_READBACK_22": {
+      "actual_sha256": "e9779b7268383e1866ce1197d3d0b2db29ab89f53dcce939cac2c65a4ee2a648",
+      "exists": true,
+      "expected_sha256": "e9779b7268383e1866ce1197d3d0b2db29ab89f53dcce939cac2c65a4ee2a648",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/22_phase2_evidence_publish_remote_readback_20261124T135139Z_d9e24be7864d.json"
+    },
+    "KH03_R5_SEALED_R4_BRIDGE_13": {
+      "actual_sha256": "3c085c62adb27a3b7230ee5cac4e13923327af183d188f7d02a43f41fb04129e",
+      "exists": true,
+      "expected_sha256": "3c085c62adb27a3b7230ee5cac4e13923327af183d188f7d02a43f41fb04129e",
+      "match": true,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r5_market_data_foundation/20261124T135139Z_d9e24be7864d/13_r4_replay_parity_economic_bridge.json"
+    }
+  },
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "timeframe_coverage_and_gaps": {
+    "15m": {
+      "count": 15090,
+      "first_open_ms": 1779289200000,
+      "first_utc": "2026-05-20T15:00:00Z",
+      "gap_intervals_count": 9,
+      "last_close_ms": 1793196000000,
+      "last_utc": "2026-10-28T14:00:00Z",
+      "missing_bar_ratio": 0.0234,
+      "missing_bars_est": 362
+    },
+    "1D": {
+      "count": 181,
+      "first_open_ms": 1777478400000,
+      "first_utc": "2026-04-29T16:00:00Z",
+      "gap_intervals_count": 0,
+      "last_close_ms": 1793116800000,
+      "last_utc": "2026-10-27T16:00:00Z",
+      "missing_bar_ratio": 0.0,
+      "missing_bars_est": 0
+    },
+    "1H": {
+      "count": 3863,
+      "first_open_ms": 1779289200000,
+      "first_utc": "2026-05-20T15:00:00Z",
+      "gap_intervals_count": 0,
+      "last_close_ms": 1793196000000,
+      "last_utc": "2026-10-28T14:00:00Z",
+      "missing_bar_ratio": 0.0,
+      "missing_bars_est": 0
+    },
+    "1m": {
+      "count": 22376,
+      "first_open_ms": 1791437880000,
+      "first_utc": "2026-10-08T05:38:00Z",
+      "gap_intervals_count": 11,
+      "last_close_ms": 1793196000000,
+      "last_utc": "2026-10-28T14:00:00Z",
+      "missing_bar_ratio": 0.2364,
+      "missing_bars_est": 6926
+    },
+    "4H": {
+      "count": 965,
+      "first_open_ms": 1779292800000,
+      "first_utc": "2026-05-20T16:00:00Z",
+      "gap_intervals_count": 0,
+      "last_close_ms": 1793188800000,
+      "last_utc": "2026-10-28T12:00:00Z",
+      "missing_bar_ratio": 0.0,
+      "missing_bars_est": 0
+    },
+    "5m": {
+      "count": 31609,
+      "first_open_ms": 1783436400000,
+      "first_utc": "2026-07-07T15:00:00Z",
+      "gap_intervals_count": 11,
+      "last_close_ms": 1793196000000,
+      "last_utc": "2026-10-28T14:00:00Z",
+      "missing_bar_ratio": 0.0284,
+      "missing_bars_est": 923
+    }
+  }
+}

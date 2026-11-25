@@ -1,0 +1,343 @@
+{
+  "distinct_os_process_verified": true,
+  "independent_junit_bijection_ok": true,
+  "independent_pytest_benchmark_recompute": {
+    "recomputed_policy_summary": {
+      "all_four_measured_wall_sec": {
+        "w=1": 53.638,
+        "w=1_repeat": 51.901,
+        "w=2": 44.295,
+        "w=4": 37.325
+      },
+      "applied_worker_count": 3,
+      "applied_worker_count_is_benchmark_measured": false,
+      "applied_worker_mode": "w=3_SAFE_CAP_NOT_BENCHMARK_MEASURED",
+      "benchmark_kind": "pytest_controlled_subset",
+      "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+      "borderline_or_noisy_gain_warning": false,
+      "can_certify": true,
+      "canonical_semantic_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "cap_components": {
+        "configured_child_process_cap": 4,
+        "currently_allowed_worker_cap": 3,
+        "full_suite_safe_worker_cap": 3,
+        "ram_derived_worker_cap": 4,
+        "shard_exclusive_cap": 3
+      },
+      "duration_source_key": "wall_clock_seconds",
+      "full_suite_speedup_extrapolated": false,
+      "gain_exceeds_min_threshold": true,
+      "gain_exceeds_w1_repeat_noise": true,
+      "gain_vs_w1_pct": 0.3041,
+      "input_doc_sha256": "9fcfbc2df70dca39582b3ddb3de4d4be6eefa52db35f6a1e9ab6bec6377ae87b",
+      "mean_wall_sec_by_mode": {
+        "w=1": 53.638,
+        "w=2": 44.295,
+        "w=4": 37.325
+      },
+      "measured_fastest_mode": "w=4",
+      "measured_fastest_workers": 4,
+      "measured_speedup_w2_vs_w1": 1.211,
+      "measured_speedup_w4_vs_w1": 1.437,
+      "measured_speedup_w4_vs_w1_mean": 1.414,
+      "median_wall_sec_by_mode": {
+        "w=1": 53.638,
+        "w=2": 44.295,
+        "w=4": 37.325
+      },
+      "min_meaningful_gain_pct": 0.05,
+      "optimum_worker_policy": "w=4",
+      "policy_decision_sha256": "6544243a6f3ae608c648545bababd984b04a248dd64522ed3523f4f187d3d16b",
+      "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+      "policy_recommended_mode_after_gain_rule": "w=4",
+      "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+      "provenance_role": "FRESH_EXECUTION",
+      "safe_fallback_reason": null,
+      "safe_worker_cap": 3,
+      "sample_size": 155,
+      "schema_version": "kh_03_r3_c1_worker_policy_v1",
+      "spec_version": "KH-03.R3.C1-v1.0",
+      "stability_disclosure": "w=4 fastest in measured scope (30.41% faster than w=1, exceeding 5.00% threshold and 3.35% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+      "status": "PASS",
+      "tie_detected": false,
+      "tie_rule": "prefer_fewer_workers",
+      "timing_determinism_claimed": false,
+      "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+      "violations": [],
+      "w1_repeat_delta_sec": -1.737,
+      "w1_repeat_drift_vs_w1_pct": 0.0324,
+      "w1_repeat_variance_pct": 0.0335,
+      "w1_repeat_wall_sec": 51.901
+    },
+    "valid": true,
+    "violations": []
+  },
+  "independent_r4_replay_audit": {
+    "recomputed_net_usd": -441.6118,
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "independent_recomputed_30_gates": {
+    "G01_BRANCH_SHA_CLEAN": "PASS",
+    "G02_KEEP_AS_IS": "PASS",
+    "G03_PRIOR_SEALED_DATASET_OOS": "PASS",
+    "G04_REAL_RED_REPRODUCTION": "PASS",
+    "G05_STRICT_GRANT_SCHEMA": "PASS",
+    "G06_TRUST_BOUNDARY": "PASS",
+    "G07_EFFECTIVE_SCOPE": "PASS",
+    "G08_PLAN_INTEGRITY": "PASS",
+    "G09_DISPATCH_REVALIDATION": "PASS",
+    "G10_QA_ISOLATION": "PASS",
+    "G11_DEADLINE_POST_WAIT": "PASS",
+    "G12_TIMEOUT_REMAINING": "PASS",
+    "G13_RATE_RETRY": "PASS",
+    "G14_ATOMIC_REQUEST_BUDGET": "PASS",
+    "G15_BYTE_BUDGET": "PASS",
+    "G16_CANCELLATION_DRAIN": "PASS",
+    "G17_RESOURCE_STRICT": "PASS",
+    "G18_DISK_RAM_GUARD": "PASS",
+    "G19_STAGING_CUSTODY": "PASS",
+    "G20_ABORT_STATUS_TRUTH": "PASS",
+    "G21_FULL_PYTEST": "PASS",
+    "G22_BASELINE_PARITY": "PASS",
+    "G23_BACKTEST_PARITY": "PASS",
+    "G24_DETERMINISTIC_WORKERS": "PASS",
+    "G25_MEASURED_WORKER_POLICY": "PASS",
+    "G26_FAULT_CONTROLS": "PASS",
+    "G27_INDEPENDENT_VERIFIER": "PASS",
+    "G28_MUTATION_RESISTANCE": "PASS",
+    "G29_ECONOMIC_AND_ACTIVATION": "PASS",
+    "G30_REMOTE_PUBLICATION": "PRE_PUSH_PENDING"
+  },
+  "independent_recomputed_verdicts": {
+    "ACCEPTED_REAL_OBSERVED_RECORDS": 0,
+    "ACCOUNT_FEE_READINESS": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "BACKTEST_PARITY": "PASS",
+    "CAPTURE_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_EXECUTION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_PROVENANCE": "NO_REAL_CAPTURE",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "DATA_READINESS": "INCOMPLETE",
+    "ENGINEERING": "PASS",
+    "EXECUTION_FIDELITY": "INCOMPLETE",
+    "EXTERNAL_MARKET_REQUESTS_ATTEMPTED": 0,
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FULL_REGRESSION": "PASS",
+    "FUNDING_READINESS": "MISSING",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE": "OFF",
+    "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+    "OBSERVED_BBO_COVERAGE": "MISSING",
+    "OOS_EVALUATIONS": 0,
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "PUBLICATION": "PRE_PUSH_PENDING",
+    "RESEARCH_ECONOMIC_VERDICT": "NO_PROVEN_EDGE",
+    "RESOURCE_SAFETY": "PASS"
+  },
+  "independent_science_benchmark_recompute": {
+    "recomputed_policy_summary": {
+      "all_four_measured_wall_sec": {
+        "w=1": 2.406,
+        "w=1_repeat": 2.701,
+        "w=2": 2.011,
+        "w=4": 2.143
+      },
+      "applied_worker_count": 2,
+      "applied_worker_count_is_benchmark_measured": true,
+      "applied_worker_mode": "w=2",
+      "benchmark_kind": "r2_science_slice",
+      "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+      "borderline_or_noisy_gain_warning": false,
+      "can_certify": true,
+      "canonical_semantic_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "cap_components": {
+        "configured_child_process_cap": 4,
+        "currently_allowed_worker_cap": 4,
+        "full_suite_safe_worker_cap": 4,
+        "ram_derived_worker_cap": 4,
+        "shard_exclusive_cap": 4
+      },
+      "duration_source_key": "wall_seconds",
+      "full_suite_speedup_extrapolated": false,
+      "gain_exceeds_min_threshold": true,
+      "gain_exceeds_w1_repeat_noise": true,
+      "gain_vs_w1_pct": 0.1642,
+      "input_doc_sha256": "333dbf1a99346795e2c90608fa2cb63a638ed2ebf23a530f5cdf4a83bd03d5e8",
+      "mean_wall_sec_by_mode": {
+        "w=1": 2.406,
+        "w=2": 2.011,
+        "w=4": 2.143
+      },
+      "measured_fastest_mode": "w=2",
+      "measured_fastest_workers": 2,
+      "measured_speedup_w2_vs_w1": 1.196,
+      "measured_speedup_w4_vs_w1": 1.123,
+      "measured_speedup_w4_vs_w1_mean": 1.192,
+      "median_wall_sec_by_mode": {
+        "w=1": 2.406,
+        "w=2": 2.011,
+        "w=4": 2.143
+      },
+      "min_meaningful_gain_pct": 0.05,
+      "optimum_worker_policy": "w=2",
+      "policy_decision_sha256": "5f904c452a2731c74bff4226e167f891b96312c2315769968a683f912644cbdb",
+      "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+      "policy_recommended_mode_after_gain_rule": "w=2",
+      "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+      "provenance_role": "FRESH_EXECUTION",
+      "safe_fallback_reason": null,
+      "safe_worker_cap": 4,
+      "sample_size": 12062,
+      "schema_version": "kh_03_r3_c1_worker_policy_v1",
+      "spec_version": "KH-03.R3.C1-v1.0",
+      "stability_disclosure": "w=2 fastest in measured scope (16.42% faster than w=1, exceeding 5.00% threshold and 12.26% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+      "status": "PASS",
+      "tie_detected": false,
+      "tie_rule": "prefer_fewer_workers",
+      "timing_determinism_claimed": false,
+      "timing_stability_status": "MODERATE_TIMING_NOISE_WARNING",
+      "violations": [],
+      "w1_repeat_delta_sec": 0.295,
+      "w1_repeat_drift_vs_w1_pct": 0.1226,
+      "w1_repeat_variance_pct": 0.1226,
+      "w1_repeat_wall_sec": 2.701
+    },
+    "valid": true,
+    "violations": []
+  },
+  "independent_telemetry_audit": {
+    "below_floor_samples_count": 0,
+    "max_workers_observed_in_samples": 4,
+    "min_available_ram_mib": 1186.5,
+    "min_disk_free_gib": 44.3879,
+    "samples_count": 5560,
+    "status": "PASS",
+    "violations": []
+  },
+  "manifest_excludes_self_from_hash_index": true,
+  "orchestrator_pid": 11816,
+  "overall_classification": "ENGINEERING_PASS_CAPTURE_SAFETY_HARDENED_OFFLINE_ONLY_CAPTURE_BLOCKED_OWNER_AUTHORIZATION_ECONOMIC_NO_PROVEN_EDGE",
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "verified_artifact_sha256_manifest": {
+    "00_preflight_branch_sha_resource_lock.json": {
+      "bytes": 7465,
+      "sha256": "7ddfd8a29c0291ca89980e7b6a2f6d3447d9ee6f7d0a1fa280e3545f1a59bfcf"
+    },
+    "01_function_ownership_keep_as_is_manifest.json": {
+      "bytes": 18175,
+      "sha256": "3a68f50a83058d54c36e5c0b14534389d4d35e82c2c9fd28bbb063f5740a3d30"
+    },
+    "02_prior_dataset_sealed_integrity.json": {
+      "bytes": 27223,
+      "sha256": "ee9332fb79602808483a63140ec8f497d89c870e437b63f41004959d002a80af"
+    },
+    "03_real_baseline_red_reproduction.json": {
+      "bytes": 2494,
+      "sha256": "d07bc2b0f62b4ba668a7ae4d367b535e66dfd93d2ce0c672160883ff33cc203a"
+    },
+    "04_strict_authorization_scope_schema.json": {
+      "bytes": 723,
+      "sha256": "9a9ea9091bea056b915805d68572848c49d14a270d7c8022b46573b63912ca75"
+    },
+    "05_plan_binding_tamper_and_expiry_receipts.json": {
+      "bytes": 620,
+      "sha256": "2d1170f14c69d93511d4fdc283eb7ab4375ce90b30538dbd96bc120e621ee91e"
+    },
+    "06_dispatch_guard_remaining_timeout_trace.json": {
+      "bytes": 497,
+      "sha256": "2863c3836aa4420ebf46a052cf2b3eac3a4d73e9ae5f5dd6a5bc0e63ec0413d2"
+    },
+    "07_rate_limiter_retry_cancellation_trace.json": {
+      "bytes": 529,
+      "sha256": "49375b25c9de3613f22420ca767c07e40b5031bb0c2832f61172f3f6a35d4a24"
+    },
+    "08_atomic_request_byte_budget_and_transport_receipts.json": {
+      "bytes": 602,
+      "sha256": "f334d43c5593c0657c86f67e79efc8e9ced0de839107b3a4c40a37b4c6d96b40"
+    },
+    "09_resource_sample_strictness_and_volume_identity.json": {
+      "bytes": 513,
+      "sha256": "a7e6666e18e6253ef2ed2ea06c7629c02830a1b58d8a6a0e4f0c618aec3ea1ca"
+    },
+    "10_staging_custody_abort_cleanup_inventory.json": {
+      "bytes": 632,
+      "sha256": "fa79257d8db054cebe379d098caed2f4674236293f69a8a27c3b16dc1f35bd10"
+    },
+    "11_offline_only_provenance_partition_no_oos.json": {
+      "bytes": 545,
+      "sha256": "c120bd4fefaeee026a44adbb34ab85352c12111fd0d231dd8c6110a2e15c029a"
+    },
+    "12_r4_replay_decimal_economic_bridge.json": {
+      "bytes": 7362,
+      "sha256": "6d9d0f2117261adc7a511acc1c85da35bd8973e309e4503b0b083c8aa6a904e0"
+    },
+    "13_six_cost_scenarios_and_arm_regression.json": {
+      "bytes": 6162,
+      "sha256": "91ca59b82b818da46b32df3a9fc83ba3b663c9f36fa478598668e756c93724ec"
+    },
+    "14_A1_SI8_adapter_D4_full_parity.json": {
+      "bytes": 2597,
+      "sha256": "1aa38b30cca0a92c8e195cf800671632e6ef7a0f3d546878d93e901e2519db68"
+    },
+    "15_full_pytest_fresh_collection_junit_bijection.json": {
+      "bytes": 964016,
+      "sha256": "67237b59911bc4c60daab4c67acb18aa393b95657b76a456cc4168a4a7bb55c7"
+    },
+    "16_W1_W2_W4_W1repeat_benchmark_policy.json": {
+      "bytes": 10917,
+      "sha256": "7f79c6ebcadb1b4cfb92b515dcd28ccd76f4b53abf22e97a985f756adf1e96cc"
+    },
+    "17_actual_resource_telemetry_cleanup.json": {
+      "bytes": 971,
+      "sha256": "14a8b6375469c6dfd4f52a15af68163f4a86f2b98c6977aba5a5c6ccbe547953"
+    },
+    "18_inherited_new_red_green_faults.json": {
+      "bytes": 99733,
+      "sha256": "02aa71a789a4b6437a143ba212777475f8870b19c9047ed3fef304674016ad7c"
+    },
+    "19_separate_OS_mutation_results.json": {
+      "bytes": 5518,
+      "sha256": "bfdaa7b7b9cad9c28e678b884f3b443216becad99a7e587a4baa7793111d83ce"
+    },
+    "20_orthogonal_gates_and_verdicts.json": {
+      "bytes": 4051,
+      "sha256": "2fe0bbab7eb3212dca975b9c7a7d13784b0caac41accd0461d384d049728998e"
+    },
+    "22_phase1_code_commit_push_receipt.json": {
+      "bytes": 683,
+      "sha256": "5b0ad5288848bbb41b930a6432e818fe0aada1e400fed1767b3e44d7d5357ba1"
+    },
+    "HANDOVER_KH03_R5_C1_VI.txt": {
+      "bytes": 4467,
+      "sha256": "9cb4bbc3085b38402391c4f5abf5cf65796da541bbe2b176db948c46ae17dc34"
+    },
+    "README.md": {
+      "bytes": 5420,
+      "sha256": "77979d469456dd2107ac1434adbb0473a1bf433b7d0c326bd48e7eacfbf8748d"
+    },
+    "logs/pytest_collected_executed_nodeids.jsonl.gz": {
+      "bytes": 98359,
+      "sha256": "a361099d6efc7a655da0e53399d41b1255dbf798feaa985d9d8ab9b171c1e36c"
+    },
+    "logs/r4_replay_forensic_ledger_1x.jsonl.gz": {
+      "bytes": 23774,
+      "sha256": "95488a2bb677b55015a936c857f793274193f3af71cc8dee33d7569f2b1939a2"
+    },
+    "logs/runtime_memory_samples_0p5s.jsonl.gz": {
+      "bytes": 148575,
+      "sha256": "c3b4e75e19a6030de25b6897cc6386fe74b0dd8ef2cc895122935dcbd6d69a8d"
+    }
+  },
+  "verified_utc": "2026-11-25T03:59:10Z",
+  "verifier_pid": 25996,
+  "violations": [],
+  "violations_count": 0
+}
