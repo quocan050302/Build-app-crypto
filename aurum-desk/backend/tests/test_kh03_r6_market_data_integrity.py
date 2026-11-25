@@ -47,10 +47,10 @@ def run_kh03_r6_controls_d01_to_d11(*, executable_sha: str, run_id: str) -> Tupl
     bad_bars_d01 = [
         [str(base + 123), "2650.10", "2649.00", "2651.00", "2650.50", "-5"],  # unaligned + high<low + neg vol
     ]
-    r_d01_neg = paginate_r6_ohlcv_history(symbol="XAUUSDT", granularity="1m", window_start_ms=win_start, window_end_ms=win_end, server_time_ms=server_ms, page_fetcher=lambda _c, _p: {"ok": True, "rows": bad_bars_d01}, max_pages=2, calendar_expected_open_times_ms=exp_ts, tick_size="0.01")
+    r_d01_neg = paginate_r6_ohlcv_history(symbol="XAUUSDT", granularity="1m", window_start_ms=win_start, window_end_ms=win_end, server_time_ms=server_ms, page_fetcher=lambda _c, _p: {"ok": True, "rows": bad_bars_d01}, max_pages=1, calendar_expected_open_times_ms=exp_ts, tick_size="0.01")
     r_d01_pos = paginate_r6_ohlcv_history(symbol="XAUUSDT", granularity="1m", window_start_ms=win_start, window_end_ms=win_end, server_time_ms=server_ms, page_fetcher=lambda _c, _p: {"ok": True, "rows": valid_bars}, max_pages=2, calendar_expected_open_times_ms=exp_ts, tick_size="0.01")
     summary["valid_closed_bars_accepted"] = (r_d01_pos["ok"] is True and r_d01_pos["canonical_valid_count"] == 4)
-    summary["invalid_geometry_rejected"] = (r_d01_neg["ok"] is False and r_d01_neg["invalid_rows_count"] == 1)
+    summary["invalid_geometry_rejected"] = (r_d01_neg["ok"] is False and r_d01_neg["invalid_rows_count"] >= 1 and r_d01_neg["canonical_valid_count"] == 0)
     receipts.append(execute_r6_fault_pair(
         R6FaultCaseSpec("R6-D01", "D_DATA_CUSTODY", "NEGATIVE_CONTRACT", "services.kh_03_r6_market_data_service.paginate_r6_ohlcv_history", "data_anomaly_caught", "data_clean_valid", "Invalid OHLC geometry/unaligned ts rejected vs valid closed M1 bars"),
         negative_fn=lambda: ({"invalid_rows": r_d01_neg["invalid_rows_count"]}, {"anomaly_caught": r_d01_neg["invalid_rows_count"] >= 1 and r_d01_neg["canonical_valid_count"] == 0, "fabricated_or_inflated": False}),
@@ -237,7 +237,12 @@ def test_kh03_r6_paired_controls_d01_to_d11() -> None:
     verd = derive_r6_fault_verdict(recs, expected_executable_sha="4" * 40, expected_run_id="test_r6_d11")
     assert verd["valid"] is True, verd["violations"]
     assert verd["passed_controls"] == 11
+    assert summary["valid_closed_bars_accepted"] is True
+    assert summary["invalid_geometry_rejected"] is True
+    assert summary["cursor_replay_stopped"] is True
     assert summary["contradictory_duplicate_quarantined"] is True
+    assert summary["unclosed_future_excluded_from_canonical"] is True
+    assert summary["unknown_calendar_marked_incomplete"] is True
     assert summary["duplicates_do_not_inflate_coverage"] is True
     assert summary["missing_settlements_not_zero_filled"] is True
     assert summary["public_fee_rejected_as_owner_effective"] is True
