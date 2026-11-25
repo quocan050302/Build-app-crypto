@@ -1,0 +1,324 @@
+{
+  "actual_github_actions_run_verified": false,
+  "all_files_http_200_and_sha256_exact_match": true,
+  "baseline_review_head_sha": "09493feb845210a629f3c0f174a2c6edfaf2ef23",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "core_artifacts_verified": [
+    {
+      "bytes": 7465,
+      "http_status": 200,
+      "local_sha256": "7ddfd8a29c0291ca89980e7b6a2f6d3447d9ee6f7d0a1fa280e3545f1a59bfcf",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "00_preflight_branch_sha_resource_lock.json",
+      "remote_sha256": "7ddfd8a29c0291ca89980e7b6a2f6d3447d9ee6f7d0a1fa280e3545f1a59bfcf",
+      "verified": true
+    },
+    {
+      "bytes": 18175,
+      "http_status": 200,
+      "local_sha256": "3a68f50a83058d54c36e5c0b14534389d4d35e82c2c9fd28bbb063f5740a3d30",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "01_function_ownership_keep_as_is_manifest.json",
+      "remote_sha256": "3a68f50a83058d54c36e5c0b14534389d4d35e82c2c9fd28bbb063f5740a3d30",
+      "verified": true
+    },
+    {
+      "bytes": 27223,
+      "http_status": 200,
+      "local_sha256": "ee9332fb79602808483a63140ec8f497d89c870e437b63f41004959d002a80af",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "02_prior_dataset_sealed_integrity.json",
+      "remote_sha256": "ee9332fb79602808483a63140ec8f497d89c870e437b63f41004959d002a80af",
+      "verified": true
+    },
+    {
+      "bytes": 2494,
+      "http_status": 200,
+      "local_sha256": "d07bc2b0f62b4ba668a7ae4d367b535e66dfd93d2ce0c672160883ff33cc203a",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "03_real_baseline_red_reproduction.json",
+      "remote_sha256": "d07bc2b0f62b4ba668a7ae4d367b535e66dfd93d2ce0c672160883ff33cc203a",
+      "verified": true
+    },
+    {
+      "bytes": 723,
+      "http_status": 200,
+      "local_sha256": "9a9ea9091bea056b915805d68572848c49d14a270d7c8022b46573b63912ca75",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "04_strict_authorization_scope_schema.json",
+      "remote_sha256": "9a9ea9091bea056b915805d68572848c49d14a270d7c8022b46573b63912ca75",
+      "verified": true
+    },
+    {
+      "bytes": 620,
+      "http_status": 200,
+      "local_sha256": "2d1170f14c69d93511d4fdc283eb7ab4375ce90b30538dbd96bc120e621ee91e",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "05_plan_binding_tamper_and_expiry_receipts.json",
+      "remote_sha256": "2d1170f14c69d93511d4fdc283eb7ab4375ce90b30538dbd96bc120e621ee91e",
+      "verified": true
+    },
+    {
+      "bytes": 497,
+      "http_status": 200,
+      "local_sha256": "2863c3836aa4420ebf46a052cf2b3eac3a4d73e9ae5f5dd6a5bc0e63ec0413d2",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "06_dispatch_guard_remaining_timeout_trace.json",
+      "remote_sha256": "2863c3836aa4420ebf46a052cf2b3eac3a4d73e9ae5f5dd6a5bc0e63ec0413d2",
+      "verified": true
+    },
+    {
+      "bytes": 529,
+      "http_status": 200,
+      "local_sha256": "49375b25c9de3613f22420ca767c07e40b5031bb0c2832f61172f3f6a35d4a24",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "07_rate_limiter_retry_cancellation_trace.json",
+      "remote_sha256": "49375b25c9de3613f22420ca767c07e40b5031bb0c2832f61172f3f6a35d4a24",
+      "verified": true
+    },
+    {
+      "bytes": 602,
+      "http_status": 200,
+      "local_sha256": "f334d43c5593c0657c86f67e79efc8e9ced0de839107b3a4c40a37b4c6d96b40",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "08_atomic_request_byte_budget_and_transport_receipts.json",
+      "remote_sha256": "f334d43c5593c0657c86f67e79efc8e9ced0de839107b3a4c40a37b4c6d96b40",
+      "verified": true
+    },
+    {
+      "bytes": 513,
+      "http_status": 200,
+      "local_sha256": "a7e6666e18e6253ef2ed2ea06c7629c02830a1b58d8a6a0e4f0c618aec3ea1ca",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "09_resource_sample_strictness_and_volume_identity.json",
+      "remote_sha256": "a7e6666e18e6253ef2ed2ea06c7629c02830a1b58d8a6a0e4f0c618aec3ea1ca",
+      "verified": true
+    },
+    {
+      "bytes": 632,
+      "http_status": 200,
+      "local_sha256": "fa79257d8db054cebe379d098caed2f4674236293f69a8a27c3b16dc1f35bd10",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "10_staging_custody_abort_cleanup_inventory.json",
+      "remote_sha256": "fa79257d8db054cebe379d098caed2f4674236293f69a8a27c3b16dc1f35bd10",
+      "verified": true
+    },
+    {
+      "bytes": 545,
+      "http_status": 200,
+      "local_sha256": "c120bd4fefaeee026a44adbb34ab85352c12111fd0d231dd8c6110a2e15c029a",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "11_offline_only_provenance_partition_no_oos.json",
+      "remote_sha256": "c120bd4fefaeee026a44adbb34ab85352c12111fd0d231dd8c6110a2e15c029a",
+      "verified": true
+    },
+    {
+      "bytes": 7362,
+      "http_status": 200,
+      "local_sha256": "6d9d0f2117261adc7a511acc1c85da35bd8973e309e4503b0b083c8aa6a904e0",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "12_r4_replay_decimal_economic_bridge.json",
+      "remote_sha256": "6d9d0f2117261adc7a511acc1c85da35bd8973e309e4503b0b083c8aa6a904e0",
+      "verified": true
+    },
+    {
+      "bytes": 6162,
+      "http_status": 200,
+      "local_sha256": "91ca59b82b818da46b32df3a9fc83ba3b663c9f36fa478598668e756c93724ec",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "13_six_cost_scenarios_and_arm_regression.json",
+      "remote_sha256": "91ca59b82b818da46b32df3a9fc83ba3b663c9f36fa478598668e756c93724ec",
+      "verified": true
+    },
+    {
+      "bytes": 2597,
+      "http_status": 200,
+      "local_sha256": "1aa38b30cca0a92c8e195cf800671632e6ef7a0f3d546878d93e901e2519db68",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "14_A1_SI8_adapter_D4_full_parity.json",
+      "remote_sha256": "1aa38b30cca0a92c8e195cf800671632e6ef7a0f3d546878d93e901e2519db68",
+      "verified": true
+    },
+    {
+      "bytes": 964016,
+      "http_status": 200,
+      "local_sha256": "67237b59911bc4c60daab4c67acb18aa393b95657b76a456cc4168a4a7bb55c7",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "15_full_pytest_fresh_collection_junit_bijection.json",
+      "remote_sha256": "67237b59911bc4c60daab4c67acb18aa393b95657b76a456cc4168a4a7bb55c7",
+      "verified": true
+    },
+    {
+      "bytes": 10917,
+      "http_status": 200,
+      "local_sha256": "7f79c6ebcadb1b4cfb92b515dcd28ccd76f4b53abf22e97a985f756adf1e96cc",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "16_W1_W2_W4_W1repeat_benchmark_policy.json",
+      "remote_sha256": "7f79c6ebcadb1b4cfb92b515dcd28ccd76f4b53abf22e97a985f756adf1e96cc",
+      "verified": true
+    },
+    {
+      "bytes": 971,
+      "http_status": 200,
+      "local_sha256": "14a8b6375469c6dfd4f52a15af68163f4a86f2b98c6977aba5a5c6ccbe547953",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "17_actual_resource_telemetry_cleanup.json",
+      "remote_sha256": "14a8b6375469c6dfd4f52a15af68163f4a86f2b98c6977aba5a5c6ccbe547953",
+      "verified": true
+    },
+    {
+      "bytes": 99733,
+      "http_status": 200,
+      "local_sha256": "02aa71a789a4b6437a143ba212777475f8870b19c9047ed3fef304674016ad7c",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "18_inherited_new_red_green_faults.json",
+      "remote_sha256": "02aa71a789a4b6437a143ba212777475f8870b19c9047ed3fef304674016ad7c",
+      "verified": true
+    },
+    {
+      "bytes": 5518,
+      "http_status": 200,
+      "local_sha256": "bfdaa7b7b9cad9c28e678b884f3b443216becad99a7e587a4baa7793111d83ce",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "19_separate_OS_mutation_results.json",
+      "remote_sha256": "bfdaa7b7b9cad9c28e678b884f3b443216becad99a7e587a4baa7793111d83ce",
+      "verified": true
+    },
+    {
+      "bytes": 4051,
+      "http_status": 200,
+      "local_sha256": "2fe0bbab7eb3212dca975b9c7a7d13784b0caac41accd0461d384d049728998e",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "20_orthogonal_gates_and_verdicts.json",
+      "remote_sha256": "2fe0bbab7eb3212dca975b9c7a7d13784b0caac41accd0461d384d049728998e",
+      "verified": true
+    },
+    {
+      "bytes": 13440,
+      "http_status": 200,
+      "local_sha256": "cb4770de85f28a989da6defc4991401cf1b9a06c0dd72a98098a51615439c3fc",
+      "matches_local": true,
+      "matches_manifest_21": null,
+      "rel_path": "21_independent_OS_verifier_manifest_sha256.json",
+      "remote_sha256": "cb4770de85f28a989da6defc4991401cf1b9a06c0dd72a98098a51615439c3fc",
+      "verified": true
+    },
+    {
+      "bytes": 683,
+      "http_status": 200,
+      "local_sha256": "5b0ad5288848bbb41b930a6432e818fe0aada1e400fed1767b3e44d7d5357ba1",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "22_phase1_code_commit_push_receipt.json",
+      "remote_sha256": "5b0ad5288848bbb41b930a6432e818fe0aada1e400fed1767b3e44d7d5357ba1",
+      "verified": true
+    },
+    {
+      "bytes": 15116,
+      "http_status": 200,
+      "local_sha256": "cee4d170cd3375e3b58516fde3ea87e8e8f73cbab915b7689e5c5e5a6be9be84",
+      "matches_local": true,
+      "matches_manifest_21": null,
+      "rel_path": "checksums/sha256_inventory.json",
+      "remote_sha256": "cee4d170cd3375e3b58516fde3ea87e8e8f73cbab915b7689e5c5e5a6be9be84",
+      "verified": true
+    },
+    {
+      "bytes": 4467,
+      "http_status": 200,
+      "local_sha256": "9cb4bbc3085b38402391c4f5abf5cf65796da541bbe2b176db948c46ae17dc34",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "HANDOVER_KH03_R5_C1_VI.txt",
+      "remote_sha256": "9cb4bbc3085b38402391c4f5abf5cf65796da541bbe2b176db948c46ae17dc34",
+      "verified": true
+    },
+    {
+      "bytes": 98359,
+      "http_status": 200,
+      "local_sha256": "a361099d6efc7a655da0e53399d41b1255dbf798feaa985d9d8ab9b171c1e36c",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "logs/pytest_collected_executed_nodeids.jsonl.gz",
+      "remote_sha256": "a361099d6efc7a655da0e53399d41b1255dbf798feaa985d9d8ab9b171c1e36c",
+      "verified": true
+    },
+    {
+      "bytes": 3479,
+      "http_status": 200,
+      "local_sha256": "70b574219cc3bdddf4e404456cf9a24b960f59d749ba5ba293ac951117bb843a",
+      "matches_local": true,
+      "matches_manifest_21": null,
+      "rel_path": "logs/pytest_shards_logs.jsonl.gz",
+      "remote_sha256": "70b574219cc3bdddf4e404456cf9a24b960f59d749ba5ba293ac951117bb843a",
+      "verified": true
+    },
+    {
+      "bytes": 23774,
+      "http_status": 200,
+      "local_sha256": "95488a2bb677b55015a936c857f793274193f3af71cc8dee33d7569f2b1939a2",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "logs/r4_replay_forensic_ledger_1x.jsonl.gz",
+      "remote_sha256": "95488a2bb677b55015a936c857f793274193f3af71cc8dee33d7569f2b1939a2",
+      "verified": true
+    },
+    {
+      "bytes": 148575,
+      "http_status": 200,
+      "local_sha256": "c3b4e75e19a6030de25b6897cc6386fe74b0dd8ef2cc895122935dcbd6d69a8d",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "logs/runtime_memory_samples_0p5s.jsonl.gz",
+      "remote_sha256": "c3b4e75e19a6030de25b6897cc6386fe74b0dd8ef2cc895122935dcbd6d69a8d",
+      "verified": true
+    },
+    {
+      "bytes": 5420,
+      "http_status": 200,
+      "local_sha256": "77979d469456dd2107ac1434adbb0473a1bf433b7d0c326bd48e7eacfbf8748d",
+      "matches_local": true,
+      "matches_manifest_21": true,
+      "rel_path": "README.md",
+      "remote_sha256": "77979d469456dd2107ac1434adbb0473a1bf433b7d0c326bd48e7eacfbf8748d",
+      "verified": true
+    }
+  ],
+  "evidence_commit_sha": "d4fd57e885fc1d525611b7227dd4971b9aacab14",
+  "junit_xml_all_verified": true,
+  "junit_xml_files_verified_count": 63,
+  "manifest_21_sha256": "cb4770de85f28a989da6defc4991401cf1b9a06c0dd72a98098a51615439c3fc",
+  "publication_status": "PASS_REMOTE_VERIFIED",
+  "raw_github_base_url": "https://raw.githubusercontent.com/quocan050302/Build-app-crypto/d4fd57e885fc1d525611b7227dd4971b9aacab14/aurum-desk/docs/artifacts/kh_03_r5_c1_capture_safety/20261125T030440Z_3ad0c2973eea",
+  "receipt_role": "EXTERNAL_POST_PUSH_REMOTE_READBACK_PROOF",
+  "run_id": "20261125T030440Z_3ad0c2973eea",
+  "schema_version": "kh_03_r5_c1_capture_safety_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R5.C1-v1.0",
+  "status": "PASS_REMOTE_VERIFIED",
+  "tested_executable_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "total_sealed_files_verified": 93,
+  "verified_utc": "2026-11-25T04:00:55Z"
+}
