@@ -250,12 +250,18 @@ def _audit_ownership_01_r6(*, tested_sha: str, run_id: str, legacy_cg: Mapping[s
     forb_hits: List[str] = []
     secret_hits: List[str] = []
     r6_inv = []
+    pem_priv_markers = (
+        "-----" + "BEGIN PRIVATE KEY-----",
+        "-----" + "BEGIN RSA PRIVATE KEY-----",
+        "-----" + "BEGIN EC PRIVATE KEY-----",
+        "-----" + "BEGIN OPENSSH PRIVATE KEY-----",
+    )
     for rel in KH03_R6_SOURCE_FILES_ALLOWLIST:
         p = REPO_ROOT / rel
         if not p.is_file():
             continue
         txt = p.read_text("utf-8", errors="replace")
-        if "BEGIN PRIVATE KEY" in txt or "BEGIN RSA PRIVATE KEY" in txt or "BEGIN OPENSSH PRIVATE KEY" in txt:
+        if any(m in txt for m in pem_priv_markers):
             secret_hits.append(f"{rel}:embedded_private_key")
         if rel.endswith(".py"):
             tree = ast.parse(txt, filename=str(p))
