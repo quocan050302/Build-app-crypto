@@ -1,0 +1,882 @@
+{
+  "actual_github_actions_run_verified": false,
+  "baseline_reviewed_head_sha": "420dcf06601fee960ec7e04bd0c2f96b74bfd4b8",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_api_probe": {
+    "endpoint": "https://api.github.com/repos/quocan050302/Build-app-crypto/actions/runs?head_sha=f79419f959639994b6d631df16cd352bbcbb2e69",
+    "probe_note": "HTTPError:HTTP Error 504: Gateway Timeout",
+    "total_count": 0
+  },
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "evidence_commit_sha": "f79419f959639994b6d631df16cd352bbcbb2e69",
+  "evidence_parent_matches_tested_executable": true,
+  "final_32_gates": {
+    "G01_BRANCH_SHA_CLEAN": "PASS",
+    "G02_KEEP_AS_IS": "PASS",
+    "G03_PRIOR_SEALED_DATASET_OOS": "PASS",
+    "G04_BASELINE_REAL_RED": "PASS",
+    "G05_C1_ALL48_TRUTH_INVENTORY": "PASS",
+    "G06_PAIRED_EXECUTION_PROOF": "PASS",
+    "G07_KIND_SPECIFIC_BASELINE_TRUTH": "PASS",
+    "G08_LEGACY_GATE_FAIL_CLOSED": "PASS",
+    "G09_WORKER_TRACKING": "PASS",
+    "G10_ACTUAL_START_GUARD": "PASS",
+    "G11_CANCELLATION_DRAIN": "PASS",
+    "G12_UNDRAINED_QUARANTINE": "PASS",
+    "G13_LATE_RESULT_ABORT_TRUTH": "PASS",
+    "G14_GRANT_IDENTITY": "PASS",
+    "G15_ONE_SHOT_CLAIM": "PASS",
+    "G16_GRANT_REPLAN_REISSUE": "PASS",
+    "G17_REQUEST_BYTE_CONSERVATION": "PASS",
+    "G18_RESTART_TRUST_BOUNDARY": "PASS_LIVE_HARD_BLOCK_PROVEN",
+    "G19_STRICT_RESOURCE_GUARD": "PASS",
+    "G20_QA_LIVE_ISOLATION": "PASS",
+    "G21_FULL_PYTEST": "PASS",
+    "G22_BASELINE_PARITY": "PASS",
+    "G23_BACKTEST_PARITY": "PASS",
+    "G24_DETERMINISTIC_WORKERS": "PASS",
+    "G25_MEASURED_WORKER_POLICY": "PASS",
+    "G26_INHERITED_REGRESSION": "PASS",
+    "G27_NEW_FAULT_CONTROLS": "PASS",
+    "G28_INDEPENDENT_VERIFIER": "PASS",
+    "G29_MUTATION_RESISTANCE": "PASS",
+    "G30_RESOURCE_CLEANUP": "PASS",
+    "G31_ECONOMIC_ACTIVATION": "PASS",
+    "G32_REMOTE_PUBLICATION": "PASS_REMOTE_VERIFIED"
+  },
+  "final_verdicts": {
+    "ACCEPTED_REAL_OBSERVED_RECORDS": 0,
+    "ACCOUNT_FEE_READINESS": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "BACKTEST_PARITY": "PASS",
+    "CAPTURE_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_EXECUTION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_PROVENANCE": "NO_REAL_CAPTURE",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "CONTROL_TRUTH": "PASS",
+    "DATA_READINESS": "INCOMPLETE",
+    "DETERMINISM": "PASS",
+    "ECONOMIC": "NO_PROVEN_EDGE",
+    "ENGINEERING": "PASS",
+    "EXECUTION_FIDELITY": "INCOMPLETE",
+    "EXTERNAL_MARKET_REQUESTS_ATTEMPTED": 0,
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FUNDING_READINESS": "MISSING",
+    "GRANT_REPLAY_SAFETY_OFFLINE": "PASS",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE": "OFF",
+    "LIVE_GRANT_REPLAY_DURABILITY": "NOT_PROVEN_BLOCKED",
+    "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+    "LIVE_TRANSPORT_TERMINATION": "NOT_PROVEN_BLOCKED",
+    "OBSERVED_BBO_COVERAGE": "MISSING",
+    "OOS_EVALUATIONS": 0,
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "PUBLICATION": "PASS_REMOTE_VERIFIED",
+    "REGRESSION": "PASS",
+    "RESOURCE_SAFETY": "PASS",
+    "WORKER_LIFECYCLE": "PASS"
+  },
+  "manifest_21_sha256": "6a65843b16cf7b97b3011afcaa2e8495c2ec90aaaadc35dbf0148338cb3d2778",
+  "overall_classification": "ENGINEERING_PASS_OFFLINE_TECHNICAL_CLOSURE_CAPTURE_BLOCKED_OWNER_AUTHORIZATION_NO_PROVEN_EDGE",
+  "per_file_remote_readback_proof": [
+    {
+      "bytes": 7391,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c1fcef9e5ce4ef97bbaae3741e882e57c357bcb298d324379b1dc99a8411772f",
+      "rel_run_path": "00_preflight_branch_sha_resource_lock.json",
+      "remote_sha256": "c1fcef9e5ce4ef97bbaae3741e882e57c357bcb298d324379b1dc99a8411772f"
+    },
+    {
+      "bytes": 20269,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "08682dde8ac3be94cf95ac0de3f4e31950b54c3fe029121d04fb4e058a9ee4f0",
+      "rel_run_path": "01_function_ownership_keep_as_is_manifest.json",
+      "remote_sha256": "08682dde8ac3be94cf95ac0de3f4e31950b54c3fe029121d04fb4e058a9ee4f0"
+    },
+    {
+      "bytes": 30099,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a38aaf123d8a747e73b84ea8439c163dfc030669f8fe87fff3b7dad37bf4c2d6",
+      "rel_run_path": "02_prior_dataset_sealed_integrity_no_oos.json",
+      "remote_sha256": "a38aaf123d8a747e73b84ea8439c163dfc030669f8fe87fff3b7dad37bf4c2d6"
+    },
+    {
+      "bytes": 2487,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "46950097b5147367cbf50e0093c5c3917fb353efcea31346ec24759bf71999a1",
+      "rel_run_path": "03_baseline_c1_red_fault_truth_worker_replay.json",
+      "remote_sha256": "46950097b5147367cbf50e0093c5c3917fb353efcea31346ec24759bf71999a1"
+    },
+    {
+      "bytes": 27412,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d4d69c6ab45e21a971eab164ae05d9c97ca89e417160f9e4937c8676fe0e83e6",
+      "rel_run_path": "04_c1_all48_control_inventory_and_correction_ledger.json",
+      "remote_sha256": "d4d69c6ab45e21a971eab164ae05d9c97ca89e417160f9e4937c8676fe0e83e6"
+    },
+    {
+      "bytes": 34124,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ae95354c3fda4b99bb61d0807d80f4e69c9546521b0da7e8b1a99875965a268b",
+      "rel_run_path": "05_paired_fault_execution_receipts.jsonl.gz",
+      "remote_sha256": "ae95354c3fda4b99bb61d0807d80f4e69c9546521b0da7e8b1a99875965a268b"
+    },
+    {
+      "bytes": 553,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a3ef417cd0cf80d9e4aa49592072aab392f0dd67c5b315ac7b4fcde135754bc1",
+      "rel_run_path": "06_legacy_c1_certification_gate_closure.json",
+      "remote_sha256": "a3ef417cd0cf80d9e4aa49592072aab392f0dd67c5b315ac7b4fcde135754bc1"
+    },
+    {
+      "bytes": 1428,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "eebf8c27d264da032e41b10fdae24bb030b8efc66b91b91d611969ef8c608c16",
+      "rel_run_path": "07_worker_lifecycle_actual_entry_exit_traces.jsonl.gz",
+      "remote_sha256": "eebf8c27d264da032e41b10fdae24bb030b8efc66b91b91d611969ef8c608c16"
+    },
+    {
+      "bytes": 1312,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c6634ea22d55cd0a0b4558d1b4d02562416c029dd108f360370a20a8399bea2b",
+      "rel_run_path": "08_cancellation_deadline_drain_quarantine_receipts.json",
+      "remote_sha256": "c6634ea22d55cd0a0b4558d1b4d02562416c029dd108f360370a20a8399bea2b"
+    },
+    {
+      "bytes": 595,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a3289004bf8d4b8bea7b99d35c82ca8a49cdac10845747b7e0040050c3dc1655",
+      "rel_run_path": "09_grant_identity_and_one_shot_ledger_receipts.json",
+      "remote_sha256": "a3289004bf8d4b8bea7b99d35c82ca8a49cdac10845747b7e0040050c3dc1655"
+    },
+    {
+      "bytes": 652,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c0e9ae96711c3bd6f6f789ec27eb1d4a143a9a6161191ad8816c79af0b0200f5",
+      "rel_run_path": "10_concurrent_replay_request_byte_conservation.json",
+      "remote_sha256": "c0e9ae96711c3bd6f6f789ec27eb1d4a143a9a6161191ad8816c79af0b0200f5"
+    },
+    {
+      "bytes": 849,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "659d15db6d208ff503aaef362ce5b103eece46f7da64100644dc425cbeb2d144",
+      "rel_run_path": "11_restart_boundary_live_block_and_provenance.json",
+      "remote_sha256": "659d15db6d208ff503aaef362ce5b103eece46f7da64100644dc425cbeb2d144"
+    },
+    {
+      "bytes": 7365,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "3e50e91291dee87656d3a6f0a03a256dff98ff5b4a6e26f8949fda35e2a0f437",
+      "rel_run_path": "12_r4_replay_decimal_economic_bridge.json",
+      "remote_sha256": "3e50e91291dee87656d3a6f0a03a256dff98ff5b4a6e26f8949fda35e2a0f437"
+    },
+    {
+      "bytes": 6165,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d891a7f579923a8a84ec7d912b4a090910c654bfdc71c862e8ba3ef2408d0a38",
+      "rel_run_path": "13_six_cost_scenarios_and_arm_regression.json",
+      "remote_sha256": "d891a7f579923a8a84ec7d912b4a090910c654bfdc71c862e8ba3ef2408d0a38"
+    },
+    {
+      "bytes": 2600,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "56301f3eea3785d2dc96825c0dcf9ace021a17b5162a3ff8768e27563410f419",
+      "rel_run_path": "14_A1_SI8_adapter_D4_full_parity.json",
+      "remote_sha256": "56301f3eea3785d2dc96825c0dcf9ace021a17b5162a3ff8768e27563410f419"
+    },
+    {
+      "bytes": 982876,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7ea4e6c75ff8381475678ba3ac172bc364d780f7de1c71b9eaf652e02f54d5d6",
+      "rel_run_path": "15_full_pytest_fresh_collection_junit_bijection.json",
+      "remote_sha256": "7ea4e6c75ff8381475678ba3ac172bc364d780f7de1c71b9eaf652e02f54d5d6"
+    },
+    {
+      "bytes": 10987,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "99eb24540b286fb0baefc0874782df157d246281478c28fe22186c8ad3715ea6",
+      "rel_run_path": "16_W1_W2_W4_W1repeat_benchmark_policy.json",
+      "remote_sha256": "99eb24540b286fb0baefc0874782df157d246281478c28fe22186c8ad3715ea6"
+    },
+    {
+      "bytes": 1061,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b56fc9ac90b4d096d1302779bdca9d59431c26e47cdb72534680faaaf46deaa3",
+      "rel_run_path": "17_actual_resource_telemetry_cleanup.json",
+      "remote_sha256": "b56fc9ac90b4d096d1302779bdca9d59431c26e47cdb72534680faaaf46deaa3"
+    },
+    {
+      "bytes": 1253,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "178c4622e74ff9aba02340354aafc7f1208475779a8c37817cdd8d263abab078",
+      "rel_run_path": "18_new_and_inherited_fault_control_truth_summary.json",
+      "remote_sha256": "178c4622e74ff9aba02340354aafc7f1208475779a8c37817cdd8d263abab078"
+    },
+    {
+      "bytes": 8034,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6d0e203a60eeb6b10dba18eca0575b98aabeed440aa74c5c40ad80220f539f27",
+      "rel_run_path": "19_separate_OS_mutation_results.json",
+      "remote_sha256": "6d0e203a60eeb6b10dba18eca0575b98aabeed440aa74c5c40ad80220f539f27"
+    },
+    {
+      "bytes": 2904,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f793990d9e31de3a6e565917f5be85d0f53813a70a7e9c49ffdd2e759335379b",
+      "rel_run_path": "20_orthogonal_gates_and_verdicts.json",
+      "remote_sha256": "f793990d9e31de3a6e565917f5be85d0f53813a70a7e9c49ffdd2e759335379b"
+    },
+    {
+      "bytes": 14407,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6a65843b16cf7b97b3011afcaa2e8495c2ec90aaaadc35dbf0148338cb3d2778",
+      "rel_run_path": "21_independent_OS_verifier_manifest_sha256.json",
+      "remote_sha256": "6a65843b16cf7b97b3011afcaa2e8495c2ec90aaaadc35dbf0148338cb3d2778"
+    },
+    {
+      "bytes": 686,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "87e01b17fca761439996c93a615b67a83f2e5c12c89d1219950faafd19988846",
+      "rel_run_path": "22_phase1_code_commit_push_receipt.json",
+      "remote_sha256": "87e01b17fca761439996c93a615b67a83f2e5c12c89d1219950faafd19988846"
+    },
+    {
+      "bytes": 16032,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ac9e7c91b5ea50ef8b6d2a745f03fba72424570147a13031eb32488bb18b6aab",
+      "rel_run_path": "checksums/sha256_inventory.json",
+      "remote_sha256": "ac9e7c91b5ea50ef8b6d2a745f03fba72424570147a13031eb32488bb18b6aab"
+    },
+    {
+      "bytes": 3811,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b0037518c20f3ce433f1d1b7ab93f6eb0338e91cec1bd7465246e13f1f2b0e76",
+      "rel_run_path": "HANDOVER_KH03_R5_C2_VI.txt",
+      "remote_sha256": "b0037518c20f3ce433f1d1b7ab93f6eb0338e91cec1bd7465246e13f1f2b0e76"
+    },
+    {
+      "bytes": 3489,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ff4ac38a6a0b9b4e9e36744f4fe46f7bd80f3bbb701a2536fe50808f2897ad50",
+      "rel_run_path": "junit/SHARD_EXCL_00_REALTIME_30MS.xml",
+      "remote_sha256": "ff4ac38a6a0b9b4e9e36744f4fe46f7bd80f3bbb701a2536fe50808f2897ad50"
+    },
+    {
+      "bytes": 48955,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "22ea50c163b42a1ea71d89a0a809991bc418e003adb38a9374851eb47c2072c8",
+      "rel_run_path": "junit/SHARD_EXCL_01_MULTI_CHILD.xml",
+      "remote_sha256": "22ea50c163b42a1ea71d89a0a809991bc418e003adb38a9374851eb47c2072c8"
+    },
+    {
+      "bytes": 5706,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "262fd9e9c0ee4aad7b5f248a594b4adab19b3204f2be2bf0b12f1e46547066b5",
+      "rel_run_path": "junit/SHARD_EXCL_03_DB_OWNERSHIP.xml",
+      "remote_sha256": "262fd9e9c0ee4aad7b5f248a594b4adab19b3204f2be2bf0b12f1e46547066b5"
+    },
+    {
+      "bytes": 2859,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8080be67cc866d03893129601f3347239ca7ccf5cc9e3c9546ba990332706c50",
+      "rel_run_path": "junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml",
+      "remote_sha256": "8080be67cc866d03893129601f3347239ca7ccf5cc9e3c9546ba990332706c50"
+    },
+    {
+      "bytes": 38112,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "53cc371c2496e0306815c1c2f8f29ac05b1232595a65448404d6df57abf6f71a",
+      "rel_run_path": "junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml",
+      "remote_sha256": "53cc371c2496e0306815c1c2f8f29ac05b1232595a65448404d6df57abf6f71a"
+    },
+    {
+      "bytes": 1617,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "414206df0479c2158e86374271b24fa08766e6298012cc10ebf600a65ad430c3",
+      "rel_run_path": "junit/SHARD_INPROC_02A_V16_23_RED_ISOLATED.xml",
+      "remote_sha256": "414206df0479c2158e86374271b24fa08766e6298012cc10ebf600a65ad430c3"
+    },
+    {
+      "bytes": 1215,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4bfd648282b2c13d7f227338aa73f24e853f0c9ebc491e239032b5914d58014d",
+      "rel_run_path": "junit/SHARD_INPROC_02B_V16_23_FLOW_ISOLATED.xml",
+      "remote_sha256": "4bfd648282b2c13d7f227338aa73f24e853f0c9ebc491e239032b5914d58014d"
+    },
+    {
+      "bytes": 1405,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c70e43c896eef596f644c0a9a83032714a8c2f75496f4fc4622e5c4718b35f77",
+      "rel_run_path": "junit/SHARD_INPROC_02C_V16_24_FLOW_ISOLATED.xml",
+      "remote_sha256": "c70e43c896eef596f644c0a9a83032714a8c2f75496f4fc4622e5c4718b35f77"
+    },
+    {
+      "bytes": 1268,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "85146885465ca3970fba0116e82d4a017c4d0ffcd5cdffda17171594edc67992",
+      "rel_run_path": "junit/SHARD_INPROC_02D_V16_25_FLOW_ISOLATED.xml",
+      "remote_sha256": "85146885465ca3970fba0116e82d4a017c4d0ffcd5cdffda17171594edc67992"
+    },
+    {
+      "bytes": 1561,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d3ebfe7edacd610e7990592b5fbf57fe7c0325bfcb78c6d876c3d327d448aa59",
+      "rel_run_path": "junit/SHARD_INPROC_02E_V16_20_RED_ISOLATED.xml",
+      "remote_sha256": "d3ebfe7edacd610e7990592b5fbf57fe7c0325bfcb78c6d876c3d327d448aa59"
+    },
+    {
+      "bytes": 1201,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "48f32fd009676f774cb8348d835758c4a8fddc0fe8902bad047f585785cdb76d",
+      "rel_run_path": "junit/SHARD_INPROC_02F_V16_20_FLOW_ISOLATED.xml",
+      "remote_sha256": "48f32fd009676f774cb8348d835758c4a8fddc0fe8902bad047f585785cdb76d"
+    },
+    {
+      "bytes": 1627,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ddc5d7400b2b352ee256579c541bb0cc191ea2c6beeb2bb9c8a0b0e40863e96d",
+      "rel_run_path": "junit/SHARD_INPROC_02G_V16_21_RED_ISOLATED.xml",
+      "remote_sha256": "ddc5d7400b2b352ee256579c541bb0cc191ea2c6beeb2bb9c8a0b0e40863e96d"
+    },
+    {
+      "bytes": 1194,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a7bf9931d14a81e629334caa84863eb4c854908bafc9937c60a6ef9f8fe17c38",
+      "rel_run_path": "junit/SHARD_INPROC_02H_V16_21_FLOW_ISOLATED.xml",
+      "remote_sha256": "a7bf9931d14a81e629334caa84863eb4c854908bafc9937c60a6ef9f8fe17c38"
+    },
+    {
+      "bytes": 1679,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c780c8931d5d766eb3811126ce71971552b0a3edbd143b2c099f73b2753a5020",
+      "rel_run_path": "junit/SHARD_INPROC_02I_V16_22_RED_ISOLATED.xml",
+      "remote_sha256": "c780c8931d5d766eb3811126ce71971552b0a3edbd143b2c099f73b2753a5020"
+    },
+    {
+      "bytes": 1218,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "37ee49fc03ad03b5ee17d3f0ca5f94ded17d47083d01a1cc5600439099187024",
+      "rel_run_path": "junit/SHARD_INPROC_02J_V16_22_FLOW_ISOLATED.xml",
+      "remote_sha256": "37ee49fc03ad03b5ee17d3f0ca5f94ded17d47083d01a1cc5600439099187024"
+    },
+    {
+      "bytes": 1733,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b7bd4484f6f319d227a4967b74e6bd8a11a51d8bd481e886bb01e080917b1d10",
+      "rel_run_path": "junit/SHARD_INPROC_02K_V16_24_RED_ISOLATED.xml",
+      "remote_sha256": "b7bd4484f6f319d227a4967b74e6bd8a11a51d8bd481e886bb01e080917b1d10"
+    },
+    {
+      "bytes": 1731,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "62a89d65b563b505bb3d505334897de762dee1298ff66240c261ab7d1dd5c603",
+      "rel_run_path": "junit/SHARD_INPROC_02L_V16_25_RED_ISOLATED.xml",
+      "remote_sha256": "62a89d65b563b505bb3d505334897de762dee1298ff66240c261ab7d1dd5c603"
+    },
+    {
+      "bytes": 1615,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "dca83a00cc00eabeb7e21cec98b7e4b099a88fc5ea87560f613fdaa307b9dd28",
+      "rel_run_path": "junit/SHARD_INPROC_03_BALANCED.xml",
+      "remote_sha256": "dca83a00cc00eabeb7e21cec98b7e4b099a88fc5ea87560f613fdaa307b9dd28"
+    },
+    {
+      "bytes": 17515,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "cf8f6f8232ce4375e6ef4975d6893888f471e8e2ee0869d6b8c8685cb1408a15",
+      "rel_run_path": "junit/SHARD_INPROC_04_BALANCED.xml",
+      "remote_sha256": "cf8f6f8232ce4375e6ef4975d6893888f471e8e2ee0869d6b8c8685cb1408a15"
+    },
+    {
+      "bytes": 19066,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "0de8c4178f9da434f33fb834e53af403e3390ef609a2c42e7f764e3468742161",
+      "rel_run_path": "junit/SHARD_INPROC_05_BALANCED.xml",
+      "remote_sha256": "0de8c4178f9da434f33fb834e53af403e3390ef609a2c42e7f764e3468742161"
+    },
+    {
+      "bytes": 37356,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7a855c01e2eb055e79de31851bb7e46813fd6ff11d1c5a8ede8266aca528181d",
+      "rel_run_path": "junit/SHARD_INPROC_06_BALANCED.xml",
+      "remote_sha256": "7a855c01e2eb055e79de31851bb7e46813fd6ff11d1c5a8ede8266aca528181d"
+    },
+    {
+      "bytes": 40645,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "05eaacda16cee48c4536b5aada85e6816c394a2f50299ff5af54b267f2b79d11",
+      "rel_run_path": "junit/SHARD_INPROC_07_BALANCED.xml",
+      "remote_sha256": "05eaacda16cee48c4536b5aada85e6816c394a2f50299ff5af54b267f2b79d11"
+    },
+    {
+      "bytes": 32483,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "1642b47fb9d3bd63eafe75b1dd48d86035910b507f4f8838b885dfb14931287c",
+      "rel_run_path": "junit/SHARD_INPROC_08_BALANCED.xml",
+      "remote_sha256": "1642b47fb9d3bd63eafe75b1dd48d86035910b507f4f8838b885dfb14931287c"
+    },
+    {
+      "bytes": 35640,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8b4c0a3492f2286dd6abe45b265820c1ce54b628fb675a78e530f29e8ada3baf",
+      "rel_run_path": "junit/SHARD_INPROC_09_BALANCED.xml",
+      "remote_sha256": "8b4c0a3492f2286dd6abe45b265820c1ce54b628fb675a78e530f29e8ada3baf"
+    },
+    {
+      "bytes": 28549,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b91d633628a88b05825b92f610a5600ec26b1b726571e9698961fd202c16f449",
+      "rel_run_path": "junit/SHARD_INPROC_10_BALANCED.xml",
+      "remote_sha256": "b91d633628a88b05825b92f610a5600ec26b1b726571e9698961fd202c16f449"
+    },
+    {
+      "bytes": 37576,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e8a901e7b8f4506de7535e83dde8d31d772ff56d7ce1815083fd553dc2fccdc0",
+      "rel_run_path": "junit/SHARD_INPROC_11_BALANCED.xml",
+      "remote_sha256": "e8a901e7b8f4506de7535e83dde8d31d772ff56d7ce1815083fd553dc2fccdc0"
+    },
+    {
+      "bytes": 44785,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4058baa3510c1c99f3472b8021829e47f63cd5402915fe5b74c1f88aab3a98a4",
+      "rel_run_path": "junit/SHARD_INPROC_12_BALANCED.xml",
+      "remote_sha256": "4058baa3510c1c99f3472b8021829e47f63cd5402915fe5b74c1f88aab3a98a4"
+    },
+    {
+      "bytes": 42517,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "46e59e00c3180810b5c4f786f2cdfc71d0c92a09ef019c3ff39621f3dfe90d20",
+      "rel_run_path": "junit/SHARD_INPROC_13_BALANCED.xml",
+      "remote_sha256": "46e59e00c3180810b5c4f786f2cdfc71d0c92a09ef019c3ff39621f3dfe90d20"
+    },
+    {
+      "bytes": 26439,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "96ceff8ff7a3df3e36f7adaf4f936896b6a2021db2c9b9f9866e0187588f55ec",
+      "rel_run_path": "junit/SHARD_INPROC_14_BALANCED.xml",
+      "remote_sha256": "96ceff8ff7a3df3e36f7adaf4f936896b6a2021db2c9b9f9866e0187588f55ec"
+    },
+    {
+      "bytes": 25880,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "044b103b9048142847bacf64093ab2b68e172439fbfda942b021e30d907d367e",
+      "rel_run_path": "junit/SHARD_INPROC_15_BALANCED.xml",
+      "remote_sha256": "044b103b9048142847bacf64093ab2b68e172439fbfda942b021e30d907d367e"
+    },
+    {
+      "bytes": 30291,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a3755a82073da03c4738376ab046f38801dfc3d3d5e8cdff5876648ec664623d",
+      "rel_run_path": "junit/SHARD_INPROC_16_BALANCED.xml",
+      "remote_sha256": "a3755a82073da03c4738376ab046f38801dfc3d3d5e8cdff5876648ec664623d"
+    },
+    {
+      "bytes": 39886,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6d17015bc410729c4a6b4436df43ed5a192dfd015705caa90d6dd926305ddae5",
+      "rel_run_path": "junit/SHARD_INPROC_17_BALANCED.xml",
+      "remote_sha256": "6d17015bc410729c4a6b4436df43ed5a192dfd015705caa90d6dd926305ddae5"
+    },
+    {
+      "bytes": 38142,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "be745cbc700143eae677277342de12ce772ac294360573d5a42549ac57258594",
+      "rel_run_path": "junit/SHARD_INPROC_18_BALANCED.xml",
+      "remote_sha256": "be745cbc700143eae677277342de12ce772ac294360573d5a42549ac57258594"
+    },
+    {
+      "bytes": 49037,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "5a44d59435b56d9b3a5686ee168fa641592e0c5f158788b557ed68f7a695aae4",
+      "rel_run_path": "junit/SHARD_INPROC_19_BALANCED.xml",
+      "remote_sha256": "5a44d59435b56d9b3a5686ee168fa641592e0c5f158788b557ed68f7a695aae4"
+    },
+    {
+      "bytes": 30209,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "fcfa5a94b74df3d3ecb2d992dd022019c21fd18a6d0dc18ef2d1c8b0b9451bd0",
+      "rel_run_path": "junit/SHARD_INPROC_20_BALANCED.xml",
+      "remote_sha256": "fcfa5a94b74df3d3ecb2d992dd022019c21fd18a6d0dc18ef2d1c8b0b9451bd0"
+    },
+    {
+      "bytes": 43585,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8513710aaaa59cd689565b2ef170645a71eb80242b3d0320fde17a9dfe4b3e6b",
+      "rel_run_path": "junit/SHARD_INPROC_21_BALANCED.xml",
+      "remote_sha256": "8513710aaaa59cd689565b2ef170645a71eb80242b3d0320fde17a9dfe4b3e6b"
+    },
+    {
+      "bytes": 32243,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d6c8a69ce47be1f1602edf6c507f8792812b9e57e28111bf5f3729532d688732",
+      "rel_run_path": "junit/SHARD_INPROC_22_BALANCED.xml",
+      "remote_sha256": "d6c8a69ce47be1f1602edf6c507f8792812b9e57e28111bf5f3729532d688732"
+    },
+    {
+      "bytes": 6158,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c9432c88966041fe54aae7fee8e5cb8ff405aa53cd487dbdb634bfe63d7a9453",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_01_BUDGET2.xml",
+      "remote_sha256": "c9432c88966041fe54aae7fee8e5cb8ff405aa53cd487dbdb634bfe63d7a9453"
+    },
+    {
+      "bytes": 25525,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a74c712a436b71cba62a3718f75f3cde94d8ac652e5c2ae3417421bbfe881f8c",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_02_BUDGET2.xml",
+      "remote_sha256": "a74c712a436b71cba62a3718f75f3cde94d8ac652e5c2ae3417421bbfe881f8c"
+    },
+    {
+      "bytes": 39609,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "756966d0b00ba9ac00bdcc2157cdb63f2306f96cb31d5e07c16dd38595659947",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_03_BUDGET2.xml",
+      "remote_sha256": "756966d0b00ba9ac00bdcc2157cdb63f2306f96cb31d5e07c16dd38595659947"
+    },
+    {
+      "bytes": 3213,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a685d956bc2f3c0bf6b7c37b78e9d14b7cfaef84c4424ec73ee63aaeee8057d0",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_01.xml",
+      "remote_sha256": "a685d956bc2f3c0bf6b7c37b78e9d14b7cfaef84c4424ec73ee63aaeee8057d0"
+    },
+    {
+      "bytes": 2196,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "0184740b7b739afb807ef37c1d49a2d784822e42d1f68866af685d1cd41196ca",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_02.xml",
+      "remote_sha256": "0184740b7b739afb807ef37c1d49a2d784822e42d1f68866af685d1cd41196ca"
+    },
+    {
+      "bytes": 3505,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e7da214652656d25f79859921a5f1d22e5d5214f0894acddbe47c3ccf6bf6f77",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_03.xml",
+      "remote_sha256": "e7da214652656d25f79859921a5f1d22e5d5214f0894acddbe47c3ccf6bf6f77"
+    },
+    {
+      "bytes": 3935,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "84577403fe286fc288a0c9ae037af99fc1c6be070a7cb7d214ef0604f8329fcd",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_04.xml",
+      "remote_sha256": "84577403fe286fc288a0c9ae037af99fc1c6be070a7cb7d214ef0604f8329fcd"
+    },
+    {
+      "bytes": 6626,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2009495cd0d9cd38bcb3de62b4ca988ec8940f34717a4d362efe8e5843b24373",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_05.xml",
+      "remote_sha256": "2009495cd0d9cd38bcb3de62b4ca988ec8940f34717a4d362efe8e5843b24373"
+    },
+    {
+      "bytes": 3693,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "162037ae619fb7a4929b54dd706f9873ab5ecfe12bb8941365ca1b2928d3d63e",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_06.xml",
+      "remote_sha256": "162037ae619fb7a4929b54dd706f9873ab5ecfe12bb8941365ca1b2928d3d63e"
+    },
+    {
+      "bytes": 3846,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "5a10eee3d94475c29f9e00594bd86fb735ae0c6c3a94724349f565181b697351",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_07.xml",
+      "remote_sha256": "5a10eee3d94475c29f9e00594bd86fb735ae0c6c3a94724349f565181b697351"
+    },
+    {
+      "bytes": 982,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e8cb28e504999be0759e568aedea928b1d393518736934f1436db4ab040bc65e",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_08.xml",
+      "remote_sha256": "e8cb28e504999be0759e568aedea928b1d393518736934f1436db4ab040bc65e"
+    },
+    {
+      "bytes": 556,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "962bfbb4d9ec8211ad4cd9887352d1e219dbdb42a39d08e8b460ef0eaf9a73a2",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_09.xml",
+      "remote_sha256": "962bfbb4d9ec8211ad4cd9887352d1e219dbdb42a39d08e8b460ef0eaf9a73a2"
+    },
+    {
+      "bytes": 4915,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ebd6862b0f610439b83e9ab31689337641f917c809855fe29e47b7fa613da711",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_10.xml",
+      "remote_sha256": "ebd6862b0f610439b83e9ab31689337641f917c809855fe29e47b7fa613da711"
+    },
+    {
+      "bytes": 721,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8b626115cb870a126a88d2eb6fe88ba473ef6e6b6c378f28174b8e3808a939f8",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_11.xml",
+      "remote_sha256": "8b626115cb870a126a88d2eb6fe88ba473ef6e6b6c378f28174b8e3808a939f8"
+    },
+    {
+      "bytes": 547,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "971789e582437a136b10cefb90be5925c6f861d4568af6ad612e79abdd38807e",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_12.xml",
+      "remote_sha256": "971789e582437a136b10cefb90be5925c6f861d4568af6ad612e79abdd38807e"
+    },
+    {
+      "bytes": 388,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "92777aa0f013dc16087c08f0a2415f129c1031be580b84c65ea1aeb90cb01180",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_13.xml",
+      "remote_sha256": "92777aa0f013dc16087c08f0a2415f129c1031be580b84c65ea1aeb90cb01180"
+    },
+    {
+      "bytes": 4827,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "71597c36fe48396466c76cb030f34148295eb94166e8ece3f5ea172b3a39d131",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_14.xml",
+      "remote_sha256": "71597c36fe48396466c76cb030f34148295eb94166e8ece3f5ea172b3a39d131"
+    },
+    {
+      "bytes": 411,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "cd4ab852a137d429b130b0ad63c6d999a275c220338d69c1dad773a0b668c0b7",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_15.xml",
+      "remote_sha256": "cd4ab852a137d429b130b0ad63c6d999a275c220338d69c1dad773a0b668c0b7"
+    },
+    {
+      "bytes": 4347,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "de2d4cd39d5b947e584e2d60707cd117e2c133608ca20d7820dd2db6ae6ef4ae",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_16.xml",
+      "remote_sha256": "de2d4cd39d5b947e584e2d60707cd117e2c133608ca20d7820dd2db6ae6ef4ae"
+    },
+    {
+      "bytes": 833,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "422628fbc0abd15ca1327a30e9ee4b4ba95da56edfe2e86ccee35ed7d811cb9d",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_17.xml",
+      "remote_sha256": "422628fbc0abd15ca1327a30e9ee4b4ba95da56edfe2e86ccee35ed7d811cb9d"
+    },
+    {
+      "bytes": 729,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "03afc5894391f45be5838146f23310e41c5d77240e22d8bd917c292f8e5d11f9",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_18.xml",
+      "remote_sha256": "03afc5894391f45be5838146f23310e41c5d77240e22d8bd917c292f8e5d11f9"
+    },
+    {
+      "bytes": 934,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7dbd2bf9d20582d5d0e4dd9c5b1e24bed3f54a7d2d308ce38a8f12b7d0379db1",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_19.xml",
+      "remote_sha256": "7dbd2bf9d20582d5d0e4dd9c5b1e24bed3f54a7d2d308ce38a8f12b7d0379db1"
+    },
+    {
+      "bytes": 723,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a9bfd417c940efe3a0df64170d86356b760b2d2c4616f35bc7b5ace38d3bd0d5",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_20.xml",
+      "remote_sha256": "a9bfd417c940efe3a0df64170d86356b760b2d2c4616f35bc7b5ace38d3bd0d5"
+    },
+    {
+      "bytes": 1523,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "1968ef7edeffd46fc48a6205fbcd77fe078d032bfd4467e9782f01c7fa044fb0",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_21.xml",
+      "remote_sha256": "1968ef7edeffd46fc48a6205fbcd77fe078d032bfd4467e9782f01c7fa044fb0"
+    },
+    {
+      "bytes": 685,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "0b6d46a12552e28e455c2f021fb8828309e0f09562d35848b5be639fc6dd2a09",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_22.xml",
+      "remote_sha256": "0b6d46a12552e28e455c2f021fb8828309e0f09562d35848b5be639fc6dd2a09"
+    },
+    {
+      "bytes": 789,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2b42dbda76bdcd59c0653388b64f3646a33beca1a6ce249eb2c135dbeb34403f",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_23.xml",
+      "remote_sha256": "2b42dbda76bdcd59c0653388b64f3646a33beca1a6ce249eb2c135dbeb34403f"
+    },
+    {
+      "bytes": 577,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "69073c313f199c00572c72de0a0b4824aaf0a60884242d755ab65d3578c344cd",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_24.xml",
+      "remote_sha256": "69073c313f199c00572c72de0a0b4824aaf0a60884242d755ab65d3578c344cd"
+    },
+    {
+      "bytes": 419,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f79b1877c5c9baeb4f580380cdc57f3ed58caecde00f7108ca6d37bb0d5eb8d2",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_25.xml",
+      "remote_sha256": "f79b1877c5c9baeb4f580380cdc57f3ed58caecde00f7108ca6d37bb0d5eb8d2"
+    },
+    {
+      "bytes": 1026,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "5eb48159370165dc2769f3f6f23c52377d9a2bdf75ea81288b2b60ba615298af",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_26.xml",
+      "remote_sha256": "5eb48159370165dc2769f3f6f23c52377d9a2bdf75ea81288b2b60ba615298af"
+    },
+    {
+      "bytes": 572,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f8eec04904f2c6635ce77c577604466a60f6d8664565b14b64219afea616ffcb",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_27.xml",
+      "remote_sha256": "f8eec04904f2c6635ce77c577604466a60f6d8664565b14b64219afea616ffcb"
+    },
+    {
+      "bytes": 417,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "1cf9865017b7ccc4c39b5cfac4a0ea0b64e94501e31573f164cb966cddca8c8c",
+      "rel_run_path": "junit/SHARD_SINGLE_CHILD_KH03_R5_C2_SUBPROC_28.xml",
+      "remote_sha256": "1cf9865017b7ccc4c39b5cfac4a0ea0b64e94501e31573f164cb966cddca8c8c"
+    },
+    {
+      "bytes": 99017,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "691bb54f1813829e5e96d39d51b2f63054de351676856b8e47840b19c0fb368d",
+      "rel_run_path": "logs/pytest_collected_executed_nodeids.jsonl.gz",
+      "remote_sha256": "691bb54f1813829e5e96d39d51b2f63054de351676856b8e47840b19c0fb368d"
+    },
+    {
+      "bytes": 3520,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d57769d007fd936bb45ae7f797bf784bc4f5b17afb0ded6e79a9cdbd95a2db3d",
+      "rel_run_path": "logs/pytest_shards_logs.jsonl.gz",
+      "remote_sha256": "d57769d007fd936bb45ae7f797bf784bc4f5b17afb0ded6e79a9cdbd95a2db3d"
+    },
+    {
+      "bytes": 23774,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "21ea08cecb964b9bcf5324d49cf12b80c3194ab4763b0bdf3c890a41a09d35e3",
+      "rel_run_path": "logs/r4_replay_forensic_ledger_1x.jsonl.gz",
+      "remote_sha256": "21ea08cecb964b9bcf5324d49cf12b80c3194ab4763b0bdf3c890a41a09d35e3"
+    },
+    {
+      "bytes": 141538,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c309fed1a12de983cbff8ad5f7a63f3f30b6aab270a6a3981d4bb16ee5de9a53",
+      "rel_run_path": "logs/runtime_memory_samples_0p5s.jsonl.gz",
+      "remote_sha256": "c309fed1a12de983cbff8ad5f7a63f3f30b6aab270a6a3981d4bb16ee5de9a53"
+    },
+    {
+      "bytes": 790,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e8ab0719cb02debb4afed44e94e3fa46992a344d227f401ebb78cad557a7e772",
+      "rel_run_path": "README.md",
+      "remote_sha256": "e8ab0719cb02debb4afed44e94e3fa46992a344d227f401ebb78cad557a7e772"
+    }
+  ],
+  "remote_readback_http_200_sha256_exact_match_count": 98,
+  "remote_readback_mismatches_count": 0,
+  "remote_readback_sha256_verified": true,
+  "repository": "https://github.com/quocan050302/Build-app-crypto",
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "sealed_files_total_count": 98,
+  "sealed_run_dir_mutated_after_manifest": false,
+  "sealed_run_dir_rel": "aurum-desk/docs/artifacts/kh_03_r5_c2_technical_closure/20261125T061403Z_68549a8a44a4",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS_REMOTE_VERIFIED",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "verified_utc": "2026-11-25T07:06:58Z"
+}
