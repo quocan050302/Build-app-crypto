@@ -1,0 +1,22 @@
+{
+  "accepted_real_observed_records": 0,
+  "external_market_requests_attempted": 0,
+  "fake_transport_cannot_mint_observed_verified": true,
+  "live_grant_replay_durability": "NOT_PROVEN_BLOCKED",
+  "live_hard_block_violations": [
+    "LIVE_GRANT_REPLAY_DURABILITY_NOT_PROVEN_BLOCKED",
+    "LIVE_TRANSPORT_TERMINATION_NOT_PROVEN"
+  ],
+  "live_hard_blocked_even_with_stub_verifier": true,
+  "live_transport_termination": "NOT_PROVEN_BLOCKED",
+  "oos_denied_before_open_count": 1,
+  "oos_evaluations": 0,
+  "oos_reads_executed": 0,
+  "qa_cannot_use_live_stdlib_transport": true,
+  "qa_grant_cannot_authorize_live": true,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a"
+}

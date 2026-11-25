@@ -1,0 +1,55 @@
+{
+  "all_c1_def_red_reproduced": true,
+  "baseline_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "command_display": "python <isolated_tmp>/run_c1_red.py <repo_root> <c1_test_file> (overlay from git show 3ad0c2973eea)",
+  "ended_utc": "2026-11-25T06:14:09Z",
+  "external_network_sockets_used": false,
+  "extracted_baseline_file_sha256": {
+    "aurum-desk/backend/services/kh_03_r5_capture_and_custody_service.py": "950bbf6a5243b2c345a1e3a3191f57cde9ccea3848e75503be84097dd223bc0b",
+    "aurum-desk/backend/services/kh_03_r5_market_data_foundation_service.py": "177f55d1e0e56b3ac25aa2820665e69d91371f78a0731d2bbe23973abb9c99b0",
+    "aurum-desk/backend/tests/test_kh03_r5_c1_custody_abort_and_determinism.py": "d0e23d3056100ba64e8f251e8a5c456d01a17b23cb36cf28cad5580471d613fa"
+  },
+  "isolated_temp_overlay_used": true,
+  "observations": {
+    "P1D_fault_control_literal_pass_weakness": {
+      "c1_ast_literal_true_negatives": 1,
+      "c1_ast_literal_true_positives": 20,
+      "legacy_rec_status_with_hardcoded_true": "PASS",
+      "positive_branch_executed": false,
+      "weakness_reproduced": true
+    },
+    "P1E_outer_cancel_blocked_worker_false_zero_undrained": {
+      "actual_worker_entered": true,
+      "actual_worker_exited_after_release": true,
+      "actual_worker_still_running_at_return": true,
+      "c1_reported_status": "ABORTED_RESOURCE_OR_CANCEL",
+      "c1_reported_undrained_inflight_workers": 0,
+      "weakness_reproduced": true
+    },
+    "P1F_grant_replay_multiplies_budget": {
+      "all_6_replays_succeeded": true,
+      "concurrent_race_calls": 2,
+      "grant_max_requests": 1,
+      "sequential_replan_reissue_calls": 4,
+      "total_calls_on_single_max_req_1_grant": 6,
+      "weakness_reproduced": true
+    }
+  },
+  "p1_d_red_reproduced": true,
+  "p1_e_red_reproduced": true,
+  "p1_f_red_reproduced": true,
+  "parse_error": null,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "started_utc": "2026-11-25T06:14:04Z",
+  "status": "PASS",
+  "stderr_len": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_sha256": "b716d47da9b4158d28afad55485b1a37ef06953be802023579bd3fc49c3112a3",
+  "subprocess_exit_code": 0,
+  "subprocess_pid": 13972,
+  "tested_c2_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "working_tree_mutated": false
+}

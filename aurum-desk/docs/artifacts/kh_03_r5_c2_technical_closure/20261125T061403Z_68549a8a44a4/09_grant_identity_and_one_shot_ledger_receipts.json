@@ -1,0 +1,15 @@
+{
+  "abort_burns_claimed_grant": true,
+  "cloned_or_tampered_receipt_denied": true,
+  "distinct_new_qa_grant_succeeds": true,
+  "reissued_scope_receipt_same_grant_denied": true,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "same_id_changed_payload_conflict_denied": true,
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "second_plan_from_same_scope_denied": true,
+  "sequential_replay_one_winner_only": true,
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "stable_logical_identity_verified": true,
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a"
+}

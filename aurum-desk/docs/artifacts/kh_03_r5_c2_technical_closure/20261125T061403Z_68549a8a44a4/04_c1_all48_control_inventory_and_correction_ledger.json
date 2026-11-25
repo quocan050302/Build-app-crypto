@@ -1,0 +1,700 @@
+{
+  "c1_defect_summary": {
+    "LITERAL_TRUE_NEGATIVE": 1,
+    "LITERAL_TRUE_POSITIVE": 20,
+    "REUSED_SHARED_POSITIVE": 23,
+    "UNSUPPORTED_LEGACY_RED_LABEL": 10,
+    "VALID_DISTINCT_PAIR_IN_C1": 2
+  },
+  "c1_source_file_rel": "aurum-desk/backend/tests/test_kh03_r5_c1_custody_abort_and_determinism.py",
+  "c1_source_file_sha256": "d0e23d3056100ba64e8f251e8a5c456d01a17b23cb36cf28cad5580471d613fa",
+  "c1_source_sha": "3ad0c2973eeaa11f1e635b7a82beddeb4b5a8db8",
+  "c2_baseline_bug_red_count": 8,
+  "c2_negative_contract_count": 40,
+  "controls_correction_ledger": [
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 118,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(None, live_r, NOW_UTC, {})['admitted']",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "MISSING_GRANT_BLOCKED",
+      "fault_id": "C1-A01"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 119,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(live_g, live_r, NOW_UTC, {'human_operator_attestation_verified': True, 'attestation_source': 'EXPLICIT_SEPARATE_OWNER_GRANT'})['live_network_permitted']",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": "P1A_forged_trust_context_dict_live",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "FORGED_TRUST_DICT_DENIED_DEFAULT_VERIFIER",
+      "fault_id": "C1-A02"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 120,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, r0, NOW_UTC, {'qa_fixture_mode': True, 'from_cli_flag': True})['admitted']",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CLI_ENV_PROMPT_REJECTED",
+      "fault_id": "C1-A03"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 121,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, r0, NOW_UTC, {'qa_fixture_mode': False, 'human_operator_attestation_verified': True})['admitted']",
+      "c1_positive_expr": "not d0['live_network_permitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "QA_GRANT_PROMOTE_LIVE_REJECTED",
+      "fault_id": "C1-A04"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 122,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, {**r0, 'max_requests': True}, NOW_UTC, {'qa_fixture_mode': True})['admitted']",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "BOOL_AS_INT_BUDGET_REJECTED",
+      "fault_id": "C1-A05"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 123,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, {**r0, 'max_duration_sec': float('nan')}, NOW_UTC, {'qa_fixture_mode': True})['admitted'] and (not validate_r5_operator_capture_scope(g0, {k: v for k, v in r0.items() if k != 'max_duration_sec'}, NOW_UTC, {'qa_fixture_mode': True})['admitted'])",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "NAN_INF_MISSING_DURATION_REJECTED",
+      "fault_id": "C1-A06"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 124,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, {**r0, 'window_start_ms': WS_MS - 1000}, NOW_UTC, {'qa_fixture_mode': True})['admitted'] and (not validate_r5_operator_capture_scope(g0, {**r0, 'window_start_ms': WE_MS, 'window_end_ms': WS_MS}, NOW_UTC, {'qa_fixture_mode': True})['admitted'])",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "WINDOW_OUTSIDE_OR_INVERTED_REJECTED",
+      "fault_id": "C1-A07"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 125,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, {**r0, 'endpoints': ['contracts']}, NOW_UTC, {'qa_fixture_mode': True})['admitted']",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "ENDPOINT_OUTSIDE_GRANT_REJECTED",
+      "fault_id": "C1-A08"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 126,
+      "c1_negative_expr": "not validate_r5_operator_capture_scope(g0, {**r0, 'endpoints': ['public_ticker', 'public_ticker']}, NOW_UTC, {'qa_fixture_mode': True})['admitted'] and (not validate_r5_operator_capture_scope(g0, {**r0, 'destination_scope': '/tmp/real_oos_escrow'}, NOW_UTC, {'qa_fixture_mode': True})['admitted'])",
+      "c1_positive_expr": "d0['admitted']",
+      "c1_target": "validate_r5_operator_capture_scope",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "DUPLICATE_ENDPOINT_AND_OOS_REJECTED",
+      "fault_id": "C1-A09"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 127,
+      "c1_negative_expr": "plan_r5_capture_batches(d0, inv, {'destination_disk_free_gib': 30.0, 'max_concurrency': 1, 'max_pages': 6, 'max_requests': 50, 'max_total_bytes': 50000, 'max_duration_sec': 20, 'endpoints': ['public_ticker']}, now_utc=NOW_UTC)['status'] == 'BLOCKED'",
+      "c1_positive_expr": "p0['status'] == 'PLANNED_QA_OFFLINE'",
+      "c1_target": "plan_r5_capture_batches",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "PLANNER_REJECTS_BROADER_BUDGET_NO_CLAMP",
+      "fault_id": "C1-A10"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 128,
+      "c1_negative_expr": "plan_r5_capture_batches(d0, inv, {'destination_disk_free_gib': 30.0, 'max_concurrency': 1, 'max_pages': 6, 'max_requests': 6, 'max_total_bytes': 50000, 'max_duration_sec': 20, 'endpoints': ['contracts'], 'symbol': 'BTCUSDT'}, now_utc=NOW_UTC)['status'] == 'BLOCKED'",
+      "c1_positive_expr": "p0['status'] == 'PLANNED_QA_OFFLINE'",
+      "c1_target": "plan_r5_capture_batches",
+      "c2_baseline_witness_key": "P1A_grant_A_planner_B_bypass",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "PLANNER_REJECTS_DIFFERENT_SYMBOL_ENDPOINT",
+      "fault_id": "C1-A11"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 129,
+      "c1_negative_expr": "plan_r5_capture_batches({k: v for k, v in d0.items() if not k.startswith('_')}, inv, {'destination_disk_free_gib': 30.0, 'max_concurrency': 1, 'max_pages': 6, 'max_requests': 6, 'max_total_bytes': 50000, 'max_duration_sec': 20, 'endpoints': ['public_ticker']}, now_utc=NOW_UTC)['status'] == 'BLOCKED'",
+      "c1_positive_expr": "p0['status'] == 'PLANNED_QA_OFFLINE'",
+      "c1_target": "plan_r5_capture_batches",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "PLANNER_REJECTS_FORGED_ADMITTED_DICT",
+      "fault_id": "C1-A12"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 133,
+      "c1_negative_expr": "len(sp13.calls) == 0 and r13['aborted']",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1A_forged_unbound_plan_dispatches",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "FORGED_UNBOUND_PLAN_ZERO_DISPATCH",
+      "fault_id": "C1-A13"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 139,
+      "c1_negative_expr": "len(sp14.calls) == 0 and any(('PLAN_DIGEST_DRIFT' in v or 'PLAN_SNAPSHOT_MUTATED' in v for v in r14['violations']))",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "MUTATED_PLAN_WITH_RECOMPUTED_DIGEST_REJECTED",
+      "fault_id": "C1-A14"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 143,
+      "c1_negative_expr": "len(sp15.calls) == 0 and any(('RUN_ID' in v for v in r15['violations']))",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CROSS_RUN_PLAN_REUSE_REJECTED",
+      "fault_id": "C1-A15"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 147,
+      "c1_negative_expr": "len(sp16.calls) == 0 and any(('OPERATOR_GRANT_EXPIRED' in v for v in r16['violations']))",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "EXPIRED_GRANT_BETWEEN_PLAN_AND_DISPATCH_BLOCKED",
+      "fault_id": "C1-A16"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 154,
+      "c1_negative_expr": "len(sp17.calls) == 1 and r17['aborted'] and (r17['qa_fixture_records_count'] == 0)",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "POST_ENQUEUE_PLAN_MUTATION_CAUGHT",
+      "fault_id": "C1-A17"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 157,
+      "c1_negative_expr": "r18['external_requests_attempted'] == 0 and any(('QA_FIXTURE_MODE_MUST_NOT_USE_LIVE_SOCKET_TRANSPORT' in v for v in r18['violations']))",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "QA_PLAN_CANNOT_USE_LIVE_STDLIB_TRANSPORT",
+      "fault_id": "C1-A18"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 164,
+      "c1_negative_expr": "len(spb1.calls) == 1 and rb1['abort_reason'] == 'CAPTURE_DEADLINE_EXCEEDED'",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1B_post_wait_deadline_cancel_race",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "POST_WAIT_DEADLINE_EXCEEDED_ZERO_EXTRA_CALL",
+      "fault_id": "C1-B01"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 171,
+      "c1_negative_expr": "len(spb2.calls) == 1 and rb2['abort_reason'] == 'CANCELLED_MIDFLIGHT'",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CANCEL_DURING_WAIT_STOPS_BEFORE_DISPATCH",
+      "fault_id": "C1-B02"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 177,
+      "c1_negative_expr": "len(spb3.calls) == 1 and rb3['abort_reason'] == 'OPERATOR_GRANT_EXPIRED'",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "EXPIRY_DURING_RETRY_WAIT_STOPS_DISPATCH",
+      "fault_id": "C1-B03"
+    },
+    {
+      "c1_defects": [
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 184,
+      "c1_negative_expr": "len(spb4.calls) == 1 and spb4.calls[0]['timeout_sec'] <= 2.5 + 1e-06",
+      "c1_positive_expr": "rb4['capture_execution_status'] == 'QA_FIXTURE_OFFLINE_PASS'",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "TIMEOUT_BOUNDED_BY_REMAINING_GRANT_AND_SESSION",
+      "fault_id": "C1-B04"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 189,
+      "c1_negative_expr": "len(spb5.calls) == 1 and sl5 == [] and ('RETRY_AFTER_EXCEEDS_REMAINING_BUDGET' in str(rb5['abort_reason']))",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1B_retry_after_120s_shortened_to_2s",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "RETRY_AFTER_EXCEEDS_REMAINING_NEVER_SHORTENED",
+      "fault_id": "C1-B05"
+    },
+    {
+      "c1_defects": [
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 196,
+      "c1_negative_expr": "sl6 == [3.0] and len(spb6.calls) == 2",
+      "c1_positive_expr": "rb6['capture_execution_status'] == 'QA_FIXTURE_OFFLINE_PASS'",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "RETRY_AFTER_3S_RESPECTED_NOT_CAPPED_2S",
+      "fault_id": "C1-B06"
+    },
+    {
+      "c1_defects": [],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 200,
+      "c1_negative_expr": "not ok_bad",
+      "c1_positive_expr": "ok_hd and abs((sec_hd or 0.0) - 5.0) < 1e-06",
+      "c1_target": "_parse_retry_after_strict",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "RETRY_AFTER_HTTP_DATE_AND_INVALID_STRICT",
+      "fault_id": "C1-B07"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 204,
+      "c1_negative_expr": "len(spb8.calls) == 1 and rb8['qa_fixture_records_count'] == 0",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "NON_RETRYABLE_403_NEVER_RETRIED",
+      "fault_id": "C1-B08"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 211,
+      "c1_negative_expr": "rb9['requests_dispatched_actual'] <= 2 and len(spb9.calls) <= 2",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "ATOMIC_REQUEST_CAP_NO_OVERSUBSCRIBE",
+      "fault_id": "C1-B09"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 218,
+      "c1_negative_expr": "rb10['wire_bytes_observed_total'] == 100 and rb10['bytes_accepted_total'] == 0 and (rb10['abort_reason'] == 'TOTAL_BYTES_BUDGET_EXHAUSTED')",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "WIRE_BYTES_INCLUDE_ERROR_BODIES_AND_SEPARATE_ACCEPTED",
+      "fault_id": "C1-B10"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 223,
+      "c1_negative_expr": "rb11['aborted'] and rb11['qa_fixture_records_count'] == 0 and (rb11['undrained_inflight_workers'] == 0)",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "MIDFLIGHT_LATE_RESPONSE_DISCARDED_AND_DRAINED",
+      "fault_id": "C1-B11"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 226,
+      "c1_negative_expr": "rb12['requests_dispatched_actual'] == 0 and rb12['capture_execution_status'] == 'FAIL'",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "INVALID_MONOTONIC_CLOCK_BLOCKED",
+      "fault_id": "C1-B12"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 235,
+      "c1_negative_expr": "rb13['capture_execution_status'] == 'BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED' and rb13['external_requests_attempted'] == 0",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "LEGACY_C4_TRANSPORT_UNSUPPORTED_WIRE_CAP_BLOCKED",
+      "fault_id": "C1-B13"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 237,
+      "c1_negative_expr": "p0['pages_semantics'] == 'SINGLE_REQUEST_PER_BATCH_NO_PAGINATION' and p0['batches'][0]['max_pages'] == 1",
+      "c1_positive_expr": "True",
+      "c1_target": "plan_r5_capture_batches",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "PLAN_PAGES_SEMANTICS_TRUTHFUL_SINGLE_PAGE",
+      "fault_id": "C1-B14"
+    },
+    {
+      "c1_defects": [],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 243,
+      "c1_negative_expr": "len(rb15['dispatch_timestamps_mono']) == 2 and rb15['dispatch_timestamps_mono'][1] - rb15['dispatch_timestamps_mono'][0] >= 0.05 - 1e-06",
+      "c1_positive_expr": "rb15['capture_execution_status'] == 'QA_FIXTURE_OFFLINE_PASS'",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "DISPATCH_CADENCE_MONOTONIC_AFTER_RETRY",
+      "fault_id": "C1-B15"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 253,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1C_monitor_None_fail_open",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "MONITOR_NONE_FAIL_CLOSED",
+      "fault_id": "C1-C01"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 254,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1C_monitor_empty_dict_fail_open",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "MONITOR_EMPTY_DICT_FAIL_CLOSED",
+      "fault_id": "C1-C02"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE",
+        "UNSUPPORTED_LEGACY_RED_LABEL"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 255,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "MISSING_DISK_OR_RAM_KEY_BLOCKED",
+      "fault_id": "C1-C03"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "LEGACY_RED_REPRODUCED",
+      "c1_line": 256,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": "P1C_monitor_NaN_fail_open",
+      "c2_repaired_kind": "BASELINE_BUG_RED",
+      "control_name": "NAN_DISK_FAIL_CLOSED",
+      "fault_id": "C1-C04"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 257,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "INF_RAM_FAIL_CLOSED",
+      "fault_id": "C1-C05"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 258,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "BOOL_OR_STR_VALUE_BLOCKED",
+      "fault_id": "C1-C06"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 259,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "STALE_RESOURCE_SAMPLE_BLOCKED",
+      "fault_id": "C1-C07"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 260,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "FUTURE_RESOURCE_TIMESTAMP_BLOCKED",
+      "fault_id": "C1-C08"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 261,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "WRONG_VOLUME_IDENTITY_BLOCKED",
+      "fault_id": "C1-C09"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 262,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "MONITOR_EXCEPTION_FAIL_CLOSED",
+      "fault_id": "C1-C10"
+    },
+    {
+      "c1_defects": [
+        "REUSED_SHARED_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 263,
+      "c1_negative_expr": "len(spc.calls) == 0 and rc['aborted']",
+      "c1_positive_expr": "grn_s",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "SAMPLE_OK_FALSE_OR_STR_BLOCKED",
+      "fault_id": "C1-C11"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 276,
+      "c1_negative_expr": "r_ab['aborted'] and r_ab['removed_staged_files_count'] == 1 and (r_ab['qa_fixture_records_count'] == 0) and keep_f.is_file()",
+      "c1_positive_expr": "True",
+      "c1_target": "capture_r5_public_batch",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "ABORT_DELETED_STAGING_COUNTED_ZERO_ACCEPTED_OWNED_ONLY",
+      "fault_id": "C1-C12"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 282,
+      "c1_negative_expr": "not r_c13['committed'] and r_c13['status'] == 'REJECTED_MISSING_RAW_SHA'",
+      "c1_positive_expr": "True",
+      "c1_target": "R5DevCustodyJournal.persist_snapshot",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CUSTODY_MANDATORY_EXPECTED_RAW_SHA256",
+      "fault_id": "C1-C13"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_POSITIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 290,
+      "c1_negative_expr": "not r_c14['committed'] and any(('RAW_BLOB_OVERSIZE_BEFORE_READ' in v for v in r_c14['violations']))",
+      "c1_positive_expr": "True",
+      "c1_target": "R5DevCustodyJournal.persist_snapshot",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CUSTODY_STAT_BEFORE_READ_OVERSIZE_REJECTED",
+      "fault_id": "C1-C14"
+    },
+    {
+      "c1_defects": [
+        "LITERAL_TRUE_NEGATIVE"
+      ],
+      "c1_label": "NEW_CONTRACT_RED_GREEN",
+      "c1_line": 294,
+      "c1_negative_expr": "True",
+      "c1_positive_expr": "r_c15['committed'] and v_c15['valid']",
+      "c1_target": "verify_r5_custody_chain_readonly",
+      "c2_baseline_witness_key": null,
+      "c2_repaired_kind": "NEGATIVE_CONTRACT",
+      "control_name": "CUSTODY_VALID_BOUNDED_COMMIT_AND_CHAIN_READONLY",
+      "fault_id": "C1-C15"
+    }
+  ],
+  "historical_c1_artifacts_mutated": false,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "total_c1_controls_audited": 48,
+  "unique_c1_fault_ids": 48
+}

@@ -1,0 +1,31 @@
+{
+  "baseline_bug_red_proven_count": 12,
+  "counts_by_kind": {
+    "BASELINE_BUG_RED": 12,
+    "NEGATIVE_CONTRACT": 79,
+    "VERIFIER_MUTATION": 0
+  },
+  "inherited_evidence_disclosure": "Legacy R3/C1/C2/R4/R5 suites re-executed as INHERITED_REGRESSION_EXECUTED only; never relabeled as C2 paired negative+positive receipts.",
+  "inherited_not_relabelled_paired": true,
+  "inherited_regression_executed_count": 288,
+  "inherited_regression_failed_count": 0,
+  "inherited_regression_passed_count": 288,
+  "new_c2_breakdown": {
+    "D_fault_truth": 12,
+    "E_worker_lifecycle": 16,
+    "F_grant_replay": 15
+  },
+  "new_c2_paired_verified_count": 43,
+  "paired_controls_failed_count": 0,
+  "paired_receipts_gz_rel": "05_paired_fault_execution_receipts.jsonl.gz",
+  "paired_receipts_gz_sha256": "ae95354c3fda4b99bb61d0807d80f4e69c9546521b0da7e8b1a99875965a268b",
+  "repaired_c1_paired_verified_count": 48,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "total_paired_verified_count": 91,
+  "unique_execution_ids_count": 182,
+  "unique_positive_execution_ids_count": 91
+}

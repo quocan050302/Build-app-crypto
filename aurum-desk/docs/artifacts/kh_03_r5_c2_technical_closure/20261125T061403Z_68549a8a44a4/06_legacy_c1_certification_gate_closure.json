@@ -1,0 +1,13 @@
+{
+  "ast_certification_path_no_literal_flags": true,
+  "historical_c1_artifacts_modified": false,
+  "legacy_c1_gate_observed_g26": "LEGACY_CONTROL_PROOF_INSUFFICIENT_USE_C2",
+  "legacy_c1_gate_rejects_boolean_only_proof": true,
+  "legacy_c1_verifier_exit_code": 1,
+  "legacy_c1_verifier_rejects_boolean_only_proof": true,
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a"
+}

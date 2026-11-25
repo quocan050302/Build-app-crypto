@@ -1,0 +1,373 @@
+{
+  "distinct_os_process_verified": true,
+  "independent_junit_bijection_ok": true,
+  "independent_paired_faults_audit": {
+    "counts_by_kind": {
+      "BASELINE_BUG_RED": 12,
+      "NEGATIVE_CONTRACT": 79,
+      "VERIFIER_MUTATION": 0
+    },
+    "failed_controls": 0,
+    "new_c2_verified_count": 43,
+    "repaired_c1_verified_count": 48,
+    "status": "PASS",
+    "total_paired_records": 91,
+    "unique_execution_ids_count": 182,
+    "unique_positive_execution_ids_count": 91,
+    "valid": true,
+    "violations": []
+  },
+  "independent_pytest_benchmark_recompute": {
+    "recomputed_policy_summary": {
+      "all_four_measured_wall_sec": {
+        "w=1": 51.075,
+        "w=1_repeat": 50.715,
+        "w=2": 41.817,
+        "w=4": 35.089
+      },
+      "applied_worker_count": 3,
+      "applied_worker_count_is_benchmark_measured": false,
+      "applied_worker_mode": "w=3_SAFE_CAP_NOT_BENCHMARK_MEASURED",
+      "benchmark_kind": "pytest_controlled_subset",
+      "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+      "borderline_or_noisy_gain_warning": false,
+      "can_certify": true,
+      "canonical_semantic_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+      "cap_components": {
+        "configured_child_process_cap": 4,
+        "currently_allowed_worker_cap": 3,
+        "full_suite_safe_worker_cap": 3,
+        "ram_derived_worker_cap": 4,
+        "shard_exclusive_cap": 3
+      },
+      "duration_source_key": "wall_clock_seconds",
+      "full_suite_speedup_extrapolated": false,
+      "gain_exceeds_min_threshold": true,
+      "gain_exceeds_w1_repeat_noise": true,
+      "gain_vs_w1_pct": 0.313,
+      "input_doc_sha256": "05a724dc72809c7705d5545c8f4fac2cabd9dce3b76f0783632f50b1f2a090c9",
+      "mean_wall_sec_by_mode": {
+        "w=1": 51.075,
+        "w=2": 41.817,
+        "w=4": 35.089
+      },
+      "measured_fastest_mode": "w=4",
+      "measured_fastest_workers": 4,
+      "measured_speedup_w2_vs_w1": 1.221,
+      "measured_speedup_w4_vs_w1": 1.456,
+      "measured_speedup_w4_vs_w1_mean": 1.45,
+      "median_wall_sec_by_mode": {
+        "w=1": 51.075,
+        "w=2": 41.817,
+        "w=4": 35.089
+      },
+      "min_meaningful_gain_pct": 0.05,
+      "optimum_worker_policy": "w=4",
+      "policy_decision_sha256": "ec0ad7bfdc0262dba67e17cff8d9b0a54f85988afeb188ce180efb9aed63a0eb",
+      "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+      "policy_recommended_mode_after_gain_rule": "w=4",
+      "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+      "provenance_role": "FRESH_EXECUTION",
+      "safe_fallback_reason": null,
+      "safe_worker_cap": 3,
+      "sample_size": 155,
+      "schema_version": "kh_03_r3_c1_worker_policy_v1",
+      "spec_version": "KH-03.R3.C1-v1.0",
+      "stability_disclosure": "w=4 fastest in measured scope (31.30% faster than w=1, exceeding 5.00% threshold and 0.71% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+      "status": "PASS",
+      "tie_detected": false,
+      "tie_rule": "prefer_fewer_workers",
+      "timing_determinism_claimed": false,
+      "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+      "violations": [],
+      "w1_repeat_delta_sec": -0.36,
+      "w1_repeat_drift_vs_w1_pct": 0.007,
+      "w1_repeat_variance_pct": 0.0071,
+      "w1_repeat_wall_sec": 50.715
+    },
+    "valid": true,
+    "violations": []
+  },
+  "independent_r4_replay_audit": {
+    "recomputed_net_usd": -441.6118,
+    "status": "PASS",
+    "valid": true,
+    "violations": []
+  },
+  "independent_recomputed_32_gates": {
+    "G01_BRANCH_SHA_CLEAN": "PASS",
+    "G02_KEEP_AS_IS": "PASS",
+    "G03_PRIOR_SEALED_DATASET_OOS": "PASS",
+    "G04_BASELINE_REAL_RED": "PASS",
+    "G05_C1_ALL48_TRUTH_INVENTORY": "PASS",
+    "G06_PAIRED_EXECUTION_PROOF": "PASS",
+    "G07_KIND_SPECIFIC_BASELINE_TRUTH": "PASS",
+    "G08_LEGACY_GATE_FAIL_CLOSED": "PASS",
+    "G09_WORKER_TRACKING": "PASS",
+    "G10_ACTUAL_START_GUARD": "PASS",
+    "G11_CANCELLATION_DRAIN": "PASS",
+    "G12_UNDRAINED_QUARANTINE": "PASS",
+    "G13_LATE_RESULT_ABORT_TRUTH": "PASS",
+    "G14_GRANT_IDENTITY": "PASS",
+    "G15_ONE_SHOT_CLAIM": "PASS",
+    "G16_GRANT_REPLAN_REISSUE": "PASS",
+    "G17_REQUEST_BYTE_CONSERVATION": "PASS",
+    "G18_RESTART_TRUST_BOUNDARY": "PASS_LIVE_HARD_BLOCK_PROVEN",
+    "G19_STRICT_RESOURCE_GUARD": "PASS",
+    "G20_QA_LIVE_ISOLATION": "PASS",
+    "G21_FULL_PYTEST": "PASS",
+    "G22_BASELINE_PARITY": "PASS",
+    "G23_BACKTEST_PARITY": "PASS",
+    "G24_DETERMINISTIC_WORKERS": "PASS",
+    "G25_MEASURED_WORKER_POLICY": "PASS",
+    "G26_INHERITED_REGRESSION": "PASS",
+    "G27_NEW_FAULT_CONTROLS": "PASS",
+    "G28_INDEPENDENT_VERIFIER": "PASS",
+    "G29_MUTATION_RESISTANCE": "PASS",
+    "G30_RESOURCE_CLEANUP": "PASS",
+    "G31_ECONOMIC_ACTIVATION": "PASS",
+    "G32_REMOTE_PUBLICATION": "PRE_PUSH_PENDING"
+  },
+  "independent_recomputed_verdicts": {
+    "ACCEPTED_REAL_OBSERVED_RECORDS": 0,
+    "ACCOUNT_FEE_READINESS": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "BACKTEST_PARITY": "PASS",
+    "CAPTURE_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_EXECUTION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CAPTURE_PROVENANCE": "NO_REAL_CAPTURE",
+    "CI_STATUS": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "CONTROL_TRUTH": "PASS",
+    "DATA_READINESS": "INCOMPLETE",
+    "DETERMINISM": "PASS",
+    "ECONOMIC": "NO_PROVEN_EDGE",
+    "ENGINEERING": "PASS",
+    "EXECUTION_FIDELITY": "INCOMPLETE",
+    "EXTERNAL_MARKET_REQUESTS_ATTEMPTED": 0,
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FUNDING_READINESS": "MISSING",
+    "GRANT_REPLAY_SAFETY_OFFLINE": "PASS",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "LIVE": "OFF",
+    "LIVE_GRANT_REPLAY_DURABILITY": "NOT_PROVEN_BLOCKED",
+    "LIVE_NETWORK_VALIDATION": "NOT_RUN_BY_DESIGN",
+    "LIVE_TRANSPORT_TERMINATION": "NOT_PROVEN_BLOCKED",
+    "OBSERVED_BBO_COVERAGE": "MISSING",
+    "OOS_EVALUATIONS": 0,
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "PUBLICATION": "PRE_PUSH_PENDING",
+    "REGRESSION": "PASS",
+    "RESOURCE_SAFETY": "PASS",
+    "WORKER_LIFECYCLE": "PASS"
+  },
+  "independent_science_benchmark_recompute": {
+    "recomputed_policy_summary": {
+      "all_four_measured_wall_sec": {
+        "w=1": 1.74,
+        "w=1_repeat": 1.79,
+        "w=2": 1.676,
+        "w=4": 1.773
+      },
+      "applied_worker_count": 1,
+      "applied_worker_count_is_benchmark_measured": true,
+      "applied_worker_mode": "w=1_CAPPED_BELOW_MEASURED_w=2",
+      "benchmark_kind": "r2_science_slice",
+      "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+      "borderline_or_noisy_gain_warning": true,
+      "can_certify": true,
+      "canonical_semantic_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+      "cap_components": {
+        "configured_child_process_cap": 4,
+        "currently_allowed_worker_cap": 4,
+        "full_suite_safe_worker_cap": 4,
+        "ram_derived_worker_cap": 4,
+        "shard_exclusive_cap": 4
+      },
+      "duration_source_key": "wall_seconds",
+      "full_suite_speedup_extrapolated": false,
+      "gain_exceeds_min_threshold": false,
+      "gain_exceeds_w1_repeat_noise": true,
+      "gain_vs_w1_pct": 0.0368,
+      "input_doc_sha256": "5b7fb28e2c58d88d3f4bcc196c74389c0f13ecf4c2ca8f0ab98b0fd98869dea6",
+      "mean_wall_sec_by_mode": {
+        "w=1": 1.74,
+        "w=2": 1.676,
+        "w=4": 1.773
+      },
+      "measured_fastest_mode": "w=2",
+      "measured_fastest_workers": 2,
+      "measured_speedup_w2_vs_w1": 1.038,
+      "measured_speedup_w4_vs_w1": 0.981,
+      "measured_speedup_w4_vs_w1_mean": 0.995,
+      "median_wall_sec_by_mode": {
+        "w=1": 1.74,
+        "w=2": 1.676,
+        "w=4": 1.773
+      },
+      "min_meaningful_gain_pct": 0.05,
+      "optimum_worker_policy": "w=2",
+      "policy_decision_sha256": "f84193f9c43fbca73306f2e9d40d3ce988c0474c1ac40759d914141f30068114",
+      "policy_recommendation_confidence": "INCONCLUSIVE_GAIN_BELOW_MIN_THRESHOLD_RETAIN_W1",
+      "policy_recommended_mode_after_gain_rule": "w=1",
+      "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+      "provenance_role": "FRESH_EXECUTION",
+      "safe_fallback_reason": null,
+      "safe_worker_cap": 4,
+      "sample_size": 12062,
+      "schema_version": "kh_03_r3_c1_worker_policy_v1",
+      "spec_version": "KH-03.R3.C1-v1.0",
+      "stability_disclosure": "w=2 gain vs w=1 is 3.68% (< 5.00% min threshold); w=1_repeat variance=2.87%; retaining conservative w=1 policy.",
+      "status": "PASS",
+      "tie_detected": false,
+      "tie_rule": "prefer_fewer_workers",
+      "timing_determinism_claimed": false,
+      "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+      "violations": [],
+      "w1_repeat_delta_sec": 0.05,
+      "w1_repeat_drift_vs_w1_pct": 0.0287,
+      "w1_repeat_variance_pct": 0.0287,
+      "w1_repeat_wall_sec": 1.79
+    },
+    "valid": true,
+    "violations": []
+  },
+  "independent_telemetry_audit": {
+    "below_floor_samples_count": 0,
+    "max_workers_observed_in_samples": 4,
+    "min_available_ram_mib": 3720.99,
+    "min_disk_free_gib": 44.3717,
+    "samples_count": 5294,
+    "status": "PASS",
+    "violations": []
+  },
+  "independent_worker_traces_audit": {
+    "status": "PASS",
+    "traces_count": 5,
+    "valid": true,
+    "violations": []
+  },
+  "manifest_excludes_self_from_hash_index": true,
+  "orchestrator_pid": 40360,
+  "overall_classification": "ENGINEERING_PASS_OFFLINE_TECHNICAL_CLOSURE_CAPTURE_BLOCKED_OWNER_AUTHORIZATION_NO_PROVEN_EDGE",
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "verified_artifact_sha256_manifest": {
+    "00_preflight_branch_sha_resource_lock.json": {
+      "bytes": 7391,
+      "sha256": "c1fcef9e5ce4ef97bbaae3741e882e57c357bcb298d324379b1dc99a8411772f"
+    },
+    "01_function_ownership_keep_as_is_manifest.json": {
+      "bytes": 20269,
+      "sha256": "08682dde8ac3be94cf95ac0de3f4e31950b54c3fe029121d04fb4e058a9ee4f0"
+    },
+    "02_prior_dataset_sealed_integrity_no_oos.json": {
+      "bytes": 30099,
+      "sha256": "a38aaf123d8a747e73b84ea8439c163dfc030669f8fe87fff3b7dad37bf4c2d6"
+    },
+    "03_baseline_c1_red_fault_truth_worker_replay.json": {
+      "bytes": 2487,
+      "sha256": "46950097b5147367cbf50e0093c5c3917fb353efcea31346ec24759bf71999a1"
+    },
+    "04_c1_all48_control_inventory_and_correction_ledger.json": {
+      "bytes": 27412,
+      "sha256": "d4d69c6ab45e21a971eab164ae05d9c97ca89e417160f9e4937c8676fe0e83e6"
+    },
+    "05_paired_fault_execution_receipts.jsonl.gz": {
+      "bytes": 34124,
+      "sha256": "ae95354c3fda4b99bb61d0807d80f4e69c9546521b0da7e8b1a99875965a268b"
+    },
+    "06_legacy_c1_certification_gate_closure.json": {
+      "bytes": 553,
+      "sha256": "a3ef417cd0cf80d9e4aa49592072aab392f0dd67c5b315ac7b4fcde135754bc1"
+    },
+    "07_worker_lifecycle_actual_entry_exit_traces.jsonl.gz": {
+      "bytes": 1428,
+      "sha256": "eebf8c27d264da032e41b10fdae24bb030b8efc66b91b91d611969ef8c608c16"
+    },
+    "08_cancellation_deadline_drain_quarantine_receipts.json": {
+      "bytes": 1312,
+      "sha256": "c6634ea22d55cd0a0b4558d1b4d02562416c029dd108f360370a20a8399bea2b"
+    },
+    "09_grant_identity_and_one_shot_ledger_receipts.json": {
+      "bytes": 595,
+      "sha256": "a3289004bf8d4b8bea7b99d35c82ca8a49cdac10845747b7e0040050c3dc1655"
+    },
+    "10_concurrent_replay_request_byte_conservation.json": {
+      "bytes": 652,
+      "sha256": "c0e9ae96711c3bd6f6f789ec27eb1d4a143a9a6161191ad8816c79af0b0200f5"
+    },
+    "11_restart_boundary_live_block_and_provenance.json": {
+      "bytes": 849,
+      "sha256": "659d15db6d208ff503aaef362ce5b103eece46f7da64100644dc425cbeb2d144"
+    },
+    "12_r4_replay_decimal_economic_bridge.json": {
+      "bytes": 7365,
+      "sha256": "3e50e91291dee87656d3a6f0a03a256dff98ff5b4a6e26f8949fda35e2a0f437"
+    },
+    "13_six_cost_scenarios_and_arm_regression.json": {
+      "bytes": 6165,
+      "sha256": "d891a7f579923a8a84ec7d912b4a090910c654bfdc71c862e8ba3ef2408d0a38"
+    },
+    "14_A1_SI8_adapter_D4_full_parity.json": {
+      "bytes": 2600,
+      "sha256": "56301f3eea3785d2dc96825c0dcf9ace021a17b5162a3ff8768e27563410f419"
+    },
+    "15_full_pytest_fresh_collection_junit_bijection.json": {
+      "bytes": 982876,
+      "sha256": "7ea4e6c75ff8381475678ba3ac172bc364d780f7de1c71b9eaf652e02f54d5d6"
+    },
+    "16_W1_W2_W4_W1repeat_benchmark_policy.json": {
+      "bytes": 10987,
+      "sha256": "99eb24540b286fb0baefc0874782df157d246281478c28fe22186c8ad3715ea6"
+    },
+    "17_actual_resource_telemetry_cleanup.json": {
+      "bytes": 1061,
+      "sha256": "b56fc9ac90b4d096d1302779bdca9d59431c26e47cdb72534680faaaf46deaa3"
+    },
+    "18_new_and_inherited_fault_control_truth_summary.json": {
+      "bytes": 1253,
+      "sha256": "178c4622e74ff9aba02340354aafc7f1208475779a8c37817cdd8d263abab078"
+    },
+    "19_separate_OS_mutation_results.json": {
+      "bytes": 8034,
+      "sha256": "6d0e203a60eeb6b10dba18eca0575b98aabeed440aa74c5c40ad80220f539f27"
+    },
+    "20_orthogonal_gates_and_verdicts.json": {
+      "bytes": 2904,
+      "sha256": "f793990d9e31de3a6e565917f5be85d0f53813a70a7e9c49ffdd2e759335379b"
+    },
+    "22_phase1_code_commit_push_receipt.json": {
+      "bytes": 686,
+      "sha256": "87e01b17fca761439996c93a615b67a83f2e5c12c89d1219950faafd19988846"
+    },
+    "HANDOVER_KH03_R5_C2_VI.txt": {
+      "bytes": 3811,
+      "sha256": "b0037518c20f3ce433f1d1b7ab93f6eb0338e91cec1bd7465246e13f1f2b0e76"
+    },
+    "README.md": {
+      "bytes": 790,
+      "sha256": "e8ab0719cb02debb4afed44e94e3fa46992a344d227f401ebb78cad557a7e772"
+    },
+    "logs/pytest_collected_executed_nodeids.jsonl.gz": {
+      "bytes": 99017,
+      "sha256": "691bb54f1813829e5e96d39d51b2f63054de351676856b8e47840b19c0fb368d"
+    },
+    "logs/r4_replay_forensic_ledger_1x.jsonl.gz": {
+      "bytes": 23774,
+      "sha256": "21ea08cecb964b9bcf5324d49cf12b80c3194ab4763b0bdf3c890a41a09d35e3"
+    },
+    "logs/runtime_memory_samples_0p5s.jsonl.gz": {
+      "bytes": 141538,
+      "sha256": "c309fed1a12de983cbff8ad5f7a63f3f30b6aab270a6a3981d4bb16ee5de9a53"
+    }
+  },
+  "verified_utc": "2026-11-25T07:04:05Z",
+  "verifier_pid": 16256,
+  "violations": [],
+  "violations_count": 0
+}

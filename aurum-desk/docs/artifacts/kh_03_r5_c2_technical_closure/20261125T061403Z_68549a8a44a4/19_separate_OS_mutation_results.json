@@ -1,0 +1,191 @@
+{
+  "clean_clone_verifier_green": true,
+  "inherited_mutations_detected_count": 111,
+  "inherited_mutations_failed_detection_count": 0,
+  "inherited_mutations_tested_count": 111,
+  "inherited_results_summary": {
+    "c1_c2_r4_r5_r5c1": "95/95",
+    "r3": "16/16"
+  },
+  "isolated_temp_clones_only": true,
+  "new_c2_mutations_detected_count": 24,
+  "new_c2_mutations_failed_detection_count": 0,
+  "new_c2_mutations_tested_count": 24,
+  "new_c2_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "MISSING_POSITIVE_RECEIPT",
+      "mutation_id": "M01_LITERAL_OR_MISSING_POSITIVE_RECEIPT",
+      "output_sha256": "0a569d99a1f16856d2734e7fa300c1d300761b009394519e2b581a953e83dd2b",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "MISSING_NEGATIVE_RECEIPT",
+      "mutation_id": "M02_MISSING_NEGATIVE_RECEIPT",
+      "output_sha256": "e8e0e1af41e94a527b9174e968517e657dfd503d3a244042c50453d7cc539ea4",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "NEGATIVE_AND_POSITIVE_SHARE_EXECUTION_ID",
+      "mutation_id": "M03_DUPLICATE_EXECUTION_ID",
+      "output_sha256": "eee5eadeb067d511395a3c92d97769e2fad0dacefee5ab0171670d07931ee202",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "SHARED_POSITIVE_EXECUTION_ID",
+      "mutation_id": "M04_SHARED_POSITIVE_ACROSS_CASES",
+      "output_sha256": "ea4fcaf1e34006a3e34e55ba2fecf8166f55d866855b3d036a803a6655bf125f",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PREDICATE_RECOMPUTE_FAILED:NEGATIVE",
+      "mutation_id": "M05_NEGATIVE_ACCEPTED_DECLARED_PASS",
+      "output_sha256": "e447f2e88a87510e233283583d19e4f044af1bc4e4a943d6c62dbde26989f430",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "PREDICATE_RECOMPUTE_FAILED:POSITIVE",
+      "mutation_id": "M06_POSITIVE_FAILED_DECLARED_PASS",
+      "output_sha256": "7dcf0651608184b9b96cbc8dffa268397a71802299c609a081b0fce63725ad21",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "BASELINE_BUG_RED_MISSING_BASELINE_WITNESS",
+      "mutation_id": "M07_FALSE_BASELINE_BUG_RED_NO_WITNESS",
+      "output_sha256": "a9e5b73327414bb56a5c04f3e4407034646cc96c52617310dfd2072a75959eec",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_MISSING_PAIRED_FAULT_RECEIPTS_GZ",
+      "mutation_id": "M08_MISSING_PAIRED_RECEIPTS_TRACE",
+      "output_sha256": "e743046c69f4aa2a2defdba18f323f835037cbd1e6030e0f97c106d41d6c18e0",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_WORKER_RUNNING_CLAIMED_ZERO_UNDRAINED",
+      "mutation_id": "M09_WORKER_RUNNING_CLAIMED_UNDRAINED_ZERO",
+      "output_sha256": "873217fa981e964261c9a8ae8fc5ec8df5f4818b7b43a42edb5b35e84db20539",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_CANCELLED_BEFORE_START_HAS_START_TIME",
+      "mutation_id": "M10_CANCELLED_BEFORE_START_WITH_START_TIME",
+      "output_sha256": "616d156b6214b3934957cb533a832f08d1e358068698d35aca4c213754639ee4",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_WORKER_EXIT_BEFORE_ENTRY",
+      "mutation_id": "M11_WORKER_EXIT_BEFORE_ENTRY_TIMESTAMP",
+      "output_sha256": "74edb2e28c02926cb316947f31454d1036143ec9d7b5c67147b15af5b8e03de1",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_MISSING_WORKER_LIFECYCLE_TRACES_GZ",
+      "mutation_id": "M12_MISSING_WORKER_LIFECYCLE_TRACE_GZ",
+      "output_sha256": "5ba03f96ce424a830f7c9af022d94d5dee101c0ea8c20469691a978aa12d59f4",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_LATE_ACCEPTED_ITEM_AFTER_ABORT",
+      "mutation_id": "M13_LATE_ACCEPTED_ITEM_AFTER_ABORT",
+      "output_sha256": "6d26cc0625bb6c0cc96c2109ff2f790759f559040b23b9f4f17a569da13d8c72",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_INVALID_ACTUAL_START_TIMEOUT",
+      "mutation_id": "M14_INVALID_ACTUAL_START_TIMEOUT",
+      "output_sha256": "56450e826d99244b9e09e522ec20fb48f1f1a1955fd2e8161d2594e5f33cbc83",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_ORPHAN_OR_QUARANTINE_HIDDEN",
+      "mutation_id": "M15_QUARANTINE_OR_SHUTDOWN_HIDDEN",
+      "output_sha256": "9e5ce7b479aa88920b01aff13a424a449cf262a1578ead4ecaab91e3cdc14e78",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_MULTIPLE_SAME_GRANT_SESSION_WINNERS",
+      "mutation_id": "M16_TWO_SAME_GRANT_SESSION_WINNERS",
+      "output_sha256": "7cac51dcaafdcd26e9a308eaa558e3ed964dbdfe5799b4c48d1fc21da017cc77",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_GRANT_PAYLOAD_CONFLICT_ACCEPTED",
+      "mutation_id": "M17_SAME_GRANT_ID_CHANGED_PAYLOAD_ACCEPTED",
+      "output_sha256": "00df3f9b9cf194a0992bd8fd906558dd23c5efc846622aaab746ff3fa5887c5a",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_UNKNOWN_BYTES_SETTLED_AS_ZERO",
+      "mutation_id": "M18_UNKNOWN_BYTES_SETTLED_AS_ZERO",
+      "output_sha256": "25e9c47d7272c3e30fcb96db971a25b0d2f712fb6d2a3d9e9fb78e73cda15cae",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_LEDGER_OVER_RELEASE_OR_NEGATIVE_COUNTER",
+      "mutation_id": "M19_LEDGER_OVER_RELEASE_NEGATIVE_COUNTER",
+      "output_sha256": "619693e344858bf4c5cb933193d8e62d4fe5901da64ddd97a885d89ac6df8fd5",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_REPLAY_CAP_RESET_OR_FREE_RETRY",
+      "mutation_id": "M20_REPLAY_CAP_RESET_OR_FREE_RETRY",
+      "output_sha256": "089f9ccf91dac65f14a2541d8baef06634516aec39e58595646e1e2c75ebf461",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_LIVE_PROMOTED_FROM_OFFLINE_OR_NONDURABLE",
+      "mutation_id": "M21_LIVE_PROMOTED_FROM_OFFLINE_NONDURABLE",
+      "output_sha256": "a68bacba4561d59bf837ab58d36626193144cfa87545711da14d8f1de07b074e",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_LEGACY_C1_CERTIFICATION_NOT_CLOSED",
+      "mutation_id": "M22_FALSE_C1_CERTIFICATION_GATE_OPEN",
+      "output_sha256": "82a30130a9eda8e7f2ebaed25e076a4c3b42989c7bad2b4614b2b26b3a2766f5",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_JUNIT_COLLECTED_DUPLICATES",
+      "mutation_id": "M23_JUNIT_DUPLICATE_NODEID",
+      "output_sha256": "addf23158f5fb552585149766935de42a9b9da4a1de64422eb6d702ee8a5ab0e",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "C2V_R4_DECIMAL_BRIDGE_DRIFT",
+      "mutation_id": "M24_BACKTEST_LEDGER_TAMPER_RECOMPUTED_SHA",
+      "output_sha256": "1b7a832b320d83ecb0f6ee3bf6ecb9fc7ed7dab4295bb7a4edb5bb3e9b9b693b",
+      "verifier_exit_code": 1
+    }
+  ],
+  "run_id": "20261125T061403Z_68549a8a44a4",
+  "schema_version": "kh_03_r5_c2_technical_closure_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R5.C2-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "68549a8a44a424eb58f9c21bec49199ab296eb1a",
+  "total_mutations_tested_count": 135
+}
