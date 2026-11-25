@@ -816,7 +816,16 @@ def run_kh03_r5_c1_orchestrator(
     (run_dir / "junit").mkdir(exist_ok=True)
     (run_dir / "checksums").mkdir(exist_ok=True)
 
-    sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1(f"kh03r5c1_{utc_now.strftime('%Y%m%dT%H%M%SZ')}_", run_id=run_id, owner_pid=orch_pid)
+    # Keep temp base path short on Windows so deep nested pytest tmp_path tests stay well below MAX_PATH (260).
+    short_tmp_base: Optional[Path] = None
+    if os.name == "nt" and len(str(Path(tempfile.gettempdir()))) > 20:
+        cand_pub = Path(r"C:\Users\Public")
+        if cand_pub.is_dir():
+            short_tmp_base = cand_pub
+    try:
+        sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1("c1_", run_id=run_id, owner_pid=orch_pid, base_dir=short_tmp_base)
+    except OSError:
+        sentinel_tmp = create_sentinel_owned_temp_dir_r2_c1("c1_", run_id=run_id, owner_pid=orch_pid)
     write_mount_paths = {
         "repo_volume": REPO_ROOT, "app_volume": APP_ROOT,
         "artifacts_output": art_base if art_base.exists() else APP_ROOT,
@@ -897,9 +906,9 @@ def run_kh03_r5_c1_orchestrator(
         e2_p = arms_p.get("KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION") or {}
         e3_p = arms_p.get("KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT") or {}
         arms_anchor_ok = (
-            int(e1_p.get("closed", -1)) == 58 and int(e1_p.get("wins", -1)) == 3 and int(e1_p.get("losses", -1)) == 55 and abs(float(e1_p.get("net_pnl_usd", 0.0)) - (-118.0121)) <= 0.01
-            and int(e2_p.get("closed", -1)) == 131 and int(e2_p.get("wins", -1)) == 5 and int(e2_p.get("losses", -1)) == 126 and abs(float(e2_p.get("net_pnl_usd", 0.0)) - (-274.3771)) <= 0.01
-            and int(e3_p.get("closed", -1)) == 206 and int(e3_p.get("wins", -1)) == 9 and int(e3_p.get("losses", -1)) == 197 and abs(float(e3_p.get("net_pnl_usd", 0.0)) - (-439.0423)) <= 0.01
+            int(e1_p.get("n_closed", -1)) == 58 and int(e1_p.get("n_wins", -1)) == 3 and int(e1_p.get("n_losses", -1)) == 55 and abs(float(e1_p.get("net_pnl_usd", 0.0)) - (-118.0121)) <= 0.01
+            and int(e2_p.get("n_closed", -1)) == 131 and int(e2_p.get("n_wins", -1)) == 5 and int(e2_p.get("n_losses", -1)) == 126 and abs(float(e2_p.get("net_pnl_usd", 0.0)) - (-274.3771)) <= 0.01
+            and int(e3_p.get("n_closed", -1)) == 206 and int(e3_p.get("n_wins", -1)) == 9 and int(e3_p.get("n_losses", -1)) == 197 and abs(float(e3_p.get("net_pnl_usd", 0.0)) - (-439.0423)) <= 0.01
         )
         f13 = _stamp_c1({
             "six_cost_dynamic_vs_fixed_fills_separated": bool(f12_raw.get("six_cost_dynamic_vs_fixed_fills_separated")),
