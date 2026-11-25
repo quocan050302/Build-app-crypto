@@ -137,7 +137,7 @@ def build_synthetic_valid_kh03_r5_c1_run_dir(run_dir: Path) -> Tuple[str, str]:
         "15": {"status": "PASS", "collected_count": n_tc, "executed_count": n_tc, "passed_count": n_tc, "skipped_count": 0, "mandatory_skipped_count": 0, "failed_count": 0, "error_count": 0, "junit_bijection_exact": True, "collected_nodeids_gz_rel": nodes_rel, "collected_nodeids_gz_sha256": _sha256_file(nodes_gz), "shard_manifest": {"run_id": rid, "tested_executable_sha": tsha, "nonzero_exit_shards_count": 0, "shards": [{"shard_id": "SHARD_01", "exit_code": 0, "timed_out": False, "reused": False, "junit_xml_path": "junit/SHARD_01.xml", "xml_sha256": _sha256_file(xp), "scheduled_node_ids": c_ids}]}},
         "16": {"status": "PASS", "pytest_controlled_subset_raw": pb_raw, "science_slice_8000_raw": sb_raw, "pytest_worker_policy": p_pol, "science_worker_policy": s_pol, "c1_capture_fixture_w1_w2_w4_identical": True, "full_suite_speedup_extrapolated": False},
         "17": {"status": "PASS", "memory_samples_log_rel": "logs/runtime_memory_samples_0p5s.jsonl.gz", "min_disk_free_gib": 30.5, "min_available_ram_mib": 3242.49, "max_descendant_children": 2, "orphan_children_after_cleanup": 0, "sentinel_temp_cleaned_up": True, "owner_disk_preflight_waiver": False},
-        "18": {"status": "PASS", "inherited_r5_r4_c2_c1_r3_controls_count": 288, "new_c1_controls_count": 48, "total_controls": 336, "unique_fault_ids": 336, "failed_controls": 0},
+        "18": {"status": "PASS", "inherited_r5_r4_c2_c1_r3_controls_count": 288, "new_c1_controls_count": 48, "total_controls": 336, "unique_fault_ids": 336, "failed_controls": 0, "paired_fault_receipts_verified": True, "paired_c1_controls_verified_count": 48},
         "19": {"status": "PASS", "clean_clone_verifier_green": True, "inherited_r5_r4_c2_c1_r3_mutations_tested_count": 89, "inherited_r5_r4_c2_c1_r3_mutations_failed_detection_count": 0, "new_c1_mutations_tested_count": 22, "new_c1_mutations_failed_detection_count": 0},
         "22": {"publication_status": "PRE_PUSH_PENDING", "remote_readback_sha256_verified": False, "publication_head_sha": None, "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN", "actual_github_actions_run_verified": False, "owner_disk_preflight_waiver": False},
     }
@@ -243,6 +243,14 @@ def test_c1_clean_synthetic_clone_passes_separate_os_verifier(tmp_path: Path) ->
     rc, out = run_kh03_r5_c1_verifier_subprocess(rdir, rid, tsha)
     assert rc == 0, f"Clean C1 clone failed verifier (rc={rc}):\n{out}"
     assert '"status": "PASS"' in out
+
+
+def test_c1_verifier_rejects_legacy_boolean_only_18_proof(tmp_path: Path) -> None:
+    rdir = tmp_path / "legacy_bool_c1"
+    rid, tsha = build_synthetic_valid_kh03_r5_c1_run_dir(rdir)
+    _mut_json(rdir / "18_inherited_new_red_green_faults.json", lambda d: (d.pop("paired_fault_receipts_verified", None), d.pop("paired_c1_controls_verified_count", None)))
+    rc, out = run_kh03_r5_c1_verifier_subprocess(rdir, rid, tsha)
+    assert rc != 0 and "LEGACY_CONTROL_PROOF_INSUFFICIENT_USE_C2" in out
 
 
 @pytest.mark.parametrize("mut_id,mut_fn,expected_token", KH03_R5_C1_OWN_VERIFIER_MUTATIONS_SPECS, ids=[m[0] for m in KH03_R5_C1_OWN_VERIFIER_MUTATIONS_SPECS])

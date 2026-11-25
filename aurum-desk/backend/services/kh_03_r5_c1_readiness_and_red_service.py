@@ -828,18 +828,26 @@ def derive_r5_c1_readiness_verdicts(
         )
 
     # G26: Inherited (>=288) + NEW C1 (>=40) unique RED/GREEN fault controls
-    g["G26_FAULT_CONTROLS"] = (
-        "PASS"
-        if (
-            f18.get("status") == "PASS"
-            and _is_strict_int(f18.get("inherited_r5_r4_c2_c1_r3_controls_count")) and int(f18["inherited_r5_r4_c2_c1_r3_controls_count"]) >= 288
-            and _is_strict_int(f18.get("new_c1_controls_count")) and int(f18["new_c1_controls_count"]) >= 40
-            and _is_strict_int(f18.get("failed_controls")) and int(f18["failed_controls"]) == 0
-            and _is_strict_int(f18.get("unique_fault_ids")) and _is_strict_int(f18.get("total_controls"))
-            and int(f18["unique_fault_ids"]) == int(f18["total_controls"])
-        )
-        else "FAIL"
+    # KH-03.R5.C2 §4.2 closure: active C1 gate MUST reject legacy boolean-only aggregate proofs!
+    c1_paired_ok = (
+        _is_strict_bool_true(f18.get("paired_fault_receipts_verified"))
+        and _is_strict_int(f18.get("paired_c1_controls_verified_count"))
+        and int(f18["paired_c1_controls_verified_count"]) >= 48
     )
+    if (
+        f18.get("status") == "PASS"
+        and _is_strict_int(f18.get("inherited_r5_r4_c2_c1_r3_controls_count")) and int(f18["inherited_r5_r4_c2_c1_r3_controls_count"]) >= 288
+        and _is_strict_int(f18.get("new_c1_controls_count")) and int(f18["new_c1_controls_count"]) >= 40
+        and _is_strict_int(f18.get("failed_controls")) and int(f18["failed_controls"]) == 0
+        and _is_strict_int(f18.get("unique_fault_ids")) and _is_strict_int(f18.get("total_controls"))
+        and int(f18["unique_fault_ids"]) == int(f18["total_controls"])
+        and c1_paired_ok
+    ):
+        g["G26_FAULT_CONTROLS"] = "PASS"
+    elif f18.get("status") == "PASS" and not c1_paired_ok:
+        g["G26_FAULT_CONTROLS"] = "LEGACY_CONTROL_PROOF_INSUFFICIENT_USE_C2"
+    else:
+        g["G26_FAULT_CONTROLS"] = "FAIL"
 
     # G27: Separate-OS independent verifier
     g["G27_INDEPENDENT_VERIFIER"] = (

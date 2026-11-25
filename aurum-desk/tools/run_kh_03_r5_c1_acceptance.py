@@ -301,10 +301,39 @@ def _run_stage2_c1_hardening_traces_04_to_11(
                 raise rv
             return rv
 
-    qa_g = R5OperatorGrant("QA_C1_ACC", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker", "contracts"), ws, we, 6, 50_000, 20, now_ms + 120_000, run_id, True, "QA")
-    qa_r = {"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "endpoints": ["public_ticker"], "run_id": run_id, "purpose": "QA_FIXTURE", "window_start_ms": ws, "window_end_ms": we, "max_requests": 6, "max_total_bytes": 50_000, "max_duration_sec": 20}
-    qa_d = validate_r5_operator_capture_scope(qa_g, qa_r, now, {"qa_fixture_mode": True})
-    qa_p = plan_r5_capture_batches(qa_d, inv, {"destination_disk_free_gib": min_pre_disk_gib, "max_concurrency": 1, "max_pages": 6, "max_requests": 6, "max_total_bytes": 50_000, "max_duration_sec": 20, "endpoints": ["public_ticker"]}, now_utc=now)
+    import uuid as _uuid
+    _c1_tr_tag = _uuid.uuid4().hex[:8]
+    _gseq = {"n": 0}
+
+    def _mk_tr_scope_plan(eps: tuple[str, ...] = ("public_ticker",), **gover: Any) -> Tuple[R5OperatorGrant, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        _gseq["n"] += 1
+        gkw: Dict[str, Any] = dict(
+            grant_id=f"QA_C1_ACC_{_c1_tr_tag}_{_gseq['n']:03d}", issued_by="QA", purpose="QA_FIXTURE",
+            symbol="XAUUSDT", product_type="USDT-FUTURES", allowed_endpoints=eps, window_start_ms=ws, window_end_ms=we,
+            max_requests=6, max_total_bytes=50_000, max_duration_sec=20, expires_utc_ms=now_ms + 120_000,
+            run_id=run_id, is_qa_fixture_grant=True, origin_kind="QA",
+        )
+        gkw.update(gover)
+        g_ = R5OperatorGrant(**gkw)
+        r_ = {
+            "symbol": g_.symbol, "product_type": g_.product_type, "endpoints": list(eps), "run_id": run_id,
+            "purpose": "QA_FIXTURE", "window_start_ms": ws, "window_end_ms": we,
+            "max_requests": g_.max_requests, "max_total_bytes": g_.max_total_bytes, "max_duration_sec": g_.max_duration_sec,
+        }
+        if g_.max_response_bytes is not None:
+            r_["max_response_bytes"] = g_.max_response_bytes
+        d_ = validate_r5_operator_capture_scope(g_, r_, now, {"qa_fixture_mode": True})
+        bud_: Dict[str, Any] = {
+            "destination_disk_free_gib": min_pre_disk_gib, "max_concurrency": int(gover.get("max_concurrency") or 1),
+            "max_pages": g_.max_requests, "max_requests": g_.max_requests, "max_total_bytes": g_.max_total_bytes,
+            "max_duration_sec": g_.max_duration_sec, "endpoints": list(eps),
+        }
+        if g_.max_response_bytes is not None:
+            bud_["max_response_bytes"] = g_.max_response_bytes
+        p_ = plan_r5_capture_batches(d_, inv, bud_, now_utc=now)
+        return g_, r_, d_, p_
+
+    qa_g, qa_r, qa_d, qa_p = _mk_tr_scope_plan(eps=("public_ticker", "contracts"))
 
     # 04: Strict authorization & scope schema
     live_g = R5OperatorGrant("LIVE_C1", "owner", "DEVELOPMENT_CAPTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), ws, we, 6, 50_000, 20, now_ms + 120_000, run_id, False, "SEPARATE_OWNER_ATTESTATION")
@@ -369,18 +398,18 @@ def _run_stage2_c1_hardening_traces_04_to_11(
         "status": "PASS" if f05_ok else "FAIL",
     }, run_id=run_id, tested_sha=tested_sha)
 
-    # 06: Dispatch guard & remaining timeout trace
+    # 06: Dispatch guard & remaining timeout trace (distinct QA grants per session!)
+    _, _, d6a, p6a = _mk_tr_scope_plan(eps=("public_ticker",))
     clk6 = {"m": 100.0, "u": now}
     mon6 = make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=dest_root, monotonic_fn=lambda: clk6["m"])
     sp6a = _Spy([RawHttpResponseC2(429, b"", {"retry-after": "0.1"}, now_ms, now_ms + 5)])
-    r6a = asyncio.run(capture_r5_public_batch(qa_p, sp6a, mon6, run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, sleep_fn=lambda _s: clk6.__setitem__("m", clk6["m"] + 30.0), monotonic_fn=lambda: clk6["m"], utc_now_fn=lambda: clk6["u"]))
+    r6a = asyncio.run(capture_r5_public_batch(p6a, sp6a, mon6, run_id=run_id, trusted_scope=d6a, destination_root=dest_root, sleep_fn=lambda _s: clk6.__setitem__("m", clk6["m"] + 30.0), monotonic_fn=lambda: clk6["m"], utc_now_fn=lambda: clk6["u"]))
+    _, _, d6b, p6b = _mk_tr_scope_plan(eps=("public_ticker",))
     ev6 = asyncio.Event(); clk6b = {"m": 200.0}
     mon6b = make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=dest_root, monotonic_fn=lambda: clk6b["m"])
     sp6b = _Spy([RawHttpResponseC2(429, b"", {"retry-after": "0.1"}, now_ms, now_ms + 5)])
-    r6b = asyncio.run(capture_r5_public_batch(qa_p, sp6b, mon6b, cancel_event=ev6, run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, sleep_fn=lambda s: (clk6b.__setitem__("m", clk6b["m"] + s), ev6.set()), monotonic_fn=lambda: clk6b["m"], utc_now_fn=lambda: now))
-    gt6 = R5OperatorGrant("QA_TO", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), ws, we, 4, 50_000, 4, now_ms + 3000, run_id, True, "QA")
-    dt6 = validate_r5_operator_capture_scope(gt6, {**qa_r, "max_requests": 4, "max_duration_sec": 4}, now, {"qa_fixture_mode": True})
-    pt6 = plan_r5_capture_batches(dt6, inv, {"destination_disk_free_gib": min_pre_disk_gib, "max_concurrency": 1, "max_pages": 4, "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 4, "endpoints": ["public_ticker"]}, now_utc=now)
+    r6b = asyncio.run(capture_r5_public_batch(p6b, sp6b, mon6b, cancel_event=ev6, run_id=run_id, trusted_scope=d6b, destination_root=dest_root, sleep_fn=lambda s: (clk6b.__setitem__("m", clk6b["m"] + s), ev6.set()), monotonic_fn=lambda: clk6b["m"], utc_now_fn=lambda: now))
+    _, _, dt6, pt6 = _mk_tr_scope_plan(eps=("public_ticker",), max_requests=4, max_duration_sec=4, expires_utc_ms=now_ms + 3000)
     clk6c = {"m": 300.0, "u": now}
     mon6c = make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=dest_root, monotonic_fn=lambda: clk6c["m"])
     sp6c = _Spy([RawHttpResponseC2(503, b"", {}, now_ms, now_ms + 5), RawHttpResponseC2(200, ok_body, {}, now_ms, now_ms + 5)])
@@ -398,18 +427,22 @@ def _run_stage2_c1_hardening_traces_04_to_11(
     }, run_id=run_id, tested_sha=tested_sha)
 
     # 07: Rate limiter, Retry-After & cancellation drain trace
+    _, _, d7a, p7a = _mk_tr_scope_plan(eps=("public_ticker",))
     sl7a: List[float] = []
     sp7a = _Spy([RawHttpResponseC2(429, b"", {"retry-after": "120"}, now_ms, now_ms + 5)])
-    r7a = asyncio.run(capture_r5_public_batch(qa_p, sp7a, mon, run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, sleep_fn=lambda s: sl7a.append(s), utc_now_fn=lambda: now))
+    r7a = asyncio.run(capture_r5_public_batch(p7a, sp7a, mon, run_id=run_id, trusted_scope=d7a, destination_root=dest_root, sleep_fn=lambda s: sl7a.append(s), utc_now_fn=lambda: now))
+    _, _, d7b, p7b = _mk_tr_scope_plan(eps=("public_ticker",))
     sl7b: List[float] = []; clk7b = {"m": 400.0}
     mon7b = make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=dest_root, monotonic_fn=lambda: clk7b["m"])
     sp7b = _Spy([RawHttpResponseC2(429, b"", {"retry-after": "3.0"}, now_ms, now_ms + 5), RawHttpResponseC2(200, ok_body, {}, now_ms, now_ms + 5)])
-    r7b = asyncio.run(capture_r5_public_batch(qa_p, sp7b, mon7b, run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, sleep_fn=lambda s: (sl7b.append(s), clk7b.__setitem__("m", clk7b["m"] + s)), monotonic_fn=lambda: clk7b["m"], utc_now_fn=lambda: now))
+    r7b = asyncio.run(capture_r5_public_batch(p7b, sp7b, mon7b, run_id=run_id, trusted_scope=d7b, destination_root=dest_root, sleep_fn=lambda s: (sl7b.append(s), clk7b.__setitem__("m", clk7b["m"] + s)), monotonic_fn=lambda: clk7b["m"], utc_now_fn=lambda: now))
+    _, _, d7c, p7c = _mk_tr_scope_plan(eps=("public_ticker",))
     sp7c = _Spy([RawHttpResponseC2(403, b"no", {}, now_ms, now_ms + 5), RawHttpResponseC2(200, ok_body, {}, now_ms, now_ms + 5)])
-    r7c = asyncio.run(capture_r5_public_batch(qa_p, sp7c, mon, run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
+    r7c = asyncio.run(capture_r5_public_batch(p7c, sp7c, mon, run_id=run_id, trusted_scope=d7c, destination_root=dest_root, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
+    _, _, d7d, p7d = _mk_tr_scope_plan(eps=("public_ticker",))
     ev7d = asyncio.Event()
     sp7d = _Spy(on_call=lambda *_: ev7d.set())
-    r7d = asyncio.run(capture_r5_public_batch(qa_p, sp7d, mon, cancel_event=ev7d, staging_root=dest_root / "st7d", run_id=run_id, trusted_scope=qa_d, destination_root=dest_root, utc_now_fn=lambda: now))
+    r7d = asyncio.run(capture_r5_public_batch(p7d, sp7d, mon, cancel_event=ev7d, staging_root=dest_root / "st7d", run_id=run_id, trusted_scope=d7d, destination_root=dest_root, utc_now_fn=lambda: now))
     cad_ok = len(r7b["dispatch_timestamps_mono"]) == 2 and (r7b["dispatch_timestamps_mono"][1] - r7b["dispatch_timestamps_mono"][0]) >= 3.0 - 1e-6
     f07_ok = (len(sp7a.calls) == 1 and sl7a == [] and sl7b == [3.0] and len(sp7c.calls) == 1 and r7d["aborted"] and r7d["qa_fixture_records_count"] == 0 and r7d["undrained_inflight_workers"] == 0 and cad_ok)
     f07 = _stamp_c1({
@@ -494,9 +527,9 @@ def _run_stage2_c1_hardening_traces_04_to_11(
     st10.mkdir(parents=True, exist_ok=True)
     keep10 = st10 / "owner_keep.txt"; keep10.write_text("UNTOUCHED", encoding="utf-8")
     ev10 = asyncio.Event()
-    p10 = plan_r5_capture_batches(qa_d2, inv, {"destination_disk_free_gib": min_pre_disk_gib, "max_concurrency": 1, "max_pages": 6, "max_requests": 6, "max_total_bytes": 50_000, "max_duration_sec": 20, "endpoints": ["public_ticker", "contracts"]}, now_utc=now)
+    _, _, d10, p10 = _mk_tr_scope_plan(eps=("public_ticker", "contracts"))
     sp10 = _Spy(on_call=lambda idx, *_: ev10.set() if idx == 1 else None)
-    r10_ab = asyncio.run(capture_r5_public_batch(p10, sp10, make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=st10), cancel_event=ev10, staging_root=st10, run_id=run_id, trusted_scope=qa_d2, destination_root=dest_root, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
+    r10_ab = asyncio.run(capture_r5_public_batch(p10, sp10, make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=st10), cancel_event=ev10, staging_root=st10, run_id=run_id, trusted_scope=d10, destination_root=dest_root, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
     j10 = R5DevCustodyJournal(dest_root / "cust10", os_disk_probe_fn=lambda: min_pre_disk_gib)
     part10 = {"valid": True, "partition_role": "QA_FIXTURE", "plan_digest_sha256": qa_p["plan_digest_sha256"]}
     sp_v = st10 / "v.raw"; sp_v.write_bytes(ok_body); sha_v = hashlib.sha256(ok_body).hexdigest()
@@ -563,7 +596,7 @@ def _run_c1_capture_fixture_w1_w2_w4_determinism(sentinel_tmp: Path, run_id: str
     mon = make_r5_fixture_resource_monitor(disk_free_gib=min_pre_disk_gib, destination=dest)
     runs = []
     for lbl, w in (("w=1", 1), ("w=2", 2), ("w=4", 4), ("w=1_repeat", 1)):
-        g = R5OperatorGrant("QA_DET", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker", "contracts", "history_candles"), ws, we, 6, 50_000, 20, now_ms + 120_000, run_id, True, "QA")
+        g = R5OperatorGrant(f"QA_DET_{lbl}_{w}", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker", "contracts", "history_candles"), ws, we, 6, 50_000, 20, now_ms + 120_000, run_id, True, "QA")
         d = validate_r5_operator_capture_scope(g, {"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "endpoints": ["public_ticker", "contracts", "history_candles"], "run_id": run_id, "purpose": "QA_FIXTURE", "window_start_ms": ws, "window_end_ms": we, "max_requests": 6, "max_total_bytes": 50_000, "max_duration_sec": 20}, now, {"qa_fixture_mode": True})
         p = plan_r5_capture_batches(d, inv, {"destination_disk_free_gib": min_pre_disk_gib, "max_concurrency": w, "max_pages": 6, "max_requests": 6, "max_total_bytes": 50_000, "max_duration_sec": 20, "endpoints": ["public_ticker", "contracts", "history_candles"]}, now_utc=now)
         class _DetTr:
@@ -687,19 +720,23 @@ def _run_stage3b_336_faults_18_and_111_mutations_19(
         + list(run_new_kh03_r4_fault_controls_16(forensic_rows=ctx["forensic_rows"], docs_03_12=ctx["r4_docs"]))
         + list(run_new_kh03_r5_48_fault_controls())
     )
-    c1_48 = run_new_kh03_r5_c1_fault_controls()
+    c1_48 = run_new_kh03_r5_c1_fault_controls(executable_sha=tested_sha, run_id=run_id)
+    from services.kh_03_r5_c2_fault_truth_and_readiness_service import derive_fault_control_verdict as _derive_fc_c2
+    c1_48_ver = _derive_fc_c2(c1_48, expected_executable_sha=tested_sha, expected_run_id=run_id)
     all_ctrls = inh_all + list(c1_48)
     fids = [c["fault_id"] for c in all_ctrls]
     tot_pass = sum(1 for c in all_ctrls if c["status"] == "PASS")
     f18 = _stamp_c1({
         "inherited_r5_r4_c2_c1_r3_controls_count": len(inh_all),
         "new_c1_controls_count": len(c1_48),
+        "paired_fault_receipts_verified": bool(c1_48_ver["valid"]),
+        "paired_c1_controls_verified_count": int(c1_48_ver["passed_controls"]),
         "total_controls": len(all_ctrls),
         "unique_fault_ids": len(set(fids)),
         "passed_controls": tot_pass,
         "failed_controls": len(all_ctrls) - tot_pass,
         "controls": all_ctrls,
-        "status": "PASS" if (tot_pass == len(all_ctrls) and len(set(fids)) == len(all_ctrls) and len(inh_all) >= 288 and len(c1_48) >= 40) else "FAIL",
+        "status": "PASS" if (c1_48_ver["valid"] and tot_pass == len(all_ctrls) and len(set(fids)) == len(all_ctrls) and len(inh_all) >= 288 and len(c1_48) == 48) else "FAIL",
     }, run_id=run_id, tested_sha=tested_sha)
     shutil.rmtree(r3_sub, ignore_errors=True)
 

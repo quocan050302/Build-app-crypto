@@ -61,10 +61,15 @@ def _valid_sample(dest: Path, *, now_m: float = 100.0, **over: Any) -> Dict[str,
     return s
 
 
+_QA_C_SEQ_C1 = 0
+
+
 def _plan_and_scope(rid: str = "c1_res_run") -> tuple[Dict[str, Any], Dict[str, Any]]:
+    global _QA_C_SEQ_C1
+    _QA_C_SEQ_C1 += 1
     inv = build_r5_source_capability_inventory(REPO_ROOT)
     g = R5OperatorGrant(
-        grant_id="QA_C", issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
+        grant_id=f"QA_C_{_QA_C_SEQ_C1}", issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
         allowed_endpoints=("public_ticker",), window_start_ms=WS_MS, window_end_ms=WE_MS,
         max_requests=4, max_total_bytes=50_000, max_duration_sec=30, expires_utc_ms=NOW_MS + 300_000,
         run_id=rid, is_qa_fixture_grant=True, origin_kind="QA",
@@ -158,6 +163,7 @@ def test_c1_boundary_exact_limits_and_midflight_resource_transitions_c13_c14_c15
     assert tr14.calls == 1 and r14["aborted"] is True and "RUNTIME_DISK_BELOW_20GIB" in str(r14["abort_reason"])
 
     # C15: RAM drops <512 MiB AFTER transport returns, BEFORE staging write -> 0 staged files!
+    dec15, plan15 = _plan_and_scope()
     state15 = {"ram": 2048.0, "m": 300.0}
     st15 = tmp_path / "st15"
     mon15 = lambda: _valid_sample(st15, now_m=state15["m"], disk_free_gib=28.0, available_ram_mib=state15["ram"])
@@ -166,7 +172,7 @@ def test_c1_boundary_exact_limits_and_midflight_resource_transitions_c13_c14_c15
             state15["ram"] = 400.0
             return RawHttpResponseC2(200, OK_BODY, {}, NOW_MS, NOW_MS + 5)
     r15 = asyncio.run(capture_r5_public_batch(
-        plan, _DropRamInFlight(), mon15, staging_root=st15, run_id="c1_res_run", trusted_scope=dec, destination_root=tmp_path,
+        plan15, _DropRamInFlight(), mon15, staging_root=st15, run_id="c1_res_run", trusted_scope=dec15, destination_root=tmp_path,
         monotonic_fn=lambda: state15["m"], utc_now_fn=lambda: NOW_UTC,
     ))
     assert r15["aborted"] is True and "RUNTIME_RAM_BELOW_512MIB" in str(r15["abort_reason"])

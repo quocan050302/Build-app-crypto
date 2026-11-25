@@ -57,9 +57,14 @@ class _SpyOfflineTransport:
         return RawHttpResponseC2(200, b'{"code":"00000","data":[{"symbol":"XAUUSDT"}]}', {}, NOW_MS, NOW_MS + 5)
 
 
+_QA_C1_SCOPE_SEQ = 0
+
+
 def _qa_grant(rid: str = "c1_run_01", **over: Any) -> R5OperatorGrant:
+    global _QA_C1_SCOPE_SEQ
+    _QA_C1_SCOPE_SEQ += 1
     kw: Dict[str, Any] = dict(
-        grant_id="QA_C1_G01",
+        grant_id=f"QA_C1_G_{_QA_C1_SCOPE_SEQ}",
         issued_by="QA_HARNESS",
         purpose="QA_FIXTURE",
         symbol="XAUUSDT",
@@ -242,24 +247,26 @@ def test_c1_a11_a20_to_a25_plan_binding_tamper_rehash_post_enqueue_and_expiry(tm
     assert len(spy25.calls) == 0 and any("RUN_ID" in v for v in r_rid["violations"])
 
     # A23: Mutate plan AFTER enqueue (during batch 1 transport call) -> batch 2 blocked with 0 extra dispatch!
-    qa_p_mut_live = plan_r5_capture_batches(qa_d, inv, _bud(endpoints=["public_ticker", "contracts"], max_concurrency=1), now_utc=NOW_UTC)
+    qa_d_a23 = validate_r5_operator_capture_scope(_qa_grant(destination_scope=str(dest_ok)), _req(endpoints=["public_ticker", "contracts"], destination_scope=str(dest_ok)), NOW_UTC, {"qa_fixture_mode": True})
+    qa_p_mut_live = plan_r5_capture_batches(qa_d_a23, inv, _bud(endpoints=["public_ticker", "contracts"], max_concurrency=1), now_utc=NOW_UTC)
     def _tamper_on_first_call(idx: int, _u: str, _p: Mapping[str, Any]) -> None:
         if idx == 0:
             qa_p_mut_live["batches"][1]["url"] = "https://api.bitget.com/api/v2/mix/order/place-order"
     spy23 = _SpyOfflineTransport(on_call=_tamper_on_first_call)
-    r23 = asyncio.run(capture_r5_public_batch(qa_p_mut_live, spy23, mon_ok, run_id="c1_run_01", trusted_scope=qa_d, destination_root=dest_ok, sleep_fn=lambda _: None, utc_now_fn=lambda: NOW_UTC))
+    r23 = asyncio.run(capture_r5_public_batch(qa_p_mut_live, spy23, mon_ok, run_id="c1_run_01", trusted_scope=qa_d_a23, destination_root=dest_ok, sleep_fn=lambda _: None, utc_now_fn=lambda: NOW_UTC))
     assert len(spy23.calls) == 1 and r23["aborted"] is True and r23["qa_fixture_records_count"] == 0
 
     # A24: Grant expires DURING retry wait -> second attempt NEVER dispatches!
     clock_state = {"utc": NOW_UTC, "mono": 100.0}
     mon_clk = make_r5_fixture_resource_monitor(disk_free_gib=28.0, available_ram_mib=2048.0, destination=dest_ok, monotonic_fn=lambda: clock_state["mono"])
-    qa_p_exp = plan_r5_capture_batches(qa_d, inv, _bud(endpoints=["public_ticker"]), now_utc=NOW_UTC)
+    qa_d_a24 = validate_r5_operator_capture_scope(_qa_grant(destination_scope=str(dest_ok)), _req(endpoints=["public_ticker"], destination_scope=str(dest_ok)), NOW_UTC, {"qa_fixture_mode": True})
+    qa_p_exp = plan_r5_capture_batches(qa_d_a24, inv, _bud(endpoints=["public_ticker"]), now_utc=NOW_UTC)
     spy24 = _SpyOfflineTransport([RawHttpResponseC2(429, b"", {"retry-after": "0.1"}, NOW_MS, NOW_MS + 5)])
     def _advance_past_expiry(sec: float) -> None:
         clock_state["mono"] += sec
         clock_state["utc"] = NOW_UTC + timedelta(seconds=120)  # past 60s expiry!
     r24 = asyncio.run(capture_r5_public_batch(
-        qa_p_exp, spy24, mon_clk, run_id="c1_run_01", trusted_scope=qa_d, destination_root=dest_ok,
+        qa_p_exp, spy24, mon_clk, run_id="c1_run_01", trusted_scope=qa_d_a24, destination_root=dest_ok,
         sleep_fn=_advance_past_expiry, monotonic_fn=lambda: clock_state["mono"], utc_now_fn=lambda: clock_state["utc"],
     ))
     assert len(spy24.calls) == 1 and r24["aborted"] is True and "OPERATOR_GRANT_EXPIRED" in str(r24["abort_reason"])

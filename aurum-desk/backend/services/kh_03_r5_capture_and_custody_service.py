@@ -20,6 +20,8 @@ Non-Negotiable Safety Contract:
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
@@ -73,13 +75,18 @@ from services.kh_03_r5_market_data_foundation_service import (
     HARD_MAX_RETRIES_R5_C1,
     HARD_MIN_REQUEST_INTERVAL_MS_R5_C1,
     MAX_GLOBAL_CONCURRENCY_R5,
+    R5GrantConsumptionLedgerC2,
+    R5GrantSessionLeaseC2,
     SCHEMA_VERSION_KH03_R5,
     SCHEMA_VERSION_KH03_R5_C1,
+    SCHEMA_VERSION_KH03_R5_C2,
     SPEC_VERSION_KH03_R5,
     SPEC_VERSION_KH03_R5_C1,
+    SPEC_VERSION_KH03_R5_C2,
     STRICT_PREFLIGHT_DISK_MIN_GIB_R5,
     STRICT_RUNTIME_DISK_MIN_GIB_R5,
     _validate_r5_plan_binding_strict,
+    get_r5_global_grant_ledger_c2,
 )
 from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 
@@ -533,7 +540,539 @@ def _check_r5_dispatch_guard(
 
 
 # =====================================================================
-# 11. capture_r5_public_batch (KH-03.R5.C1 Hardened P1-A / P1-B / P1-C)
+# KH-03.R5.C2 Owned Blocking Worker Lifecycle Adapter (P1-E)
+# =====================================================================
+_GLOBAL_WORKER_CAP_LOCK_C2 = threading.Lock()
+_GLOBAL_ACTIVE_WORKERS_C2: int = 0
+_GLOBAL_QUARANTINED_WORKERS_C2: int = 0
+_GLOBAL_QUARANTINED_TRACKERS_C2: List["R5CaptureWorkerTracker"] = []
+
+
+def get_r5_global_worker_pool_stats_c2() -> Dict[str, Any]:
+    """Read-only snapshot of process-wide capture worker capacity and quarantined trackers."""
+    with _GLOBAL_WORKER_CAP_LOCK_C2:
+        return {
+            "global_worker_cap": MAX_GLOBAL_CONCURRENCY_R5,
+            "active_workers_count": _GLOBAL_ACTIVE_WORKERS_C2,
+            "quarantined_workers_count": _GLOBAL_QUARANTINED_WORKERS_C2,
+            "quarantined_trackers_count": len(_GLOBAL_QUARANTINED_TRACKERS_C2),
+            "available_global_slots": max(0, MAX_GLOBAL_CONCURRENCY_R5 - _GLOBAL_ACTIVE_WORKERS_C2),
+        }
+
+
+class R5CaptureCancelledError(asyncio.CancelledError):
+    """Propagated on outer coroutine cancellation AFTER bounded drain/quarantine with truthful receipt."""
+
+    def __init__(self, capture_result: Dict[str, Any], message: str = "COROUTINE_CANCELLED_MIDFLIGHT") -> None:
+        super().__init__(message)
+        self.capture_result = capture_result
+
+
+@dataclass
+class R5WorkerAttemptRecord:
+    """Per-attempt blocking worker lifecycle record (distinct from asyncio.Task state)."""
+
+    future_id: str
+    attempt_id: str
+    batch_id: str
+    attempt_index: int
+    owner_session_id: str
+    state: str = "RESERVED"
+    thread_ident: Optional[int] = None
+    thread_name: Optional[str] = None
+    worker_pid: int = 0
+    queued_mono: Optional[float] = None
+    started_mono: Optional[float] = None
+    exited_mono: Optional[float] = None
+    cancel_requested_mono: Optional[float] = None
+    cancel_observed_mono: Optional[float] = None
+    duration_sec: Optional[float] = None
+    effective_timeout_sec_at_start: Optional[float] = None
+    bytes_cap_reserved: int = 0
+    observed_bytes: Optional[int] = None
+    bytes_known: bool = False
+    late_discarded: bool = False
+    outcome: Optional[str] = None
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    eventual_exit_after_return: bool = False
+    eventual_exited_mono: Optional[float] = None
+    global_slot_held: bool = False
+
+    def to_audit_dict(self) -> Dict[str, Any]:
+        return {
+            "future_id": self.future_id,
+            "attempt_id": self.attempt_id,
+            "batch_id": self.batch_id,
+            "attempt_index": self.attempt_index,
+            "owner_session_id": self.owner_session_id,
+            "state": self.state,
+            "thread_ident": self.thread_ident,
+            "thread_name": self.thread_name,
+            "worker_pid": self.worker_pid,
+            "queued_mono": self.queued_mono,
+            "started_mono": self.started_mono,
+            "exited_mono": self.exited_mono,
+            "cancel_requested_mono": self.cancel_requested_mono,
+            "cancel_observed_mono": self.cancel_observed_mono,
+            "duration_sec": self.duration_sec,
+            "effective_timeout_sec_at_start": self.effective_timeout_sec_at_start,
+            "bytes_cap_reserved": self.bytes_cap_reserved,
+            "observed_bytes": self.observed_bytes,
+            "bytes_known": self.bytes_known,
+            "late_discarded": self.late_discarded,
+            "outcome": self.outcome,
+            "error_type": self.error_type,
+            "error_message": self.error_message,
+            "eventual_exit_after_return": self.eventual_exit_after_return,
+            "eventual_exited_mono": self.eventual_exited_mono,
+        }
+
+
+class R5CaptureWorkerTracker:
+    """
+    Owned blocking-worker lifecycle tracker (closes P1-E).
+    - Owns a dedicated bounded `ThreadPoolExecutor` (never relies on global default asyncio executor).
+    - Enforces process-wide active capture worker cap (`<= MAX_GLOBAL_CONCURRENCY_R5 = 4`) across sessions.
+    - Tracks real OS thread entry/exit under lock; NEVER treats `asyncio.Task.done()` as thread exit.
+    - Captures immutable return-time snapshot before executor teardown; quarantines undrained workers
+      without lying about shutdown completion or prematurely releasing global capacity.
+    """
+
+    def __init__(
+        self,
+        *,
+        session_id: str,
+        max_workers: int,
+        mono_clock: Callable[[], float],
+        ledger: R5GrantConsumptionLedgerC2,
+        lease: R5GrantSessionLeaseC2,
+        global_cap: int = MAX_GLOBAL_CONCURRENCY_R5,
+    ) -> None:
+        self.session_id = str(session_id)
+        self.pool_workers = max(1, min(int(max_workers), int(global_cap), MAX_GLOBAL_CONCURRENCY_R5))
+        self.global_cap = max(1, min(int(global_cap), MAX_GLOBAL_CONCURRENCY_R5))
+        self._mono_clock = mono_clock
+        self._ledger = ledger
+        self._lease = lease
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.pool_workers,
+            thread_name_prefix=f"r5c2_{self.session_id[:10]}",
+        )
+        self._records: Dict[str, R5WorkerAttemptRecord] = {}
+        self._futures: Dict[str, concurrent.futures.Future[Any]] = {}
+        self._return_snapshot: Optional[Dict[str, Any]] = None
+        self._returned_at_mono: Optional[float] = None
+        self._shutdown_complete: bool = False
+        self._quarantined: bool = False
+        self._late_results_discarded: int = 0
+        self._async_tasks_pending_at_return: int = 0
+        self._dispatch_timestamps_mono: List[float] = []
+
+    @property
+    def stop_event(self) -> threading.Event:
+        return self._stop_event
+
+    def _safe_mono(self) -> float:
+        try:
+            v = float(self._mono_clock())
+            if math.isfinite(v) and v >= 0.0:
+                return v
+        except Exception:
+            pass
+        return time.monotonic()
+
+    def request_stop(self) -> None:
+        now_m = self._safe_mono()
+        self._stop_event.set()
+        with self._lock:
+            for rec in self._records.values():
+                if rec.cancel_requested_mono is None and rec.state in ("RESERVED", "QUEUED", "STARTED"):
+                    rec.cancel_requested_mono = now_m
+
+    def mark_late_discarded(self, future_id: str) -> None:
+        with self._lock:
+            rec = self._records.get(future_id)
+            if rec is not None and not rec.late_discarded:
+                rec.late_discarded = True
+                self._late_results_discarded += 1
+
+    def _acquire_global_slot_now(self) -> bool:
+        global _GLOBAL_ACTIVE_WORKERS_C2
+        with _GLOBAL_WORKER_CAP_LOCK_C2:
+            if _GLOBAL_ACTIVE_WORKERS_C2 >= self.global_cap:
+                return False
+            _GLOBAL_ACTIVE_WORKERS_C2 += 1
+            return True
+
+    def _release_global_slot(self, rec: R5WorkerAttemptRecord, *, was_quarantined: bool = False) -> None:
+        global _GLOBAL_ACTIVE_WORKERS_C2, _GLOBAL_QUARANTINED_WORKERS_C2
+        if not rec.global_slot_held:
+            return
+        rec.global_slot_held = False
+        with _GLOBAL_WORKER_CAP_LOCK_C2:
+            _GLOBAL_ACTIVE_WORKERS_C2 = max(0, _GLOBAL_ACTIVE_WORKERS_C2 - 1)
+            if was_quarantined:
+                _GLOBAL_QUARANTINED_WORKERS_C2 = max(0, _GLOBAL_QUARANTINED_WORKERS_C2 - 1)
+
+    def _maybe_prune_quarantined_tracker(self) -> None:
+        with self._lock:
+            still_alive = any(
+                r.state in ("QUEUED", "STARTED", "STILL_RUNNING_AT_RETURN", "QUARANTINED") and not r.eventual_exit_after_return
+                for r in self._records.values()
+            )
+        if not still_alive:
+            with _GLOBAL_WORKER_CAP_LOCK_C2:
+                if self in _GLOBAL_QUARANTINED_TRACKERS_C2:
+                    _GLOBAL_QUARANTINED_TRACKERS_C2.remove(self)
+
+    def get_live_counts_now(self) -> Dict[str, int]:
+        """Current live worker counts (can observe eventual exit AFTER return without altering return snapshot)."""
+        with self._lock:
+            alive = sum(
+                1 for r in self._records.values()
+                if (r.state in ("STARTED", "STILL_RUNNING_AT_RETURN", "QUARANTINED") and not r.eventual_exit_after_return)
+            )
+            exited = sum(
+                1 for r in self._records.values()
+                if r.state in ("EXITED_OK", "EXITED_ERROR") or r.eventual_exit_after_return
+            )
+            return {"alive_now": alive, "exited_total_now": exited, "submitted_total": len(self._records)}
+
+
+def submit_tracked_transport_call(
+    tracker: R5CaptureWorkerTracker,
+    *,
+    attempt_id: str,
+    batch_id: str,
+    attempt_index: int,
+    call_byte_cap: int,
+    start_guard_fn: Callable[[], Tuple[bool, Optional[str], List[str], float, float]],
+    invoke_transport_fn: Callable[[float], Tuple[Optional[RawHttpResponseC2], Optional[VerifiedCaptureProofC4]]],
+) -> Tuple[bool, Optional[str], Optional[str], Optional[concurrent.futures.Future[Any]]]:
+    """
+    Submits a blocking transport call to `tracker`'s owned bounded executor with strict actual-start
+    revalidation, thread-safe stop guard, lease linearization, and exact entry/exit lifecycle tracking.
+    Returns `(submitted_ok, error_reason, future_id, concurrent_future)`.
+    """
+    if tracker.stop_event.is_set():
+        return False, "TRACKER_STOPPED_BEFORE_SUBMIT", None, None
+    if not tracker._acquire_global_slot_now():
+        return False, "GLOBAL_CAPTURE_WORKER_CAP_EXHAUSTED", None, None
+
+    fid = f"wfut_{uuid.uuid4().hex[:12]}"
+    queued_m = tracker._safe_mono()
+    rec = R5WorkerAttemptRecord(
+        future_id=fid,
+        attempt_id=str(attempt_id),
+        batch_id=str(batch_id),
+        attempt_index=int(attempt_index),
+        owner_session_id=tracker.session_id,
+        state="QUEUED",
+        worker_pid=os.getpid(),
+        queued_mono=queued_m,
+        bytes_cap_reserved=int(call_byte_cap),
+        global_slot_held=True,
+    )
+    with tracker._lock:
+        if tracker.stop_event.is_set() or tracker._return_snapshot is not None:
+            tracker._release_global_slot(rec)
+            return False, "TRACKER_STOPPED_BEFORE_SUBMIT", None, None
+        tracker._records[fid] = rec
+
+    def _worker_entrypoint() -> Dict[str, Any]:
+        started_flag = False
+        quarantined_slot = False
+        try:
+            # 1) Check stop BEFORE transitioning QUEUED -> STARTED
+            with tracker._lock:
+                if rec.state != "QUEUED" or tracker.stop_event.is_set() or tracker._return_snapshot is not None:
+                    rec.state = "CANCELLED_BEFORE_START"
+                    rec.cancel_observed_mono = tracker._safe_mono()
+                    rec.outcome = "CANCELLED_BEFORE_START"
+                    tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+                    return {"status": "CANCELLED_BEFORE_START", "reason": "STOPPED_BEFORE_WORKER_START", "violations": ["STOPPED_BEFORE_WORKER_START"]}
+
+            # 2) Actual-start dispatch guard (deadline, grant expiry, plan binding, resource, remaining timeout!)
+            g_ok, g_reason, g_viols, _eff_rem, eff_timeout_start = start_guard_fn()
+            if not g_ok or tracker.stop_event.is_set():
+                reason_use = g_reason or "STOPPED_AT_WORKER_START"
+                with tracker._lock:
+                    rec.state = "CANCELLED_BEFORE_START"
+                    rec.cancel_observed_mono = tracker._safe_mono()
+                    rec.outcome = f"ABORTED_BEFORE_START:{reason_use}"
+                    tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+                return {"status": "CANCELLED_BEFORE_START", "reason": reason_use, "violations": list(g_viols or [reason_use])}
+
+            # 3) Linearization point: mark lease STARTED before touching transport!
+            with tracker._lock:
+                if tracker.stop_event.is_set() or tracker._return_snapshot is not None:
+                    rec.state = "CANCELLED_BEFORE_START"
+                    rec.cancel_observed_mono = tracker._safe_mono()
+                    rec.outcome = "STOPPED_AT_LINEARIZATION"
+                    tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+                    return {"status": "CANCELLED_BEFORE_START", "reason": "STOPPED_AT_LINEARIZATION", "violations": ["STOPPED_AT_LINEARIZATION"]}
+                m_ok, m_err = tracker._ledger.mark_dispatch_started(tracker._lease, rec.attempt_id)
+                if not m_ok:
+                    rec.state = "CANCELLED_BEFORE_START"
+                    rec.cancel_observed_mono = tracker._safe_mono()
+                    rec.outcome = f"LEASE_START_DENIED:{m_err}"
+                    tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+                    return {"status": "CANCELLED_BEFORE_START", "reason": str(m_err or "LEASE_START_DENIED"), "violations": [str(m_err or "LEASE_START_DENIED")]}
+                start_m = tracker._safe_mono()
+                rec.state = "STARTED"
+                rec.started_mono = start_m
+                rec.thread_ident = threading.get_ident()
+                rec.thread_name = threading.current_thread().name
+                rec.effective_timeout_sec_at_start = float(eff_timeout_start)
+                tracker._dispatch_timestamps_mono.append(start_m)
+                started_flag = True
+
+            # 4) Execute blocking transport call ONLY (never writes staging/journal from worker thread!)
+            try:
+                raw_resp, proof_c4 = invoke_transport_fn(float(eff_timeout_start))
+                obs_len = len(bytes(getattr(raw_resp, "body_bytes", b"") or b"")) if raw_resp is not None else 0
+                exit_m = tracker._safe_mono()
+                _s_ok, _s_err, over_b = tracker._ledger.settle_dispatch(
+                    tracker._lease, rec.attempt_id, observed_bytes=obs_len, bytes_known=True, accepted_bytes=0
+                )
+                with tracker._lock:
+                    already_returned = tracker._return_snapshot is not None
+                    if already_returned:
+                        quarantined_slot = (rec.state in ("STILL_RUNNING_AT_RETURN", "QUARANTINED"))
+                        rec.eventual_exit_after_return = True
+                        rec.eventual_exited_mono = exit_m
+                        if not rec.late_discarded:
+                            rec.late_discarded = True
+                            tracker._late_results_discarded += 1
+                    else:
+                        rec.state = "EXITED_OK"
+                        rec.exited_mono = exit_m
+                        rec.duration_sec = round(max(0.0, exit_m - (rec.started_mono or exit_m)), 6)
+                        rec.observed_bytes = obs_len
+                        rec.bytes_known = True
+                        rec.outcome = f"HTTP_{int(raw_resp.status_code)}" if raw_resp is not None else "NO_RESPONSE"
+                        if tracker.stop_event.is_set() and not rec.late_discarded:
+                            rec.late_discarded = True
+                            tracker._late_results_discarded += 1
+                return {
+                    "status": "EXITED_OK",
+                    "raw_resp": raw_resp,
+                    "proof_c4": proof_c4,
+                    "observed_bytes": obs_len,
+                    "bytes_known": True,
+                    "over_wire_budget": bool(over_b),
+                    "started_mono": rec.started_mono,
+                    "exited_mono": exit_m,
+                    "effective_timeout_sec": float(eff_timeout_start),
+                }
+            except BaseException as exc:
+                exit_m = tracker._safe_mono()
+                _s_ok, _s_err, over_b = tracker._ledger.settle_dispatch(
+                    tracker._lease, rec.attempt_id, observed_bytes=None, bytes_known=False, accepted_bytes=0
+                )
+                with tracker._lock:
+                    already_returned = tracker._return_snapshot is not None
+                    if already_returned:
+                        quarantined_slot = (rec.state in ("STILL_RUNNING_AT_RETURN", "QUARANTINED"))
+                        rec.eventual_exit_after_return = True
+                        rec.eventual_exited_mono = exit_m
+                        if not rec.late_discarded:
+                            rec.late_discarded = True
+                            tracker._late_results_discarded += 1
+                    else:
+                        rec.state = "EXITED_ERROR"
+                        rec.exited_mono = exit_m
+                        rec.duration_sec = round(max(0.0, exit_m - (rec.started_mono or exit_m)), 6)
+                        rec.observed_bytes = None
+                        rec.bytes_known = False
+                        rec.outcome = f"ERROR:{type(exc).__name__}"
+                        rec.error_type = type(exc).__name__
+                        rec.error_message = str(exc)
+                        if tracker.stop_event.is_set() and not rec.late_discarded:
+                            rec.late_discarded = True
+                            tracker._late_results_discarded += 1
+                return {
+                    "status": "EXITED_ERROR",
+                    "exception": exc,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                    "observed_bytes": None,
+                    "bytes_known": False,
+                    "over_wire_budget": bool(over_b),
+                    "started_mono": rec.started_mono,
+                    "exited_mono": exit_m,
+                    "effective_timeout_sec": float(eff_timeout_start),
+                }
+        finally:
+            if not started_flag:
+                with tracker._lock:
+                    if rec.state == "QUEUED":
+                        rec.state = "CANCELLED_BEFORE_START"
+                        rec.cancel_observed_mono = tracker._safe_mono()
+                        tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+            with tracker._lock:
+                if not quarantined_slot and rec.state in ("STILL_RUNNING_AT_RETURN", "QUARANTINED"):
+                    quarantined_slot = True
+                tracker._release_global_slot(rec, was_quarantined=quarantined_slot)
+            if quarantined_slot or tracker._quarantined:
+                tracker._maybe_prune_quarantined_tracker()
+
+    try:
+        fut = tracker._executor.submit(_worker_entrypoint)
+    except Exception as exc:
+        with tracker._lock:
+            rec.state = "CANCELLED_BEFORE_START"
+            rec.outcome = f"EXECUTOR_SUBMIT_ERROR:{type(exc).__name__}"
+            tracker._release_global_slot(rec)
+        return False, f"EXECUTOR_SUBMIT_ERROR:{exc}", None, None
+
+    with tracker._lock:
+        tracker._futures[fid] = fut
+    return True, None, fid, fut
+
+
+def drain_owned_transport_workers(
+    tracker: R5CaptureWorkerTracker,
+    *,
+    drain_timeout_sec: float,
+    async_tasks_pending: int = 0,
+) -> Dict[str, Any]:
+    """
+    Freezes new dispatch, cancels unstarted queued futures, waits up to `drain_timeout_sec` for actual
+    blocking worker threads to exit, and freezes an immutable return-time lifecycle snapshot.
+    If any worker thread remains running at drain expiry, quarantines the tracker, retains global slot
+    reservation until actual thread exit, and marks `owned_executor_shutdown_complete = False`.
+    """
+    global _GLOBAL_QUARANTINED_WORKERS_C2
+    tracker.request_stop()
+
+    with tracker._lock:
+        futs_items = list(tracker._futures.items())
+
+    # 1) Cancel queued futures that have NOT started yet
+    for fid, fut in futs_items:
+        if fut.cancel():
+            with tracker._lock:
+                rec = tracker._records.get(fid)
+                if rec is not None and rec.state == "QUEUED":
+                    rec.state = "CANCELLED_BEFORE_START"
+                    rec.cancel_observed_mono = tracker._safe_mono()
+                    rec.outcome = "CANCELLED_BEFORE_START_FUTURE"
+                    tracker._ledger.release_unstarted_reservation(tracker._lease, rec.attempt_id)
+                    tracker._release_global_slot(rec)
+
+    # 2) Wait up to bounded drain_timeout_sec for actual underlying concurrent.futures.Future exit
+    outstanding = [fut for _, fut in futs_items if not fut.done()]
+    if outstanding:
+        concurrent.futures.wait(outstanding, timeout=max(0.0, float(drain_timeout_sec)))
+
+    # 3) Freeze immutable return-time snapshot BEFORE tearing down executor
+    ret_mono = tracker._safe_mono()
+    with tracker._lock:
+        tracker._returned_at_mono = ret_mono
+        tracker._async_tasks_pending_at_return = int(async_tasks_pending)
+        q_cnt = 0
+        run_cnt = 0
+        ex_cnt = 0
+        can_cnt = 0
+        for fid, rec in tracker._records.items():
+            fut = tracker._futures.get(fid)
+            if rec.state == "STARTED" or (fut is not None and not fut.done() and rec.state not in ("CANCELLED_BEFORE_START", "EXITED_OK", "EXITED_ERROR")):
+                if rec.state == "QUEUED" and (fut is None or not fut.running()):
+                    rec.state = "QUARANTINED"
+                    q_cnt += 1
+                else:
+                    rec.state = "STILL_RUNNING_AT_RETURN"
+                    run_cnt += 1
+            elif rec.state == "QUEUED":
+                rec.state = "QUARANTINED"
+                q_cnt += 1
+            elif rec.state in ("EXITED_OK", "EXITED_ERROR"):
+                ex_cnt += 1
+            elif rec.state == "CANCELLED_BEFORE_START":
+                can_cnt += 1
+            elif rec.state in ("STILL_RUNNING_AT_RETURN", "QUARANTINED"):
+                run_cnt += 1
+
+        undrained = run_cnt + q_cnt
+        if undrained > 0:
+            tracker._quarantined = True
+            tracker._shutdown_complete = False
+            with _GLOBAL_WORKER_CAP_LOCK_C2:
+                _GLOBAL_QUARANTINED_WORKERS_C2 += undrained
+                if tracker not in _GLOBAL_QUARANTINED_TRACKERS_C2:
+                    _GLOBAL_QUARANTINED_TRACKERS_C2.append(tracker)
+        else:
+            tracker._shutdown_complete = True
+
+        attempts_snap = [r.to_audit_dict() for r in tracker._records.values()]
+        total_sub = len(attempts_snap)
+        conserved = (total_sub == ex_cnt + can_cnt + run_cnt + q_cnt)
+        tracker._return_snapshot = {
+            "session_id": tracker.session_id,
+            "pool_workers_configured": tracker.pool_workers,
+            "drain_timeout_sec": float(drain_timeout_sec),
+            "returned_at_mono": ret_mono,
+            "total_workers_submitted": total_sub,
+            "async_tasks_pending": int(async_tasks_pending),
+            "workers_queued": q_cnt,
+            "workers_running_actual": run_cnt,
+            "workers_exited_actual": ex_cnt,
+            "cancelled_before_start": can_cnt,
+            "undrained_inflight_workers": undrained,
+            "late_results_discarded": tracker._late_results_discarded,
+            "tracker_pending_count": undrained,
+            "owned_executor_shutdown_complete": tracker._shutdown_complete,
+            "session_quarantined": tracker._quarantined,
+            "terminal_state_conservation_exact": conserved,
+            "attempts": attempts_snap,
+        }
+
+    # 4) Teardown owned executor truthfully (never claim shutdown complete if workers still running!)
+    if tracker._shutdown_complete:
+        tracker._executor.shutdown(wait=True)
+    else:
+        tracker._executor.shutdown(wait=False, cancel_futures=True)
+
+    assert tracker._return_snapshot is not None
+    return dict(tracker._return_snapshot)
+
+
+def build_worker_lifecycle_receipt(tracker: R5CaptureWorkerTracker) -> Dict[str, Any]:
+    """Returns the frozen return-time worker lifecycle receipt (never rewritten after return)."""
+    with tracker._lock:
+        if tracker._return_snapshot is not None:
+            return dict(tracker._return_snapshot)
+        attempts_snap = [r.to_audit_dict() for r in tracker._records.values()]
+        q_cnt = sum(1 for r in tracker._records.values() if r.state == "QUEUED")
+        run_cnt = sum(1 for r in tracker._records.values() if r.state in ("STARTED", "STILL_RUNNING_AT_RETURN", "QUARANTINED"))
+        ex_cnt = sum(1 for r in tracker._records.values() if r.state in ("EXITED_OK", "EXITED_ERROR"))
+        can_cnt = sum(1 for r in tracker._records.values() if r.state == "CANCELLED_BEFORE_START")
+        undrained = q_cnt + run_cnt
+        return {
+            "session_id": tracker.session_id,
+            "pool_workers_configured": tracker.pool_workers,
+            "total_workers_submitted": len(attempts_snap),
+            "async_tasks_pending": tracker._async_tasks_pending_at_return,
+            "workers_queued": q_cnt,
+            "workers_running_actual": run_cnt,
+            "workers_exited_actual": ex_cnt,
+            "cancelled_before_start": can_cnt,
+            "undrained_inflight_workers": undrained,
+            "late_results_discarded": tracker._late_results_discarded,
+            "tracker_pending_count": undrained,
+            "owned_executor_shutdown_complete": tracker._shutdown_complete,
+            "session_quarantined": tracker._quarantined,
+            "terminal_state_conservation_exact": len(attempts_snap) == q_cnt + run_cnt + ex_cnt + can_cnt,
+            "attempts": attempts_snap,
+        }
+
+
+# =====================================================================
+# 11. capture_r5_public_batch (KH-03.R5.C2 Hardened P1-A..P1-F)
 # =====================================================================
 async def capture_r5_public_batch(
     plan: Mapping[str, Any],
@@ -551,18 +1090,18 @@ async def capture_r5_public_batch(
     destination_root: Optional[Path] = None,
     transport_timeout_ceiling_sec: float = 10.0,
     drain_timeout_sec: float = 5.0,
+    grant_ledger: Optional[R5GrantConsumptionLedgerC2] = None,
+    lifecycle_sink: Optional[Dict[str, Any]] = None,
+    _unlink_fn: Optional[Callable[[Path], None]] = None,
 ) -> Dict[str, Any]:
     """
-    Bounded async public read-only capture orchestrator (KH-03.R5.C1 hardened).
-    Closes P1-A (strict plan/scope/expiry/destination/run binding before enqueue AND after every wait),
-    P1-B (post-wait deadline/cancel/expiry guard, remaining-time per-call timeout, non-shortened
-    Retry-After, atomic request + wire-byte reservation, bounded drain & late-response discard),
-    and P1-C (strict fail-closed resource monitor requiring fresh valid volume-matched telemetry).
-    NEVER mints `OBSERVED_VERIFIED` from fake/QA transports; NEVER counts deleted staging files
-    as accepted persisted records on abort.
+    Bounded async public read-only capture orchestrator (KH-03.R5.C2 hardened).
+    Closes P1-A..C (scope/plan/dispatch binding, post-wait guards, strict resource monitor),
+    P1-E (owned blocking worker tracker, actual-start guard, truthful drain/quarantine,
+    conservative unknown-byte billing, honest abort cleanup), and P1-F (one-shot grant
+    consumption ledger preventing replay/replan/reissue budget multiplication + hard-blocking
+    all live network paths until durable cross-process ledger & bounded live transport exist).
     """
-    # If caller supplies a non-blocking `sleep_fn` without a custom `monotonic_fn`, track simulated
-    # sleep advancement so deterministic no-op sleeps never spin against real wall monotonic time.
     _sim_sleep_offset = {"sec": 0.0}
     if monotonic_fn is not None:
         mono_clock = monotonic_fn
@@ -578,6 +1117,8 @@ async def capture_r5_public_batch(
         _advance_sim_sleep = False
     utc_clock = utc_now_fn if utc_now_fn is not None else (lambda: datetime.now(timezone.utc))
     dest_for_guard = destination_root if destination_root is not None else staging_root
+    active_ledger = grant_ledger if grant_ledger is not None else get_r5_global_grant_ledger_c2()
+    unlink_op = _unlink_fn if _unlink_fn is not None else Path.unlink
 
     def _blocked_or_fail_resp(
         exec_status: str,
@@ -588,10 +1129,28 @@ async def capture_r5_public_batch(
         abort_reason: Optional[str] = None,
         role_str: str = "NONE_BLOCKED",
         sess_id: str = "",
+        ledger_snap: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        empty_lc = {
+            "session_id": sess_id,
+            "pool_workers_configured": 0,
+            "total_workers_submitted": 0,
+            "async_tasks_pending": 0,
+            "workers_queued": 0,
+            "workers_running_actual": 0,
+            "workers_exited_actual": 0,
+            "cancelled_before_start": 0,
+            "undrained_inflight_workers": 0,
+            "late_results_discarded": 0,
+            "tracker_pending_count": 0,
+            "owned_executor_shutdown_complete": True,
+            "session_quarantined": False,
+            "terminal_state_conservation_exact": True,
+            "attempts": [],
+        }
         return {
-            "spec_version": SPEC_VERSION_KH03_R5_C1,
-            "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
+            "schema_version": SCHEMA_VERSION_KH03_R5_C2,
             "run_id": run_id,
             "capture_session_id": sess_id,
             "partition_role": role_str,
@@ -607,13 +1166,30 @@ async def capture_r5_public_batch(
             "requests_accepted": 0,
             "total_bytes_received": 0,
             "wire_bytes_observed_total": 0,
+            "wire_bytes_uncertain_retained": 0,
+            "wire_bytes_charged_total": 0,
             "bytes_accepted_total": 0,
             "bytes_staged_total": 0,
             "accepted_observed_records_count": 0,
             "qa_fixture_records_count": 0,
             "removed_staged_files_count": 0,
+            "failed_unlink_paths": [],
+            "cleanup_complete": True,
             "retained_staged_files": [],
+            "async_tasks_pending": 0,
+            "workers_queued": 0,
+            "workers_running_actual": 0,
+            "workers_exited_actual": 0,
+            "cancelled_before_start": 0,
             "undrained_inflight_workers": 0,
+            "late_results_discarded": 0,
+            "tracker_pending_count": 0,
+            "owned_executor_shutdown_complete": True,
+            "session_quarantined": False,
+            "worker_lifecycle_receipt": empty_lc,
+            "grant_ledger_receipt": ledger_snap,
+            "live_grant_replay_durability": "NOT_PROVEN_BLOCKED",
+            "live_transport_termination": "NOT_PROVEN_BLOCKED",
             "aborted": aborted_flag,
             "abort_reason": abort_reason,
             "dispatch_timestamps_mono": [],
@@ -622,7 +1198,7 @@ async def capture_r5_public_batch(
             "semantic_result_sha256": canonical_hash({"items": [], "aborted": aborted_flag, "abort_reason": abort_reason, "violations": list(viols)}),
             "volatile_fields_excluded_from_semantic_hash": [
                 "capture_session_id", "dispatch_timestamps_mono", "request_utc_ms", "response_utc_ms",
-                "monotonic_duration_ms", "capture_proof_id", "staged_filename",
+                "monotonic_duration_ms", "capture_proof_id", "staged_filename", "worker_lifecycle_receipt",
             ],
             "violations": list(viols),
         }
@@ -642,7 +1218,7 @@ async def capture_r5_public_batch(
             role_str=role,
         )
 
-    # Validate clocks before any operation
+    # Validate clocks, timeout ceiling, and drain_timeout_sec BEFORE claiming grant!
     try:
         t0_mono_raw = mono_clock()
         now_utc_0 = utc_clock()
@@ -654,9 +1230,11 @@ async def capture_r5_public_batch(
         return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["INVALID_OR_NAIVE_UTC_CLOCK"], role_str=role)
     if isinstance(transport_timeout_ceiling_sec, bool) or not isinstance(transport_timeout_ceiling_sec, (int, float)) or not math.isfinite(float(transport_timeout_ceiling_sec)) or float(transport_timeout_ceiling_sec) <= 0.0:
         return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"INVALID_TRANSPORT_TIMEOUT_CEILING:{transport_timeout_ceiling_sec!r}"], role_str=role)
+    if isinstance(drain_timeout_sec, bool) or not isinstance(drain_timeout_sec, (int, float)) or not math.isfinite(float(drain_timeout_sec)) or float(drain_timeout_sec) <= 0.0:
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"INVALID_DRAIN_TIMEOUT_SEC:{drain_timeout_sec!r}"], role_str=role)
     t0_mono = float(t0_mono_raw)
 
-    # P1-A: Strict execution-context binding BEFORE creating any tasks or touching transport/staging!
+    # P1-A: Strict execution-context binding BEFORE claiming grant or creating any workers!
     ctx_ok, ctx_viols, plan_rec, bound_scope = _verify_r5_execution_context(plan, trusted_scope, now_utc_0, dest_for_guard, run_id)
     if not ctx_ok or plan_rec is None or bound_scope is None:
         return _blocked_or_fail_resp(
@@ -684,7 +1262,7 @@ async def capture_r5_public_batch(
             "FAIL", "NO_REAL_CAPTURE", ["QA_FIXTURE_MODE_MUST_NOT_USE_LIVE_SOCKET_TRANSPORT"], role_str=role
         )
 
-    # Validate staging_root containment & non-OOS policy before creating any tasks
+    # Validate staging_root containment & non-OOS policy before claiming grant
     if staging_root is not None:
         s_low = str(staging_root).lower().replace("\\", "/")
         if any(tok in s_low for tok in R5_FORBIDDEN_OOS_PATH_TOKENS):
@@ -706,9 +1284,7 @@ async def capture_r5_public_batch(
     max_retries = min(HARD_MAX_RETRIES_R5_C1, max(0, int(budget["max_retries_per_request"])))
     grant_expires_utc_ms = int(plan_rec.expires_utc_ms)
 
-    # §4.2 / B24: Legacy locked C4 transport reads `transport.max_response_bytes` fixed at init;
-    # if live transport cannot guarantee requested wire read cap (max_total_bytes / max_resp_bytes),
-    # FAIL CLOSED instead of labeling post-hoc body checks a strict wire cap!
+    # §4.2 / C1-B13: Legacy locked C4 transport reads fixed `transport.max_response_bytes`; fail closed if > budget cap!
     if live_perm and exact_stdlib:
         tr_max_resp = int(getattr(transport, "max_response_bytes", MAX_RAW_HTTP_BODY_BYTES_C3))
         if tr_max_resp > min(max_resp_bytes, max_total_bytes):
@@ -721,7 +1297,22 @@ async def capture_r5_public_batch(
                 role_str=role,
             )
 
-    # P1-C: Pre-dispatch strict resource monitor check BEFORE creating any tasks!
+    # §5.3 & §6.3 (G18 / P1-E / P1-F): Hard-block ALL live execution paths in offline C2!
+    # Neither cross-process durable grant consumption nor bounded live transport termination is proven yet.
+    if live_perm:
+        return _blocked_or_fail_resp(
+            "BLOCKED_LIVE_DURABILITY_AND_TERMINATION_UNPROVEN",
+            "NO_REAL_CAPTURE",
+            [
+                "LIVE_GRANT_REPLAY_DURABILITY_NOT_PROVEN_BLOCKED",
+                "LIVE_TRANSPORT_TERMINATION_NOT_PROVEN",
+            ],
+            aborted_flag=True,
+            abort_reason="LIVE_GRANT_REPLAY_DURABILITY_NOT_PROVEN_BLOCKED",
+            role_str=role,
+        )
+
+    # P1-C: Pre-dispatch strict resource monitor check BEFORE claiming grant or creating workers!
     pre_res_ok, pre_res_viols, _ = _require_r5_resource_monitor(
         resource_monitor, dest_for_guard, monotonic_fn=res_mono_clock, max_age_sec=resource_max_age_sec
     )
@@ -735,36 +1326,62 @@ async def capture_r5_public_batch(
             role_str=role,
         )
 
+    # P1-F: Atomically claim ONE-SHOT grant session immediately before capture execution!
+    session_id = f"r5c2_{run_id}_{uuid.uuid4().hex[:8]}"
+    cl_ok, cl_viols, lease = active_ledger.claim_grant_session(
+        grant_identity_key=bound_scope.grant_identity_key,
+        grant_payload_digest=bound_scope.grant_payload_digest,
+        scope_receipt=bound_scope,
+        plan_receipt=plan_rec,
+        session_id=session_id,
+        now_utc=now_utc_0,
+        max_requests=max_requests,
+        max_total_bytes=max_total_bytes,
+        is_live=live_perm,
+    )
+    if not cl_ok or lease is None:
+        return _blocked_or_fail_resp(
+            "BLOCKED_GRANT_REPLAY_OR_LEDGER",
+            "NO_REAL_CAPTURE",
+            cl_viols,
+            aborted_flag=True,
+            abort_reason=cl_viols[0] if cl_viols else "GRANT_CLAIM_DENIED",
+            role_str=role,
+            sess_id=session_id,
+            ledger_snap=active_ledger.snapshot_grant(bound_scope.grant_identity_key),
+        )
+
+    # Freeze immutable plan batches from verified snapshot (never read mutable caller dict after claim!)
+    snap_dict = json.loads(plan_rec.immutable_plan_snapshot_json)
+    batches_list = list(snap_dict.get("batches") or ())
+
     deadline_mono = t0_mono + max_dur_sec
     sem = asyncio.Semaphore(max_conc)
     state_lock = asyncio.Lock()
     budget_cond = asyncio.Condition(state_lock)
     ep_last_actual_ts: Dict[str, float] = {}
     ep_next_slot_ts: Dict[str, float] = {}
+    tracker = R5CaptureWorkerTracker(
+        session_id=session_id,
+        max_workers=max_conc,
+        mono_clock=mono_clock,
+        ledger=active_ledger,
+        lease=lease,
+    )
     counters: Dict[str, Any] = {
-        "requests_reserved": 0,
-        "requests_reserved_total": 0,
-        "requests_released_pre_dispatch": 0,
-        "requests_dispatched_actual": 0,
-        "requests_completed": 0,
         "requests_rejected": 0,
         "requests_accepted": 0,
-        "wire_bytes_reserved": 0,
-        "wire_bytes_observed_total": 0,
         "bytes_accepted_total": 0,
         "bytes_staged_total": 0,
         "aborted": False,
         "abort_reason": None,
-        "undrained_inflight_workers": 0,
     }
-    dispatch_timestamps_mono: List[float] = []
     items: List[Dict[str, Any]] = []
     violations: List[str] = []
     staged_paths: List[Path] = []
-    session_id = f"r5c1_{run_id}_{uuid.uuid4().hex[:8]}"
-    batches_list = list(plan.get("batches") or ())
 
     async def _set_aborted(reason: str, extra_viols: Sequence[str] = ()) -> None:
+        tracker.request_stop()
         async with budget_cond:
             if not counters["aborted"]:
                 counters["aborted"] = True
@@ -779,24 +1396,34 @@ async def capture_r5_public_batch(
     async def _do_cancellable_sleep(sec: float) -> bool:
         """Sleeps up to `sec` seconds; returns False if cancelled during wait."""
         if sec <= 0.0:
-            return not (cancel_event is not None and cancel_event.is_set())
+            if cancel_event is not None and cancel_event.is_set():
+                tracker.request_stop()
+                return False
+            return not tracker.stop_event.is_set()
         if sleep_fn is not None:
             r = sleep_fn(sec)
             if asyncio.iscoroutine(r):
                 await r
             if _advance_sim_sleep:
                 _sim_sleep_offset["sec"] += float(sec)
-            return not (cancel_event is not None and cancel_event.is_set())
+            if cancel_event is not None and cancel_event.is_set():
+                tracker.request_stop()
+                return False
+            return not tracker.stop_event.is_set()
         if cancel_event is not None:
             try:
                 await asyncio.wait_for(cancel_event.wait(), timeout=sec)
+                tracker.request_stop()
                 return False
             except asyncio.TimeoutError:
-                return not cancel_event.is_set()
+                return not (cancel_event.is_set() or tracker.stop_event.is_set())
         await asyncio.sleep(sec)
-        return True
+        return not tracker.stop_event.is_set()
 
     def _run_guard_sync(aborted_now: bool) -> Tuple[bool, Optional[str], List[str], float, float]:
+        c_set = cancel_event is not None and cancel_event.is_set()
+        if c_set:
+            tracker.request_stop()
         return _check_r5_dispatch_guard(
             plan=plan,
             trusted_scope=trusted_scope,
@@ -806,7 +1433,28 @@ async def capture_r5_public_batch(
             grant_expires_utc_ms=grant_expires_utc_ms,
             transport_timeout_ceiling_sec=transport_timeout_ceiling_sec,
             cancel_event=cancel_event,
-            aborted=aborted_now,
+            aborted=aborted_now or (tracker.stop_event.is_set() and not c_set),
+            resource_monitor=resource_monitor,
+            monotonic_fn=mono_clock,
+            utc_now_fn=utc_clock,
+            resource_max_age_sec=resource_max_age_sec,
+            resource_monotonic_fn=res_mono_clock,
+        )
+
+    def _worker_start_guard_threadsafe() -> Tuple[bool, Optional[str], List[str], float, float]:
+        """Thread-safe actual-start guard invoked inside worker OS thread right before transport.get()."""
+        if tracker.stop_event.is_set() or (cancel_event is not None and cancel_event.is_set()):
+            return False, "CANCELLED_MIDFLIGHT", ["CANCELLED_MIDFLIGHT"], 0.0, 0.0
+        return _check_r5_dispatch_guard(
+            plan=plan,
+            trusted_scope=trusted_scope,
+            run_id=run_id,
+            destination=dest_for_guard,
+            deadline_mono=deadline_mono,
+            grant_expires_utc_ms=grant_expires_utc_ms,
+            transport_timeout_ceiling_sec=transport_timeout_ceiling_sec,
+            cancel_event=None,
+            aborted=tracker.stop_event.is_set(),
             resource_monitor=resource_monitor,
             monotonic_fn=mono_clock,
             utc_now_fn=utc_clock,
@@ -843,25 +1491,18 @@ async def capture_r5_public_batch(
 
         min_iv_s = max(HARD_MIN_REQUEST_INTERVAL_MS_R5_C1 / 1000.0, float(batch.get("min_request_interval_ms", HARD_MIN_REQUEST_INTERVAL_MS_R5_C1)) / 1000.0)
         retry_chain: List[Dict[str, Any]] = []
+        params_immutable_snap = dict(params)
 
         async with sem:
             for attempt in range(max_retries + 1):
-                # 1) Pre-wait guard (after semaphore acquire!)
-                g_ok, g_reason, g_viols, eff_rem, eff_timeout = _run_guard_sync(bool(counters["aborted"]))
+                g_ok, g_reason, g_viols, eff_rem, _eff_to = _run_guard_sync(bool(counters["aborted"]))
                 if not g_ok:
                     await _set_aborted(g_reason or "DISPATCH_GUARD_FAILED", g_viols)
                     return
 
-                # 2) Reserve request slot (NOT counting actual dispatch yet!) and compute rate-limiter wait
-                req_reserved = False
+                # Compute per-endpoint rate-limiter cadence wait BEFORE reserving slot
                 async with budget_cond:
                     if counters["aborted"]:
-                        return
-                    if counters["requests_dispatched_actual"] + counters["requests_reserved"] >= max_requests:
-                        counters["aborted"] = True
-                        counters["abort_reason"] = "MAX_REQUESTS_BUDGET_EXHAUSTED"
-                        violations.append("MAX_REQUESTS_BUDGET_EXHAUSTED")
-                        budget_cond.notify_all()
                         return
                     now_m = float(mono_clock())
                     last_slot = ep_next_slot_ts.get(ep_key)
@@ -876,32 +1517,25 @@ async def capture_r5_public_batch(
                         counters["aborted"] = True
                         counters["abort_reason"] = "WAIT_EXCEEDS_REMAINING_DEADLINE"
                         violations.append("WAIT_EXCEEDS_REMAINING_DEADLINE")
+                        tracker.request_stop()
                         budget_cond.notify_all()
                         return
-                    counters["requests_reserved"] += 1
-                    counters["requests_reserved_total"] += 1
-                    req_reserved = True
 
-                # 3) Perform cancellable rate-limit wait outside state_lock
                 if wait_s > 0.0:
                     slept_ok = await _do_cancellable_sleep(wait_s)
                     if not slept_ok:
-                        async with budget_cond:
-                            if req_reserved:
-                                counters["requests_reserved"] -= 1
-                                counters["requests_released_pre_dispatch"] += 1
-                                req_reserved = False
-                            budget_cond.notify_all()
                         await _set_aborted("CANCELLED_MIDFLIGHT")
                         return
 
-                # 4) Enforce actual monotonic cadence & reserve wire bytes atomically BEFORE final dispatch!
+                # Post-wait cadence + atomic ledger reservation + tracked worker submission
+                attempt_id = f"{batch['batch_id']}_att{attempt}_{uuid.uuid4().hex[:6]}"
                 call_byte_cap = 0
-                dispatched_this_attempt = False
+                reserved_in_ledger = False
+                submitted_fid: Optional[str] = None
+                submitted_cf: Optional[concurrent.futures.Future[Any]] = None
                 try:
                     while True:
-                        # POST-WAIT CRITICAL GUARD (re-checks deadline, cancel, expiry, plan mutation, resource!)
-                        g2_ok, g2_reason, g2_viols, eff_rem2, eff_timeout2 = _run_guard_sync(bool(counters["aborted"]))
+                        g2_ok, g2_reason, g2_viols, eff_rem2, _eff_to2 = _run_guard_sync(bool(counters["aborted"]))
                         if not g2_ok:
                             await _set_aborted(g2_reason or "POST_WAIT_GUARD_FAILED", g2_viols)
                             return
@@ -919,49 +1553,31 @@ async def capture_r5_public_batch(
                                     counters["aborted"] = True
                                     counters["abort_reason"] = "WAIT_EXCEEDS_REMAINING_DEADLINE"
                                     violations.append("WAIT_EXCEEDS_REMAINING_DEADLINE")
+                                    tracker.request_stop()
                                     budget_cond.notify_all()
                                     return
                             else:
-                                rem_wire_unreserved = max_total_bytes - counters["wire_bytes_observed_total"] - counters["wire_bytes_reserved"]
-                                if counters["wire_bytes_observed_total"] >= max_total_bytes:
-                                    counters["aborted"] = True
-                                    counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
-                                    violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
-                                    budget_cond.notify_all()
-                                    return
-                                if rem_wire_unreserved <= 0:
-                                    if counters["wire_bytes_reserved"] > 0:
+                                r_ok, r_reason, c_cap, should_wait = active_ledger.reserve_dispatch(
+                                    lease, attempt_id, max_response_bytes=max_resp_bytes
+                                )
+                                if not r_ok:
+                                    if should_wait:
                                         need_budget_wait = True
                                     else:
                                         counters["aborted"] = True
-                                        counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
-                                        violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                                        counters["abort_reason"] = r_reason or "BUDGET_EXHAUSTED"
+                                        violations.append(r_reason or "BUDGET_EXHAUSTED")
+                                        tracker.request_stop()
                                         budget_cond.notify_all()
                                         return
                                 else:
-                                    call_byte_cap = min(max_resp_bytes, rem_wire_unreserved)
-                                    # Live transport check for per-call dynamic wire cap
-                                    if live_perm and exact_stdlib:
-                                        tr_max_r = int(getattr(transport, "max_response_bytes", MAX_RAW_HTTP_BODY_BYTES_C3))
-                                        if tr_max_r > call_byte_cap:
-                                            counters["aborted"] = True
-                                            counters["abort_reason"] = "BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED"
-                                            violations.append("BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED")
-                                            budget_cond.notify_all()
-                                            return
-                                    # LINEARIZATION POINT: transition reservation -> actual dispatch!
-                                    counters["requests_reserved"] -= 1
-                                    req_reserved = False
-                                    counters["requests_dispatched_actual"] += 1
-                                    counters["wire_bytes_reserved"] += call_byte_cap
+                                    call_byte_cap = c_cap
+                                    reserved_in_ledger = True
                                     ep_last_actual_ts[ep_key] = now_m2
-                                    dispatch_timestamps_mono.append(now_m2)
-                                    dispatched_this_attempt = True
                                     break
 
                         if extra_cadence_wait > 0.0:
-                            slept_ok2 = await _do_cancellable_sleep(extra_cadence_wait)
-                            if not slept_ok2:
+                            if not await _do_cancellable_sleep(extra_cadence_wait):
                                 await _set_aborted("CANCELLED_MIDFLIGHT")
                                 return
                         elif need_budget_wait:
@@ -970,105 +1586,135 @@ async def capture_r5_public_batch(
                                     await asyncio.wait_for(budget_cond.wait(), timeout=min(0.05, max(0.001, eff_rem2)))
                                 except asyncio.TimeoutError:
                                     pass
-                finally:
-                    if req_reserved and not dispatched_this_attempt:
-                        async with budget_cond:
-                            counters["requests_reserved"] -= 1
-                            counters["requests_released_pre_dispatch"] += 1
-                            budget_cond.notify_all()
 
-                # 5) Execute actual transport call with remaining-time bounded timeout!
+                    # Submit to owned bounded ThreadPoolExecutor (NEVER naked asyncio.to_thread!)
+                    def _do_qa_transport(to_sec: float) -> Tuple[Optional[RawHttpResponseC2], Optional[VerifiedCaptureProofC4]]:
+                        return transport.get(url, dict(params_immutable_snap), timeout_sec=to_sec), None
+
+                    sub_ok, sub_err, submitted_fid, submitted_cf = submit_tracked_transport_call(
+                        tracker,
+                        attempt_id=attempt_id,
+                        batch_id=str(batch["batch_id"]),
+                        attempt_index=attempt,
+                        call_byte_cap=call_byte_cap,
+                        start_guard_fn=_worker_start_guard_threadsafe,
+                        invoke_transport_fn=_do_qa_transport,
+                    )
+                    if not sub_ok or submitted_cf is None or submitted_fid is None:
+                        active_ledger.release_unstarted_reservation(lease, attempt_id)
+                        reserved_in_ledger = False
+                        await _set_aborted(sub_err or "WORKER_SUBMIT_FAILED")
+                        return
+                except BaseException:
+                    if reserved_in_ledger and submitted_cf is None:
+                        active_ledger.release_unstarted_reservation(lease, attempt_id)
+                    raise
+
+                # Await tracked future while watching cancel_event AND session deadline!
                 now_u_call = utc_clock()
                 req_utc_ms = int(now_u_call.timestamp() * 1000)
-                t_req_mono = float(mono_clock())
-                raw_resp: Optional[RawHttpResponseC2] = None
-                proof_c4: Optional[VerifiedCaptureProofC4] = None
-                obs_wire_len = 0
+                cf_async = asyncio.wrap_future(submitted_cf)
+                worker_res: Optional[Dict[str, Any]] = None
                 try:
-                    if exact_stdlib and live_perm:
-                        tr_res = await asyncio.to_thread(
-                            execute_trusted_stdlib_https_get_c4,
-                            transport=transport,
-                            expected_transport_cls=StdlibUrllibPublicTransportC2,
-                            expected_get_func=StdlibUrllibPublicTransportC2.get,
-                            validate_url_fn=_validate_public_bitget_https_url_c3,
-                            no_redirect_handler_cls=_NoRedirectHandlerC3,
-                            secret_scanner_fn=scan_for_forbidden_secrets_r2_c1,
-                            decompress_check_fn=safe_bounded_decompress_if_gzip_c3,
-                            raw_response_cls=RawHttpResponseC2,
-                            url=url,
-                            params=params,
-                            endpoint_key=ep_key,
-                            timeout_sec=eff_timeout2,
-                            capture_session_id=session_id,
-                            live_authorization_verified=True,
-                            real_rate_limiter_active=True,
-                            is_fake_transport_qa=False,
-                        )
-                        raw_resp = tr_res.response
-                        proof_c4 = tr_res.capture_proof
+                    rem_wait = max(0.01, min(max_dur_sec + float(drain_timeout_sec), (deadline_mono - float(mono_clock())) + 0.05))
+                    if cancel_event is not None:
+                        can_task = asyncio.create_task(cancel_event.wait())
+                        try:
+                            done_w, _ = await asyncio.wait(
+                                [cf_async, can_task],
+                                timeout=rem_wait,
+                                return_when=asyncio.FIRST_COMPLETED,
+                            )
+                            if can_task in done_w and not cf_async.done():
+                                tracker.request_stop()
+                                await _set_aborted("CANCELLED_MIDFLIGHT")
+                                return
+                            if cf_async not in done_w:
+                                tracker.request_stop()
+                                await _set_aborted("CAPTURE_DEADLINE_EXCEEDED")
+                                return
+                            worker_res = cf_async.result()
+                        finally:
+                            if not can_task.done():
+                                can_task.cancel()
                     else:
-                        raw_resp = await asyncio.to_thread(transport.get, url, params, timeout_sec=eff_timeout2)
-                        proof_c4 = None
-                    if raw_resp is not None:
-                        obs_wire_len = len(bytes(getattr(raw_resp, "body_bytes", b"") or b""))
-                except TimeoutError as exc:
-                    async with budget_cond:
-                        counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
-                        counters["requests_completed"] += 1
-                        counters["requests_rejected"] += 1
-                        budget_cond.notify_all()
-                    backoff_to = min(2.0, 0.05 * (2 ** attempt))
-                    retry_chain.append({"attempt": attempt, "error": f"TIMEOUT:{exc}", "backoff_sec": backoff_to})
-                    if attempt < max_retries:
-                        g_rt_ok, g_rt_r, g_rt_v, rem_rt, _ = _run_guard_sync(bool(counters["aborted"]))
-                        if not g_rt_ok:
-                            await _set_aborted(g_rt_r or "ABORTED_DURING_RETRY", g_rt_v)
+                        try:
+                            worker_res = await asyncio.wait_for(asyncio.shield(cf_async), timeout=rem_wait)
+                        except asyncio.TimeoutError:
+                            tracker.request_stop()
+                            await _set_aborted("CAPTURE_DEADLINE_EXCEEDED")
                             return
-                        if backoff_to >= rem_rt:
-                            await _set_aborted("RETRY_BACKOFF_EXCEEDS_REMAINING_DEADLINE")
-                            return
-                        if not await _do_cancellable_sleep(backoff_to):
-                            await _set_aborted("CANCELLED_MIDFLIGHT")
-                            return
-                        continue
-                    violations.append(f"TIMEOUT_EXHAUSTED:{ep_key}")
-                    return
-                except Exception as exc:
-                    async with budget_cond:
-                        counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
-                        counters["requests_completed"] += 1
-                        counters["requests_rejected"] += 1
-                        budget_cond.notify_all()
-                    violations.append(f"TRANSPORT_OR_PROVENANCE_ERROR:{ep_key}:{exc}")
+                except asyncio.CancelledError:
+                    tracker.request_stop()
+                    raise
+
+                if worker_res is None:
+                    await _set_aborted("WORKER_NO_RESULT")
                     return
 
-                # Release reservation & account observed wire bytes (INCLUDING error/retry bodies!)
-                over_wire_budget = False
+                w_status = str(worker_res.get("status") or "")
+                if w_status == "CANCELLED_BEFORE_START":
+                    await _set_aborted(str(worker_res.get("reason") or "CANCELLED_BEFORE_START"), worker_res.get("violations") or ())
+                    return
+
+                t_req_mono = float(worker_res.get("started_mono") or mono_clock())
+                if w_status == "EXITED_ERROR":
+                    # Ledger already settled atomically inside _worker_entrypoint (bytes_known=False retains call_byte_cap)!
+                    over_b = bool(worker_res.get("over_wire_budget"))
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                        budget_cond.notify_all()
+                    if over_b:
+                        await _set_aborted("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                        return
+                    exc_obj = worker_res.get("exception")
+                    if isinstance(exc_obj, TimeoutError):
+                        backoff_to = min(2.0, 0.05 * (2 ** attempt))
+                        retry_chain.append({"attempt": attempt, "error": f"TIMEOUT:{exc_obj}", "backoff_sec": backoff_to})
+                        if attempt < max_retries:
+                            g_rt_ok, g_rt_r, g_rt_v, rem_rt, _ = _run_guard_sync(bool(counters["aborted"]))
+                            if not g_rt_ok:
+                                await _set_aborted(g_rt_r or "ABORTED_DURING_RETRY", g_rt_v)
+                                return
+                            if backoff_to >= rem_rt:
+                                await _set_aborted("RETRY_BACKOFF_EXCEEDS_REMAINING_DEADLINE")
+                                return
+                            if not await _do_cancellable_sleep(backoff_to):
+                                await _set_aborted("CANCELLED_MIDFLIGHT")
+                                return
+                            continue
+                        violations.append(f"TIMEOUT_EXHAUSTED:{ep_key}")
+                        return
+                    violations.append(f"TRANSPORT_OR_PROVENANCE_ERROR:{ep_key}:{worker_res.get('error_message')}")
+                    return
+
+                # EXITED_OK: ledger already settled observed wire bytes atomically inside _worker_entrypoint!
+                over_wire_budget = bool(worker_res.get("over_wire_budget"))
                 async with budget_cond:
-                    counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
-                    counters["wire_bytes_observed_total"] += obs_wire_len
-                    counters["requests_completed"] += 1
-                    if counters["wire_bytes_observed_total"] > max_total_bytes:
-                        over_wire_budget = True
+                    if over_wire_budget:
                         counters["aborted"] = True
                         counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
                         violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                        tracker.request_stop()
                     budget_cond.notify_all()
 
                 if over_wire_budget:
+                    tracker.mark_late_discarded(submitted_fid)
                     async with budget_cond:
                         counters["requests_rejected"] += 1
                     return
 
                 # Post-response guard: if cancelled/aborted/expired while in-flight, DISCARD late response!
-                g_post_ok, g_post_r, g_post_v, rem_post, _ = _run_guard_sync(bool(counters["aborted"]))
+                g_post_ok, g_post_r, g_post_v, _rem_post, _ = _run_guard_sync(bool(counters["aborted"]))
                 if not g_post_ok:
+                    tracker.mark_late_discarded(submitted_fid)
                     async with budget_cond:
                         counters["requests_rejected"] += 1
                     await _set_aborted(g_post_r or "LATE_RESPONSE_DISCARDED", g_post_v)
                     return
 
+                raw_resp = worker_res.get("raw_resp")
+                proof_c4 = worker_res.get("proof_c4")
                 assert raw_resp is not None
                 st_code = int(raw_resp.status_code)
                 hdrs = {str(k).lower(): str(v) for k, v in (raw_resp.headers or {}).items()}
@@ -1086,10 +1732,7 @@ async def capture_r5_public_batch(
                     if not ra_ok:
                         await _set_aborted(f"INVALID_RETRY_AFTER:{ep_key}:{ra_err}")
                         return
-                    if ra_sec is not None:
-                        backoff = float(ra_sec)  # NEVER shorten server-instructed Retry-After!
-                    else:
-                        backoff = min(2.0, 0.05 * (2 ** attempt))
+                    backoff = float(ra_sec) if ra_sec is not None else min(2.0, 0.05 * (2 ** attempt))
                     retry_chain.append({"attempt": attempt, "http_status": st_code, "backoff_sec": backoff, "retry_after_raw": ra_raw})
                     if attempt < max_retries:
                         g_rb_ok, g_rb_r, g_rb_v, rem_rb, _ = _run_guard_sync(bool(counters["aborted"]))
@@ -1142,7 +1785,7 @@ async def capture_r5_public_batch(
                         final_url=str(getattr(raw_resp, "final_url", url) or url),
                         tls_host=str(getattr(raw_resp, "tls_verified_host", "") or ""),
                         http_status=st_code,
-                        params=params,
+                        params=params_immutable_snap,
                         raw_response_bytes=body,
                         request_utc_ms=int(getattr(raw_resp, "request_utc_ms", req_utc_ms)),
                         response_utc_ms=int(getattr(raw_resp, "response_utc_ms", req_utc_ms + mono_ms)),
@@ -1153,9 +1796,10 @@ async def capture_r5_public_batch(
                         is_fake_transport_qa=True,
                     )
 
-                # Pre-staging guard (checks cancel, deadline, expiry, plan binding, resource BEFORE writing!)
+                # Pre-staging guard (orchestrator-only write — worker thread NEVER writes staging!)
                 g_st_ok, g_st_r, g_st_v, _, _ = _run_guard_sync(bool(counters["aborted"]))
                 if not g_st_ok:
+                    tracker.mark_late_discarded(submitted_fid)
                     async with budget_cond:
                         counters["requests_rejected"] += 1
                     await _set_aborted(g_st_r or "PRE_STAGING_GUARD_FAILED", g_st_v)
@@ -1188,7 +1832,7 @@ async def capture_r5_public_batch(
                     capture_session_id=session_id,
                     endpoint_key=ep_key,
                     url=url,
-                    params=params,
+                    params=params_immutable_snap,
                     http_status=st_code,
                     raw_response_bytes=body,
                     canonical_parsed_sha256=canon_sha,
@@ -1197,20 +1841,16 @@ async def capture_r5_public_batch(
                     monotonic_duration_ms=max(1, int((float(mono_clock()) - t_req_mono) * 1000)),
                     provider_event_utc_ms=int(raw_resp.response_utc_ms),
                     transport_obj=transport,
-                    transport_kind="STDLIB_URLLIB_HTTPS" if (exact_stdlib and live_perm) else "INJECTED_FAKE_TRANSPORT_QA",
+                    transport_kind="INJECTED_FAKE_TRANSPORT_QA",
                     tls_host=str(raw_resp.tls_verified_host or ""),
-                    is_fake_transport_qa=not (exact_stdlib and live_perm),
-                    live_transport_verified=bool(exact_stdlib and live_perm),
-                    live_authorization_verified=bool(exact_stdlib and live_perm),
+                    is_fake_transport_qa=True,
+                    live_transport_verified=False,
+                    live_authorization_verified=False,
                     real_rate_limiter_active=True,
                 )
-                ev_cls = (
-                    "OBSERVED_VERIFIED"
-                    if (receipt_c4.provenance_class == ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP and exact_stdlib and live_perm)
-                    else "QA_FIXTURE"
-                )
                 async with budget_cond:
-                    if counters["aborted"]:
+                    if counters["aborted"] or tracker.stop_event.is_set():
+                        tracker.mark_late_discarded(submitted_fid)
                         counters["requests_rejected"] += 1
                         return
                     counters["requests_accepted"] += 1
@@ -1222,7 +1862,7 @@ async def capture_r5_public_batch(
                         "raw_bytes_len": len(body),
                         "raw_sha256": raw_sha,
                         "canonical_unpacked_sha256": canon_sha,
-                        "evidence_class": ev_cls,
+                        "evidence_class": "QA_FIXTURE",
                         "provenance_class_c3": str(receipt_c4.provenance_class),
                         "staged_filename": staged_rel,
                         "retry_chain": retry_chain,
@@ -1234,6 +1874,8 @@ async def capture_r5_public_batch(
                 return
 
     tasks = [asyncio.create_task(_run_one_batch(b)) for b in batches_list]
+    outer_cancelled = False
+    async_pending_cnt = 0
     if tasks:
         try:
             done, pending = await asyncio.wait(tasks, timeout=max(float(drain_timeout_sec), max_dur_sec + float(drain_timeout_sec)))
@@ -1241,38 +1883,66 @@ async def capture_r5_public_batch(
                 await _set_aborted("INFLIGHT_WORKERS_UNDRAINED_TIMEOUT")
                 for p_t in pending:
                     p_t.cancel()
-                _, still_pending = await asyncio.wait(pending, timeout=max(0.05, float(drain_timeout_sec)))
-                counters["undrained_inflight_workers"] = len(still_pending)
+                _, still_p = await asyncio.wait(pending, timeout=max(0.05, float(drain_timeout_sec)))
+                async_pending_cnt = len(still_p)
             for d_t in done:
                 if not d_t.cancelled():
                     exc_t = d_t.exception()
                     if exc_t is not None:
                         await _set_aborted(f"BATCH_TASK_EXCEPTION:{type(exc_t).__name__}:{exc_t}")
         except asyncio.CancelledError:
-            await _set_aborted("COROUTINE_CANCELLED_MIDFLIGHT")
+            outer_cancelled = True
+            tracker.request_stop()
+            if not counters["aborted"]:
+                counters["aborted"] = True
+                counters["abort_reason"] = "COROUTINE_CANCELLED_MIDFLIGHT"
+                if "COROUTINE_CANCELLED_MIDFLIGHT" not in violations:
+                    violations.append("COROUTINE_CANCELLED_MIDFLIGHT")
             for t_i in tasks:
                 if not t_i.done():
                     t_i.cancel()
-            _, still_pending = await asyncio.wait(tasks, timeout=max(0.05, float(drain_timeout_sec)))
-            counters["undrained_inflight_workers"] = len(still_pending)
+            _, still_p = await asyncio.wait(tasks, timeout=min(0.2, max(0.05, float(drain_timeout_sec))))
+            async_pending_cnt = len(still_p)
+
+    # Bounded actual OS worker drain & immutable return-time lifecycle receipt (P1-E)!
+    lifecycle_rec = drain_owned_transport_workers(
+        tracker, drain_timeout_sec=float(drain_timeout_sec), async_tasks_pending=async_pending_cnt
+    )
+    undrained_actual = int(lifecycle_rec["undrained_inflight_workers"])
+    if undrained_actual > 0:
+        counters["aborted"] = True
+        if not counters["abort_reason"]:
+            counters["abort_reason"] = "FAIL_UNDRAINED_INFLIGHT_WORKER"
+        if "UNDRAINED_INFLIGHT_WORKER_QUARANTINED" not in violations:
+            violations.append("UNDRAINED_INFLIGHT_WORKER_QUARANTINED")
 
     # Canonical deterministic ordering by (batch_id, endpoint_key, raw_sha256)
     items.sort(key=lambda it: (str(it["batch_id"]), str(it["endpoint_key"]), str(it["raw_sha256"])))
 
-    # On abort: remove ONLY owned partial staged files and NEVER count deleted items as accepted!
+    # On abort: remove ONLY owned partial staged files & report ANY failed unlink honestly (NO silent except:pass!)
     removed_staged = 0
+    failed_unlinks: List[Dict[str, str]] = []
     retained_staged: List[str] = []
     aborted_discarded_audit: List[Dict[str, Any]] = []
+    cleanup_complete = True
     if counters["aborted"]:
         if staging_root is not None:
             for sp in staged_paths:
                 try:
                     _safe_contained_path(sp, staging_root)
                     if sp.is_file():
-                        sp.unlink()
-                        removed_staged += 1
-                except Exception:
-                    pass
+                        unlink_op(sp)
+                        if sp.exists():
+                            failed_unlinks.append({"filename": sp.name, "error": "FILE_STILL_EXISTS_AFTER_UNLINK"})
+                        else:
+                            removed_staged += 1
+                except Exception as exc:
+                    failed_unlinks.append({"filename": sp.name, "error": f"{type(exc).__name__}:{exc}"})
+            retained_staged = sorted(sp.name for sp in staged_paths if sp.exists())
+            if failed_unlinks or retained_staged:
+                cleanup_complete = False
+                if "ABORT_STAGING_CLEANUP_INCOMPLETE" not in violations:
+                    violations.append("ABORT_STAGING_CLEANUP_INCOMPLETE")
         aborted_discarded_audit = [
             {k: v for k, v in it.items() if not k.startswith("_")} for it in items
         ]
@@ -1282,20 +1952,29 @@ async def capture_r5_public_batch(
     else:
         retained_staged = sorted(sp.name for sp in staged_paths if sp.is_file())
 
+    session_quarantined = bool(lifecycle_rec["session_quarantined"] or (not cleanup_complete))
+    final_outcome = "QUARANTINED" if session_quarantined else ("ABORTED" if counters["aborted"] else "CONSUMED")
+    _, _, ledger_snap = active_ledger.finalize_grant_session(
+        lease, final_outcome, pending_workers=undrained_actual, abort_discard_accepted=bool(counters["aborted"])
+    )
+    ledger_snap = ledger_snap or active_ledger.snapshot_grant(bound_scope.grant_identity_key) or {}
+
     obs_cnt = sum(1 for it in items if it["evidence_class"] == "OBSERVED_VERIFIED")
     qa_cnt = sum(1 for it in items if it["evidence_class"] == "QA_FIXTURE")
     planned_batch_ids = sorted(str(b["batch_id"]) for b in batches_list)
     completed_batch_ids = sorted(str(it["batch_id"]) for it in items)
     all_required_batches_accounted = (completed_batch_ids == planned_batch_ids)
 
-    if counters["undrained_inflight_workers"] > 0:
+    if undrained_actual > 0:
         exec_st = "FAIL_UNDRAINED_INFLIGHT_WORKER"
+    elif not cleanup_complete:
+        exec_st = "FAIL_ABORT_CLEANUP_INCOMPLETE"
     elif counters["aborted"]:
         exec_st = "ABORTED_RESOURCE_OR_CANCEL"
     elif is_qa_plan:
         exec_st = "QA_FIXTURE_OFFLINE_PASS" if (len(violations) == 0 and qa_cnt > 0 and all_required_batches_accounted) else "FAIL"
     else:
-        exec_st = "VERIFIED_DEV_CAPTURE" if (len(violations) == 0 and obs_cnt > 0 and all_required_batches_accounted) else "FAIL"
+        exec_st = "BLOCKED_LIVE_DURABILITY_AND_TERMINATION_UNPROVEN"
 
     sem_view = {
         "partition_role": role,
@@ -1319,48 +1998,80 @@ async def capture_r5_public_batch(
         "violations": sorted(violations),
     }
 
-    return {
-        "spec_version": SPEC_VERSION_KH03_R5_C1,
-        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+    req_started_tot = int(ledger_snap.get("requests_started", 0))
+    req_reserved_tot = int(ledger_snap.get("requests_reserved_total", 0))
+    req_rel_pre = int(ledger_snap.get("requests_released_pre_start", 0))
+    req_comp_tot = int(ledger_snap.get("requests_completed", 0))
+    wire_obs_tot = int(ledger_snap.get("bytes_observed", 0))
+    wire_unc_tot = int(ledger_snap.get("bytes_uncertain_retained", 0))
+    wire_chg_tot = int(ledger_snap.get("bytes_total_charged", wire_obs_tot + wire_unc_tot))
+
+    result_doc: Dict[str, Any] = {
+        "spec_version": SPEC_VERSION_KH03_R5_C2,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C2,
         "run_id": run_id,
         "capture_session_id": session_id,
         "partition_role": role,
         "capture_execution_status": exec_st,
         "capture_provenance_status": (
-            "VERIFIED_OBSERVED_DEV"
-            if (obs_cnt > 0 and not counters["aborted"])
-            else ("QA_FIXTURE_ONLY_NO_REAL_CAPTURE" if (qa_cnt > 0 and not counters["aborted"]) else "NO_REAL_CAPTURE")
+            "QA_FIXTURE_ONLY_NO_REAL_CAPTURE"
+            if (qa_cnt > 0 and not counters["aborted"] and exec_st == "QA_FIXTURE_OFFLINE_PASS")
+            else "NO_REAL_CAPTURE"
         ),
-        "external_requests_attempted": counters["requests_dispatched_actual"] if live_perm else 0,
-        "qa_simulated_requests_count": counters["requests_dispatched_actual"] if is_qa_plan else 0,
-        "requests_reserved_total": counters["requests_reserved_total"],
-        "requests_released_pre_dispatch": counters["requests_released_pre_dispatch"],
-        "requests_dispatched_actual": counters["requests_dispatched_actual"],
-        "requests_completed": counters["requests_completed"],
+        "external_requests_attempted": 0,
+        "qa_simulated_requests_count": req_started_tot if is_qa_plan else 0,
+        "requests_reserved_total": req_reserved_tot,
+        "requests_released_pre_dispatch": req_rel_pre,
+        "requests_dispatched_actual": req_started_tot,
+        "requests_completed": req_comp_tot,
         "requests_rejected": counters["requests_rejected"],
         "requests_accepted": counters["requests_accepted"],
-        "total_bytes_received": counters["wire_bytes_observed_total"],
-        "wire_bytes_observed_total": counters["wire_bytes_observed_total"],
+        "total_bytes_received": wire_obs_tot,
+        "wire_bytes_observed_total": wire_obs_tot,
+        "wire_bytes_uncertain_retained": wire_unc_tot,
+        "wire_bytes_charged_total": wire_chg_tot,
         "bytes_accepted_total": counters["bytes_accepted_total"],
         "bytes_staged_total": counters["bytes_staged_total"],
         "accepted_observed_records_count": obs_cnt,
         "qa_fixture_records_count": qa_cnt,
         "removed_staged_files_count": removed_staged,
+        "failed_unlink_paths": failed_unlinks,
+        "cleanup_complete": cleanup_complete,
         "retained_staged_files": retained_staged,
-        "undrained_inflight_workers": counters["undrained_inflight_workers"],
+        "async_tasks_pending": int(lifecycle_rec["async_tasks_pending"]),
+        "workers_queued": int(lifecycle_rec["workers_queued"]),
+        "workers_running_actual": int(lifecycle_rec["workers_running_actual"]),
+        "workers_exited_actual": int(lifecycle_rec["workers_exited_actual"]),
+        "cancelled_before_start": int(lifecycle_rec["cancelled_before_start"]),
+        "undrained_inflight_workers": undrained_actual,
+        "late_results_discarded": int(lifecycle_rec["late_results_discarded"]),
+        "tracker_pending_count": int(lifecycle_rec["tracker_pending_count"]),
+        "owned_executor_shutdown_complete": bool(lifecycle_rec["owned_executor_shutdown_complete"]),
+        "session_quarantined": session_quarantined,
+        "worker_lifecycle_receipt": lifecycle_rec,
+        "grant_ledger_receipt": ledger_snap,
+        "live_grant_replay_durability": "NOT_PROVEN_BLOCKED",
+        "live_transport_termination": "NOT_PROVEN_BLOCKED",
         "all_required_batches_accounted": all_required_batches_accounted,
         "aborted": bool(counters["aborted"]),
         "abort_reason": counters["abort_reason"],
-        "dispatch_timestamps_mono": list(dispatch_timestamps_mono),
+        "dispatch_timestamps_mono": list(tracker._dispatch_timestamps_mono),
         "items": items,
         "aborted_discarded_items_audit": aborted_discarded_audit,
         "semantic_result_sha256": canonical_hash(sem_view),
         "volatile_fields_excluded_from_semantic_hash": [
             "capture_session_id", "dispatch_timestamps_mono", "request_utc_ms", "response_utc_ms",
-            "monotonic_duration_ms", "capture_proof_id", "staged_filename",
+            "monotonic_duration_ms", "capture_proof_id", "staged_filename", "worker_lifecycle_receipt",
         ],
         "violations": violations,
     }
+    if lifecycle_sink is not None:
+        lifecycle_sink.clear()
+        lifecycle_sink.update(result_doc)
+        lifecycle_sink["_tracker_ref"] = tracker
+    if outer_cancelled:
+        raise R5CaptureCancelledError(result_doc, "COROUTINE_CANCELLED_MIDFLIGHT")
+    return result_doc
 
 
 # =====================================================================

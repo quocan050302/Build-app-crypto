@@ -610,6 +610,15 @@ def verify_r5_c1_artifacts_independently_from_disk(
     ):
         viols.append("C1V_PARITY_ANCHOR_MUTATED")
 
+    # KH-03.R5.C2 §4.2: Reject legacy boolean-only aggregate control proofs in 18 (must use C2 paired receipts!)
+    f18_doc = docs["18"]
+    if (
+        f18_doc.get("paired_fault_receipts_verified") is not True
+        or not _is_int(f18_doc.get("paired_c1_controls_verified_count"))
+        or int(f18_doc["paired_c1_controls_verified_count"]) < 48
+    ):
+        viols.append("LEGACY_CONTROL_PROOF_INSUFFICIENT_USE_C2")
+
     # Recompute ALL 30 gates independently!
     recomp = derive_r5_c1_readiness_verdicts(
         raw_evidence=docs,

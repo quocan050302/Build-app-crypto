@@ -44,6 +44,9 @@ WE_MS = 1794000600000
 OK_BODY = b'{"code":"00000","data":[{"symbol":"XAUUSDT","bidPr":"4100.00","askPr":"4100.20"}]}'
 
 
+_QA_B_SEQ_C1 = 0
+
+
 def _build_plan(
     endpoints: List[str] = None,  # type: ignore[assignment]
     *,
@@ -57,10 +60,12 @@ def _build_plan(
     expires_offset_sec: int = 300,
     rid: str = "c1_b_run",
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    global _QA_B_SEQ_C1
+    _QA_B_SEQ_C1 += 1
     eps = list(endpoints or ["public_ticker"])
     inv = build_r5_source_capability_inventory(REPO_ROOT)
     g = R5OperatorGrant(
-        grant_id="QA_B", issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
+        grant_id=f"QA_B_{_QA_B_SEQ_C1}", issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
         allowed_endpoints=tuple(eps), window_start_ms=WS_MS, window_end_ms=WE_MS,
         max_requests=max_requests, max_total_bytes=max_total_bytes, max_duration_sec=max_duration_sec,
         expires_utc_ms=NOW_MS + expires_offset_sec * 1000, run_id=rid, is_qa_fixture_grant=True, origin_kind="QA",
@@ -126,6 +131,7 @@ def test_c1_b01_to_b06_deadline_cancel_post_wait_and_remaining_timeout(tmp_path:
     assert r02["requests_dispatched_actual"] == 1
 
     # B03/B04/B12: Cancel during retry wait -> 0 second dispatch, reservation not counted as dispatched!
+    dec3, plan3 = _build_plan(max_duration_sec=5, max_retries=2, min_iv_ms=100, expires_offset_sec=10)
     clk3 = {"m": 200.0}
     mon3 = make_r5_fixture_resource_monitor(destination=tmp_path, monotonic_fn=lambda: clk3["m"])
     ev3 = asyncio.Event()
@@ -134,7 +140,7 @@ def test_c1_b01_to_b06_deadline_cancel_post_wait_and_remaining_timeout(tmp_path:
         clk3["m"] += s
         ev3.set()
     r03 = asyncio.run(capture_r5_public_batch(
-        plan, spy_b03, mon3, cancel_event=ev3, run_id="c1_b_run", trusted_scope=dec, destination_root=tmp_path,
+        plan3, spy_b03, mon3, cancel_event=ev3, run_id="c1_b_run", trusted_scope=dec3, destination_root=tmp_path,
         sleep_fn=_sleep_and_cancel, monotonic_fn=lambda: clk3["m"], utc_now_fn=lambda: NOW_UTC,
     ))
     assert len(spy_b03.calls) == 1 and r03["aborted"] is True and r03["abort_reason"] == "CANCELLED_MIDFLIGHT"
@@ -176,6 +182,7 @@ def test_c1_b07_to_b10_b17_b18_retry_after_classes_and_cadence(tmp_path: Path) -
     assert "RETRY_AFTER_EXCEEDS_REMAINING_BUDGET" in str(r7["abort_reason"])
 
     # B08: Retry-After=3.0s within 5s budget -> waits FULL 3.0s (NOT capped at 2.0s!), plus HTTP-date parser!
+    dec8, plan8 = _build_plan(max_duration_sec=5, max_retries=2, min_iv_ms=100)
     sleeps8: List[float] = []
     clk8 = {"m": 500.0}
     mon8 = make_r5_fixture_resource_monitor(destination=tmp_path, monotonic_fn=lambda: clk8["m"])
@@ -187,7 +194,7 @@ def test_c1_b07_to_b10_b17_b18_retry_after_classes_and_cadence(tmp_path: Path) -
         sleeps8.append(s)
         clk8["m"] += s
     r8 = asyncio.run(capture_r5_public_batch(
-        plan, spy8, mon8, run_id="c1_b_run", trusted_scope=dec, destination_root=tmp_path,
+        plan8, spy8, mon8, run_id="c1_b_run", trusted_scope=dec8, destination_root=tmp_path,
         sleep_fn=_sleep8, monotonic_fn=lambda: clk8["m"], utc_now_fn=lambda: NOW_UTC,
     ))
     assert r8["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS" and sleeps8 == [3.0]
@@ -198,11 +205,12 @@ def test_c1_b07_to_b10_b17_b18_retry_after_classes_and_cadence(tmp_path: Path) -
     assert ok_bad is False
 
     # B09: TimeoutError retried boundedly up to max_retries
+    dec9, plan9 = _build_plan(max_duration_sec=5, max_retries=2, min_iv_ms=100)
     clk9 = {"m": 600.0}
     mon9 = make_r5_fixture_resource_monitor(destination=tmp_path, monotonic_fn=lambda: clk9["m"])
     spy9 = _SpyTransport([TimeoutError("sock timeout"), RawHttpResponseC2(200, OK_BODY, {}, NOW_MS, NOW_MS + 5)])
     r9 = asyncio.run(capture_r5_public_batch(
-        plan, spy9, mon9, run_id="c1_b_run", trusted_scope=dec, destination_root=tmp_path,
+        plan9, spy9, mon9, run_id="c1_b_run", trusted_scope=dec9, destination_root=tmp_path,
         sleep_fn=lambda s: clk9.__setitem__("m", clk9["m"] + s), monotonic_fn=lambda: clk9["m"], utc_now_fn=lambda: NOW_UTC,
     ))
     assert r9["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS" and len(spy9.calls) == 2
@@ -217,9 +225,10 @@ def test_c1_b07_to_b10_b17_b18_retry_after_classes_and_cadence(tmp_path: Path) -
         RawHttpResponseC2(403, b"forbidden", {}, NOW_MS, NOW_MS + 1),
         PermissionError("HTTP_REDIRECT_FORBIDDEN"),
     ):
+        dec10, plan10 = _build_plan(max_duration_sec=5, max_retries=2, min_iv_ms=100)
         spy10 = _SpyTransport([bad_resp, RawHttpResponseC2(200, OK_BODY, {}, NOW_MS, NOW_MS + 5)])
         r10 = asyncio.run(capture_r5_public_batch(
-            plan, spy10, mon, run_id="c1_b_run", trusted_scope=dec, destination_root=tmp_path,
+            plan10, spy10, mon, run_id="c1_b_run", trusted_scope=dec10, destination_root=tmp_path,
             sleep_fn=lambda _: None, monotonic_fn=lambda: clk["m"], utc_now_fn=lambda: NOW_UTC,
         ))
         assert len(spy10.calls) == 1 and r10["qa_fixture_records_count"] == 0

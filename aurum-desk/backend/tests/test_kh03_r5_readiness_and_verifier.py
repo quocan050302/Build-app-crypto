@@ -257,7 +257,9 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
         "window_start_ms": 1794000000000, "window_end_ms": 1794000300000,
         "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30,
     }
-    qa_g = R5OperatorGrant("QA_48", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 50_000, 30, now_ms + 3600_000, "r5_f48", True, "QA")
+    import uuid as _uuid
+    _f48_tag = _uuid.uuid4().hex[:8]
+    qa_g = R5OperatorGrant(f"QA_48_{_f48_tag}", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 50_000, 30, now_ms + 3600_000, "r5_f48", True, "QA")
     qa_d = validate_r5_operator_capture_scope(qa_g, req, now, {"qa_fixture_mode": True})
     qa_p = plan_r5_capture_batches(qa_d, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
     contract = {"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "settlement_currency": "USDT", "tick_size": "0.01", "expected_tick_size": "0.01"}
@@ -314,14 +316,17 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
         _rec("R5-F17", "UNKNOWN_FEE_AND_PUBLIC_RATE_REJECTED", "validate_r5_owner_fee_confirmation", not validate_r5_owner_fee_confirmation({"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "source_type": "PUBLIC_GENERIC_SCHEDULE", "maker_fee_rate": "0.0002", "taker_fee_rate": "0.0004", "effective_date_utc": "2026-11-20T00:00:00Z", "source_evidence_sha256": "a" * 64, "tier_or_region_scope": "VIP0", "redacted_no_secrets_confirmed": True}, contract, now)["valid"], validate_r5_owner_fee_confirmation(None, contract, now)["account_fee_readiness"] == "UNKNOWN_NOT_LOCALLY_VERIFIED")
         _rec("R5-F18", "SECRET_IN_FEE_DOC_REJECTED", "validate_r5_owner_fee_confirmation", not validate_r5_owner_fee_confirmation({"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "source_type": "OWNER_REDACTED_CONFIRMATION", "api_key": "secret123", "maker_fee_rate": "0.0002", "taker_fee_rate": "0.0004", "effective_date_utc": "2026-11-20T00:00:00Z", "source_evidence_sha256": "a" * 64, "tier_or_region_scope": "VIP0", "redacted_no_secrets_confirmed": True}, contract, now)["valid"], True)
 
-        # F19..F29
+        # F19..F29 (distinct QA grants per independent capture session under C2 one-shot ledger policy)
         tr_429 = _SequenceFakeTransportC2([RawHttpResponseC2(429, b"", {"retry-after": "0.01"}, 1, 2), RawHttpResponseC2(200, good_meta, {}, 3, 4)])
         r_19 = asyncio.run(capture_r5_public_batch(qa_p, tr_429, mon_td, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
         _rec("R5-F19", "RATE_LIMIT_429_BOUNDED_RETRY", "capture_r5_public_batch", len(r_19["items"]) == 1 and len(r_19["items"][0]["retry_chain"]) == 1, r_19["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS")
+        qa_g20 = R5OperatorGrant(f"QA_48_F20_{_f48_tag}", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 50_000, 30, now_ms + 3600_000, "r5_f48", True, "QA")
+        qa_d20 = validate_r5_operator_capture_scope(qa_g20, req, now, {"qa_fixture_mode": True})
+        qa_p20 = plan_r5_capture_batches(qa_d20, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
         ev = asyncio.Event(); ev.set()
-        r_20 = asyncio.run(capture_r5_public_batch(qa_p, _SequenceFakeTransportC2([]), mon_td, cancel_event=ev, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, utc_now_fn=lambda: now))
+        r_20 = asyncio.run(capture_r5_public_batch(qa_p20, _SequenceFakeTransportC2([]), mon_td, cancel_event=ev, run_id="r5_f48", trusted_scope=qa_d20, destination_root=td, utc_now_fn=lambda: now))
         _rec("R5-F20", "MIDFLIGHT_CANCEL_STOPS_DISPATCH", "capture_r5_public_batch", r_20["aborted"] and r_20["abort_reason"] == "CANCELLED_MIDFLIGHT", True)
-        tiny_g21 = R5OperatorGrant("QA_48_TINY", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 5, 30, now_ms + 3600_000, "r5_f48", True, "QA")
+        tiny_g21 = R5OperatorGrant(f"QA_48_TINY_{_f48_tag}", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 5, 30, now_ms + 3600_000, "r5_f48", True, "QA")
         tiny_d21 = validate_r5_operator_capture_scope(tiny_g21, {**req, "max_total_bytes": 5}, now, {"qa_fixture_mode": True})
         tiny_p21 = plan_r5_capture_batches(tiny_d21, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 5, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
         r_21 = asyncio.run(capture_r5_public_batch(tiny_p21, _SequenceFakeTransportC2([RawHttpResponseC2(200, good_meta, {}, 1, 2)]), mon_td, run_id="r5_f48", trusted_scope=tiny_d21, destination_root=td, sleep_fn=lambda _: None, utc_now_fn=lambda: now))

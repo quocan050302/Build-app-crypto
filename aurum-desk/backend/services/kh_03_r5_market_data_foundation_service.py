@@ -65,6 +65,9 @@ SPEC_VERSION_KH03_R5 = "KH-03.R5-v1.0"
 SCHEMA_VERSION_KH03_R5 = "kh_03_r5_market_data_foundation_v1"
 SPEC_VERSION_KH03_R5_C1 = "KH-03.R5.C1-v1.0"
 SCHEMA_VERSION_KH03_R5_C1 = "kh_03_r5_c1_capture_safety_v1"
+SPEC_VERSION_KH03_R5_C2 = "KH-03.R5.C2-v1.0"
+SCHEMA_VERSION_KH03_R5_C2 = "kh_03_r5_c2_technical_closure_v1"
+_MAX_GRANT_LEDGER_ENTRIES_C2 = 65536
 
 NY_TZ = ZoneInfo("America/New_York")
 STRICT_PREFLIGHT_DISK_MIN_GIB_R5 = max(20.5, float(STRICT_PREFLIGHT_DISK_MIN_GIB_SHARED))
@@ -320,7 +323,7 @@ class _NonSerializableBindingTokenC1:
 
 @dataclass(frozen=True)
 class R5TrustedScopeReceipt:
-    """Immutable, process-local scope approval receipt bound to exact effective scope."""
+    """Immutable, process-local scope approval receipt bound to exact effective scope & grant identity."""
 
     receipt_id: str
     spec_version: str
@@ -337,6 +340,9 @@ class R5TrustedScopeReceipt:
     verifier_id: str
     worker_pid: int
     receipt_mac_hex: str
+    grant_identity_key: str = ""
+    grant_payload_digest: str = ""
+    grant_namespace: str = "QA_FIXTURE"
     _token: Optional[_NonSerializableBindingTokenC1] = None
 
     def __copy__(self) -> Any:
@@ -370,6 +376,9 @@ class R5TrustedPlanReceipt:
     immutable_plan_snapshot_json: str
     worker_pid: int
     receipt_mac_hex: str
+    grant_identity_key: str = ""
+    grant_payload_digest: str = ""
+    grant_namespace: str = "QA_FIXTURE"
     _token: Optional[_NonSerializableBindingTokenC1] = None
 
     def __copy__(self) -> Any:
@@ -383,6 +392,508 @@ class R5TrustedPlanReceipt:
 
     def __reduce_ex__(self, _protocol: int) -> Any:
         raise TypeError("TRUSTED_PLAN_RECEIPT_NON_SERIALIZABLE")
+
+
+@dataclass(frozen=True)
+class R5GrantSessionLeaseC2:
+    """Immutable non-copyable lease representing one claimed one-shot grant capture session."""
+
+    lease_id: str
+    grant_identity_key: str
+    grant_payload_digest: str
+    grant_id: str
+    grant_namespace: str
+    session_id: str
+    scope_receipt_id: str
+    plan_receipt_id: str
+    max_requests: int
+    max_total_bytes: int
+    worker_pid: int
+    _token: Optional[_NonSerializableBindingTokenC1] = None
+
+    def __copy__(self) -> Any:
+        raise TypeError("GRANT_SESSION_LEASE_NON_COPYABLE")
+
+    def __deepcopy__(self, _memo: Any) -> Any:
+        raise TypeError("GRANT_SESSION_LEASE_NON_COPYABLE")
+
+    def __reduce__(self) -> Any:
+        raise TypeError("GRANT_SESSION_LEASE_NON_SERIALIZABLE")
+
+    def __reduce_ex__(self, _protocol: int) -> Any:
+        raise TypeError("GRANT_SESSION_LEASE_NON_SERIALIZABLE")
+
+
+def _canonical_grant_identity_c2(
+    verified_grant: R5OperatorGrant,
+    verifier_identity: str,
+) -> Tuple[str, str, str]:
+    """
+    Derives stable logical grant identity `(grant_identity_key, canonical_payload_digest, namespace)`.
+    Identity depends ONLY on `(namespace, verifier_identity, issued_by, grant_id)` — NOT receipt ID,
+    plan ID, nonce, or session ID. Reissuing a receipt or replanning yields the exact same key;
+    reusing the same key with altered grant payload fails closed with `GRANT_IDENTITY_PAYLOAD_CONFLICT`.
+    """
+    is_qa = bool(verified_grant.is_qa_fixture_grant) and str(verified_grant.purpose).strip() == "QA_FIXTURE"
+    namespace = "QA_FIXTURE" if is_qa else "LIVE_DEV"
+    ver_id = str(verifier_identity).strip()
+    issuer = str(verified_grant.issued_by).strip()
+    gid = str(verified_grant.grant_id).strip()
+    grant_key = canonical_hash({
+        "namespace": namespace,
+        "verifier_identity": ver_id,
+        "issued_by": issuer,
+        "grant_id": gid,
+    })
+    payload_canonical = {
+        "namespace": namespace,
+        "verifier_identity": ver_id,
+        "issued_by": issuer,
+        "grant_id": gid,
+        "purpose": str(verified_grant.purpose).strip(),
+        "symbol": str(verified_grant.symbol).strip(),
+        "product_type": str(verified_grant.product_type).strip(),
+        "allowed_endpoints": sorted(str(e).strip() for e in (verified_grant.allowed_endpoints or ())),
+        "window_start_ms": int(verified_grant.window_start_ms),
+        "window_end_ms": int(verified_grant.window_end_ms),
+        "max_requests": int(verified_grant.max_requests),
+        "max_total_bytes": int(verified_grant.max_total_bytes),
+        "max_duration_sec": int(verified_grant.max_duration_sec),
+        "expires_utc_ms": int(verified_grant.expires_utc_ms),
+        "run_id": str(verified_grant.run_id).strip(),
+        "is_qa_fixture_grant": bool(verified_grant.is_qa_fixture_grant),
+        "origin_kind": str(verified_grant.origin_kind).strip(),
+        "max_pages": int(verified_grant.max_pages) if verified_grant.max_pages is not None else None,
+        "max_response_bytes": int(verified_grant.max_response_bytes) if verified_grant.max_response_bytes is not None else None,
+        "max_retries_per_request": int(verified_grant.max_retries_per_request) if verified_grant.max_retries_per_request is not None else None,
+        "max_concurrency": int(verified_grant.max_concurrency) if verified_grant.max_concurrency is not None else None,
+        "min_request_interval_ms": int(verified_grant.min_request_interval_ms) if verified_grant.min_request_interval_ms is not None else None,
+        "destination_scope": str(verified_grant.destination_scope).strip() if verified_grant.destination_scope is not None else None,
+    }
+    return grant_key, canonical_hash(payload_canonical), namespace
+
+
+class R5GrantConsumptionLedgerC2:
+    """
+    Fail-closed one-shot bounded session consumption ledger (KH-03.R5.C2 P1-F).
+    - One verified logical grant authorizes at most ONE capture session (no sequential/concurrent
+      replay, no replanning budget multiplication, no scope-receipt reissue reset).
+    - Never evicts spent grants via TTL/LRU; fails closed on capacity exhaustion or unhealthy state.
+    - Process-local QA ledger ONLY; ALL live network session claims fail closed with
+      `LIVE_GRANT_REPLAY_DURABILITY_NOT_PROVEN_BLOCKED` until a separately reviewed durable
+      cross-process consumption authority is provided in R6+.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_entries: int = _MAX_GRANT_LEDGER_ENTRIES_C2,
+        durable_cross_process_verified: bool = False,
+    ) -> None:
+        self._lock = threading.Lock()
+        self._owner_pid = os.getpid()
+        self._max_entries = max(1, int(max_entries))
+        self._durable_cross_process_verified = bool(durable_cross_process_verified)
+        self._healthy = True
+        self._unhealthy_reason: Optional[str] = None
+        self._entries: Dict[str, Dict[str, Any]] = {}
+        self._leases: Dict[str, Tuple[R5GrantSessionLeaseC2, _NonSerializableBindingTokenC1]] = {}
+
+    @property
+    def durable_cross_process_verified(self) -> bool:
+        return self._durable_cross_process_verified
+
+    def mark_unhealthy_for_qa(self, reason: str) -> None:
+        """QA-only fault injector for testing F12 fail-closed ledger unavailability/corruption."""
+        with self._lock:
+            self._healthy = False
+            self._unhealthy_reason = str(reason or "LEDGER_CORRUPT_OR_UNAVAILABLE")
+
+    def _health_error_unlocked(self) -> Optional[str]:
+        if not self._healthy:
+            return f"LEDGER_UNAVAILABLE_OR_CORRUPT:{self._unhealthy_reason or 'UNHEALTHY'}"
+        if self._owner_pid != os.getpid():
+            return "CROSS_PROCESS_GRANT_LEDGER_FORBIDDEN"
+        return None
+
+    def register_or_check_grant_identity(
+        self,
+        grant_identity_key: str,
+        grant_payload_digest: str,
+        *,
+        grant_id: str,
+        grant_namespace: str,
+    ) -> Tuple[bool, List[str]]:
+        with self._lock:
+            h_err = self._health_error_unlocked()
+            if h_err is not None:
+                return False, [h_err]
+            ent = self._entries.get(grant_identity_key)
+            if ent is not None:
+                if ent["payload_digest"] != grant_payload_digest:
+                    return False, ["GRANT_IDENTITY_PAYLOAD_CONFLICT"]
+                return True, []
+            if len(self._entries) >= self._max_entries:
+                return False, ["GRANT_LEDGER_CAPACITY_EXHAUSTED"]
+            self._entries[grant_identity_key] = {
+                "grant_identity_key": grant_identity_key,
+                "payload_digest": grant_payload_digest,
+                "grant_id": str(grant_id),
+                "grant_namespace": str(grant_namespace),
+                "state": "UNUSED",
+                "claimed_session_id": None,
+                "claimed_scope_receipt_id": None,
+                "claimed_plan_receipt_id": None,
+                "claimed_at_utc_ms": None,
+                "finalized_outcome": None,
+                "max_requests": 0,
+                "max_total_bytes": 0,
+                "requests_reserved": 0,
+                "requests_reserved_total": 0,
+                "requests_released_pre_start": 0,
+                "requests_started": 0,
+                "requests_completed": 0,
+                "bytes_reserved": 0,
+                "bytes_observed": 0,
+                "bytes_uncertain_retained": 0,
+                "bytes_accepted": 0,
+                "active_workers": 0,
+                "pending_workers_at_finalize": 0,
+                "attempts": {},
+                "replay_denied_count": 0,
+            }
+            return True, []
+
+    def is_grant_spent_or_claimed(self, grant_identity_key: str) -> Tuple[bool, Optional[str]]:
+        with self._lock:
+            ent = self._entries.get(grant_identity_key)
+            if ent is None:
+                return False, None
+            st = str(ent["state"])
+            if st != "UNUSED":
+                return True, st
+            return False, st
+
+    def claim_grant_session(
+        self,
+        *,
+        grant_identity_key: str,
+        grant_payload_digest: str,
+        scope_receipt: R5TrustedScopeReceipt,
+        plan_receipt: R5TrustedPlanReceipt,
+        session_id: str,
+        now_utc: datetime,
+        max_requests: int,
+        max_total_bytes: int,
+        is_live: bool,
+    ) -> Tuple[bool, List[str], Optional[R5GrantSessionLeaseC2]]:
+        if not isinstance(now_utc, datetime) or now_utc.tzinfo is None:
+            return False, ["INVALID_OR_NAIVE_UTC_CLOCK"], None
+        now_ms = int(now_utc.timestamp() * 1000)
+        with self._lock:
+            h_err = self._health_error_unlocked()
+            if h_err is not None:
+                return False, [h_err], None
+            if is_live and not self._durable_cross_process_verified:
+                return False, ["LIVE_GRANT_REPLAY_DURABILITY_NOT_PROVEN_BLOCKED"], None
+            if scope_receipt.expires_utc_ms <= now_ms or plan_receipt.expires_utc_ms <= now_ms:
+                return False, ["OPERATOR_GRANT_EXPIRED"], None
+            if scope_receipt.grant_identity_key != grant_identity_key or plan_receipt.grant_identity_key != grant_identity_key:
+                return False, ["GRANT_IDENTITY_BINDING_MISMATCH"], None
+
+            ent = self._entries.get(grant_identity_key)
+            if ent is None:
+                if len(self._entries) >= self._max_entries:
+                    return False, ["GRANT_LEDGER_CAPACITY_EXHAUSTED"], None
+                ent = {
+                    "grant_identity_key": grant_identity_key,
+                    "payload_digest": grant_payload_digest,
+                    "grant_id": scope_receipt.grant_id,
+                    "grant_namespace": scope_receipt.grant_namespace,
+                    "state": "UNUSED",
+                    "claimed_session_id": None,
+                    "claimed_scope_receipt_id": None,
+                    "claimed_plan_receipt_id": None,
+                    "claimed_at_utc_ms": None,
+                    "finalized_outcome": None,
+                    "max_requests": 0,
+                    "max_total_bytes": 0,
+                    "requests_reserved": 0,
+                    "requests_reserved_total": 0,
+                    "requests_released_pre_start": 0,
+                    "requests_started": 0,
+                    "requests_completed": 0,
+                    "bytes_reserved": 0,
+                    "bytes_observed": 0,
+                    "bytes_uncertain_retained": 0,
+                    "bytes_accepted": 0,
+                    "active_workers": 0,
+                    "pending_workers_at_finalize": 0,
+                    "attempts": {},
+                    "replay_denied_count": 0,
+                }
+                self._entries[grant_identity_key] = ent
+
+            if ent["payload_digest"] != grant_payload_digest:
+                return False, ["GRANT_IDENTITY_PAYLOAD_CONFLICT"], None
+            if ent["state"] != "UNUSED":
+                ent["replay_denied_count"] += 1
+                return False, [f"GRANT_ALREADY_CLAIMED_OR_CONSUMED:{ent['state']}"], None
+
+            ent["state"] = "CLAIMED"
+            ent["claimed_session_id"] = str(session_id)
+            ent["claimed_scope_receipt_id"] = scope_receipt.receipt_id
+            ent["claimed_plan_receipt_id"] = plan_receipt.plan_receipt_id
+            ent["claimed_at_utc_ms"] = now_ms
+            ent["max_requests"] = int(max_requests)
+            ent["max_total_bytes"] = int(max_total_bytes)
+
+            tok = _NonSerializableBindingTokenC1(secrets.token_hex(12))
+            lease_id = f"lse_c2_{canonical_hash({'k': grant_identity_key, 's': session_id, 'p': plan_receipt.plan_receipt_id})[:24]}"
+            lease = R5GrantSessionLeaseC2(
+                lease_id=lease_id,
+                grant_identity_key=grant_identity_key,
+                grant_payload_digest=grant_payload_digest,
+                grant_id=scope_receipt.grant_id,
+                grant_namespace=scope_receipt.grant_namespace,
+                session_id=str(session_id),
+                scope_receipt_id=scope_receipt.receipt_id,
+                plan_receipt_id=plan_receipt.plan_receipt_id,
+                max_requests=int(max_requests),
+                max_total_bytes=int(max_total_bytes),
+                worker_pid=os.getpid(),
+                _token=tok,
+            )
+            self._leases[lease_id] = (lease, tok)
+            return True, [], lease
+
+    def _get_active_entry_unlocked(
+        self, lease: Any, *, allow_terminal_settlement: bool = False
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        h_err = self._health_error_unlocked()
+        if h_err is not None:
+            return None, h_err
+        if not isinstance(lease, R5GrantSessionLeaseC2):
+            return None, "INVALID_GRANT_SESSION_LEASE"
+        reg = self._leases.get(lease.lease_id)
+        if reg is None or reg[0] is not lease or reg[1] is not lease._token:
+            return None, "UNREGISTERED_OR_TAMPERED_GRANT_LEASE"
+        if int(lease.worker_pid) != os.getpid():
+            return None, "CROSS_PROCESS_GRANT_LEASE_FORBIDDEN"
+        ent = self._entries.get(lease.grant_identity_key)
+        if ent is None or ent["claimed_session_id"] != lease.session_id:
+            return None, "GRANT_LEASE_SESSION_MISMATCH"
+        if (not allow_terminal_settlement) and ent["state"] != "CLAIMED":
+            return None, f"GRANT_SESSION_NOT_ACTIVE:{ent['state']}"
+        return ent, None
+
+    def reserve_dispatch(
+        self,
+        lease: R5GrantSessionLeaseC2,
+        attempt_id: str,
+        *,
+        max_response_bytes: int,
+    ) -> Tuple[bool, Optional[str], int, bool]:
+        """
+        Atomically reserves 1 request slot + dynamic `call_byte_cap <= min(max_response_bytes, rem_bytes)`.
+        Returns `(ok, reason, call_byte_cap, should_wait_for_inflight_bytes)`.
+        """
+        with self._lock:
+            ent, err = self._get_active_entry_unlocked(lease)
+            if err is not None or ent is None:
+                return False, err or "INVALID_LEASE", 0, False
+            aid = str(attempt_id).strip()
+            if not aid or aid in ent["attempts"]:
+                return False, f"DUPLICATE_OR_EMPTY_ATTEMPT_ID:{aid!r}", 0, False
+            if ent["requests_started"] + ent["requests_reserved"] >= ent["max_requests"]:
+                return False, "MAX_REQUESTS_BUDGET_EXHAUSTED", 0, False
+
+            charged_bytes = ent["bytes_observed"] + ent["bytes_uncertain_retained"]
+            if charged_bytes >= ent["max_total_bytes"]:
+                return False, "TOTAL_BYTES_BUDGET_EXHAUSTED", 0, False
+            rem_unreserved = ent["max_total_bytes"] - charged_bytes - ent["bytes_reserved"]
+            if rem_unreserved <= 0:
+                if ent["bytes_reserved"] > 0:
+                    return False, "WAIT_INFLIGHT_BYTE_RESERVATIONS", 0, True
+                return False, "TOTAL_BYTES_BUDGET_EXHAUSTED", 0, False
+
+            call_cap = min(int(max_response_bytes), int(rem_unreserved))
+            if call_cap <= 0:
+                return False, "TOTAL_BYTES_BUDGET_EXHAUSTED", 0, False
+
+            ent["requests_reserved"] += 1
+            ent["requests_reserved_total"] += 1
+            ent["bytes_reserved"] += call_cap
+            ent["attempts"][aid] = {
+                "state": "RESERVED",
+                "byte_cap": call_cap,
+                "observed_bytes": None,
+                "bytes_known": False,
+                "uncertain_charged": 0,
+            }
+            return True, None, call_cap, False
+
+    def mark_dispatch_started(self, lease: R5GrantSessionLeaseC2, attempt_id: str) -> Tuple[bool, Optional[str]]:
+        with self._lock:
+            ent, err = self._get_active_entry_unlocked(lease)
+            if err is not None or ent is None:
+                return False, err or "INVALID_LEASE"
+            att = ent["attempts"].get(str(attempt_id))
+            if att is None:
+                return False, f"UNKNOWN_ATTEMPT_ID:{attempt_id}"
+            if att["state"] != "RESERVED":
+                return False, f"ATTEMPT_ALREADY_TRANSITIONED:{att['state']}"
+            if ent["requests_reserved"] <= 0:
+                return False, "LEDGER_UNDERFLOW_GUARD"
+            att["state"] = "STARTED"
+            ent["requests_reserved"] -= 1
+            ent["requests_started"] += 1
+            ent["active_workers"] += 1
+            return True, None
+
+    def release_unstarted_reservation(self, lease: R5GrantSessionLeaseC2, attempt_id: str) -> Tuple[bool, Optional[str]]:
+        with self._lock:
+            ent, err = self._get_active_entry_unlocked(lease, allow_terminal_settlement=True)
+            if err is not None or ent is None:
+                return False, err or "INVALID_LEASE"
+            att = ent["attempts"].get(str(attempt_id))
+            if att is None:
+                return False, f"UNKNOWN_ATTEMPT_ID:{attempt_id}"
+            if att["state"] != "RESERVED":
+                return False, f"CANNOT_RELEASE_NON_RESERVED_ATTEMPT:{att['state']}"
+            cap = int(att["byte_cap"])
+            if ent["requests_reserved"] <= 0 or ent["bytes_reserved"] < cap:
+                return False, "LEDGER_OVER_RELEASE_BLOCKED"
+            att["state"] = "RELEASED_PRE_START"
+            ent["requests_reserved"] -= 1
+            ent["requests_released_pre_start"] += 1
+            ent["bytes_reserved"] -= cap
+            return True, None
+
+    def settle_dispatch(
+        self,
+        lease: R5GrantSessionLeaseC2,
+        attempt_id: str,
+        *,
+        observed_bytes: Optional[int],
+        bytes_known: bool,
+        accepted_bytes: int = 0,
+    ) -> Tuple[bool, Optional[str], bool]:
+        """
+        Settles a `STARTED` attempt exactly once. When `bytes_known=False` (timeout/transport error/
+        partial unknown read), retains conservative charge at `byte_cap` (`bytes_uncertain_retained`),
+        NEVER crediting unknown wire bytes as zero! Returns `(ok, err, over_total_byte_budget)`.
+        """
+        with self._lock:
+            ent, err = self._get_active_entry_unlocked(lease, allow_terminal_settlement=True)
+            if err is not None or ent is None:
+                return False, err or "INVALID_LEASE", False
+            att = ent["attempts"].get(str(attempt_id))
+            if att is None:
+                return False, f"UNKNOWN_ATTEMPT_ID:{attempt_id}", False
+            if att["state"] != "STARTED":
+                return False, f"ATTEMPT_NOT_STARTED_OR_ALREADY_SETTLED:{att['state']}", False
+            cap = int(att["byte_cap"])
+            if ent["bytes_reserved"] < cap or ent["active_workers"] <= 0:
+                return False, "LEDGER_OVER_SETTLE_OR_UNDERFLOW_BLOCKED", False
+
+            ent["bytes_reserved"] -= cap
+            ent["active_workers"] -= 1
+            ent["requests_completed"] += 1
+            att["state"] = "SETTLED"
+            att["bytes_known"] = bool(bytes_known)
+
+            if bytes_known and observed_bytes is not None and not isinstance(observed_bytes, bool) and int(observed_bytes) >= 0:
+                obs = int(observed_bytes)
+                att["observed_bytes"] = obs
+                ent["bytes_observed"] += obs
+            else:
+                att["observed_bytes"] = None
+                att["uncertain_charged"] = cap
+                ent["bytes_uncertain_retained"] += cap
+
+            if accepted_bytes > 0:
+                ent["bytes_accepted"] += int(accepted_bytes)
+
+            total_charged = ent["bytes_observed"] + ent["bytes_uncertain_retained"]
+            over_budget = total_charged > ent["max_total_bytes"]
+            return True, None, over_budget
+
+    def finalize_grant_session(
+        self,
+        lease: R5GrantSessionLeaseC2,
+        outcome: str,
+        *,
+        pending_workers: int = 0,
+        abort_discard_accepted: bool = False,
+    ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+        with self._lock:
+            ent, err = self._get_active_entry_unlocked(lease, allow_terminal_settlement=True)
+            if err is not None or ent is None:
+                return False, err or "INVALID_LEASE", None
+            if ent["state"] in ("CONSUMED", "ABORTED", "QUARANTINED"):
+                return True, "ALREADY_FINALIZED", self._snapshot_entry_unlocked(ent)
+
+            if abort_discard_accepted:
+                ent["bytes_accepted"] = 0
+            ent["pending_workers_at_finalize"] = max(0, int(pending_workers))
+            if pending_workers > 0 or outcome == "QUARANTINED":
+                ent["state"] = "QUARANTINED"
+            elif outcome == "ABORTED":
+                ent["state"] = "ABORTED"
+            else:
+                ent["state"] = "CONSUMED"
+            ent["finalized_outcome"] = str(outcome)
+            return True, None, self._snapshot_entry_unlocked(ent)
+
+    def _snapshot_entry_unlocked(self, ent: Mapping[str, Any]) -> Dict[str, Any]:
+        tot_charged = int(ent["bytes_observed"]) + int(ent["bytes_uncertain_retained"])
+        no_neg = all(
+            int(ent[k]) >= 0
+            for k in (
+                "requests_reserved", "requests_reserved_total", "requests_released_pre_start",
+                "requests_started", "requests_completed", "bytes_reserved", "bytes_observed",
+                "bytes_uncertain_retained", "bytes_accepted", "active_workers",
+            )
+        )
+        req_conserved = (
+            int(ent["requests_reserved_total"])
+            == int(ent["requests_started"]) + int(ent["requests_released_pre_start"]) + int(ent["requests_reserved"])
+        )
+        return {
+            "grant_identity_key": ent["grant_identity_key"],
+            "grant_payload_digest": ent["payload_digest"],
+            "grant_id": ent["grant_id"],
+            "grant_namespace": ent["grant_namespace"],
+            "state": ent["state"],
+            "claimed_session_id": ent["claimed_session_id"],
+            "finalized_outcome": ent["finalized_outcome"],
+            "max_requests": ent["max_requests"],
+            "max_total_bytes": ent["max_total_bytes"],
+            "requests_reserved": ent["requests_reserved"],
+            "requests_reserved_total": ent["requests_reserved_total"],
+            "requests_released_pre_start": ent["requests_released_pre_start"],
+            "requests_started": ent["requests_started"],
+            "requests_completed": ent["requests_completed"],
+            "bytes_reserved": ent["bytes_reserved"],
+            "bytes_observed": ent["bytes_observed"],
+            "bytes_uncertain_retained": ent["bytes_uncertain_retained"],
+            "bytes_total_charged": tot_charged,
+            "bytes_accepted": ent["bytes_accepted"],
+            "active_workers": ent["active_workers"],
+            "pending_workers_at_finalize": ent["pending_workers_at_finalize"],
+            "replay_denied_count": ent["replay_denied_count"],
+            "durable_cross_process_verified": self._durable_cross_process_verified,
+            "counters_non_negative": no_neg,
+            "request_conservation_exact": req_conserved,
+        }
+
+    def snapshot_grant(self, grant_identity_key: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            ent = self._entries.get(grant_identity_key)
+            if ent is None:
+                return None
+            return self._snapshot_entry_unlocked(ent)
 
 
 def _compute_c1_mac(fields: Mapping[str, Any]) -> str:
@@ -403,6 +914,7 @@ class _ScopeBindingAuthorityC1:
         self._scope_order: List[str] = []
         self._plans: Dict[str, Tuple[R5TrustedPlanReceipt, _NonSerializableBindingTokenC1]] = {}
         self._plan_order: List[str] = []
+        self.ledger = R5GrantConsumptionLedgerC2(durable_cross_process_verified=False)
 
     def _evict(self, store: Dict[str, Any], order: List[str]) -> None:
         while len(order) >= _MAX_BINDING_REGISTRY_C1:
@@ -423,13 +935,16 @@ class _ScopeBindingAuthorityC1:
         effective_scope: Mapping[str, Any],
         scope_digest_sha256: str,
         verifier_id: str,
+        grant_identity_key: str = "",
+        grant_payload_digest: str = "",
+        grant_namespace: str = "QA_FIXTURE",
     ) -> R5TrustedScopeReceipt:
         nonce = secrets.token_hex(12)
         rid = f"scp_c1_{canonical_hash({'n': nonce, 'd': scope_digest_sha256, 'r': run_id})[:24]}"
         eff_copy = json.loads(json.dumps(dict(effective_scope), sort_keys=True))
         fields = {
             "receipt_id": rid,
-            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
             "mode": mode,
             "authorization_status": authorization_status,
             "live_network_permitted": bool(live_network_permitted),
@@ -442,6 +957,9 @@ class _ScopeBindingAuthorityC1:
             "scope_digest_sha256": scope_digest_sha256,
             "verifier_id": verifier_id,
             "worker_pid": os.getpid(),
+            "grant_identity_key": grant_identity_key,
+            "grant_payload_digest": grant_payload_digest,
+            "grant_namespace": grant_namespace,
         }
         mac = _compute_c1_mac(fields)
         tok = _NonSerializableBindingTokenC1(nonce)
@@ -487,6 +1005,9 @@ class _ScopeBindingAuthorityC1:
             "scope_digest_sha256": receipt.scope_digest_sha256,
             "verifier_id": receipt.verifier_id,
             "worker_pid": int(receipt.worker_pid),
+            "grant_identity_key": receipt.grant_identity_key,
+            "grant_payload_digest": receipt.grant_payload_digest,
+            "grant_namespace": receipt.grant_namespace,
         }
         if not hmac.compare_digest(receipt.receipt_mac_hex, _compute_c1_mac(fields)):
             viols.append("SCOPE_RECEIPT_MAC_TAMPERED")
@@ -518,7 +1039,7 @@ class _ScopeBindingAuthorityC1:
             "scope_receipt_id": scope_receipt.receipt_id,
             "scope_digest_sha256": scope_receipt.scope_digest_sha256,
             "plan_digest_sha256": plan_digest_sha256,
-            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
             "partition_role": str(plan_public_snapshot["partition_role"]),
             "live_network_permitted": bool(plan_public_snapshot["live_network_permitted"]),
             "grant_id": scope_receipt.grant_id,
@@ -527,6 +1048,9 @@ class _ScopeBindingAuthorityC1:
             "destination_scope": scope_receipt.effective_scope.get("destination_scope"),
             "immutable_plan_snapshot_json": snap_json,
             "worker_pid": os.getpid(),
+            "grant_identity_key": scope_receipt.grant_identity_key,
+            "grant_payload_digest": scope_receipt.grant_payload_digest,
+            "grant_namespace": scope_receipt.grant_namespace,
         }
         mac = _compute_c1_mac(fields)
         tok = _NonSerializableBindingTokenC1(nonce)
@@ -572,6 +1096,9 @@ class _ScopeBindingAuthorityC1:
             "destination_scope": plan_receipt.destination_scope,
             "immutable_plan_snapshot_json": plan_receipt.immutable_plan_snapshot_json,
             "worker_pid": int(plan_receipt.worker_pid),
+            "grant_identity_key": plan_receipt.grant_identity_key,
+            "grant_payload_digest": plan_receipt.grant_payload_digest,
+            "grant_namespace": plan_receipt.grant_namespace,
         }
         if not hmac.compare_digest(plan_receipt.receipt_mac_hex, _compute_c1_mac(fields)):
             viols.append("PLAN_RECEIPT_MAC_TAMPERED")
@@ -581,6 +1108,8 @@ class _ScopeBindingAuthorityC1:
         if scope_receipt is not None:
             if not isinstance(scope_receipt, R5TrustedScopeReceipt) or scope_receipt is not bound_scope:
                 viols.append("PLAN_SCOPE_RECEIPT_BINDING_MISMATCH")
+        if plan_receipt.grant_identity_key != bound_scope.grant_identity_key or plan_receipt.grant_payload_digest != bound_scope.grant_payload_digest:
+            viols.append("PLAN_GRANT_IDENTITY_MISMATCH")
         s_ok, s_viols, _ = self.verify_scope(
             bound_scope, now_utc=now_utc, expected_run_id=expected_run_id, expected_scope_digest=plan_receipt.scope_digest_sha256
         )
@@ -592,6 +1121,11 @@ class _ScopeBindingAuthorityC1:
 
 
 _GLOBAL_SCOPE_AUTHORITY_C1 = _ScopeBindingAuthorityC1()
+
+
+def get_r5_global_grant_ledger_c2() -> R5GrantConsumptionLedgerC2:
+    """Returns the process-local KH-03.R5.C2 one-shot grant consumption ledger."""
+    return _GLOBAL_SCOPE_AUTHORITY_C1.ledger
 
 
 def _strict_pos_int_c1(val: Any, field: str, *, max_val: Optional[int] = None) -> Tuple[Optional[int], Optional[str]]:
@@ -1198,6 +1732,7 @@ def validate_r5_operator_capture_scope(
     trust_context: Optional[Mapping[str, Any]] = None,
     *,
     attestation_verifier: Optional[R5OwnerAttestationVerifier] = None,
+    grant_ledger: Optional[R5GrantConsumptionLedgerC2] = None,
 ) -> Dict[str, Any]:
     """
     Fail-closed operator capture scope validator (KH-03.R5.C1 hardened).
@@ -1499,6 +2034,21 @@ def validate_r5_operator_capture_scope(
             "is_qa_fixture_grant": True,
         }
         scope_dig = canonical_hash(eff_scope)
+        grant_key, payload_dig, grant_ns = _canonical_grant_identity_c2(authorization, "QA_OFFLINE_ISOLATED_HARNESS")
+        eff_ledger = grant_ledger if grant_ledger is not None else _GLOBAL_SCOPE_AUTHORITY_C1.ledger
+        id_ok, id_viols = eff_ledger.register_or_check_grant_identity(
+            grant_key, payload_dig, grant_id=g_id, grant_namespace=grant_ns
+        )
+        if not id_ok:
+            return {
+                "spec_version": SPEC_VERSION_KH03_R5_C2,
+                "admitted": False,
+                "mode": "CAPTURE_BLOCKED_GRANT_CONFLICT",
+                "authorization_status": "INVALID",
+                "live_network_permitted": False,
+                "grant_identity_key": grant_key,
+                "violations": id_viols,
+            }
         rec = _GLOBAL_SCOPE_AUTHORITY_C1.issue_scope(
             mode="QA_FIXTURE_OFFLINE_ONLY",
             authorization_status="QA_FIXTURE_ISOLATED",
@@ -1511,10 +2061,13 @@ def validate_r5_operator_capture_scope(
             effective_scope=eff_scope,
             scope_digest_sha256=scope_dig,
             verifier_id="QA_OFFLINE_ISOLATED_HARNESS",
+            grant_identity_key=grant_key,
+            grant_payload_digest=payload_dig,
+            grant_namespace=grant_ns,
         )
         return {
-            "spec_version": SPEC_VERSION_KH03_R5_C1,
-            "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
+            "schema_version": SCHEMA_VERSION_KH03_R5_C2,
             "admitted": True,
             "mode": "QA_FIXTURE_OFFLINE_ONLY",
             "authorization_status": "QA_FIXTURE_ISOLATED",
@@ -1522,6 +2075,9 @@ def validate_r5_operator_capture_scope(
             "effective_scope": dict(eff_scope),
             "scope_digest_sha256": scope_dig,
             "scope_receipt_id": rec.receipt_id,
+            "grant_identity_key": grant_key,
+            "grant_payload_digest": payload_dig,
+            "grant_namespace": grant_ns,
             "attestation_verifier_id": rec.verifier_id,
             "validated_at_utc_ms": now_ms,
             "violations": [],
@@ -1608,6 +2164,21 @@ def validate_r5_operator_capture_scope(
         }
 
     scope_dig = canonical_hash(eff_live_scope)
+    grant_key, payload_dig, grant_ns = _canonical_grant_identity_c2(authorization, att_res.verifier_id)
+    eff_ledger_l = grant_ledger if grant_ledger is not None else _GLOBAL_SCOPE_AUTHORITY_C1.ledger
+    id_ok, id_viols = eff_ledger_l.register_or_check_grant_identity(
+        grant_key, payload_dig, grant_id=g_id, grant_namespace=grant_ns
+    )
+    if not id_ok:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_GRANT_CONFLICT",
+            "authorization_status": "INVALID",
+            "live_network_permitted": False,
+            "grant_identity_key": grant_key,
+            "violations": id_viols,
+        }
     rec = _GLOBAL_SCOPE_AUTHORITY_C1.issue_scope(
         mode="AUTHORIZED_BOUNDED_DEV_PUBLIC_CAPTURE",
         authorization_status="AUTHORIZED_BOUNDED_DEV",
@@ -1620,10 +2191,13 @@ def validate_r5_operator_capture_scope(
         effective_scope=eff_live_scope,
         scope_digest_sha256=scope_dig,
         verifier_id=att_res.verifier_id,
+        grant_identity_key=grant_key,
+        grant_payload_digest=payload_dig,
+        grant_namespace=grant_ns,
     )
     return {
-        "spec_version": SPEC_VERSION_KH03_R5_C1,
-        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+        "spec_version": SPEC_VERSION_KH03_R5_C2,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C2,
         "admitted": True,
         "mode": "AUTHORIZED_BOUNDED_DEV_PUBLIC_CAPTURE",
         "authorization_status": "AUTHORIZED_BOUNDED_DEV",
@@ -1631,6 +2205,9 @@ def validate_r5_operator_capture_scope(
         "effective_scope": dict(eff_live_scope),
         "scope_digest_sha256": scope_dig,
         "scope_receipt_id": rec.receipt_id,
+        "grant_identity_key": grant_key,
+        "grant_payload_digest": payload_dig,
+        "grant_namespace": grant_ns,
         "attestation_verifier_id": att_res.verifier_id,
         "validated_at_utc_ms": now_ms,
         "violations": [],
@@ -1647,6 +2224,7 @@ def plan_r5_capture_batches(
     budget: Mapping[str, Any],
     *,
     now_utc: Optional[datetime] = None,
+    grant_ledger: Optional[R5GrantConsumptionLedgerC2] = None,
 ) -> Dict[str, Any]:
     """
     Constructs an immutable, scope-bound capture batch plan strictly from a verified
@@ -1692,13 +2270,26 @@ def plan_r5_capture_batches(
 
     if bool(scope_decision.get("live_network_permitted", False)) != scope_rec.live_network_permitted:
         return {
-            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
             "status": "BLOCKED",
             "block_reason": "SCOPE_LIVE_PERMISSION_TAMPERED",
             "partition_role": "NONE_BLOCKED",
             "live_network_permitted": False,
             "batches": [],
             "violations": ["SCOPE_LIVE_PERMISSION_TAMPERED"],
+        }
+
+    eff_ledger_p = grant_ledger if grant_ledger is not None else _GLOBAL_SCOPE_AUTHORITY_C1.ledger
+    spent, spent_st = eff_ledger_p.is_grant_spent_or_claimed(scope_rec.grant_identity_key)
+    if spent:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C2,
+            "status": "BLOCKED",
+            "block_reason": f"GRANT_ALREADY_CLAIMED_OR_CONSUMED:{spent_st}",
+            "partition_role": "NONE_BLOCKED",
+            "live_network_permitted": False,
+            "batches": [],
+            "violations": [f"GRANT_ALREADY_CLAIMED_OR_CONSUMED:{spent_st}"],
         }
 
     eff = scope_rec.effective_scope
@@ -1784,13 +2375,15 @@ def plan_r5_capture_batches(
         }
 
     plan_doc: Dict[str, Any] = {
-        "spec_version": SPEC_VERSION_KH03_R5_C1,
-        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+        "spec_version": SPEC_VERSION_KH03_R5_C2,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C2,
         "status": "PLANNED_QA_OFFLINE" if is_qa else "PLANNED_DEV_BOUNDED",
         "partition_role": partition_role,
         "oos_designation_forbidden": True,
         "live_network_permitted": bool(scope_rec.live_network_permitted),
         "grant_id": scope_rec.grant_id,
+        "grant_identity_key": scope_rec.grant_identity_key,
+        "grant_payload_digest": scope_rec.grant_payload_digest,
         "run_id": scope_rec.run_id,
         "expires_utc_ms": int(scope_rec.expires_utc_ms),
         "destination_scope": eff.get("destination_scope"),

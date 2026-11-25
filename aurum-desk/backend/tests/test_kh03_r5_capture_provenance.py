@@ -61,15 +61,22 @@ def _scope_req(
     }
 
 
+_QA_GRANT_SEQ_R5 = 0
+
+
 def _make_qa_grant(
     now_ms: int,
     rid: str = "r5_test_001",
     *,
     max_requests: int = 5,
     max_total_bytes: int = 50_000,
+    grant_id: str | None = None,
 ) -> R5OperatorGrant:
+    global _QA_GRANT_SEQ_R5
+    _QA_GRANT_SEQ_R5 += 1
+    gid = grant_id or f"QA_G_{_QA_GRANT_SEQ_R5}"
     return R5OperatorGrant(
-        grant_id="QA_G1", issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
+        grant_id=gid, issued_by="QA", purpose="QA_FIXTURE", symbol="XAUUSDT", product_type="USDT-FUTURES",
         allowed_endpoints=("public_ticker", "contracts"), window_start_ms=1794000000000, window_end_ms=1794000300000,
         max_requests=max_requests, max_total_bytes=max_total_bytes, max_duration_sec=30, expires_utc_ms=now_ms + 3600_000,
         run_id=rid, is_qa_fixture_grant=True, origin_kind="QA_LOCAL",
@@ -152,14 +159,19 @@ def test_r5_rate_limit_retry_cancel_and_budget_exhaustion_f19_f20_f21_f45(tmp_pa
     assert r_ok["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS" and len(r_ok["items"][0]["retry_chain"]) == 2
 
     # F20: Cancel midflight & runtime disk drop <20 GiB aborts cleanly without leaving staged files!
+    # Distinct QA grants per independent test case (enforces C2 one-shot grant consumption policy)
+    qa_d_can = validate_r5_operator_capture_scope(_make_qa_grant(now_ms), _scope_req(), now, {"qa_fixture_mode": True})
+    qa_p_can = plan_r5_capture_batches(qa_d_can, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 5, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
     ev = asyncio.Event(); ev.set()
     st_can = tmp_path / "st_can"
     mon_can = make_r5_fixture_resource_monitor(disk_free_gib=28.0, available_ram_mib=2048.0, destination=st_can)
-    r_can = asyncio.run(capture_r5_public_batch(qa_p, _SequenceFakeTransportC2([RawHttpResponseC2(200, ok_body, {}, 1, 2)]), mon_can, cancel_event=ev, staging_root=st_can, run_id="r5_test_001", trusted_scope=qa_d, utc_now_fn=lambda: now))
+    r_can = asyncio.run(capture_r5_public_batch(qa_p_can, _SequenceFakeTransportC2([RawHttpResponseC2(200, ok_body, {}, 1, 2)]), mon_can, cancel_event=ev, staging_root=st_can, run_id="r5_test_001", trusted_scope=qa_d_can, utc_now_fn=lambda: now))
     assert r_can["aborted"] is True and r_can["abort_reason"] == "CANCELLED_MIDFLIGHT" and r_can["requests_dispatched_actual"] == 0
+    qa_d_dk = validate_r5_operator_capture_scope(_make_qa_grant(now_ms), _scope_req(), now, {"qa_fixture_mode": True})
+    qa_p_dk = plan_r5_capture_batches(qa_d_dk, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 5, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
     st_dk = tmp_path / "st_dk"
     mon_dk = make_r5_fixture_resource_monitor(disk_free_gib=19.5, available_ram_mib=2048.0, destination=st_dk)
-    r_dk = asyncio.run(capture_r5_public_batch(qa_p, _SequenceFakeTransportC2([RawHttpResponseC2(200, ok_body, {}, 1, 2)]), mon_dk, staging_root=st_dk, run_id="r5_test_001", trusted_scope=qa_d, utc_now_fn=lambda: now))
+    r_dk = asyncio.run(capture_r5_public_batch(qa_p_dk, _SequenceFakeTransportC2([RawHttpResponseC2(200, ok_body, {}, 1, 2)]), mon_dk, staging_root=st_dk, run_id="r5_test_001", trusted_scope=qa_d_dk, utc_now_fn=lambda: now))
     assert r_dk["aborted"] is True and "RUNTIME_DISK_BELOW_20GIB" in str(r_dk["abort_reason"]) and r_dk["requests_dispatched_actual"] == 0
 
     # F21 & F45: Tiny scope-bound byte budget exhausted before commit (unmutated plan bound to tiny budget!)
