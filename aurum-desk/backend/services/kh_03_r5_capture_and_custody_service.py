@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -68,17 +70,25 @@ from services.kh_02_r2_prospective_data_service import (
     scan_for_forbidden_secrets_r2_c1,
 )
 from services.kh_03_r5_market_data_foundation_service import (
+    HARD_MAX_RETRIES_R5_C1,
+    HARD_MIN_REQUEST_INTERVAL_MS_R5_C1,
     MAX_GLOBAL_CONCURRENCY_R5,
     SCHEMA_VERSION_KH03_R5,
+    SCHEMA_VERSION_KH03_R5_C1,
     SPEC_VERSION_KH03_R5,
+    SPEC_VERSION_KH03_R5_C1,
     STRICT_PREFLIGHT_DISK_MIN_GIB_R5,
     STRICT_RUNTIME_DISK_MIN_GIB_R5,
+    _validate_r5_plan_binding_strict,
 )
 from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 
 R5_ALLOWED_PARTITION_ROLES: Tuple[str, ...] = ("DEVELOPMENT_CAPTURE", "QA_FIXTURE")
 R5_FORBIDDEN_OOS_PATH_TOKENS: Tuple[str, ...] = ("oos_escrow", "escrow_oos", "real_oos", "untouched_oos", "prospective_oos_escrow")
 R5_GENESIS_HASH = "0" * 64
+DEFAULT_RESOURCE_MAX_AGE_SEC_R5_C1: float = 2.0
+HARD_RAM_FLOOR_MIB_R5_C1: float = 512.0
+MAX_PERMITTED_RETRY_AFTER_PARSE_SEC_C1: float = 86_400.0
 
 
 class R5OosAccessDeniedError(PermissionError):
@@ -203,7 +213,327 @@ class OosAccessGuardR5:
 
 
 # =====================================================================
-# 11. capture_r5_public_batch
+# KH-03.R5.C1 Hardened Resource Monitor, Clock, Retry-After & Dispatch Guards
+# =====================================================================
+def _canonical_volume_identity_c1(path: Optional[Path]) -> str:
+    """Returns canonical filesystem volume/mount identity for `path` (Windows drive or POSIX st_dev)."""
+    p = Path(path).resolve() if path is not None else Path.cwd().resolve()
+    if os.name == "nt":
+        drv = p.drive.upper()
+        if drv:
+            return drv + "\\"
+        return p.anchor.upper()
+    cur = p
+    while not cur.exists() and cur.parent != cur:
+        cur = cur.parent
+    try:
+        st = os.stat(cur)
+        return f"dev:{st.st_dev}"
+    except OSError:
+        return str(p.anchor or "/")
+
+
+def _normalize_volume_token_c1(vol: Any) -> Optional[str]:
+    if not isinstance(vol, str) or not vol.strip():
+        return None
+    s = vol.strip()
+    if os.name == "nt":
+        s_up = s.upper().replace("/", "\\")
+        if len(s_up) == 2 and s_up[1] == ":":
+            return s_up + "\\"
+        if len(s_up) >= 3 and s_up[1:3] == ":\\":
+            return s_up[:3]
+        return s_up
+    return s
+
+
+def _strict_nonneg_finite_num_c1(val: Any, field: str) -> Tuple[Optional[float], Optional[str]]:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return None, f"INVALID_RESOURCE_NUM_TYPE:{field}:{type(val).__name__}"
+    fv = float(val)
+    if not math.isfinite(fv):
+        return None, f"NONFINITE_RESOURCE_VALUE:{field}:{val!r}"
+    if fv < 0.0:
+        return None, f"NEGATIVE_RESOURCE_VALUE:{field}:{fv}"
+    return fv, None
+
+
+def validate_r5_resource_sample_strict(
+    sample: Any,
+    destination: Optional[Path],
+    sampled_monotonic: Optional[float] = None,
+    now_monotonic: Optional[float] = None,
+    max_age_sec: float = DEFAULT_RESOURCE_MAX_AGE_SEC_R5_C1,
+    *,
+    min_disk_gib: float = STRICT_RUNTIME_DISK_MIN_GIB_R5,
+    min_ram_mib: float = HARD_RAM_FLOOR_MIB_R5_C1,
+) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
+    """
+    Fail-closed strict resource sample validator (closes P1-C).
+    NEVER supplies default safe disk/RAM numbers. Rejects None, empty dict, missing keys,
+    bool/string, NaN/Inf, negative, future/stale timestamps, wrong destination volume,
+    `sample_ok is not True`, disk waiver flags, or breached runtime disk/RAM floors.
+    """
+    if not isinstance(sample, Mapping) or len(sample) == 0:
+        return False, ["RESOURCE_SAMPLE_MISSING_OR_EMPTY"], None
+
+    viols: List[str] = []
+    if sample.get("owner_waive_disk_preflight") is True:
+        viols.append("DISK_WAIVER_STRICTLY_FORBIDDEN_IN_R5")
+    if sample.get("sample_ok") is not True:
+        viols.append(f"RESOURCE_SAMPLE_NOT_OK:{sample.get('sample_ok')!r}")
+
+    mon_src = sample.get("monitor_source")
+    if not isinstance(mon_src, str) or not mon_src.strip():
+        viols.append("RESOURCE_SAMPLE_MISSING_MONITOR_SOURCE")
+
+    dk, e_dk = _strict_nonneg_finite_num_c1(sample.get("disk_free_gib"), "disk_free_gib")
+    if e_dk:
+        viols.append(e_dk)
+    ram, e_ram = _strict_nonneg_finite_num_c1(sample.get("available_ram_mib"), "available_ram_mib")
+    if e_ram:
+        viols.append(e_ram)
+
+    raw_s_mono = sample.get("sampled_monotonic")
+    s_mono_val = sampled_monotonic if sampled_monotonic is not None else raw_s_mono
+    s_mono, e_sm = _strict_nonneg_finite_num_c1(s_mono_val, "sampled_monotonic")
+    if e_sm:
+        viols.append(e_sm)
+    if sampled_monotonic is not None and raw_s_mono is not None:
+        raw_sm_v, raw_sm_e = _strict_nonneg_finite_num_c1(raw_s_mono, "sample.sampled_monotonic")
+        if raw_sm_e:
+            viols.append(raw_sm_e)
+        elif s_mono is not None and raw_sm_v is not None and abs(raw_sm_v - s_mono) > 1e-6:
+            viols.append("RESOURCE_SAMPLE_MONOTONIC_MISMATCH")
+
+    now_m_val = time.monotonic() if now_monotonic is None else now_monotonic
+    now_m, e_nm = _strict_nonneg_finite_num_c1(now_m_val, "now_monotonic")
+    if e_nm:
+        viols.append(e_nm)
+
+    age_lim, e_al = _strict_nonneg_finite_num_c1(max_age_sec, "max_age_sec")
+    if e_al or (age_lim is not None and age_lim <= 0.0):
+        viols.append(f"INVALID_MAX_AGE_SEC:{max_age_sec!r}")
+
+    sample_age: Optional[float] = None
+    if s_mono is not None and now_m is not None and age_lim is not None and age_lim > 0.0:
+        if s_mono > now_m + 1e-6:
+            viols.append(f"RESOURCE_SAMPLE_FUTURE_TIMESTAMP:sampled={s_mono}>now={now_m}")
+        else:
+            sample_age = now_m - s_mono
+            if sample_age > age_lim:
+                viols.append(f"RESOURCE_SAMPLE_STALE:age={sample_age:.4f}>{age_lim}")
+
+    expected_vol = _canonical_volume_identity_c1(destination)
+    got_vol = _normalize_volume_token_c1(sample.get("destination_volume"))
+    if got_vol is None:
+        viols.append("RESOURCE_SAMPLE_MISSING_DESTINATION_VOLUME")
+    elif got_vol != expected_vol:
+        viols.append(f"RESOURCE_SAMPLE_WRONG_VOLUME:got={got_vol}!=expected={expected_vol}")
+
+    if dk is not None and dk < float(min_disk_gib):
+        viols.append(f"RUNTIME_DISK_BELOW_20GIB:{dk:.4f}")
+    if ram is not None and ram < float(min_ram_mib):
+        viols.append(f"RUNTIME_RAM_BELOW_512MIB:{ram:.2f}")
+
+    if viols:
+        return False, viols, None
+    return True, [], {
+        "disk_free_gib": float(dk),  # type: ignore[arg-type]
+        "available_ram_mib": float(ram),  # type: ignore[arg-type]
+        "sampled_monotonic": float(s_mono),  # type: ignore[arg-type]
+        "sample_age_sec": round(float(sample_age or 0.0), 6),
+        "destination_volume": got_vol,
+        "monitor_source": str(mon_src).strip(),
+        "sample_ok": True,
+    }
+
+
+def _require_r5_resource_monitor(
+    resource_monitor: Optional[Callable[[], Mapping[str, Any]]],
+    destination: Optional[Path],
+    *,
+    now_monotonic: Optional[float] = None,
+    monotonic_fn: Optional[Callable[[], float]] = None,
+    max_age_sec: float = DEFAULT_RESOURCE_MAX_AGE_SEC_R5_C1,
+    min_disk_gib: float = STRICT_RUNTIME_DISK_MIN_GIB_R5,
+    min_ram_mib: float = HARD_RAM_FLOOR_MIB_R5_C1,
+) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
+    """Fail-closed resource monitor invoker: samples FIRST, then reads monotonic clock to prevent OS tick inversions."""
+    if resource_monitor is None or not callable(resource_monitor):
+        return False, ["MISSING_RESOURCE_MONITOR"], None
+    try:
+        raw_sample = resource_monitor()
+    except Exception as exc:
+        return False, [f"RESOURCE_MONITOR_EXCEPTION:{type(exc).__name__}:{exc}"], None
+    eff_now: Optional[float] = now_monotonic
+    if monotonic_fn is not None:
+        try:
+            m_val = monotonic_fn()
+        except Exception as exc:
+            return False, [f"INVALID_MONOTONIC_CLOCK:{exc}"], None
+        if isinstance(m_val, bool) or not isinstance(m_val, (int, float)) or not math.isfinite(float(m_val)) or float(m_val) < 0.0:
+            return False, [f"INVALID_MONOTONIC_CLOCK:{m_val!r}"], None
+        eff_now = float(m_val)
+    return validate_r5_resource_sample_strict(
+        raw_sample,
+        destination,
+        now_monotonic=eff_now,
+        max_age_sec=max_age_sec,
+        min_disk_gib=min_disk_gib,
+        min_ram_mib=min_ram_mib,
+    )
+
+
+def make_r5_fixture_resource_monitor(
+    *,
+    disk_free_gib: float = 28.0,
+    available_ram_mib: float = 2048.0,
+    destination: Optional[Path] = None,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+    monitor_source: str = "QA_DETERMINISTIC_FIXTURE_MONITOR",
+) -> Callable[[], Dict[str, Any]]:
+    """
+    Deterministic test-only resource monitor factory for offline QA fixture tests.
+    NEVER certifies real host safety; always labelled `QA_DETERMINISTIC_FIXTURE_MONITOR`.
+    """
+    vol = _canonical_volume_identity_c1(destination)
+    return lambda: {
+        "disk_free_gib": disk_free_gib,
+        "available_ram_mib": available_ram_mib,
+        "sampled_monotonic": monotonic_fn(),
+        "destination_volume": vol,
+        "monitor_source": monitor_source,
+        "sample_ok": True,
+    }
+
+
+def _parse_retry_after_strict(
+    raw_header: Optional[str],
+    now_utc: datetime,
+) -> Tuple[bool, Optional[float], Optional[str]]:
+    """
+    Strictly parses HTTP `Retry-After` (numeric seconds OR RFC 7231 HTTP-date).
+    NEVER shortens a valid server-instructed delay. Rejects NaN/Inf/negative/malformed values.
+    """
+    if raw_header is None:
+        return True, None, None
+    s = str(raw_header).strip()
+    if not s:
+        return False, None, "EMPTY_RETRY_AFTER_HEADER"
+    try:
+        val = float(s)
+        if not math.isfinite(val) or val < 0.0:
+            return False, None, f"INVALID_NUMERIC_RETRY_AFTER:{s!r}"
+        if val > MAX_PERMITTED_RETRY_AFTER_PARSE_SEC_C1:
+            return True, val, None
+        return True, val, None
+    except ValueError:
+        pass
+    try:
+        dt = parsedate_to_datetime(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        delta = (dt.astimezone(timezone.utc) - now_utc.astimezone(timezone.utc)).total_seconds()
+        if not math.isfinite(delta):
+            return False, None, f"NONFINITE_HTTP_DATE_RETRY_AFTER:{s!r}"
+        return True, max(0.0, delta), None
+    except Exception:
+        return False, None, f"UNPARSEABLE_RETRY_AFTER_HEADER:{s!r}"
+
+
+def _verify_r5_execution_context(
+    plan: Mapping[str, Any],
+    trusted_scope: Optional[Any],
+    now_utc: datetime,
+    destination: Optional[Path],
+    run_id: str,
+) -> Tuple[bool, List[str], Optional[Any], Optional[Any]]:
+    """Verifies plan-to-scope cryptographic/process binding, expiry, run_id, and destination."""
+    return _validate_r5_plan_binding_strict(
+        plan,
+        trusted_scope,
+        now_utc,
+        expected_run_id=run_id,
+        destination_root=destination,
+    )
+
+
+def _check_r5_dispatch_guard(
+    *,
+    plan: Mapping[str, Any],
+    trusted_scope: Optional[Any],
+    run_id: str,
+    destination: Optional[Path],
+    deadline_mono: float,
+    grant_expires_utc_ms: int,
+    transport_timeout_ceiling_sec: float,
+    cancel_event: Optional[asyncio.Event],
+    aborted: bool,
+    resource_monitor: Optional[Callable[[], Mapping[str, Any]]],
+    monotonic_fn: Callable[[], float],
+    utc_now_fn: Callable[[], datetime],
+    resource_max_age_sec: float,
+    resource_monotonic_fn: Optional[Callable[[], float]] = None,
+) -> Tuple[bool, Optional[str], List[str], float, float]:
+    """
+    Reusable fail-closed dispatch/write guard (closes P1-A post-enqueue, P1-B post-wait, P1-C monitor).
+    Returns `(ok, reason_code, violations, effective_remaining_sec, effective_timeout_sec)`.
+    """
+    if aborted:
+        return False, "SESSION_ALREADY_ABORTED", ["SESSION_ALREADY_ABORTED"], 0.0, 0.0
+    if cancel_event is not None and cancel_event.is_set():
+        return False, "CANCELLED_MIDFLIGHT", ["CANCELLED_MIDFLIGHT"], 0.0, 0.0
+
+    try:
+        now_m = monotonic_fn()
+    except Exception as exc:
+        return False, "INVALID_MONOTONIC_CLOCK", [f"INVALID_MONOTONIC_CLOCK:{exc}"], 0.0, 0.0
+    if isinstance(now_m, bool) or not isinstance(now_m, (int, float)) or not math.isfinite(float(now_m)) or float(now_m) < 0.0:
+        return False, "INVALID_MONOTONIC_CLOCK", [f"INVALID_MONOTONIC_CLOCK:{now_m!r}"], 0.0, 0.0
+    now_m_f = float(now_m)
+
+    try:
+        now_u = utc_now_fn()
+    except Exception as exc:
+        return False, "INVALID_UTC_CLOCK", [f"INVALID_UTC_CLOCK:{exc}"], 0.0, 0.0
+    if not isinstance(now_u, datetime) or now_u.tzinfo is None:
+        return False, "INVALID_UTC_CLOCK", ["INVALID_OR_NAIVE_UTC_CLOCK"], 0.0, 0.0
+
+    rem_session = deadline_mono - now_m_f
+    if not math.isfinite(rem_session) or rem_session <= 0.0:
+        return False, "CAPTURE_DEADLINE_EXCEEDED", ["CAPTURE_DEADLINE_EXCEEDED"], 0.0, 0.0
+
+    rem_grant = (float(grant_expires_utc_ms) / 1000.0) - now_u.timestamp()
+    if not math.isfinite(rem_grant) or rem_grant <= 0.0:
+        return False, "OPERATOR_GRANT_EXPIRED", ["OPERATOR_GRANT_EXPIRED"], 0.0, 0.0
+
+    ctx_ok, ctx_viols, _, _ = _verify_r5_execution_context(plan, trusted_scope, now_u, destination, run_id)
+    if not ctx_ok:
+        first = ctx_viols[0] if ctx_viols else "EXECUTION_CONTEXT_INVALID"
+        return False, first, ctx_viols, 0.0, 0.0
+
+    res_clk = resource_monotonic_fn if resource_monotonic_fn is not None else monotonic_fn
+    res_ok, res_viols, _ = _require_r5_resource_monitor(
+        resource_monitor, destination, monotonic_fn=res_clk, max_age_sec=resource_max_age_sec
+    )
+    if not res_ok:
+        first = res_viols[0] if res_viols else "RESOURCE_GUARD_FAILED"
+        return False, first, res_viols, 0.0, 0.0
+
+    eff_rem = min(rem_session, rem_grant)
+    ceil_t = float(transport_timeout_ceiling_sec)
+    if not math.isfinite(ceil_t) or ceil_t <= 0.0:
+        return False, "INVALID_TRANSPORT_TIMEOUT_CEILING", ["INVALID_TRANSPORT_TIMEOUT_CEILING"], 0.0, 0.0
+    eff_timeout = min(ceil_t, eff_rem)
+    if eff_timeout <= 0.0:
+        return False, "CAPTURE_DEADLINE_EXCEEDED", ["CAPTURE_DEADLINE_EXCEEDED"], 0.0, 0.0
+
+    return True, None, [], eff_rem, eff_timeout
+
+
+# =====================================================================
+# 11. capture_r5_public_batch (KH-03.R5.C1 Hardened P1-A / P1-B / P1-C)
 # =====================================================================
 async def capture_r5_public_batch(
     plan: Mapping[str, Any],
@@ -214,134 +544,288 @@ async def capture_r5_public_batch(
     staging_root: Optional[Path] = None,
     run_id: str = "r5_capture",
     sleep_fn: Optional[Callable[[float], Any]] = None,
+    trusted_scope: Optional[Any] = None,
+    monotonic_fn: Optional[Callable[[], float]] = None,
+    utc_now_fn: Optional[Callable[[], datetime]] = None,
+    resource_max_age_sec: float = DEFAULT_RESOURCE_MAX_AGE_SEC_R5_C1,
+    destination_root: Optional[Path] = None,
+    transport_timeout_ceiling_sec: float = 10.0,
+    drain_timeout_sec: float = 5.0,
 ) -> Dict[str, Any]:
     """
-    Bounded async public read-only capture orchestrator.
-    - If `plan["status"] == "BLOCKED"` or `live_network_permitted is False` and `partition_role != "QA_FIXTURE"`:
-      makes ZERO external requests and returns `CAPTURE_BLOCKED_OWNER_AUTHORIZATION`.
-    - Enforces `asyncio.Semaphore(max_concurrency <= 4)`, per-endpoint rate limiter,
-      `Retry-After` & capped exponential backoff on `429`/`5xx`/timeout, NO retry on
-      auth/contract/provenance/secret/size/redirect errors.
-    - Checks cancellation, deadline, cumulative bytes, cumulative requests, disk (>=20.0 GiB),
-      and RAM (>=512 MiB) BEFORE every dispatch and write.
-    - Streams every accepted response to a unique contained staging path inside `staging_root`.
-    - Live observed provenance (`OBSERVED_VERIFIED`) requires EXACT unmodified
-      `StdlibUrllibPublicTransportC2` + `execute_trusted_stdlib_https_get_c4` live proof;
-      injected/fake/subclass transports are strictly classified `QA_FIXTURE` or rejected!
+    Bounded async public read-only capture orchestrator (KH-03.R5.C1 hardened).
+    Closes P1-A (strict plan/scope/expiry/destination/run binding before enqueue AND after every wait),
+    P1-B (post-wait deadline/cancel/expiry guard, remaining-time per-call timeout, non-shortened
+    Retry-After, atomic request + wire-byte reservation, bounded drain & late-response discard),
+    and P1-C (strict fail-closed resource monitor requiring fresh valid volume-matched telemetry).
+    NEVER mints `OBSERVED_VERIFIED` from fake/QA transports; NEVER counts deleted staging files
+    as accepted persisted records on abort.
     """
+    # If caller supplies a non-blocking `sleep_fn` without a custom `monotonic_fn`, track simulated
+    # sleep advancement so deterministic no-op sleeps never spin against real wall monotonic time.
+    _sim_sleep_offset = {"sec": 0.0}
+    if monotonic_fn is not None:
+        mono_clock = monotonic_fn
+        res_mono_clock = monotonic_fn
+        _advance_sim_sleep = False
+    elif sleep_fn is not None:
+        mono_clock = lambda: time.monotonic() + _sim_sleep_offset["sec"]
+        res_mono_clock = time.monotonic
+        _advance_sim_sleep = True
+    else:
+        mono_clock = time.monotonic
+        res_mono_clock = time.monotonic
+        _advance_sim_sleep = False
+    utc_clock = utc_now_fn if utc_now_fn is not None else (lambda: datetime.now(timezone.utc))
+    dest_for_guard = destination_root if destination_root is not None else staging_root
+
+    def _blocked_or_fail_resp(
+        exec_status: str,
+        prov_status: str,
+        viols: Sequence[str],
+        *,
+        aborted_flag: bool = False,
+        abort_reason: Optional[str] = None,
+        role_str: str = "NONE_BLOCKED",
+        sess_id: str = "",
+    ) -> Dict[str, Any]:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+            "run_id": run_id,
+            "capture_session_id": sess_id,
+            "partition_role": role_str,
+            "capture_execution_status": exec_status,
+            "capture_provenance_status": prov_status,
+            "external_requests_attempted": 0,
+            "qa_simulated_requests_count": 0,
+            "requests_reserved_total": 0,
+            "requests_released_pre_dispatch": 0,
+            "requests_dispatched_actual": 0,
+            "requests_completed": 0,
+            "requests_rejected": 0,
+            "requests_accepted": 0,
+            "total_bytes_received": 0,
+            "wire_bytes_observed_total": 0,
+            "bytes_accepted_total": 0,
+            "bytes_staged_total": 0,
+            "accepted_observed_records_count": 0,
+            "qa_fixture_records_count": 0,
+            "removed_staged_files_count": 0,
+            "retained_staged_files": [],
+            "undrained_inflight_workers": 0,
+            "aborted": aborted_flag,
+            "abort_reason": abort_reason,
+            "dispatch_timestamps_mono": [],
+            "items": [],
+            "aborted_discarded_items_audit": [],
+            "semantic_result_sha256": canonical_hash({"items": [], "aborted": aborted_flag, "abort_reason": abort_reason, "violations": list(viols)}),
+            "volatile_fields_excluded_from_semantic_hash": [
+                "capture_session_id", "dispatch_timestamps_mono", "request_utc_ms", "response_utc_ms",
+                "monotonic_duration_ms", "capture_proof_id", "staged_filename",
+            ],
+            "violations": list(viols),
+        }
+
+    if not isinstance(plan, Mapping):
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["PLAN_NOT_MAPPING"])
+
     plan_st = str(plan.get("status") or "BLOCKED")
     role = str(plan.get("partition_role") or "NONE_BLOCKED")
     live_perm = bool(plan.get("live_network_permitted", False))
 
     if plan_st == "BLOCKED" or (not live_perm and role != "QA_FIXTURE"):
-        return {
-            "spec_version": SPEC_VERSION_KH03_R5,
-            "schema_version": SCHEMA_VERSION_KH03_R5,
-            "run_id": run_id,
-            "capture_execution_status": "BLOCKED_OWNER_AUTHORIZATION",
-            "capture_provenance_status": "NO_REAL_CAPTURE",
-            "external_requests_attempted": 0,
-            "accepted_observed_records_count": 0,
-            "qa_fixture_records_count": 0,
-            "items": [],
-            "violations": list(plan.get("violations") or ["CAPTURE_BLOCKED_OWNER_AUTHORIZATION"]),
-        }
+        return _blocked_or_fail_resp(
+            "BLOCKED_OWNER_AUTHORIZATION",
+            "NO_REAL_CAPTURE",
+            list(plan.get("violations") or ["CAPTURE_BLOCKED_OWNER_AUTHORIZATION"]),
+            role_str=role,
+        )
+
+    # Validate clocks before any operation
+    try:
+        t0_mono_raw = mono_clock()
+        now_utc_0 = utc_clock()
+    except Exception as exc:
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"INVALID_CLOCK_PROVIDER:{exc}"], role_str=role)
+    if isinstance(t0_mono_raw, bool) or not isinstance(t0_mono_raw, (int, float)) or not math.isfinite(float(t0_mono_raw)) or float(t0_mono_raw) < 0.0:
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"INVALID_MONOTONIC_CLOCK:{t0_mono_raw!r}"], role_str=role)
+    if not isinstance(now_utc_0, datetime) or now_utc_0.tzinfo is None:
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["INVALID_OR_NAIVE_UTC_CLOCK"], role_str=role)
+    if isinstance(transport_timeout_ceiling_sec, bool) or not isinstance(transport_timeout_ceiling_sec, (int, float)) or not math.isfinite(float(transport_timeout_ceiling_sec)) or float(transport_timeout_ceiling_sec) <= 0.0:
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"INVALID_TRANSPORT_TIMEOUT_CEILING:{transport_timeout_ceiling_sec!r}"], role_str=role)
+    t0_mono = float(t0_mono_raw)
+
+    # P1-A: Strict execution-context binding BEFORE creating any tasks or touching transport/staging!
+    ctx_ok, ctx_viols, plan_rec, bound_scope = _verify_r5_execution_context(plan, trusted_scope, now_utc_0, dest_for_guard, run_id)
+    if not ctx_ok or plan_rec is None or bound_scope is None:
+        return _blocked_or_fail_resp(
+            "BLOCKED_SCOPE_OR_PLAN_BINDING",
+            "NO_REAL_CAPTURE",
+            ctx_viols,
+            aborted_flag=True,
+            abort_reason=ctx_viols[0] if ctx_viols else "EXECUTION_CONTEXT_INVALID",
+            role_str=role,
+        )
 
     if transport is None:
-        return {
-            "spec_version": SPEC_VERSION_KH03_R5,
-            "schema_version": SCHEMA_VERSION_KH03_R5,
-            "run_id": run_id,
-            "capture_execution_status": "FAIL",
-            "capture_provenance_status": "NO_REAL_CAPTURE",
-            "external_requests_attempted": 0,
-            "accepted_observed_records_count": 0,
-            "qa_fixture_records_count": 0,
-            "items": [],
-            "violations": ["MISSING_TRANSPORT_OBJECT"],
-        }
+        return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["MISSING_TRANSPORT_OBJECT"], role_str=role)
 
-    is_qa_plan = (role == "QA_FIXTURE")
+    is_qa_plan = (role == "QA_FIXTURE") and (not live_perm)
     exact_stdlib, _exact_reasons = is_exact_unmodified_stdlib_transport_c4(
         transport, expected_transport_cls=StdlibUrllibPublicTransportC2, expected_get_func=StdlibUrllibPublicTransportC2.get
     )
     if live_perm and not exact_stdlib:
-        return {
-            "spec_version": SPEC_VERSION_KH03_R5,
-            "schema_version": SCHEMA_VERSION_KH03_R5,
-            "run_id": run_id,
-            "capture_execution_status": "FAIL",
-            "capture_provenance_status": "FAIL",
-            "external_requests_attempted": 0,
-            "accepted_observed_records_count": 0,
-            "qa_fixture_records_count": 0,
-            "items": [],
-            "violations": ["FAKE_OR_SUBCLASSED_TRANSPORT_CANNOT_EXECUTE_LIVE_OBSERVED_CAPTURE"],
-        }
+        return _blocked_or_fail_resp(
+            "FAIL", "FAIL", ["FAKE_OR_SUBCLASSED_TRANSPORT_CANNOT_EXECUTE_LIVE_OBSERVED_CAPTURE"], role_str=role
+        )
     if is_qa_plan and exact_stdlib:
-        return {
-            "spec_version": SPEC_VERSION_KH03_R5,
-            "schema_version": SCHEMA_VERSION_KH03_R5,
-            "run_id": run_id,
-            "capture_execution_status": "FAIL",
-            "capture_provenance_status": "NO_REAL_CAPTURE",
-            "external_requests_attempted": 0,
-            "accepted_observed_records_count": 0,
-            "qa_fixture_records_count": 0,
-            "items": [],
-            "violations": ["QA_FIXTURE_MODE_MUST_NOT_USE_LIVE_SOCKET_TRANSPORT"],
-        }
+        return _blocked_or_fail_resp(
+            "FAIL", "NO_REAL_CAPTURE", ["QA_FIXTURE_MODE_MUST_NOT_USE_LIVE_SOCKET_TRANSPORT"], role_str=role
+        )
+
+    # Validate staging_root containment & non-OOS policy before creating any tasks
+    if staging_root is not None:
+        s_low = str(staging_root).lower().replace("\\", "/")
+        if any(tok in s_low for tok in R5_FORBIDDEN_OOS_PATH_TOKENS):
+            return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["OOS_STAGING_ROOT_FORBIDDEN"], role_str=role)
+        if _is_symlink_or_junction(staging_root):
+            return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", ["SYMLINK_STAGING_ROOT_DENIED"], role_str=role)
+        if destination_root is not None:
+            try:
+                _safe_contained_path(staging_root, destination_root)
+            except Exception as exc:
+                return _blocked_or_fail_resp("FAIL", "NO_REAL_CAPTURE", [f"STAGING_OUTSIDE_DESTINATION_ROOT:{exc}"], role_str=role)
 
     budget = dict(plan.get("budget") or {})
-    max_conc = max(1, min(MAX_GLOBAL_CONCURRENCY_R5, int(budget.get("max_concurrency", 1))))
-    max_requests = int(budget.get("max_requests", 1))
-    max_total_bytes = int(budget.get("max_total_bytes", 1024 * 1024))
-    max_resp_bytes = min(MAX_RAW_HTTP_BODY_BYTES_C3, int(budget.get("max_response_bytes", MAX_RAW_HTTP_BODY_BYTES_C3)))
-    max_dur_sec = float(budget.get("max_duration_sec", 30.0))
-    max_retries = min(3, max(0, int(budget.get("max_retries_per_request", 2))))
+    max_conc = max(1, min(MAX_GLOBAL_CONCURRENCY_R5, int(budget["max_concurrency"])))
+    max_requests = int(budget["max_requests"])
+    max_total_bytes = int(budget["max_total_bytes"])
+    max_resp_bytes = min(MAX_RAW_HTTP_BODY_BYTES_C3, int(budget["max_response_bytes"]))
+    max_dur_sec = float(budget["max_duration_sec"])
+    max_retries = min(HARD_MAX_RETRIES_R5_C1, max(0, int(budget["max_retries_per_request"])))
+    grant_expires_utc_ms = int(plan_rec.expires_utc_ms)
 
-    t0_mono = time.monotonic()
+    # §4.2 / B24: Legacy locked C4 transport reads `transport.max_response_bytes` fixed at init;
+    # if live transport cannot guarantee requested wire read cap (max_total_bytes / max_resp_bytes),
+    # FAIL CLOSED instead of labeling post-hoc body checks a strict wire cap!
+    if live_perm and exact_stdlib:
+        tr_max_resp = int(getattr(transport, "max_response_bytes", MAX_RAW_HTTP_BODY_BYTES_C3))
+        if tr_max_resp > min(max_resp_bytes, max_total_bytes):
+            return _blocked_or_fail_resp(
+                "BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED",
+                "NO_REAL_CAPTURE",
+                [f"BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED:transport_max={tr_max_resp}>budget_cap={min(max_resp_bytes, max_total_bytes)}"],
+                aborted_flag=True,
+                abort_reason="BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED",
+                role_str=role,
+            )
+
+    # P1-C: Pre-dispatch strict resource monitor check BEFORE creating any tasks!
+    pre_res_ok, pre_res_viols, _ = _require_r5_resource_monitor(
+        resource_monitor, dest_for_guard, monotonic_fn=res_mono_clock, max_age_sec=resource_max_age_sec
+    )
+    if not pre_res_ok:
+        return _blocked_or_fail_resp(
+            "ABORTED_RESOURCE_OR_CANCEL",
+            "NO_REAL_CAPTURE",
+            pre_res_viols,
+            aborted_flag=True,
+            abort_reason=pre_res_viols[0] if pre_res_viols else "RESOURCE_GUARD_FAILED",
+            role_str=role,
+        )
+
+    deadline_mono = t0_mono + max_dur_sec
     sem = asyncio.Semaphore(max_conc)
     state_lock = asyncio.Lock()
-    ep_last_ts: Dict[str, float] = {}
-    counters = {"requests": 0, "bytes": 0, "aborted": False, "abort_reason": None}
+    budget_cond = asyncio.Condition(state_lock)
+    ep_last_actual_ts: Dict[str, float] = {}
+    ep_next_slot_ts: Dict[str, float] = {}
+    counters: Dict[str, Any] = {
+        "requests_reserved": 0,
+        "requests_reserved_total": 0,
+        "requests_released_pre_dispatch": 0,
+        "requests_dispatched_actual": 0,
+        "requests_completed": 0,
+        "requests_rejected": 0,
+        "requests_accepted": 0,
+        "wire_bytes_reserved": 0,
+        "wire_bytes_observed_total": 0,
+        "bytes_accepted_total": 0,
+        "bytes_staged_total": 0,
+        "aborted": False,
+        "abort_reason": None,
+        "undrained_inflight_workers": 0,
+    }
+    dispatch_timestamps_mono: List[float] = []
     items: List[Dict[str, Any]] = []
     violations: List[str] = []
     staged_paths: List[Path] = []
-    session_id = f"r5_{run_id}_{uuid.uuid4().hex[:8]}"
+    session_id = f"r5c1_{run_id}_{uuid.uuid4().hex[:8]}"
+    batches_list = list(plan.get("batches") or ())
 
-    async def _do_sleep(sec: float) -> None:
+    async def _set_aborted(reason: str, extra_viols: Sequence[str] = ()) -> None:
+        async with budget_cond:
+            if not counters["aborted"]:
+                counters["aborted"] = True
+                counters["abort_reason"] = reason
+            for v in extra_viols:
+                if v not in violations:
+                    violations.append(v)
+            if reason and reason not in violations:
+                violations.append(reason)
+            budget_cond.notify_all()
+
+    async def _do_cancellable_sleep(sec: float) -> bool:
+        """Sleeps up to `sec` seconds; returns False if cancelled during wait."""
+        if sec <= 0.0:
+            return not (cancel_event is not None and cancel_event.is_set())
         if sleep_fn is not None:
             r = sleep_fn(sec)
             if asyncio.iscoroutine(r):
                 await r
-        else:
-            await asyncio.sleep(sec)
+            if _advance_sim_sleep:
+                _sim_sleep_offset["sec"] += float(sec)
+            return not (cancel_event is not None and cancel_event.is_set())
+        if cancel_event is not None:
+            try:
+                await asyncio.wait_for(cancel_event.wait(), timeout=sec)
+                return False
+            except asyncio.TimeoutError:
+                return not cancel_event.is_set()
+        await asyncio.sleep(sec)
+        return True
 
-    def _check_res_and_cancel() -> Optional[str]:
-        if cancel_event is not None and cancel_event.is_set():
-            return "CANCELLED_MIDFLIGHT"
-        if (time.monotonic() - t0_mono) >= max_dur_sec:
-            return "CAPTURE_DEADLINE_EXCEEDED"
-        if resource_monitor is not None:
-            rm = resource_monitor()
-            dk = float(rm.get("disk_free_gib", 99.0))
-            ram = float(rm.get("available_ram_mib", 4096.0))
-            if dk < STRICT_RUNTIME_DISK_MIN_GIB_R5:
-                return f"RUNTIME_DISK_BELOW_20GIB:{dk:.4f}"
-            if ram < 512.0:
-                return f"RUNTIME_RAM_BELOW_512MIB:{ram:.2f}"
-        return None
+    def _run_guard_sync(aborted_now: bool) -> Tuple[bool, Optional[str], List[str], float, float]:
+        return _check_r5_dispatch_guard(
+            plan=plan,
+            trusted_scope=trusted_scope,
+            run_id=run_id,
+            destination=dest_for_guard,
+            deadline_mono=deadline_mono,
+            grant_expires_utc_ms=grant_expires_utc_ms,
+            transport_timeout_ceiling_sec=transport_timeout_ceiling_sec,
+            cancel_event=cancel_event,
+            aborted=aborted_now,
+            resource_monitor=resource_monitor,
+            monotonic_fn=mono_clock,
+            utc_now_fn=utc_clock,
+            resource_max_age_sec=resource_max_age_sec,
+            resource_monotonic_fn=res_mono_clock,
+        )
 
     async def _run_one_batch(batch: Mapping[str, Any]) -> None:
         ep_key = str(batch["endpoint_key"])
         url = str(batch["url"])
-        # Strict public allowlist & forbidden private/order token validation before dispatch!
         low_u = url.lower()
         if any(tok in low_u for tok in FORBIDDEN_URL_TOKENS_C2) or ep_key not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
-            violations.append(f"BLOCKED_UNAUTHORIZED_OR_PRIVATE_ENDPOINT:{ep_key}:{url}")
+            await _set_aborted(f"BLOCKED_UNAUTHORIZED_OR_PRIVATE_ENDPOINT:{ep_key}:{url}")
             return
-        params: Dict[str, Any] = {"symbol": str(batch.get("symbol") or "XAUUSDT"), "productType": str(batch.get("product_type") or "USDT-FUTURES")}
+        if url != str(OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2[ep_key]["url"]):
+            await _set_aborted(f"BATCH_URL_KEY_MISMATCH:{ep_key}")
+            return
+
+        params: Dict[str, Any] = {"symbol": str(batch["symbol"]), "productType": str(batch["product_type"])}
         if ep_key in ("candles", "history_candles"):
             params["granularity"] = str(batch.get("granularity") or "1m")
             if batch.get("window_start_ms"):
@@ -349,47 +833,157 @@ async def capture_r5_public_batch(
             if batch.get("window_end_ms"):
                 params["endTime"] = str(batch["window_end_ms"])
         if scan_for_forbidden_secrets_r2_c1(params):
-            violations.append(f"FORBIDDEN_SECRET_IN_PARAMS:{ep_key}")
+            await _set_aborted(f"FORBIDDEN_SECRET_IN_PARAMS:{ep_key}")
             return
         try:
             _validate_public_bitget_https_url_c3(url, params)
         except Exception as exc:
-            violations.append(f"URL_ALLOWLIST_REJECTED:{ep_key}:{exc}")
+            await _set_aborted(f"URL_ALLOWLIST_REJECTED:{ep_key}:{exc}")
             return
 
-        min_iv_s = max(0.05, float(batch.get("min_request_interval_ms", 50)) / 1000.0)
+        min_iv_s = max(HARD_MIN_REQUEST_INTERVAL_MS_R5_C1 / 1000.0, float(batch.get("min_request_interval_ms", HARD_MIN_REQUEST_INTERVAL_MS_R5_C1)) / 1000.0)
         retry_chain: List[Dict[str, Any]] = []
 
         async with sem:
             for attempt in range(max_retries + 1):
-                err_pre = _check_res_and_cancel()
-                if err_pre:
-                    async with state_lock:
-                        counters["aborted"] = True
-                        counters["abort_reason"] = err_pre
-                    violations.append(err_pre)
+                # 1) Pre-wait guard (after semaphore acquire!)
+                g_ok, g_reason, g_viols, eff_rem, eff_timeout = _run_guard_sync(bool(counters["aborted"]))
+                if not g_ok:
+                    await _set_aborted(g_reason or "DISPATCH_GUARD_FAILED", g_viols)
                     return
 
-                async with state_lock:
+                # 2) Reserve request slot (NOT counting actual dispatch yet!) and compute rate-limiter wait
+                req_reserved = False
+                async with budget_cond:
                     if counters["aborted"]:
                         return
-                    if counters["requests"] >= max_requests:
+                    if counters["requests_dispatched_actual"] + counters["requests_reserved"] >= max_requests:
                         counters["aborted"] = True
                         counters["abort_reason"] = "MAX_REQUESTS_BUDGET_EXHAUSTED"
                         violations.append("MAX_REQUESTS_BUDGET_EXHAUSTED")
+                        budget_cond.notify_all()
                         return
-                    # Per-endpoint rate limiter
-                    now_m = time.monotonic()
-                    last_m = ep_last_ts.get(ep_key, 0.0)
-                    wait_s = max(0.0, (last_m + min_iv_s) - now_m)
-                    ep_last_ts[ep_key] = max(now_m, last_m + min_iv_s)
-                    counters["requests"] += 1
+                    now_m = float(mono_clock())
+                    last_slot = ep_next_slot_ts.get(ep_key)
+                    if last_slot is None:
+                        wait_s = 0.0
+                        ep_next_slot_ts[ep_key] = now_m
+                    else:
+                        target_t = max(now_m, last_slot + min_iv_s)
+                        wait_s = max(0.0, target_t - now_m)
+                        ep_next_slot_ts[ep_key] = target_t
+                    if wait_s >= eff_rem:
+                        counters["aborted"] = True
+                        counters["abort_reason"] = "WAIT_EXCEEDS_REMAINING_DEADLINE"
+                        violations.append("WAIT_EXCEEDS_REMAINING_DEADLINE")
+                        budget_cond.notify_all()
+                        return
+                    counters["requests_reserved"] += 1
+                    counters["requests_reserved_total"] += 1
+                    req_reserved = True
 
+                # 3) Perform cancellable rate-limit wait outside state_lock
                 if wait_s > 0.0:
-                    await _do_sleep(wait_s)
+                    slept_ok = await _do_cancellable_sleep(wait_s)
+                    if not slept_ok:
+                        async with budget_cond:
+                            if req_reserved:
+                                counters["requests_reserved"] -= 1
+                                counters["requests_released_pre_dispatch"] += 1
+                                req_reserved = False
+                            budget_cond.notify_all()
+                        await _set_aborted("CANCELLED_MIDFLIGHT")
+                        return
 
-                req_utc_ms = int(time.time() * 1000)
-                t_req_mono = time.monotonic()
+                # 4) Enforce actual monotonic cadence & reserve wire bytes atomically BEFORE final dispatch!
+                call_byte_cap = 0
+                dispatched_this_attempt = False
+                try:
+                    while True:
+                        # POST-WAIT CRITICAL GUARD (re-checks deadline, cancel, expiry, plan mutation, resource!)
+                        g2_ok, g2_reason, g2_viols, eff_rem2, eff_timeout2 = _run_guard_sync(bool(counters["aborted"]))
+                        if not g2_ok:
+                            await _set_aborted(g2_reason or "POST_WAIT_GUARD_FAILED", g2_viols)
+                            return
+
+                        extra_cadence_wait = 0.0
+                        need_budget_wait = False
+                        async with budget_cond:
+                            if counters["aborted"]:
+                                return
+                            now_m2 = float(mono_clock())
+                            last_act = ep_last_actual_ts.get(ep_key)
+                            if last_act is not None and (now_m2 - last_act) + 1e-9 < min_iv_s:
+                                extra_cadence_wait = min_iv_s - (now_m2 - last_act)
+                                if extra_cadence_wait >= eff_rem2:
+                                    counters["aborted"] = True
+                                    counters["abort_reason"] = "WAIT_EXCEEDS_REMAINING_DEADLINE"
+                                    violations.append("WAIT_EXCEEDS_REMAINING_DEADLINE")
+                                    budget_cond.notify_all()
+                                    return
+                            else:
+                                rem_wire_unreserved = max_total_bytes - counters["wire_bytes_observed_total"] - counters["wire_bytes_reserved"]
+                                if counters["wire_bytes_observed_total"] >= max_total_bytes:
+                                    counters["aborted"] = True
+                                    counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
+                                    violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                                    budget_cond.notify_all()
+                                    return
+                                if rem_wire_unreserved <= 0:
+                                    if counters["wire_bytes_reserved"] > 0:
+                                        need_budget_wait = True
+                                    else:
+                                        counters["aborted"] = True
+                                        counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
+                                        violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                                        budget_cond.notify_all()
+                                        return
+                                else:
+                                    call_byte_cap = min(max_resp_bytes, rem_wire_unreserved)
+                                    # Live transport check for per-call dynamic wire cap
+                                    if live_perm and exact_stdlib:
+                                        tr_max_r = int(getattr(transport, "max_response_bytes", MAX_RAW_HTTP_BODY_BYTES_C3))
+                                        if tr_max_r > call_byte_cap:
+                                            counters["aborted"] = True
+                                            counters["abort_reason"] = "BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED"
+                                            violations.append("BLOCKED_TRANSPORT_READ_CAP_UNSUPPORTED")
+                                            budget_cond.notify_all()
+                                            return
+                                    # LINEARIZATION POINT: transition reservation -> actual dispatch!
+                                    counters["requests_reserved"] -= 1
+                                    req_reserved = False
+                                    counters["requests_dispatched_actual"] += 1
+                                    counters["wire_bytes_reserved"] += call_byte_cap
+                                    ep_last_actual_ts[ep_key] = now_m2
+                                    dispatch_timestamps_mono.append(now_m2)
+                                    dispatched_this_attempt = True
+                                    break
+
+                        if extra_cadence_wait > 0.0:
+                            slept_ok2 = await _do_cancellable_sleep(extra_cadence_wait)
+                            if not slept_ok2:
+                                await _set_aborted("CANCELLED_MIDFLIGHT")
+                                return
+                        elif need_budget_wait:
+                            async with budget_cond:
+                                try:
+                                    await asyncio.wait_for(budget_cond.wait(), timeout=min(0.05, max(0.001, eff_rem2)))
+                                except asyncio.TimeoutError:
+                                    pass
+                finally:
+                    if req_reserved and not dispatched_this_attempt:
+                        async with budget_cond:
+                            counters["requests_reserved"] -= 1
+                            counters["requests_released_pre_dispatch"] += 1
+                            budget_cond.notify_all()
+
+                # 5) Execute actual transport call with remaining-time bounded timeout!
+                now_u_call = utc_clock()
+                req_utc_ms = int(now_u_call.timestamp() * 1000)
+                t_req_mono = float(mono_clock())
+                raw_resp: Optional[RawHttpResponseC2] = None
+                proof_c4: Optional[VerifiedCaptureProofC4] = None
+                obs_wire_len = 0
                 try:
                     if exact_stdlib and live_perm:
                         tr_res = await asyncio.to_thread(
@@ -402,61 +996,154 @@ async def capture_r5_public_batch(
                             secret_scanner_fn=scan_for_forbidden_secrets_r2_c1,
                             decompress_check_fn=safe_bounded_decompress_if_gzip_c3,
                             raw_response_cls=RawHttpResponseC2,
-                            url=url, params=params, endpoint_key=ep_key,
-                            timeout_sec=min(10.0, max_dur_sec),
+                            url=url,
+                            params=params,
+                            endpoint_key=ep_key,
+                            timeout_sec=eff_timeout2,
                             capture_session_id=session_id,
                             live_authorization_verified=True,
                             real_rate_limiter_active=True,
                             is_fake_transport_qa=False,
                         )
-                        raw_resp = tr_res.raw_response
+                        raw_resp = tr_res.response
                         proof_c4 = tr_res.capture_proof
                     else:
-                        # Offline QA fixture transport — NEVER mints live observed proof!
-                        raw_resp = await asyncio.to_thread(transport.get, url, params, timeout_sec=min(10.0, max_dur_sec))
+                        raw_resp = await asyncio.to_thread(transport.get, url, params, timeout_sec=eff_timeout2)
                         proof_c4 = None
+                    if raw_resp is not None:
+                        obs_wire_len = len(bytes(getattr(raw_resp, "body_bytes", b"") or b""))
                 except TimeoutError as exc:
-                    retry_chain.append({"attempt": attempt, "error": f"TIMEOUT:{exc}"})
+                    async with budget_cond:
+                        counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
+                        counters["requests_completed"] += 1
+                        counters["requests_rejected"] += 1
+                        budget_cond.notify_all()
+                    backoff_to = min(2.0, 0.05 * (2 ** attempt))
+                    retry_chain.append({"attempt": attempt, "error": f"TIMEOUT:{exc}", "backoff_sec": backoff_to})
                     if attempt < max_retries:
-                        await _do_sleep(min(2.0, 0.05 * (2 ** attempt)))
+                        g_rt_ok, g_rt_r, g_rt_v, rem_rt, _ = _run_guard_sync(bool(counters["aborted"]))
+                        if not g_rt_ok:
+                            await _set_aborted(g_rt_r or "ABORTED_DURING_RETRY", g_rt_v)
+                            return
+                        if backoff_to >= rem_rt:
+                            await _set_aborted("RETRY_BACKOFF_EXCEEDS_REMAINING_DEADLINE")
+                            return
+                        if not await _do_cancellable_sleep(backoff_to):
+                            await _set_aborted("CANCELLED_MIDFLIGHT")
+                            return
                         continue
                     violations.append(f"TIMEOUT_EXHAUSTED:{ep_key}")
                     return
                 except Exception as exc:
-                    # Do NOT retry auth/redirect/contract/provenance/oversize errors!
+                    async with budget_cond:
+                        counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
+                        counters["requests_completed"] += 1
+                        counters["requests_rejected"] += 1
+                        budget_cond.notify_all()
                     violations.append(f"TRANSPORT_OR_PROVENANCE_ERROR:{ep_key}:{exc}")
                     return
 
+                # Release reservation & account observed wire bytes (INCLUDING error/retry bodies!)
+                over_wire_budget = False
+                async with budget_cond:
+                    counters["wire_bytes_reserved"] = max(0, counters["wire_bytes_reserved"] - call_byte_cap)
+                    counters["wire_bytes_observed_total"] += obs_wire_len
+                    counters["requests_completed"] += 1
+                    if counters["wire_bytes_observed_total"] > max_total_bytes:
+                        over_wire_budget = True
+                        counters["aborted"] = True
+                        counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
+                        violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
+                    budget_cond.notify_all()
+
+                if over_wire_budget:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    return
+
+                # Post-response guard: if cancelled/aborted/expired while in-flight, DISCARD late response!
+                g_post_ok, g_post_r, g_post_v, rem_post, _ = _run_guard_sync(bool(counters["aborted"]))
+                if not g_post_ok:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    await _set_aborted(g_post_r or "LATE_RESPONSE_DISCARDED", g_post_v)
+                    return
+
+                assert raw_resp is not None
                 st_code = int(raw_resp.status_code)
                 hdrs = {str(k).lower(): str(v) for k, v in (raw_resp.headers or {}).items()}
-                # Block redirects fail-closed!
                 if st_code in (301, 302, 303, 307, 308):
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
                     violations.append(f"HTTP_REDIRECT_BLOCKED:{ep_key}:status={st_code}")
                     return
+
                 if st_code == 429 or (500 <= st_code < 600):
-                    ra = hdrs.get("retry-after")
-                    backoff = min(2.0, float(ra)) if (ra and ra.replace(".", "", 1).isdigit()) else min(2.0, 0.05 * (2 ** attempt))
-                    retry_chain.append({"attempt": attempt, "http_status": st_code, "backoff_sec": backoff})
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    ra_raw = hdrs.get("retry-after")
+                    ra_ok, ra_sec, ra_err = _parse_retry_after_strict(ra_raw, utc_clock())
+                    if not ra_ok:
+                        await _set_aborted(f"INVALID_RETRY_AFTER:{ep_key}:{ra_err}")
+                        return
+                    if ra_sec is not None:
+                        backoff = float(ra_sec)  # NEVER shorten server-instructed Retry-After!
+                    else:
+                        backoff = min(2.0, 0.05 * (2 ** attempt))
+                    retry_chain.append({"attempt": attempt, "http_status": st_code, "backoff_sec": backoff, "retry_after_raw": ra_raw})
                     if attempt < max_retries:
-                        await _do_sleep(backoff)
+                        g_rb_ok, g_rb_r, g_rb_v, rem_rb, _ = _run_guard_sync(bool(counters["aborted"]))
+                        if not g_rb_ok:
+                            await _set_aborted(g_rb_r or "ABORTED_BEFORE_RETRY_SLEEP", g_rb_v)
+                            return
+                        if backoff >= rem_rb:
+                            await _set_aborted(f"RETRY_AFTER_EXCEEDS_REMAINING_BUDGET:wait={backoff:.3f}>=rem={rem_rb:.3f}")
+                            return
+                        if not await _do_cancellable_sleep(backoff):
+                            await _set_aborted("CANCELLED_MIDFLIGHT")
+                            return
                         continue
                     violations.append(f"HTTP_RETRY_EXHAUSTED:{ep_key}:status={st_code}")
                     return
+
                 if st_code != 200:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
                     violations.append(f"HTTP_NON_200_NO_RETRY:{ep_key}:status={st_code}")
                     return
 
                 body = bytes(raw_resp.body_bytes)
                 if not body:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
                     violations.append(f"EMPTY_HTTP_200_BODY:{ep_key}")
                     return
+                if len(body) > max_resp_bytes:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    violations.append(f"RESPONSE_OVERSIZE:{ep_key}:{len(body)}>{max_resp_bytes}")
+                    return
+                try:
+                    unpacked = safe_bounded_decompress_if_gzip_c3(
+                        body, max_raw_bytes=max_resp_bytes, max_decompressed_bytes=MAX_DECOMPRESSED_BODY_BYTES_C3
+                    )
+                except Exception as exc:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    violations.append(f"DECOMPRESSION_BOMB_OR_GZIP_REJECTED:{ep_key}:{exc}")
+                    return
+
                 if proof_c4 is None:
-                    mono_ms = max(1, int((time.monotonic() - t_req_mono) * 1000))
+                    mono_ms = max(1, int((float(mono_clock()) - t_req_mono) * 1000))
                     proof_c4 = issue_qa_or_unverified_capture_proof_c4(
-                        capture_session_id=session_id, endpoint_key=ep_key, url=url,
+                        capture_session_id=session_id,
+                        endpoint_key=ep_key,
+                        url=url,
                         final_url=str(getattr(raw_resp, "final_url", url) or url),
                         tls_host=str(getattr(raw_resp, "tls_verified_host", "") or ""),
-                        http_status=st_code, params=params, raw_response_bytes=body,
+                        http_status=st_code,
+                        params=params,
+                        raw_response_bytes=body,
                         request_utc_ms=int(getattr(raw_resp, "request_utc_ms", req_utc_ms)),
                         response_utc_ms=int(getattr(raw_resp, "response_utc_ms", req_utc_ms + mono_ms)),
                         monotonic_duration_ms=mono_ms,
@@ -465,34 +1152,14 @@ async def capture_r5_public_batch(
                         real_rate_limiter_active=True,
                         is_fake_transport_qa=True,
                     )
-                if len(body) > max_resp_bytes:
-                    violations.append(f"RESPONSE_OVERSIZE:{ep_key}:{len(body)}>{max_resp_bytes}")
-                    return
-                # Bounded decompression check (prevents gzip bomb!)
-                try:
-                    unpacked = safe_bounded_decompress_if_gzip_c3(
-                        body, max_raw_bytes=max_resp_bytes, max_decompressed_bytes=MAX_DECOMPRESSED_BODY_BYTES_C3
-                    )
-                except Exception as exc:
-                    violations.append(f"DECOMPRESSION_BOMB_OR_GZIP_REJECTED:{ep_key}:{exc}")
-                    return
 
-                # Check cumulative byte budget & resource floor BEFORE writing staging file
-                err_w = _check_res_and_cancel()
-                if err_w:
-                    async with state_lock:
-                        counters["aborted"] = True
-                        counters["abort_reason"] = err_w
-                    violations.append(err_w)
+                # Pre-staging guard (checks cancel, deadline, expiry, plan binding, resource BEFORE writing!)
+                g_st_ok, g_st_r, g_st_v, _, _ = _run_guard_sync(bool(counters["aborted"]))
+                if not g_st_ok:
+                    async with budget_cond:
+                        counters["requests_rejected"] += 1
+                    await _set_aborted(g_st_r or "PRE_STAGING_GUARD_FAILED", g_st_v)
                     return
-
-                async with state_lock:
-                    if counters["bytes"] + len(body) > max_total_bytes:
-                        counters["aborted"] = True
-                        counters["abort_reason"] = "TOTAL_BYTES_BUDGET_EXHAUSTED"
-                        violations.append("TOTAL_BYTES_BUDGET_EXHAUSTED")
-                        return
-                    counters["bytes"] += len(body)
 
                 raw_sha = _sha256_bytes(body)
                 canon_sha = _sha256_bytes(unpacked)
@@ -501,8 +1168,19 @@ async def capture_r5_public_batch(
                     staging_root.mkdir(parents=True, exist_ok=True)
                     st_file = staging_root / f"{batch['batch_id']}_{raw_sha[:12]}.raw"
                     _safe_contained_path(st_file, staging_root)
-                    st_file.write_bytes(body)
-                    staged_paths.append(st_file)
+                    tmp_st = staging_root / f".tmp_{batch['batch_id']}_{uuid.uuid4().hex[:8]}.part"
+                    _safe_contained_path(tmp_st, staging_root)
+                    fd_s = os.open(str(tmp_st), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    try:
+                        _write_all_eintr_safe(fd_s, body)
+                        os.fsync(fd_s)
+                    finally:
+                        os.close(fd_s)
+                    os.replace(str(tmp_st), str(st_file))
+                    _fsync_directory(staging_root)
+                    async with budget_cond:
+                        staged_paths.append(st_file)
+                        counters["bytes_staged_total"] += len(body)
                     staged_rel = st_file.name
 
                 receipt_c4 = mint_trusted_capture_receipt_c4(
@@ -516,7 +1194,7 @@ async def capture_r5_public_batch(
                     canonical_parsed_sha256=canon_sha,
                     request_utc_ms=int(raw_resp.request_utc_ms),
                     response_utc_ms=int(raw_resp.response_utc_ms),
-                    monotonic_duration_ms=max(1, int((time.monotonic() - t_req_mono) * 1000)),
+                    monotonic_duration_ms=max(1, int((float(mono_clock()) - t_req_mono) * 1000)),
                     provider_event_utc_ms=int(raw_resp.response_utc_ms),
                     transport_obj=transport,
                     transport_kind="STDLIB_URLLIB_HTTPS" if (exact_stdlib and live_perm) else "INJECTED_FAKE_TRANSPORT_QA",
@@ -531,62 +1209,156 @@ async def capture_r5_public_batch(
                     if (receipt_c4.provenance_class == ProvenanceClassC3.LIVE_AUTHORIZED_PUBLIC_HTTP and exact_stdlib and live_perm)
                     else "QA_FIXTURE"
                 )
-                items.append({
-                    "batch_id": str(batch["batch_id"]),
-                    "endpoint_key": ep_key,
-                    "http_status": st_code,
-                    "raw_bytes_len": len(body),
-                    "raw_sha256": raw_sha,
-                    "canonical_unpacked_sha256": canon_sha,
-                    "evidence_class": ev_cls,
-                    "provenance_class_c3": str(receipt_c4.provenance_class),
-                    "staged_filename": staged_rel,
-                    "retry_chain": retry_chain,
-                    "capture_proof_id": proof_c4.proof_id,
-                    "capture_receipt_audit": receipt_c4.to_audit_dict(),
-                    "_capture_proof_obj": proof_c4,
-                    "_capture_receipt_obj": receipt_c4,
-                })
+                async with budget_cond:
+                    if counters["aborted"]:
+                        counters["requests_rejected"] += 1
+                        return
+                    counters["requests_accepted"] += 1
+                    counters["bytes_accepted_total"] += len(body)
+                    items.append({
+                        "batch_id": str(batch["batch_id"]),
+                        "endpoint_key": ep_key,
+                        "http_status": st_code,
+                        "raw_bytes_len": len(body),
+                        "raw_sha256": raw_sha,
+                        "canonical_unpacked_sha256": canon_sha,
+                        "evidence_class": ev_cls,
+                        "provenance_class_c3": str(receipt_c4.provenance_class),
+                        "staged_filename": staged_rel,
+                        "retry_chain": retry_chain,
+                        "capture_proof_id": proof_c4.proof_id,
+                        "capture_receipt_audit": receipt_c4.to_audit_dict(),
+                        "_capture_proof_obj": proof_c4,
+                        "_capture_receipt_obj": receipt_c4,
+                    })
                 return
 
-    tasks = [asyncio.create_task(_run_one_batch(b)) for b in list(plan.get("batches") or ())]
+    tasks = [asyncio.create_task(_run_one_batch(b)) for b in batches_list]
     if tasks:
-        await asyncio.gather(*tasks)
+        try:
+            done, pending = await asyncio.wait(tasks, timeout=max(float(drain_timeout_sec), max_dur_sec + float(drain_timeout_sec)))
+            if pending:
+                await _set_aborted("INFLIGHT_WORKERS_UNDRAINED_TIMEOUT")
+                for p_t in pending:
+                    p_t.cancel()
+                _, still_pending = await asyncio.wait(pending, timeout=max(0.05, float(drain_timeout_sec)))
+                counters["undrained_inflight_workers"] = len(still_pending)
+            for d_t in done:
+                if not d_t.cancelled():
+                    exc_t = d_t.exception()
+                    if exc_t is not None:
+                        await _set_aborted(f"BATCH_TASK_EXCEPTION:{type(exc_t).__name__}:{exc_t}")
+        except asyncio.CancelledError:
+            await _set_aborted("COROUTINE_CANCELLED_MIDFLIGHT")
+            for t_i in tasks:
+                if not t_i.done():
+                    t_i.cancel()
+            _, still_pending = await asyncio.wait(tasks, timeout=max(0.05, float(drain_timeout_sec)))
+            counters["undrained_inflight_workers"] = len(still_pending)
 
-    # Clean ONLY owned partial staged files on midflight cancel/disk abort
-    if counters["aborted"] and staging_root is not None:
-        for sp in staged_paths:
-            try:
-                if sp.is_file():
-                    sp.unlink()
-            except OSError:
-                pass
+    # Canonical deterministic ordering by (batch_id, endpoint_key, raw_sha256)
+    items.sort(key=lambda it: (str(it["batch_id"]), str(it["endpoint_key"]), str(it["raw_sha256"])))
+
+    # On abort: remove ONLY owned partial staged files and NEVER count deleted items as accepted!
+    removed_staged = 0
+    retained_staged: List[str] = []
+    aborted_discarded_audit: List[Dict[str, Any]] = []
+    if counters["aborted"]:
+        if staging_root is not None:
+            for sp in staged_paths:
+                try:
+                    _safe_contained_path(sp, staging_root)
+                    if sp.is_file():
+                        sp.unlink()
+                        removed_staged += 1
+                except Exception:
+                    pass
+        aborted_discarded_audit = [
+            {k: v for k, v in it.items() if not k.startswith("_")} for it in items
+        ]
+        items = []
+        counters["bytes_accepted_total"] = 0
+        counters["requests_accepted"] = 0
+    else:
+        retained_staged = sorted(sp.name for sp in staged_paths if sp.is_file())
 
     obs_cnt = sum(1 for it in items if it["evidence_class"] == "OBSERVED_VERIFIED")
     qa_cnt = sum(1 for it in items if it["evidence_class"] == "QA_FIXTURE")
-    if counters["aborted"]:
+    planned_batch_ids = sorted(str(b["batch_id"]) for b in batches_list)
+    completed_batch_ids = sorted(str(it["batch_id"]) for it in items)
+    all_required_batches_accounted = (completed_batch_ids == planned_batch_ids)
+
+    if counters["undrained_inflight_workers"] > 0:
+        exec_st = "FAIL_UNDRAINED_INFLIGHT_WORKER"
+    elif counters["aborted"]:
         exec_st = "ABORTED_RESOURCE_OR_CANCEL"
     elif is_qa_plan:
-        exec_st = "QA_FIXTURE_OFFLINE_PASS" if (len(violations) == 0 and qa_cnt > 0) else "FAIL"
+        exec_st = "QA_FIXTURE_OFFLINE_PASS" if (len(violations) == 0 and qa_cnt > 0 and all_required_batches_accounted) else "FAIL"
     else:
-        exec_st = "VERIFIED_DEV_CAPTURE" if (len(violations) == 0 and obs_cnt > 0) else ("PARTIAL_VERIFIED_DEV" if obs_cnt > 0 else "FAIL")
+        exec_st = "VERIFIED_DEV_CAPTURE" if (len(violations) == 0 and obs_cnt > 0 and all_required_batches_accounted) else "FAIL"
+
+    sem_view = {
+        "partition_role": role,
+        "capture_execution_status": exec_st,
+        "aborted": bool(counters["aborted"]),
+        "abort_reason": counters["abort_reason"],
+        "planned_batch_ids": planned_batch_ids,
+        "items": [
+            {
+                "batch_id": it["batch_id"],
+                "endpoint_key": it["endpoint_key"],
+                "http_status": it["http_status"],
+                "raw_bytes_len": it["raw_bytes_len"],
+                "raw_sha256": it["raw_sha256"],
+                "canonical_unpacked_sha256": it["canonical_unpacked_sha256"],
+                "evidence_class": it["evidence_class"],
+                "retry_attempts": len(it["retry_chain"]),
+            }
+            for it in items
+        ],
+        "violations": sorted(violations),
+    }
 
     return {
-        "spec_version": SPEC_VERSION_KH03_R5,
-        "schema_version": SCHEMA_VERSION_KH03_R5,
+        "spec_version": SPEC_VERSION_KH03_R5_C1,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
         "run_id": run_id,
         "capture_session_id": session_id,
         "partition_role": role,
         "capture_execution_status": exec_st,
-        "capture_provenance_status": "VERIFIED_OBSERVED_DEV" if obs_cnt > 0 else ("QA_FIXTURE_ONLY_NO_REAL_CAPTURE" if qa_cnt > 0 else "NO_REAL_CAPTURE"),
-        "external_requests_attempted": counters["requests"] if live_perm else 0,
-        "qa_simulated_requests_count": counters["requests"] if is_qa_plan else 0,
-        "total_bytes_received": counters["bytes"],
+        "capture_provenance_status": (
+            "VERIFIED_OBSERVED_DEV"
+            if (obs_cnt > 0 and not counters["aborted"])
+            else ("QA_FIXTURE_ONLY_NO_REAL_CAPTURE" if (qa_cnt > 0 and not counters["aborted"]) else "NO_REAL_CAPTURE")
+        ),
+        "external_requests_attempted": counters["requests_dispatched_actual"] if live_perm else 0,
+        "qa_simulated_requests_count": counters["requests_dispatched_actual"] if is_qa_plan else 0,
+        "requests_reserved_total": counters["requests_reserved_total"],
+        "requests_released_pre_dispatch": counters["requests_released_pre_dispatch"],
+        "requests_dispatched_actual": counters["requests_dispatched_actual"],
+        "requests_completed": counters["requests_completed"],
+        "requests_rejected": counters["requests_rejected"],
+        "requests_accepted": counters["requests_accepted"],
+        "total_bytes_received": counters["wire_bytes_observed_total"],
+        "wire_bytes_observed_total": counters["wire_bytes_observed_total"],
+        "bytes_accepted_total": counters["bytes_accepted_total"],
+        "bytes_staged_total": counters["bytes_staged_total"],
         "accepted_observed_records_count": obs_cnt,
         "qa_fixture_records_count": qa_cnt,
-        "aborted": counters["aborted"],
+        "removed_staged_files_count": removed_staged,
+        "retained_staged_files": retained_staged,
+        "undrained_inflight_workers": counters["undrained_inflight_workers"],
+        "all_required_batches_accounted": all_required_batches_accounted,
+        "aborted": bool(counters["aborted"]),
         "abort_reason": counters["abort_reason"],
+        "dispatch_timestamps_mono": list(dispatch_timestamps_mono),
         "items": items,
+        "aborted_discarded_items_audit": aborted_discarded_audit,
+        "semantic_result_sha256": canonical_hash(sem_view),
+        "volatile_fields_excluded_from_semantic_hash": [
+            "capture_session_id", "dispatch_timestamps_mono", "request_utc_ms", "response_utc_ms",
+            "monotonic_duration_ms", "capture_proof_id", "staged_filename",
+        ],
         "violations": violations,
     }
 
@@ -678,12 +1450,20 @@ class R5DevCustodyJournal:
         *,
         journal_id: str = "kh_03_r5_dev_custody_journal",
         os_disk_probe_fn: Optional[Callable[[], float]] = None,
+        resource_monitor: Optional[Callable[[], Mapping[str, Any]]] = None,
+        resource_max_age_sec: float = DEFAULT_RESOURCE_MAX_AGE_SEC_R5_C1,
+        monotonic_fn: Callable[[], float] = time.monotonic,
     ) -> None:
         if any(tok in str(custody_root).lower().replace("\\", "/") for tok in R5_FORBIDDEN_OOS_PATH_TOKENS):
             raise R5OosAccessDeniedError("R5_CUSTODY_JOURNAL_REFUSES_OOS_NAMESPACE")
+        if _is_symlink_or_junction(Path(custody_root)):
+            raise ValueError("SYMLINK_CUSTODY_ROOT_DENIED")
         self.custody_root = Path(custody_root).resolve()
         self.journal_id = journal_id
         self.os_disk_probe_fn = os_disk_probe_fn
+        self.resource_monitor = resource_monitor
+        self.resource_max_age_sec = float(resource_max_age_sec)
+        self.monotonic_fn = monotonic_fn
         self.blobs_dir = self.custody_root / "blobs"
         self.quarantine_dir = self.custody_root / "quarantine"
         self.journal_path = self.custody_root / "custody_journal.jsonl"
@@ -701,8 +1481,30 @@ class R5DevCustodyJournal:
 
     def _disk_free_gib(self) -> float:
         if self.os_disk_probe_fn is not None:
-            return float(self.os_disk_probe_fn())
+            v = self.os_disk_probe_fn()
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(float(v)) or float(v) < 0.0:
+                raise ValueError(f"INVALID_DISK_PROBE_VALUE:{v!r}")
+            return float(v)
         return shutil.disk_usage(self.custody_root).free / (1024.0 ** 3)
+
+    def _check_pre_write_resources(self) -> Tuple[bool, List[str], float]:
+        if self.resource_monitor is not None:
+            ok, viols, parsed = _require_r5_resource_monitor(
+                self.resource_monitor,
+                self.custody_root,
+                now_monotonic=float(self.monotonic_fn()),
+                max_age_sec=self.resource_max_age_sec,
+            )
+            if not ok or parsed is None:
+                return False, viols, 0.0
+            return True, [], float(parsed["disk_free_gib"])
+        try:
+            dk = self._disk_free_gib()
+        except Exception as exc:
+            return False, [f"DISK_PROBE_ERROR:{exc}"], 0.0
+        if dk < STRICT_RUNTIME_DISK_MIN_GIB_R5:
+            return False, [f"DISK_BELOW_20GIB:{dk:.4f}"], dk
+        return True, [], dk
 
     def read_entries(self) -> List[Dict[str, Any]]:
         if not self.journal_path.is_file():
@@ -728,33 +1530,66 @@ class R5DevCustodyJournal:
         receipt_item: Mapping[str, Any],
         validation: Mapping[str, Any],
         partition: Mapping[str, Any],
+        expected_staging_root: Optional[Path] = None,
         _crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
-        viols: List[str] = []
         if not partition.get("valid") or partition.get("partition_role") not in R5_ALLOWED_PARTITION_ROLES:
             return {"committed": False, "status": "REJECTED_PARTITION", "violations": ["INVALID_OR_UNASSIGNED_PARTITION"]}
         if not validation.get("valid"):
             return {"committed": False, "status": "REJECTED_VALIDATION", "violations": list(validation.get("violations") or ["VALIDATION_FAILED"])}
+        if expected_staging_root is not None:
+            try:
+                _safe_contained_path(staging_path, expected_staging_root)
+            except Exception as exc:
+                return {"committed": False, "status": "REJECTED_STAGING_ESCAPE", "violations": [f"STAGING_PATH_OUTSIDE_ROOT:{exc}"]}
+        if _is_symlink_or_junction(staging_path) or _is_symlink_or_junction(staging_path.parent):
+            return {"committed": False, "status": "REJECTED_SYMLINK", "violations": ["SYMLINK_STAGING_DENIED"]}
         if not staging_path.is_file():
             return {"committed": False, "status": "REJECTED_MISSING_STAGING", "violations": ["MISSING_STAGING_RAW_FILE"]}
-        if _is_symlink_or_junction(staging_path):
-            return {"committed": False, "status": "REJECTED_SYMLINK", "violations": ["SYMLINK_STAGING_DENIED"]}
 
-        dk_gib = self._disk_free_gib()
-        if dk_gib < STRICT_RUNTIME_DISK_MIN_GIB_R5:
-            return {"committed": False, "status": "BLOCKED_LOW_DISK", "violations": [f"DISK_BELOW_20GIB:{dk_gib:.4f}"]}
+        # Mandatory expected_raw_sha (strict 64-hex) BEFORE reading staging bytes!
+        expected_raw_sha = str(receipt_item.get("raw_sha256") or "").strip().lower()
+        if len(expected_raw_sha) != 64 or not all(c in "0123456789abcdef" for c in expected_raw_sha):
+            return {"committed": False, "status": "REJECTED_MISSING_RAW_SHA", "violations": ["MISSING_OR_INVALID_EXPECTED_RAW_SHA256"]}
 
-        raw_bytes = staging_path.read_bytes()
-        if len(raw_bytes) > MAX_RAW_HTTP_BODY_BYTES_C3:
-            return {"committed": False, "status": "REJECTED_OVERSIZE", "violations": ["RAW_BLOB_OVERSIZE"]}
+        # Check file size BEFORE reading bytes into RAM!
+        try:
+            st_size = staging_path.stat().st_size
+        except OSError as exc:
+            return {"committed": False, "status": "REJECTED_STAT_ERROR", "violations": [f"STAGING_STAT_ERROR:{exc}"]}
+        if st_size <= 0:
+            return {"committed": False, "status": "REJECTED_EMPTY_STAGING", "violations": ["EMPTY_STAGING_FILE"]}
+        if st_size > MAX_RAW_HTTP_BODY_BYTES_C3:
+            return {"committed": False, "status": "REJECTED_OVERSIZE", "violations": [f"RAW_BLOB_OVERSIZE_BEFORE_READ:{st_size}>{MAX_RAW_HTTP_BODY_BYTES_C3}"]}
+
+        # Strict resource floor check before read/write
+        res_ok, res_viols, _ = self._check_pre_write_resources()
+        if not res_ok:
+            return {"committed": False, "status": "BLOCKED_LOW_DISK", "violations": res_viols}
+
+        # Bounded stream read (never reads more than MAX_RAW_HTTP_BODY_BYTES_C3 + 1 bytes)
+        chunks: List[bytes] = []
+        total_read = 0
+        with staging_path.open("rb") as fh:
+            while True:
+                chunk = fh.read(min(262_144, (MAX_RAW_HTTP_BODY_BYTES_C3 + 1) - total_read))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total_read += len(chunk)
+                if total_read > MAX_RAW_HTTP_BODY_BYTES_C3:
+                    return {"committed": False, "status": "REJECTED_OVERSIZE", "violations": ["RAW_BLOB_OVERSIZE_STREAM_CAP"]}
+        raw_bytes = b"".join(chunks)
+        if not raw_bytes:
+            return {"committed": False, "status": "REJECTED_EMPTY_STAGING", "violations": ["EMPTY_STAGING_FILE"]}
+
         try:
             safe_bounded_decompress_if_gzip_c3(raw_bytes)
         except Exception as exc:
             return {"committed": False, "status": "REJECTED_DECOMPRESS", "violations": [f"DECOMPRESSION_REJECTED:{exc}"]}
 
         actual_raw_sha = _sha256_bytes(raw_bytes)
-        expected_raw_sha = str(receipt_item.get("raw_sha256") or "")
-        if expected_raw_sha and actual_raw_sha != expected_raw_sha:
+        if actual_raw_sha != expected_raw_sha:
             return {"committed": False, "status": "REJECTED_RAW_SHA_MISMATCH", "violations": ["STAGED_BYTES_SHA_MISMATCH"]}
 
         ev_cls = str(receipt_item.get("evidence_class") or "UNVERIFIED")
@@ -773,6 +1608,10 @@ class R5DevCustodyJournal:
 
         with self._thread_lock:
             with _cross_platform_exclusive_fd_lock(self.lock_path):
+                # Re-check resource floor inside lock immediately before bounded write/fsync!
+                res_ok2, res_viols2, _ = self._check_pre_write_resources()
+                if not res_ok2:
+                    return {"committed": False, "status": "BLOCKED_LOW_DISK", "violations": res_viols2}
                 existing = self.read_entries()
                 # Check idempotency vs conflicting duplicate
                 for ex in existing:
@@ -885,11 +1724,17 @@ def persist_r5_verified_dev_snapshot(
     partition: Mapping[str, Any],
     journal: R5DevCustodyJournal,
     *,
+    expected_staging_root: Optional[Path] = None,
     _crash_hook: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """Thin public wrapper delegating to `R5DevCustodyJournal.persist_snapshot` (§04 #13)."""
     return journal.persist_snapshot(
-        staging_path=staging_path, receipt_item=receipt, validation=validation, partition=partition, _crash_hook=_crash_hook
+        staging_path=staging_path,
+        receipt_item=receipt,
+        validation=validation,
+        partition=partition,
+        expected_staging_root=expected_staging_root,
+        _crash_hook=_crash_hook,
     )
 
 

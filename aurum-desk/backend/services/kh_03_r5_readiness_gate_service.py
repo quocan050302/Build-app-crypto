@@ -227,13 +227,16 @@ def derive_r5_readiness_verdicts(
         else "FAIL"
     )
 
-    # G05: operator authorization fail-closed (no fake CLI/env/prompt approval)
+    # G05: operator authorization fail-closed (no fake CLI/env/prompt approval; C1 release restriction!)
+    # Legacy R5 schema NEVER certifies live capture without KH-03.R5.C1 hardened receipts.
     auth_st = str(approval_state.get("authorization_status") or "BLOCKED_OWNER_AUTHORIZATION")
     live_perm = bool(approval_state.get("live_network_permitted", False))
+    legacy_live_denied_by_c1 = live_perm and not bool(f04.get("c1_hardened_attestation_verified", False))
     g["G05_AUTHORIZATION_FAIL_CLOSED"] = (
         "PASS"
         if (
             f04.get("status") == "PASS"
+            and not legacy_live_denied_by_c1
             and auth_st in ("BLOCKED_OWNER_AUTHORIZATION", "AUTHORIZED_BOUNDED_DEV")
             and (auth_st != "BLOCKED_OWNER_AUTHORIZATION" or not live_perm)
             and bool(f04.get("cli_env_prompt_bypass_blocked", False))

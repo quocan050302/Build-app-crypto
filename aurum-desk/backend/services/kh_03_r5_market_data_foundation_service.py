@@ -30,11 +30,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import hashlib
+import hmac
 import json
 import math
+import os
 from pathlib import Path
+import secrets
 import shutil
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+import threading
+from typing import Any, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
 from services.kh_02_r2_c2_public_capture import (
@@ -59,6 +63,8 @@ from services.v17_9_3_1_2_7_causal_signal_truth import canonical_hash
 
 SPEC_VERSION_KH03_R5 = "KH-03.R5-v1.0"
 SCHEMA_VERSION_KH03_R5 = "kh_03_r5_market_data_foundation_v1"
+SPEC_VERSION_KH03_R5_C1 = "KH-03.R5.C1-v1.0"
+SCHEMA_VERSION_KH03_R5_C1 = "kh_03_r5_c1_capture_safety_v1"
 
 NY_TZ = ZoneInfo("America/New_York")
 STRICT_PREFLIGHT_DISK_MIN_GIB_R5 = max(20.5, float(STRICT_PREFLIGHT_DISK_MIN_GIB_SHARED))
@@ -67,6 +73,42 @@ ADVISORY_DISK_TARGET_GIB_R5 = 25.0
 MAX_GLOBAL_CONCURRENCY_R5 = 4
 DEFAULT_MAX_PAGE_BYTES_R5 = MAX_RAW_HTTP_BODY_BYTES_C3
 DEFAULT_MAX_DECOMPRESSED_BYTES_R5 = MAX_DECOMPRESSED_BODY_BYTES_C3
+HARD_MAX_REQUESTS_R5_C1 = 500
+HARD_MAX_TOTAL_BYTES_R5_C1 = 50 * 1024 * 1024
+HARD_MAX_DURATION_SEC_R5_C1 = 3600
+HARD_MAX_PAGES_R5_C1 = 500
+HARD_MAX_RETRIES_R5_C1 = 3
+HARD_MIN_REQUEST_INTERVAL_MS_R5_C1 = 50
+ALLOWED_CAPTURE_PURPOSES_R5_C1: Tuple[str, ...] = ("DEVELOPMENT_CAPTURE", "QA_FIXTURE")
+ALLOWED_PRODUCT_TYPES_R5_C1: Tuple[str, ...] = ("USDT-FUTURES",)
+FORBIDDEN_OOS_SCOPE_TOKENS_R5_C1: Tuple[str, ...] = (
+    "oos",
+    "oos_escrow",
+    "escrow_oos",
+    "real_oos",
+    "untouched_oos",
+    "prospective_oos_escrow",
+)
+
+CAPTURE_SAFETY_THREAT_MODEL_R5_C1: Dict[str, Any] = {
+    "spec_version": SPEC_VERSION_KH03_R5_C1,
+    "genuine_owner_attestation_status": "BLOCKED_NO_EXTERNAL_VERIFIER_CONFIGURED",
+    "prevents": [
+        "Caller-constructed bare R5OperatorGrant or dict trust_context boolean claiming human owner approval",
+        "Scope mismatch between authorization grant, planner budget, and capture dispatch (symbol, product_type, endpoints, window, budgets, run_id, destination)",
+        "Plan mutation between planning, enqueue, and dispatch, including mutation followed by recomputing public plan_digest_sha256",
+        "Grant expiry between plan creation and rate-limit/retry dispatch boundary",
+        "CLI flags, environment variables, prompt text, or QA fixture grants being promoted to live network capture",
+        "Missing, None, empty, NaN/Inf, bool/string, stale, future, or wrong-volume resource telemetry failing open",
+        "Post-wait deadline/cancel/expiry race and shortening server Retry-After below requested wait",
+    ],
+    "cannot_prove_within_python_process": [
+        "Arbitrary same-process Python code execution patching interpreter globals, module internals, or memory",
+        "Compromised OS clock, filesystem, TLS trust store, or host process memory",
+        "Genuine out-of-band human owner identity without a separate external cryptographic/signed attestation verifier (hence live capture remains BLOCKED by default)",
+        "Zero wire bytes in flight once a blocking stdlib socket read inside asyncio.to_thread has already started",
+    ],
+}
 SUPPORTED_TIMEFRAME_MS_R5: Dict[str, int] = {
     "1m": 60_000,
     "5m": 300_000,
@@ -167,8 +209,10 @@ def _sha256_bytes(data: bytes) -> str:
 class R5OperatorGrant:
     """
     Bounded operator scope control object (NOT by itself proof of human approval!).
-    Human authorization additionally requires explicit out-of-band verified attestation
-    in `trust_context` (`human_operator_attestation_verified=True` and non-QA trust mode).
+    Live public capture requires an independent verified attestation from a genuine
+    `R5OwnerAttestationVerifier` (default verifier ALWAYS denies with
+    `BLOCKED_OWNER_AUTHORIZATION`). Plain dict flags in `trust_context` NEVER prove
+    human operator approval.
     """
     grant_id: str
     issued_by: str
@@ -185,6 +229,866 @@ class R5OperatorGrant:
     run_id: str
     is_qa_fixture_grant: bool = False
     origin_kind: str = "UNVERIFIED_OBJECT"
+    destination_scope: Optional[str] = None
+    max_pages: Optional[int] = None
+    max_response_bytes: Optional[int] = None
+    max_retries_per_request: Optional[int] = None
+    max_concurrency: Optional[int] = None
+    min_request_interval_ms: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class R5AttestationVerificationResult:
+    """Result returned by an independent `R5OwnerAttestationVerifier` at the trust boundary."""
+
+    verified: bool
+    status: str
+    reason: str
+    verifier_id: str
+    grant_id: str
+    attested_at_utc_ms: Optional[int] = None
+
+
+class R5OwnerAttestationVerifier(Protocol):
+    """Trust-boundary interface for out-of-band human owner authorization verification."""
+
+    def verify_owner_attestation(
+        self,
+        grant: R5OperatorGrant,
+        effective_scope: Mapping[str, Any],
+        now_utc: datetime,
+        trust_context: Mapping[str, Any],
+    ) -> R5AttestationVerificationResult:
+        ...
+
+
+class DefaultDenyOwnerAttestationVerifier:
+    """
+    Default fail-closed verifier. Because no external cryptographic owner attestation
+    store is configured in KH-03.R5.C1, live public capture is ALWAYS denied with
+    `BLOCKED_OWNER_AUTHORIZATION` regardless of any caller-provided dict flags.
+    """
+
+    verifier_id: str = "DEFAULT_DENY_NO_EXTERNAL_ATTESTATION_VERIFIER"
+
+    def verify_owner_attestation(
+        self,
+        grant: R5OperatorGrant,
+        effective_scope: Mapping[str, Any],
+        now_utc: datetime,
+        trust_context: Mapping[str, Any],
+    ) -> R5AttestationVerificationResult:
+        return R5AttestationVerificationResult(
+            verified=False,
+            status="BLOCKED_OWNER_AUTHORIZATION",
+            reason="NO_GENUINE_OUT_OF_BAND_OWNER_ATTESTATION_VERIFIER_CONFIGURED",
+            verifier_id=self.verifier_id,
+            grant_id=str(getattr(grant, "grant_id", "") or ""),
+            attested_at_utc_ms=None,
+        )
+
+
+_DEFAULT_DENY_ATTESTATION_VERIFIER = DefaultDenyOwnerAttestationVerifier()
+_SCOPE_BINDING_KEY_C1: bytes = secrets.token_bytes(32)
+_SCOPE_BINDING_PID_C1: int = os.getpid()
+_MAX_BINDING_REGISTRY_C1: int = 4096
+
+
+class _NonSerializableBindingTokenC1:
+    """Process-local non-copyable, non-serializable capability token for scope/plan binding."""
+
+    __slots__ = ("_nonce",)
+
+    def __init__(self, nonce: str) -> None:
+        object.__setattr__(self, "_nonce", nonce)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("BINDING_TOKEN_IMMUTABLE")
+
+    def __copy__(self) -> Any:
+        raise TypeError("BINDING_TOKEN_NON_COPYABLE")
+
+    def __deepcopy__(self, _memo: Any) -> Any:
+        raise TypeError("BINDING_TOKEN_NON_COPYABLE")
+
+    def __reduce__(self) -> Any:
+        raise TypeError("BINDING_TOKEN_NON_SERIALIZABLE")
+
+    def __reduce_ex__(self, _protocol: int) -> Any:
+        raise TypeError("BINDING_TOKEN_NON_SERIALIZABLE")
+
+
+@dataclass(frozen=True)
+class R5TrustedScopeReceipt:
+    """Immutable, process-local scope approval receipt bound to exact effective scope."""
+
+    receipt_id: str
+    spec_version: str
+    mode: str
+    authorization_status: str
+    live_network_permitted: bool
+    grant_id: str
+    issued_by: str
+    purpose: str
+    run_id: str
+    expires_utc_ms: int
+    effective_scope: Dict[str, Any]
+    scope_digest_sha256: str
+    verifier_id: str
+    worker_pid: int
+    receipt_mac_hex: str
+    _token: Optional[_NonSerializableBindingTokenC1] = None
+
+    def __copy__(self) -> Any:
+        raise TypeError("TRUSTED_SCOPE_RECEIPT_NON_COPYABLE")
+
+    def __deepcopy__(self, _memo: Any) -> Any:
+        raise TypeError("TRUSTED_SCOPE_RECEIPT_NON_COPYABLE")
+
+    def __reduce__(self) -> Any:
+        raise TypeError("TRUSTED_SCOPE_RECEIPT_NON_SERIALIZABLE")
+
+    def __reduce_ex__(self, _protocol: int) -> Any:
+        raise TypeError("TRUSTED_SCOPE_RECEIPT_NON_SERIALIZABLE")
+
+
+@dataclass(frozen=True)
+class R5TrustedPlanReceipt:
+    """Immutable, process-local plan binding receipt preventing post-plan/rehashed mutations."""
+
+    plan_receipt_id: str
+    scope_receipt_id: str
+    scope_digest_sha256: str
+    plan_digest_sha256: str
+    spec_version: str
+    partition_role: str
+    live_network_permitted: bool
+    grant_id: str
+    run_id: str
+    expires_utc_ms: int
+    destination_scope: Optional[str]
+    immutable_plan_snapshot_json: str
+    worker_pid: int
+    receipt_mac_hex: str
+    _token: Optional[_NonSerializableBindingTokenC1] = None
+
+    def __copy__(self) -> Any:
+        raise TypeError("TRUSTED_PLAN_RECEIPT_NON_COPYABLE")
+
+    def __deepcopy__(self, _memo: Any) -> Any:
+        raise TypeError("TRUSTED_PLAN_RECEIPT_NON_COPYABLE")
+
+    def __reduce__(self) -> Any:
+        raise TypeError("TRUSTED_PLAN_RECEIPT_NON_SERIALIZABLE")
+
+    def __reduce_ex__(self, _protocol: int) -> Any:
+        raise TypeError("TRUSTED_PLAN_RECEIPT_NON_SERIALIZABLE")
+
+
+def _compute_c1_mac(fields: Mapping[str, Any]) -> str:
+    raw = json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hmac.new(_SCOPE_BINDING_KEY_C1, raw, hashlib.sha256).hexdigest()
+
+
+class _ScopeBindingAuthorityC1:
+    """
+    Process-local registry binding `validate_r5_operator_capture_scope` -> `plan_r5_capture_batches`
+    -> `capture_r5_public_batch`. Defeats forged dicts, missing receipts, plan mutations before or
+    after enqueue, and recomputed-public-digest tampering within the documented threat model.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._scopes: Dict[str, Tuple[R5TrustedScopeReceipt, _NonSerializableBindingTokenC1]] = {}
+        self._scope_order: List[str] = []
+        self._plans: Dict[str, Tuple[R5TrustedPlanReceipt, _NonSerializableBindingTokenC1]] = {}
+        self._plan_order: List[str] = []
+
+    def _evict(self, store: Dict[str, Any], order: List[str]) -> None:
+        while len(order) >= _MAX_BINDING_REGISTRY_C1:
+            oldest = order.pop(0)
+            store.pop(oldest, None)
+
+    def issue_scope(
+        self,
+        *,
+        mode: str,
+        authorization_status: str,
+        live_network_permitted: bool,
+        grant_id: str,
+        issued_by: str,
+        purpose: str,
+        run_id: str,
+        expires_utc_ms: int,
+        effective_scope: Mapping[str, Any],
+        scope_digest_sha256: str,
+        verifier_id: str,
+    ) -> R5TrustedScopeReceipt:
+        nonce = secrets.token_hex(12)
+        rid = f"scp_c1_{canonical_hash({'n': nonce, 'd': scope_digest_sha256, 'r': run_id})[:24]}"
+        eff_copy = json.loads(json.dumps(dict(effective_scope), sort_keys=True))
+        fields = {
+            "receipt_id": rid,
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "mode": mode,
+            "authorization_status": authorization_status,
+            "live_network_permitted": bool(live_network_permitted),
+            "grant_id": grant_id,
+            "issued_by": issued_by,
+            "purpose": purpose,
+            "run_id": run_id,
+            "expires_utc_ms": int(expires_utc_ms),
+            "effective_scope": eff_copy,
+            "scope_digest_sha256": scope_digest_sha256,
+            "verifier_id": verifier_id,
+            "worker_pid": os.getpid(),
+        }
+        mac = _compute_c1_mac(fields)
+        tok = _NonSerializableBindingTokenC1(nonce)
+        rec = R5TrustedScopeReceipt(**fields, receipt_mac_hex=mac, _token=tok)
+        with self._lock:
+            self._evict(self._scopes, self._scope_order)
+            self._scopes[rid] = (rec, tok)
+            self._scope_order.append(rid)
+        return rec
+
+    def verify_scope(
+        self,
+        receipt: Any,
+        *,
+        now_utc: Optional[datetime] = None,
+        expected_run_id: Optional[str] = None,
+        expected_scope_digest: Optional[str] = None,
+    ) -> Tuple[bool, List[str], Optional[R5TrustedScopeReceipt]]:
+        viols: List[str] = []
+        if not isinstance(receipt, R5TrustedScopeReceipt):
+            return False, ["MISSING_OR_INVALID_TRUSTED_SCOPE_RECEIPT"], None
+        with self._lock:
+            reg = self._scopes.get(receipt.receipt_id)
+        if reg is None:
+            return False, ["UNREGISTERED_OR_FORGED_TRUSTED_SCOPE_RECEIPT"], None
+        reg_rec, reg_tok = reg
+        if receipt is not reg_rec or receipt._token is not reg_tok:
+            return False, ["CLONED_OR_TAMPERED_SCOPE_RECEIPT_TOKEN"], None
+        if int(receipt.worker_pid) != os.getpid() or _SCOPE_BINDING_PID_C1 != os.getpid():
+            viols.append("CROSS_PROCESS_SCOPE_RECEIPT_FORBIDDEN")
+        fields = {
+            "receipt_id": receipt.receipt_id,
+            "spec_version": receipt.spec_version,
+            "mode": receipt.mode,
+            "authorization_status": receipt.authorization_status,
+            "live_network_permitted": bool(receipt.live_network_permitted),
+            "grant_id": receipt.grant_id,
+            "issued_by": receipt.issued_by,
+            "purpose": receipt.purpose,
+            "run_id": receipt.run_id,
+            "expires_utc_ms": int(receipt.expires_utc_ms),
+            "effective_scope": receipt.effective_scope,
+            "scope_digest_sha256": receipt.scope_digest_sha256,
+            "verifier_id": receipt.verifier_id,
+            "worker_pid": int(receipt.worker_pid),
+        }
+        if not hmac.compare_digest(receipt.receipt_mac_hex, _compute_c1_mac(fields)):
+            viols.append("SCOPE_RECEIPT_MAC_TAMPERED")
+        if expected_scope_digest is not None and receipt.scope_digest_sha256 != str(expected_scope_digest):
+            viols.append("SCOPE_DIGEST_MISMATCH_VS_TRUSTED_RECEIPT")
+        if expected_run_id is not None and receipt.run_id != str(expected_run_id):
+            viols.append("RUN_ID_SCOPE_MISMATCH")
+        if now_utc is not None:
+            if not isinstance(now_utc, datetime) or now_utc.tzinfo is None:
+                viols.append("INVALID_OR_NAIVE_UTC_CLOCK")
+            else:
+                now_ms = int(now_utc.timestamp() * 1000)
+                if receipt.expires_utc_ms <= now_ms:
+                    viols.append("OPERATOR_GRANT_EXPIRED")
+        return len(viols) == 0, viols, receipt
+
+    def issue_plan(
+        self,
+        *,
+        scope_receipt: R5TrustedScopeReceipt,
+        plan_public_snapshot: Mapping[str, Any],
+        plan_digest_sha256: str,
+    ) -> R5TrustedPlanReceipt:
+        nonce = secrets.token_hex(12)
+        prid = f"pln_c1_{canonical_hash({'n': nonce, 'p': plan_digest_sha256, 's': scope_receipt.receipt_id})[:24]}"
+        snap_json = json.dumps(plan_public_snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        fields = {
+            "plan_receipt_id": prid,
+            "scope_receipt_id": scope_receipt.receipt_id,
+            "scope_digest_sha256": scope_receipt.scope_digest_sha256,
+            "plan_digest_sha256": plan_digest_sha256,
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "partition_role": str(plan_public_snapshot["partition_role"]),
+            "live_network_permitted": bool(plan_public_snapshot["live_network_permitted"]),
+            "grant_id": scope_receipt.grant_id,
+            "run_id": scope_receipt.run_id,
+            "expires_utc_ms": int(scope_receipt.expires_utc_ms),
+            "destination_scope": scope_receipt.effective_scope.get("destination_scope"),
+            "immutable_plan_snapshot_json": snap_json,
+            "worker_pid": os.getpid(),
+        }
+        mac = _compute_c1_mac(fields)
+        tok = _NonSerializableBindingTokenC1(nonce)
+        rec = R5TrustedPlanReceipt(**fields, receipt_mac_hex=mac, _token=tok)
+        with self._lock:
+            self._evict(self._plans, self._plan_order)
+            self._plans[prid] = (rec, tok)
+            self._plan_order.append(prid)
+        return rec
+
+    def verify_plan_receipt(
+        self,
+        plan_receipt: Any,
+        *,
+        scope_receipt: Optional[R5TrustedScopeReceipt] = None,
+        now_utc: Optional[datetime] = None,
+        expected_run_id: Optional[str] = None,
+    ) -> Tuple[bool, List[str], Optional[R5TrustedPlanReceipt], Optional[R5TrustedScopeReceipt]]:
+        viols: List[str] = []
+        if not isinstance(plan_receipt, R5TrustedPlanReceipt):
+            return False, ["MISSING_OR_INVALID_TRUSTED_PLAN_RECEIPT"], None, None
+        with self._lock:
+            reg = self._plans.get(plan_receipt.plan_receipt_id)
+            sreg = self._scopes.get(plan_receipt.scope_receipt_id)
+        if reg is None:
+            return False, ["UNREGISTERED_OR_FORGED_TRUSTED_PLAN_RECEIPT"], None, None
+        reg_rec, reg_tok = reg
+        if plan_receipt is not reg_rec or plan_receipt._token is not reg_tok:
+            return False, ["CLONED_OR_TAMPERED_PLAN_RECEIPT_TOKEN"], None, None
+        if int(plan_receipt.worker_pid) != os.getpid() or _SCOPE_BINDING_PID_C1 != os.getpid():
+            viols.append("CROSS_PROCESS_PLAN_RECEIPT_FORBIDDEN")
+        fields = {
+            "plan_receipt_id": plan_receipt.plan_receipt_id,
+            "scope_receipt_id": plan_receipt.scope_receipt_id,
+            "scope_digest_sha256": plan_receipt.scope_digest_sha256,
+            "plan_digest_sha256": plan_receipt.plan_digest_sha256,
+            "spec_version": plan_receipt.spec_version,
+            "partition_role": plan_receipt.partition_role,
+            "live_network_permitted": bool(plan_receipt.live_network_permitted),
+            "grant_id": plan_receipt.grant_id,
+            "run_id": plan_receipt.run_id,
+            "expires_utc_ms": int(plan_receipt.expires_utc_ms),
+            "destination_scope": plan_receipt.destination_scope,
+            "immutable_plan_snapshot_json": plan_receipt.immutable_plan_snapshot_json,
+            "worker_pid": int(plan_receipt.worker_pid),
+        }
+        if not hmac.compare_digest(plan_receipt.receipt_mac_hex, _compute_c1_mac(fields)):
+            viols.append("PLAN_RECEIPT_MAC_TAMPERED")
+        if sreg is None:
+            return False, viols + ["PLAN_BOUND_SCOPE_RECEIPT_MISSING"], None, None
+        bound_scope = sreg[0]
+        if scope_receipt is not None:
+            if not isinstance(scope_receipt, R5TrustedScopeReceipt) or scope_receipt is not bound_scope:
+                viols.append("PLAN_SCOPE_RECEIPT_BINDING_MISMATCH")
+        s_ok, s_viols, _ = self.verify_scope(
+            bound_scope, now_utc=now_utc, expected_run_id=expected_run_id, expected_scope_digest=plan_receipt.scope_digest_sha256
+        )
+        if not s_ok:
+            viols.extend(s_viols)
+        if expected_run_id is not None and plan_receipt.run_id != str(expected_run_id):
+            viols.append("PLAN_RUN_ID_MISMATCH")
+        return len(viols) == 0, viols, plan_receipt, bound_scope
+
+
+_GLOBAL_SCOPE_AUTHORITY_C1 = _ScopeBindingAuthorityC1()
+
+
+def _strict_pos_int_c1(val: Any, field: str, *, max_val: Optional[int] = None) -> Tuple[Optional[int], Optional[str]]:
+    if isinstance(val, bool) or not isinstance(val, int):
+        return None, f"INVALID_INT_TYPE:{field}:{type(val).__name__}"
+    if val <= 0:
+        return None, f"NON_POSITIVE_INT:{field}:{val}"
+    if max_val is not None and val > max_val:
+        return None, f"INT_EXCEEDS_HARD_CEILING:{field}:{val}>{max_val}"
+    return int(val), None
+
+
+def _strict_nonneg_int_c1(val: Any, field: str, *, max_val: Optional[int] = None) -> Tuple[Optional[int], Optional[str]]:
+    if isinstance(val, bool) or not isinstance(val, int):
+        return None, f"INVALID_INT_TYPE:{field}:{type(val).__name__}"
+    if val < 0:
+        return None, f"NEGATIVE_INT:{field}:{val}"
+    if max_val is not None and val > max_val:
+        return None, f"INT_EXCEEDS_HARD_CEILING:{field}:{val}>{max_val}"
+    return int(val), None
+
+
+def _strict_finite_float_c1(val: Any, field: str) -> Tuple[Optional[float], Optional[str]]:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return None, f"INVALID_FLOAT_TYPE:{field}:{type(val).__name__}"
+    fv = float(val)
+    if not math.isfinite(fv):
+        return None, f"NONFINITE_FLOAT:{field}:{val!r}"
+    return fv, None
+
+
+def _strict_canonical_id_c1(val: Any, field: str) -> Tuple[Optional[str], Optional[str]]:
+    if not isinstance(val, str):
+        return None, f"INVALID_STR_TYPE:{field}:{type(val).__name__}"
+    s = val.strip()
+    if not s or s != val or any(ch.isspace() for ch in s):
+        return None, f"MALFORMED_CANONICAL_ID:{field}:{val!r}"
+    return s, None
+
+
+def _contains_forbidden_oos_token_c1(text: str) -> bool:
+    low = str(text or "").lower().replace("\\", "/")
+    return any(tok in low for tok in FORBIDDEN_OOS_SCOPE_TOKENS_R5_C1)
+
+
+def _normalize_r5_capture_scope_strict(requested_scope: Any) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
+    """
+    Strictly validates and normalizes `requested_scope`.
+    Fail-closed on non-mappings, secrets, bool-as-int, NaN/Inf, missing mandatory fields,
+    duplicate/unsupported endpoints, invalid/inverted UTC ms window, or OOS purpose/destination.
+    """
+    if not isinstance(requested_scope, Mapping):
+        return False, ["REQUESTED_SCOPE_NOT_MAPPING"], None
+    raw_dict = dict(requested_scope)
+    if scan_for_forbidden_secrets_r2_c1(raw_dict):
+        return False, ["FORBIDDEN_SECRET_IN_CAPTURE_SCOPE_OR_CONTEXT"], None
+
+    viols: List[str] = []
+    sym, e = _strict_canonical_id_c1(raw_dict.get("symbol"), "symbol")
+    if e:
+        viols.append(e)
+    elif sym != sym.upper():
+        viols.append(f"NON_CANONICAL_SYMBOL:{sym!r}")
+
+    pt, e = _strict_canonical_id_c1(raw_dict.get("product_type"), "product_type")
+    if e:
+        viols.append(e)
+    elif pt not in ALLOWED_PRODUCT_TYPES_R5_C1:
+        viols.append(f"UNSUPPORTED_PRODUCT_TYPE:{pt!r}")
+
+    rid, e = _strict_canonical_id_c1(raw_dict.get("run_id"), "run_id")
+    if e:
+        viols.append(e)
+    elif _contains_forbidden_oos_token_c1(rid or ""):
+        viols.append("OOS_TOKEN_FORBIDDEN_IN_RUN_ID")
+
+    purp, e = _strict_canonical_id_c1(raw_dict.get("purpose"), "purpose")
+    if e:
+        viols.append(e)
+    else:
+        if _contains_forbidden_oos_token_c1(purp or ""):
+            viols.append("OOS_CAPTURE_OR_EVALUATION_FORBIDDEN_IN_R5")
+        elif purp not in ALLOWED_CAPTURE_PURPOSES_R5_C1:
+            viols.append(f"FORBIDDEN_CAPTURE_PURPOSE:{purp!r}")
+
+    eps_raw = raw_dict.get("endpoints")
+    norm_eps: List[str] = []
+    if not isinstance(eps_raw, (list, tuple)) or len(eps_raw) == 0:
+        viols.append("MISSING_OR_EMPTY_ENDPOINTS")
+    else:
+        seen_ep: set[str] = set()
+        for ep in eps_raw:
+            ep_s, ep_e = _strict_canonical_id_c1(ep, "endpoint")
+            if ep_e:
+                viols.append(ep_e)
+                continue
+            assert ep_s is not None
+            if ep_s in seen_ep:
+                viols.append(f"DUPLICATE_ENDPOINT_IN_SCOPE:{ep_s}")
+                continue
+            seen_ep.add(ep_s)
+            if ep_s not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
+                viols.append(f"REQUESTED_ENDPOINT_NOT_IN_PUBLIC_GET_ALLOWLIST:{ep_s}")
+                continue
+            url_ep = str(OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2[ep_s]["url"])
+            path_part = url_ep.split(OFFICIAL_BITGET_PUBLIC_HOST_C3, 1)[-1]
+            if path_part not in OFFICIAL_BITGET_PUBLIC_PATHS_C3 or any(t in url_ep.lower() for t in FORBIDDEN_URL_TOKENS_C2):
+                viols.append(f"ENDPOINT_OUTSIDE_C3_TRUST_BOUNDARY:{ep_s}")
+                continue
+            norm_eps.append(ep_s)
+
+    ws: Optional[int] = None
+    we: Optional[int] = None
+    for k_name in ("window_start_ms", "window_end_ms"):
+        if raw_dict.get(k_name) is None:
+            viols.append(f"MISSING_REQUIRED_FIELD:{k_name}")
+        elif not _is_strict_int(raw_dict.get(k_name)):
+            viols.append(f"INVALID_INT_TYPE:{k_name}:{type(raw_dict.get(k_name)).__name__}")
+        else:
+            try:
+                v_ms = _to_utc_ms(raw_dict[k_name], field=k_name)
+                if k_name == "window_start_ms":
+                    ws = v_ms
+                else:
+                    we = v_ms
+            except ValueError as exc:
+                viols.append(str(exc))
+    if ws is not None and we is not None and we <= ws:
+        viols.append("INVALID_CAPTURE_TIME_WINDOW")
+
+    req_max_req, e = _strict_pos_int_c1(raw_dict.get("max_requests"), "max_requests", max_val=HARD_MAX_REQUESTS_R5_C1)
+    if e:
+        viols.append(e)
+    req_max_bytes, e = _strict_pos_int_c1(raw_dict.get("max_total_bytes"), "max_total_bytes", max_val=HARD_MAX_TOTAL_BYTES_R5_C1)
+    if e:
+        viols.append(e)
+    req_max_dur, e = _strict_pos_int_c1(raw_dict.get("max_duration_sec"), "max_duration_sec", max_val=HARD_MAX_DURATION_SEC_R5_C1)
+    if e:
+        viols.append(e)
+
+    # Optional explicit bounded fields (strict type check when supplied)
+    opt_vals: Dict[str, Optional[int]] = {}
+    for fk, max_c, allow_zero in (
+        ("max_pages", HARD_MAX_PAGES_R5_C1, False),
+        ("max_response_bytes", DEFAULT_MAX_PAGE_BYTES_R5, False),
+        ("max_retries_per_request", HARD_MAX_RETRIES_R5_C1, True),
+        ("max_concurrency", MAX_GLOBAL_CONCURRENCY_R5, False),
+        ("min_request_interval_ms", 60_000, False),
+    ):
+        if fk in raw_dict and raw_dict[fk] is not None:
+            v_i, err_i = _strict_nonneg_int_c1(raw_dict[fk], fk, max_val=max_c) if allow_zero else _strict_pos_int_c1(raw_dict[fk], fk, max_val=max_c)
+            if err_i:
+                viols.append(err_i)
+            elif fk == "min_request_interval_ms" and v_i is not None and v_i < HARD_MIN_REQUEST_INTERVAL_MS_R5_C1:
+                viols.append(f"MIN_REQUEST_INTERVAL_BELOW_FLOOR:{v_i}<{HARD_MIN_REQUEST_INTERVAL_MS_R5_C1}")
+            opt_vals[fk] = v_i
+        else:
+            opt_vals[fk] = None
+
+    dest_scope = raw_dict.get("destination_scope")
+    if dest_scope is not None:
+        if not isinstance(dest_scope, str) or not dest_scope.strip():
+            viols.append("INVALID_DESTINATION_SCOPE")
+        elif _contains_forbidden_oos_token_c1(dest_scope):
+            viols.append("OOS_DESTINATION_SCOPE_FORBIDDEN")
+        else:
+            dest_scope = dest_scope.strip()
+
+    if raw_dict.get("grant_id") is not None:
+        gid_s, gid_e = _strict_canonical_id_c1(raw_dict.get("grant_id"), "grant_id")
+        if gid_e:
+            viols.append(gid_e)
+        req_grant_id = gid_s
+    else:
+        req_grant_id = None
+
+    if viols:
+        return False, viols, None
+
+    return True, [], {
+        "symbol": sym,
+        "product_type": pt,
+        "endpoints": tuple(norm_eps),
+        "run_id": rid,
+        "purpose": purp,
+        "window_start_ms": ws,
+        "window_end_ms": we,
+        "max_requests": req_max_req,
+        "max_total_bytes": req_max_bytes,
+        "max_duration_sec": req_max_dur,
+        "max_pages": opt_vals["max_pages"],
+        "max_response_bytes": opt_vals["max_response_bytes"],
+        "max_retries_per_request": opt_vals["max_retries_per_request"],
+        "max_concurrency": opt_vals["max_concurrency"],
+        "min_request_interval_ms": opt_vals["min_request_interval_ms"],
+        "destination_scope": dest_scope,
+        "grant_id": req_grant_id,
+    }
+
+
+def _validate_r5_budget_within_scope(
+    budget: Any,
+    effective_scope: Mapping[str, Any],
+) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
+    """
+    Validates planner `budget` strictly against approved `effective_scope` and hard local caps.
+    NEVER silently clamps an unauthorized larger request/endpoint/window/symbol — fails closed!
+    Permits exact match or explicit strictly smaller authorized subset.
+    """
+    if not isinstance(budget, Mapping):
+        return False, ["BUDGET_NOT_MAPPING"], None
+    b = dict(budget)
+    if scan_for_forbidden_secrets_r2_c1(b):
+        return False, ["FORBIDDEN_SECRET_IN_BUDGET"], None
+
+    viols: List[str] = []
+    if b.get("owner_waive_disk_preflight") is True:
+        viols.append("DISK_WAIVER_STRICTLY_FORBIDDEN_IN_R5")
+    elif "owner_waive_disk_preflight" in b and not isinstance(b["owner_waive_disk_preflight"], bool):
+        viols.append("INVALID_DISK_WAIVER_FLAG_TYPE")
+
+    disk_free, e = _strict_finite_float_c1(b.get("destination_disk_free_gib"), "destination_disk_free_gib")
+    if e:
+        viols.append(e)
+    elif disk_free is not None and disk_free < STRICT_PREFLIGHT_DISK_MIN_GIB_R5:
+        viols.append(f"BLOCKED_LOW_DISK_PREFLIGHT:{disk_free:.4f}<{STRICT_PREFLIGHT_DISK_MIN_GIB_R5}")
+
+    # Scope identity fields: if supplied in budget, MUST match effective_scope!
+    for fk in ("symbol", "product_type", "run_id", "purpose", "grant_id"):
+        if fk in b and b[fk] is not None:
+            if str(b[fk]) != str(effective_scope.get(fk)):
+                viols.append(f"PLAN_BUDGET_SCOPE_MISMATCH:{fk}:got={b[fk]!r}!=approved={effective_scope.get(fk)!r}")
+    if "destination_scope" in b and b["destination_scope"] is not None:
+        if _contains_forbidden_oos_token_c1(str(b["destination_scope"])):
+            viols.append("OOS_DESTINATION_SCOPE_FORBIDDEN")
+        if effective_scope.get("destination_scope") is not None and str(b["destination_scope"]).strip() != str(effective_scope["destination_scope"]).strip():
+            viols.append("PLAN_BUDGET_DESTINATION_SCOPE_MISMATCH")
+
+    # Endpoints: default to effective_scope["endpoints"]; if provided, MUST be non-empty unique subset!
+    approved_eps = list(effective_scope["endpoints"])
+    if "endpoints" in b and b["endpoints"] is not None:
+        if not isinstance(b["endpoints"], (list, tuple)) or len(b["endpoints"]) == 0:
+            viols.append("INVALID_OR_EMPTY_PLAN_ENDPOINTS")
+            plan_eps: List[str] = []
+        else:
+            seen: set[str] = set()
+            plan_eps = []
+            for ep in b["endpoints"]:
+                ep_s, ep_e = _strict_canonical_id_c1(ep, "endpoint")
+                if ep_e:
+                    viols.append(ep_e)
+                    continue
+                assert ep_s is not None
+                if ep_s in seen:
+                    viols.append(f"DUPLICATE_ENDPOINT_IN_PLAN_BUDGET:{ep_s}")
+                    continue
+                seen.add(ep_s)
+                if ep_s not in approved_eps:
+                    viols.append(f"PLAN_ENDPOINT_OUTSIDE_APPROVED_SCOPE:{ep_s}")
+                    continue
+                plan_eps.append(ep_s)
+    else:
+        plan_eps = list(approved_eps)
+
+    # Window: default to approved effective window; if provided, MUST lie strictly within approved window!
+    eff_ws = int(effective_scope["window_start_ms"])
+    eff_we = int(effective_scope["window_end_ms"])
+    plan_ws = eff_ws
+    plan_we = eff_we
+    if "window_start_ms" in b and b["window_start_ms"] is not None:
+        if not _is_strict_int(b["window_start_ms"]):
+            viols.append("INVALID_INT_TYPE:window_start_ms")
+        else:
+            try:
+                plan_ws = _to_utc_ms(b["window_start_ms"], field="window_start_ms")
+                if plan_ws < eff_ws:
+                    viols.append(f"PLAN_WINDOW_START_BEFORE_APPROVED_SCOPE:{plan_ws}<{eff_ws}")
+            except ValueError as exc:
+                viols.append(str(exc))
+    if "window_end_ms" in b and b["window_end_ms"] is not None:
+        if not _is_strict_int(b["window_end_ms"]):
+            viols.append("INVALID_INT_TYPE:window_end_ms")
+        else:
+            try:
+                plan_we = _to_utc_ms(b["window_end_ms"], field="window_end_ms")
+                if plan_we > eff_we:
+                    viols.append(f"PLAN_WINDOW_END_AFTER_APPROVED_SCOPE:{plan_we}>{eff_we}")
+            except ValueError as exc:
+                viols.append(str(exc))
+    if plan_we <= plan_ws:
+        viols.append("INVALID_PLAN_TIME_WINDOW")
+
+    # Numeric budget bounds: strict positive ints, NEVER exceeding effective_scope or local ceilings!
+    def _bound_pos(key: str, eff_cap: int, hard_cap: int, default_val: Optional[int] = None) -> Optional[int]:
+        raw_v = b.get(key, default_val)
+        v_i, err_i = _strict_pos_int_c1(raw_v, key, max_val=hard_cap)
+        if err_i:
+            viols.append(err_i)
+            return None
+        assert v_i is not None
+        if v_i > eff_cap:
+            viols.append(f"PLAN_BUDGET_EXCEEDS_APPROVED_SCOPE:{key}:{v_i}>{eff_cap}")
+            return None
+        return v_i
+
+    max_req = _bound_pos("max_requests", int(effective_scope["max_requests"]), HARD_MAX_REQUESTS_R5_C1)
+    max_bytes = _bound_pos("max_total_bytes", int(effective_scope["max_total_bytes"]), HARD_MAX_TOTAL_BYTES_R5_C1)
+    max_dur = _bound_pos("max_duration_sec", int(effective_scope["max_duration_sec"]), HARD_MAX_DURATION_SEC_R5_C1)
+    max_pages = _bound_pos("max_pages", int(effective_scope["max_pages"]), HARD_MAX_PAGES_R5_C1)
+    max_conc = _bound_pos("max_concurrency", int(effective_scope["max_concurrency"]), MAX_GLOBAL_CONCURRENCY_R5)
+    max_resp = _bound_pos(
+        "max_response_bytes",
+        int(effective_scope["max_response_bytes"]),
+        DEFAULT_MAX_PAGE_BYTES_R5,
+        default_val=int(effective_scope["max_response_bytes"]),
+    )
+
+    raw_ret = b.get("max_retries_per_request", int(effective_scope["max_retries_per_request"]))
+    max_ret, err_ret = _strict_nonneg_int_c1(raw_ret, "max_retries_per_request", max_val=HARD_MAX_RETRIES_R5_C1)
+    if err_ret:
+        viols.append(err_ret)
+    elif max_ret is not None and max_ret > int(effective_scope["max_retries_per_request"]):
+        viols.append(f"PLAN_BUDGET_EXCEEDS_APPROVED_SCOPE:max_retries_per_request:{max_ret}>{effective_scope['max_retries_per_request']}")
+
+    raw_iv = b.get("min_request_interval_ms", int(effective_scope["min_request_interval_ms"]))
+    min_iv, err_iv = _strict_pos_int_c1(raw_iv, "min_request_interval_ms", max_val=60_000)
+    if err_iv:
+        viols.append(err_iv)
+    elif min_iv is not None and min_iv < int(effective_scope["min_request_interval_ms"]):
+        viols.append(f"PLAN_RATE_INTERVAL_FASTER_THAN_APPROVED_SCOPE:{min_iv}<{effective_scope['min_request_interval_ms']}")
+
+    if max_req is not None and len(plan_eps) > max_req:
+        viols.append(f"PLAN_BATCH_COUNT_EXCEEDS_MAX_REQUESTS:{len(plan_eps)}>{max_req}")
+    if max_pages is not None and len(plan_eps) > max_pages:
+        viols.append(f"PLAN_BATCH_COUNT_EXCEEDS_MAX_PAGES:{len(plan_eps)}>{max_pages}")
+
+    projected_post_gib = 0.0
+    if disk_free is not None and max_bytes is not None:
+        projected_post_gib = disk_free - (max_bytes / (1024.0 ** 3)) - 0.05
+        if projected_post_gib < STRICT_RUNTIME_DISK_MIN_GIB_R5:
+            viols.append(f"PROJECTED_DISK_POST_CAPTURE_BELOW_20GIB:{projected_post_gib:.4f}")
+
+    if viols:
+        return False, viols, None
+
+    return True, [], {
+        "endpoints": plan_eps,
+        "window_start_ms": plan_ws,
+        "window_end_ms": plan_we,
+        "max_requests": max_req,
+        "max_total_bytes": max_bytes,
+        "max_duration_sec": max_dur,
+        "max_pages": max_pages,
+        "max_response_bytes": max_resp,
+        "max_retries_per_request": max_ret,
+        "max_concurrency": max_conc,
+        "min_request_interval_ms": min_iv,
+        "destination_disk_free_gib": round(float(disk_free), 4),
+        "projected_post_capture_disk_gib": round(float(projected_post_gib), 4),
+    }
+
+
+def _validate_r5_plan_binding_strict(
+    plan: Any,
+    trusted_scope: Optional[Any],
+    now_utc: datetime,
+    *,
+    expected_run_id: Optional[str] = None,
+    destination_root: Optional[Path] = None,
+) -> Tuple[bool, List[str], Optional[R5TrustedPlanReceipt], Optional[R5TrustedScopeReceipt]]:
+    """
+    Validates immutable semantic + cryptographic-MAC/process-local binding between `plan`,
+    `trusted_scope` (optional explicit scope decision or receipt), `now_utc`, `expected_run_id`,
+    and `destination_root`. Defeats raw forged plans, mutated plans, recomputed public digests,
+    expired grants, cross-run reuse, destination drift, and endpoint/URL mismatches.
+    """
+    if not isinstance(plan, Mapping):
+        return False, ["PLAN_NOT_MAPPING"], None, None
+    if not isinstance(now_utc, datetime) or now_utc.tzinfo is None:
+        return False, ["INVALID_OR_NAIVE_UTC_CLOCK"], None, None
+
+    viols: List[str] = []
+    if plan.get("oos_designation_forbidden") is not True:
+        viols.append("PLAN_MISSING_OOS_FORBIDDEN_LOCK")
+
+    role = str(plan.get("partition_role") or "")
+    if role not in ALLOWED_CAPTURE_PURPOSES_R5_C1:
+        viols.append(f"INVALID_PLAN_PARTITION_ROLE:{role!r}")
+    if _contains_forbidden_oos_token_c1(role):
+        viols.append("OOS_PARTITION_ROLE_FORBIDDEN")
+
+    scope_rec_arg: Optional[R5TrustedScopeReceipt] = None
+    if trusted_scope is not None:
+        if isinstance(trusted_scope, R5TrustedScopeReceipt):
+            scope_rec_arg = trusted_scope
+        elif isinstance(trusted_scope, Mapping):
+            sr = trusted_scope.get("_trusted_scope_receipt")
+            if not isinstance(sr, R5TrustedScopeReceipt):
+                return False, ["FORGED_OR_MISSING_TRUSTED_SCOPE_RECEIPT"], None, None
+            if trusted_scope.get("admitted") is not True:
+                return False, ["TRUSTED_SCOPE_NOT_ADMITTED"], None, None
+            if str(trusted_scope.get("scope_digest_sha256") or "") != sr.scope_digest_sha256:
+                return False, ["TRUSTED_SCOPE_DIGEST_TAMPERED"], None, None
+            scope_rec_arg = sr
+        else:
+            return False, ["INVALID_TRUSTED_SCOPE_TYPE"], None, None
+
+    plan_rec_raw = plan.get("_trusted_plan_receipt")
+    pr_ok, pr_viols, plan_rec, bound_scope = _GLOBAL_SCOPE_AUTHORITY_C1.verify_plan_receipt(
+        plan_rec_raw, scope_receipt=scope_rec_arg, now_utc=now_utc, expected_run_id=expected_run_id
+    )
+    if not pr_ok or plan_rec is None or bound_scope is None:
+        return False, viols + pr_viols, None, None
+
+    # Compare public plan view strictly against BOTH its own digest AND the registered immutable snapshot!
+    public_view = {k: v for k, v in plan.items() if not str(k).startswith("_") and k != "plan_digest_sha256"}
+    try:
+        recomputed_digest = canonical_hash(public_view)
+        current_snap_json = json.dumps(public_view, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    except Exception as exc:
+        return False, [f"PLAN_SERIALIZATION_ERROR:{exc}"], None, None
+
+    if str(plan.get("plan_digest_sha256") or "") != recomputed_digest:
+        viols.append("PLAN_DIGEST_MISMATCH_OR_MUTATED")
+    if recomputed_digest != plan_rec.plan_digest_sha256:
+        viols.append("PLAN_DIGEST_DRIFT_VS_TRUSTED_PLAN_RECEIPT")
+    if current_snap_json != plan_rec.immutable_plan_snapshot_json:
+        viols.append("PLAN_SNAPSHOT_MUTATED_AFTER_ISSUE")
+    if str(plan.get("scope_digest_sha256") or "") != bound_scope.scope_digest_sha256:
+        viols.append("PLAN_SCOPE_DIGEST_MISMATCH")
+
+    # Enforce strict QA vs Live isolation
+    live_perm = bool(plan.get("live_network_permitted", False))
+    if live_perm != bound_scope.live_network_permitted:
+        viols.append("PLAN_LIVE_PERMISSION_ESCALATION_MISMATCH")
+    if live_perm and (role != "DEVELOPMENT_CAPTURE" or bound_scope.authorization_status != "AUTHORIZED_BOUNDED_DEV"):
+        viols.append("LIVE_NETWORK_REQUIRES_VERIFIED_DEV_SCOPE")
+    if not live_perm and role != "QA_FIXTURE":
+        viols.append("NON_LIVE_PLAN_MUST_BE_QA_FIXTURE")
+
+    # Destination containment / OOS token / destination_scope binding
+    if destination_root is not None:
+        dest_str = str(destination_root)
+        if _contains_forbidden_oos_token_c1(dest_str):
+            viols.append("OOS_DESTINATION_PATH_FORBIDDEN")
+        if plan_rec.destination_scope is not None:
+            norm_dest = str(Path(destination_root).resolve())
+            norm_scope = str(Path(plan_rec.destination_scope).resolve())
+            try:
+                Path(norm_dest).relative_to(Path(norm_scope))
+            except ValueError:
+                viols.append("DESTINATION_OUTSIDE_APPROVED_DESTINATION_SCOPE")
+
+    # Re-verify every batch's endpoint/URL/method/symbol/product/window against bound_scope + C2/C3 allowlist!
+    eff = bound_scope.effective_scope
+    batches = plan.get("batches")
+    if not isinstance(batches, list) or len(batches) == 0:
+        viols.append("EMPTY_OR_INVALID_BATCHES")
+    else:
+        seen_bids: set[str] = set()
+        seen_eps: set[str] = set()
+        for b_item in batches:
+            if not isinstance(b_item, Mapping):
+                viols.append("BATCH_NOT_MAPPING")
+                continue
+            bid = str(b_item.get("batch_id") or "")
+            if not bid or bid in seen_bids:
+                viols.append(f"DUPLICATE_OR_EMPTY_BATCH_ID:{bid!r}")
+            seen_bids.add(bid)
+            ep_k = str(b_item.get("endpoint_key") or "")
+            if ep_k in seen_eps:
+                viols.append(f"DUPLICATE_ENDPOINT_IN_PLAN_BATCHES:{ep_k}")
+            seen_eps.add(ep_k)
+            if ep_k not in eff["endpoints"] or ep_k not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
+                viols.append(f"BATCH_ENDPOINT_UNAUTHORIZED:{ep_k}")
+                continue
+            expected_url = str(OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2[ep_k]["url"])
+            if str(b_item.get("url") or "") != expected_url:
+                viols.append(f"BATCH_URL_KEY_MISMATCH:{ep_k}:{b_item.get('url')!r}!={expected_url!r}")
+            if str(b_item.get("method") or "") != "GET":
+                viols.append(f"BATCH_NON_GET_METHOD_FORBIDDEN:{b_item.get('method')!r}")
+            if str(b_item.get("symbol") or "") != str(eff["symbol"]) or str(b_item.get("product_type") or "") != str(eff["product_type"]):
+                viols.append("BATCH_SYMBOL_OR_PRODUCT_MISMATCH")
+            b_ws = b_item.get("window_start_ms")
+            b_we = b_item.get("window_end_ms")
+            if not _is_strict_int(b_ws) or not _is_strict_int(b_we) or int(b_ws) < int(eff["window_start_ms"]) or int(b_we) > int(eff["window_end_ms"]) or int(b_we) <= int(b_ws):
+                viols.append("BATCH_WINDOW_OUTSIDE_APPROVED_SCOPE")
+            if scan_for_forbidden_secrets_r2_c1(dict(b_item)):
+                viols.append(f"FORBIDDEN_SECRET_IN_BATCH:{bid}")
+
+        bud = plan.get("budget") or {}
+        if _is_strict_int(bud.get("max_requests")) and len(batches) > int(bud["max_requests"]):
+            viols.append("BATCH_COUNT_EXCEEDS_PLAN_MAX_REQUESTS")
+        if _is_strict_int(bud.get("max_pages")) and len(batches) > int(bud["max_pages"]):
+            viols.append("BATCH_COUNT_EXCEEDS_PLAN_MAX_PAGES")
+
+    return len(viols) == 0, viols, plan_rec, bound_scope
 
 
 # =====================================================================
@@ -285,33 +1189,57 @@ def build_r5_source_capability_inventory(
 
 
 # =====================================================================
-# 2. validate_r5_operator_capture_scope
+# 2. validate_r5_operator_capture_scope (KH-03.R5.C1 Hardened P1-A)
 # =====================================================================
 def validate_r5_operator_capture_scope(
     authorization: Optional[Any],
     requested_scope: Mapping[str, Any],
     now_utc: datetime,
     trust_context: Optional[Mapping[str, Any]] = None,
+    *,
+    attestation_verifier: Optional[R5OwnerAttestationVerifier] = None,
 ) -> Dict[str, Any]:
     """
-    Fail-closed operator capture scope validator.
-    NEVER accepts a CLI bool, env var, QA token, prompt text, or bare dataclass as proof
-    of live human approval. Live public DEV capture requires:
-      - `authorization` is an `R5OperatorGrant` with `is_qa_fixture_grant=False`
-      - `trust_context["human_operator_attestation_verified"] is True`
-      - `trust_context["attestation_source"] == "EXPLICIT_SEPARATE_OWNER_GRANT"`
-      - `trust_context["qa_fixture_mode"] is False`
-      - `purpose == "DEVELOPMENT_CAPTURE"` (NEVER OOS!)
-      - exact symbol/contract/endpoint/window/budget/expiry/run_id match and zero secrets!
-    Offline QA fixture simulation is admitted strictly as `QA_FIXTURE_ONLY` (zero live network!).
+    Fail-closed operator capture scope validator (KH-03.R5.C1 hardened).
+    - Strict schema/type validation: rejects bool-as-int, NaN/Inf, None, malformed/duplicate
+      endpoints, invalid/inverted UTC ms window, missing mandatory scope fields, OOS tokens,
+      or embedded secrets.
+    - Full grant-to-request comparison: symbol, product_type, endpoints subset, window start/end
+      within grant, max_requests, max_total_bytes, max_duration_sec, optional sub-caps, run_id,
+      purpose, grant_id, destination_scope, and expiry (`expires_utc_ms > now_utc_ms`).
+    - NEVER accepts CLI flags, env vars, prompt text, bare `R5OperatorGrant`, or caller-supplied
+      `trust_context["human_operator_attestation_verified"]` dicts as proof of human approval.
+    - Live path invokes an explicit `R5OwnerAttestationVerifier`; default verifier ALWAYS denies
+      (`BLOCKED_OWNER_AUTHORIZATION`) until a genuine external trust boundary verifier exists.
+    - Returns typed immutable `effective_scope`, audit `scope_digest_sha256`, and a process-local
+      non-serializable `_trusted_scope_receipt` bound to `plan_r5_capture_batches`.
     """
+    if trust_context is not None and not isinstance(trust_context, Mapping):
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+            "authorization_status": "INVALID",
+            "live_network_permitted": False,
+            "violations": ["TRUST_CONTEXT_NOT_MAPPING"],
+        }
     tc = dict(trust_context or {})
+
+    if not isinstance(now_utc, datetime) or now_utc.tzinfo is None:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+            "authorization_status": "INVALID",
+            "live_network_permitted": False,
+            "violations": ["INVALID_OR_NAIVE_UTC_CLOCK"],
+        }
     now_ms = int(now_utc.timestamp() * 1000)
     violations: List[str] = []
 
-    # Reject any secret accidentally embedded in requested_scope or trust_context
-    if scan_for_forbidden_secrets_r2_c1(dict(requested_scope)) or scan_for_forbidden_secrets_r2_c1(tc):
+    if scan_for_forbidden_secrets_r2_c1(tc) or (isinstance(requested_scope, Mapping) and scan_for_forbidden_secrets_r2_c1(dict(requested_scope))):
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "admitted": False,
             "mode": "REJECTED_FORBIDDEN_SECRET",
             "authorization_status": "INVALID",
@@ -325,6 +1253,7 @@ def validate_r5_operator_capture_scope(
 
     if authorization is None:
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "admitted": False,
             "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
             "authorization_status": "BLOCKED_OWNER_AUTHORIZATION",
@@ -334,6 +1263,7 @@ def validate_r5_operator_capture_scope(
 
     if not isinstance(authorization, R5OperatorGrant):
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "admitted": False,
             "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
             "authorization_status": "INVALID",
@@ -341,166 +1271,510 @@ def validate_r5_operator_capture_scope(
             "violations": violations + ["AUTHORIZATION_OBJECT_TYPE_INVALID"],
         }
 
-    # Validate grant fields strictly
-    if authorization.purpose not in ("DEVELOPMENT_CAPTURE", "QA_FIXTURE"):
-        violations.append(f"FORBIDDEN_CAPTURE_PURPOSE:{authorization.purpose}")
-    if "OOS" in str(authorization.purpose).upper() or "OOS" in str(requested_scope.get("purpose", "")).upper():
-        violations.append("OOS_CAPTURE_OR_EVALUATION_FORBIDDEN_IN_R5")
-    if authorization.expires_utc_ms <= now_ms:
-        violations.append("OPERATOR_GRANT_EXPIRED")
-    if authorization.window_end_ms <= authorization.window_start_ms:
-        violations.append("INVALID_CAPTURE_TIME_WINDOW")
-    if authorization.max_requests <= 0 or authorization.max_requests > 500:
-        violations.append(f"INVALID_MAX_REQUESTS:{authorization.max_requests}")
-    if authorization.max_total_bytes <= 0 or authorization.max_total_bytes > 50 * 1024 * 1024:
-        violations.append(f"INVALID_MAX_TOTAL_BYTES:{authorization.max_total_bytes}")
-    if authorization.max_duration_sec <= 0 or authorization.max_duration_sec > 3600:
-        violations.append(f"INVALID_MAX_DURATION_SEC:{authorization.max_duration_sec}")
-
-    req_sym = str(requested_scope.get("symbol") or "")
-    req_pt = str(requested_scope.get("product_type") or "")
-    req_eps = tuple(requested_scope.get("endpoints") or ())
-    req_rid = str(requested_scope.get("run_id") or "")
-    if req_sym != authorization.symbol or req_pt != authorization.product_type:
-        violations.append("SYMBOL_OR_PRODUCT_TYPE_SCOPE_MISMATCH")
-    if not req_eps or any(ep not in authorization.allowed_endpoints for ep in req_eps):
-        violations.append("REQUESTED_ENDPOINT_OUTSIDE_GRANT")
-    if any(ep not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2 for ep in req_eps):
-        violations.append("REQUESTED_ENDPOINT_NOT_IN_PUBLIC_GET_ALLOWLIST")
-    if req_rid != authorization.run_id or not req_rid.strip():
-        violations.append("RUN_ID_SCOPE_MISMATCH")
-    if int(requested_scope.get("max_requests", 0)) > authorization.max_requests:
-        violations.append("REQUESTED_REQUESTS_EXCEED_GRANT_BUDGET")
-    if int(requested_scope.get("max_total_bytes", 0)) > authorization.max_total_bytes:
-        violations.append("REQUESTED_BYTES_EXCEED_GRANT_BUDGET")
-
-    # Separate QA fixture scope vs Live DEV capture scope!
-    if authorization.is_qa_fixture_grant or tc.get("qa_fixture_mode") is True:
-        if authorization.is_qa_fixture_grant and tc.get("qa_fixture_mode") is True and authorization.purpose == "QA_FIXTURE" and not violations:
-            return {
-                "admitted": True,
-                "mode": "QA_FIXTURE_OFFLINE_ONLY",
-                "authorization_status": "QA_FIXTURE_ISOLATED",
-                "live_network_permitted": False,
-                "scope_digest_sha256": canonical_hash({"grant_id": authorization.grant_id, "purpose": "QA_FIXTURE", "run_id": req_rid, "endpoints": list(req_eps)}),
-                "violations": [],
-            }
+    # Scan grant fields for secrets
+    grant_dict_for_scan = {
+        "grant_id": authorization.grant_id,
+        "issued_by": authorization.issued_by,
+        "purpose": authorization.purpose,
+        "symbol": authorization.symbol,
+        "product_type": authorization.product_type,
+        "run_id": authorization.run_id,
+        "origin_kind": authorization.origin_kind,
+        "destination_scope": authorization.destination_scope,
+    }
+    if scan_for_forbidden_secrets_r2_c1(grant_dict_for_scan):
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "admitted": False,
-            "mode": "QA_TOKEN_CANNOT_AUTHORIZE_LIVE_CAPTURE",
+            "mode": "REJECTED_FORBIDDEN_SECRET",
             "authorization_status": "INVALID",
             "live_network_permitted": False,
-            "violations": violations + ["QA_FIXTURE_GRANT_ISOLATED_FROM_LIVE_TRANSPORT"],
+            "violations": ["FORBIDDEN_SECRET_IN_GRANT"],
         }
 
-    # Live DEV public capture requires genuine out-of-band human owner attestation!
-    human_ok = (
-        tc.get("human_operator_attestation_verified") is True
-        and tc.get("attestation_source") == "EXPLICIT_SEPARATE_OWNER_GRANT"
-        and authorization.origin_kind == "SEPARATE_OWNER_ATTESTATION"
-        and authorization.purpose == "DEVELOPMENT_CAPTURE"
-    )
-    if not human_ok:
-        violations.append("GENUINE_HUMAN_OWNER_AUTHORIZATION_ABSENT_OR_UNVERIFIED")
+    # Validate grant fields strictly (no bool-as-int, no None, no OOS, finite UTC ms)
+    g_id, e = _strict_canonical_id_c1(authorization.grant_id, "grant.grant_id")
+    if e:
+        violations.append(e)
+    g_iss, e = _strict_canonical_id_c1(authorization.issued_by, "grant.issued_by")
+    if e:
+        violations.append(e)
+    g_purp, e = _strict_canonical_id_c1(authorization.purpose, "grant.purpose")
+    if e:
+        violations.append(e)
+    else:
+        if _contains_forbidden_oos_token_c1(g_purp or ""):
+            violations.append("OOS_CAPTURE_OR_EVALUATION_FORBIDDEN_IN_R5")
+        elif g_purp not in ALLOWED_CAPTURE_PURPOSES_R5_C1:
+            violations.append(f"FORBIDDEN_CAPTURE_PURPOSE:{g_purp}")
+    g_sym, e = _strict_canonical_id_c1(authorization.symbol, "grant.symbol")
+    if e:
+        violations.append(e)
+    elif g_sym != g_sym.upper():
+        violations.append(f"NON_CANONICAL_GRANT_SYMBOL:{g_sym!r}")
+    g_pt, e = _strict_canonical_id_c1(authorization.product_type, "grant.product_type")
+    if e:
+        violations.append(e)
+    elif g_pt not in ALLOWED_PRODUCT_TYPES_R5_C1:
+        violations.append(f"UNSUPPORTED_GRANT_PRODUCT_TYPE:{g_pt!r}")
+    g_rid, e = _strict_canonical_id_c1(authorization.run_id, "grant.run_id")
+    if e:
+        violations.append(e)
+    elif _contains_forbidden_oos_token_c1(g_rid or ""):
+        violations.append("OOS_TOKEN_FORBIDDEN_IN_GRANT_RUN_ID")
+    if not isinstance(authorization.is_qa_fixture_grant, bool):
+        violations.append("INVALID_IS_QA_FIXTURE_GRANT_BOOL")
 
-    if violations:
+    g_eps: List[str] = []
+    if not isinstance(authorization.allowed_endpoints, (tuple, list)) or len(authorization.allowed_endpoints) == 0:
+        violations.append("GRANT_EMPTY_ALLOWED_ENDPOINTS")
+    else:
+        seen_ge: set[str] = set()
+        for ep in authorization.allowed_endpoints:
+            ep_s, ep_e = _strict_canonical_id_c1(ep, "grant.allowed_endpoint")
+            if ep_e:
+                violations.append(ep_e)
+                continue
+            assert ep_s is not None
+            if ep_s in seen_ge:
+                violations.append(f"DUPLICATE_GRANT_ENDPOINT:{ep_s}")
+                continue
+            seen_ge.add(ep_s)
+            if ep_s not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
+                violations.append(f"GRANT_ENDPOINT_NOT_IN_ALLOWLIST:{ep_s}")
+                continue
+            g_eps.append(ep_s)
+
+    g_ws: Optional[int] = None
+    g_we: Optional[int] = None
+    g_exp: Optional[int] = None
+    for fk in ("window_start_ms", "window_end_ms", "expires_utc_ms"):
+        raw_t = getattr(authorization, fk, None)
+        if not _is_strict_int(raw_t):
+            violations.append(f"INVALID_INT_TYPE:grant.{fk}:{type(raw_t).__name__}")
+        else:
+            try:
+                tv = _to_utc_ms(raw_t, field=f"grant.{fk}")
+                if fk == "window_start_ms":
+                    g_ws = tv
+                elif fk == "window_end_ms":
+                    g_we = tv
+                else:
+                    g_exp = tv
+            except ValueError as exc:
+                violations.append(str(exc))
+    if g_ws is not None and g_we is not None and g_we <= g_ws:
+        violations.append("INVALID_CAPTURE_TIME_WINDOW")
+    if g_exp is not None and g_exp <= now_ms:
+        violations.append("OPERATOR_GRANT_EXPIRED")
+
+    g_max_req, e = _strict_pos_int_c1(authorization.max_requests, "grant.max_requests", max_val=HARD_MAX_REQUESTS_R5_C1)
+    if e:
+        violations.append(e)
+    g_max_bytes, e = _strict_pos_int_c1(authorization.max_total_bytes, "grant.max_total_bytes", max_val=HARD_MAX_TOTAL_BYTES_R5_C1)
+    if e:
+        violations.append(e)
+    g_max_dur, e = _strict_pos_int_c1(authorization.max_duration_sec, "grant.max_duration_sec", max_val=HARD_MAX_DURATION_SEC_R5_C1)
+    if e:
+        violations.append(e)
+
+    g_max_pages = g_max_req if authorization.max_pages is None else None
+    if authorization.max_pages is not None:
+        g_max_pages, e = _strict_pos_int_c1(authorization.max_pages, "grant.max_pages", max_val=HARD_MAX_PAGES_R5_C1)
+        if e:
+            violations.append(e)
+    g_max_resp = DEFAULT_MAX_PAGE_BYTES_R5 if authorization.max_response_bytes is None else None
+    if authorization.max_response_bytes is not None:
+        g_max_resp, e = _strict_pos_int_c1(authorization.max_response_bytes, "grant.max_response_bytes", max_val=DEFAULT_MAX_PAGE_BYTES_R5)
+        if e:
+            violations.append(e)
+    g_max_ret = HARD_MAX_RETRIES_R5_C1 if authorization.max_retries_per_request is None else None
+    if authorization.max_retries_per_request is not None:
+        g_max_ret, e = _strict_nonneg_int_c1(authorization.max_retries_per_request, "grant.max_retries_per_request", max_val=HARD_MAX_RETRIES_R5_C1)
+        if e:
+            violations.append(e)
+    g_max_conc = MAX_GLOBAL_CONCURRENCY_R5 if authorization.max_concurrency is None else None
+    if authorization.max_concurrency is not None:
+        g_max_conc, e = _strict_pos_int_c1(authorization.max_concurrency, "grant.max_concurrency", max_val=MAX_GLOBAL_CONCURRENCY_R5)
+        if e:
+            violations.append(e)
+    g_min_iv = HARD_MIN_REQUEST_INTERVAL_MS_R5_C1 if authorization.min_request_interval_ms is None else None
+    if authorization.min_request_interval_ms is not None:
+        g_min_iv, e = _strict_pos_int_c1(authorization.min_request_interval_ms, "grant.min_request_interval_ms", max_val=60_000)
+        if e:
+            violations.append(e)
+        elif g_min_iv is not None and g_min_iv < HARD_MIN_REQUEST_INTERVAL_MS_R5_C1:
+            violations.append(f"GRANT_RATE_INTERVAL_BELOW_FLOOR:{g_min_iv}")
+
+    g_dest = authorization.destination_scope
+    if g_dest is not None:
+        if not isinstance(g_dest, str) or not g_dest.strip():
+            violations.append("INVALID_GRANT_DESTINATION_SCOPE")
+        elif _contains_forbidden_oos_token_c1(g_dest):
+            violations.append("OOS_DESTINATION_SCOPE_FORBIDDEN")
+        else:
+            g_dest = g_dest.strip()
+
+    # Validate & normalize requested_scope strictly
+    req_ok, req_viols, req_norm = _normalize_r5_capture_scope_strict(requested_scope)
+    if not req_ok or req_norm is None:
+        violations.extend(req_viols)
+    else:
+        if g_sym is not None and req_norm["symbol"] != g_sym:
+            violations.append("SYMBOL_OR_PRODUCT_TYPE_SCOPE_MISMATCH")
+        if g_pt is not None and req_norm["product_type"] != g_pt:
+            violations.append("SYMBOL_OR_PRODUCT_TYPE_SCOPE_MISMATCH")
+        if g_purp is not None and req_norm["purpose"] != g_purp:
+            violations.append("PURPOSE_SCOPE_MISMATCH")
+        if g_rid is not None and req_norm["run_id"] != g_rid:
+            violations.append("RUN_ID_SCOPE_MISMATCH")
+        if req_norm["grant_id"] is not None and g_id is not None and req_norm["grant_id"] != g_id:
+            violations.append("GRANT_ID_SCOPE_MISMATCH")
+        if any(ep not in g_eps for ep in req_norm["endpoints"]):
+            violations.append("REQUESTED_ENDPOINT_OUTSIDE_GRANT")
+        if g_ws is not None and int(req_norm["window_start_ms"]) < g_ws:
+            violations.append("REQUESTED_WINDOW_START_BEFORE_GRANT")
+        if g_we is not None and int(req_norm["window_end_ms"]) > g_we:
+            violations.append("REQUESTED_WINDOW_END_AFTER_GRANT")
+        if g_max_req is not None and int(req_norm["max_requests"]) > g_max_req:
+            violations.append("REQUESTED_REQUESTS_EXCEED_GRANT_BUDGET")
+        if g_max_bytes is not None and int(req_norm["max_total_bytes"]) > g_max_bytes:
+            violations.append("REQUESTED_BYTES_EXCEED_GRANT_BUDGET")
+        if g_max_dur is not None and int(req_norm["max_duration_sec"]) > g_max_dur:
+            violations.append("REQUESTED_DURATION_EXCEEDS_GRANT_BUDGET")
+        if req_norm["max_pages"] is not None and g_max_pages is not None and int(req_norm["max_pages"]) > g_max_pages:
+            violations.append("REQUESTED_PAGES_EXCEED_GRANT_BUDGET")
+        if req_norm["max_response_bytes"] is not None and g_max_resp is not None and int(req_norm["max_response_bytes"]) > g_max_resp:
+            violations.append("REQUESTED_RESPONSE_BYTES_EXCEED_GRANT_BUDGET")
+        if req_norm["max_retries_per_request"] is not None and g_max_ret is not None and int(req_norm["max_retries_per_request"]) > g_max_ret:
+            violations.append("REQUESTED_RETRIES_EXCEED_GRANT_BUDGET")
+        if req_norm["max_concurrency"] is not None and g_max_conc is not None and int(req_norm["max_concurrency"]) > g_max_conc:
+            violations.append("REQUESTED_CONCURRENCY_EXCEEDS_GRANT_BUDGET")
+        if req_norm["min_request_interval_ms"] is not None and g_min_iv is not None and int(req_norm["min_request_interval_ms"]) < g_min_iv:
+            violations.append("REQUESTED_RATE_INTERVAL_FASTER_THAN_GRANT")
+        if g_dest is not None and req_norm["destination_scope"] is not None and req_norm["destination_scope"] != g_dest:
+            violations.append("DESTINATION_SCOPE_MISMATCH")
+
+    # Separate QA fixture scope vs Live DEV capture scope!
+    qa_flag_req = tc.get("qa_fixture_mode")
+    if authorization.is_qa_fixture_grant or qa_flag_req is True:
+        qa_clean = (
+            authorization.is_qa_fixture_grant is True
+            and qa_flag_req is True
+            and g_purp == "QA_FIXTURE"
+            and tc.get("human_operator_attestation_verified") is not True
+            and len(violations) == 0
+            and req_norm is not None
+        )
+        if not qa_clean:
+            return {
+                "spec_version": SPEC_VERSION_KH03_R5_C1,
+                "admitted": False,
+                "mode": "QA_TOKEN_CANNOT_AUTHORIZE_LIVE_CAPTURE",
+                "authorization_status": "INVALID",
+                "live_network_permitted": False,
+                "violations": violations + ["QA_FIXTURE_GRANT_ISOLATED_FROM_LIVE_TRANSPORT"],
+            }
+        assert req_norm is not None and g_id is not None and g_iss is not None and g_exp is not None and g_rid is not None
+        eff_scope = {
+            "grant_id": g_id,
+            "issued_by": g_iss,
+            "purpose": "QA_FIXTURE",
+            "symbol": req_norm["symbol"],
+            "product_type": req_norm["product_type"],
+            "endpoints": list(req_norm["endpoints"]),
+            "run_id": g_rid,
+            "window_start_ms": int(req_norm["window_start_ms"]),
+            "window_end_ms": int(req_norm["window_end_ms"]),
+            "max_requests": int(req_norm["max_requests"]),
+            "max_total_bytes": int(req_norm["max_total_bytes"]),
+            "max_duration_sec": int(req_norm["max_duration_sec"]),
+            "max_pages": int(req_norm["max_pages"] if req_norm["max_pages"] is not None else min(int(req_norm["max_requests"]), int(g_max_pages or HARD_MAX_PAGES_R5_C1))),
+            "max_response_bytes": int(req_norm["max_response_bytes"] if req_norm["max_response_bytes"] is not None else int(g_max_resp or DEFAULT_MAX_PAGE_BYTES_R5)),
+            "max_retries_per_request": int(req_norm["max_retries_per_request"] if req_norm["max_retries_per_request"] is not None else int(g_max_ret if g_max_ret is not None else HARD_MAX_RETRIES_R5_C1)),
+            "max_concurrency": int(req_norm["max_concurrency"] if req_norm["max_concurrency"] is not None else int(g_max_conc or MAX_GLOBAL_CONCURRENCY_R5)),
+            "min_request_interval_ms": int(req_norm["min_request_interval_ms"] if req_norm["min_request_interval_ms"] is not None else int(g_min_iv or HARD_MIN_REQUEST_INTERVAL_MS_R5_C1)),
+            "expires_utc_ms": int(g_exp),
+            "destination_scope": req_norm["destination_scope"] or g_dest,
+            "is_qa_fixture_grant": True,
+        }
+        scope_dig = canonical_hash(eff_scope)
+        rec = _GLOBAL_SCOPE_AUTHORITY_C1.issue_scope(
+            mode="QA_FIXTURE_OFFLINE_ONLY",
+            authorization_status="QA_FIXTURE_ISOLATED",
+            live_network_permitted=False,
+            grant_id=g_id,
+            issued_by=g_iss,
+            purpose="QA_FIXTURE",
+            run_id=g_rid,
+            expires_utc_ms=int(g_exp),
+            effective_scope=eff_scope,
+            scope_digest_sha256=scope_dig,
+            verifier_id="QA_OFFLINE_ISOLATED_HARNESS",
+        )
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "schema_version": SCHEMA_VERSION_KH03_R5_C1,
+            "admitted": True,
+            "mode": "QA_FIXTURE_OFFLINE_ONLY",
+            "authorization_status": "QA_FIXTURE_ISOLATED",
+            "live_network_permitted": False,
+            "effective_scope": dict(eff_scope),
+            "scope_digest_sha256": scope_dig,
+            "scope_receipt_id": rec.receipt_id,
+            "attestation_verifier_id": rec.verifier_id,
+            "validated_at_utc_ms": now_ms,
+            "violations": [],
+            "_trusted_scope_receipt": rec,
+        }
+
+    # Live DEV public capture MUST pass genuine external attestation verifier (default ALWAYS denies!)
+    if violations or req_norm is None or g_id is None or g_iss is None or g_exp is None or g_rid is None:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "admitted": False,
             "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
-            "authorization_status": "BLOCKED_OWNER_AUTHORIZATION" if "GENUINE_HUMAN_OWNER_AUTHORIZATION_ABSENT_OR_UNVERIFIED" in violations and len(violations) == 1 else "INVALID",
+            "authorization_status": "INVALID",
             "live_network_permitted": False,
             "violations": violations,
         }
 
+    eff_live_scope = {
+        "grant_id": g_id,
+        "issued_by": g_iss,
+        "purpose": "DEVELOPMENT_CAPTURE",
+        "symbol": req_norm["symbol"],
+        "product_type": req_norm["product_type"],
+        "endpoints": list(req_norm["endpoints"]),
+        "run_id": g_rid,
+        "window_start_ms": int(req_norm["window_start_ms"]),
+        "window_end_ms": int(req_norm["window_end_ms"]),
+        "max_requests": int(req_norm["max_requests"]),
+        "max_total_bytes": int(req_norm["max_total_bytes"]),
+        "max_duration_sec": int(req_norm["max_duration_sec"]),
+        "max_pages": int(req_norm["max_pages"] if req_norm["max_pages"] is not None else min(int(req_norm["max_requests"]), int(g_max_pages or HARD_MAX_PAGES_R5_C1))),
+        "max_response_bytes": int(req_norm["max_response_bytes"] if req_norm["max_response_bytes"] is not None else int(g_max_resp or DEFAULT_MAX_PAGE_BYTES_R5)),
+        "max_retries_per_request": int(req_norm["max_retries_per_request"] if req_norm["max_retries_per_request"] is not None else int(g_max_ret if g_max_ret is not None else HARD_MAX_RETRIES_R5_C1)),
+        "max_concurrency": int(req_norm["max_concurrency"] if req_norm["max_concurrency"] is not None else int(g_max_conc or MAX_GLOBAL_CONCURRENCY_R5)),
+        "min_request_interval_ms": int(req_norm["min_request_interval_ms"] if req_norm["min_request_interval_ms"] is not None else int(g_min_iv or HARD_MIN_REQUEST_INTERVAL_MS_R5_C1)),
+        "expires_utc_ms": int(g_exp),
+        "destination_scope": req_norm["destination_scope"] or g_dest,
+        "is_qa_fixture_grant": False,
+    }
+
+    verifier = attestation_verifier if attestation_verifier is not None else _DEFAULT_DENY_ATTESTATION_VERIFIER
+    if not hasattr(verifier, "verify_owner_attestation") or not callable(verifier.verify_owner_attestation):
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+            "authorization_status": "BLOCKED_OWNER_AUTHORIZATION",
+            "live_network_permitted": False,
+            "violations": ["INVALID_OWNER_ATTESTATION_VERIFIER_INTERFACE"],
+        }
+
+    try:
+        att_res = verifier.verify_owner_attestation(authorization, eff_live_scope, now_utc, tc)
+    except Exception as exc:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+            "authorization_status": "BLOCKED_OWNER_AUTHORIZATION",
+            "live_network_permitted": False,
+            "violations": [f"OWNER_ATTESTATION_VERIFIER_ERROR:{exc}"],
+        }
+
+    # Strict check on attestation result: never trust plain dict booleans or unverified origin!
+    att_ok = (
+        isinstance(att_res, R5AttestationVerificationResult)
+        and att_res.verified is True
+        and att_res.status == "VERIFIED_SEPARATE_OWNER_ATTESTATION"
+        and att_res.grant_id == g_id
+        and authorization.origin_kind == "SEPARATE_OWNER_ATTESTATION"
+        and g_purp == "DEVELOPMENT_CAPTURE"
+        and tc.get("qa_fixture_mode") is not True
+    )
+    if not att_ok:
+        att_reason = att_res.reason if isinstance(att_res, R5AttestationVerificationResult) else "INVALID_ATTESTATION_RESULT_OBJECT"
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "admitted": False,
+            "mode": "CAPTURE_BLOCKED_OWNER_AUTHORIZATION",
+            "authorization_status": "BLOCKED_OWNER_AUTHORIZATION",
+            "live_network_permitted": False,
+            "attestation_verifier_id": att_res.verifier_id if isinstance(att_res, R5AttestationVerificationResult) else "UNKNOWN",
+            "violations": [f"GENUINE_HUMAN_OWNER_AUTHORIZATION_ABSENT_OR_UNVERIFIED:{att_reason}"],
+        }
+
+    scope_dig = canonical_hash(eff_live_scope)
+    rec = _GLOBAL_SCOPE_AUTHORITY_C1.issue_scope(
+        mode="AUTHORIZED_BOUNDED_DEV_PUBLIC_CAPTURE",
+        authorization_status="AUTHORIZED_BOUNDED_DEV",
+        live_network_permitted=True,
+        grant_id=g_id,
+        issued_by=g_iss,
+        purpose="DEVELOPMENT_CAPTURE",
+        run_id=g_rid,
+        expires_utc_ms=int(g_exp),
+        effective_scope=eff_live_scope,
+        scope_digest_sha256=scope_dig,
+        verifier_id=att_res.verifier_id,
+    )
     return {
+        "spec_version": SPEC_VERSION_KH03_R5_C1,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
         "admitted": True,
         "mode": "AUTHORIZED_BOUNDED_DEV_PUBLIC_CAPTURE",
         "authorization_status": "AUTHORIZED_BOUNDED_DEV",
         "live_network_permitted": True,
-        "scope_digest_sha256": canonical_hash({
-            "grant_id": authorization.grant_id, "purpose": authorization.purpose, "symbol": authorization.symbol,
-            "product_type": authorization.product_type, "endpoints": list(req_eps), "run_id": req_rid,
-            "window_start_ms": authorization.window_start_ms, "window_end_ms": authorization.window_end_ms,
-        }),
+        "effective_scope": dict(eff_live_scope),
+        "scope_digest_sha256": scope_dig,
+        "scope_receipt_id": rec.receipt_id,
+        "attestation_verifier_id": att_res.verifier_id,
+        "validated_at_utc_ms": now_ms,
         "violations": [],
+        "_trusted_scope_receipt": rec,
     }
 
 
 # =====================================================================
-# 3. plan_r5_capture_batches
+# 3. plan_r5_capture_batches (KH-03.R5.C1 Hardened P1-A)
 # =====================================================================
 def plan_r5_capture_batches(
     scope_decision: Mapping[str, Any],
     capability_inventory: Mapping[str, Any],
     budget: Mapping[str, Any],
+    *,
+    now_utc: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """
-    Constructs an immutable, bounded capture batch plan strictly for `DEVELOPMENT_CAPTURE`
-    or `QA_FIXTURE` (NEVER OOS!). Refuses disk waivers, rejects insufficient disk (<20.5 GiB),
-    checks memory/page/byte/duration/concurrency bounds, and returns `BLOCKED` if unauthorized.
+    Constructs an immutable, scope-bound capture batch plan strictly from a verified
+    `R5TrustedScopeReceipt` produced by `validate_r5_operator_capture_scope`.
+    - Refuses generic/forged `scope_decision` dicts lacking a valid registered scope receipt.
+    - Refuses disk waivers, low disk (<20.5 GiB preflight / <20.0 GiB post-capture), bool/NaN/Inf,
+      or ANY budget/symbol/product/endpoint/window broadening beyond the approved scope.
+    - Explicitly labels `pages_semantics = "SINGLE_REQUEST_PER_BATCH_NO_PAGINATION"`.
+    - Registers an immutable process-local `_trusted_plan_receipt` bound to the plan snapshot.
     """
-    violations: List[str] = []
-    if budget.get("owner_waive_disk_preflight") is True:
-        violations.append("DISK_WAIVER_STRICTLY_FORBIDDEN_IN_R5")
-
-    disk_free_gib = float(budget.get("destination_disk_free_gib", 0.0))
-    if not math.isfinite(disk_free_gib) or disk_free_gib < STRICT_PREFLIGHT_DISK_MIN_GIB_R5:
-        violations.append(f"BLOCKED_LOW_DISK_PREFLIGHT:{disk_free_gib:.4f}<{STRICT_PREFLIGHT_DISK_MIN_GIB_R5}")
-
-    max_conc = int(budget.get("max_concurrency", 1))
-    if max_conc < 1 or max_conc > MAX_GLOBAL_CONCURRENCY_R5:
-        violations.append(f"CONCURRENCY_CAP_EXCEEDED:{max_conc}>{MAX_GLOBAL_CONCURRENCY_R5}")
-
-    max_pages = int(budget.get("max_pages", 0))
-    max_req = int(budget.get("max_requests", 0))
-    max_bytes = int(budget.get("max_total_bytes", 0))
-    max_resp_bytes = int(budget.get("max_response_bytes", DEFAULT_MAX_PAGE_BYTES_R5))
-    max_dur = int(budget.get("max_duration_sec", 0))
-    if max_pages <= 0 or max_req <= 0 or max_bytes <= 0 or max_dur <= 0 or max_resp_bytes <= 0 or max_resp_bytes > DEFAULT_MAX_PAGE_BYTES_R5:
-        violations.append("INVALID_OR_UNBOUNDED_CAPTURE_BUDGET")
-
-    projected_post_gib = disk_free_gib - (max_bytes / (1024.0 ** 3)) - 0.05
-    if projected_post_gib < STRICT_RUNTIME_DISK_MIN_GIB_R5:
-        violations.append(f"PROJECTED_DISK_POST_CAPTURE_BELOW_20GIB:{projected_post_gib:.4f}")
-
-    if not scope_decision.get("admitted"):
+    if not isinstance(scope_decision, Mapping) or not scope_decision.get("admitted"):
+        pre_viols = list(scope_decision.get("violations") or ()) if isinstance(scope_decision, Mapping) else ["SCOPE_DECISION_NOT_MAPPING"]
+        if isinstance(budget, Mapping) and budget.get("owner_waive_disk_preflight") is True:
+            pre_viols.append("DISK_WAIVER_STRICTLY_FORBIDDEN_IN_R5")
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "status": "BLOCKED",
-            "block_reason": str(scope_decision.get("mode") or "CAPTURE_BLOCKED_OWNER_AUTHORIZATION"),
+            "block_reason": str(scope_decision.get("mode") if isinstance(scope_decision, Mapping) else "CAPTURE_BLOCKED_OWNER_AUTHORIZATION"),
             "partition_role": "NONE_BLOCKED",
             "live_network_permitted": False,
             "batches": [],
-            "violations": list(scope_decision.get("violations") or ()) + violations,
+            "violations": pre_viols,
         }
 
-    is_qa = scope_decision.get("mode") == "QA_FIXTURE_OFFLINE_ONLY"
+    # Verify genuine process-local scope receipt (blocks forged dict admitted=True!)
+    scope_rec_raw = scope_decision.get("_trusted_scope_receipt")
+    check_now = now_utc if now_utc is not None else datetime.now(timezone.utc)
+    s_ok, s_viols, scope_rec = _GLOBAL_SCOPE_AUTHORITY_C1.verify_scope(
+        scope_rec_raw,
+        now_utc=check_now,
+        expected_scope_digest=str(scope_decision.get("scope_digest_sha256") or ""),
+    )
+    if not s_ok or scope_rec is None:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "status": "BLOCKED",
+            "block_reason": s_viols[0] if s_viols else "INVALID_TRUSTED_SCOPE_RECEIPT",
+            "partition_role": "NONE_BLOCKED",
+            "live_network_permitted": False,
+            "batches": [],
+            "violations": s_viols,
+        }
+
+    if bool(scope_decision.get("live_network_permitted", False)) != scope_rec.live_network_permitted:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "status": "BLOCKED",
+            "block_reason": "SCOPE_LIVE_PERMISSION_TAMPERED",
+            "partition_role": "NONE_BLOCKED",
+            "live_network_permitted": False,
+            "batches": [],
+            "violations": ["SCOPE_LIVE_PERMISSION_TAMPERED"],
+        }
+
+    eff = scope_rec.effective_scope
+    is_qa = (scope_rec.mode == "QA_FIXTURE_OFFLINE_ONLY") and (not scope_rec.live_network_permitted)
     partition_role = "QA_FIXTURE" if is_qa else "DEVELOPMENT_CAPTURE"
-    req_eps = list(budget.get("endpoints") or ())
+
+    bud_ok, bud_viols, b_norm = _validate_r5_budget_within_scope(budget, eff)
+    if not bud_ok or b_norm is None:
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "status": "BLOCKED",
+            "block_reason": bud_viols[0] if bud_viols else "INVALID_BUDGET",
+            "partition_role": partition_role,
+            "live_network_permitted": False,
+            "batches": [],
+            "violations": bud_viols,
+        }
+
+    if not isinstance(capability_inventory, Mapping):
+        return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
+            "status": "BLOCKED",
+            "block_reason": "INVALID_CAPABILITY_INVENTORY",
+            "partition_role": partition_role,
+            "live_network_permitted": False,
+            "batches": [],
+            "violations": ["INVALID_CAPABILITY_INVENTORY"],
+        }
     supported = capability_inventory.get("supported_endpoints_inventory") or {}
+    cap_inv_digest = canonical_hash({
+        "spec_version": capability_inventory.get("spec_version"),
+        "public_host_allowlist": capability_inventory.get("public_host_allowlist"),
+        "c3_trusted_paths_allowlist": capability_inventory.get("c3_trusted_paths_allowlist"),
+    })
+
+    violations: List[str] = []
     batches: List[Dict[str, Any]] = []
-    for idx, ep in enumerate(req_eps):
-        if ep not in supported:
+    for idx, ep in enumerate(b_norm["endpoints"]):
+        if ep not in supported or ep not in OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2:
             violations.append(f"UNSUPPORTED_ENDPOINT_IN_PLAN:{ep}")
             continue
         ep_info = supported[ep]
         if not ep_info.get("verified_in_c3_trust_boundary"):
             violations.append(f"ENDPOINT_OUTSIDE_C3_TRUST_BOUNDARY:{ep}")
             continue
-        batches.append({
+        canonical_url = str(OFFICIAL_BITGET_PUBLIC_ALLOWLIST_C2[ep]["url"])
+        if str(ep_info.get("url") or "") != canonical_url or str(ep_info.get("http_method") or "") != "GET":
+            violations.append(f"CAPABILITY_INVENTORY_URL_OR_METHOD_MISMATCH:{ep}")
+            continue
+        if any(tok in canonical_url.lower() for tok in FORBIDDEN_URL_TOKENS_C2):
+            violations.append(f"FORBIDDEN_PRIVATE_URL_TOKEN:{ep}")
+            continue
+        batch_entry: Dict[str, Any] = {
             "batch_id": f"R5_BATCH_{idx + 1:02d}_{ep}",
             "endpoint_key": ep,
-            "url": ep_info["url"],
+            "url": canonical_url,
             "method": "GET",
-            "symbol": str(budget.get("symbol") or "XAUUSDT"),
-            "product_type": str(budget.get("product_type") or "USDT-FUTURES"),
-            "window_start_ms": int(budget.get("window_start_ms", 0)),
-            "window_end_ms": int(budget.get("window_end_ms", 0)),
-            "max_pages": min(max_pages, max_req),
-            "min_request_interval_ms": max(50, int(budget.get("min_request_interval_ms", 100))),
-        })
+            "symbol": str(eff["symbol"]),
+            "product_type": str(eff["product_type"]),
+            "window_start_ms": int(b_norm["window_start_ms"]),
+            "window_end_ms": int(b_norm["window_end_ms"]),
+            "max_pages": 1,
+            "pages_semantics": "SINGLE_REQUEST_PER_BATCH_NO_PAGINATION",
+            "min_request_interval_ms": int(b_norm["min_request_interval_ms"]),
+        }
+        if ep in ("candles", "history_candles"):
+            gran = str(budget.get("granularity") or "1m") if isinstance(budget, Mapping) else "1m"
+            if gran not in GRANULARITY_TO_MS_C2:
+                violations.append(f"UNSUPPORTED_GRANULARITY:{gran!r}")
+                continue
+            batch_entry["granularity"] = gran
+        batches.append(batch_entry)
 
     if violations or not batches:
         return {
+            "spec_version": SPEC_VERSION_KH03_R5_C1,
             "status": "BLOCKED",
             "block_reason": violations[0] if violations else "EMPTY_CAPTURE_PLAN",
             "partition_role": partition_role,
@@ -510,28 +1784,44 @@ def plan_r5_capture_batches(
         }
 
     plan_doc: Dict[str, Any] = {
-        "spec_version": SPEC_VERSION_KH03_R5,
-        "schema_version": SCHEMA_VERSION_KH03_R5,
+        "spec_version": SPEC_VERSION_KH03_R5_C1,
+        "schema_version": SCHEMA_VERSION_KH03_R5_C1,
         "status": "PLANNED_QA_OFFLINE" if is_qa else "PLANNED_DEV_BOUNDED",
         "partition_role": partition_role,
         "oos_designation_forbidden": True,
-        "live_network_permitted": bool(scope_decision.get("live_network_permitted")),
-        "scope_digest_sha256": scope_decision.get("scope_digest_sha256"),
+        "live_network_permitted": bool(scope_rec.live_network_permitted),
+        "grant_id": scope_rec.grant_id,
+        "run_id": scope_rec.run_id,
+        "expires_utc_ms": int(scope_rec.expires_utc_ms),
+        "destination_scope": eff.get("destination_scope"),
+        "capability_inventory_digest_sha256": cap_inv_digest,
+        "scope_receipt_id": scope_rec.receipt_id,
+        "scope_digest_sha256": scope_rec.scope_digest_sha256,
+        "pages_semantics": "SINGLE_REQUEST_PER_BATCH_NO_PAGINATION",
+        "total_planned_batches": len(batches),
         "budget": {
-            "max_pages": max_pages,
-            "max_requests": max_req,
-            "max_total_bytes": max_bytes,
-            "max_response_bytes": max_resp_bytes,
-            "max_duration_sec": max_dur,
-            "max_retries_per_request": min(3, max(0, int(budget.get("max_retries_per_request", 2)))),
-            "max_concurrency": max_conc,
-            "destination_disk_free_gib": round(disk_free_gib, 4),
-            "projected_post_capture_disk_gib": round(projected_post_gib, 4),
+            "max_pages": int(b_norm["max_pages"]),
+            "max_requests": int(b_norm["max_requests"]),
+            "max_total_bytes": int(b_norm["max_total_bytes"]),
+            "max_response_bytes": int(b_norm["max_response_bytes"]),
+            "max_duration_sec": int(b_norm["max_duration_sec"]),
+            "max_retries_per_request": int(b_norm["max_retries_per_request"]),
+            "max_concurrency": int(b_norm["max_concurrency"]),
+            "min_request_interval_ms": int(b_norm["min_request_interval_ms"]),
+            "destination_disk_free_gib": float(b_norm["destination_disk_free_gib"]),
+            "projected_post_capture_disk_gib": float(b_norm["projected_post_capture_disk_gib"]),
         },
         "batches": batches,
         "violations": [],
     }
-    plan_doc["plan_digest_sha256"] = canonical_hash({k: v for k, v in plan_doc.items() if k != "plan_digest_sha256"})
+    plan_digest = canonical_hash(plan_doc)
+    plan_receipt = _GLOBAL_SCOPE_AUTHORITY_C1.issue_plan(
+        scope_receipt=scope_rec,
+        plan_public_snapshot=plan_doc,
+        plan_digest_sha256=plan_digest,
+    )
+    plan_doc["plan_digest_sha256"] = plan_digest
+    plan_doc["_trusted_plan_receipt"] = plan_receipt
     return plan_doc
 
 

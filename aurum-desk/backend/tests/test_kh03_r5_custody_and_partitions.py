@@ -67,13 +67,24 @@ def test_r5_partition_blocks_oos_relabel_overlap_and_traversal_f24_f27_f47(tmp_p
     bad_ov = assign_r5_partition_before_capture(plan_dev, ledger, {"symbol": "XAUUSDT", "purpose": "DEVELOPMENT_CAPTURE", "window_start_ms": 1792000000000, "window_end_ms": 1794000000000}, destination_root=dest, allowed_base_root=base)
     assert bad_ov["valid"] is False and any("TEMPORAL_INTERVAL_OVERLAP" in v for v in bad_ov["violations"])
 
-    # RED F24: Path traversal & symlink denied!
+    # RED F24: Path traversal & symlink/junction denied (supports Windows NTFS junction without SeCreateSymbolicLinkPrivilege)!
     bad_trav = assign_r5_partition_before_capture(plan_dev, ledger, {"symbol": "XAUUSDT", "purpose": "DEVELOPMENT_CAPTURE", "window_start_ms": 1794000000000, "window_end_ms": 1794000300000}, destination_root=base / ".." / "escape", allowed_base_root=base)
     assert bad_trav["valid"] is False
     sym_p = base / "sym_dest"
-    os.symlink(tmp_path, sym_p)
-    bad_sym = assign_r5_partition_before_capture(plan_dev, ledger, {"symbol": "XAUUSDT", "purpose": "DEVELOPMENT_CAPTURE", "window_start_ms": 1794000000000, "window_end_ms": 1794000300000}, destination_root=sym_p, allowed_base_root=base)
-    assert bad_sym["valid"] is False
+    created_junction = False
+    try:
+        try:
+            os.symlink(tmp_path, sym_p)
+        except OSError:
+            import subprocess
+            jproc = subprocess.run(["cmd", "/c", "mklink", "/J", str(sym_p), str(tmp_path)], capture_output=True, text=True, check=False)
+            assert jproc.returncode == 0, f"Failed to create Windows junction: {jproc.stdout} {jproc.stderr}"
+            created_junction = True
+        bad_sym = assign_r5_partition_before_capture(plan_dev, ledger, {"symbol": "XAUUSDT", "purpose": "DEVELOPMENT_CAPTURE", "window_start_ms": 1794000000000, "window_end_ms": 1794000300000}, destination_root=sym_p, allowed_base_root=base)
+        assert bad_sym["valid"] is False
+    finally:
+        if created_junction and sym_p.exists():
+            os.rmdir(sym_p)
 
 
 def test_r5_custody_crash_quarantine_double_writer_tamper_and_proof_replay_f05_f22_f23_f25_f26(tmp_path: Path) -> None:

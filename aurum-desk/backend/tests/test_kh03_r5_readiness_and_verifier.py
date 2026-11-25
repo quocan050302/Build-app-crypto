@@ -49,6 +49,7 @@ from services.kh_03_r5_capture_and_custody_service import (
     R5OosAccessDeniedError,
     assign_r5_partition_before_capture,
     capture_r5_public_batch,
+    make_r5_fixture_resource_monitor,
     persist_r5_verified_dev_snapshot,
     verify_r5_custody_chain_readonly,
 )
@@ -250,10 +251,15 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
     now = datetime(2026, 11, 24, 12, 0, tzinfo=timezone.utc)
     now_ms = int(now.timestamp() * 1000)
     inv = build_r5_source_capability_inventory(REPO_ROOT)
-    req = {"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "endpoints": ["public_ticker"], "run_id": "r5_f48", "max_requests": 4, "max_total_bytes": 50_000}
+    req = {
+        "symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "endpoints": ["public_ticker"],
+        "run_id": "r5_f48", "purpose": "QA_FIXTURE",
+        "window_start_ms": 1794000000000, "window_end_ms": 1794000300000,
+        "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30,
+    }
     qa_g = R5OperatorGrant("QA_48", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 50_000, 30, now_ms + 3600_000, "r5_f48", True, "QA")
     qa_d = validate_r5_operator_capture_scope(qa_g, req, now, {"qa_fixture_mode": True})
-    qa_p = plan_r5_capture_batches(qa_d, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]})
+    qa_p = plan_r5_capture_batches(qa_d, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
     contract = {"symbol": "XAUUSDT", "product_type": "USDT-FUTURES", "settlement_currency": "USDT", "tick_size": "0.01", "expected_tick_size": "0.01"}
     good_meta = json.dumps({"code": "00000", "data": [{"symbol": "XAUUSDT", "productType": "USDT-FUTURES", "quoteCoin": "USDT", "pricePlace": "2", "priceEndStep": "1", "sizeMultiplier": "0.001", "minTradeNum": "0.001"}]}).encode("utf-8")
     b1 = {"open_time": 1794000000000, "close_time": 1794000060000, "open": "4100.00", "high": "4101.00", "low": "4099.50", "close": "4100.50", "volume": "5.0", "is_closed": True}
@@ -267,18 +273,19 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
 
     with tempfile.TemporaryDirectory(prefix="kh03r5_f48_") as td_s:
         td = Path(td_s)
+        mon_td = make_r5_fixture_resource_monitor(disk_free_gib=28.0, available_ram_mib=2048.0, destination=td)
         # F01..F05
         _rec("R5-F01", "MISSING_OWNER_GRANT_ZERO_LIVE", "validate_r5_operator_capture_scope", not validate_r5_operator_capture_scope(None, req, now, {})["admitted"], qa_d["admitted"] and not qa_d["live_network_permitted"])
         _rec("R5-F02", "CLI_ENV_EXPIRED_GRANT_REJECTED", "validate_r5_operator_capture_scope", not validate_r5_operator_capture_scope(None, req, now, {"from_cli_flag": True, "from_env_var": True})["admitted"], qa_d["admitted"])
         priv_p = dict(qa_p, batches=[{"batch_id": "P", "endpoint_key": "public_ticker", "url": "https://api.bitget.com/api/v2/mix/order/place-order", "symbol": "XAUUSDT", "product_type": "USDT-FUTURES"}])
-        r_f03 = asyncio.run(capture_r5_public_batch(priv_p, _SequenceFakeTransportC2([]), None))
-        _rec("R5-F03", "PRIVATE_ENDPOINT_AND_REDIRECT_BLOCKED", "capture_r5_public_batch", any("BLOCKED_UNAUTHORIZED" in v for v in r_f03["violations"]), True)
+        r_f03 = asyncio.run(capture_r5_public_batch(priv_p, _SequenceFakeTransportC2([]), mon_td, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, utc_now_fn=lambda: now))
+        _rec("R5-F03", "PRIVATE_ENDPOINT_AND_REDIRECT_BLOCKED", "capture_r5_public_batch", r_f03["requests_dispatched_actual"] == 0 and any(("BLOCKED_UNAUTHORIZED" in v or "PLAN_DIGEST" in v or "BATCH_URL_KEY_MISMATCH" in v) for v in r_f03["violations"]), True)
 
         class _FakeSub(StdlibUrllibPublicTransportC2):
             pass
 
-        r_f04 = asyncio.run(capture_r5_public_batch(dict(qa_p, status="PLANNED_DEV_BOUNDED", partition_role="DEVELOPMENT_CAPTURE", live_network_permitted=True), _FakeSub(), None))
-        _rec("R5-F04", "FAKE_SUBCLASS_TRANSPORT_BLOCKED", "capture_r5_public_batch", r_f04["accepted_observed_records_count"] == 0 and bool(r_f04["violations"]), True)
+        r_f04 = asyncio.run(capture_r5_public_batch(dict(qa_p, status="PLANNED_DEV_BOUNDED", partition_role="DEVELOPMENT_CAPTURE", live_network_permitted=True), _FakeSub(), mon_td, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, utc_now_fn=lambda: now))
+        _rec("R5-F04", "FAKE_SUBCLASS_TRANSPORT_BLOCKED", "capture_r5_public_batch", r_f04["accepted_observed_records_count"] == 0 and r_f04["requests_dispatched_actual"] == 0 and bool(r_f04["violations"]), True)
 
         croot = td / "cust"; j = R5DevCustodyJournal(croot, os_disk_probe_fn=lambda: 28.0)
         part = {"valid": True, "partition_role": "QA_FIXTURE", "plan_digest_sha256": "c" * 64}
@@ -309,12 +316,15 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
 
         # F19..F29
         tr_429 = _SequenceFakeTransportC2([RawHttpResponseC2(429, b"", {"retry-after": "0.01"}, 1, 2), RawHttpResponseC2(200, good_meta, {}, 3, 4)])
-        r_19 = asyncio.run(capture_r5_public_batch(qa_p, tr_429, None, sleep_fn=lambda _: None))
-        _rec("R5-F19", "RATE_LIMIT_429_BOUNDED_RETRY", "capture_r5_public_batch", len(r_19["items"][0]["retry_chain"]) == 1, r_19["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS")
+        r_19 = asyncio.run(capture_r5_public_batch(qa_p, tr_429, mon_td, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
+        _rec("R5-F19", "RATE_LIMIT_429_BOUNDED_RETRY", "capture_r5_public_batch", len(r_19["items"]) == 1 and len(r_19["items"][0]["retry_chain"]) == 1, r_19["capture_execution_status"] == "QA_FIXTURE_OFFLINE_PASS")
         ev = asyncio.Event(); ev.set()
-        r_20 = asyncio.run(capture_r5_public_batch(qa_p, _SequenceFakeTransportC2([]), None, cancel_event=ev))
+        r_20 = asyncio.run(capture_r5_public_batch(qa_p, _SequenceFakeTransportC2([]), mon_td, cancel_event=ev, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, utc_now_fn=lambda: now))
         _rec("R5-F20", "MIDFLIGHT_CANCEL_STOPS_DISPATCH", "capture_r5_public_batch", r_20["aborted"] and r_20["abort_reason"] == "CANCELLED_MIDFLIGHT", True)
-        r_21 = asyncio.run(capture_r5_public_batch(dict(qa_p, budget=dict(qa_p["budget"], max_total_bytes=5)), _SequenceFakeTransportC2([RawHttpResponseC2(200, good_meta, {}, 1, 2)]), None, sleep_fn=lambda _: None))
+        tiny_g21 = R5OperatorGrant("QA_48_TINY", "QA", "QA_FIXTURE", "XAUUSDT", "USDT-FUTURES", ("public_ticker",), 1794000000000, 1794000300000, 4, 5, 30, now_ms + 3600_000, "r5_f48", True, "QA")
+        tiny_d21 = validate_r5_operator_capture_scope(tiny_g21, {**req, "max_total_bytes": 5}, now, {"qa_fixture_mode": True})
+        tiny_p21 = plan_r5_capture_batches(tiny_d21, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 4, "max_total_bytes": 5, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
+        r_21 = asyncio.run(capture_r5_public_batch(tiny_p21, _SequenceFakeTransportC2([RawHttpResponseC2(200, good_meta, {}, 1, 2)]), mon_td, run_id="r5_f48", trusted_scope=tiny_d21, destination_root=td, sleep_fn=lambda _: None, utc_now_fn=lambda: now))
         _rec("R5-F21", "OVERSIZE_BYTE_BUDGET_PREEMPTED", "capture_r5_public_batch", r_21["aborted"] and r_21["abort_reason"] == "TOTAL_BYTES_BUDGET_EXHAUSTED", True)
 
         # F22..F26 custody
@@ -376,8 +386,9 @@ def run_new_kh03_r5_48_fault_controls() -> List[Dict[str, Any]]:
 
         # F44..F48
         _rec("R5-F44", "CLOCK_REGRESSION_SECONDS_UNIT_REJECTED", "validate_r5_ohlcv_stream", not validate_r5_ohlcv_stream([{"rows": [dict(b1, open_time=1794000000, close_time=1794000060)]}], contract, "1m", rng)["valid"], True)
-        r_45 = asyncio.run(capture_r5_public_batch(dict(qa_p, budget=dict(qa_p["budget"], max_requests=0)), _SequenceFakeTransportC2([]), None))
-        _rec("R5-F45", "ZERO_REQUEST_BUDGET_PREEMPTED", "capture_r5_public_batch", r_45["aborted"] and r_45["qa_fixture_records_count"] == 0, True)
+        p_45 = plan_r5_capture_batches(qa_d, inv, {"destination_disk_free_gib": 28.0, "max_concurrency": 1, "max_pages": 2, "max_requests": 0, "max_total_bytes": 50_000, "max_duration_sec": 30, "endpoints": ["public_ticker"]}, now_utc=now)
+        r_45 = asyncio.run(capture_r5_public_batch(p_45, _SequenceFakeTransportC2([]), mon_td, run_id="r5_f48", trusted_scope=qa_d, destination_root=td, utc_now_fn=lambda: now))
+        _rec("R5-F45", "ZERO_REQUEST_BUDGET_PREEMPTED", "capture_r5_public_batch", p_45["status"] == "BLOCKED" and r_45["requests_dispatched_actual"] == 0 and r_45["qa_fixture_records_count"] == 0, True)
         _rec("R5-F46", "MISSING_SOURCE_BLOCKED_NO_SUBSTITUTE", "build_r5_source_capability_inventory", inv["missing_or_blocked_capabilities"]["public_funding_rate_history"]["status"] == "UNSUPPORTED_OR_UNVERIFIED_ENDPOINT", inv["status"] == "PASS")
         _rec("R5-F47", "DEV_INTERVAL_OVERLAP_QUARANTINED", "assign_r5_partition_before_capture", not assign_r5_partition_before_capture(qa_p, {"existing_intervals": [{"role": "REUSED_DEV", "symbol": "XAUUSDT", "start_ms": 1793999000000, "end_ms": 1794001000000}]}, {"symbol": "XAUUSDT", "window_start_ms": 1794000000000, "window_end_ms": 1794000300000}, destination_root=croot, allowed_base_root=td)["valid"], True)
         r_48 = validate_r5_bbo_stream([q_ok] * 15, contract, {"window_start_ms": 1794000000000, "window_end_ms": 1794000009000})
