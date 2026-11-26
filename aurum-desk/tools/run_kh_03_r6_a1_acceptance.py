@@ -734,26 +734,38 @@ def run_kh03_r6_a1_orchestrator(
             write_json_durable_atomic(run_dir / fname, obj)
 
         print("[KH-03.R6.A1] Stage 3A: Running fresh R4 1x replay + 6 dynamic cost scenarios + E1/E2/E3 arms (16, 17)...", flush=True)
-        f16_raw, ctx = _run_stage3a_r4_real_replay_13(run_dir, datasets=datasets, run_id=run_id, tested_sha=start_head)
-        arms_p = f16_raw.get("arms_1x_profiles") or {}
-        arms_ok = (
-            abs(float((arms_p.get("E1_ENTRY_RELAX_ONLY") or {}).get("net_pnl_usd", 0.0)) - (-118.0121)) <= 0.01
-            and abs(float((arms_p.get("E2_EXIT_RELAX_ONLY") or {}).get("net_pnl_usd", 0.0)) - (-274.3771)) <= 0.01
-            and abs(float((arms_p.get("E3_BOTH_RELAXED") or {}).get("net_pnl_usd", 0.0)) - (-439.0423)) <= 0.01
+        f16_raw, ctx = _run_stage3a_r4_real_replay_13(
+            datasets=datasets, dataset_sha=str(prov02["canonical_dataset_sha256"]),
+            timeframe_stats=prov02["timeframe_coverage_and_gaps"],
+            run_dir=run_dir, sentinel_tmp=sentinel_tmp, run_id=run_id, tested_sha=start_head,
         )
-        fgz_rel = "logs/r4_replay_forensic_ledger_1x.jsonl.gz"
+        fgz_rel = str(f16_raw.get("forensic_ledger_rel_path") or f16_raw.get("forensic_ledger_gz_rel") or "logs/r4_replay_forensic_ledger_1x.jsonl.gz")
         f16 = _stamp_a1({
-            **f16_raw,
+            **dict(f16_raw),
             "forensic_ledger_gz_rel": fgz_rel,
             "forensic_ledger_gz_sha256": _sha256_file(run_dir / fgz_rel),
-            "r4_decimal_bridge_exact_match": bool(f16_raw.get("status") == "PASS"),
-            "n_closed": int(f16_raw.get("null_1x_closed_trades", 0)),
+            "r4_decimal_bridge_exact_match": (
+                int(f16_raw.get("null_1x_closed", -1)) == 203
+                and int(f16_raw.get("null_1x_wins", -1)) == 7
+                and int(f16_raw.get("null_1x_losses", -1)) == 196
+                and abs(float(f16_raw.get("null_1x_net_usd", 0.0)) - (-441.6118)) <= 0.01
+            ),
+            "n_closed": int(f16_raw.get("null_1x_closed", 0)),
             "n_wins": int(f16_raw.get("null_1x_wins", 0)),
             "n_losses": int(f16_raw.get("null_1x_losses", 0)),
             "n_open_censored": int(f16_raw.get("null_1x_open_censored", 0)),
-            "n_gap_events": int(f16_raw.get("null_1x_gap_events", 0)),
+            "n_gap_events": int(f16_raw.get("null_1x_gap_unresolved", f16_raw.get("null_1x_gap_events", 0))),
             "realized_losses_gt_2p50_count": int(f16_raw.get("realized_losses_gt_2p50_count", 0)),
         }, run_id=run_id, tested_sha=start_head)
+        arms_p = f16_raw.get("arms_1x_profiles") or {}
+        e1_p = arms_p.get("KH03_R3_E1_LOW_FRICTION_STOP_FLOOR") or {}
+        e2_p = arms_p.get("KH03_R3_E2_CAUSAL_DELAYED_CONFIRMATION") or {}
+        e3_p = arms_p.get("KH03_R3_E3_CAUSAL_NEAREST_M5_UNSWEPT_EXIT") or {}
+        arms_ok = (
+            int(e1_p.get("n_closed", -1)) == 58 and int(e1_p.get("n_wins", -1)) == 3 and int(e1_p.get("n_losses", -1)) == 55 and abs(float(e1_p.get("net_pnl_usd", 0.0)) - (-118.0121)) <= 0.01
+            and int(e2_p.get("n_closed", -1)) == 131 and int(e2_p.get("n_wins", -1)) == 5 and int(e2_p.get("n_losses", -1)) == 126 and abs(float(e2_p.get("net_pnl_usd", 0.0)) - (-274.3771)) <= 0.01
+            and int(e3_p.get("n_closed", -1)) == 206 and int(e3_p.get("n_wins", -1)) == 9 and int(e3_p.get("n_losses", -1)) == 197 and abs(float(e3_p.get("net_pnl_usd", 0.0)) - (-439.0423)) <= 0.01
+        )
         f17 = _stamp_a1({
             "all_six_scenarios_exact_match": bool(f16_raw.get("six_cost_dynamic_vs_fixed_fills_separated")),
             "all_three_arms_exact_match": arms_ok,
