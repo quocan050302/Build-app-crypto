@@ -1,0 +1,13 @@
+{
+  "dataclass_replace_endpoints_window_rejected": true,
+  "foreign_lease_rejected_zero_dispatch": true,
+  "forged_grant_object_rejected": true,
+  "narrow_plan_cap_enforced_by_ledger": true,
+  "nested_caps_immutable_and_tamper_rejected": true,
+  "recomputed_digest_old_mac_rejected": true,
+  "registry_drift_rejected": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

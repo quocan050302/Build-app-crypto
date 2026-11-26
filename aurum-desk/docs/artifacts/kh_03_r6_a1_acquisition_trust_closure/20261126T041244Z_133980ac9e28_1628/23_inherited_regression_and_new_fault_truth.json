@@ -1,0 +1,35 @@
+{
+  "a1_fault_ast_literal_flags_count": 0,
+  "inherited_c1_c2_paired_executed_count": 91,
+  "inherited_c1_c2_paired_failed_count": 0,
+  "inherited_c1_c2_paired_passed_count": 91,
+  "inherited_not_relabelled_as_new_a1": true,
+  "inherited_r6_paired_executed_count": 56,
+  "inherited_r6_paired_failed_count": 0,
+  "inherited_r6_paired_passed_count": 56,
+  "inherited_regression_executed_count": 288,
+  "inherited_regression_failed_count": 0,
+  "inherited_regression_passed_count": 288,
+  "new_a1_counts_by_group": {
+    "G": 10,
+    "H": 10,
+    "I": 15,
+    "J": 10,
+    "K": 10
+  },
+  "new_a1_counts_by_kind": {
+    "BASELINE_BUG_RED": 8,
+    "INTEGRATION_FAULT": 21,
+    "NEGATIVE_CONTRACT": 26
+  },
+  "new_a1_paired_failed_count": 0,
+  "new_a1_paired_verified_count": 55,
+  "paired_receipts_gz_rel": "22_paired_fault_execution_receipts.jsonl.gz",
+  "paired_receipts_gz_sha256": "81f6420c4c24ce0fa166ed94586e3c5a760f558efc9b9738b231846565dfa955",
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "unique_a1_execution_ids_ok": true
+}

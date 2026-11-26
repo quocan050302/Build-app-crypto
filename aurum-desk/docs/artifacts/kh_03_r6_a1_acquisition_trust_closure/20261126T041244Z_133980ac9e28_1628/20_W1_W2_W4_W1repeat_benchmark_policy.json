@@ -1,0 +1,393 @@
+{
+  "a1_workload_benchmark": {
+    "all_4_identical": true,
+    "canonical_semantic_sha256": "cd43433d5b02a4a6ff4a3cc4fa29816b5ff9da2a118038ee6cbb28ea491efff6",
+    "runs": [
+      {
+        "cpu_sec": 0.39062,
+        "mode_label": "w=1",
+        "pid": 25564,
+        "rss_mib": 251.32,
+        "semantic_result_sha256": "cd43433d5b02a4a6ff4a3cc4fa29816b5ff9da2a118038ee6cbb28ea491efff6",
+        "units_count": 32,
+        "wall_sec": 0.40465,
+        "workers": 1
+      },
+      {
+        "cpu_sec": 0.54688,
+        "mode_label": "w=2",
+        "pid": 25564,
+        "rss_mib": 251.398,
+        "semantic_result_sha256": "cd43433d5b02a4a6ff4a3cc4fa29816b5ff9da2a118038ee6cbb28ea491efff6",
+        "units_count": 32,
+        "wall_sec": 0.37697,
+        "workers": 2
+      },
+      {
+        "cpu_sec": 0.54688,
+        "mode_label": "w=4",
+        "pid": 25564,
+        "rss_mib": 251.402,
+        "semantic_result_sha256": "cd43433d5b02a4a6ff4a3cc4fa29816b5ff9da2a118038ee6cbb28ea491efff6",
+        "units_count": 32,
+        "wall_sec": 0.35711,
+        "workers": 4
+      },
+      {
+        "cpu_sec": 0.375,
+        "mode_label": "w=1_repeat",
+        "pid": 25564,
+        "rss_mib": 251.395,
+        "semantic_result_sha256": "cd43433d5b02a4a6ff4a3cc4fa29816b5ff9da2a118038ee6cbb28ea491efff6",
+        "units_count": 32,
+        "wall_sec": 0.38177,
+        "workers": 1
+      }
+    ],
+    "valid": true
+  },
+  "a1_workload_benchmark_valid": true,
+  "a1_workload_w1_w2_w4_all_identical": true,
+  "applied_safe_workers_cap": 3,
+  "full_suite_speedup_extrapolated": false,
+  "pytest_controlled_subset_raw": {
+    "all_4_runs_identical": true,
+    "all_executed_runs_identical": true,
+    "benchmark_kind": "pytest_controlled_subset",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "files_count": 10,
+    "measured_speedup_w2_vs_w1": 1.172,
+    "measured_speedup_w4_vs_w1": 1.456,
+    "r2_reference_timings_seconds": {
+      "w=1": 59.733,
+      "w=1_repeat": 58.891,
+      "w=2": 49.024,
+      "w=4": 43.088
+    },
+    "run_id": "20261126T041244Z_133980ac9e28_1628",
+    "runs": [
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1",
+        "wall_clock_seconds": 63.364,
+        "worker_pids": [
+          33424
+        ],
+        "workers": 1
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=2",
+        "wall_clock_seconds": 54.048,
+        "worker_pids": [
+          40596,
+          4148
+        ],
+        "workers": 2
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=4",
+        "wall_clock_seconds": 43.508,
+        "worker_pids": [
+          36588,
+          19900,
+          40300,
+          36180
+        ],
+        "workers": 4
+      },
+      {
+        "canonical_sorted_outcome_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+        "executed_tests_count": 155,
+        "mode_label": "w=1_repeat",
+        "wall_clock_seconds": 64.193,
+        "worker_pids": [
+          13932
+        ],
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r6_a1_v1",
+    "spec_version": "KH-03.R6.A1-v1.0",
+    "speedup_truth_label": "MEANINGFUL_PARALLEL_SPEEDUP",
+    "status": "PASS",
+    "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+    "w4_status": "EXECUTED"
+  },
+  "pytest_policy_valid": true,
+  "pytest_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 63.364,
+      "w=1_repeat": 64.193,
+      "w=2": 54.048,
+      "w=4": 43.508
+    },
+    "applied_worker_count": 3,
+    "applied_worker_count_is_benchmark_measured": false,
+    "applied_worker_mode": "w=3_SAFE_CAP_NOT_BENCHMARK_MEASURED",
+    "benchmark_kind": "pytest_controlled_subset",
+    "benchmark_scope": "controlled_pytest_subset_only_NOT_full_repo_suite",
+    "borderline_or_noisy_gain_warning": false,
+    "can_certify": true,
+    "canonical_semantic_sha256": "9e8d961b49db3d61f4c5919daeeac47adfb80d9d2bb4a61dc5712a7542925bea",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 3,
+      "full_suite_safe_worker_cap": 3,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 3
+    },
+    "duration_source_key": "wall_clock_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": true,
+    "gain_exceeds_w1_repeat_noise": true,
+    "gain_vs_w1_pct": 0.3134,
+    "input_doc_sha256": "8ee6800043538512bc49589ba18d0324519d9cde292862e543b76728bb073529",
+    "mean_wall_sec_by_mode": {
+      "w=1": 63.364,
+      "w=2": 54.048,
+      "w=4": 43.508
+    },
+    "measured_fastest_mode": "w=4",
+    "measured_fastest_workers": 4,
+    "measured_speedup_w2_vs_w1": 1.172,
+    "measured_speedup_w4_vs_w1": 1.456,
+    "measured_speedup_w4_vs_w1_mean": 1.466,
+    "median_wall_sec_by_mode": {
+      "w=1": 63.364,
+      "w=2": 54.048,
+      "w=4": 43.508
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=4",
+    "policy_decision_sha256": "71ae1eb890bb8556e2fbd8a772ebb14237252f89a326a2e386b0fd92ae18ef3b",
+    "policy_recommendation_confidence": "CLEAR_PARALLEL_GAIN_WITHIN_MEASURED_SCOPE",
+    "policy_recommended_mode_after_gain_rule": "w=4",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 3,
+    "sample_size": 155,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=4 fastest in measured scope (31.34% faster than w=1, exceeding 5.00% threshold and 1.31% w=1_repeat variance). Subset timing NOT extrapolated to full repo suite.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+    "violations": [],
+    "w1_repeat_delta_sec": 0.829,
+    "w1_repeat_drift_vs_w1_pct": 0.0131,
+    "w1_repeat_variance_pct": 0.0131,
+    "w1_repeat_wall_sec": 64.193
+  },
+  "r6_ingest_benchmark": {
+    "all_4_identical": true,
+    "applied_safe_workers_cap": 1,
+    "benchmark_kind": "KH03_R6_FIXTURE_INGEST_V1",
+    "canonical_semantic_sha256": "71d900b911a40b7cfe7a1fd18dc28fdadb6d86c3c77866bc0510d19d93d170ec",
+    "input_manifest": {
+      "bars_per_partition": 120,
+      "base_ts_ms": 1794009600000,
+      "num_partitions": 16,
+      "schema": "kh_03_r6_ingest_benchmark_manifest_v1",
+      "symbol": "XAUUSDT"
+    },
+    "input_manifest_sha256": "ec815e2c8b20babc721d47ea8a2dad8923f7f18d95b5ae1cacfdabe4d10c94e8",
+    "measured_fastest_workers": 1,
+    "measured_speedup_ratio": 1.0,
+    "repeat_drift_pct": 4.31,
+    "runs": [
+      {
+        "all_partitions_ok": true,
+        "cpu_sec": 0.04688,
+        "input_manifest_sha256": "ec815e2c8b20babc721d47ea8a2dad8923f7f18d95b5ae1cacfdabe4d10c94e8",
+        "mode_label": "w=1",
+        "pid": 25564,
+        "rss_mib": 251.234,
+        "semantic_result_sha256": "71d900b911a40b7cfe7a1fd18dc28fdadb6d86c3c77866bc0510d19d93d170ec",
+        "total_ohlcv_rows": 1920,
+        "wall_sec": 0.05471,
+        "workers": 1
+      },
+      {
+        "all_partitions_ok": true,
+        "cpu_sec": 0.0625,
+        "input_manifest_sha256": "ec815e2c8b20babc721d47ea8a2dad8923f7f18d95b5ae1cacfdabe4d10c94e8",
+        "mode_label": "w=2",
+        "pid": 25564,
+        "rss_mib": 251.293,
+        "semantic_result_sha256": "71d900b911a40b7cfe7a1fd18dc28fdadb6d86c3c77866bc0510d19d93d170ec",
+        "total_ohlcv_rows": 1920,
+        "wall_sec": 0.06033,
+        "workers": 2
+      },
+      {
+        "all_partitions_ok": true,
+        "cpu_sec": 0.0625,
+        "input_manifest_sha256": "ec815e2c8b20babc721d47ea8a2dad8923f7f18d95b5ae1cacfdabe4d10c94e8",
+        "mode_label": "w=4",
+        "pid": 25564,
+        "rss_mib": 251.293,
+        "semantic_result_sha256": "71d900b911a40b7cfe7a1fd18dc28fdadb6d86c3c77866bc0510d19d93d170ec",
+        "total_ohlcv_rows": 1920,
+        "wall_sec": 0.05915,
+        "workers": 4
+      },
+      {
+        "all_partitions_ok": true,
+        "cpu_sec": 0.0625,
+        "input_manifest_sha256": "ec815e2c8b20babc721d47ea8a2dad8923f7f18d95b5ae1cacfdabe4d10c94e8",
+        "mode_label": "w=1_repeat",
+        "pid": 25564,
+        "rss_mib": 251.293,
+        "semantic_result_sha256": "71d900b911a40b7cfe7a1fd18dc28fdadb6d86c3c77866bc0510d19d93d170ec",
+        "total_ohlcv_rows": 1920,
+        "wall_sec": 0.05707,
+        "workers": 1
+      }
+    ],
+    "valid": true,
+    "w1_repeat_wall_sec": 0.05707,
+    "w1_wall_sec": 0.05471,
+    "w2_wall_sec": 0.06033,
+    "w4_wall_sec": 0.05915
+  },
+  "r6_ingest_benchmark_valid": true,
+  "r6_ingest_w1_w2_w4_all_identical": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "science_policy_valid": true,
+  "science_slice_8000_raw": {
+    "all_4_runs_identical": true,
+    "benchmark_kind": "r2_science_slice",
+    "canonical_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
+    "canonical_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "evaluated_bar_range": [
+      30,
+      8030
+    ],
+    "measured_optimal_worker_count_for_slice": 2,
+    "measured_speedup_w2_vs_w1": 1.021,
+    "measured_speedup_w4_vs_w1": 0.989,
+    "run_id": "20261126T041244Z_133980ac9e28_1628",
+    "runs": [
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1",
+        "rows_count": 12062,
+        "wall_seconds": 2.237,
+        "workers": 1
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 2,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=2",
+        "rows_count": 12062,
+        "wall_seconds": 2.192,
+        "workers": 2
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 4,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=4",
+        "rows_count": 12062,
+        "wall_seconds": 2.263,
+        "workers": 4
+      },
+      {
+        "canonical_sorted_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+        "chunks_count": 1,
+        "evaluated_bars_count": 8000,
+        "mode_label": "w=1_repeat",
+        "rows_count": 12062,
+        "wall_seconds": 2.303,
+        "workers": 1
+      }
+    ],
+    "schema_version": "kh_03_r6_a1_v1",
+    "spec_version": "KH-03.R6.A1-v1.0",
+    "status": "PASS",
+    "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+  },
+  "science_w1_w2_w4_all_identical": true,
+  "science_worker_policy": {
+    "all_four_measured_wall_sec": {
+      "w=1": 2.237,
+      "w=1_repeat": 2.303,
+      "w=2": 2.192,
+      "w=4": 2.263
+    },
+    "applied_worker_count": 1,
+    "applied_worker_count_is_benchmark_measured": true,
+    "applied_worker_mode": "w=1_CAPPED_BELOW_MEASURED_w=2",
+    "benchmark_kind": "r2_science_slice",
+    "benchmark_scope": "r2_8000_bar_science_slice_only_NOT_full_dataset",
+    "borderline_or_noisy_gain_warning": true,
+    "can_certify": true,
+    "canonical_semantic_sha256": "a6d99131989482660986e899016f7a43870b92d27598f9a7e39fbf05850cc987",
+    "cap_components": {
+      "configured_child_process_cap": 4,
+      "currently_allowed_worker_cap": 4,
+      "full_suite_safe_worker_cap": 4,
+      "ram_derived_worker_cap": 4,
+      "shard_exclusive_cap": 4
+    },
+    "duration_source_key": "wall_seconds",
+    "full_suite_speedup_extrapolated": false,
+    "gain_exceeds_min_threshold": false,
+    "gain_exceeds_w1_repeat_noise": false,
+    "gain_vs_w1_pct": 0.0201,
+    "input_doc_sha256": "30664f49b853dc71f5c0d2ee53fa75fa091702eb3a1f141e123b4c7002a180b6",
+    "mean_wall_sec_by_mode": {
+      "w=1": 2.237,
+      "w=2": 2.192,
+      "w=4": 2.263
+    },
+    "measured_fastest_mode": "w=2",
+    "measured_fastest_workers": 2,
+    "measured_speedup_w2_vs_w1": 1.021,
+    "measured_speedup_w4_vs_w1": 0.989,
+    "measured_speedup_w4_vs_w1_mean": 1.003,
+    "median_wall_sec_by_mode": {
+      "w=1": 2.237,
+      "w=2": 2.192,
+      "w=4": 2.263
+    },
+    "min_meaningful_gain_pct": 0.05,
+    "optimum_worker_policy": "w=2",
+    "policy_decision_sha256": "1a75e8e86be639fce6270452f973aec85dfa34842f810f447b1460ad0f32bd94",
+    "policy_recommendation_confidence": "INCONCLUSIVE_GAIN_BELOW_MIN_THRESHOLD_RETAIN_W1",
+    "policy_recommended_mode_after_gain_rule": "w=1",
+    "policy_status": "PASS_MEASURED_AND_SAFE_CAP_APPLIED",
+    "provenance_role": "FRESH_EXECUTION",
+    "safe_fallback_reason": null,
+    "safe_worker_cap": 4,
+    "sample_size": 12062,
+    "schema_version": "kh_03_r3_c1_worker_policy_v1",
+    "spec_version": "KH-03.R3.C1-v1.0",
+    "stability_disclosure": "w=2 gain vs w=1 is 2.01% (< 5.00% min threshold); w=1_repeat variance=2.95%; retaining conservative w=1 policy.",
+    "status": "PASS",
+    "tie_detected": false,
+    "tie_rule": "prefer_fewer_workers",
+    "timing_determinism_claimed": false,
+    "timing_stability_status": "STABLE_LOW_TIMING_VARIANCE",
+    "violations": [],
+    "w1_repeat_delta_sec": 0.066,
+    "w1_repeat_drift_vs_w1_pct": 0.0295,
+    "w1_repeat_variance_pct": 0.0295,
+    "w1_repeat_wall_sec": 2.303
+  },
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

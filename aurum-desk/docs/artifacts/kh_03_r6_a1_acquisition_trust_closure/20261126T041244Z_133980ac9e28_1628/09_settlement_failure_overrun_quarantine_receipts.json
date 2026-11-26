@@ -1,0 +1,16 @@
+{
+  "cancel_after_child_exit_before_accept_discarded": true,
+  "cancel_before_custody_persist_zero_write": true,
+  "child_launch_or_pipe_error_cleaned_no_orphan": true,
+  "completed_missing_dim_rejected": true,
+  "lifecycle_gz_rel": "10_process_lifecycle_cancel_reap_traces.jsonl.gz",
+  "lifecycle_gz_sha256": "6c4fe1e1e8ad7dd61f5e0097149c0067bf1c60b38e599462c7e6410ebe84fa0b",
+  "lifecycle_traces_count": 40,
+  "noncooperative_child_and_grandchild_reaped": true,
+  "overrun_quarantined_without_clamping": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "supervisor_rejects_on_settlement_failure_or_exception": true,
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

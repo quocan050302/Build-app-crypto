@@ -1,0 +1,9 @@
+{
+  "anchor_monotonic_ordering_verified": true,
+  "crash_pre_anchor_and_unknown_io_restart_safe": true,
+  "cross_process_parallel_reservations_conserved": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

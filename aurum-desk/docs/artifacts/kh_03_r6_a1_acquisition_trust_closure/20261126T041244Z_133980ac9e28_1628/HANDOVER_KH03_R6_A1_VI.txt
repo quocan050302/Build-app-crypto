@@ -1,0 +1,41 @@
+==============================================================================
+AURUM DESK — KH-03.R6.A1 | BAO CAO BAN GIAO CHU DU AN (OFFLINE / QA LOOPBACK)
+==============================================================================
+Spec: KH-03.R6.A1-v1.0 | Run ID: 20261126T041244Z_133980ac9e28_1628
+Branch: feature/v17-9-2-structural-sl-tp-from-qa
+Reviewed HEAD (R6 published): 28b252676a10aa21bec7ce14fbd9415db230c2f4
+Prior R6 Tested SHA:          529bdaf2e533d3616b1a8e0842c048da3b81126b
+A1 Tested Executable SHA:     133980ac9e28e663df8284617bc4306791a0f86a
+Overall Classification:       PENDING_SEPARATE_OS_VERIFIER_A1_34_OF_34_PRE_VERIFIER_GATES_PASS
+
+1. PHAN TACH GATE (36 A1 ENGINEERING GATES VS 0/4 EXTERNAL R6.B/C/D)
+   - A1 Engineering Gates (pre-push): 34/35 (+ G36=PENDING_REMOTE_READBACK)
+   - External R6.B/C/D (tach biet):   0/4 executed — R6.B=BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED, Smoke=NOT_RUN, DEV=NOT_RUN, R7=BLOCKED_NO_OBSERVED_DEV_DATA
+
+2. DONG 5 LOI REVIEW (P1-G .. P1-K) — REAL RED TREN 529bdaf2 -> CLEAN GREEN
+   - M0 Real RED tren 529bdaf2 (isolated overlay): 6/6 tai hien that (RED-G, RED-H, RED-I1, RED-I2, RED-J, RED-K)
+   - P1-G (Acquisition CLI & Orchestrator): Xoa AUTHORIZED_SESSION_CLAIMED_AND_READY; QA CLI E2E that (Smoke PID=8724, DEV chunks=5, rows=17, raw_bytes=2844)
+   - P1-H (Immutable Plan/Grant/Lease/Request): MappingProxyType + canonicalize_r6_bound_plan_core() tinh lai digest+MAC moi lan; claim bat buoc R6BoundCapturePlan va ap dung effective PLAN caps
+   - P1-I (Reservation/IPC/Transport/Settlement): Parent-authoritative worker envelope cam child override; REST/WS tich luy cap khong doc qua reservation; settle fail-closed + quarantine khong clamp; file-lock anchor don dieu
+   - P1-J (Trusted Supervisor -> Provenance -> Custody): Bo niem tin dict/Mapping; token noi bo single-use; A1 chi cap QA_LOOPBACK, cam RAW_OBSERVED_VERIFIED; custody read-only doi chieu SQLite ledger
+   - P1-K (Frozen Release & CLI Contract): verify_r6_a1_release_binding() + detached worktree / evidence-only descendant proof; sua thieu --execute-authorized & dry-run strict
+
+3. KIEM DINH DOC LAP, REGRESSION, PARITY & BACKTEST
+   - Full Pytest: 5965/5973 passed, 8 discretionary skipped (0 fail, 0 error, 0 mandatory skip)
+   - Paired Controls: 55 moi (A1) + 56 R6 + 91 C1/C2 + 288 inherited
+   - Verifier Mutations: 34/34 moi (A1) + 167/167 inherited (separate OS)
+   - Parity: A1=56,710/0, SI8=6,375/0, Adapters=246/0, D4=0
+   - R4 1x & 6 Cost Scenarios + Arms: 203 closed (7W/196L), net -441.6118 USD, -0.8806R, 139 loss tails >2.50 USD; khong sua chien luoc
+   - Telemetry: min disk=44.315 GiB, min RAM=5147.0 MiB, max descendants=4 (<=4), 0 orphan
+
+4. CONG BO TRUNG THUC & GIOI HAN
+   - EXTERNAL_MARKET_REQUESTS=0 | ACCEPTED_REAL_OBSERVED_RECORDS=0 | OOS_READS=0 | OOS_EVALUATIONS=0
+   - PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO | ECONOMIC=NO_PROVEN_EDGE
+   - ACCOUNT_FEE=UNKNOWN | SLIPPAGE=MISSING | INSTRUMENT/BBO/FUNDING EXTERNAL=NOT_OBSERVED / NOT_RUN
+   - QA loopback KHONG chung minh external network termination hay live Bitget provenance.
+
+5. KHUYEN NGHI BUOC TIEP THEO (CHU DU AN REVIEW RIENG CHO R6.B)
+   - Mau review chua ky: aurum-desk/docs/artifacts/kh_03_r6_a1_acquisition_trust_closure/20261126T041244Z_133980ac9e28_1628/logs/unsigned_owner_review_template_stage_b_smoke.json
+   - Capture ngoai van BI KHOA CUNG trong A1 (BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED).
+   - De chay R6.B sau nay can 1 commit mo khoa hep duoc review rieng + trust root & Ed25519 grant cuc bo ngoai Git.
+==============================================================================

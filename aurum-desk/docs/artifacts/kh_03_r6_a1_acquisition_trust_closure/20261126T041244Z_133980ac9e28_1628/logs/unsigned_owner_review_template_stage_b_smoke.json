@@ -1,0 +1,70 @@
+{
+  "a1_external_capture_enabled": false,
+  "a1_external_status": "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED",
+  "exact_local_cli_commands": {
+    "frozen_checkout_ancestry_verification_command": "git fetch origin && git merge-base --is-ancestor 133980ac9e28e663df8284617bc4306791a0f86a origin/feature/v17-9-2-structural-sl-tp-from-qa && git worktree add --detach <local-frozen-dir> 133980ac9e28e663df8284617bc4306791a0f86a",
+    "future_r6b_owner_authorized_command_DO_NOT_RUN_IN_A1": "python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --execute-authorized --grant <owner-signed-local-grant.json> --owner-config <owner-local-config.json> --release-manifest <verified-local-manifest-26.json> --release-receipt <verified-local-readback-28.json> --expected-manifest-sha256 <owner-pinned-manifest-26-sha256>",
+    "local_qa_loopback_e2e_command": "python aurum-desk/tools/run_kh_03_r6_capture.py --qa-loopback-e2e --stage smoke --qa-config <local-qa-loopback-config.json> --grant <ephemeral-qa-signed-grant.json> --plan <local-qa-plan.json> --release-manifest <verified-local-manifest-26.json>",
+    "offline_dry_run_command": "python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --dry-run --plan <local-plan.json> --release-manifest <verified-local-manifest-26.json> --release-receipt <verified-local-readback-28.json>"
+  },
+  "manifest_26_sha256": "<SEALED_AFTER_VERIFIER_26_SHA256>",
+  "proposed_grant_payload_template": {
+    "allowed_endpoints": [
+      "classic_v2_contracts",
+      "classic_v2_history_candles",
+      "classic_v2_history_fund_rate",
+      "classic_v2_ws_books1"
+    ],
+    "allowed_ws_channels": [
+      "books1"
+    ],
+    "api_family": "BITGET_CLASSIC_V2",
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "caps": {
+      "connections": 2,
+      "decoded_bytes": 20971520,
+      "disk_bytes": 33554432,
+      "messages": 10000,
+      "pages": 5,
+      "payload_bytes": 10485760,
+      "records": 20000,
+      "requests": 30,
+      "retries": 6,
+      "subscriptions": 2
+    },
+    "destination_root": "<LOCAL_FIXED_DRIVE_PATH_OUTSIDE_GIT>",
+    "destination_store_id": "<OWNER_PROVISIONED_LOCAL_STORE_ID>",
+    "expires_utc_ms": "<OWNER_SETS_FINITE_EXPIRY_UTC_MS>",
+    "grant_id": "<OWNER_SETS_UNIQUE_ONE_SHOT_GRANT_ID>",
+    "issued_utc_ms": "<OWNER_SETS_INTEGER_UTC_MS>",
+    "issuer": "<OWNER_ISSUER_ID_MATCHING_TRUST_ROOT>",
+    "max_concurrency": 2,
+    "max_session_duration_sec": 300,
+    "product_type": "USDT-FUTURES",
+    "purpose": "DEV_ONLY",
+    "release_manifest_sha256": "<SEALED_AFTER_VERIFIER_26_SHA256>",
+    "repo": "quocan050302/Build-app-crypto",
+    "retention_policy": {
+      "git_commit_raw_payloads": false,
+      "max_retention_days": 90
+    },
+    "stage": "B_SMOKE",
+    "symbol": "XAUUSDT",
+    "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+    "trust_namespace": "OWNER_EXTERNAL_PRODUCTION_TRUST",
+    "venue": "BITGET",
+    "window_end_ms": "<OWNER_SETS_DEV_WINDOW_END_UTC_MS>",
+    "window_start_ms": "<OWNER_SETS_DEV_WINDOW_START_UTC_MS>"
+  },
+  "publication_head_sha": "<POST_PUSH_PUBLICATION_HEAD_SHA>",
+  "schema_version": "kh_03_r6_a1_v1",
+  "source_registry_digest": "17bc8472dad096274d63adf81c46084bbfea6704531bc4123c48c1da2f82883f",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "stage": "B_SMOKE",
+  "stage_a1_run_id": "20261126T041244Z_133980ac9e28_1628",
+  "template_status": "UNSIGNED_OWNER_REVIEW_TEMPLATE",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "unsigned_template": true,
+  "valid_authorization": false,
+  "warning_vi": "DAY LA MAU PHE DUYET CHUA KY CHO R6.B TUONG LAI \u2014 KHONG CO HIEU LUC MO SOCKET. Trong KH-03.R6.A1, capture mang ben ngoai BI KHOA CUNG (BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED). Khong chay lenh external trong A1; R6.B sau nay can mot commit mo khoa hep duoc review rieng va grant Ed25519 do chu du an tu ky cuc bo ngoai Git."
+}

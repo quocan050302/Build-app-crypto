@@ -1,0 +1,42 @@
+{
+  "dryrun_invalid_plan_nonzero_exit": true,
+  "dryrun_valid_plan_zero_claim_zero_socket": true,
+  "handshake_only_success_removed": true,
+  "qa_cli_dev_committed_chunks": 5,
+  "qa_cli_dev_committed_raw_bytes": 2844,
+  "qa_cli_dev_committed_rows": 17,
+  "qa_cli_dev_e2e_pass": true,
+  "qa_cli_dev_receipt": {
+    "cli_pid": 20572,
+    "committed_chunks_count": 5,
+    "custody_readonly_valid": true,
+    "custody_tip_hash": "3e8551affaf86fb548f6b21dc6b7c17d882022a23b70caf97c1c1bb87993aca5",
+    "dataset_manifest_sha256": "fe789a2c7ec9c5ffb15f08dd3bb3f44c6e7f9a6e732ca1c2de773bb523a890d8",
+    "exit_code": 0,
+    "ledger_final_status": "SPENT",
+    "receipt_digest": "ae739156bb3261f9e7602961d521dd22d3e742ee8426ba3fc9253428db1b01ab",
+    "status": "QA_ACQUISITION_END_TO_END_PASS",
+    "tasks_completed_count": 4,
+    "tasks_planned_count": 4,
+    "total_committed_normalized_rows": 17,
+    "total_committed_raw_bytes": 2844
+  },
+  "qa_cli_smoke_e2e_pass": true,
+  "qa_cli_smoke_pid": 8724,
+  "qa_cli_smoke_receipt": {
+    "cli_pid": 8724,
+    "committed_chunks_count": 4,
+    "custody_readonly_valid": true,
+    "exit_code": 0,
+    "ledger_final_status": "SPENT",
+    "receipt_digest": "9c4e03d1782590aa3a074ce232c20b2e04bbda67f16374fd685a2a07baeec709",
+    "status": "QA_ACQUISITION_END_TO_END_PASS",
+    "tasks_completed_count": 4,
+    "total_committed_normalized_rows": 9,
+    "total_committed_raw_bytes": 1499
+  },
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

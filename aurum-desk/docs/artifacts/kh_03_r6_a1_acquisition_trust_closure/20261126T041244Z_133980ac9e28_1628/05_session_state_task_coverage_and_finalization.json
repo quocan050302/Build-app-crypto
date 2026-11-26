@@ -1,0 +1,10 @@
+{
+  "cancel_between_claim_and_first_attempt_zero_io": true,
+  "empty_task_plan_blocked_no_claim": true,
+  "partial_second_task_failure_truthful": true,
+  "repeat_same_grant_denied_after_restart": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

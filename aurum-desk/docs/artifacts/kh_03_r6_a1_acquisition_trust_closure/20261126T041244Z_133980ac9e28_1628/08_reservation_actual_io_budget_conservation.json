@@ -1,0 +1,14 @@
+{
+  "reservation_receipt_verified": true,
+  "rest_error_and_retry_cumulative_bytes_bounded": true,
+  "retry_after_beyond_budget_aborted": true,
+  "retry_over_cap_rejected": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "sentinel_never_reads_beyond_reservation": true,
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "ws_frame_queue_message_caps_enforced": true,
+  "ws_reconnect_sub_conn_bounded_by_reservation": true,
+  "zero_request_or_missing_dim_reservation_rejected": true
+}

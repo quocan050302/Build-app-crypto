@@ -1,0 +1,14 @@
+{
+  "fabricated_mapping_cannot_mint_observed": true,
+  "forged_or_copied_token_rejected": true,
+  "late_or_nonzero_exit_rejected": true,
+  "qa_promotion_to_observed_dev_rejected_despite_tls": true,
+  "raw_bytes_length_or_hash_mismatch_rejected": true,
+  "replay_same_token_or_chunk_denied": true,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "unsettled_or_overrun_rejected": true,
+  "wrong_binding_ids_rejected": true
+}

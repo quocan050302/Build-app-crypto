@@ -1,0 +1,14 @@
+{
+  "crash_and_failed_unlink_quarantined_safe_cleanup": true,
+  "qa_custody_readonly_post_restart_valid": true,
+  "qa_e2e_committed_chunks_count": 5,
+  "qa_e2e_committed_raw_bytes": 2844,
+  "qa_e2e_committed_rows_count": 17,
+  "qa_e2e_dataset_manifest_sha256": "fe789a2c7ec9c5ffb15f08dd3bb3f44c6e7f9a6e732ca1c2de773bb523a890d8",
+  "raw_payloads_committed_to_git": false,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "tampered_raw_or_norm_file_detected": true,
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a"
+}

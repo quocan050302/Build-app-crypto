@@ -1,0 +1,78 @@
+{
+  "all_reproduced": true,
+  "baseline_reviewed_head_sha": "28b252676a10aa21bec7ce14fbd9415db230c2f4",
+  "baseline_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "cases": {
+    "RED-G": {
+      "disclosure": "Executed untouched 529bdaf2 claim+finalize handshake branch in QA isolated ledger (no external owner trust root); confirmed old CLI source never invokes supervise_r6_session or R6CustodyJournal and spends grant with 0 attempts.",
+      "old_cli_calls_custody": false,
+      "old_cli_calls_supervisor": false,
+      "old_cli_has_handshake_only_exit": true,
+      "reproduced": true,
+      "reproduced_attempts_count": 0,
+      "reproduced_grant_state_after_handshake": "SPENT"
+    },
+    "RED-H": {
+      "mutated_caps_requests_accepted": true,
+      "mutated_caps_value": 999999,
+      "replaced_endpoints": [
+        "classic_v2_ticker"
+      ],
+      "replaced_endpoints_window_accepted": true,
+      "reproduced": true
+    },
+    "RED-I1": {
+      "actual_bytes_received": 98,
+      "child_exit_code": 0,
+      "child_ok": true,
+      "child_override_max_payload_bytes": 4096,
+      "parent_limit_max_payload_bytes": 32,
+      "reproduced": true
+    },
+    "RED-I2": {
+      "grant_state_after_overrun": "CLAIMED",
+      "old_settle_returned_settled": true,
+      "plan_cap_payload_bytes": 100,
+      "reproduced": true,
+      "reserved_payload_bytes": 50,
+      "settled_known_payload_bytes": 5000
+    },
+    "RED-J": {
+      "accepted_for_custody": true,
+      "minted_provenance_class": "RAW_OBSERVED_VERIFIED",
+      "reproduced": true,
+      "verify_passed": true
+    },
+    "RED-K": {
+      "actual_repo_head_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+      "old_cli_naive_head_equals_tested": false,
+      "old_dryrun_invalid_plan_exit_code": 0,
+      "old_dryrun_invalid_plan_parsed_ok": true,
+      "old_handover_missing_execute_authorized": true,
+      "old_template_missing_execute_authorized": true,
+      "published_tested_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+      "reproduced": true
+    }
+  },
+  "elapsed_sec": 1.5157,
+  "extracted_files_sha256": {
+    "aurum-desk/backend/services/kh_03_r6_acceptance_service.py": "a1746cecde6f9cb984baa4f8f2af462cdf2d13c9deed1e9ea7d83d2261cbe561",
+    "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py": "635c517dffc55b1b67a27f4d9eb5889ee995ea080a0c621565be813e3bdfbd20",
+    "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py": "b60782dd179c4ea3f23185f65ee0719f5cdb5b8144105f0ead4b8e0c5c0e8f7e",
+    "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py": "c570965494cb3455ba85f0ac870665bbc4482c1219d6cde5bbe0e4402e506f93",
+    "aurum-desk/backend/services/kh_03_r6_market_data_service.py": "f14afeb204c3443c29d835559363f9cb80244a508b55d9d70be80065fa8b0c6a",
+    "aurum-desk/backend/services/kh_03_r6_source_contract_service.py": "b9c433c419cb77d0251f24b930d4ddf82d153def4662fa420bbade0aae219f78",
+    "aurum-desk/tools/run_kh_03_r6_capture.py": "cb272f227898fcc7dd0e33c4510f7a46fcbc3d105fba4e247ce9c48939fb124b"
+  },
+  "isolation_method": "git_show_isolated_temp_overlay_zero_branch_mutation",
+  "probe_pid": 41036,
+  "raw_stdout_sha256": "71ba40b2aeb6357a69b4fc8be4b3b733df437edd33007e133aea8274ad630ed4",
+  "reproduced_count": 6,
+  "run_id": "20261126T041244Z_133980ac9e28_1628",
+  "schema_version": "kh_03_r6_a1_v1",
+  "spec_version": "KH-03.R6.A1-v1.0",
+  "status": "PASS_ALL_6_BASELINE_RED_REPRODUCED",
+  "subprocess_exit_code": 0,
+  "tested_executable_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "total_hypotheses": 6
+}
