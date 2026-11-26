@@ -628,11 +628,14 @@ def build_r6_unsigned_owner_review_template(
         },
         "source_registry_digest": source_registry_digest,
         "exact_local_cli_commands": {
-            "dry_run_command": f"python aurum-desk/tools/run_kh_03_r6_capture.py --stage {'smoke' if is_smoke else 'dev'} --dry-run --plan <local-plan.json>",
+            "dry_run_command": (
+                f"python aurum-desk/tools/run_kh_03_r6_capture.py --stage {'smoke' if is_smoke else 'dev'} "
+                "--dry-run --plan <local-plan.json> --release-manifest <local-stageA-manifest.json>"
+            ),
             "authorized_command": (
                 f"python aurum-desk/tools/run_kh_03_r6_capture.py --stage {'smoke' if is_smoke else 'dev'} "
-                "--grant <local-signed-grant.json> --owner-config <local-owner-config.json> "
-                "--release-manifest <local-stageA-manifest.json>"
+                "--execute-authorized --grant <local-signed-grant.json> --owner-config <local-owner-config.json> "
+                "--release-manifest <local-stageA-manifest.json> --release-receipt <local-readback-28.json>"
             ),
         },
     }

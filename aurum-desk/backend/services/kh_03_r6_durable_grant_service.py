@@ -36,12 +36,28 @@ from pathlib import Path
 import sqlite3
 import stat
 import time
+from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
+from services.kh_03_r6_a1_trust_service import (
+    canonicalize_r6_bound_plan_core,
+    freeze_strict_int_caps_a1,
+    issue_durable_reservation_receipt_a1,
+    issue_durable_settlement_receipt_a1,
+    register_verified_grant_token_a1,
+    register_verified_lease_token_a1,
+    verify_registered_grant_authenticity_a1,
+    verify_registered_lease_authenticity_a1,
+)
 from services.kh_03_r6_source_contract_service import (
     API_FAMILY_CLASSIC_V2,
     APPROVED_PRODUCT_TYPE_V2_R6,
@@ -619,6 +635,8 @@ class R6VerifiedGrant:
     caps: Mapping[str, int]
     retention_policy: Mapping[str, Any]
     external_capture_permitted: bool
+    verification_token: str = ""
+    signature_sha256: str = ""
 
     def to_redacted_dict(self) -> Dict[str, Any]:
         return {
@@ -918,6 +936,19 @@ def verify_r6_owner_grant(
         }
 
     ident = canonical_r6_grant_identity(gp, trust_root.trust_namespace)
+    sig_sha = _sha256_bytes(base64.b64decode(sig_b64, validate=True))
+    v_tok = register_verified_grant_token_a1(
+        grant_identity_key=ident["grant_identity_key"],
+        grant_payload_digest=ident["grant_payload_digest"],
+        key_fingerprint=fp,
+        trust_namespace=trust_root.trust_namespace,
+        stage=stage,
+        tested_executable_sha=str(gp["tested_executable_sha"]),
+        release_manifest_sha256=str(gp["release_manifest_sha256"]),
+        signature_sha256=sig_sha,
+    )
+    frozen_caps = MappingProxyType(dict(validated_caps))
+    frozen_ret = MappingProxyType(dict(ret_pol))
     vg = R6VerifiedGrant(
         grant_identity_key=ident["grant_identity_key"],
         grant_payload_digest=ident["grant_payload_digest"],
@@ -945,9 +976,11 @@ def verify_r6_owner_grant(
         destination_root=str(Path(dest_root_str).resolve(strict=False)),
         max_session_duration_sec=int(max_dur),
         max_concurrency=int(max_conc),
-        caps=validated_caps,
-        retention_policy=dict(ret_pol),
+        caps=frozen_caps,
+        retention_policy=frozen_ret,
         external_capture_permitted=(is_external_stage and trust_root.external_capture_permitted),
+        verification_token=v_tok,
+        signature_sha256=sig_sha,
     )
     return {
         "valid": True,
@@ -973,6 +1006,62 @@ class R6DurableSessionLease:
     expires_utc_ms: int
     claimed_generation: int
     external_capture_permitted: bool
+    release_manifest_sha256: str = ""
+    effective_caps: Mapping[str, int] = MappingProxyType({})
+    lease_token: str = ""
+
+
+class _LedgerAnchorCrossProcessLock:
+    """
+    Cross-process exclusive OS file lock serializing SQLite commit + external anchor replacement
+    so an older writer can NEVER overwrite a newer anchor generation across concurrent processes.
+    """
+
+    def __init__(self, lock_path: Path, timeout_sec: float = 10.0) -> None:
+        self.lock_path = lock_path
+        self.timeout_sec = float(timeout_sec)
+        self._fd: Optional[int] = None
+
+    def __enter__(self) -> "_LedgerAnchorCrossProcessLock":
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        deadline = time.monotonic() + self.timeout_sec
+        fd = os.open(str(self.lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            if os.fstat(fd).st_size == 0:
+                os.write(fd, b"0")
+        except OSError:
+            pass
+        while True:
+            try:
+                if os.name == "nt":
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self._fd = fd
+                return self
+            except OSError:
+                if time.monotonic() >= deadline:
+                    os.close(fd)
+                    raise TimeoutError(f"LEDGER_ANCHOR_LOCK_TIMEOUT:{self.lock_path}")
+                time.sleep(0.01)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._fd is not None:
+            try:
+                if os.name == "nt":
+                    os.lseek(self._fd, 0, os.SEEK_SET)
+                    msvcrt.locking(self._fd, msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(self._fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            finally:
+                try:
+                    os.close(self._fd)
+                except OSError:
+                    pass
+                self._fd = None
 
 
 _LEDGER_DDL_R6 = """
@@ -997,6 +1086,7 @@ CREATE TABLE grants (
     trust_namespace TEXT NOT NULL,
     grant_payload_digest TEXT NOT NULL,
     plan_digest TEXT NOT NULL,
+    release_manifest_sha256 TEXT NOT NULL DEFAULT '',
     session_id TEXT NOT NULL,
     stage TEXT NOT NULL,
     state TEXT NOT NULL,
@@ -1015,10 +1105,12 @@ CREATE TABLE attempts (
     grant_identity_key TEXT NOT NULL,
     session_id TEXT NOT NULL,
     request_type TEXT NOT NULL,
+    request_digest TEXT NOT NULL DEFAULT '',
     state TEXT NOT NULL,
     reserved_json TEXT NOT NULL,
     known_json TEXT NOT NULL,
     uncertain_json TEXT NOT NULL,
+    overrun_incident_json TEXT NOT NULL DEFAULT '',
     created_utc_ms INTEGER NOT NULL,
     started_utc_ms INTEGER,
     settled_utc_ms INTEGER,
@@ -1196,11 +1288,25 @@ class R6DurableGrantLedger:
         conn.execute("PRAGMA foreign_keys=ON;")
         return conn
 
+    def _anchor_lock(self) -> _LedgerAnchorCrossProcessLock:
+        return _LedgerAnchorCrossProcessLock(self.store_root / ".ledger_anchor.lock", timeout_sec=self.busy_timeout_ms / 1000.0)
+
     def _sync_anchor_from_meta(self, meta_row: Mapping[str, Any]) -> None:
+        new_gen = int(meta_row["generation"])
+        if self.anchor_path.is_file():
+            try:
+                cur_anc = _strict_loads_r6(self.anchor_path.read_bytes(), max_bytes=32_768)
+                cur_gen = int(cur_anc.get("generation", 0))
+                if new_gen < cur_gen:
+                    raise RuntimeError(f"ANCHOR_GENERATION_REGRESSION_DENIED:new={new_gen}<cur={cur_gen}")
+            except RuntimeError:
+                raise
+            except Exception:
+                pass
         anchor = _compute_anchor_doc(
             store_id=str(meta_row["store_id"]),
             trust_namespace=str(meta_row["trust_namespace"]),
-            generation=int(meta_row["generation"]),
+            generation=new_gen,
             audit_tip_hash=str(meta_row["audit_tip_hash"]),
             high_water_utc_ms=int(meta_row["high_water_utc_ms"]),
             quarantined=bool(meta_row["quarantined"]),
@@ -1267,11 +1373,11 @@ class R6DurableGrantLedger:
         finally:
             conn.close()
 
-    # F09: Atomic one-shot grant claim
+    # F11: Atomic one-shot grant claim bound to verified immutable R6BoundCapturePlan & effective PLAN caps
     def claim_r6_grant_session_atomic(
         self,
         verified_grant: R6VerifiedGrant,
-        verified_plan_digest: str,
+        verified_plan: Any,
         session_id: str,
         *,
         actual_now: datetime,
@@ -1279,8 +1385,84 @@ class R6DurableGrantLedger:
     ) -> Dict[str, Any]:
         if not isinstance(verified_grant, R6VerifiedGrant):
             return {"claimed": False, "status": "REJECTED_INVALID_GRANT_OBJECT", "lease": None, "violations": ["INVALID_GRANT_TYPE"]}
-        if not str(verified_plan_digest or "").strip() or not str(session_id or "").strip():
-            return {"claimed": False, "status": "REJECTED_MISSING_PLAN_OR_SESSION", "lease": None, "violations": ["MISSING_PLAN_OR_SESSION_ID"]}
+        ok_vg, vg_viols = verify_registered_grant_authenticity_a1(verified_grant)
+        if not ok_vg:
+            return {"claimed": False, "status": "REJECTED_FORGED_GRANT_OBJECT", "lease": None, "violations": vg_viols}
+        if not str(session_id or "").strip():
+            return {"claimed": False, "status": "REJECTED_MISSING_PLAN_OR_SESSION", "lease": None, "violations": ["MISSING_SESSION_ID"]}
+
+        # F11: Strictly require a verified immutable bound plan object (REJECT raw arbitrary digest strings!)
+        if isinstance(verified_plan, str) or not hasattr(verified_plan, "plan_digest") or not hasattr(verified_plan, "verify_mac_against_grant"):
+            return {
+                "claimed": False,
+                "status": "REJECTED_RAW_OR_UNVERIFIED_PLAN_OBJECT",
+                "lease": None,
+                "violations": ["CLAIM_REQUIRES_VERIFIED_IMMUTABLE_BOUND_PLAN_NOT_STRING"],
+            }
+
+        # Recompute canonical bound plan core & verify digest + MAC + strict grant subset!
+        plan_viols: List[str] = []
+        _, recomp_digest, core_viols = canonicalize_r6_bound_plan_core(
+            plan_id=getattr(verified_plan, "plan_id", None),
+            stage=getattr(verified_plan, "stage", None),
+            purpose=getattr(verified_plan, "purpose", None),
+            grant_identity_key=getattr(verified_plan, "grant_identity_key", None),
+            grant_payload_digest=getattr(verified_plan, "grant_payload_digest", None),
+            tested_executable_sha=getattr(verified_plan, "tested_executable_sha", None),
+            release_manifest_sha256=getattr(verified_plan, "release_manifest_sha256", None),
+            registry_digest=getattr(verified_plan, "registry_digest", None),
+            venue=getattr(verified_plan, "venue", None),
+            api_family=getattr(verified_plan, "api_family", None),
+            symbol=getattr(verified_plan, "symbol", None),
+            product_type=getattr(verified_plan, "product_type", None),
+            destination_store_id=getattr(verified_plan, "destination_store_id", None),
+            destination_root=getattr(verified_plan, "destination_root", None),
+            endpoints=getattr(verified_plan, "endpoints", None),
+            ws_channels=getattr(verified_plan, "ws_channels", None),
+            window_start_ms=getattr(verified_plan, "window_start_ms", None),
+            window_end_ms=getattr(verified_plan, "window_end_ms", None),
+            max_session_duration_sec=getattr(verified_plan, "max_session_duration_sec", None),
+            max_concurrency=getattr(verified_plan, "max_concurrency", None),
+            caps=getattr(verified_plan, "caps", None),
+            expires_utc_ms=getattr(verified_plan, "expires_utc_ms", None),
+            external_capture_permitted=getattr(verified_plan, "external_capture_permitted", None),
+            task_policy_digest=getattr(verified_plan, "task_policy_digest", ""),
+        )
+        plan_viols.extend(core_viols)
+        verified_plan_digest = str(getattr(verified_plan, "plan_digest", "") or "")
+        if recomp_digest is None or recomp_digest != verified_plan_digest:
+            plan_viols.append("PLAN_CANONICAL_DIGEST_DRIFT_AT_CLAIM")
+        try:
+            if verified_plan.verify_mac_against_grant(verified_grant, recomputed_digest=recomp_digest or "") is not True:
+                plan_viols.append("PLAN_MAC_INTEGRITY_FAILED_AT_CLAIM")
+        except Exception as exc:
+            plan_viols.append(f"PLAN_MAC_VERIFY_EXCEPTION:{exc}")
+
+        if getattr(verified_plan, "grant_identity_key", None) != verified_grant.grant_identity_key:
+            plan_viols.append("PLAN_GRANT_IDENTITY_MISMATCH")
+        if getattr(verified_plan, "grant_payload_digest", None) != verified_grant.grant_payload_digest:
+            plan_viols.append("PLAN_GRANT_PAYLOAD_DIGEST_MISMATCH")
+        if getattr(verified_plan, "tested_executable_sha", None) != verified_grant.tested_executable_sha:
+            plan_viols.append("PLAN_EXECUTABLE_SHA_MISMATCH")
+        if getattr(verified_plan, "release_manifest_sha256", None) != verified_grant.release_manifest_sha256:
+            plan_viols.append("PLAN_RELEASE_MANIFEST_MISMATCH")
+        if getattr(verified_plan, "stage", None) != verified_grant.stage:
+            plan_viols.append("PLAN_STAGE_MISMATCH")
+        if getattr(verified_plan, "destination_store_id", None) != verified_grant.destination_store_id:
+            plan_viols.append("PLAN_STORE_ID_MISMATCH")
+        if getattr(verified_plan, "expires_utc_ms", None) != verified_grant.expires_utc_ms:
+            plan_viols.append("PLAN_EXPIRY_MISMATCH")
+
+        frozen_plan_caps, _, p_cap_viols = freeze_strict_int_caps_a1(getattr(verified_plan, "caps", {}), require_complete=True)
+        plan_viols.extend(p_cap_viols)
+        if frozen_plan_caps is not None:
+            for k in BUDGET_FIELDS_R6:
+                if frozen_plan_caps[k] > int(verified_grant.caps[k]):
+                    plan_viols.append(f"PLAN_CAP_EXCEEDS_GRANT_AT_CLAIM:{k}")
+
+        if plan_viols or frozen_plan_caps is None:
+            return {"claimed": False, "status": "REJECTED_PLAN_INTEGRITY_AT_CLAIM", "lease": None, "violations": plan_viols}
+
         if verified_grant.destination_store_id != self.store_id or verified_grant.trust_namespace != self.trust_namespace:
             return {
                 "claimed": False,
@@ -1293,132 +1475,155 @@ class R6DurableGrantLedger:
         if now_ms >= verified_grant.expires_utc_ms:
             return {"claimed": False, "status": "REJECTED_GRANT_EXPIRED", "lease": None, "violations": ["GRANT_EXPIRED_AT_CLAIM"]}
 
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
-            if int(meta["quarantined"]) != 0:
-                conn.execute("ROLLBACK;")
-                return {
-                    "claimed": False,
-                    "status": "BLOCKED_LEDGER_QUARANTINED",
-                    "lease": None,
-                    "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"],
-                }
-            if now_ms + MAX_CLOCK_SKEW_MS_R6 < int(meta["high_water_utc_ms"]):
-                conn.execute("ROLLBACK;")
-                return {
-                    "claimed": False,
-                    "status": "BLOCKED_CLOCK_ROLLBACK",
-                    "lease": None,
-                    "violations": ["CLOCK_ROLLBACK_DETECTED_AT_CLAIM"],
-                }
-
-            cap_err = self._check_capacity_in_tx(conn)
-            if cap_err:
-                conn.execute("ROLLBACK;")
-                return {"claimed": False, "status": "BLOCKED_LEDGER_CAPACITY", "lease": None, "violations": [cap_err]}
-
-            existing = conn.execute(
-                "SELECT grant_payload_digest, plan_digest, state, session_id FROM grants WHERE grant_identity_key = ?",
-                (verified_grant.grant_identity_key,),
-            ).fetchone()
-            if existing is not None:
-                conn.execute("ROLLBACK;")
-                if str(existing["grant_payload_digest"]) != verified_grant.grant_payload_digest:
-                    return {
-                        "claimed": False,
-                        "status": "REJECTED_GRANT_PAYLOAD_CONFLICT",
-                        "lease": None,
-                        "violations": ["SAME_GRANT_IDENTITY_DIFFERENT_PAYLOAD_DENIED"],
-                    }
-                if str(existing["plan_digest"]) != verified_plan_digest:
-                    return {
-                        "claimed": False,
-                        "status": "REJECTED_GRANT_REPLAN_REPLAY",
-                        "lease": None,
-                        "violations": [f"GRANT_ALREADY_CONSUMED_NO_REPLAN:state={existing['state']}"],
-                    }
-                return {
-                    "claimed": False,
-                    "status": "REJECTED_GRANT_ALREADY_CLAIMED_OR_SPENT",
-                    "lease": None,
-                    "violations": [f"ONE_SHOT_GRANT_REPLAY_DENIED:state={existing['state']}:prior_session={existing['session_id']}"],
-                }
-
-            zero_j = json.dumps(_zero_budget_dict(), sort_keys=True, separators=(",", ":"))
-            caps_j = json.dumps(dict(verified_grant.caps), sort_keys=True, separators=(",", ":"))
-            conn.execute(
-                """
-                INSERT INTO grants (
-                    grant_identity_key, grant_id, issuer, trust_namespace,
-                    grant_payload_digest, plan_digest, session_id, stage, state,
-                    expires_utc_ms, claimed_utc_ms, caps_json, known_json,
-                    uncertain_json, outstanding_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CLAIMED', ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    verified_grant.grant_identity_key,
-                    verified_grant.grant_id,
-                    verified_grant.issuer,
-                    verified_grant.trust_namespace,
-                    verified_grant.grant_payload_digest,
-                    verified_plan_digest,
-                    session_id,
-                    verified_grant.stage,
-                    verified_grant.expires_utc_ms,
-                    now_ms,
-                    caps_j,
-                    zero_j,
-                    zero_j,
-                    zero_j,
-                ),
-            )
-            new_meta = self._append_audit_in_tx(
-                conn,
-                event_type="GRANT_CLAIMED",
-                event_utc_ms=now_ms,
-                payload={
-                    "grant_identity_key": verified_grant.grant_identity_key,
-                    "grant_payload_digest": verified_grant.grant_payload_digest,
-                    "plan_digest": verified_plan_digest,
-                    "session_id": session_id,
-                    "stage": verified_grant.stage,
-                },
-            )
-            if crash_hook is not None:
-                crash_hook("pre_claim_commit")
-            conn.execute("COMMIT;")
-            if crash_hook is not None:
-                crash_hook("post_claim_pre_anchor")
-            self._sync_anchor_from_meta(new_meta)
-            if crash_hook is not None:
-                crash_hook("post_claim_post_anchor")
-
-            lease = R6DurableSessionLease(
-                lease_id=f"lease_{session_id}_{new_meta['generation']}",
-                grant_identity_key=verified_grant.grant_identity_key,
-                grant_payload_digest=verified_grant.grant_payload_digest,
-                plan_digest=verified_plan_digest,
-                session_id=session_id,
-                store_id=self.store_id,
-                trust_namespace=self.trust_namespace,
-                stage=verified_grant.stage,
-                expires_utc_ms=verified_grant.expires_utc_ms,
-                claimed_generation=int(new_meta["generation"]),
-                external_capture_permitted=verified_grant.external_capture_permitted,
-            )
-            return {"claimed": True, "status": "CLAIMED_ONE_SHOT", "lease": lease, "violations": []}
-        except sqlite3.OperationalError as exc:
+        with self._anchor_lock():
+            conn = self._connect()
             try:
-                conn.execute("ROLLBACK;")
-            except Exception:
-                pass
-            return {"claimed": False, "status": "BLOCKED_LEDGER_LOCK_OR_IO_ERROR", "lease": None, "violations": [f"SQLITE_ERROR:{exc}"]}
-        finally:
-            conn.close()
+                conn.execute("BEGIN IMMEDIATE;")
+                meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
+                if int(meta["quarantined"]) != 0:
+                    conn.execute("ROLLBACK;")
+                    return {
+                        "claimed": False,
+                        "status": "BLOCKED_LEDGER_QUARANTINED",
+                        "lease": None,
+                        "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"],
+                    }
+                if now_ms + MAX_CLOCK_SKEW_MS_R6 < int(meta["high_water_utc_ms"]):
+                    conn.execute("ROLLBACK;")
+                    return {
+                        "claimed": False,
+                        "status": "BLOCKED_CLOCK_ROLLBACK",
+                        "lease": None,
+                        "violations": ["CLOCK_ROLLBACK_DETECTED_AT_CLAIM"],
+                    }
 
-    # F10: Persistent pre-dispatch I/O budget reservation
+                cap_err = self._check_capacity_in_tx(conn)
+                if cap_err:
+                    conn.execute("ROLLBACK;")
+                    return {"claimed": False, "status": "BLOCKED_LEDGER_CAPACITY", "lease": None, "violations": [cap_err]}
+
+                existing = conn.execute(
+                    "SELECT grant_payload_digest, plan_digest, state, session_id FROM grants WHERE grant_identity_key = ?",
+                    (verified_grant.grant_identity_key,),
+                ).fetchone()
+                if existing is not None:
+                    conn.execute("ROLLBACK;")
+                    if str(existing["grant_payload_digest"]) != verified_grant.grant_payload_digest:
+                        return {
+                            "claimed": False,
+                            "status": "REJECTED_GRANT_PAYLOAD_CONFLICT",
+                            "lease": None,
+                            "violations": ["SAME_GRANT_IDENTITY_DIFFERENT_PAYLOAD_DENIED"],
+                        }
+                    if str(existing["plan_digest"]) != verified_plan_digest:
+                        return {
+                            "claimed": False,
+                            "status": "REJECTED_GRANT_REPLAN_REPLAY",
+                            "lease": None,
+                            "violations": [f"GRANT_ALREADY_CONSUMED_NO_REPLAN:state={existing['state']}"],
+                        }
+                    return {
+                        "claimed": False,
+                        "status": "REJECTED_GRANT_ALREADY_CLAIMED_OR_SPENT",
+                        "lease": None,
+                        "violations": [f"ONE_SHOT_GRANT_REPLAY_DENIED:state={existing['state']}:prior_session={existing['session_id']}"],
+                    }
+
+                zero_j = json.dumps(_zero_budget_dict(), sort_keys=True, separators=(",", ":"))
+                # F11: Store EFFECTIVE PLAN CAPS (narrower than grant caps if requested!)
+                caps_j = json.dumps(dict(frozen_plan_caps), sort_keys=True, separators=(",", ":"))
+                conn.execute(
+                    """
+                    INSERT INTO grants (
+                        grant_identity_key, grant_id, issuer, trust_namespace,
+                        grant_payload_digest, plan_digest, release_manifest_sha256, session_id, stage, state,
+                        expires_utc_ms, claimed_utc_ms, caps_json, known_json,
+                        uncertain_json, outstanding_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'CLAIMED', ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        verified_grant.grant_identity_key,
+                        verified_grant.grant_id,
+                        verified_grant.issuer,
+                        verified_grant.trust_namespace,
+                        verified_grant.grant_payload_digest,
+                        verified_plan_digest,
+                        verified_grant.release_manifest_sha256,
+                        session_id,
+                        verified_grant.stage,
+                        verified_grant.expires_utc_ms,
+                        now_ms,
+                        caps_j,
+                        zero_j,
+                        zero_j,
+                        zero_j,
+                    ),
+                )
+                new_meta = self._append_audit_in_tx(
+                    conn,
+                    event_type="GRANT_CLAIMED",
+                    event_utc_ms=now_ms,
+                    payload={
+                        "grant_identity_key": verified_grant.grant_identity_key,
+                        "grant_payload_digest": verified_grant.grant_payload_digest,
+                        "plan_digest": verified_plan_digest,
+                        "release_manifest_sha256": verified_grant.release_manifest_sha256,
+                        "effective_caps": dict(frozen_plan_caps),
+                        "session_id": session_id,
+                        "stage": verified_grant.stage,
+                    },
+                )
+                if crash_hook is not None:
+                    crash_hook("pre_claim_commit")
+                conn.execute("COMMIT;")
+                if crash_hook is not None:
+                    crash_hook("post_claim_pre_anchor")
+                self._sync_anchor_from_meta(new_meta)
+                if crash_hook is not None:
+                    crash_hook("post_claim_post_anchor")
+
+                lease_id = f"lease_{session_id}_{new_meta['generation']}"
+                ltok = register_verified_lease_token_a1(
+                    lease_id=lease_id,
+                    grant_identity_key=verified_grant.grant_identity_key,
+                    grant_payload_digest=verified_grant.grant_payload_digest,
+                    plan_digest=verified_plan_digest,
+                    session_id=session_id,
+                    store_id=self.store_id,
+                    trust_namespace=self.trust_namespace,
+                    stage=verified_grant.stage,
+                    expires_utc_ms=verified_grant.expires_utc_ms,
+                    claimed_generation=int(new_meta["generation"]),
+                    release_manifest_sha256=verified_grant.release_manifest_sha256,
+                    effective_caps=frozen_plan_caps,
+                )
+                lease = R6DurableSessionLease(
+                    lease_id=lease_id,
+                    grant_identity_key=verified_grant.grant_identity_key,
+                    grant_payload_digest=verified_grant.grant_payload_digest,
+                    plan_digest=verified_plan_digest,
+                    session_id=session_id,
+                    store_id=self.store_id,
+                    trust_namespace=self.trust_namespace,
+                    stage=verified_grant.stage,
+                    expires_utc_ms=verified_grant.expires_utc_ms,
+                    claimed_generation=int(new_meta["generation"]),
+                    external_capture_permitted=verified_grant.external_capture_permitted,
+                    release_manifest_sha256=verified_grant.release_manifest_sha256,
+                    effective_caps=frozen_plan_caps,
+                    lease_token=ltok,
+                )
+                return {"claimed": True, "status": "CLAIMED_ONE_SHOT", "lease": lease, "violations": []}
+            except sqlite3.OperationalError as exc:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                return {"claimed": False, "status": "BLOCKED_LEDGER_LOCK_OR_IO_ERROR", "lease": None, "violations": [f"SQLITE_ERROR:{exc}"]}
+            finally:
+                conn.close()
+
+    # F13: Strict complete per-attempt pre-dispatch I/O budget reservation
     def reserve_r6_io_budget_atomic(
         self,
         lease: R6DurableSessionLease,
@@ -1427,148 +1632,232 @@ class R6DurableGrantLedger:
         requested_caps: Mapping[str, int],
         *,
         actual_now: datetime,
+        request_digest: str = "",
+        require_complete_caps: bool = True,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         if not isinstance(lease, R6DurableSessionLease) or lease.store_id != self.store_id:
-            return {"reserved": False, "status": "REJECTED_INVALID_LEASE", "violations": ["INVALID_OR_FOREIGN_LEASE"]}
+            return {"reserved": False, "status": "REJECTED_INVALID_LEASE", "reservation_receipt": None, "violations": ["INVALID_OR_FOREIGN_LEASE"]}
+        ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
+        if not ok_l:
+            return {"reserved": False, "status": "REJECTED_FORGED_LEASE", "reservation_receipt": None, "violations": l_viols}
         if not str(attempt_id or "").strip() or not str(request_type or "").strip():
-            return {"reserved": False, "status": "REJECTED_INVALID_ATTEMPT", "violations": ["MISSING_ATTEMPT_OR_TYPE"]}
+            return {"reserved": False, "status": "REJECTED_INVALID_ATTEMPT", "reservation_receipt": None, "violations": ["MISSING_ATTEMPT_OR_TYPE"]}
 
-        # Validate non-negative strict ints & zero overflow
-        req_vec = _zero_budget_dict()
-        for k, v in requested_caps.items():
-            if k not in req_vec:
-                return {"reserved": False, "status": "REJECTED_UNKNOWN_BUDGET_KEY", "violations": [f"UNKNOWN_BUDGET_KEY:{k}"]}
-            if not _is_strict_int(v) or int(v) < 0 or int(v) > MAX_INT64_SAFE_R6:
-                return {"reserved": False, "status": "REJECTED_INVALID_BUDGET_VALUE", "violations": [f"INVALID_BUDGET_VALUE:{k}:{v!r}"]}
-            req_vec[k] = int(v)
+        frozen_req, _, cap_viols = freeze_strict_int_caps_a1(requested_caps, require_complete=require_complete_caps)
+        if cap_viols or frozen_req is None:
+            return {"reserved": False, "status": "REJECTED_INVALID_BUDGET_VECTOR", "reservation_receipt": None, "violations": cap_viols}
+        req_vec = dict(frozen_req)
+
+        # F13: Reject zero-cap reservation for required actual I/O!
+        if request_type == "rest_get":
+            if req_vec["requests"] < 1 or req_vec["payload_bytes"] < 1 or req_vec["decoded_bytes"] < 1:
+                return {
+                    "reserved": False,
+                    "status": "REJECTED_ZERO_CAP_REQUIRED_IO",
+                    "reservation_receipt": None,
+                    "violations": ["REST_REQUIRES_POSITIVE_REQUESTS_PAYLOAD_DECODED_CAPS"],
+                }
+        elif request_type == "ws_session":
+            if (
+                req_vec["connections"] < 1
+                or req_vec["subscriptions"] < 1
+                or req_vec["messages"] < 1
+                or req_vec["payload_bytes"] < 1
+                or req_vec["decoded_bytes"] < 1
+            ):
+                return {
+                    "reserved": False,
+                    "status": "REJECTED_ZERO_CAP_REQUIRED_IO",
+                    "reservation_receipt": None,
+                    "violations": ["WS_REQUIRES_POSITIVE_CONN_SUB_MSG_BYTES_CAPS"],
+                }
+        elif sum(req_vec.values()) <= 0:
+            return {"reserved": False, "status": "REJECTED_ZERO_CAP_REQUIRED_IO", "reservation_receipt": None, "violations": ["EMPTY_ZERO_RESERVATION_FORBIDDEN"]}
 
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
         if now_ms >= lease.expires_utc_ms:
-            return {"reserved": False, "status": "REJECTED_LEASE_EXPIRED", "violations": ["LEASE_EXPIRED_BEFORE_RESERVE"]}
+            return {"reserved": False, "status": "REJECTED_LEASE_EXPIRED", "reservation_receipt": None, "violations": ["LEASE_EXPIRED_BEFORE_RESERVE"]}
 
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
-            if int(meta["quarantined"]) != 0:
-                conn.execute("ROLLBACK;")
-                return {"reserved": False, "status": "BLOCKED_LEDGER_QUARANTINED", "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"]}
+        with self._anchor_lock():
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
+                if int(meta["quarantined"]) != 0:
+                    conn.execute("ROLLBACK;")
+                    return {"reserved": False, "status": "BLOCKED_LEDGER_QUARANTINED", "reservation_receipt": None, "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"]}
+                if now_ms + MAX_CLOCK_SKEW_MS_R6 < int(meta["high_water_utc_ms"]):
+                    conn.execute("ROLLBACK;")
+                    return {"reserved": False, "status": "BLOCKED_CLOCK_ROLLBACK", "reservation_receipt": None, "violations": ["CLOCK_ROLLBACK_AT_RESERVE"]}
 
-            grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
-            if grow is None or str(grow["session_id"]) != lease.session_id or str(grow["state"]) != "CLAIMED":
-                conn.execute("ROLLBACK;")
+                grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
+                if (
+                    grow is None
+                    or str(grow["session_id"]) != lease.session_id
+                    or str(grow["plan_digest"]) != lease.plan_digest
+                    or str(grow["grant_payload_digest"]) != lease.grant_payload_digest
+                    or str(grow["state"]) != "CLAIMED"
+                ):
+                    conn.execute("ROLLBACK;")
+                    return {
+                        "reserved": False,
+                        "status": "REJECTED_GRANT_NOT_ACTIVE",
+                        "reservation_receipt": None,
+                        "violations": [f"GRANT_NOT_CLAIMED_OR_LEASE_MISMATCH:state={grow['state'] if grow else 'MISSING'}"],
+                    }
+                if now_ms >= int(grow["expires_utc_ms"]):
+                    conn.execute("ROLLBACK;")
+                    return {"reserved": False, "status": "REJECTED_GRANT_EXPIRED", "reservation_receipt": None, "violations": ["GRANT_EXPIRED_IN_LEDGER"]}
+
+                dup_att = conn.execute("SELECT state FROM attempts WHERE attempt_id = ?", (attempt_id,)).fetchone()
+                if dup_att is not None:
+                    conn.execute("ROLLBACK;")
+                    return {"reserved": False, "status": "REJECTED_DUPLICATE_ATTEMPT_ID", "reservation_receipt": None, "violations": [f"DUPLICATE_ATTEMPT_ID:{attempt_id}"]}
+
+                caps = json.loads(grow["caps_json"])
+                known = json.loads(grow["known_json"])
+                uncertain = json.loads(grow["uncertain_json"])
+                outstanding = json.loads(grow["outstanding_json"])
+
+                exceeded: List[str] = []
+                new_out = dict(outstanding)
+                for k in BUDGET_FIELDS_R6:
+                    projected = int(known[k]) + int(uncertain[k]) + int(outstanding[k]) + int(req_vec[k])
+                    if projected > MAX_INT64_SAFE_R6 or projected > int(caps[k]):
+                        exceeded.append(f"BUDGET_EXCEEDED:{k}:projected={projected}>plan_cap={caps[k]}")
+                    new_out[k] = int(outstanding[k]) + int(req_vec[k])
+
+                if exceeded:
+                    conn.execute("ROLLBACK;")
+                    return {"reserved": False, "status": "REJECTED_BUDGET_EXHAUSTED", "reservation_receipt": None, "violations": exceeded}
+
+                zero_j = json.dumps(_zero_budget_dict(), sort_keys=True, separators=(",", ":"))
+                req_j = json.dumps(req_vec, sort_keys=True, separators=(",", ":"))
+                out_j = json.dumps(new_out, sort_keys=True, separators=(",", ":"))
+
+                conn.execute(
+                    """
+                    INSERT INTO attempts (
+                        attempt_id, grant_identity_key, session_id, request_type, request_digest, state,
+                        reserved_json, known_json, uncertain_json, created_utc_ms
+                    ) VALUES (?, ?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?)
+                    """,
+                    (attempt_id, lease.grant_identity_key, lease.session_id, request_type, str(request_digest), req_j, zero_j, zero_j, now_ms),
+                )
+                conn.execute(
+                    "UPDATE grants SET outstanding_json = ? WHERE grant_identity_key = ?",
+                    (out_j, lease.grant_identity_key),
+                )
+                new_meta = self._append_audit_in_tx(
+                    conn,
+                    event_type="BUDGET_RESERVED",
+                    event_utc_ms=now_ms,
+                    payload={
+                        "grant_identity_key": lease.grant_identity_key,
+                        "attempt_id": attempt_id,
+                        "request_digest": str(request_digest),
+                        "reserved": req_vec,
+                    },
+                )
+                conn.execute("COMMIT;")
+                if crash_hook is not None:
+                    crash_hook("post_reserve_pre_anchor")
+                self._sync_anchor_from_meta(new_meta)
+                if crash_hook is not None:
+                    crash_hook("post_reserve_pre_start")
+
+                res_receipt = issue_durable_reservation_receipt_a1(
+                    attempt_id=attempt_id,
+                    lease_id=lease.lease_id,
+                    session_id=lease.session_id,
+                    grant_identity_key=lease.grant_identity_key,
+                    plan_digest=lease.plan_digest,
+                    request_type=request_type,
+                    request_digest=str(request_digest),
+                    reserved_caps=req_vec,
+                    reserved_generation=int(new_meta["generation"]),
+                    audit_entry_hash=str(new_meta["audit_tip_hash"]),
+                    created_utc_ms=now_ms,
+                )
                 return {
-                    "reserved": False,
-                    "status": "REJECTED_GRANT_NOT_ACTIVE",
-                    "violations": [f"GRANT_NOT_CLAIMED_FOR_SESSION:state={grow['state'] if grow else 'MISSING'}"],
+                    "reserved": True,
+                    "status": "RESERVED_QUEUED",
+                    "attempt_id": attempt_id,
+                    "reserved_budget": req_vec,
+                    "reservation_receipt": res_receipt,
+                    "violations": [],
                 }
-            if now_ms >= int(grow["expires_utc_ms"]):
-                conn.execute("ROLLBACK;")
-                return {"reserved": False, "status": "REJECTED_GRANT_EXPIRED", "violations": ["GRANT_EXPIRED_IN_LEDGER"]}
+            finally:
+                conn.close()
 
-            dup_att = conn.execute("SELECT state FROM attempts WHERE attempt_id = ?", (attempt_id,)).fetchone()
-            if dup_att is not None:
-                conn.execute("ROLLBACK;")
-                return {"reserved": False, "status": "REJECTED_DUPLICATE_ATTEMPT_ID", "violations": [f"DUPLICATE_ATTEMPT_ID:{attempt_id}"]}
-
-            caps = json.loads(grow["caps_json"])
-            known = json.loads(grow["known_json"])
-            uncertain = json.loads(grow["uncertain_json"])
-            outstanding = json.loads(grow["outstanding_json"])
-
-            exceeded: List[str] = []
-            new_out = dict(outstanding)
-            for k in BUDGET_FIELDS_R6:
-                projected = int(known[k]) + int(uncertain[k]) + int(outstanding[k]) + int(req_vec[k])
-                if projected > MAX_INT64_SAFE_R6 or projected > int(caps[k]):
-                    exceeded.append(f"BUDGET_EXCEEDED:{k}:projected={projected}>cap={caps[k]}")
-                new_out[k] = int(outstanding[k]) + int(req_vec[k])
-
-            if exceeded:
-                conn.execute("ROLLBACK;")
-                return {"reserved": False, "status": "REJECTED_BUDGET_EXHAUSTED", "violations": exceeded}
-
-            zero_j = json.dumps(_zero_budget_dict(), sort_keys=True, separators=(",", ":"))
-            req_j = json.dumps(req_vec, sort_keys=True, separators=(",", ":"))
-            out_j = json.dumps(new_out, sort_keys=True, separators=(",", ":"))
-
-            conn.execute(
-                """
-                INSERT INTO attempts (
-                    attempt_id, grant_identity_key, session_id, request_type, state,
-                    reserved_json, known_json, uncertain_json, created_utc_ms
-                ) VALUES (?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?)
-                """,
-                (attempt_id, lease.grant_identity_key, lease.session_id, request_type, req_j, zero_j, zero_j, now_ms),
-            )
-            conn.execute(
-                "UPDATE grants SET outstanding_json = ? WHERE grant_identity_key = ?",
-                (out_j, lease.grant_identity_key),
-            )
-            new_meta = self._append_audit_in_tx(
-                conn,
-                event_type="BUDGET_RESERVED",
-                event_utc_ms=now_ms,
-                payload={"grant_identity_key": lease.grant_identity_key, "attempt_id": attempt_id, "reserved": req_vec},
-            )
-            conn.execute("COMMIT;")
-            if crash_hook is not None:
-                crash_hook("post_reserve_pre_anchor")
-            self._sync_anchor_from_meta(new_meta)
-            if crash_hook is not None:
-                crash_hook("post_reserve_pre_start")
-            return {"reserved": True, "status": "RESERVED_QUEUED", "attempt_id": attempt_id, "reserved_budget": req_vec, "violations": []}
-        finally:
-            conn.close()
-
-    # F11a: Mark attempt started durably BEFORE external I/O
+    # F14: Mark attempt started durably BEFORE external/loopback I/O
     def mark_r6_attempt_started(
         self,
         lease: R6DurableSessionLease,
         attempt_id: str,
         *,
         actual_now: datetime,
+        expected_request_digest: Optional[str] = None,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
+        ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
+        if not ok_l:
+            return {"started": False, "status": "REJECTED_FORGED_LEASE", "violations": l_viols}
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
         if now_ms >= lease.expires_utc_ms:
             return {"started": False, "status": "REJECTED_LEASE_EXPIRED", "violations": ["LEASE_EXPIRED_AT_START"]}
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            arow = conn.execute(
-                "SELECT state, grant_identity_key, session_id FROM attempts WHERE attempt_id = ?",
-                (attempt_id,),
-            ).fetchone()
-            if arow is None or str(arow["grant_identity_key"]) != lease.grant_identity_key or str(arow["session_id"]) != lease.session_id:
-                conn.execute("ROLLBACK;")
-                return {"started": False, "status": "REJECTED_UNKNOWN_ATTEMPT", "violations": ["ATTEMPT_NOT_FOUND_FOR_LEASE"]}
-            if str(arow["state"]) != "QUEUED":
-                conn.execute("ROLLBACK;")
-                return {"started": False, "status": "REJECTED_INVALID_TRANSITION", "violations": [f"ATTEMPT_NOT_QUEUED:{arow['state']}"]}
+        with self._anchor_lock():
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
+                if int(meta["quarantined"]) != 0:
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "BLOCKED_LEDGER_QUARANTINED", "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"]}
+                grow = conn.execute("SELECT state, plan_digest, session_id, expires_utc_ms FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
+                if grow is None or str(grow["state"]) != "CLAIMED" or str(grow["plan_digest"]) != lease.plan_digest or str(grow["session_id"]) != lease.session_id:
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "REJECTED_GRANT_NOT_ACTIVE", "violations": ["GRANT_NOT_ACTIVE_OR_PLAN_MISMATCH_AT_START"]}
+                if now_ms >= int(grow["expires_utc_ms"]):
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "REJECTED_GRANT_EXPIRED", "violations": ["GRANT_EXPIRED_IN_LEDGER_AT_START"]}
 
-            conn.execute(
-                "UPDATE attempts SET state = 'STARTED', started_utc_ms = ? WHERE attempt_id = ?",
-                (now_ms, attempt_id),
-            )
-            new_meta = self._append_audit_in_tx(
-                conn,
-                event_type="ATTEMPT_STARTED",
-                event_utc_ms=now_ms,
-                payload={"grant_identity_key": lease.grant_identity_key, "attempt_id": attempt_id},
-            )
-            conn.execute("COMMIT;")
-            if crash_hook is not None:
-                crash_hook("post_start_pre_anchor")
-            self._sync_anchor_from_meta(new_meta)
-            if crash_hook is not None:
-                crash_hook("post_start_pre_settle")
-            return {"started": True, "status": "STARTED", "attempt_id": attempt_id, "violations": []}
-        finally:
-            conn.close()
+                arow = conn.execute(
+                    "SELECT state, grant_identity_key, session_id, request_digest FROM attempts WHERE attempt_id = ?",
+                    (attempt_id,),
+                ).fetchone()
+                if arow is None or str(arow["grant_identity_key"]) != lease.grant_identity_key or str(arow["session_id"]) != lease.session_id:
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "REJECTED_UNKNOWN_ATTEMPT", "violations": ["ATTEMPT_NOT_FOUND_FOR_LEASE"]}
+                if str(arow["state"]) != "QUEUED":
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "REJECTED_INVALID_TRANSITION", "violations": [f"ATTEMPT_NOT_QUEUED:{arow['state']}"]}
+                if expected_request_digest is not None and str(arow["request_digest"]) != str(expected_request_digest):
+                    conn.execute("ROLLBACK;")
+                    return {"started": False, "status": "REJECTED_REQUEST_DIGEST_MISMATCH", "violations": ["ATTEMPT_REQUEST_DIGEST_DRIFT_AT_START"]}
 
-    # F11b: Settle attempt with known actuals + conservative uncertain retention (no double settle!)
+                conn.execute(
+                    "UPDATE attempts SET state = 'STARTED', started_utc_ms = ? WHERE attempt_id = ?",
+                    (now_ms, attempt_id),
+                )
+                new_meta = self._append_audit_in_tx(
+                    conn,
+                    event_type="ATTEMPT_STARTED",
+                    event_utc_ms=now_ms,
+                    payload={"grant_identity_key": lease.grant_identity_key, "attempt_id": attempt_id, "request_digest": str(arow["request_digest"])},
+                )
+                conn.execute("COMMIT;")
+                if crash_hook is not None:
+                    crash_hook("post_start_pre_anchor")
+                self._sync_anchor_from_meta(new_meta)
+                if crash_hook is not None:
+                    crash_hook("post_start_pre_settle")
+                return {"started": True, "status": "STARTED", "attempt_id": attempt_id, "violations": []}
+            finally:
+                conn.close()
+
+    # F20: Strict fail-closed budget settlement with overrun quarantine (zero clamping!) & typed receipt
     def settle_r6_io_budget(
         self,
         lease: R6DurableSessionLease,
@@ -1579,132 +1868,277 @@ class R6DurableGrantLedger:
         uncertain_retained: Optional[Mapping[str, int]] = None,
         reason: str = "",
         actual_now: datetime,
+        raw_payload_sha256: str = "",
+        child_result_digest: str = "",
+        expected_request_digest: Optional[str] = None,
+        require_complete_known_on_completed: bool = True,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         allowed_outcomes = ("COMPLETED", "UNCERTAIN", "ABORTED_PRE_START", "ABORTED_MIDFLIGHT")
         if outcome not in allowed_outcomes:
-            return {"settled": False, "status": "REJECTED_INVALID_OUTCOME", "violations": [f"INVALID_OUTCOME:{outcome}"]}
+            return {"settled": False, "quarantined": False, "status": "REJECTED_INVALID_OUTCOME", "settlement_receipt": None, "violations": [f"INVALID_OUTCOME:{outcome}"]}
+        ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
+        if not ok_l:
+            return {"settled": False, "quarantined": False, "status": "REJECTED_FORGED_LEASE", "settlement_receipt": None, "violations": l_viols}
 
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            arow = conn.execute("SELECT * FROM attempts WHERE attempt_id = ?", (attempt_id,)).fetchone()
-            if arow is None or str(arow["grant_identity_key"]) != lease.grant_identity_key or str(arow["session_id"]) != lease.session_id:
-                conn.execute("ROLLBACK;")
-                return {"settled": False, "status": "REJECTED_UNKNOWN_ATTEMPT", "violations": ["ATTEMPT_NOT_FOUND_FOR_LEASE"]}
-
-            cur_state = str(arow["state"])
-            if cur_state not in ("QUEUED", "STARTED"):
-                conn.execute("ROLLBACK;")
-                return {"settled": False, "status": "REJECTED_DOUBLE_SETTLE", "violations": [f"ATTEMPT_ALREADY_SETTLED:{cur_state}"]}
-
-            if outcome == "ABORTED_PRE_START" and cur_state != "QUEUED":
-                conn.execute("ROLLBACK;")
-                return {"settled": False, "status": "REJECTED_PRE_START_RELEASE_AFTER_START", "violations": ["CANNOT_RELEASE_ALREADY_STARTED_ATTEMPT"]}
-            if outcome in ("COMPLETED", "UNCERTAIN", "ABORTED_MIDFLIGHT") and cur_state != "STARTED":
-                conn.execute("ROLLBACK;")
-                return {"settled": False, "status": "REJECTED_SETTLE_UNSTARTED_ATTEMPT", "violations": [f"CANNOT_SETTLE_{outcome}_FROM_{cur_state}"]}
-
-            reserved = json.loads(arow["reserved_json"])
-            known_vec = _zero_budget_dict()
-            unc_vec = _zero_budget_dict()
-
-            if outcome == "ABORTED_PRE_START":
-                # Demonstrably never started: release reservation cleanly (known=0, uncertain=0)
-                pass
-            elif outcome in ("UNCERTAIN", "ABORTED_MIDFLIGHT"):
-                # Conservative retention: any unmeasured remainder of reserved worst-case stays in uncertain!
-                for k in BUDGET_FIELDS_R6:
-                    kv = (actual_known or {}).get(k, 0)
-                    if not _is_strict_int(kv) or int(kv) < 0:
-                        conn.execute("ROLLBACK;")
-                        return {"settled": False, "status": "REJECTED_NEGATIVE_ACTUAL", "violations": [f"INVALID_KNOWN_VALUE:{k}"]}
-                    known_vec[k] = int(kv)
-                    default_unc = max(0, int(reserved[k]) - known_vec[k])
-                    uv = (uncertain_retained or {}).get(k, default_unc)
-                    if not _is_strict_int(uv) or int(uv) < 0:
-                        conn.execute("ROLLBACK;")
-                        return {"settled": False, "status": "REJECTED_NEGATIVE_UNCERTAIN", "violations": [f"INVALID_UNCERTAIN_VALUE:{k}"]}
-                    # Enforce conservative lower bound: cannot under-report uncertain below reserved - known on midflight abort!
-                    unc_vec[k] = max(int(uv), default_unc)
-            else:
-                # COMPLETED: record exact actual known; any explicit uncertain also retained
-                for k in BUDGET_FIELDS_R6:
-                    kv = (actual_known or {}).get(k, 0)
-                    uv = (uncertain_retained or {}).get(k, 0)
-                    if not _is_strict_int(kv) or int(kv) < 0 or not _is_strict_int(uv) or int(uv) < 0:
-                        conn.execute("ROLLBACK;")
-                        return {"settled": False, "status": "REJECTED_NEGATIVE_ACTUAL", "violations": [f"NEGATIVE_SETTLE_VALUE:{k}"]}
-                    known_vec[k] = int(kv)
-                    unc_vec[k] = int(uv)
-
-            grow = conn.execute("SELECT known_json, uncertain_json, outstanding_json FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
-            g_known = json.loads(grow["known_json"])
-            g_unc = json.loads(grow["uncertain_json"])
-            g_out = json.loads(grow["outstanding_json"])
-
-            for k in BUDGET_FIELDS_R6:
-                new_out = int(g_out[k]) - int(reserved[k])
-                if new_out < 0:
+        with self._anchor_lock():
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                arow = conn.execute("SELECT * FROM attempts WHERE attempt_id = ?", (attempt_id,)).fetchone()
+                if arow is None or str(arow["grant_identity_key"]) != lease.grant_identity_key or str(arow["session_id"]) != lease.session_id:
                     conn.execute("ROLLBACK;")
-                    return {"settled": False, "status": "REJECTED_NEGATIVE_COUNTER", "violations": [f"OUTSTANDING_UNDERFLOW:{k}"]}
-                g_out[k] = new_out
-                g_known[k] = int(g_known[k]) + known_vec[k]
-                g_unc[k] = int(g_unc[k]) + unc_vec[k]
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_UNKNOWN_ATTEMPT", "settlement_receipt": None, "violations": ["ATTEMPT_NOT_FOUND_FOR_LEASE"]}
+                if expected_request_digest is not None and str(arow["request_digest"]) != str(expected_request_digest):
+                    conn.execute("ROLLBACK;")
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_REQUEST_DIGEST_MISMATCH", "settlement_receipt": None, "violations": ["ATTEMPT_REQUEST_DIGEST_DRIFT_AT_SETTLE"]}
 
-            final_state = "ABORTED" if outcome.startswith("ABORTED") else outcome
-            conn.execute(
-                """
-                UPDATE attempts
-                SET state = ?, known_json = ?, uncertain_json = ?, settled_utc_ms = ?, outcome_reason = ?
-                WHERE attempt_id = ?
-                """,
-                (
-                    final_state,
-                    json.dumps(known_vec, sort_keys=True, separators=(",", ":")),
-                    json.dumps(unc_vec, sort_keys=True, separators=(",", ":")),
-                    now_ms,
-                    str(reason or outcome),
-                    attempt_id,
-                ),
-            )
-            conn.execute(
-                "UPDATE grants SET known_json = ?, uncertain_json = ?, outstanding_json = ? WHERE grant_identity_key = ?",
-                (
-                    json.dumps(g_known, sort_keys=True, separators=(",", ":")),
-                    json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
-                    json.dumps(g_out, sort_keys=True, separators=(",", ":")),
-                    lease.grant_identity_key,
-                ),
-            )
-            new_meta = self._append_audit_in_tx(
-                conn,
-                event_type="ATTEMPT_SETTLED",
-                event_utc_ms=now_ms,
-                payload={
-                    "grant_identity_key": lease.grant_identity_key,
-                    "attempt_id": attempt_id,
-                    "outcome": outcome,
+                cur_state = str(arow["state"])
+                if cur_state not in ("QUEUED", "STARTED"):
+                    conn.execute("ROLLBACK;")
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_DOUBLE_SETTLE", "settlement_receipt": None, "violations": [f"ATTEMPT_ALREADY_SETTLED:{cur_state}"]}
+
+                if outcome == "ABORTED_PRE_START" and cur_state != "QUEUED":
+                    conn.execute("ROLLBACK;")
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_PRE_START_RELEASE_AFTER_START", "settlement_receipt": None, "violations": ["CANNOT_RELEASE_ALREADY_STARTED_ATTEMPT"]}
+                if outcome in ("COMPLETED", "UNCERTAIN", "ABORTED_MIDFLIGHT") and cur_state != "STARTED":
+                    conn.execute("ROLLBACK;")
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_SETTLE_UNSTARTED_ATTEMPT", "settlement_receipt": None, "violations": [f"CANNOT_SETTLE_{outcome}_FROM_{cur_state}"]}
+
+                reserved = json.loads(arow["reserved_json"])
+                known_vec = _zero_budget_dict()
+                unc_vec = _zero_budget_dict()
+
+                if outcome == "ABORTED_PRE_START":
+                    pass
+                elif outcome in ("UNCERTAIN", "ABORTED_MIDFLIGHT"):
+                    if actual_known is not None:
+                        if not isinstance(actual_known, Mapping):
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_INVALID_ACTUAL_TYPE", "settlement_receipt": None, "violations": ["ACTUAL_KNOWN_NOT_MAPPING"]}
+                        extra_k = sorted(set(actual_known.keys()) - set(BUDGET_FIELDS_R6))
+                        if extra_k:
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_UNKNOWN_BUDGET_KEY", "settlement_receipt": None, "violations": [f"UNKNOWN_KNOWN_KEYS:{','.join(extra_k)}"]}
+                    if uncertain_retained is not None:
+                        if not isinstance(uncertain_retained, Mapping):
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_INVALID_UNCERTAIN_TYPE", "settlement_receipt": None, "violations": ["UNCERTAIN_NOT_MAPPING"]}
+                        extra_u = sorted(set(uncertain_retained.keys()) - set(BUDGET_FIELDS_R6))
+                        if extra_u:
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_UNKNOWN_BUDGET_KEY", "settlement_receipt": None, "violations": [f"UNKNOWN_UNCERTAIN_KEYS:{','.join(extra_u)}"]}
+                    for k in BUDGET_FIELDS_R6:
+                        kv = (actual_known or {}).get(k, 0)
+                        if not _is_strict_int(kv) or int(kv) < 0 or int(kv) > MAX_INT64_SAFE_R6:
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_NEGATIVE_ACTUAL", "settlement_receipt": None, "violations": [f"INVALID_KNOWN_VALUE:{k}"]}
+                        known_vec[k] = int(kv)
+                        default_unc = max(0, int(reserved[k]) - known_vec[k])
+                        uv = (uncertain_retained or {}).get(k, default_unc)
+                        if not _is_strict_int(uv) or int(uv) < 0 or int(uv) > MAX_INT64_SAFE_R6:
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_NEGATIVE_UNCERTAIN", "settlement_receipt": None, "violations": [f"INVALID_UNCERTAIN_VALUE:{k}"]}
+                        unc_vec[k] = max(int(uv), default_unc)
+                else:
+                    # F20: COMPLETED requires COMPLETE strict-int known vector across ALL dimensions (no missing default-to-zero!)
+                    if not isinstance(actual_known, Mapping):
+                        conn.execute("ROLLBACK;")
+                        return {"settled": False, "quarantined": False, "status": "REJECTED_MISSING_ACTUAL_KNOWN", "settlement_receipt": None, "violations": ["COMPLETED_REQUIRES_COMPLETE_ACTUAL_KNOWN_MAPPING"]}
+                    frozen_kn, _, kn_viols = freeze_strict_int_caps_a1(actual_known, require_complete=require_complete_known_on_completed)
+                    if kn_viols or frozen_kn is None:
+                        conn.execute("ROLLBACK;")
+                        return {"settled": False, "quarantined": False, "status": "REJECTED_INCOMPLETE_OR_INVALID_ACTUAL_KNOWN", "settlement_receipt": None, "violations": kn_viols}
+                    known_vec = dict(frozen_kn)
+                    if uncertain_retained is not None:
+                        frozen_un, _, un_viols = freeze_strict_int_caps_a1(uncertain_retained, require_complete=False)
+                        if un_viols or frozen_un is None:
+                            conn.execute("ROLLBACK;")
+                            return {"settled": False, "quarantined": False, "status": "REJECTED_INVALID_UNCERTAIN", "settlement_receipt": None, "violations": un_viols}
+                        unc_vec = dict(frozen_un)
+
+                grow = conn.execute(
+                    "SELECT plan_digest, caps_json, known_json, uncertain_json, outstanding_json FROM grants WHERE grant_identity_key = ?",
+                    (lease.grant_identity_key,),
+                ).fetchone()
+                if grow is None or str(grow["plan_digest"]) != lease.plan_digest:
+                    conn.execute("ROLLBACK;")
+                    return {"settled": False, "quarantined": False, "status": "REJECTED_GRANT_PLAN_MISMATCH", "settlement_receipt": None, "violations": ["GRANT_PLAN_MISMATCH_AT_SETTLE"]}
+
+                g_caps = json.loads(grow["caps_json"])
+                g_known = json.loads(grow["known_json"])
+                g_unc = json.loads(grow["uncertain_json"])
+                g_out = json.loads(grow["outstanding_json"])
+
+                # F20: Strict conservation check across EVERY dimension!
+                overrun_breaches: List[str] = []
+                new_g_out = dict(g_out)
+                new_g_known = dict(g_known)
+                new_g_unc = dict(g_unc)
+                for k in BUDGET_FIELDS_R6:
+                    n_out = int(g_out[k]) - int(reserved[k])
+                    if n_out < 0:
+                        conn.execute("ROLLBACK;")
+                        return {"settled": False, "quarantined": False, "status": "REJECTED_NEGATIVE_COUNTER", "settlement_receipt": None, "violations": [f"OUTSTANDING_UNDERFLOW:{k}"]}
+                    new_g_out[k] = n_out
+                    new_g_known[k] = int(g_known[k]) + known_vec[k]
+                    new_g_unc[k] = int(g_unc[k]) + unc_vec[k]
+                    att_tot = known_vec[k] + unc_vec[k]
+                    if att_tot > int(reserved[k]):
+                        overrun_breaches.append(f"PER_ATTEMPT_OVERRUN:{k}:actual_plus_unc={att_tot}>reserved={reserved[k]}")
+                    cum_tot = new_g_known[k] + new_g_unc[k] + new_g_out[k]
+                    if cum_tot > int(g_caps[k]):
+                        overrun_breaches.append(f"CUMULATIVE_PLAN_CAP_OVERRUN:{k}:cum={cum_tot}>plan_cap={g_caps[k]}")
+
+                if overrun_breaches:
+                    # F20: DO NOT clamp actual values to fake conservation! Record true measured overrun & atomically QUARANTINE!
+                    incident = {
+                        "incident_type": "BUDGET_OVERRUN_BREACH_QUARANTINE",
+                        "attempt_id": attempt_id,
+                        "measured_known": known_vec,
+                        "measured_uncertain": unc_vec,
+                        "reserved": reserved,
+                        "plan_caps": g_caps,
+                        "breaches": overrun_breaches,
+                        "reason": str(reason or outcome),
+                    }
+                    inc_j = json.dumps(incident, sort_keys=True, separators=(",", ":"))
+                    conn.execute(
+                        """
+                        UPDATE attempts
+                        SET state = 'QUARANTINED_OVERRUN', known_json = ?, uncertain_json = ?,
+                            overrun_incident_json = ?, settled_utc_ms = ?, outcome_reason = ?
+                        WHERE attempt_id = ?
+                        """,
+                        (
+                            json.dumps(known_vec, sort_keys=True, separators=(",", ":")),
+                            json.dumps(unc_vec, sort_keys=True, separators=(",", ":")),
+                            inc_j,
+                            now_ms,
+                            f"BUDGET_OVERRUN_BREACH:{';'.join(overrun_breaches[:3])}",
+                            attempt_id,
+                        ),
+                    )
+                    conn.execute(
+                        """
+                        UPDATE grants
+                        SET state = 'QUARANTINED', finalized_utc_ms = ?, known_json = ?, uncertain_json = ?,
+                            outstanding_json = ?, final_reason = 'BUDGET_OVERRUN_BREACH_QUARANTINE'
+                        WHERE grant_identity_key = ?
+                        """,
+                        (
+                            now_ms,
+                            json.dumps(new_g_known, sort_keys=True, separators=(",", ":")),
+                            json.dumps(new_g_unc, sort_keys=True, separators=(",", ":")),
+                            json.dumps(new_g_out, sort_keys=True, separators=(",", ":")),
+                            lease.grant_identity_key,
+                        ),
+                    )
+                    new_meta = self._append_audit_in_tx(
+                        conn,
+                        event_type="BUDGET_OVERRUN_BREACH_QUARANTINE",
+                        event_utc_ms=now_ms,
+                        payload=incident,
+                        set_quarantine="BUDGET_OVERRUN_BREACH_QUARANTINE",
+                    )
+                    conn.execute("COMMIT;")
+                    if crash_hook is not None:
+                        crash_hook("post_settle_pre_anchor")
+                    self._sync_anchor_from_meta(new_meta)
+                    return {
+                        "settled": False,
+                        "quarantined": True,
+                        "status": "QUARANTINED_BUDGET_OVERRUN_BREACH",
+                        "settlement_receipt": None,
+                        "known": known_vec,
+                        "uncertain": unc_vec,
+                        "overrun_breaches": overrun_breaches,
+                        "violations": overrun_breaches,
+                    }
+
+                final_state = "ABORTED" if outcome.startswith("ABORTED") else outcome
+                conn.execute(
+                    """
+                    UPDATE attempts
+                    SET state = ?, known_json = ?, uncertain_json = ?, settled_utc_ms = ?, outcome_reason = ?
+                    WHERE attempt_id = ?
+                    """,
+                    (
+                        final_state,
+                        json.dumps(known_vec, sort_keys=True, separators=(",", ":")),
+                        json.dumps(unc_vec, sort_keys=True, separators=(",", ":")),
+                        now_ms,
+                        str(reason or outcome),
+                        attempt_id,
+                    ),
+                )
+                conn.execute(
+                    "UPDATE grants SET known_json = ?, uncertain_json = ?, outstanding_json = ? WHERE grant_identity_key = ?",
+                    (
+                        json.dumps(new_g_known, sort_keys=True, separators=(",", ":")),
+                        json.dumps(new_g_unc, sort_keys=True, separators=(",", ":")),
+                        json.dumps(new_g_out, sort_keys=True, separators=(",", ":")),
+                        lease.grant_identity_key,
+                    ),
+                )
+                new_meta = self._append_audit_in_tx(
+                    conn,
+                    event_type="ATTEMPT_SETTLED",
+                    event_utc_ms=now_ms,
+                    payload={
+                        "grant_identity_key": lease.grant_identity_key,
+                        "attempt_id": attempt_id,
+                        "request_digest": str(arow["request_digest"]),
+                        "outcome": outcome,
+                        "known": known_vec,
+                        "uncertain": unc_vec,
+                        "raw_payload_sha256": str(raw_payload_sha256),
+                        "child_result_digest": str(child_result_digest),
+                    },
+                )
+                conn.execute("COMMIT;")
+                # Post-commit durable row read-back check before anchor sync & receipt minting!
+                ver_row = conn.execute("SELECT state, known_json, uncertain_json FROM attempts WHERE attempt_id = ?", (attempt_id,)).fetchone()
+                if ver_row is None or str(ver_row["state"]) != final_state:
+                    return {"settled": False, "quarantined": False, "status": "SETTLE_POST_COMMIT_VERIFY_FAILED", "settlement_receipt": None, "violations": ["POST_COMMIT_ROW_VERIFICATION_FAILED"]}
+                if crash_hook is not None:
+                    crash_hook("post_settle_pre_anchor")
+                self._sync_anchor_from_meta(new_meta)
+
+                s_receipt = issue_durable_settlement_receipt_a1(
+                    attempt_id=attempt_id,
+                    lease_id=lease.lease_id,
+                    session_id=lease.session_id,
+                    grant_identity_key=lease.grant_identity_key,
+                    plan_digest=lease.plan_digest,
+                    request_digest=str(arow["request_digest"]),
+                    outcome=outcome,
+                    final_attempt_state=final_state,
+                    reserved_caps=reserved,
+                    known_caps=known_vec,
+                    uncertain_caps=unc_vec,
+                    settled_generation=int(new_meta["generation"]),
+                    audit_entry_hash=str(new_meta["audit_tip_hash"]),
+                    settled_utc_ms=now_ms,
+                    raw_payload_sha256=str(raw_payload_sha256),
+                    child_result_digest=str(child_result_digest),
+                    conservation_verified=True,
+                    quarantined=False,
+                )
+                return {
+                    "settled": True,
+                    "quarantined": False,
+                    "status": final_state,
                     "known": known_vec,
                     "uncertain": unc_vec,
-                },
-            )
-            conn.execute("COMMIT;")
-            if crash_hook is not None:
-                crash_hook("post_settle_pre_anchor")
-            self._sync_anchor_from_meta(new_meta)
-            return {
-                "settled": True,
-                "status": final_state,
-                "known": known_vec,
-                "uncertain": unc_vec,
-                "violations": [],
-            }
-        finally:
-            conn.close()
+                    "settlement_receipt": s_receipt,
+                    "violations": [],
+                }
+            finally:
+                conn.close()
 
-    # F11c: Finalize one-shot grant as SPENT or QUARANTINED
+    # F21: Finalize one-shot grant as SPENT or QUARANTINED (never healthy SPENT if unsettled STARTED attempts remain!)
     def finalize_r6_session(
         self,
         lease: R6DurableSessionLease,
@@ -1714,75 +2148,82 @@ class R6DurableGrantLedger:
         actual_now: datetime,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
+        ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
+        if not ok_l:
+            return {"finalized": False, "status": "REJECTED_FORGED_LEASE", "violations": l_viols}
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
-            if grow is None or str(grow["session_id"]) != lease.session_id:
-                conn.execute("ROLLBACK;")
-                return {"finalized": False, "status": "REJECTED_UNKNOWN_SESSION", "violations": ["GRANT_SESSION_NOT_FOUND"]}
+        with self._anchor_lock():
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
+                if grow is None or str(grow["session_id"]) != lease.session_id or str(grow["plan_digest"]) != lease.plan_digest:
+                    conn.execute("ROLLBACK;")
+                    return {"finalized": False, "status": "REJECTED_UNKNOWN_SESSION", "violations": ["GRANT_SESSION_NOT_FOUND"]}
 
-            if str(grow["state"]) in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
-                # Idempotent audit check: never un-spend!
-                conn.execute("ROLLBACK;")
-                return {"finalized": True, "status": str(grow["state"]), "idempotent_already_finalized": True, "violations": []}
+                if str(grow["state"]) in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
+                    conn.execute("ROLLBACK;")
+                    return {"finalized": True, "status": str(grow["state"]), "idempotent_already_finalized": True, "violations": []}
 
-            # Convert any unsettled STARTED attempts conservatively to UNCERTAIN; QUEUED to ABORTED
-            g_unc = json.loads(grow["uncertain_json"])
-            g_out = json.loads(grow["outstanding_json"])
-            open_atts = conn.execute(
-                "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
-                (lease.grant_identity_key,),
-            ).fetchall()
-            for arow in open_atts:
-                res = json.loads(arow["reserved_json"])
-                if str(arow["state"]) == "STARTED":
-                    for k in BUDGET_FIELDS_R6:
-                        g_unc[k] = int(g_unc[k]) + int(res[k])
-                        g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                    conn.execute(
-                        "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSETTLED_STARTED' WHERE attempt_id = ?",
-                        (arow["reserved_json"], now_ms, arow["attempt_id"]),
-                    )
-                else:
-                    for k in BUDGET_FIELDS_R6:
-                        g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                    conn.execute(
-                        "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSTARTED_QUEUED' WHERE attempt_id = ?",
-                        (now_ms, arow["attempt_id"]),
-                    )
+                g_unc = json.loads(grow["uncertain_json"])
+                g_out = json.loads(grow["outstanding_json"])
+                open_atts = conn.execute(
+                    "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
+                    (lease.grant_identity_key,),
+                ).fetchall()
+                had_unsettled_started = False
+                for arow in open_atts:
+                    res = json.loads(arow["reserved_json"])
+                    if str(arow["state"]) == "STARTED":
+                        had_unsettled_started = True
+                        for k in BUDGET_FIELDS_R6:
+                            g_unc[k] = int(g_unc[k]) + int(res[k])
+                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                        conn.execute(
+                            "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSETTLED_STARTED' WHERE attempt_id = ?",
+                            (arow["reserved_json"], now_ms, arow["attempt_id"]),
+                        )
+                    else:
+                        for k in BUDGET_FIELDS_R6:
+                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                        conn.execute(
+                            "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSTARTED_QUEUED' WHERE attempt_id = ?",
+                            (now_ms, arow["attempt_id"]),
+                        )
 
-            final_state = "QUARANTINED" if quarantine else "SPENT"
-            conn.execute(
-                """
-                UPDATE grants
-                SET state = ?, finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = ?
-                WHERE grant_identity_key = ?
-                """,
-                (
-                    final_state,
-                    now_ms,
-                    json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
-                    json.dumps(g_out, sort_keys=True, separators=(",", ":")),
-                    str(reason),
-                    lease.grant_identity_key,
-                ),
-            )
-            new_meta = self._append_audit_in_tx(
-                conn,
-                event_type="SESSION_FINALIZED",
-                event_utc_ms=now_ms,
-                payload={"grant_identity_key": lease.grant_identity_key, "session_id": lease.session_id, "final_state": final_state, "reason": reason},
-                set_quarantine=(reason if quarantine else None),
-            )
-            conn.execute("COMMIT;")
-            if crash_hook is not None:
-                crash_hook("post_finalize_pre_anchor")
-            self._sync_anchor_from_meta(new_meta)
-            return {"finalized": True, "status": final_state, "idempotent_already_finalized": False, "violations": []}
-        finally:
-            conn.close()
+                # F21: Unsettled/unknown worker state forces QUARANTINED (never healthy SPENT!)
+                eff_quarantine = bool(quarantine or had_unsettled_started)
+                eff_reason = str(reason) if not (had_unsettled_started and not quarantine) else f"{reason}|UNSETTLED_STARTED_FORCED_QUARANTINE"
+                final_state = "QUARANTINED" if eff_quarantine else "SPENT"
+                conn.execute(
+                    """
+                    UPDATE grants
+                    SET state = ?, finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = ?
+                    WHERE grant_identity_key = ?
+                    """,
+                    (
+                        final_state,
+                        now_ms,
+                        json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
+                        json.dumps(g_out, sort_keys=True, separators=(",", ":")),
+                        eff_reason,
+                        lease.grant_identity_key,
+                    ),
+                )
+                new_meta = self._append_audit_in_tx(
+                    conn,
+                    event_type="SESSION_FINALIZED",
+                    event_utc_ms=now_ms,
+                    payload={"grant_identity_key": lease.grant_identity_key, "session_id": lease.session_id, "final_state": final_state, "reason": eff_reason},
+                    set_quarantine=(eff_reason if eff_quarantine else None),
+                )
+                conn.execute("COMMIT;")
+                if crash_hook is not None:
+                    crash_hook("post_finalize_pre_anchor")
+                self._sync_anchor_from_meta(new_meta)
+                return {"finalized": True, "status": final_state, "idempotent_already_finalized": False, "violations": []}
+            finally:
+                conn.close()
 
     def snapshot_grant(self, grant_identity_key: str) -> Optional[Dict[str, Any]]:
         conn = self._connect()
@@ -1818,106 +2259,122 @@ class R6DurableGrantLedger:
         finally:
             conn.close()
 
-    # F12: Crash / restart recovery for unfinished CLAIMED grants & STARTED attempts
-    def recover_r6_ledger_after_restart(self, *, actual_now: datetime) -> Dict[str, Any]:
+    # F21: Crash / restart recovery for unfinished CLAIMED grants & STARTED attempts
+    def recover_r6_ledger_after_restart(
+        self,
+        *,
+        actual_now: datetime,
+        active_session_ids: Optional[Sequence[str]] = None,
+    ) -> Dict[str, Any]:
         """
         Recovers any unfinished sessions after an abrupt process crash:
+          - Skips any session explicitly proven active in `active_session_ids` (never recovers active live session as stale!)
           - STARTED attempts -> UNCERTAIN (retaining 100% of reserved worst-case bytes/requests, ZERO auto-refund!)
           - QUEUED attempts -> ABORTED (never started; grant still stays SPENT_CRASH_RECOVERED!)
           - CLAIMED grants -> SPENT_CRASH_RECOVERED (one-shot replay permanently denied!)
         """
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
         recovered_grants: List[str] = []
+        skipped_active_sessions: List[str] = []
         recovered_started_attempts: List[str] = []
         recovered_queued_attempts: List[str] = []
+        active_set = {str(s) for s in (active_session_ids or ())}
 
-        conn = self._connect()
-        try:
-            conn.execute("BEGIN IMMEDIATE;")
-            meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
-            if int(meta["quarantined"]) != 0:
-                conn.execute("ROLLBACK;")
+        with self._anchor_lock():
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                meta = conn.execute("SELECT * FROM ledger_meta WHERE id = 1").fetchone()
+                if int(meta["quarantined"]) != 0:
+                    conn.execute("ROLLBACK;")
+                    return {
+                        "recovered": False,
+                        "status": "BLOCKED_LEDGER_QUARANTINED",
+                        "recovered_grants": [],
+                        "recovered_started_attempts": [],
+                        "recovered_queued_attempts": [],
+                        "skipped_active_sessions": [],
+                        "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"],
+                    }
+
+                claimed_rows = conn.execute("SELECT * FROM grants WHERE state = 'CLAIMED'").fetchall()
+                for grow in claimed_rows:
+                    sess_id = str(grow["session_id"])
+                    if sess_id in active_set:
+                        skipped_active_sessions.append(sess_id)
+                        continue
+                    gkey = str(grow["grant_identity_key"])
+                    g_unc = json.loads(grow["uncertain_json"])
+                    g_out = json.loads(grow["outstanding_json"])
+
+                    atts = conn.execute(
+                        "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
+                        (gkey,),
+                    ).fetchall()
+                    for arow in atts:
+                        res = json.loads(arow["reserved_json"])
+                        aid = str(arow["attempt_id"])
+                        if str(arow["state"]) == "STARTED":
+                            for k in BUDGET_FIELDS_R6:
+                                g_unc[k] = int(g_unc[k]) + int(res[k])
+                                g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                            conn.execute(
+                                "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'CRASH_RECOVERED_UNKNOWN_RETAINED' WHERE attempt_id = ?",
+                                (arow["reserved_json"], now_ms, aid),
+                            )
+                            recovered_started_attempts.append(aid)
+                        else:
+                            for k in BUDGET_FIELDS_R6:
+                                g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                            conn.execute(
+                                "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'CRASH_RECOVERED_PRE_START' WHERE attempt_id = ?",
+                                (now_ms, aid),
+                            )
+                            recovered_queued_attempts.append(aid)
+
+                    conn.execute(
+                        """
+                        UPDATE grants
+                        SET state = 'SPENT_CRASH_RECOVERED', finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = 'CRASH_RECOVERED_ONE_SHOT_SPENT'
+                        WHERE grant_identity_key = ?
+                        """,
+                        (
+                            now_ms,
+                            json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
+                            json.dumps(g_out, sort_keys=True, separators=(",", ":")),
+                            gkey,
+                        ),
+                    )
+                    recovered_grants.append(gkey)
+
+                if recovered_grants:
+                    new_meta = self._append_audit_in_tx(
+                        conn,
+                        event_type="RESTART_CRASH_RECOVERY",
+                        event_utc_ms=now_ms,
+                        payload={
+                            "recovered_grants": recovered_grants,
+                            "recovered_started_attempts": recovered_started_attempts,
+                            "recovered_queued_attempts": recovered_queued_attempts,
+                            "skipped_active_sessions": skipped_active_sessions,
+                        },
+                    )
+                    conn.execute("COMMIT;")
+                    self._sync_anchor_from_meta(new_meta)
+                else:
+                    conn.execute("ROLLBACK;")
+
                 return {
-                    "recovered": False,
-                    "status": "BLOCKED_LEDGER_QUARANTINED",
-                    "recovered_grants": [],
-                    "recovered_started_attempts": [],
-                    "recovered_queued_attempts": [],
-                    "violations": [f"LEDGER_QUARANTINED:{meta['quarantine_reason']}"],
+                    "recovered": True,
+                    "status": "RECOVERED_GRANTS_MARKED_SPENT" if recovered_grants else "CLEAN_NO_INTERRUPTED_SESSIONS",
+                    "recovered_grants": recovered_grants,
+                    "recovered_started_attempts": recovered_started_attempts,
+                    "recovered_queued_attempts": recovered_queued_attempts,
+                    "skipped_active_sessions": skipped_active_sessions,
+                    "violations": [],
                 }
-
-            claimed_rows = conn.execute("SELECT * FROM grants WHERE state = 'CLAIMED'").fetchall()
-            for grow in claimed_rows:
-                gkey = str(grow["grant_identity_key"])
-                g_unc = json.loads(grow["uncertain_json"])
-                g_out = json.loads(grow["outstanding_json"])
-
-                atts = conn.execute(
-                    "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
-                    (gkey,),
-                ).fetchall()
-                for arow in atts:
-                    res = json.loads(arow["reserved_json"])
-                    aid = str(arow["attempt_id"])
-                    if str(arow["state"]) == "STARTED":
-                        for k in BUDGET_FIELDS_R6:
-                            g_unc[k] = int(g_unc[k]) + int(res[k])
-                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                        conn.execute(
-                            "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'CRASH_RECOVERED_UNKNOWN_RETAINED' WHERE attempt_id = ?",
-                            (arow["reserved_json"], now_ms, aid),
-                        )
-                        recovered_started_attempts.append(aid)
-                    else:
-                        for k in BUDGET_FIELDS_R6:
-                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                        conn.execute(
-                            "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'CRASH_RECOVERED_PRE_START' WHERE attempt_id = ?",
-                            (now_ms, aid),
-                        )
-                        recovered_queued_attempts.append(aid)
-
-                conn.execute(
-                    """
-                    UPDATE grants
-                    SET state = 'SPENT_CRASH_RECOVERED', finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = 'CRASH_RECOVERED_ONE_SHOT_SPENT'
-                    WHERE grant_identity_key = ?
-                    """,
-                    (
-                        now_ms,
-                        json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
-                        json.dumps(g_out, sort_keys=True, separators=(",", ":")),
-                        gkey,
-                    ),
-                )
-                recovered_grants.append(gkey)
-
-            if recovered_grants:
-                new_meta = self._append_audit_in_tx(
-                    conn,
-                    event_type="RESTART_CRASH_RECOVERY",
-                    event_utc_ms=now_ms,
-                    payload={
-                        "recovered_grants": recovered_grants,
-                        "recovered_started_attempts": recovered_started_attempts,
-                        "recovered_queued_attempts": recovered_queued_attempts,
-                    },
-                )
-                conn.execute("COMMIT;")
-                self._sync_anchor_from_meta(new_meta)
-            else:
-                conn.execute("ROLLBACK;")
-
-            return {
-                "recovered": True,
-                "status": "RECOVERED_GRANTS_MARKED_SPENT" if recovered_grants else "CLEAN_NO_INTERRUPTED_SESSIONS",
-                "recovered_grants": recovered_grants,
-                "recovered_started_attempts": recovered_started_attempts,
-                "recovered_queued_attempts": recovered_queued_attempts,
-                "violations": [],
-            }
-        finally:
-            conn.close()
+            finally:
+                conn.close()
 
 
 # =====================================================================
@@ -2052,8 +2509,39 @@ def _validate_db_and_anchor(
                 }
 
         meta_dict = dict(meta)
-        grants_count = int(conn.execute("SELECT COUNT(*) FROM grants").fetchone()[0])
-        attempts_count = int(conn.execute("SELECT COUNT(*) FROM attempts").fetchone()[0])
+        grants_rows = conn.execute("SELECT * FROM grants").fetchall()
+        grants_count = len(grants_rows)
+        attempts_rows = conn.execute("SELECT * FROM attempts").fetchall()
+        attempts_count = len(attempts_rows)
+
+        # F21: Independently verify DB grants vs attempts conservation & cap invariants!
+        by_grant_atts: Dict[str, List[Any]] = {}
+        for ar in attempts_rows:
+            by_grant_atts.setdefault(str(ar["grant_identity_key"]), []).append(ar)
+        for gr in grants_rows:
+            gkey = str(gr["grant_identity_key"])
+            gcaps = json.loads(gr["caps_json"])
+            gkn = json.loads(gr["known_json"])
+            gun = json.loads(gr["uncertain_json"])
+            gout = json.loads(gr["outstanding_json"])
+            sum_kn = _zero_budget_dict()
+            sum_un = _zero_budget_dict()
+            sum_out = _zero_budget_dict()
+            for ar in by_grant_atts.get(gkey, ()):
+                akn = json.loads(ar["known_json"])
+                aun = json.loads(ar["uncertain_json"])
+                ares = json.loads(ar["reserved_json"])
+                for k in BUDGET_FIELDS_R6:
+                    sum_kn[k] += int(akn.get(k, 0))
+                    sum_un[k] += int(aun.get(k, 0))
+                    if str(ar["state"]) in ("QUEUED", "STARTED"):
+                        sum_out[k] += int(ares.get(k, 0))
+            if sum_kn != {k: int(gkn[k]) for k in BUDGET_FIELDS_R6} or sum_un != {k: int(gun[k]) for k in BUDGET_FIELDS_R6} or sum_out != {k: int(gout[k]) for k in BUDGET_FIELDS_R6}:
+                return {"ok": False, "status": "QUARANTINED_BUDGET_INVARIANT_DRIFT", "violations": [f"GRANT_ATTEMPTS_SUM_MISMATCH:{gkey}"]}
+            if str(gr["state"]) != "QUARANTINED":
+                for k in BUDGET_FIELDS_R6:
+                    if int(gkn[k]) + int(gun[k]) + int(gout[k]) > int(gcaps[k]):
+                        return {"ok": False, "status": "QUARANTINED_UNRECORDED_CAP_BREACH", "violations": [f"UNQUARANTINED_CAP_BREACH:{gkey}:{k}"]}
     except sqlite3.DatabaseError as exc:
         return {"ok": False, "status": "QUARANTINED_DB_CORRUPT", "violations": [f"SQLITE_CORRUPT:{exc}"]}
     finally:

@@ -50,6 +50,7 @@ import subprocess
 import sys
 import threading
 import time
+from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlencode, urlsplit
 import zlib
@@ -57,6 +58,26 @@ import zlib
 import certifi
 import psutil
 
+from services.kh_03_r6_a1_trust_service import (
+    A1_EXTERNAL_CAPTURE_ENABLED,
+    FORBIDDEN_REQUEST_OVERRIDE_KEYS_A1,
+    R6AuthorizedDispatchRequest,
+    R6DurableReservationReceipt,
+    R6DurableSettlementReceipt,
+    R6TrustedSupervisorResult,
+    R6WorkerEnvelope,
+    _A1_INTERNAL_CAPABILITY,
+    _issue_r6_a1_trusted_supervisor_result,
+    build_r6_a1_worker_envelope,
+    canonicalize_r6_bound_plan_core,
+    complete_caps_vector_a1,
+    freeze_strict_int_caps_a1,
+    validate_r6_a1_worker_envelope_strict,
+    verify_authorized_dispatch_request_a1,
+    verify_durable_settlement_receipt_a1,
+    verify_registered_grant_authenticity_a1,
+    verify_registered_lease_authenticity_a1,
+)
 from services.kh_03_r6_durable_grant_service import (
     BUDGET_FIELDS_R6,
     R6DurableGrantLedger,
@@ -65,6 +86,7 @@ from services.kh_03_r6_durable_grant_service import (
     _canonical_json_bytes,
     _is_strict_int,
     _sha256_canonical,
+    _strict_loads_r6,
 )
 from services.kh_03_r6_source_contract_service import (
     APPROVED_REST_HOST_R6,
@@ -295,7 +317,7 @@ class R6BoundedQueueWriter:
 
 
 # =====================================================================
-# F13: build_r6_bound_capture_plan (Frozen & MAC-bound)
+# F08 / F09 / F10: Deep-Frozen Bound Capture Plan & Full Recompute Verifier
 # =====================================================================
 @dataclass(frozen=True)
 class R6BoundCapturePlan:
@@ -305,7 +327,12 @@ class R6BoundCapturePlan:
     grant_identity_key: str
     grant_payload_digest: str
     tested_executable_sha: str
+    release_manifest_sha256: str
     registry_digest: str
+    venue: str
+    api_family: str
+    symbol: str
+    product_type: str
     destination_store_id: str
     destination_root: str
     endpoints: Tuple[str, ...]
@@ -315,10 +342,22 @@ class R6BoundCapturePlan:
     max_session_duration_sec: int
     max_concurrency: int
     caps: Mapping[str, int]
+    caps_pairs: Tuple[Tuple[str, int], ...]
     expires_utc_ms: int
     external_capture_permitted: bool
+    task_policy_digest: str
     plan_digest: str
     plan_mac_hex: str
+
+    def verify_mac_against_grant(self, verified_grant: R6VerifiedGrant, *, recomputed_digest: str) -> bool:
+        expected_mac = _compute_plan_mac(
+            recomputed_digest,
+            verified_grant.grant_payload_digest,
+            verified_grant.release_manifest_sha256,
+            self.registry_digest,
+            self.external_capture_permitted,
+        )
+        return hmac.compare_digest(self.plan_mac_hex, expected_mac)
 
     def to_redacted_dict(self) -> Dict[str, Any]:
         return {
@@ -328,7 +367,12 @@ class R6BoundCapturePlan:
             "grant_identity_key": self.grant_identity_key,
             "grant_payload_digest": self.grant_payload_digest,
             "tested_executable_sha": self.tested_executable_sha,
+            "release_manifest_sha256": self.release_manifest_sha256,
             "registry_digest": self.registry_digest,
+            "venue": self.venue,
+            "api_family": self.api_family,
+            "symbol": self.symbol,
+            "product_type": self.product_type,
             "destination_store_id": self.destination_store_id,
             "endpoints": list(self.endpoints),
             "ws_channels": list(self.ws_channels),
@@ -339,29 +383,194 @@ class R6BoundCapturePlan:
             "caps": dict(self.caps),
             "expires_utc_ms": self.expires_utc_ms,
             "external_capture_permitted": self.external_capture_permitted,
+            "task_policy_digest": self.task_policy_digest,
             "plan_digest": self.plan_digest,
         }
 
 
-def _compute_plan_mac(plan_digest: str, grant_payload_digest: str, external_flag: bool) -> str:
-    msg = f"{plan_digest}|{grant_payload_digest}|{int(external_flag)}".encode("utf-8")
+def _compute_plan_mac(
+    plan_digest: str,
+    grant_payload_digest: str,
+    release_manifest_sha256: str,
+    registry_digest: str,
+    external_flag: bool,
+) -> str:
+    msg = f"{plan_digest}|{grant_payload_digest}|{release_manifest_sha256}|{registry_digest}|{int(external_flag)}".encode("utf-8")
     return hmac.new(_PLAN_MAC_SECRET_R6, msg, hashlib.sha256).hexdigest()
 
 
-def verify_r6_bound_plan_integrity(plan: R6BoundCapturePlan, verified_grant: R6VerifiedGrant) -> Tuple[bool, List[str]]:
+def verify_r6_bound_plan_integrity(
+    plan: R6BoundCapturePlan,
+    verified_grant: R6VerifiedGrant,
+    *,
+    registry: Optional[R6SourceContractRegistry] = None,
+    lease: Optional[R6DurableSessionLease] = None,
+    expected_executable_sha: Optional[str] = None,
+    expected_release_manifest_sha256: Optional[str] = None,
+    actual_now: Optional[datetime] = None,
+) -> Tuple[bool, List[str]]:
+    """
+    F10: Full fail-closed bound plan integrity verifier.
+    ALWAYS recomputes canonical core digest via F08 (`canonicalize_r6_bound_plan_core`), verifies
+    stored `plan_digest` AND constant-time `plan_mac_hex`, verifies registered `verified_grant`
+    authenticity, re-evaluates strict grant/registry/release/window/caps/destination/lease subset,
+    and fails closed on ANY exception!
+    """
     viols: List[str] = []
-    if not isinstance(plan, R6BoundCapturePlan):
-        return False, ["PLAN_NOT_R6_BOUND_CAPTURE_PLAN"]
-    if plan.grant_identity_key != verified_grant.grant_identity_key:
-        viols.append("PLAN_GRANT_IDENTITY_MISMATCH")
-    if plan.grant_payload_digest != verified_grant.grant_payload_digest:
-        viols.append("PLAN_GRANT_PAYLOAD_DIGEST_MISMATCH")
-    if plan.external_capture_permitted != verified_grant.external_capture_permitted:
-        viols.append("PLAN_EXTERNAL_PERMISSION_MISMATCH")
-    expected_mac = _compute_plan_mac(plan.plan_digest, verified_grant.grant_payload_digest, plan.external_capture_permitted)
-    if not hmac.compare_digest(plan.plan_mac_hex, expected_mac):
-        viols.append("PLAN_MAC_INTEGRITY_FAILED")
-    return len(viols) == 0, viols
+    try:
+        if not isinstance(plan, R6BoundCapturePlan):
+            return False, ["PLAN_NOT_R6_BOUND_CAPTURE_PLAN"]
+        if not isinstance(verified_grant, R6VerifiedGrant):
+            return False, ["GRANT_NOT_R6_VERIFIED_GRANT"]
+
+        ok_vg, vg_viols = verify_registered_grant_authenticity_a1(verified_grant)
+        if not ok_vg:
+            viols.extend(vg_viols)
+
+        # Reject mutable dict inside caps even if constructed via dataclasses.replace!
+        if isinstance(plan.caps, dict):
+            viols.append("PLAN_CAPS_MUST_BE_IMMUTABLE_MAPPING_PROXY")
+
+        _, recomp_digest, core_viols = canonicalize_r6_bound_plan_core(
+            plan_id=plan.plan_id,
+            stage=plan.stage,
+            purpose=plan.purpose,
+            grant_identity_key=plan.grant_identity_key,
+            grant_payload_digest=plan.grant_payload_digest,
+            tested_executable_sha=plan.tested_executable_sha,
+            release_manifest_sha256=plan.release_manifest_sha256,
+            registry_digest=plan.registry_digest,
+            venue=plan.venue,
+            api_family=plan.api_family,
+            symbol=plan.symbol,
+            product_type=plan.product_type,
+            destination_store_id=plan.destination_store_id,
+            destination_root=plan.destination_root,
+            endpoints=plan.endpoints,
+            ws_channels=plan.ws_channels,
+            window_start_ms=plan.window_start_ms,
+            window_end_ms=plan.window_end_ms,
+            max_session_duration_sec=plan.max_session_duration_sec,
+            max_concurrency=plan.max_concurrency,
+            caps=plan.caps,
+            expires_utc_ms=plan.expires_utc_ms,
+            external_capture_permitted=plan.external_capture_permitted,
+            task_policy_digest=plan.task_policy_digest,
+        )
+        viols.extend(core_viols)
+
+        if recomp_digest is None or not hmac.compare_digest(recomp_digest, str(plan.plan_digest)):
+            viols.append("PLAN_CANONICAL_DIGEST_MISMATCH")
+
+        expected_mac = _compute_plan_mac(
+            recomp_digest or "",
+            verified_grant.grant_payload_digest,
+            verified_grant.release_manifest_sha256,
+            plan.registry_digest,
+            plan.external_capture_permitted,
+        )
+        if not hmac.compare_digest(str(plan.plan_mac_hex), expected_mac):
+            viols.append("PLAN_MAC_INTEGRITY_FAILED")
+
+        # Strict cross-binding vs verified_grant
+        if plan.grant_identity_key != verified_grant.grant_identity_key:
+            viols.append("PLAN_GRANT_IDENTITY_MISMATCH")
+        if plan.grant_payload_digest != verified_grant.grant_payload_digest:
+            viols.append("PLAN_GRANT_PAYLOAD_DIGEST_MISMATCH")
+        if plan.stage != verified_grant.stage:
+            viols.append("PLAN_STAGE_MISMATCH")
+        if plan.purpose != verified_grant.purpose:
+            viols.append("PLAN_PURPOSE_MISMATCH")
+        if plan.tested_executable_sha != verified_grant.tested_executable_sha:
+            viols.append("PLAN_EXECUTABLE_SHA_MISMATCH")
+        if plan.release_manifest_sha256 != verified_grant.release_manifest_sha256:
+            viols.append("PLAN_RELEASE_MANIFEST_MISMATCH")
+        if plan.venue != verified_grant.venue or plan.api_family != verified_grant.api_family or plan.symbol != verified_grant.symbol or plan.product_type != verified_grant.product_type:
+            viols.append("PLAN_INSTRUMENT_OR_FAMILY_MISMATCH")
+        if plan.destination_store_id != verified_grant.destination_store_id:
+            viols.append("PLAN_STORE_ID_MISMATCH")
+        if Path(plan.destination_root).resolve(strict=False) != Path(verified_grant.destination_root).resolve(strict=False):
+            viols.append("PLAN_DESTINATION_ROOT_DRIFT")
+        if plan.external_capture_permitted != verified_grant.external_capture_permitted:
+            viols.append("PLAN_EXTERNAL_PERMISSION_MISMATCH")
+        if plan.expires_utc_ms != verified_grant.expires_utc_ms:
+            viols.append("PLAN_EXPIRY_MISMATCH")
+        if plan.window_start_ms < verified_grant.window_start_ms or plan.window_end_ms > verified_grant.window_end_ms:
+            viols.append("PLAN_WINDOW_EXCEEDS_GRANT")
+        if plan.max_session_duration_sec > verified_grant.max_session_duration_sec:
+            viols.append("PLAN_DURATION_EXCEEDS_GRANT")
+        if plan.max_concurrency > verified_grant.max_concurrency:
+            viols.append("PLAN_CONCURRENCY_EXCEEDS_GRANT")
+
+        for ep in plan.endpoints:
+            if ep not in verified_grant.allowed_endpoints:
+                viols.append(f"PLAN_ENDPOINT_NOT_IN_GRANT:{ep}")
+        for ch in plan.ws_channels:
+            if ch not in verified_grant.allowed_ws_channels:
+                viols.append(f"PLAN_WS_CHANNEL_NOT_IN_GRANT:{ch}")
+
+        frozen_c, c_pairs, c_viols = freeze_strict_int_caps_a1(plan.caps, require_complete=True)
+        viols.extend(c_viols)
+        if frozen_c is not None:
+            if tuple(plan.caps_pairs) != c_pairs:
+                viols.append("PLAN_CAPS_PAIRS_DRIFT")
+            for k in BUDGET_FIELDS_R6:
+                if frozen_c[k] > int(verified_grant.caps[k]):
+                    viols.append(f"PLAN_CAP_EXCEEDS_GRANT:{k}:{frozen_c[k]}>{verified_grant.caps[k]}")
+
+        # Registry re-evaluation
+        if registry is not None:
+            if registry.status != "DOC_VERIFIED_READY_FOR_STAGE_B_REVIEW":
+                viols.append("REGISTRY_NOT_READY")
+            if plan.registry_digest != registry.registry_digest:
+                viols.append("PLAN_REGISTRY_DIGEST_DRIFT")
+            for ep in plan.endpoints:
+                if ep not in registry.endpoints:
+                    viols.append(f"PLAN_ENDPOINT_NOT_IN_REGISTRY:{ep}")
+
+        # Release / Executable pin check
+        if expected_executable_sha is not None and plan.tested_executable_sha != expected_executable_sha:
+            viols.append("PLAN_EXPECTED_EXECUTABLE_SHA_MISMATCH")
+        if expected_release_manifest_sha256 is not None and plan.release_manifest_sha256 != expected_release_manifest_sha256:
+            viols.append("PLAN_EXPECTED_RELEASE_MANIFEST_MISMATCH")
+
+        # Lease re-evaluation
+        if lease is not None:
+            ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
+            if not ok_l:
+                viols.extend(l_viols)
+            if lease.plan_digest != plan.plan_digest:
+                viols.append("LEASE_PLAN_DIGEST_MISMATCH")
+            if lease.grant_identity_key != plan.grant_identity_key:
+                viols.append("LEASE_GRANT_IDENTITY_MISMATCH")
+            if lease.store_id != plan.destination_store_id:
+                viols.append("LEASE_STORE_ID_MISMATCH")
+            if lease.stage != plan.stage:
+                viols.append("LEASE_STAGE_MISMATCH")
+
+        # Expiry check
+        if actual_now is not None:
+            now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
+            if now_ms >= plan.expires_utc_ms:
+                viols.append("PLAN_EXPIRED")
+
+        return len(viols) == 0, viols
+    except Exception as exc:
+        return False, [f"PLAN_VERIFY_FAIL_CLOSED_EXCEPTION:{exc}"]
+
+
+_ALLOWED_PROPOSED_BUDGET_KEYS_A1 = frozenset({
+    "stage",
+    "endpoints",
+    "ws_channels",
+    "window_start_ms",
+    "window_end_ms",
+    "max_session_duration_sec",
+    "max_concurrency",
+    "destination_root",
+    "caps",
+    "task_policy_digest",
+})
 
 
 def build_r6_bound_capture_plan(
@@ -373,36 +582,72 @@ def build_r6_bound_capture_plan(
     plan_id: str,
 ) -> Dict[str, Any]:
     """
-    Freezes a canonical capture plan strictly as a subset of `verified_grant` and `registry`.
-    NEVER silently clamps unauthorized budget/window/endpoint values — rejects fail-closed!
+    F09: Freezes a deep-immutable canonical capture plan strictly as a subset of `verified_grant`
+    and `registry` using F08 (`canonicalize_r6_bound_plan_core`).
+    NEVER silently clamps unauthorized budget/window/endpoint values; explicit empty `ws_channels=[]`
+    stays empty and never widens; rejects unknown fields, callables, and unverified grants!
     """
     viols: List[str] = []
     if not isinstance(verified_grant, R6VerifiedGrant):
         return {"valid": False, "status": "BLOCKED_INVALID_GRANT", "plan": None, "violations": ["GRANT_NOT_VERIFIED_OBJECT"]}
-    if registry.status != "DOC_VERIFIED_READY_FOR_STAGE_B_REVIEW":
-        viols.append(f"SOURCE_REGISTRY_NOT_READY:{registry.status}")
-    if resource_check.get("ok") is not True:
+    ok_vg, vg_viols = verify_registered_grant_authenticity_a1(verified_grant)
+    if not ok_vg:
+        return {"valid": False, "status": "BLOCKED_FORGED_GRANT", "plan": None, "violations": vg_viols}
+    if not isinstance(registry, R6SourceContractRegistry) or registry.status != "DOC_VERIFIED_READY_FOR_STAGE_B_REVIEW":
+        viols.append(f"SOURCE_REGISTRY_NOT_READY:{getattr(registry, 'status', None)}")
+    if not isinstance(resource_check, Mapping) or resource_check.get("ok") is not True:
         viols.append("RESOURCE_PREFLIGHT_NOT_OK")
+    elif verified_grant.external_capture_permitted and resource_check.get("status") != "RESOURCE_GUARD_OK":
+        viols.append("RESOURCE_CHECK_UNTRUSTED_FOR_EXTERNAL_PLAN")
 
-    # Reject any callable injection in proposed_budget!
+    if not isinstance(proposed_budget, Mapping):
+        return {"valid": False, "status": "REJECTED_PLAN_BINDING", "plan": None, "violations": ["PROPOSED_BUDGET_NOT_MAPPING"]}
+
+    extra_pb = sorted(set(proposed_budget.keys()) - _ALLOWED_PROPOSED_BUDGET_KEYS_A1)
+    if extra_pb:
+        viols.append(f"UNKNOWN_PROPOSED_BUDGET_KEYS:{','.join(extra_pb)}")
     for k, v in proposed_budget.items():
         if callable(v):
             viols.append(f"CALLABLE_INJECTION_FORBIDDEN:{k}")
 
-    prop_stage = str(proposed_budget.get("stage") or verified_grant.stage)
+    prop_stage = str(proposed_budget.get("stage") if "stage" in proposed_budget else verified_grant.stage)
     if prop_stage != verified_grant.stage:
         viols.append(f"PLAN_STAGE_MISMATCH:plan={prop_stage}:grant={verified_grant.stage}")
 
-    prop_eps = tuple(str(x) for x in (proposed_budget.get("endpoints") or verified_grant.allowed_endpoints))
+    if "endpoints" in proposed_budget:
+        raw_eps = proposed_budget["endpoints"]
+        if not isinstance(raw_eps, (list, tuple)):
+            viols.append("PLAN_ENDPOINTS_MUST_BE_SEQUENCE")
+            prop_eps: Tuple[str, ...] = ()
+        else:
+            prop_eps = tuple(str(x).strip() for x in raw_eps)
+    else:
+        prop_eps = tuple(verified_grant.allowed_endpoints)
+
     if not prop_eps:
         viols.append("PLAN_EMPTY_ENDPOINTS")
+    elif len(set(prop_eps)) != len(prop_eps):
+        viols.append("PLAN_DUPLICATE_ENDPOINTS")
     for ep_id in prop_eps:
         if ep_id not in verified_grant.allowed_endpoints:
             viols.append(f"PLAN_ENDPOINT_NOT_IN_GRANT:{ep_id}")
         if ep_id not in registry.endpoints:
             viols.append(f"PLAN_ENDPOINT_NOT_IN_REGISTRY:{ep_id}")
 
-    prop_ws = tuple(str(x) for x in (proposed_budget.get("ws_channels") or ()))
+    # F09: Explicit empty `ws_channels=[]` must stay empty (NEVER widen to all!)
+    if "ws_channels" in proposed_budget:
+        raw_ws = proposed_budget["ws_channels"]
+        if not isinstance(raw_ws, (list, tuple)):
+            viols.append("PLAN_WS_CHANNELS_MUST_BE_SEQUENCE")
+            prop_ws: Tuple[str, ...] = ()
+        else:
+            prop_ws = tuple(str(x).strip() for x in raw_ws)
+    else:
+        has_ws_ep = any(ep_id in registry.endpoints and registry.endpoints[ep_id].transport_kind == "WS_PUBLIC" for ep_id in prop_eps)
+        prop_ws = tuple(verified_grant.allowed_ws_channels) if has_ws_ep else ()
+
+    if len(set(prop_ws)) != len(prop_ws):
+        viols.append("PLAN_DUPLICATE_WS_CHANNELS")
     for ch in prop_ws:
         if ch not in verified_grant.allowed_ws_channels:
             viols.append(f"PLAN_WS_CHANNEL_NOT_IN_GRANT:{ch}")
@@ -422,11 +667,24 @@ def build_r6_bound_capture_plan(
     if not _is_strict_int(conc) or conc <= 0 or conc > verified_grant.max_concurrency:
         viols.append(f"PLAN_CONCURRENCY_EXCEEDS_GRANT:{conc}>{verified_grant.max_concurrency}")
 
-    prop_dest = str(proposed_budget.get("destination_root") or verified_grant.destination_root)
-    if Path(prop_dest).resolve(strict=False) != Path(verified_grant.destination_root).resolve(strict=False):
+    prop_dest = str(proposed_budget.get("destination_root") if "destination_root" in proposed_budget else verified_grant.destination_root)
+    if ".." in Path(prop_dest).parts or not Path(prop_dest).is_absolute():
+        viols.append("PLAN_DESTINATION_ROOT_NOT_CANONICAL_ABSOLUTE")
+    elif Path(prop_dest).resolve(strict=False) != Path(verified_grant.destination_root).resolve(strict=False):
         viols.append("PLAN_DESTINATION_ROOT_DRIFT")
 
-    prop_caps_in = proposed_budget.get("caps") if isinstance(proposed_budget.get("caps"), Mapping) else dict(verified_grant.caps)
+    if "caps" in proposed_budget:
+        prop_caps_in = proposed_budget["caps"]
+        if not isinstance(prop_caps_in, Mapping):
+            viols.append("PLAN_CAPS_NOT_MAPPING")
+            prop_caps_in = {}
+        else:
+            extra_c = sorted(set(prop_caps_in.keys()) - set(BUDGET_FIELDS_R6))
+            if extra_c:
+                viols.append(f"PLAN_UNKNOWN_CAP_KEYS:{','.join(extra_c)}")
+    else:
+        prop_caps_in = dict(verified_grant.caps)
+
     plan_caps: Dict[str, int] = {}
     for k in BUDGET_FIELDS_R6:
         val = prop_caps_in.get(k, verified_grant.caps[k])
@@ -440,36 +698,24 @@ def build_r6_bound_capture_plan(
     if viols:
         return {"valid": False, "status": "REJECTED_PLAN_BINDING", "plan": None, "violations": viols}
 
-    core = {
-        "plan_id": str(plan_id),
-        "stage": verified_grant.stage,
-        "purpose": verified_grant.purpose,
-        "grant_identity_key": verified_grant.grant_identity_key,
-        "grant_payload_digest": verified_grant.grant_payload_digest,
-        "tested_executable_sha": verified_grant.tested_executable_sha,
-        "registry_digest": registry.registry_digest,
-        "destination_store_id": verified_grant.destination_store_id,
-        "destination_root": verified_grant.destination_root,
-        "endpoints": list(prop_eps),
-        "ws_channels": list(prop_ws),
-        "window_start_ms": int(ws),
-        "window_end_ms": int(we),
-        "max_session_duration_sec": int(dur),
-        "max_concurrency": int(conc),
-        "caps": plan_caps,
-        "expires_utc_ms": verified_grant.expires_utc_ms,
-        "external_capture_permitted": verified_grant.external_capture_permitted,
-    }
-    p_digest = _sha256_canonical(core)
-    p_mac = _compute_plan_mac(p_digest, verified_grant.grant_payload_digest, verified_grant.external_capture_permitted)
-    plan = R6BoundCapturePlan(
+    frozen_caps, cap_pairs, f_viols = freeze_strict_int_caps_a1(plan_caps, require_complete=True)
+    if f_viols or frozen_caps is None:
+        return {"valid": False, "status": "REJECTED_PLAN_BINDING", "plan": None, "violations": f_viols}
+
+    tpol_dig = str(proposed_budget.get("task_policy_digest") or "")
+    _, p_digest, core_viols = canonicalize_r6_bound_plan_core(
         plan_id=str(plan_id),
         stage=verified_grant.stage,
         purpose=verified_grant.purpose,
         grant_identity_key=verified_grant.grant_identity_key,
         grant_payload_digest=verified_grant.grant_payload_digest,
         tested_executable_sha=verified_grant.tested_executable_sha,
+        release_manifest_sha256=verified_grant.release_manifest_sha256,
         registry_digest=registry.registry_digest,
+        venue=verified_grant.venue,
+        api_family=verified_grant.api_family,
+        symbol=verified_grant.symbol,
+        product_type=verified_grant.product_type,
         destination_store_id=verified_grant.destination_store_id,
         destination_root=verified_grant.destination_root,
         endpoints=prop_eps,
@@ -478,9 +724,47 @@ def build_r6_bound_capture_plan(
         window_end_ms=int(we),
         max_session_duration_sec=int(dur),
         max_concurrency=int(conc),
-        caps=plan_caps,
+        caps=frozen_caps,
         expires_utc_ms=verified_grant.expires_utc_ms,
         external_capture_permitted=verified_grant.external_capture_permitted,
+        task_policy_digest=tpol_dig,
+    )
+    if core_viols or p_digest is None:
+        return {"valid": False, "status": "REJECTED_PLAN_BINDING", "plan": None, "violations": core_viols}
+
+    p_mac = _compute_plan_mac(
+        p_digest,
+        verified_grant.grant_payload_digest,
+        verified_grant.release_manifest_sha256,
+        registry.registry_digest,
+        verified_grant.external_capture_permitted,
+    )
+    plan = R6BoundCapturePlan(
+        plan_id=str(plan_id),
+        stage=verified_grant.stage,
+        purpose=verified_grant.purpose,
+        grant_identity_key=verified_grant.grant_identity_key,
+        grant_payload_digest=verified_grant.grant_payload_digest,
+        tested_executable_sha=verified_grant.tested_executable_sha,
+        release_manifest_sha256=verified_grant.release_manifest_sha256,
+        registry_digest=registry.registry_digest,
+        venue=verified_grant.venue,
+        api_family=verified_grant.api_family,
+        symbol=verified_grant.symbol,
+        product_type=verified_grant.product_type,
+        destination_store_id=verified_grant.destination_store_id,
+        destination_root=verified_grant.destination_root,
+        endpoints=prop_eps,
+        ws_channels=prop_ws,
+        window_start_ms=int(ws),
+        window_end_ms=int(we),
+        max_session_duration_sec=int(dur),
+        max_concurrency=int(conc),
+        caps=frozen_caps,
+        caps_pairs=cap_pairs,
+        expires_utc_ms=verified_grant.expires_utc_ms,
+        external_capture_permitted=verified_grant.external_capture_permitted,
+        task_policy_digest=tpol_dig,
         plan_digest=p_digest,
         plan_mac_hex=p_mac,
     )
@@ -626,35 +910,52 @@ def execute_r6_bounded_rest_get(
     max_decoded_bytes: int,
     max_header_bytes: int = MAX_HTTP_HEADER_BYTES_R6,
     max_retries: int = 2,
+    max_requests: Optional[int] = None,
+    strict_reservation_byte_cap: Optional[int] = None,
     qa_loopback_mode: bool = False,
     external_capture_permitted: bool = False,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> Dict[str, Any]:
     """
-    Bounded streaming public HTTP/HTTPS GET client:
-      - Enforces strict TLS (`certifi`) + host verification for external `api.bitget.com`.
-      - Refuses external connections unless `external_capture_permitted is True` (loopback `127.0.0.1`
-        only when `qa_loopback_mode is True`).
+    F17: Bounded streaming public HTTP/HTTPS GET client:
+      - Unconditionally hard-blocks non-loopback external sockets in A1 (`BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED`).
       - Never follows redirects (301/302/303/307/308 -> non-retryable fail-closed).
       - Enforces total monotonic deadline across connect/headers/every read chunk (slow-drip safe!).
-      - Enforces pre-read `Content-Length` + streaming `max_payload_bytes + 1` sentinel cap (chunked safe!).
-      - Enforces streaming gzip decompression cap (`max_decoded_bytes + 1` -> gzip bomb safe!).
-      - Honors `Retry-After` strictly without shortening; aborts if `retry_after > remaining_deadline`.
+      - Enforces CUMULATIVE requests, retries, payload bytes (incl. error bodies & sentinel probe),
+        and decoded bytes across ALL retries so `total_raw_bytes <= strict_reservation_byte_cap` ALWAYS!
+      - Never reads a `cap + 1` sentinel byte outside reservation.
+      - Honors `Retry-After` strictly without shortening; aborts if `retry_after >= remaining_deadline`.
     """
     parsed = urlsplit(str(url))
     scheme = parsed.scheme.lower()
     host = (parsed.hostname or "").lower()
     port = parsed.port or (443 if scheme == "https" else 80)
 
+    if parsed.username is not None or parsed.password is not None:
+        return {"ok": False, "status": "REJECTED_URL_CREDENTIALS_FORBIDDEN", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["URL_EMBEDDED_CREDENTIALS_FORBIDDEN"]}
+
     is_loopback = host in ("127.0.0.1", "::1")
     if is_loopback:
         if not qa_loopback_mode:
-            return {"ok": False, "status": "BLOCKED_LOOPBACK_WITHOUT_QA_MODE", "attempts": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["LOOPBACK_FORBIDDEN_IN_LIVE_MODE"]}
+            return {"ok": False, "status": "BLOCKED_LOOPBACK_WITHOUT_QA_MODE", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["LOOPBACK_FORBIDDEN_IN_LIVE_MODE"]}
     else:
+        if not A1_EXTERNAL_CAPTURE_ENABLED:
+            return {"ok": False, "status": "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["A1_EXTERNAL_CAPTURE_DISABLED"]}
         if qa_loopback_mode or not external_capture_permitted:
-            return {"ok": False, "status": "BLOCKED_EXTERNAL_SOCKET_FORBIDDEN", "attempts": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["EXTERNAL_NETWORK_SOCKET_NOT_AUTHORIZED"]}
+            return {"ok": False, "status": "BLOCKED_EXTERNAL_SOCKET_FORBIDDEN", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["EXTERNAL_NETWORK_SOCKET_NOT_AUTHORIZED"]}
         if scheme != "https" or host != APPROVED_REST_HOST_R6 or port != 443:
-            return {"ok": False, "status": "BLOCKED_UNALLOWLISTED_HOST_OR_SCHEME", "attempts": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": [f"FORBIDDEN_EXTERNAL_TARGET:{scheme}://{host}:{port}"]}
+            return {"ok": False, "status": "BLOCKED_UNALLOWLISTED_HOST_OR_SCHEME", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": [f"FORBIDDEN_EXTERNAL_TARGET:{scheme}://{host}:{port}"]}
+
+    if not _is_strict_int(max_payload_bytes) or max_payload_bytes < 1 or not _is_strict_int(max_decoded_bytes) or max_decoded_bytes < 1:
+        return {"ok": False, "status": "REJECTED_ZERO_OR_INVALID_BYTE_CAPS", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["INVALID_BYTE_CAPS"]}
+    if not _is_strict_int(max_retries) or max_retries < 0:
+        return {"ok": False, "status": "REJECTED_INVALID_RETRY_CAP", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["INVALID_RETRY_CAP"]}
+    eff_max_requests = int(max_requests) if max_requests is not None else (int(max_retries) + 1)
+    if not _is_strict_int(eff_max_requests) or eff_max_requests < 1:
+        return {"ok": False, "status": "REJECTED_ZERO_REQUEST_CAP", "attempts": 0, "retries_used": 0, "payload_bytes_received": 0, "decoded_bytes": 0, "violations": ["ZERO_REQUEST_CAP_NO_SOCKET"]}
+    eff_res_cap = int(strict_reservation_byte_cap) if strict_reservation_byte_cap is not None else int(max_payload_bytes)
+    if eff_res_cap < max_payload_bytes:
+        max_payload_bytes = eff_res_cap
 
     qs = urlencode(sorted((str(k), str(v)) for k, v in params.items()))
     req_path = f"{parsed.path}?{qs}" if qs else parsed.path
@@ -676,10 +977,38 @@ def execute_r6_bounded_rest_get(
                 "status": "ABORTED_TOTAL_DEADLINE_EXCEEDED",
                 "http_status": last_status_code,
                 "attempts": attempts,
+                "retries_used": max(0, attempts - 1),
                 "payload_bytes_received": total_raw_bytes,
                 "decoded_bytes": total_decoded_bytes,
                 "sleeps_honored": sleeps_honored,
+                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                 "violations": [last_error or "TOTAL_DEADLINE_EXCEEDED"],
+            }
+        if attempts >= eff_max_requests:
+            return {
+                "ok": False,
+                "status": "ABORTED_REQUEST_RESERVATION_EXHAUSTED",
+                "http_status": last_status_code,
+                "attempts": attempts,
+                "retries_used": max(0, attempts - 1),
+                "payload_bytes_received": total_raw_bytes,
+                "decoded_bytes": total_decoded_bytes,
+                "sleeps_honored": sleeps_honored,
+                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                "violations": [f"REQUEST_CAP_EXHAUSTED:{attempts}>={eff_max_requests}"],
+            }
+        if total_raw_bytes >= eff_res_cap or total_decoded_bytes >= max_decoded_bytes:
+            return {
+                "ok": False,
+                "status": "REJECTED_CUMULATIVE_BYTE_RESERVATION_EXHAUSTED",
+                "http_status": last_status_code,
+                "attempts": attempts,
+                "retries_used": max(0, attempts - 1),
+                "payload_bytes_received": total_raw_bytes,
+                "decoded_bytes": total_decoded_bytes,
+                "sleeps_honored": sleeps_honored,
+                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                "violations": ["CUMULATIVE_BYTE_CAP_EXHAUSTED_BEFORE_RETRY"],
             }
 
         attempts += 1
@@ -709,7 +1038,6 @@ def execute_r6_bounded_rest_get(
             resp = conn.getresponse()
             last_status_code = int(resp.status)
 
-            # Bounded header size check
             hdr_bytes = sum(len(k.encode("latin-1", "replace")) + len(v.encode("latin-1", "replace")) + 4 for k, v in resp.getheaders())
             if hdr_bytes > max_header_bytes:
                 return {
@@ -717,6 +1045,7 @@ def execute_r6_bounded_rest_get(
                     "status": "REJECTED_OVERSIZED_HEADERS",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
                     "violations": [f"HEADER_BYTES_EXCEEDED:{hdr_bytes}>{max_header_bytes}"],
@@ -724,44 +1053,45 @@ def execute_r6_bounded_rest_get(
 
             headers_lower = {k.lower(): v for k, v in resp.getheaders()}
 
-            # Fail closed on ANY redirect (301/302/303/307/308) — non-retryable!
             if last_status_code in (301, 302, 303, 307, 308):
                 return {
                     "ok": False,
                     "status": "REJECTED_HTTP_REDIRECT_NONRETRY",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
                     "violations": [f"HTTP_REDIRECT_FORBIDDEN:status={last_status_code}:location={headers_lower.get('location', '')}"],
                 }
 
-            # Non-retryable client auth/bad-request errors
             if last_status_code in (400, 401, 403, 404, 405):
                 return {
                     "ok": False,
                     "status": "REJECTED_HTTP_NONRETRYABLE_ERROR",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
                     "violations": [f"NONRETRYABLE_HTTP_STATUS:{last_status_code}"],
                 }
 
-            # Pre-read Content-Length cap BEFORE allocating/reading body!
+            rem_payload_budget = min(max_payload_bytes - total_raw_bytes, eff_res_cap - total_raw_bytes)
             cl_hdr = headers_lower.get("content-length")
             if cl_hdr is not None:
                 try:
                     cl_int = int(cl_hdr.strip())
-                    if cl_int > max_payload_bytes:
+                    if cl_int < 0 or cl_int > rem_payload_budget:
                         return {
                             "ok": False,
                             "status": "REJECTED_DECLARED_CONTENT_LENGTH_OVERFLOW",
                             "http_status": last_status_code,
                             "attempts": attempts,
+                            "retries_used": max(0, attempts - 1),
                             "payload_bytes_received": total_raw_bytes,
                             "decoded_bytes": total_decoded_bytes,
-                            "violations": [f"CONTENT_LENGTH_EXCEEDS_CAP:{cl_int}>{max_payload_bytes}"],
+                            "violations": [f"CONTENT_LENGTH_EXCEEDS_REMAINING_CAP:{cl_int}>{rem_payload_budget}"],
                         }
                 except ValueError:
                     return {
@@ -769,12 +1099,15 @@ def execute_r6_bounded_rest_get(
                         "status": "REJECTED_INVALID_CONTENT_LENGTH",
                         "http_status": last_status_code,
                         "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
                         "payload_bytes_received": total_raw_bytes,
                         "decoded_bytes": total_decoded_bytes,
                         "violations": [f"INVALID_CONTENT_LENGTH:{cl_hdr}"],
                     }
 
-            # Stream body in bounded chunks with per-chunk remaining deadline (defeats slow-drip & chunked bombs!)
+            # Stream body in bounded chunks with per-chunk remaining deadline and STRICT cumulative
+            # reservation cap (F17: defeats slow-drip, chunked bombs, retry amplification, and
+            # sentinel-byte over-reading beyond reserved_payload_bytes!).
             is_gzip = "gzip" in str(headers_lower.get("content-encoding") or "").lower()
             decomp = zlib.decompressobj(16 + zlib.MAX_WBITS) if is_gzip else None
             raw_chunks: List[bytes] = []
@@ -788,67 +1121,163 @@ def execute_r6_bounded_rest_get(
                     raise TimeoutError("SLOW_DRIP_TOTAL_DEADLINE_EXCEEDED")
                 if conn.sock is not None:
                     conn.sock.settimeout(rem_r)
-                to_read = min(4096, (max_payload_bytes - raw_len) + 1)
-                chunk = resp.read(to_read)
-                if not chunk:
-                    break
-                raw_len += len(chunk)
-                total_raw_bytes += len(chunk)
-                if raw_len > max_payload_bytes:
+                rem_raw_budget = min(max_payload_bytes - total_raw_bytes, eff_res_cap - total_raw_bytes)
+                if rem_raw_budget <= 0:
+                    # Exact boundary check without reading any byte past eff_res_cap!
+                    if resp.isclosed() or (not getattr(resp, "chunked", False) and getattr(resp, "length", None) == 0):
+                        break
+                    if getattr(resp, "chunked", False):
+                        cleft = getattr(resp, "chunk_left", None)
+                        if cleft is not None and int(cleft) > 0:
+                            return {
+                                "ok": False,
+                                "status": "REJECTED_PAYLOAD_BYTES_EXCEEDED",
+                                "http_status": last_status_code,
+                                "attempts": attempts,
+                                "retries_used": max(0, attempts - 1),
+                                "payload_bytes_received": total_raw_bytes,
+                                "decoded_bytes": total_decoded_bytes,
+                                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                                "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{total_raw_bytes}>={eff_res_cap}:chunk_left={cleft}"],
+                            }
+                        # Peek chunk terminator without advancing stream over payload bytes
+                        peek_b = b""
+                        try:
+                            if getattr(resp, "fp", None) is not None and hasattr(resp.fp, "peek"):
+                                peek_b = bytes(resp.fp.peek(16))
+                        except Exception:
+                            peek_b = b""
+                        if peek_b.startswith(b"\r\n0\r\n") or peek_b.startswith(b"0\r\n"):
+                            break
+                        return {
+                            "ok": False,
+                            "status": "REJECTED_PAYLOAD_BYTES_EXCEEDED",
+                            "http_status": last_status_code,
+                            "attempts": attempts,
+                            "retries_used": max(0, attempts - 1),
+                            "payload_bytes_received": total_raw_bytes,
+                            "decoded_bytes": total_decoded_bytes,
+                            "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                            "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{total_raw_bytes}>={eff_res_cap}"],
+                        }
+                    if getattr(resp, "length", None) is not None and int(resp.length) > 0:
+                        return {
+                            "ok": False,
+                            "status": "REJECTED_PAYLOAD_BYTES_EXCEEDED",
+                            "http_status": last_status_code,
+                            "attempts": attempts,
+                            "retries_used": max(0, attempts - 1),
+                            "payload_bytes_received": total_raw_bytes,
+                            "decoded_bytes": total_decoded_bytes,
+                            "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                            "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{total_raw_bytes}+rem={resp.length}>{eff_res_cap}"],
+                        }
+                    peek_b = b""
+                    try:
+                        if getattr(resp, "fp", None) is not None and hasattr(resp.fp, "peek"):
+                            peek_b = bytes(resp.fp.peek(1))
+                    except Exception:
+                        peek_b = b""
+                    if not peek_b:
+                        break
                     return {
                         "ok": False,
                         "status": "REJECTED_PAYLOAD_BYTES_EXCEEDED",
                         "http_status": last_status_code,
                         "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
                         "payload_bytes_received": total_raw_bytes,
                         "decoded_bytes": total_decoded_bytes,
-                        "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{raw_len}>{max_payload_bytes}"],
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                        "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{total_raw_bytes}>={eff_res_cap}"],
+                    }
+
+                # Strictly bound read to remaining cumulative cap (never read cap+1 past eff_res_cap!)
+                to_read = min(4096, rem_raw_budget)
+                chunk = resp.read(to_read)
+                if not chunk:
+                    break
+                raw_len += len(chunk)
+                total_raw_bytes += len(chunk)
+                if total_raw_bytes > max_payload_bytes or total_raw_bytes > eff_res_cap:
+                    return {
+                        "ok": False,
+                        "status": "REJECTED_PAYLOAD_BYTES_EXCEEDED",
+                        "http_status": last_status_code,
+                        "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
+                        "payload_bytes_received": total_raw_bytes,
+                        "decoded_bytes": total_decoded_bytes,
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                        "violations": [f"STREAM_PAYLOAD_EXCEEDED_CAP:{total_raw_bytes}>{min(max_payload_bytes, eff_res_cap)}"],
                     }
                 raw_chunks.append(chunk)
                 if decomp is not None:
-                    max_dec_step = (max_decoded_bytes - dec_len) + 1
-                    dchunk = decomp.decompress(chunk, max_dec_step)
+                    rem_dec_budget = max_decoded_bytes - total_decoded_bytes
+                    if rem_dec_budget <= 0:
+                        probe_d = decomp.decompress(chunk, 1)
+                        if probe_d or decomp.unconsumed_tail:
+                            return {
+                                "ok": False,
+                                "status": "REJECTED_DECOMPRESSED_BOMB_OVERFLOW",
+                                "http_status": last_status_code,
+                                "attempts": attempts,
+                                "retries_used": max(0, attempts - 1),
+                                "payload_bytes_received": total_raw_bytes,
+                                "decoded_bytes": total_decoded_bytes,
+                                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                                "violations": [f"DECOMPRESSED_BYTES_EXCEEDED_CAP:>{max_decoded_bytes}"],
+                            }
+                        continue
+                    dchunk = decomp.decompress(chunk, rem_dec_budget)
                     dec_len += len(dchunk)
                     total_decoded_bytes += len(dchunk)
-                    if dec_len > max_decoded_bytes or decomp.unconsumed_tail:
+                    if total_decoded_bytes > max_decoded_bytes or decomp.unconsumed_tail:
                         return {
                             "ok": False,
                             "status": "REJECTED_DECOMPRESSED_BOMB_OVERFLOW",
                             "http_status": last_status_code,
                             "attempts": attempts,
+                            "retries_used": max(0, attempts - 1),
                             "payload_bytes_received": total_raw_bytes,
                             "decoded_bytes": total_decoded_bytes,
+                            "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                             "violations": [f"DECOMPRESSED_BYTES_EXCEEDED_CAP:>{max_decoded_bytes}"],
                         }
                     dec_chunks.append(dchunk)
                 else:
                     dec_len += len(chunk)
                     total_decoded_bytes += len(chunk)
-                    if dec_len > max_decoded_bytes:
+                    if total_decoded_bytes > max_decoded_bytes:
                         return {
                             "ok": False,
                             "status": "REJECTED_DECODED_BYTES_EXCEEDED",
                             "http_status": last_status_code,
                             "attempts": attempts,
+                            "retries_used": max(0, attempts - 1),
                             "payload_bytes_received": total_raw_bytes,
                             "decoded_bytes": total_decoded_bytes,
-                            "violations": [f"DECODED_BYTES_EXCEEDED_CAP:{dec_len}>{max_decoded_bytes}"],
+                            "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                            "violations": [f"DECODED_BYTES_EXCEEDED_CAP:{total_decoded_bytes}>{max_decoded_bytes}"],
                         }
 
             if decomp is not None:
-                rem_tail = decomp.flush((max_decoded_bytes - dec_len) + 1)
-                dec_len += len(rem_tail)
-                total_decoded_bytes += len(rem_tail)
-                if dec_len > max_decoded_bytes:
+                rem_dec_flush = max(0, max_decoded_bytes - total_decoded_bytes)
+                rem_tail = decomp.flush(max(1, rem_dec_flush))
+                if len(rem_tail) > rem_dec_flush:
                     return {
                         "ok": False,
                         "status": "REJECTED_DECOMPRESSED_BOMB_OVERFLOW",
                         "http_status": last_status_code,
                         "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
                         "payload_bytes_received": total_raw_bytes,
                         "decoded_bytes": total_decoded_bytes,
-                        "violations": [f"DECOMPRESSED_FLUSH_EXCEEDED_CAP:{dec_len}>{max_decoded_bytes}"],
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                        "violations": [f"DECOMPRESSED_FLUSH_EXCEEDED_CAP:>{max_decoded_bytes}"],
                     }
+                dec_len += len(rem_tail)
+                total_decoded_bytes += len(rem_tail)
                 dec_chunks.append(rem_tail)
 
             raw_body = b"".join(raw_chunks)
@@ -856,16 +1285,31 @@ def execute_r6_bounded_rest_get(
 
             # Transient retryable HTTP statuses: 429, 500, 502, 503, 504
             if last_status_code in (429, 500, 502, 503, 504):
-                if attempts > max_retries:
+                if attempts > max_retries or attempts >= eff_max_requests:
                     return {
                         "ok": False,
                         "status": "ABORTED_TRANSIENT_RETRIES_EXHAUSTED",
                         "http_status": last_status_code,
                         "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
                         "payload_bytes_received": total_raw_bytes,
                         "decoded_bytes": total_decoded_bytes,
                         "sleeps_honored": sleeps_honored,
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                         "violations": [f"TRANSIENT_HTTP_{last_status_code}_RETRIES_EXHAUSTED"],
+                    }
+                if total_raw_bytes >= eff_res_cap or total_decoded_bytes >= max_decoded_bytes:
+                    return {
+                        "ok": False,
+                        "status": "REJECTED_CUMULATIVE_BYTE_RESERVATION_EXHAUSTED",
+                        "http_status": last_status_code,
+                        "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
+                        "payload_bytes_received": total_raw_bytes,
+                        "decoded_bytes": total_decoded_bytes,
+                        "sleeps_honored": sleeps_honored,
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
+                        "violations": ["CUMULATIVE_BYTE_CAP_EXHAUSTED_AFTER_ERROR_BODY"],
                     }
                 ra_sec = _parse_retry_after_strict(headers_lower.get("retry-after"), datetime.now(timezone.utc))
                 wait_sec = ra_sec if ra_sec is not None else min(1.0 * attempts, 5.0)
@@ -876,11 +1320,13 @@ def execute_r6_bounded_rest_get(
                         "status": "ABORTED_RETRY_AFTER_EXCEEDS_DEADLINE",
                         "http_status": last_status_code,
                         "attempts": attempts,
+                        "retries_used": max(0, attempts - 1),
                         "retry_after_sec": wait_sec,
                         "remaining_deadline_sec": round(rem_after, 4),
                         "payload_bytes_received": total_raw_bytes,
                         "decoded_bytes": total_decoded_bytes,
                         "sleeps_honored": sleeps_honored,
+                        "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                         "violations": [f"RETRY_AFTER_EXCEEDS_REMAINING_BUDGET:{wait_sec:.3f}s>={rem_after:.3f}s"],
                     }
                 sleeps_honored.append(round(wait_sec, 4))
@@ -893,8 +1339,10 @@ def execute_r6_bounded_rest_get(
                     "status": "REJECTED_UNEXPECTED_HTTP_STATUS",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
+                    "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                     "violations": [f"UNEXPECTED_HTTP_STATUS:{last_status_code}"],
                 }
 
@@ -903,29 +1351,36 @@ def execute_r6_bounded_rest_get(
                 "status": "HTTP_200_BOUNDED_OK",
                 "http_status": 200,
                 "attempts": attempts,
+                "retries_used": max(0, attempts - 1),
                 "payload_bytes_received": total_raw_bytes,
                 "decoded_bytes": total_decoded_bytes,
+                "raw_body_bytes": len(raw_body),
+                "decoded_body_bytes": len(decoded_body),
                 "raw_body_sha256": hashlib.sha256(raw_body).hexdigest(),
                 "decoded_body_sha256": hashlib.sha256(decoded_body).hexdigest(),
+                "raw_body_b64": base64.b64encode(raw_body).decode("ascii"),
                 "decoded_body_b64": base64.b64encode(decoded_body).decode("ascii"),
                 "headers_redacted": {"content-type": headers_lower.get("content-type", ""), "content-encoding": headers_lower.get("content-encoding", "")},
                 "sleeps_honored": sleeps_honored,
                 "elapsed_sec": round(time.monotonic() - t_start, 4),
                 "tls_verified": scheme == "https",
+                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                 "wire_overhead_disclosure": "HTTP_PAYLOAD_BYTES_MEASURED_TCP_TLS_WIRE_OVERHEAD_NOT_MEASURED",
                 "violations": [],
             }
         except (TimeoutError, socket.timeout) as exc:
             last_error = f"TIMEOUT:{exc}"
-            if (deadline - time.monotonic()) <= 0.0 or attempts > max_retries:
+            if (deadline - time.monotonic()) <= 0.0 or attempts > max_retries or attempts >= eff_max_requests:
                 return {
                     "ok": False,
                     "status": "ABORTED_TOTAL_DEADLINE_EXCEEDED",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
                     "sleeps_honored": sleeps_honored,
+                    "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                     "violations": [last_error],
                 }
         except ssl.SSLError as exc:
@@ -934,20 +1389,24 @@ def execute_r6_bounded_rest_get(
                 "status": "REJECTED_TLS_VERIFICATION_FAILED_NONRETRY",
                 "http_status": None,
                 "attempts": attempts,
+                "retries_used": max(0, attempts - 1),
                 "payload_bytes_received": total_raw_bytes,
                 "decoded_bytes": total_decoded_bytes,
+                "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                 "violations": [f"TLS_ERROR_NONRETRY:{exc}"],
             }
         except OSError as exc:
             last_error = f"SOCKET_ERROR:{exc}"
-            if attempts > max_retries or (deadline - time.monotonic()) <= 0.05:
+            if attempts > max_retries or attempts >= eff_max_requests or (deadline - time.monotonic()) <= 0.05:
                 return {
                     "ok": False,
                     "status": "ABORTED_SOCKET_ERROR",
                     "http_status": last_status_code,
                     "attempts": attempts,
+                    "retries_used": max(0, attempts - 1),
                     "payload_bytes_received": total_raw_bytes,
                     "decoded_bytes": total_decoded_bytes,
+                    "accounting_units_disclosure": "HTTP_APPLICATION_BODY_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
                     "violations": [last_error],
                 }
             sleep_fn(min(0.1 * attempts, max(0.0, deadline - time.monotonic() - 0.01)))
@@ -960,7 +1419,7 @@ def execute_r6_bounded_rest_get(
 
 
 # =====================================================================
-# F16: Bounded Public WS Session (Ack, Epochs, Heartbeat, Caps, Reconnect)
+# F18: Bounded Public WS Session (Cumulative Connections/Subs/Frames/Bytes/Queue)
 # =====================================================================
 async def _execute_r6_bounded_ws_session_async(
     ws_url: str,
@@ -973,6 +1432,9 @@ async def _execute_r6_bounded_ws_session_async(
     max_queue_items: int,
     max_queue_bytes: int,
     max_reconnects: int = 2,
+    max_connections: Optional[int] = None,
+    max_subscriptions: Optional[int] = None,
+    max_decoded_bytes: Optional[int] = None,
     heartbeat_interval_sec: float = 20.0,
     pong_timeout_sec: float = 5.0,
     qa_loopback_mode: bool = False,
@@ -988,23 +1450,31 @@ async def _execute_r6_bounded_ws_session_async(
     is_loopback = host in ("127.0.0.1", "::1")
     if is_loopback:
         if not qa_loopback_mode:
-            return {"ok": False, "status": "BLOCKED_LOOPBACK_WITHOUT_QA_MODE", "violations": ["LOOPBACK_WS_FORBIDDEN_IN_LIVE"]}
+            return {"ok": False, "status": "BLOCKED_LOOPBACK_WITHOUT_QA_MODE", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": ["LOOPBACK_WS_FORBIDDEN_IN_LIVE"]}
     else:
+        if not A1_EXTERNAL_CAPTURE_ENABLED:
+            return {"ok": False, "status": "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": ["A1_EXTERNAL_CAPTURE_DISABLED"]}
         if qa_loopback_mode or not external_capture_permitted:
-            return {"ok": False, "status": "BLOCKED_EXTERNAL_WS_FORBIDDEN", "violations": ["EXTERNAL_WS_NOT_AUTHORIZED"]}
+            return {"ok": False, "status": "BLOCKED_EXTERNAL_WS_FORBIDDEN", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": ["EXTERNAL_WS_NOT_AUTHORIZED"]}
         if scheme != "wss" or host != APPROVED_WS_HOST_R6 or port != 443:
-            return {"ok": False, "status": "BLOCKED_UNALLOWLISTED_WS_TARGET", "violations": [f"FORBIDDEN_WS_TARGET:{ws_url}"]}
+            return {"ok": False, "status": "BLOCKED_UNALLOWLISTED_WS_TARGET", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": [f"FORBIDDEN_WS_TARGET:{ws_url}"]}
 
     op = str(subscribe_payload.get("op") or "").strip().lower()
     args = subscribe_payload.get("args")
     if op != "subscribe" or not isinstance(args, list) or len(args) != 1 or not isinstance(args[0], Mapping):
-        return {"ok": False, "status": "REJECTED_FORBIDDEN_WS_OP_OR_ARGS", "violations": [f"INVALID_WS_SUBSCRIBE_OP:{op}"]}
+        return {"ok": False, "status": "REJECTED_FORBIDDEN_WS_OP_OR_ARGS", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": [f"INVALID_WS_SUBSCRIBE_OP:{op}"]}
     arg0 = args[0]
     ch = str(arg0.get("channel") or "").strip()
     if ch not in ("books1", "ticker"):
-        return {"ok": False, "status": "REJECTED_UNALLOWLISTED_WS_CHANNEL", "violations": [f"FORBIDDEN_WS_CHANNEL:{ch}"]}
+        return {"ok": False, "status": "REJECTED_UNALLOWLISTED_WS_CHANNEL", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": [f"FORBIDDEN_WS_CHANNEL:{ch}"]}
     if str(arg0.get("instType") or "") != "USDT-FUTURES" or str(arg0.get("instId") or "") != "XAUUSDT":
-        return {"ok": False, "status": "REJECTED_WS_INSTRUMENT_MISMATCH", "violations": ["WS_INST_TYPE_OR_ID_MISMATCH"]}
+        return {"ok": False, "status": "REJECTED_WS_INSTRUMENT_MISMATCH", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": ["WS_INST_TYPE_OR_ID_MISMATCH"]}
+
+    eff_max_conn = int(max_connections) if max_connections is not None else (int(max_reconnects) + 1)
+    eff_max_sub = int(max_subscriptions) if max_subscriptions is not None else eff_max_conn
+    eff_max_dec = int(max_decoded_bytes) if max_decoded_bytes is not None else int(max_payload_bytes)
+    if eff_max_conn < 1 or eff_max_sub < 1 or max_messages < 1 or max_payload_bytes < 1 or eff_max_dec < 1:
+        return {"ok": False, "status": "REJECTED_ZERO_WS_RESERVATION", "connections_opened": 0, "subscriptions_sent": 0, "reconnects_used": 0, "total_messages": 0, "total_payload_bytes": 0, "decoded_bytes": 0, "violations": ["ZERO_WS_CAP_FORBIDDEN"]}
 
     ssl_ctx = None
     if scheme == "wss":
@@ -1019,10 +1489,13 @@ async def _execute_r6_bounded_ws_session_async(
     epochs: List[Dict[str, Any]] = []
     events: List[Dict[str, Any]] = []
     discontinuities: List[Dict[str, Any]] = []
+    raw_frames_accum: List[bytes] = []
     connections_opened = 0
+    subscriptions_sent = 0
     reconnects_used = 0
     total_messages = 0
     total_payload_bytes = 0
+    total_decoded_bytes = 0
     pongs_received = 0
     abort_reason: Optional[str] = None
     violations: List[str] = []
@@ -1033,13 +1506,15 @@ async def _execute_r6_bounded_ws_session_async(
         if rem <= 0.05:
             break
         if epoch_num > 0:
-            if reconnects_used >= max_reconnects:
-                abort_reason = "RECONNECT_CAP_REACHED"
+            if reconnects_used >= max_reconnects or connections_opened >= eff_max_conn or subscriptions_sent >= eff_max_sub:
+                abort_reason = "RECONNECT_OR_CONNECTION_CAP_REACHED"
                 break
             reconnects_used += 1
-            # Deterministic bounded backoff (no unbounded sleep)
             backoff = min(0.05 * reconnects_used, max(0.01, rem * 0.25))
             await asyncio.sleep(backoff)
+        elif connections_opened >= eff_max_conn or subscriptions_sent >= eff_max_sub:
+            abort_reason = "WS_CONNECTION_OR_SUBSCRIPTION_CAP_EXHAUSTED"
+            break
 
         epoch_num += 1
         ep_start_utc_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -1057,6 +1532,7 @@ async def _execute_r6_bounded_ws_session_async(
 
         try:
             rem_open = max(0.05, deadline - time.monotonic())
+            # compression=None disables permessage-deflate decompression bombs cleanly!
             async with websockets.connect(
                 ws_url,
                 ssl=ssl_ctx,
@@ -1065,8 +1541,10 @@ async def _execute_r6_bounded_ws_session_async(
                 open_timeout=min(5.0, rem_open),
                 close_timeout=min(1.0, rem_open),
                 ping_interval=None,
+                compression=None,
             ) as ws:
                 connections_opened += 1
+                subscriptions_sent += 1
                 await ws.send(json.dumps(dict(subscribe_payload), separators=(",", ":")))
 
                 last_ping_sent = time.monotonic()
@@ -1078,7 +1556,6 @@ async def _execute_r6_bounded_ws_session_async(
                         ep_record["close_reason"] = "DEADLINE_REACHED"
                         break
 
-                    # Send documented Bitget text "ping" heartbeat when interval elapsed
                     now_m = time.monotonic()
                     if awaiting_pong_since is None and (now_m - last_ping_sent) >= heartbeat_interval_sec:
                         await ws.send("ping")
@@ -1109,16 +1586,26 @@ async def _execute_r6_bounded_ws_session_async(
                         ep_record["close_reason"] = abort_reason
                         break
 
-                    total_messages += 1
-                    total_payload_bytes += sz
-                    if total_messages > max_messages:
+                    # Enforce cumulative message/byte caps strictly BEFORE accepting frame!
+                    if total_messages + 1 > max_messages:
                         abort_reason = "WS_MAX_MESSAGES_REACHED"
                         ep_record["close_reason"] = abort_reason
                         break
-                    if total_payload_bytes > max_payload_bytes:
+                    if total_payload_bytes + sz > max_payload_bytes:
                         abort_reason = "WS_MAX_PAYLOAD_BYTES_REACHED"
+                        violations.append(f"WS_PAYLOAD_CAP_EXCEEDED:{total_payload_bytes + sz}>{max_payload_bytes}")
                         ep_record["close_reason"] = abort_reason
                         break
+                    if total_decoded_bytes + sz > eff_max_dec:
+                        abort_reason = "WS_MAX_DECODED_BYTES_REACHED"
+                        violations.append(f"WS_DECODED_CAP_EXCEEDED:{total_decoded_bytes + sz}>{eff_max_dec}")
+                        ep_record["close_reason"] = abort_reason
+                        break
+
+                    total_messages += 1
+                    total_payload_bytes += sz
+                    total_decoded_bytes += sz
+                    raw_frames_accum.append(raw_bytes)
 
                     if raw_msg == "pong":
                         pongs_received += 1
@@ -1155,14 +1642,12 @@ async def _execute_r6_bounded_ws_session_async(
                         ep_record["close_reason"] = abort_reason
                         break
 
-                    # Data push frame — MUST have valid ack first!
                     if not ep_record["acked"]:
                         abort_reason = "WS_DATA_BEFORE_SUBSCRIBE_ACK"
                         violations.append("WS_DATA_RECEIVED_WITHOUT_VALID_ACK")
                         ep_record["close_reason"] = abort_reason
                         break
 
-                    # Queue backpressure bound check (ZERO silent drops!)
                     enq = queue_writer.try_enqueue(raw_bytes, {"epoch": epoch_num, "recv_utc_ms": recv_utc_ms})
                     if not enq["enqueued"]:
                         abort_reason = "QUEUE_OVERFLOW_BACKPRESSURE_ABORT"
@@ -1171,10 +1656,9 @@ async def _execute_r6_bounded_ws_session_async(
                         break
 
                     action = str(parsed_msg.get("action") or "snapshot").lower()
-                    if action == "snapshot" or not ep_record["snapshot_received"]:
-                        if action == "snapshot":
-                            ep_record["snapshot_received"] = True
-                            ep_record["epoch_healthy"] = True
+                    if action == "snapshot":
+                        ep_record["snapshot_received"] = True
+                        ep_record["epoch_healthy"] = True
 
                     ep_record["messages_in_epoch"] += 1
                     events.append({
@@ -1188,7 +1672,6 @@ async def _execute_r6_bounded_ws_session_async(
                         "payload": parsed_msg,
                     })
 
-                    # Drain queue immediately if consumer is healthy (in tests we can hold queue via tiny max_queue)
                     if total_messages >= max_messages:
                         abort_reason = "WS_MAX_MESSAGES_REACHED"
                         ep_record["close_reason"] = abort_reason
@@ -1223,7 +1706,6 @@ async def _execute_r6_bounded_ws_session_async(
         finally:
             ep_record["closed_utc_ms"] = int(datetime.now(timezone.utc).timestamp() * 1000)
 
-        # Fatal protocol/cap violations do NOT reconnect!
         if abort_reason in (
             "WS_FRAME_EXCEEDS_MAX_BYTES",
             "WS_MALFORMED_JSON_FRAME",
@@ -1233,25 +1715,35 @@ async def _execute_r6_bounded_ws_session_async(
             "QUEUE_OVERFLOW_BACKPRESSURE_ABORT",
             "WS_MAX_MESSAGES_REACHED",
             "WS_MAX_PAYLOAD_BYTES_REACHED",
+            "WS_MAX_DECODED_BYTES_REACHED",
         ) or (abort_reason and abort_reason.startswith("WS_EXCHANGE_ERROR")):
             break
         if ep_record.get("close_reason") == "DEADLINE_REACHED":
             break
 
+    raw_concat = b"".join(raw_frames_accum)
     ok = len(violations) == 0 and any(e["acked"] for e in epochs)
     return {
         "ok": ok,
         "status": "WS_SESSION_BOUNDED_OK" if ok else (abort_reason or "WS_SESSION_FAILED"),
         "connections_opened": connections_opened,
+        "subscriptions_sent": subscriptions_sent,
         "reconnects_used": reconnects_used,
         "total_messages": total_messages,
         "total_payload_bytes": total_payload_bytes,
+        "decoded_bytes": total_decoded_bytes,
+        "raw_body_sha256": hashlib.sha256(raw_concat).hexdigest(),
+        "decoded_body_sha256": hashlib.sha256(raw_concat).hexdigest(),
+        "raw_body_b64": base64.b64encode(raw_concat).decode("ascii"),
+        "decoded_body_b64": base64.b64encode(raw_concat).decode("ascii"),
         "pongs_received": pongs_received,
         "queue_overflow_events": queue_writer.overflow_events,
         "epochs": epochs,
         "discontinuities": discontinuities,
         "events": events,
         "elapsed_sec": round(time.monotonic() - t_start, 4),
+        "tls_verified": scheme == "wss",
+        "accounting_units_disclosure": "WS_APPLICATION_FRAME_PAYLOAD_BYTES_MEASURED_NOT_TCP_TLS_WIRE_BYTES",
         "violations": violations,
     }
 
@@ -1267,6 +1759,9 @@ def execute_r6_bounded_ws_session(
     max_queue_items: int,
     max_queue_bytes: int,
     max_reconnects: int = 2,
+    max_connections: Optional[int] = None,
+    max_subscriptions: Optional[int] = None,
+    max_decoded_bytes: Optional[int] = None,
     heartbeat_interval_sec: float = 20.0,
     pong_timeout_sec: float = 5.0,
     qa_loopback_mode: bool = False,
@@ -1283,6 +1778,9 @@ def execute_r6_bounded_ws_session(
             max_queue_items=max_queue_items,
             max_queue_bytes=max_queue_bytes,
             max_reconnects=max_reconnects,
+            max_connections=max_connections,
+            max_subscriptions=max_subscriptions,
+            max_decoded_bytes=max_decoded_bytes,
             heartbeat_interval_sec=heartbeat_interval_sec,
             pong_timeout_sec=pong_timeout_sec,
             qa_loopback_mode=qa_loopback_mode,
@@ -1328,18 +1826,24 @@ def start_r6_owned_transport_worker(
     lease: R6DurableSessionLease,
     validated_request: Mapping[str, Any],
     limits: Mapping[str, Any],
+    *,
+    worker_envelope: Optional[R6WorkerEnvelope] = None,
 ) -> R6OwnedWorkerHandle:
     """
-    Spawns an owned isolated child subprocess inside a Windows Job Object (or POSIX process group)
-    with sanitized environment and zero shell execution. Sends the immutable validated request over stdin.
+    F16: Spawns an owned isolated child subprocess inside a Windows Job Object (or POSIX PGID)
+    with sanitized environment and zero shell execution. Sends the strict parent-authoritative
+    `R6WorkerEnvelope` over stdin ONLY AFTER containment assignment succeeds.
+    Guarantees process termination & handle cleanup on ANY spawn/assign/write/identity error!
     """
-    payload = {
-        "lease_id": lease.lease_id,
-        "session_id": lease.session_id,
-        "external_capture_permitted": bool(lease.external_capture_permitted),
-        "request": dict(validated_request),
-        "limits": dict(limits),
-    }
+    if worker_envelope is None or not isinstance(worker_envelope, R6WorkerEnvelope):
+        raise ValueError("STRICT_WORKER_ENVELOPE_REQUIRED_FOR_CHILD_LAUNCH")
+    env_dict = worker_envelope.to_ipc_dict()
+    env_ok, env_viols = validate_r6_a1_worker_envelope_strict(env_dict)
+    if not env_ok:
+        raise ValueError(f"INVALID_WORKER_ENVELOPE:{','.join(env_viols)}")
+    if worker_envelope.lease_id != lease.lease_id or worker_envelope.session_id != lease.session_id:
+        raise ValueError("WORKER_ENVELOPE_LEASE_MISMATCH")
+
     cmd = [sys.executable, "-m", "services.kh_03_r6_bounded_transport_service", "--child-worker"]
     job_guard: Optional[_WindowsJobObjectGuard] = None
     popen_kwargs: Dict[str, Any] = {
@@ -1360,47 +1864,68 @@ def start_r6_owned_transport_worker(
 
     t_launch_mono = time.monotonic()
     t_launch_utc_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    proc = subprocess.Popen(cmd, **popen_kwargs)
-
-    if os.name == "nt" and job_guard is not None:
-        assigned = job_guard.assign(int(proc._handle))  # type: ignore[attr-defined]
-        if not assigned:
-            proc.kill()
-            proc.wait(timeout=3.0)
-            job_guard.close()
-            raise OSError("FAILED_ASSIGN_CHILD_TO_WINDOWS_JOB_OBJECT")
-    elif os.name != "nt":
-        containment_id = f"posix_pgid:{os.getpgid(proc.pid)}"
-
+    proc: Optional[subprocess.Popen[bytes]] = None
     try:
-        ctime = float(psutil.Process(proc.pid).create_time())
-    except Exception:
-        ctime = time.time()
+        proc = subprocess.Popen(cmd, **popen_kwargs)
 
-    # Deliver immutable request and close stdin immediately (one-shot request channel)
-    req_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    assert proc.stdin is not None
-    try:
-        proc.stdin.write(req_bytes)
-        proc.stdin.flush()
-    finally:
+        if os.name == "nt" and job_guard is not None:
+            assigned = job_guard.assign(int(proc._handle))  # type: ignore[attr-defined]
+            if not assigned:
+                raise OSError("FAILED_ASSIGN_CHILD_TO_WINDOWS_JOB_OBJECT")
+        elif os.name != "nt":
+            containment_id = f"posix_pgid:{os.getpgid(proc.pid)}"
+
+        # Authentic OS process identity proof (NO fabricated time.time() fallback!)
         try:
-            proc.stdin.close()
-        except Exception:
-            pass
+            ctime = float(psutil.Process(proc.pid).create_time())
+        except Exception as exc:
+            raise OSError(f"CHILD_PROCESS_CREATE_TIME_UNAVAILABLE:{exc}") from exc
 
-    return R6OwnedWorkerHandle(
-        attempt_id=str(validated_request.get("attempt_id") or "unknown"),
-        pid=int(proc.pid),
-        create_time=ctime,
-        containment_kind=containment_kind,
-        containment_id=containment_id,
-        proc=proc,
-        job_guard=job_guard,
-        launched_utc_ms=t_launch_utc_ms,
-        launched_monotonic=t_launch_mono,
-        observed_descendant_identities=[],
-    )
+        req_bytes = json.dumps(env_dict, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        assert proc.stdin is not None
+        try:
+            proc.stdin.write(req_bytes)
+            proc.stdin.flush()
+        finally:
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
+
+        return R6OwnedWorkerHandle(
+            attempt_id=worker_envelope.attempt_id,
+            pid=int(proc.pid),
+            create_time=ctime,
+            containment_kind=containment_kind,
+            containment_id=containment_id,
+            proc=proc,
+            job_guard=job_guard,
+            launched_utc_ms=t_launch_utc_ms,
+            launched_monotonic=t_launch_mono,
+            observed_descendant_identities=[],
+        )
+    except Exception:
+        if proc is not None:
+            try:
+                if os.name == "nt" and job_guard is not None:
+                    job_guard.terminate(137)
+                else:
+                    proc.kill()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=3.0)
+            except Exception:
+                pass
+            for s in (proc.stdin, proc.stdout, proc.stderr):
+                if s is not None:
+                    try:
+                        s.close()
+                    except Exception:
+                        pass
+        if job_guard is not None:
+            job_guard.close()
+        raise
 
 
 def cancel_and_reap_r6_transport(
@@ -1524,18 +2049,39 @@ def supervise_r6_session(
     qa_loopback_mode: bool = False,
     allow_fixture_resource_sample: bool = False,
     simulate_unverifiable_os_proof: bool = False,
+    registry: Optional[R6SourceContractRegistry] = None,
+    authorized_request: Optional[R6AuthorizedDispatchRequest] = None,
+    run_id: str = "qa_run",
+    partition: str = "QA_FIXTURE",
+    endpoint_id: str = "qa_loopback",
+    contract_digest: str = "",
+    max_frame_bytes: Optional[int] = None,
+    max_queue_items: int = 64,
+    max_queue_bytes: Optional[int] = None,
+    heartbeat_interval_sec: float = 20.0,
+    pong_timeout_sec: float = 5.0,
+    post_exit_hook: Optional[Callable[[], None]] = None,
 ) -> Dict[str, Any]:
     """
-    Parent-side R6 transport supervisor:
-      1. Revalidates plan MAC, remaining session/grant deadline, cancel flag, and strict OS resource guard BEFORE dispatch.
-      2. Persists durable budget reservation (QUEUED) + attempt start (STARTED) BEFORE launching child subprocess.
-      3. Launches isolated owned subprocess (Windows Job Object / POSIX PGID), monitors deadline/cancel/resource guard.
-      4. Reaps & verifies OS exit; discards any late result after cancellation/expiry; settles budget conservatively
-         (retaining unknown bytes as UNCERTAIN on abort/kill; quarantining ledger on FAIL_UNDRAINED_TRANSPORT!).
+    F19: Fail-closed parent-side R6 transport supervisor:
+      1. Enforces A1 external hard-block (`BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED`) BEFORE reserve.
+      2. Revalidates full bound plan canonical digest + MAC + grant + registry + lease + authorized_request
+         + cancel + deadline + resource guard BEFORE dispatch.
+      3. Persists strict complete durable reservation (QUEUED) + builds parent-authoritative worker envelope
+         (F15, rejecting ANY child request overrides!) + marks attempt STARTED durably BEFORE child spawn.
+      4. Launches owned isolated child inside Windows Job Object / POSIX PGID; guarantees reap + pipe close
+         + reader thread join in `try/finally` across EVERY path.
+      5. Re-checks cancellation/deadline/expiry AFTER child exit and BEFORE acceptance (`G17`).
+      6. Strictly parses & validates child IPC (attempt/request echo, strict int counters, raw/decoded SHA-256,
+         counter bounds <= reserved), calls durable `settle_r6_io_budget`, and INSPECTS the settlement result
+         & receipt BEFORE ANY acceptance!
+      7. Mints process-registered `R6TrustedSupervisorResult` (F22) ONLY via internal capability after verified
+         OS reap + verified durable settlement!
     """
     lifecycle_trace: List[Dict[str, Any]] = []
+    started_mono = time.monotonic()
     now_dt = utc_now_fn()
-    now_ms = int(now_dt.astimezone(timezone.utc).timestamp() * 1000)
+    started_utc_ms = int(now_dt.astimezone(timezone.utc).timestamp() * 1000)
 
     def _ev(stage_name: str, **extra: Any) -> None:
         lifecycle_trace.append({
@@ -1547,221 +2093,659 @@ def supervise_r6_session(
             **extra,
         })
 
-    # 1. Plan integrity, external/QA boundary, cancel, deadline, and resource checks at ACTUAL dispatch
-    plan_ok, plan_viols = verify_r6_bound_plan_integrity(plan, verified_grant)
+    def _fail_early(status: str, viols: List[str], **extra: Any) -> Dict[str, Any]:
+        return {
+            "ok": False,
+            "status": status,
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": False,
+            "actual_dispatch_started": False,
+            "reader_joined": True,
+            "late_result_discarded": False,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": viols,
+            **extra,
+        }
+
+    # 0. Hard A1 policy: external non-loopback capture is unconditionally disabled BEFORE claim/reserve!
+    if not A1_EXTERNAL_CAPTURE_ENABLED and not qa_loopback_mode:
+        return _fail_early("BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED", ["A1_EXTERNAL_CAPTURE_DISABLED_AT_SUPERVISOR"])
+
+    # 1. Full plan, grant, registry, lease & authorized_request verification at ACTUAL dispatch
+    plan_ok, plan_viols = verify_r6_bound_plan_integrity(
+        plan,
+        verified_grant,
+        registry=registry,
+        lease=lease,
+        actual_now=now_dt,
+    )
     if not plan_ok:
-        return {"ok": False, "status": "REJECTED_PLAN_INTEGRITY", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": plan_viols}
+        return _fail_early("REJECTED_PLAN_INTEGRITY", plan_viols)
+
+    if authorized_request is not None:
+        ar_ok, ar_viols = verify_authorized_dispatch_request_a1(
+            authorized_request,
+            expected_lease=lease,
+            expected_plan=plan,
+            actual_now=now_dt,
+        )
+        if not ar_ok:
+            return _fail_early("REJECTED_DISPATCH_AUTHORIZATION", ar_viols)
+        if authorized_request.attempt_id != attempt_id:
+            return _fail_early("REJECTED_DISPATCH_ATTEMPT_MISMATCH", ["AUTHORIZED_REQUEST_ATTEMPT_ID_MISMATCH"])
+        req_digest = authorized_request.request_digest
+        eff_endpoint_id = authorized_request.endpoint_id
+        eff_contract_digest = authorized_request.contract_digest
+        eff_partition = authorized_request.partition
+    else:
+        req_digest = _sha256_canonical({
+            "attempt_id": attempt_id,
+            "lease_id": lease.lease_id,
+            "plan_digest": plan.plan_digest,
+            "request_type": request_type,
+            "request": dict(validated_request),
+        })
+        eff_endpoint_id = endpoint_id
+        eff_contract_digest = contract_digest or plan.registry_digest
+        eff_partition = partition
+
+    # Reject any forbidden override keys inside validated_request BEFORE touching ledger!
+    bad_req_keys = [str(k) for k in validated_request.keys() if str(k) in FORBIDDEN_REQUEST_OVERRIDE_KEYS_A1]
+    if bad_req_keys:
+        return _fail_early(
+            "REJECTED_CHILD_REQUEST_OVERRIDE",
+            [f"CHILD_REQUEST_OVERRIDE_FORBIDDEN:{k}" for k in sorted(bad_req_keys)],
+        )
 
     if not qa_loopback_mode and (not verified_grant.external_capture_permitted or not lease.external_capture_permitted):
-        return {"ok": False, "status": "BLOCKED_OWNER_AUTHORIZATION", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": ["EXTERNAL_CAPTURE_NOT_PERMITTED"]}
+        return _fail_early("BLOCKED_OWNER_AUTHORIZATION", ["EXTERNAL_CAPTURE_NOT_PERMITTED"])
 
     if cancel_event is not None and cancel_event.is_set():
-        return {"ok": False, "status": "ABORTED_CANCELLED_PRE_DISPATCH", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": ["CANCELLED_BEFORE_DISPATCH"]}
+        return _fail_early("ABORTED_CANCELLED_PRE_DISPATCH", ["CANCELLED_BEFORE_DISPATCH"])
 
-    rem_sec = min(session_deadline_monotonic - time.monotonic(), (lease.expires_utc_ms - now_ms) / 1000.0)
+    rem_sec = min(session_deadline_monotonic - time.monotonic(), (lease.expires_utc_ms - started_utc_ms) / 1000.0)
     if rem_sec <= 0.05:
-        return {"ok": False, "status": "ABORTED_EXPIRED_AT_ACTUAL_START", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": ["SESSION_OR_GRANT_EXPIRED_BEFORE_DISPATCH"]}
+        return _fail_early("ABORTED_EXPIRED_AT_ACTUAL_START", ["SESSION_OR_GRANT_EXPIRED_BEFORE_DISPATCH"])
 
+    try:
+        res_sample = resource_sample_fn()
+    except Exception as exc:
+        return _fail_early("ABORTED_RESOURCE_SAMPLE_EXCEPTION", [f"RESOURCE_SAMPLE_EXCEPTION:{exc}"])
     res_check = validate_r6_resource_guard(
-        resource_sample_fn(),
+        res_sample,
         expected_volumes=expected_volumes,
         phase="runtime",
         allow_fixture_sample=allow_fixture_resource_sample,
     )
     if not res_check["ok"]:
-        return {"ok": False, "status": "ABORTED_RESOURCE_GUARD_PRE_DISPATCH", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": res_check["violations"]}
+        return _fail_early("ABORTED_RESOURCE_GUARD_PRE_DISPATCH", res_check["violations"])
 
-    # 2. Durable reservation BEFORE subprocess launch
-    res_rec = ledger.reserve_r6_io_budget_atomic(lease, attempt_id, request_type, reserved_caps, actual_now=now_dt)
+    # 2. Durable reservation BEFORE subprocess launch (strict complete cap vector!)
+    res_rec = ledger.reserve_r6_io_budget_atomic(
+        lease,
+        attempt_id,
+        request_type,
+        reserved_caps,
+        actual_now=now_dt,
+        request_digest=req_digest,
+        require_complete_caps=True,
+    )
     if not res_rec["reserved"]:
-        return {"ok": False, "status": res_rec["status"], "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": res_rec["violations"]}
-    _ev("BUDGET_RESERVED_DURABLE", reserved_caps=dict(reserved_caps))
+        return _fail_early(res_rec["status"], res_rec["violations"])
+    reservation_receipt: R6DurableReservationReceipt = res_rec["reservation_receipt"]
+    _ev("BUDGET_RESERVED_DURABLE", reserved_caps=dict(reservation_receipt.reserved_caps), request_digest=req_digest)
 
-    # Re-check cancel/expiry immediately before marking STARTED (allows clean pre-start release if cancelled right here)
+    # Re-check cancel/expiry/resource/authorized_request immediately after durable reservation!
     now_dt2 = utc_now_fn()
     rem_sec2 = min(session_deadline_monotonic - time.monotonic(), (lease.expires_utc_ms - int(now_dt2.timestamp() * 1000)) / 1000.0)
-    if (cancel_event is not None and cancel_event.is_set()) or rem_sec2 <= 0.05:
-        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_PRE_START", reason="EXPIRED_OR_CANCELLED_BEFORE_START", actual_now=now_dt2)
-        return {"ok": False, "status": "ABORTED_EXPIRED_AT_ACTUAL_START", "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": ["EXPIRED_OR_CANCELLED_PRE_START"]}
+    post_res_err: Optional[str] = None
+    if cancel_event is not None and cancel_event.is_set():
+        post_res_err = "CANCELLED_BEFORE_START"
+    elif rem_sec2 <= 0.05:
+        post_res_err = "EXPIRED_BEFORE_START"
+    elif authorized_request is not None:
+        ar2_ok, ar2_v = verify_authorized_dispatch_request_a1(authorized_request, expected_lease=lease, expected_plan=plan, actual_now=now_dt2)
+        if not ar2_ok:
+            post_res_err = f"POST_RESERVE_AUTH_FAILED:{','.join(ar2_v)}"
+    else:
+        try:
+            rc2 = validate_r6_resource_guard(resource_sample_fn(), expected_volumes=expected_volumes, phase="runtime", allow_fixture_sample=allow_fixture_resource_sample)
+            if not rc2["ok"]:
+                post_res_err = f"POST_RESERVE_RESOURCE_BREACH:{rc2['violations'][0]}"
+        except Exception as exc:
+            post_res_err = f"POST_RESERVE_RESOURCE_EXC:{exc}"
 
-    st_rec = ledger.mark_r6_attempt_started(lease, attempt_id, actual_now=now_dt2)
+    if post_res_err is not None:
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_PRE_START", reason=post_res_err, actual_now=now_dt2, expected_request_digest=req_digest)
+        return _fail_early("ABORTED_EXPIRED_AT_ACTUAL_START", [post_res_err])
+
+    # Build strict parent-authoritative worker envelope (F15) BEFORE marking STARTED!
+    env_build = build_r6_a1_worker_envelope(
+        lease=lease,
+        plan=plan,
+        reservation_receipt=reservation_receipt,
+        request_payload=dict(validated_request),
+        request_digest=req_digest,
+        remaining_deadline_sec=max(0.05, rem_sec2),
+        parent_abs_deadline_monotonic=session_deadline_monotonic,
+        qa_loopback_mode=qa_loopback_mode,
+        max_frame_bytes=max_frame_bytes,
+        max_queue_items=max_queue_items,
+        max_queue_bytes=max_queue_bytes,
+        heartbeat_interval_sec=heartbeat_interval_sec,
+        pong_timeout_sec=pong_timeout_sec,
+    )
+    if not env_build["valid"] or env_build["envelope"] is None:
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_PRE_START", reason="ENVELOPE_REJECTED", actual_now=now_dt2, expected_request_digest=req_digest)
+        return _fail_early(env_build["status"], env_build["violations"])
+    worker_envelope: R6WorkerEnvelope = env_build["envelope"]
+
+    st_rec = ledger.mark_r6_attempt_started(lease, attempt_id, actual_now=now_dt2, expected_request_digest=req_digest)
     if not st_rec["started"]:
-        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_PRE_START", reason="START_FAILED", actual_now=now_dt2)
-        return {"ok": False, "status": st_rec["status"], "accepted_result": None, "lifecycle_trace": lifecycle_trace, "violations": st_rec["violations"]}
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_PRE_START", reason="START_FAILED", actual_now=now_dt2, expected_request_digest=req_digest)
+        return _fail_early(st_rec["status"], st_rec["violations"])
     _ev("ATTEMPT_STARTED_DURABLE")
 
-    # 3. Launch owned isolated child subprocess
-    req_for_child = dict(validated_request)
-    req_for_child["attempt_id"] = attempt_id
-    req_for_child["qa_loopback_mode"] = bool(qa_loopback_mode)
-    limits_for_child = {
-        "remaining_deadline_sec": max(0.05, rem_sec2),
-        "max_payload_bytes": int(reserved_caps.get("payload_bytes", 65_536)),
-        "max_decoded_bytes": int(reserved_caps.get("decoded_bytes", 131_072)),
-        "max_messages": int(reserved_caps.get("messages", 100)),
-    }
-    handle = start_r6_owned_transport_worker(lease, req_for_child, limits_for_child)
-    _ev("CHILD_PROCESS_LAUNCHED", child_pid=handle.pid, child_create_time=handle.create_time, containment_kind=handle.containment_kind)
-
-    # Read child stdout in a bounded helper thread so parent loop can enforce cancel/deadline/resource checks at 20ms granularity!
-    stdout_holder: Dict[str, Any] = {"data": b"", "stderr": b"", "done": False}
-
-    def _drain_pipes() -> None:
-        try:
-            out_b = handle.proc.stdout.read(max(4 * 1024 * 1024, limits_for_child["max_decoded_bytes"] * 2 + 262_144)) if handle.proc.stdout else b""
-            err_b = handle.proc.stderr.read(65_536) if handle.proc.stderr else b""
-            stdout_holder["data"] = out_b
-            stdout_holder["stderr"] = err_b
-        except Exception:
-            pass
-        finally:
-            stdout_holder["done"] = True
-
-    reader_t = threading.Thread(target=_drain_pipes, daemon=True)
-    reader_t.start()
-
+    # 3. Launch owned isolated child subprocess with guaranteed try/finally reap + reader join!
+    handle: Optional[R6OwnedWorkerHandle] = None
+    reader_t: Optional[threading.Thread] = None
+    stdout_holder: Dict[str, Any] = {"data": b"", "stderr": b"", "done": False, "overflow": False, "error": None}
     aborted_reason: Optional[str] = None
-    while handle.proc.poll() is None:
-        # Track any spawned grandchildren while child runs so reap proof covers them too!
-        try:
-            for ch in psutil.Process(handle.pid).children(recursive=True):
-                pair = (int(ch.pid), float(ch.create_time()))
-                if pair not in handle.observed_descendant_identities:
-                    handle.observed_descendant_identities.append(pair)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    reap_info: Optional[Dict[str, Any]] = None
+    reader_joined = False
 
-        if cancel_event is not None and cancel_event.is_set():
-            aborted_reason = "CANCELLED_MIDFLIGHT"
-            break
-        if time.monotonic() >= session_deadline_monotonic:
-            aborted_reason = "SESSION_DEADLINE_EXCEEDED_MIDFLIGHT"
-            break
-        if int(utc_now_fn().timestamp() * 1000) >= lease.expires_utc_ms:
-            aborted_reason = "GRANT_EXPIRED_MIDFLIGHT"
-            break
-        rc_rt = validate_r6_resource_guard(
-            resource_sample_fn(),
-            expected_volumes=expected_volumes,
-            phase="runtime",
-            allow_fixture_sample=allow_fixture_resource_sample,
+    try:
+        handle = start_r6_owned_transport_worker(
+            lease,
+            validated_request,
+            worker_envelope.parent_limits,
+            worker_envelope=worker_envelope,
         )
-        if not rc_rt["ok"]:
-            aborted_reason = f"RESOURCE_FLOOR_BREACH:{rc_rt['violations'][0]}"
-            break
-        time.sleep(0.02)
+        _ev("CHILD_PROCESS_LAUNCHED", child_pid=handle.pid, child_create_time=handle.create_time, containment_kind=handle.containment_kind)
 
-    # Always reap & verify OS identity exit!
-    reap_info = cancel_and_reap_r6_transport(
-        handle,
-        grace_sec=0.15,
-        reap_timeout_sec=3.0,
-        simulate_unverifiable_os_proof=simulate_unverifiable_os_proof,
-    )
-    reader_t.join(timeout=1.0)
-    _ev("CHILD_PROCESS_REAPED", **reap_info)
+        max_ipc_read = max(4 * 1024 * 1024, int(worker_envelope.parent_limits["max_decoded_bytes"]) * 4 + 524_288)
 
-    if not reap_info["reaped_verified"]:
-        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason="FAIL_UNDRAINED_TRANSPORT", actual_now=utc_now_fn())
+        def _drain_pipes() -> None:
+            try:
+                assert handle is not None
+                out_b = handle.proc.stdout.read(max_ipc_read + 1) if handle.proc.stdout else b""
+                if len(out_b) > max_ipc_read:
+                    stdout_holder["overflow"] = True
+                    out_b = out_b[:max_ipc_read]
+                err_b = handle.proc.stderr.read(65_536) if handle.proc.stderr else b""
+                stdout_holder["data"] = out_b
+                stdout_holder["stderr"] = err_b
+            except Exception as exc_r:
+                stdout_holder["error"] = str(exc_r)
+            finally:
+                stdout_holder["done"] = True
+
+        reader_t = threading.Thread(target=_drain_pipes, daemon=True)
+        reader_t.start()
+
+        while handle.proc.poll() is None:
+            try:
+                for ch in psutil.Process(handle.pid).children(recursive=True):
+                    pair = (int(ch.pid), float(ch.create_time()))
+                    if pair not in handle.observed_descendant_identities:
+                        handle.observed_descendant_identities.append(pair)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+            if cancel_event is not None and cancel_event.is_set():
+                aborted_reason = "CANCELLED_MIDFLIGHT"
+                break
+            if time.monotonic() >= session_deadline_monotonic:
+                aborted_reason = "SESSION_DEADLINE_EXCEEDED_MIDFLIGHT"
+                break
+            if int(utc_now_fn().timestamp() * 1000) >= lease.expires_utc_ms:
+                aborted_reason = "GRANT_EXPIRED_MIDFLIGHT"
+                break
+            try:
+                rc_rt = validate_r6_resource_guard(
+                    resource_sample_fn(),
+                    expected_volumes=expected_volumes,
+                    phase="runtime",
+                    allow_fixture_sample=allow_fixture_resource_sample,
+                )
+            except Exception as exc_rt:
+                aborted_reason = f"RESOURCE_SAMPLE_EXCEPTION:{exc_rt}"
+                break
+            if not rc_rt["ok"]:
+                aborted_reason = f"RESOURCE_FLOOR_BREACH:{rc_rt['violations'][0]}"
+                break
+            time.sleep(0.02)
+    except Exception as exc_spawn:
+        if handle is None:
+            ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason=f"CHILD_LAUNCH_FAILED:{exc_spawn}", actual_now=utc_now_fn(), expected_request_digest=req_digest)
+            return {
+                "ok": False,
+                "status": "ABORTED_CHILD_LAUNCH_FAILED",
+                "accepted_result": None,
+                "trusted_result": None,
+                "settlement_receipt": None,
+                "raw_payload_bytes": None,
+                "decoded_payload_bytes": None,
+                "process_launched": False,
+                "actual_dispatch_started": True,
+                "reader_joined": True,
+                "late_result_discarded": False,
+                "lifecycle_trace": lifecycle_trace,
+                "violations": [f"CHILD_LAUNCH_ERROR:{exc_spawn}"],
+            }
+        aborted_reason = f"SUPERVISOR_LOOP_EXCEPTION:{exc_spawn}"
+    finally:
+        if handle is not None:
+            reap_info = cancel_and_reap_r6_transport(
+                handle,
+                grace_sec=0.15,
+                reap_timeout_sec=3.0,
+                simulate_unverifiable_os_proof=simulate_unverifiable_os_proof,
+            )
+            if reader_t is not None:
+                reader_t.join(timeout=2.0)
+                reader_joined = not reader_t.is_alive()
+            else:
+                reader_joined = True
+            _ev("CHILD_PROCESS_REAPED", reader_joined=reader_joined, **reap_info)
+
+    assert reap_info is not None
+    if not reap_info["reaped_verified"] or not reader_joined:
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason="FAIL_UNDRAINED_TRANSPORT", actual_now=utc_now_fn(), expected_request_digest=req_digest)
         ledger.finalize_r6_session(lease, quarantine=True, reason="FAIL_UNDRAINED_TRANSPORT", actual_now=utc_now_fn())
         return {
             "ok": False,
             "status": "FAIL_UNDRAINED_TRANSPORT",
             "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
             "late_result_discarded": bool(stdout_holder["data"]),
             "reap_info": reap_info,
             "lifecycle_trace": lifecycle_trace,
             "violations": ["UNDRAINED_OR_UNVERIFIED_OS_TRANSPORT_QUARANTINED"],
         }
 
-    # If aborted/cancelled/expired, ANY output that raced in MUST be discarded (never accepted!)
+    # Optional test hook strictly after child exit & BEFORE parent acceptance (for deterministic G17/I11 test!)
+    if post_exit_hook is not None:
+        post_exit_hook()
+
+    # F19 / G17: Re-check cancel/deadline/expiry AFTER child exit and BEFORE acceptance!
+    if aborted_reason is None:
+        if cancel_event is not None and cancel_event.is_set():
+            aborted_reason = "CANCELLED_AFTER_CHILD_EXIT_BEFORE_ACCEPT"
+        elif time.monotonic() >= session_deadline_monotonic:
+            aborted_reason = "DEADLINE_EXPIRED_AFTER_CHILD_EXIT_BEFORE_ACCEPT"
+        elif int(utc_now_fn().timestamp() * 1000) >= lease.expires_utc_ms:
+            aborted_reason = "GRANT_EXPIRED_AFTER_CHILD_EXIT_BEFORE_ACCEPT"
+
     if aborted_reason is not None:
         late_discarded = bool(stdout_holder["data"])
-        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_MIDFLIGHT", reason=aborted_reason, actual_now=utc_now_fn())
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="ABORTED_MIDFLIGHT", reason=aborted_reason, actual_now=utc_now_fn(), expected_request_digest=req_digest)
         _ev("ATTEMPT_SETTLED_ABORTED_MIDFLIGHT", reason=aborted_reason, late_result_discarded=late_discarded)
         return {
             "ok": False,
             "status": f"ABORTED_{aborted_reason}",
             "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
             "late_result_discarded": late_discarded,
             "reap_info": reap_info,
             "lifecycle_trace": lifecycle_trace,
             "violations": [aborted_reason],
         }
 
-    # Parse child result
+    # Strict bounded IPC decode (duplicate-key & non-finite rejecting!)
+    if stdout_holder["overflow"] or stdout_holder["error"]:
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason="CHILD_IPC_OVERFLOW_OR_READ_ERR", actual_now=utc_now_fn(), expected_request_digest=req_digest)
+        return {
+            "ok": False,
+            "status": "ABORTED_CHILD_IPC_OVERFLOW",
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": ["CHILD_IPC_STDOUT_OVERFLOW_OR_ERROR"],
+        }
+
     try:
-        child_res = json.loads(stdout_holder["data"].decode("utf-8"))
+        child_res = _strict_loads_r6(stdout_holder["data"], max_bytes=max(4 * 1024 * 1024, int(worker_envelope.parent_limits["max_decoded_bytes"]) * 4 + 524_288))
     except Exception as exc:
-        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason=f"CHILD_IPC_DECODE_ERROR:{exc}", actual_now=utc_now_fn())
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason=f"CHILD_IPC_DECODE_ERROR:{exc}", actual_now=utc_now_fn(), expected_request_digest=req_digest)
         return {
             "ok": False,
             "status": "ABORTED_CHILD_IPC_MALFORMED",
             "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
             "reap_info": reap_info,
             "lifecycle_trace": lifecycle_trace,
             "violations": [f"CHILD_IPC_DECODE_ERROR:{exc}"],
         }
 
-    # Settle actual known bytes/requests/messages/connections
-    known_actual = {
-        "requests": int(child_res.get("attempts", 1 if request_type == "rest_get" else 0)),
-        "connections": int(child_res.get("connections_opened", 1 if request_type == "ws_session" else 0)),
-        "subscriptions": int(1 if (request_type == "ws_session" and child_res.get("connections_opened", 0) > 0) else 0),
-        "messages": int(child_res.get("total_messages", 0)),
-        "payload_bytes": int(child_res.get("payload_bytes_received", child_res.get("total_payload_bytes", 0))),
-        "decoded_bytes": int(child_res.get("decoded_bytes", child_res.get("total_payload_bytes", 0))),
-        "retries": max(0, int(child_res.get("attempts", 1)) - 1) if request_type == "rest_get" else int(child_res.get("reconnects_used", 0)),
-    }
-    settle_outcome = "COMPLETED" if child_res.get("ok") is True else "UNCERTAIN"
-    ledger.settle_r6_io_budget(
-        lease,
-        attempt_id,
-        outcome=settle_outcome,
-        actual_known=known_actual,
-        reason=str(child_res.get("status") or ""),
-        actual_now=utc_now_fn(),
+    if not isinstance(child_res, Mapping):
+        ledger.settle_r6_io_budget(lease, attempt_id, outcome="UNCERTAIN", reason="CHILD_IPC_NOT_OBJECT", actual_now=utc_now_fn(), expected_request_digest=req_digest)
+        return {
+            "ok": False,
+            "status": "ABORTED_CHILD_IPC_MALFORMED",
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": ["CHILD_IPC_NOT_OBJECT"],
+        }
+
+    # Validate echo bindings, child exit code & strict counter types (NO bool/float/str coercion!)
+    ipc_viols: List[str] = []
+    if child_res.get("attempt_id") != attempt_id or child_res.get("request_digest") != req_digest:
+        ipc_viols.append("CHILD_IPC_ATTEMPT_OR_REQUEST_DIGEST_MISMATCH")
+    if reap_info.get("child_returncode") != 0 and child_res.get("ok") is True:
+        ipc_viols.append(f"CHILD_NONZERO_EXIT_WITH_OK_TRUE:{reap_info.get('child_returncode')}")
+
+    def _strict_counter(key_name: str, default_zero_if_absent: bool = False) -> Optional[int]:
+        if key_name not in child_res:
+            return 0 if default_zero_if_absent else None
+        val = child_res[key_name]
+        if not _is_strict_int(val) or int(val) < 0:
+            ipc_viols.append(f"CHILD_INVALID_COUNTER_TYPE:{key_name}:{val!r}")
+            return None
+        return int(val)
+
+    child_ok = child_res.get("ok") is True
+    if request_type == "rest_get":
+        c_req = _strict_counter("attempts", default_zero_if_absent=not child_ok)
+        c_ret = _strict_counter("retries_used", default_zero_if_absent=True)
+        c_pay = _strict_counter("payload_bytes_received", default_zero_if_absent=not child_ok)
+        c_dec = _strict_counter("decoded_bytes", default_zero_if_absent=not child_ok)
+        c_conn, c_sub, c_msg = 0, 0, 0
+    else:
+        c_conn = _strict_counter("connections_opened", default_zero_if_absent=not child_ok)
+        c_sub = _strict_counter("subscriptions_sent", default_zero_if_absent=not child_ok)
+        c_ret = _strict_counter("reconnects_used", default_zero_if_absent=not child_ok)
+        c_msg = _strict_counter("total_messages", default_zero_if_absent=not child_ok)
+        c_pay = _strict_counter("total_payload_bytes", default_zero_if_absent=not child_ok)
+        c_dec = _strict_counter("decoded_bytes", default_zero_if_absent=not child_ok)
+        c_req = 0
+
+    if any(x is None for x in (c_req, c_ret, c_pay, c_dec, c_conn, c_sub, c_msg)):
+        ipc_viols.append("CHILD_MISSING_REQUIRED_COUNTERS")
+
+    # Decode & verify raw/decoded payload bytes hashes when child reports ok=True
+    raw_bytes_out = b""
+    dec_bytes_out = b""
+    if child_ok and not ipc_viols:
+        try:
+            raw_b64 = child_res.get("raw_body_b64")
+            dec_b64 = child_res.get("decoded_body_b64")
+            if not isinstance(raw_b64, str) or not isinstance(dec_b64, str):
+                ipc_viols.append("CHILD_MISSING_RAW_OR_DECODED_B64")
+            else:
+                raw_bytes_out = base64.b64decode(raw_b64.encode("ascii"), validate=True)
+                dec_bytes_out = base64.b64decode(dec_b64.encode("ascii"), validate=True)
+                if hashlib.sha256(raw_bytes_out).hexdigest() != str(child_res.get("raw_body_sha256") or ""):
+                    ipc_viols.append("CHILD_RAW_BODY_SHA256_MISMATCH")
+                if hashlib.sha256(dec_bytes_out).hexdigest() != str(child_res.get("decoded_body_sha256") or ""):
+                    ipc_viols.append("CHILD_DECODED_BODY_SHA256_MISMATCH")
+                if len(raw_bytes_out) > int(c_pay or 0) or len(dec_bytes_out) > int(c_dec or 0):
+                    ipc_viols.append("CHILD_REPORTED_BYTES_LESS_THAN_ACTUAL_PAYLOAD")
+        except Exception as exc_b64:
+            ipc_viols.append(f"CHILD_PAYLOAD_B64_DECODE_ERR:{exc_b64}")
+
+    known_actual = complete_caps_vector_a1({
+        "connections": int(c_conn or 0),
+        "requests": int(c_req or 0),
+        "retries": int(c_ret or 0),
+        "subscriptions": int(c_sub or 0),
+        "messages": int(c_msg or 0),
+        "payload_bytes": int(c_pay or 0),
+        "decoded_bytes": int(c_dec or 0),
+        "pages": 1 if (child_ok and request_type == "rest_get" and not ipc_viols and int(reservation_receipt.reserved_caps["pages"]) >= 1) else 0,
+        "disk_bytes": 0,
+        "records": 0,
+    })
+
+    child_res_digest = _sha256_canonical(dict(child_res))
+    raw_sha_for_settle = hashlib.sha256(raw_bytes_out).hexdigest() if raw_bytes_out else ""
+    settle_outcome = "COMPLETED" if (child_ok and not ipc_viols) else "UNCERTAIN"
+
+    # F19: Inspect settlement result & catch settlement exceptions — NEVER ignore settlement return value!
+    try:
+        settle_res = ledger.settle_r6_io_budget(
+            lease,
+            attempt_id,
+            outcome=settle_outcome,
+            actual_known=known_actual,
+            reason=str(child_res.get("status") or ("IPC_VIOLATION" if ipc_viols else "")),
+            actual_now=utc_now_fn(),
+            raw_payload_sha256=raw_sha_for_settle,
+            child_result_digest=child_res_digest,
+            expected_request_digest=req_digest,
+        )
+    except Exception as exc_settle:
+        _ev("ATTEMPT_SETTLEMENT_EXCEPTION", error=str(exc_settle))
+        return {
+            "ok": False,
+            "status": "ABORTED_SETTLEMENT_EXCEPTION",
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "late_result_discarded": False,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": [f"SETTLEMENT_EXCEPTION:{exc_settle}"],
+        }
+
+    _ev("ATTEMPT_SETTLED", settled=bool(settle_res.get("settled")), settle_status=settle_res.get("status"), known_actual=known_actual)
+
+    if not settle_res.get("settled") or settle_res.get("settlement_receipt") is None:
+        return {
+            "ok": False,
+            "status": str(settle_res.get("status") or "REJECTED_SETTLEMENT_FAILED"),
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "late_result_discarded": False,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": list(settle_res.get("violations") or ["SETTLEMENT_FAILED"]),
+        }
+
+    s_receipt: R6DurableSettlementReceipt = settle_res["settlement_receipt"]
+    ok_sr, sr_viols = verify_durable_settlement_receipt_a1(s_receipt)
+    if not ok_sr:
+        return {
+            "ok": False,
+            "status": "REJECTED_UNVERIFIED_SETTLEMENT_RECEIPT",
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": None,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "late_result_discarded": False,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": sr_viols,
+        }
+
+    if ipc_viols or not child_ok:
+        return {
+            "ok": False,
+            "status": "ABORTED_CHILD_IPC_VALIDATION_FAILED" if ipc_viols else str(child_res.get("status") or "CHILD_FAILED"),
+            "accepted_result": None,
+            "trusted_result": None,
+            "settlement_receipt": s_receipt,
+            "child_raw_outcome": child_res,
+            "raw_payload_bytes": None,
+            "decoded_payload_bytes": None,
+            "process_launched": True,
+            "actual_dispatch_started": True,
+            "reader_joined": reader_joined,
+            "late_result_discarded": False,
+            "reap_info": reap_info,
+            "lifecycle_trace": lifecycle_trace,
+            "violations": ipc_viols + list(child_res.get("violations") or ()),
+        }
+
+    # F22: Mint internal capability-gated trusted supervisor result ONLY after verified OS reap + verified settlement!
+    fin_utc_ms = int(utc_now_fn().astimezone(timezone.utc).timestamp() * 1000)
+    trusted_res = _issue_r6_a1_trusted_supervisor_result(
+        capability=_A1_INTERNAL_CAPABILITY,
+        tested_executable_sha=verified_grant.tested_executable_sha,
+        run_id=run_id,
+        session_id=lease.session_id,
+        lease_id=lease.lease_id,
+        attempt_id=attempt_id,
+        plan_digest=plan.plan_digest,
+        partition=eff_partition,
+        endpoint_id=eff_endpoint_id,
+        contract_digest=eff_contract_digest,
+        request_digest=req_digest,
+        started_utc_ms=started_utc_ms,
+        finished_utc_ms=fin_utc_ms,
+        started_monotonic_sec=started_mono,
+        finished_monotonic_sec=time.monotonic(),
+        child_pid=int(reap_info["child_pid"]),
+        child_create_time=float(reap_info["child_create_time"]),
+        child_exit_code=int(reap_info["child_returncode"]),
+        reaped_verified=True,
+        containment_kind=str(reap_info["containment_kind"]),
+        transport_kind="REST_GET" if request_type == "rest_get" else "WS_PUBLIC",
+        qa_loopback_mode=qa_loopback_mode,
+        tls_verified=bool(child_res.get("tls_verified", False)),
+        raw_payload_bytes=raw_bytes_out,
+        decoded_payload_bytes=dec_bytes_out,
+        known_counters=known_actual,
+        settlement_receipt=s_receipt,
+        child_result_digest=child_res_digest,
     )
-    _ev("ATTEMPT_SETTLED_COMPLETE", child_status=child_res.get("status"), known_actual=known_actual)
 
     return {
-        "ok": bool(child_res.get("ok") is True),
+        "ok": True,
         "status": str(child_res.get("status") or "UNKNOWN"),
-        "accepted_result": child_res if child_res.get("ok") is True else None,
+        "accepted_result": child_res,
+        "trusted_result": trusted_res,
+        "settlement_receipt": s_receipt,
+        "raw_payload_bytes": raw_bytes_out,
+        "decoded_payload_bytes": dec_bytes_out,
         "child_raw_outcome": child_res,
+        "process_launched": True,
+        "actual_dispatch_started": True,
+        "reader_joined": reader_joined,
         "late_result_discarded": False,
         "reap_info": reap_info,
         "lifecycle_trace": lifecycle_trace,
-        "violations": list(child_res.get("violations") or ()),
+        "violations": [],
     }
 
 
 # =====================================================================
-# Isolated Child Worker Entrypoint (`--child-worker`)
+# F15 / F16: Isolated Child Worker Entrypoint (`--child-worker`)
 # =====================================================================
 def _run_child_worker_cli() -> int:
-    raw_in = sys.stdin.buffer.read(1_048_576)
+    raw_in = sys.stdin.buffer.read(1_048_576 + 1)
+    if len(raw_in) > 1_048_576:
+        sys.stdout.write(json.dumps({"ok": False, "status": "CHILD_STDIN_OVERFLOW", "violations": ["CHILD_STDIN_EXCEEDED_1MIB"]}))
+        sys.stdout.flush()
+        return 2
     try:
-        msg = json.loads(raw_in.decode("utf-8"))
+        msg = _strict_loads_r6(raw_in, max_bytes=1_048_576)
     except Exception as exc:
         sys.stdout.write(json.dumps({"ok": False, "status": "CHILD_BAD_INPUT", "violations": [str(exc)]}))
         sys.stdout.flush()
         return 2
 
-    req = msg.get("request") or {}
-    lims = msg.get("limits") or {}
-    ext_perm = bool(msg.get("external_capture_permitted", False))
-    qa_loop = bool(req.get("qa_loopback_mode", False))
-    kind = str(req.get("kind") or "")
+    # F15 / F16: Validate strict parent-authoritative envelope BEFORE ANY socket!
+    # Rejects child request overrides, missing parent limits, default retries, and non-loopback in A1!
+    env_ok, env_viols = validate_r6_a1_worker_envelope_strict(msg)
+    if not env_ok:
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "ok": False,
+                    "status": "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED" if "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED" in env_viols else "REJECTED_CHILD_ENVELOPE_INVALID",
+                    "attempt_id": msg.get("attempt_id") if isinstance(msg, Mapping) else "",
+                    "request_digest": msg.get("request_digest") if isinstance(msg, Mapping) else "",
+                    "attempts": 0,
+                    "retries_used": 0,
+                    "connections_opened": 0,
+                    "subscriptions_sent": 0,
+                    "reconnects_used": 0,
+                    "total_messages": 0,
+                    "payload_bytes_received": 0,
+                    "total_payload_bytes": 0,
+                    "decoded_bytes": 0,
+                    "violations": env_viols,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+        sys.stdout.flush()
+        return 2
+
+    req = msg["request"]
+    plims = msg["parent_limits"]
+    qa_loop = bool(msg["qa_loopback_mode"])
+    ext_perm = bool(msg["external_capture_permitted"]) and A1_EXTERNAL_CAPTURE_ENABLED
+    kind = str(req["kind"])
+
+    # Parent-authoritative remaining deadline only (strictly <= parent_limits["remaining_deadline_sec"]!)
+    rem_dl = float(plims["remaining_deadline_sec"])
 
     if kind == "rest_get":
         out = execute_r6_bounded_rest_get(
             str(req["url"]),
             dict(req.get("params") or {}),
-            remaining_deadline_sec=float(req.get("remaining_deadline_sec", lims.get("remaining_deadline_sec", 5.0))),
-            max_payload_bytes=int(req.get("max_payload_bytes", lims.get("max_payload_bytes", 65_536))),
-            max_decoded_bytes=int(req.get("max_decoded_bytes", lims.get("max_decoded_bytes", 131_072))),
-            max_retries=int(req.get("max_retries", 2)),
+            remaining_deadline_sec=rem_dl,
+            max_payload_bytes=int(plims["max_payload_bytes"]),
+            max_decoded_bytes=int(plims["max_decoded_bytes"]),
+            max_header_bytes=int(plims["max_header_bytes"]),
+            max_retries=int(plims["max_retries"]),
+            max_requests=int(plims["max_requests"]),
+            strict_reservation_byte_cap=int(plims["max_payload_bytes"]),
             qa_loopback_mode=qa_loop,
             external_capture_permitted=ext_perm,
         )
@@ -1769,20 +2753,22 @@ def _run_child_worker_cli() -> int:
         out = execute_r6_bounded_ws_session(
             str(req["ws_url"]),
             dict(req.get("subscribe_payload") or {}),
-            remaining_deadline_sec=float(req.get("remaining_deadline_sec", lims.get("remaining_deadline_sec", 5.0))),
-            max_frame_bytes=int(req.get("max_frame_bytes", 65_536)),
-            max_messages=int(req.get("max_messages", lims.get("max_messages", 50))),
-            max_payload_bytes=int(req.get("max_payload_bytes", lims.get("max_payload_bytes", 131_072))),
-            max_queue_items=int(req.get("max_queue_items", 64)),
-            max_queue_bytes=int(req.get("max_queue_bytes", 131_072)),
-            max_reconnects=int(req.get("max_reconnects", 2)),
-            heartbeat_interval_sec=float(req.get("heartbeat_interval_sec", 20.0)),
-            pong_timeout_sec=float(req.get("pong_timeout_sec", 5.0)),
+            remaining_deadline_sec=rem_dl,
+            max_frame_bytes=int(plims["max_frame_bytes"]),
+            max_messages=int(plims["max_messages"]),
+            max_payload_bytes=int(plims["max_payload_bytes"]),
+            max_decoded_bytes=int(plims["max_decoded_bytes"]),
+            max_queue_items=int(plims["max_queue_items"]),
+            max_queue_bytes=int(plims["max_queue_bytes"]),
+            max_reconnects=int(plims["max_reconnects"]),
+            max_connections=int(plims["max_connections"]),
+            max_subscriptions=int(plims["max_subscriptions"]),
+            heartbeat_interval_sec=float(plims["heartbeat_interval_sec"]),
+            pong_timeout_sec=float(plims["pong_timeout_sec"]),
             qa_loopback_mode=qa_loop,
             external_capture_permitted=ext_perm,
         )
     elif kind == "qa_stall_noncooperative" and qa_loop:
-        # Strictly offline QA fault-injection child that ignores SIGTERM and optionally spawns a grandchild!
         try:
             signal.signal(signal.SIGTERM, signal.SIG_IGN)
         except Exception:
@@ -1791,10 +2777,26 @@ def _run_child_worker_cli() -> int:
             subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
         stall_sec = float(req.get("stall_sec", 5.0))
         time.sleep(stall_sec)
-        out = {"ok": True, "status": "QA_STALL_LATE_COMPLETE", "attempts": 1, "payload_bytes_received": 16, "decoded_bytes": 16, "violations": []}
+        raw_stub = b'{"qa_stall":"late"}'
+        out = {
+            "ok": True,
+            "status": "QA_STALL_LATE_COMPLETE",
+            "attempts": 1,
+            "retries_used": 0,
+            "payload_bytes_received": len(raw_stub),
+            "decoded_bytes": len(raw_stub),
+            "raw_body_sha256": hashlib.sha256(raw_stub).hexdigest(),
+            "decoded_body_sha256": hashlib.sha256(raw_stub).hexdigest(),
+            "raw_body_b64": base64.b64encode(raw_stub).decode("ascii"),
+            "decoded_body_b64": base64.b64encode(raw_stub).decode("ascii"),
+            "tls_verified": False,
+            "violations": [],
+        }
     else:
         out = {"ok": False, "status": "REJECTED_UNKNOWN_CHILD_KIND", "violations": [f"UNKNOWN_KIND:{kind}"]}
 
+    out["attempt_id"] = msg["attempt_id"]
+    out["request_digest"] = msg["request_digest"]
     sys.stdout.write(json.dumps(out, sort_keys=True, separators=(",", ":")))
     sys.stdout.flush()
     return 0

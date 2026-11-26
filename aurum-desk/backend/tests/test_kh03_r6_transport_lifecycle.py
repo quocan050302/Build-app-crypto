@@ -27,6 +27,7 @@ from services.kh_03_r6_acceptance_service import (
     derive_r6_fault_verdict,
     execute_r6_fault_pair,
 )
+from services.kh_03_r6_a1_trust_service import complete_caps_vector_a1
 from services.kh_03_r6_bounded_transport_service import (
     R6BoundedQueueWriter,
     build_r6_bound_capture_plan,
@@ -265,7 +266,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 gp = make_qa_grant_payload(grant_id=gid, dest_root=dest_root, store_id=store_id, now_utc=now_utc, executable_sha=executable_sha, max_requests=max_requests, max_payload_bytes=max_payload_bytes, expires_delta_sec=expires_delta_sec)
                 gv = verify_r6_owner_grant(sign_r6_grant_payload_with_ed25519(gp, priv_key), tr_qa, now_utc, expected_executable_sha=executable_sha, expected_release_manifest_sha256="b" * 64, expected_store_id=store_id, expected_stage="QA_LOOPBACK")["verified_grant"]
                 pl = build_r6_bound_capture_plan(gv, reg, {}, {"ok": True}, plan_id=f"pl_{gid}")["plan"]
-                cl = ledger.claim_r6_grant_session_atomic(gv, pl.plan_digest, f"sess_{gid}", actual_now=now_utc)
+                cl = ledger.claim_r6_grant_session_atomic(gv, pl, f"sess_{gid}", actual_now=now_utc)
                 return gv, pl, cl["lease"]
 
             # C01: external socket forbidden without external owner approval vs QA loopback allowed
@@ -275,7 +276,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c01, plan=pl_c01, verified_grant=gv_c01,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c01_ok", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -298,7 +299,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c02, plan=pl_c02, verified_grant=gv_c02,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c02_exp", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() - 0.1, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -306,7 +307,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c02, plan=pl_c02, verified_grant=gv_c02,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c02_ok", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -325,9 +326,9 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
             threading.Timer(0.25, ev_cancel_c03.set).start()
             sup_c03_neg = supervise_r6_session(
                 ledger=ledger, lease=lease_c03, plan=pl_c03, verified_grant=gv_c03,
-                validated_request={"kind": "rest_get", "url": http_srv.url("/slow_drip"), "params": {}, "remaining_deadline_sec": 10.0},
+                validated_request={"kind": "rest_get", "url": http_srv.url("/slow_drip"), "params": {}},
                 attempt_id="att_c03_cancel", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, cancel_event=ev_cancel_c03, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -336,7 +337,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c03, plan=pl_c03, verified_grant=gv_c03,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c03_ok", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -356,7 +357,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c04, plan=pl_c04, verified_grant=gv_c04,
                 validated_request={"kind": "qa_stall_noncooperative", "spawn_grandchild": True, "stall_sec": 15.0},
                 attempt_id="att_c04_tree", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, cancel_event=ev_cancel_c04, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -365,7 +366,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c04, plan=pl_c04, verified_grant=gv_c04,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c04_ok", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -387,12 +388,12 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
             gp_c05 = make_qa_grant_payload(grant_id="G_C05_Q", dest_root=dest_root, store_id=store_id, now_utc=now_utc, executable_sha=executable_sha)
             gv_c05 = verify_r6_owner_grant(sign_r6_grant_payload_with_ed25519(gp_c05, priv_key), tr_qa, now_utc, expected_executable_sha=executable_sha, expected_release_manifest_sha256="b" * 64, expected_store_id=store_id, expected_stage="QA_LOOPBACK")["verified_grant"]
             pl_c05 = build_r6_bound_capture_plan(gv_c05, reg, {}, {"ok": True}, plan_id="pl_c05")["plan"]
-            lease_c05 = led_c05.claim_r6_grant_session_atomic(gv_c05, pl_c05.plan_digest, "sess_c05", actual_now=now_utc)["lease"]
+            lease_c05 = led_c05.claim_r6_grant_session_atomic(gv_c05, pl_c05, "sess_c05", actual_now=now_utc)["lease"]
             sup_c05_neg = supervise_r6_session(
                 ledger=led_c05, lease=lease_c05, plan=pl_c05, verified_grant=gv_c05,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c05_unv", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes={"dest": dest_root, "ledger": sr_c05},
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
                 simulate_unverifiable_os_proof=True,
@@ -505,8 +506,8 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
 
             # C14: multi-attempt reservation race incl error bodies & unknown bytes accounted against tight cap
             gv_c14, pl_c14, lease_c14 = _claim_session("G_C14", max_requests=1, max_payload_bytes=4096)
-            r1_c14 = ledger.reserve_r6_io_budget_atomic(lease_c14, "att_c14_1", "rest_get", {"requests": 1, "payload_bytes": 2048}, actual_now=now_utc)
-            r2_c14 = ledger.reserve_r6_io_budget_atomic(lease_c14, "att_c14_2", "rest_get", {"requests": 1, "payload_bytes": 2048}, actual_now=now_utc)
+            r1_c14 = ledger.reserve_r6_io_budget_atomic(lease_c14, "att_c14_1", "rest_get", complete_caps_vector_a1({"requests": 1, "payload_bytes": 2048, "decoded_bytes": 4096}), actual_now=now_utc)
+            r2_c14 = ledger.reserve_r6_io_budget_atomic(lease_c14, "att_c14_2", "rest_get", complete_caps_vector_a1({"requests": 1, "payload_bytes": 2048, "decoded_bytes": 4096}), actual_now=now_utc)
             ledger.mark_r6_attempt_started(lease_c14, "att_c14_1", actual_now=now_utc)
             ledger.settle_r6_io_budget(lease_c14, "att_c14_1", outcome="UNCERTAIN", actual_known={"requests": 1, "payload_bytes": 256}, reason="HTTP_500_ERR_BODY", actual_now=now_utc)
             snap_c14 = ledger.snapshot_grant(gv_c14.grant_identity_key)
@@ -546,7 +547,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c16, plan=pl_c16, verified_grant=gv_c16,
                 validated_request={"kind": "qa_stall_noncooperative", "spawn_grandchild": False, "stall_sec": 0.4},
                 attempt_id="att_c16_late", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, cancel_event=ev_cancel_c16, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )
@@ -555,7 +556,7 @@ def run_kh03_r6_controls_c16(*, executable_sha: str, run_id: str) -> Tuple[List[
                 ledger=ledger, lease=lease_c16, plan=pl_c16, verified_grant=gv_c16,
                 validated_request={"kind": "rest_get", "url": http_srv.url("/ok"), "params": {}},
                 attempt_id="att_c16_ok", request_type="rest_get",
-                reserved_caps={"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192},
+                reserved_caps=complete_caps_vector_a1({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192}),
                 resource_sample_fn=_good_res_sample, expected_volumes=exp_vols,
                 session_deadline_monotonic=time.monotonic() + 10.0, utc_now_fn=lambda: now_utc, qa_loopback_mode=True,
             )

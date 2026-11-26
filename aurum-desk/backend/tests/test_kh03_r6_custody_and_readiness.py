@@ -123,17 +123,91 @@ def run_kh03_r6_controls_d12_to_e06(*, executable_sha: str, run_id: str) -> Tupl
         ))
 
         # D13: staged SHA/proof tamper, duplicate receipt & crash partial commit orphan detected vs clean custody
-        jnl = R6CustodyJournal(approved_root=approved, partition="QA_FIXTURE", run_id=f"{run_id}_d13", repo_root=REPO_ROOT, oos_roots=(oos_root,))
+        # Updated minimally for KH-03.R6.A1 F23: provenance now strictly requires genuine R6TrustedSupervisorResult
+        # + R6DurableSettlementReceipt from real loopback supervise_r6_session (raw Mapping dicts are rejected!).
+        from http.server import BaseHTTPRequestHandler as _BHRH, ThreadingHTTPServer as _THS
+        import threading as _th
+        import time as _t
+        from services.kh_03_r6_a1_trust_service import complete_caps_vector_a1 as _ccv
+        from services.kh_03_r6_bounded_transport_service import (
+            build_r6_bound_capture_plan as _bplan,
+            collect_real_r6_resource_sample as _csamp,
+            supervise_r6_session as _sup,
+        )
+        from services.kh_03_r6_durable_grant_service import (
+            QA_ISOLATED_TRUST_NAMESPACE_R6 as _QNS,
+            load_r6_owner_trust_root as _ltr,
+            open_r6_durable_ledger as _oled,
+            provision_qa_isolated_trust_root as _pqa,
+            provision_r6_durable_ledger as _pled,
+            sign_r6_grant_payload_with_ed25519 as _sgn,
+            verify_r6_owner_grant as _vgr,
+        )
+        from services.kh_03_r6_source_contract_service import build_r6_source_contract_registry as _breg
+        from tests.test_kh03_r6_source_contracts import make_qa_grant_payload as _mqg
+
         payload1 = b'{"symbol":"XAUUSDT","bars":1}'
-        sup_ok = {"ok": True, "status": "HTTP_200_BOUNDED_OK", "accepted_result": {"tls_verified": False, "decoded_bytes": len(payload1)}, "reap_info": {"reaped_verified": True, "child_pid": 4321, "child_create_time": 100.0, "child_returncode": 0}}
-        prov1 = mint_r6_raw_provenance_receipt(tested_executable_sha=executable_sha, run_id=run_id, session_id="s1", lease_id="l1", attempt_id="a1", endpoint_id="classic_v2_candles", contract_digest="c" * 64, partition="QA_FIXTURE", qa_loopback_mode=True, transport_kind="REST_GET", supervisor_result=sup_ok, raw_payload_bytes_data=payload1)
+
+        class _D13H(_BHRH):
+            def log_message(self, fmt: str, *args: Any) -> None:
+                return
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload1)))
+                self.end_headers()
+                self.wfile.write(payload1)
+
+        srv_d13 = _THS(("127.0.0.1", 0), _D13H)
+        port_d13 = int(srv_d13.server_address[1])
+        th_d13 = _th.Thread(target=srv_d13.serve_forever, daemon=True)
+        th_d13.start()
+        try:
+            now_d13 = datetime(2026, 11, 25, 10, 0, 0, tzinfo=timezone.utc)
+            d13_sid = "qa_d13_store"
+            d13_led_dir = tdir / "d13_ledger"
+            d13_tr_p, d13_pk, _ = _pqa(tdir / "d13_trust", store_id=d13_sid)
+            d13_tr = _ltr(d13_tr_p, expected_namespace=_QNS)["trust_root"]
+            _pled(d13_led_dir, store_id=d13_sid, trust_namespace=_QNS, now_utc=now_d13)
+            d13_led = _oled({"ledger_store_root": str(d13_led_dir), "store_id": d13_sid}, d13_sid, expected_trust_namespace=_QNS, actual_now=now_d13)["ledger"]
+            d13_reg = _breg()
+            d13_gp = _mqg(grant_id="G_D13", dest_root=approved, store_id=d13_sid, now_utc=now_d13, executable_sha=executable_sha)
+            d13_vg = _vgr(_sgn(d13_gp, d13_pk), d13_tr, now_d13, expected_executable_sha=executable_sha, expected_release_manifest_sha256="b" * 64, expected_store_id=d13_sid, expected_stage="QA_LOOPBACK")["verified_grant"]
+            d13_pl = _bplan(d13_vg, d13_reg, {}, {"ok": True}, plan_id="pl_d13")["plan"]
+            d13_lease = d13_led.claim_r6_grant_session_atomic(d13_vg, d13_pl, "s1", actual_now=now_d13)["lease"]
+            d13_vols = {"dest": approved, "ledger": d13_led_dir}
+            d13_caps = _ccv({"requests": 1, "payload_bytes": 4096, "decoded_bytes": 8192})
+            sup1 = _sup(
+                ledger=d13_led, lease=d13_lease, plan=d13_pl, verified_grant=d13_vg,
+                validated_request={"kind": "rest_get", "url": f"http://127.0.0.1:{port_d13}/ok", "params": {}},
+                attempt_id="a1", request_type="rest_get", reserved_caps=d13_caps,
+                resource_sample_fn=lambda: _csamp(d13_vols, active_workers=1), expected_volumes=d13_vols,
+                session_deadline_monotonic=_t.monotonic() + 10.0, utc_now_fn=lambda: now_d13, qa_loopback_mode=True,
+                run_id=run_id, partition="QA_FIXTURE", endpoint_id="classic_v2_candles", contract_digest="c" * 64,
+            )
+            sup2 = _sup(
+                ledger=d13_led, lease=d13_lease, plan=d13_pl, verified_grant=d13_vg,
+                validated_request={"kind": "rest_get", "url": f"http://127.0.0.1:{port_d13}/ok", "params": {}},
+                attempt_id="a2", request_type="rest_get", reserved_caps=d13_caps,
+                resource_sample_fn=lambda: _csamp(d13_vols, active_workers=1), expected_volumes=d13_vols,
+                session_deadline_monotonic=_t.monotonic() + 10.0, utc_now_fn=lambda: now_d13, qa_loopback_mode=True,
+                run_id=run_id, partition="QA_FIXTURE", endpoint_id="classic_v2_candles", contract_digest="c" * 64,
+            )
+            d13_led.finalize_r6_session(d13_lease, quarantine=False, reason="D13_DONE", actual_now=now_d13)
+        finally:
+            srv_d13.shutdown()
+            srv_d13.server_close()
+            th_d13.join(timeout=2.0)
+
+        jnl = R6CustodyJournal(approved_root=approved, partition="QA_FIXTURE", run_id=f"{run_id}_d13", repo_root=REPO_ROOT, oos_roots=(oos_root,))
+        prov1 = mint_r6_raw_provenance_receipt(tested_executable_sha=executable_sha, run_id=run_id, session_id="s1", lease_id=d13_lease.lease_id, attempt_id="a1", endpoint_id="classic_v2_candles", contract_digest="c" * 64, partition="QA_FIXTURE", qa_loopback_mode=True, transport_kind="REST_GET", supervisor_result=sup1["trusted_result"], raw_payload_bytes_data=payload1, settlement_receipt=sup1["settlement_receipt"])
         p_ok1 = jnl.persist_r6_verified_chunk(chunk_id="chk_001", raw_payload=payload1, normalized_rows=[{"ts": 1}], provenance_receipt=prov1)
         p_dup = jnl.persist_r6_verified_chunk(chunk_id="chk_002", raw_payload=payload1, normalized_rows=[{"ts": 1}], provenance_receipt=prov1)
         p_forged = jnl.persist_r6_verified_chunk(chunk_id="chk_003", raw_payload=payload1, normalized_rows=[{"ts": 1}], provenance_receipt=prov1.to_dict())
         p_tamper = jnl.persist_r6_verified_chunk(chunk_id="chk_004", raw_payload=b"TAMPERED", normalized_rows=[{"ts": 1}], provenance_receipt=prov1)
         ro_clean = verify_r6_custody_readonly(jnl.store_dir, expected_partition="QA_FIXTURE", expected_run_id=f"{run_id}_d13")
         # Now simulate crash before commit -> orphan .tmp detected by readonly verifier!
-        prov2 = mint_r6_raw_provenance_receipt(tested_executable_sha=executable_sha, run_id=run_id, session_id="s1", lease_id="l1", attempt_id="a2", endpoint_id="classic_v2_candles", contract_digest="c" * 64, partition="QA_FIXTURE", qa_loopback_mode=True, transport_kind="REST_GET", supervisor_result=sup_ok, raw_payload_bytes_data=payload1)
+        prov2 = mint_r6_raw_provenance_receipt(tested_executable_sha=executable_sha, run_id=run_id, session_id="s1", lease_id=d13_lease.lease_id, attempt_id="a2", endpoint_id="classic_v2_candles", contract_digest="c" * 64, partition="QA_FIXTURE", qa_loopback_mode=True, transport_kind="REST_GET", supervisor_result=sup2["trusted_result"], raw_payload_bytes_data=payload1, settlement_receipt=sup2["settlement_receipt"])
         jnl.persist_r6_verified_chunk(chunk_id="chk_orphan", raw_payload=payload1, normalized_rows=[{"ts": 2}], provenance_receipt=prov2, simulate_crash_before_commit=True)
         ro_orphan = verify_r6_custody_readonly(jnl.store_dir, expected_partition="QA_FIXTURE", expected_run_id=f"{run_id}_d13")
         summary["qa_custody_chain_verified"] = (p_ok1["persisted"] is True and ro_clean["valid"] is True)

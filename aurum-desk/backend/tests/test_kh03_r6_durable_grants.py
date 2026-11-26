@@ -22,6 +22,8 @@ from services.kh_03_r6_acceptance_service import (
     derive_r6_fault_verdict,
     execute_r6_fault_pair,
 )
+from services.kh_03_r6_a1_trust_service import complete_caps_vector_a1
+from services.kh_03_r6_bounded_transport_service import build_r6_bound_capture_plan
 from services.kh_03_r6_durable_grant_service import (
     OWNER_EXTERNAL_TRUST_NAMESPACE_R6,
     QA_ISOLATED_TRUST_NAMESPACE_R6,
@@ -33,6 +35,7 @@ from services.kh_03_r6_durable_grant_service import (
     verify_r6_ledger_readonly,
     verify_r6_owner_grant,
 )
+from services.kh_03_r6_source_contract_service import build_r6_source_contract_registry
 from tests.test_kh03_r6_source_contracts import make_qa_grant_payload
 
 
@@ -51,7 +54,7 @@ def _spawn_claim_contender(
     store_id: str,
     trust_root_path: Path,
     grant_path: Path,
-    plan_digest: str,
+    plan_id: str,
     session_id: str,
     executable_sha: str,
     release_sha: str,
@@ -59,17 +62,21 @@ def _spawn_claim_contender(
 ) -> subprocess.Popen[str]:
     code = (
         "import json, sys; from datetime import datetime; from pathlib import Path; "
+        "from services.kh_03_r6_bounded_transport_service import build_r6_bound_capture_plan; "
+        "from services.kh_03_r6_source_contract_service import build_r6_source_contract_registry; "
         "from services.kh_03_r6_durable_grant_service import QA_ISOLATED_TRUST_NAMESPACE_R6, load_r6_owner_trust_root, open_r6_durable_ledger, verify_r6_owner_grant; "
-        "sr, sid, trp, gp, pd, sess, sha, rsha, niso = sys.argv[1:10]; "
+        "sr, sid, trp, gp, pid, sess, sha, rsha, niso = sys.argv[1:10]; "
         "now = datetime.fromisoformat(niso); "
         "tr = load_r6_owner_trust_root(Path(trp), expected_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6)['trust_root']; "
         "gv = verify_r6_owner_grant(Path(gp).read_bytes(), tr, now, expected_executable_sha=sha, expected_release_manifest_sha256=rsha, expected_store_id=sid, expected_stage='QA_LOOPBACK'); "
+        "reg = build_r6_source_contract_registry(); "
+        "pl = build_r6_bound_capture_plan(gv['verified_grant'], reg, {}, {'ok': True}, plan_id=pid)['plan']; "
         "led = open_r6_durable_ledger({'ledger_store_root': sr, 'store_id': sid}, sid, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now)['ledger']; "
-        "res = led.claim_r6_grant_session_atomic(gv['verified_grant'], pd, sess, actual_now=now); "
+        "res = led.claim_r6_grant_session_atomic(gv['verified_grant'], pl, sess, actual_now=now); "
         "print(json.dumps({'claimed': res['claimed'], 'status': res['status']}))"
     )
     return subprocess.Popen(
-        [sys.executable, "-c", code, str(store_root), store_id, str(trust_root_path), str(grant_path), plan_digest, session_id, executable_sha, release_sha, now_iso],
+        [sys.executable, "-c", code, str(store_root), store_id, str(trust_root_path), str(grant_path), plan_id, session_id, executable_sha, release_sha, now_iso],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -82,7 +89,7 @@ def _run_abrupt_crash_child(
     store_id: str,
     trust_root_path: Path,
     grant_path: Path,
-    plan_digest: str,
+    plan_id: str,
     session_id: str,
     executable_sha: str,
     release_sha: str,
@@ -93,24 +100,29 @@ def _run_abrupt_crash_child(
         "import os, sys\n"
         "from datetime import datetime\n"
         "from pathlib import Path\n"
+        "from services.kh_03_r6_a1_trust_service import complete_caps_vector_a1\n"
+        "from services.kh_03_r6_bounded_transport_service import build_r6_bound_capture_plan\n"
+        "from services.kh_03_r6_source_contract_service import build_r6_source_contract_registry\n"
         "from services.kh_03_r6_durable_grant_service import QA_ISOLATED_TRUST_NAMESPACE_R6, load_r6_owner_trust_root, open_r6_durable_ledger, verify_r6_owner_grant\n"
-        "sr, sid, trp, gp, pd, sess, sha, rsha, niso, cstage = sys.argv[1:11]\n"
+        "sr, sid, trp, gp, pid, sess, sha, rsha, niso, cstage = sys.argv[1:11]\n"
         "now = datetime.fromisoformat(niso)\n"
         "tr = load_r6_owner_trust_root(Path(trp), expected_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6)['trust_root']\n"
         "gv = verify_r6_owner_grant(Path(gp).read_bytes(), tr, now, expected_executable_sha=sha, expected_release_manifest_sha256=rsha, expected_store_id=sid, expected_stage='QA_LOOPBACK')['verified_grant']\n"
+        "reg = build_r6_source_contract_registry()\n"
+        "pl = build_r6_bound_capture_plan(gv, reg, {}, {'ok': True}, plan_id=pid)['plan']\n"
         "led = open_r6_durable_ledger({'ledger_store_root': sr, 'store_id': sid}, sid, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now)['ledger']\n"
         "def hook(pt):\n"
         "    if pt == cstage:\n"
         "        os._exit(137)\n"
-        "cl = led.claim_r6_grant_session_atomic(gv, pd, sess, actual_now=now, crash_hook=hook)\n"
+        "cl = led.claim_r6_grant_session_atomic(gv, pl, sess, actual_now=now, crash_hook=hook)\n"
         "lease = cl['lease']\n"
-        "led.reserve_r6_io_budget_atomic(lease, 'att_crash_1', 'rest_get', {'requests': 1, 'payload_bytes': 8192, 'decoded_bytes': 16384}, actual_now=now, crash_hook=hook)\n"
+        "led.reserve_r6_io_budget_atomic(lease, 'att_crash_1', 'rest_get', complete_caps_vector_a1({'requests': 1, 'payload_bytes': 8192, 'decoded_bytes': 16384}), actual_now=now, crash_hook=hook)\n"
         "led.mark_r6_attempt_started(lease, 'att_crash_1', actual_now=now, crash_hook=hook)\n"
-        "led.settle_r6_io_budget(lease, 'att_crash_1', outcome='COMPLETED', actual_known={'requests': 1, 'payload_bytes': 512, 'decoded_bytes': 512}, actual_now=now, crash_hook=hook)\n"
+        "led.settle_r6_io_budget(lease, 'att_crash_1', outcome='COMPLETED', actual_known=complete_caps_vector_a1({'requests': 1, 'payload_bytes': 512, 'decoded_bytes': 512}), actual_now=now, crash_hook=hook)\n"
         "led.finalize_r6_session(lease, quarantine=False, reason='OK', actual_now=now, crash_hook=hook)\n"
     )
     proc = subprocess.run(
-        [sys.executable, "-c", code, str(store_root), store_id, str(trust_root_path), str(grant_path), plan_digest, session_id, executable_sha, release_sha, now_iso, crash_stage],
+        [sys.executable, "-c", code, str(store_root), store_id, str(trust_root_path), str(grant_path), plan_id, session_id, executable_sha, release_sha, now_iso, crash_stage],
         capture_output=True,
         text=True,
         env=_subproc_env(),
@@ -123,6 +135,7 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
     now_utc = datetime(2026, 11, 25, 10, 0, 0, tzinfo=timezone.utc)
     now_iso = now_utc.isoformat()
     release_sha = "b" * 64
+    reg = build_r6_source_contract_registry()
     receipts: List[Dict[str, Any]] = []
     evidence_summary: Dict[str, Any] = {}
 
@@ -147,10 +160,16 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
             assert gv["valid"] is True
             return gv["verified_grant"], raw
 
+        def _mk_plan(vg: Any, pid: str):
+            res = build_r6_bound_capture_plan(vg, reg, {}, {"ok": True}, plan_id=pid)
+            assert res["valid"] is True, res["violations"]
+            return res["plan"]
+
         # B01: sequential replay same grant denied vs first claim
         vg_b01, _ = _make_verified("G_B01")
-        cl_b01_first = ledger.claim_r6_grant_session_atomic(vg_b01, "plan_b01", "sess_b01_1", actual_now=now_utc)
-        cl_b01_second = ledger.claim_r6_grant_session_atomic(vg_b01, "plan_b01", "sess_b01_2", actual_now=now_utc)
+        pl_b01 = _mk_plan(vg_b01, "plan_b01")
+        cl_b01_first = ledger.claim_r6_grant_session_atomic(vg_b01, pl_b01, "sess_b01_1", actual_now=now_utc)
+        cl_b01_second = ledger.claim_r6_grant_session_atomic(vg_b01, pl_b01, "sess_b01_2", actual_now=now_utc)
         evidence_summary["sequential_replay_denied"] = (cl_b01_first["claimed"] is True and cl_b01_second["claimed"] is False)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B01", "B_DURABLE_LEDGER", "NEGATIVE_CONTRACT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.claim_r6_grant_session_atomic", "claim_denied_no_lease", "claim_accepted_once", "Sequential replay denied vs initial one-shot claim"),
@@ -175,7 +194,7 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         evidence_summary["cross_process_race_single_winner"] = (winners == 1 and losers == 2)
 
         vg_b02_clean, _ = _make_verified("G_B02_CLEAN")
-        cl_b02_clean = ledger.claim_r6_grant_session_atomic(vg_b02_clean, "plan_b02_c", "sess_b02_c", actual_now=now_utc)
+        cl_b02_clean = ledger.claim_r6_grant_session_atomic(vg_b02_clean, _mk_plan(vg_b02_clean, "plan_b02_c"), "sess_b02_c", actual_now=now_utc)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B02", "B_DURABLE_LEDGER", "INTEGRATION_FAULT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.claim_r6_grant_session_atomic", "cross_process_single_winner", "claim_accepted_once", "3 competing OS processes claim same grant -> exactly 1 winner vs clean claim"),
             negative_fn=lambda: ({"contenders": 3}, {"contenders": len(procs), "winners": winners, "losers": losers}),
@@ -184,9 +203,9 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         ))
 
         # B03: replan/reissue same identity denied vs valid fresh grant
-        cl_b03_replan = ledger.claim_r6_grant_session_atomic(vg_b01, "plan_b01_NEW_REPLAN", "sess_b03_replan", actual_now=now_utc)
+        cl_b03_replan = ledger.claim_r6_grant_session_atomic(vg_b01, _mk_plan(vg_b01, "plan_b01_NEW_REPLAN"), "sess_b03_replan", actual_now=now_utc)
         vg_b03_ok, _ = _make_verified("G_B03_OK")
-        cl_b03_ok = ledger.claim_r6_grant_session_atomic(vg_b03_ok, "plan_b03", "sess_b03_ok", actual_now=now_utc)
+        cl_b03_ok = ledger.claim_r6_grant_session_atomic(vg_b03_ok, _mk_plan(vg_b03_ok, "plan_b03"), "sess_b03_ok", actual_now=now_utc)
         evidence_summary["replan_reissue_denied"] = (cl_b03_replan["claimed"] is False)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B03", "B_DURABLE_LEDGER", "NEGATIVE_CONTRACT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.claim_r6_grant_session_atomic", "claim_denied_no_lease", "claim_accepted_once", "Replan under consumed grant identity denied vs fresh grant"),
@@ -197,9 +216,9 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
 
         # B04: same identity with different payload rejected vs exact repeat clean grant
         vg_b04_diff, _ = _make_verified("G_B01", max_requests=25)  # same grant_id G_B01, mutated payload!
-        cl_b04_neg = ledger.claim_r6_grant_session_atomic(vg_b04_diff, "plan_b04_diff", "sess_b04_neg", actual_now=now_utc)
+        cl_b04_neg = ledger.claim_r6_grant_session_atomic(vg_b04_diff, _mk_plan(vg_b04_diff, "plan_b04_diff"), "sess_b04_neg", actual_now=now_utc)
         vg_b04_ok, _ = _make_verified("G_B04_OK")
-        cl_b04_ok = ledger.claim_r6_grant_session_atomic(vg_b04_ok, "plan_b04", "sess_b04_ok", actual_now=now_utc)
+        cl_b04_ok = ledger.claim_r6_grant_session_atomic(vg_b04_ok, _mk_plan(vg_b04_ok, "plan_b04"), "sess_b04_ok", actual_now=now_utc)
         evidence_summary["same_identity_different_payload_rejected"] = (cl_b04_neg["status"] == "REJECTED_GRANT_PAYLOAD_CONFLICT")
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B04", "B_DURABLE_LEDGER", "NEGATIVE_CONTRACT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.claim_r6_grant_session_atomic", "claim_denied_no_lease", "claim_accepted_once", "Same grant identity with modified payload rejected vs clean grant"),
@@ -218,10 +237,10 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         led_b05 = open_r6_durable_ledger({"ledger_store_root": str(sr_b05), "store_id": store_id}, store_id, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now_utc)["ledger"]
         led_b05.recover_r6_ledger_after_restart(actual_now=now_utc)
         snap_b05 = led_b05.snapshot_grant(vg_b05.grant_identity_key)
-        replay_b05 = led_b05.claim_r6_grant_session_atomic(vg_b05, "plan_b05", "sess_b05_2", actual_now=now_utc)
+        replay_b05 = led_b05.claim_r6_grant_session_atomic(vg_b05, _mk_plan(vg_b05, "plan_b05"), "sess_b05_2", actual_now=now_utc)
         evidence_summary["post_kill_restart_replay_denied"] = (rc_b05 == 137 and snap_b05["state"] == "SPENT_CRASH_RECOVERED" and replay_b05["claimed"] is False)
         vg_b05_ok, _ = _make_verified("G_B05_CLEAN")
-        cl_b05_ok = led_b05.claim_r6_grant_session_atomic(vg_b05_ok, "plan_b05_ok", "sess_b05_ok", actual_now=now_utc)
+        cl_b05_ok = led_b05.claim_r6_grant_session_atomic(vg_b05_ok, _mk_plan(vg_b05_ok, "plan_b05_ok"), "sess_b05_ok", actual_now=now_utc)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B05", "B_DURABLE_LEDGER", "INTEGRATION_FAULT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.recover_r6_ledger_after_restart", "crash_unknown_retained", "claim_accepted_once", "Abrupt OS kill after claim + restart denies replay vs clean claim"),
             negative_fn=lambda: ({"child_exit_code": rc_b05}, {"child_killed_abruptly": rc_b05 == 137, "post_restart_grant_state": snap_b05["state"], "replay_after_restart_denied": replay_b05["claimed"] is False, "uncertain_bytes_retained": 0, "expected_min_uncertain_bytes": 0}),
@@ -239,11 +258,11 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         led_b06 = open_r6_durable_ledger({"ledger_store_root": str(sr_b06), "store_id": store_id}, store_id, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now_utc)["ledger"]
         led_b06.recover_r6_ledger_after_restart(actual_now=now_utc)
         snap_b06 = led_b06.snapshot_grant(vg_b06.grant_identity_key)
-        replay_b06 = led_b06.claim_r6_grant_session_atomic(vg_b06, "plan_b06", "sess_b06_2", actual_now=now_utc)
+        replay_b06 = led_b06.claim_r6_grant_session_atomic(vg_b06, _mk_plan(vg_b06, "plan_b06"), "sess_b06_2", actual_now=now_utc)
         unc_b06 = int(snap_b06["uncertain"]["payload_bytes"])
         evidence_summary["kill_after_start_retains_unknown_bytes"] = (rc_b06 == 137 and unc_b06 >= 8192 and replay_b06["claimed"] is False)
         vg_b06_ok, _ = _make_verified("G_B06_CLEAN")
-        cl_b06_ok = led_b06.claim_r6_grant_session_atomic(vg_b06_ok, "plan_b06_ok", "sess_b06_ok", actual_now=now_utc)
+        cl_b06_ok = led_b06.claim_r6_grant_session_atomic(vg_b06_ok, _mk_plan(vg_b06_ok, "plan_b06_ok"), "sess_b06_ok", actual_now=now_utc)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B06", "B_DURABLE_LEDGER", "INTEGRATION_FAULT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.recover_r6_ledger_after_restart", "crash_unknown_retained", "claim_accepted_once", "Abrupt OS kill after start retains 8192 unknown bytes without auto-refund"),
             negative_fn=lambda: ({"child_exit_code": rc_b06}, {"child_killed_abruptly": rc_b06 == 137, "post_restart_grant_state": snap_b06["state"], "replay_after_restart_denied": replay_b06["claimed"] is False, "uncertain_bytes_retained": unc_b06, "expected_min_uncertain_bytes": 8192}),
@@ -261,7 +280,7 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         reopen_b07 = open_r6_durable_ledger({"ledger_store_root": str(sr_b07), "store_id": store_id}, store_id, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now_utc)
         led_b07 = reopen_b07["ledger"]
         led_b07.recover_r6_ledger_after_restart(actual_now=now_utc)
-        replay_b07 = led_b07.claim_r6_grant_session_atomic(vg_b07, "plan_b07", "sess_b07_2", actual_now=now_utc)
+        replay_b07 = led_b07.claim_r6_grant_session_atomic(vg_b07, _mk_plan(vg_b07, "plan_b07"), "sess_b07_2", actual_now=now_utc)
         evidence_summary["post_commit_pre_anchor_forward_recovered"] = (
             rc_b07 == 137 and reopen_b07["opened"] is True and reopen_b07["recovery_action"] == "FORWARD_SYNC_ANCHOR_AFTER_COMMIT_CRASH" and replay_b07["claimed"] is False
         )
@@ -299,7 +318,7 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         shutil.copy2(sr_rb / "ledger.sqlite3", db_bak)
         led_rb = open_r6_durable_ledger({"ledger_store_root": str(sr_rb), "store_id": store_id}, store_id, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now_utc)["ledger"]
         vg_rb, _ = _make_verified("G_B09_ADV")
-        led_rb.claim_r6_grant_session_atomic(vg_rb, "plan_rb", "sess_rb", actual_now=now_utc)
+        led_rb.claim_r6_grant_session_atomic(vg_rb, _mk_plan(vg_rb, "plan_rb"), "sess_rb", actual_now=now_utc)
         for wal_ext in ("-wal", "-shm"):
             wp = Path(str(sr_rb / "ledger.sqlite3") + wal_ext)
             if wp.exists():
@@ -316,14 +335,14 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
 
         # B10: duplicate attempt ID, double settle, negative counter, or overflow rejected vs clean reserve->start->settle
         vg_b10, _ = _make_verified("G_B10_BUDGET", max_requests=2, max_payload_bytes=4096)
-        lease_b10 = ledger.claim_r6_grant_session_atomic(vg_b10, "plan_b10", "sess_b10", actual_now=now_utc)["lease"]
-        r_ok1 = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_1", "rest_get", {"requests": 1, "payload_bytes": 2048}, actual_now=now_utc)
-        r_dup = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_1", "rest_get", {"requests": 1, "payload_bytes": 100}, actual_now=now_utc)
-        r_ovf = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_ovf", "rest_get", {"requests": 1, "payload_bytes": 9999}, actual_now=now_utc)
-        r_neg = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_neg", "rest_get", {"requests": -1}, actual_now=now_utc)
+        lease_b10 = ledger.claim_r6_grant_session_atomic(vg_b10, _mk_plan(vg_b10, "plan_b10"), "sess_b10", actual_now=now_utc)["lease"]
+        r_ok1 = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_1", "rest_get", complete_caps_vector_a1({"requests": 1, "payload_bytes": 2048, "decoded_bytes": 4096}), actual_now=now_utc)
+        r_dup = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_1", "rest_get", complete_caps_vector_a1({"requests": 1, "payload_bytes": 100, "decoded_bytes": 100}), actual_now=now_utc)
+        r_ovf = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_ovf", "rest_get", complete_caps_vector_a1({"requests": 1, "payload_bytes": 9999, "decoded_bytes": 9999}), actual_now=now_utc)
+        r_neg = ledger.reserve_r6_io_budget_atomic(lease_b10, "att_b10_neg", "rest_get", {**complete_caps_vector_a1({}), "requests": -1}, actual_now=now_utc)
         ledger.mark_r6_attempt_started(lease_b10, "att_b10_1", actual_now=now_utc)
-        s_ok1 = ledger.settle_r6_io_budget(lease_b10, "att_b10_1", outcome="COMPLETED", actual_known={"requests": 1, "payload_bytes": 1000}, actual_now=now_utc)
-        s_dbl = ledger.settle_r6_io_budget(lease_b10, "att_b10_1", outcome="COMPLETED", actual_known={"requests": 1, "payload_bytes": 1000}, actual_now=now_utc)
+        s_ok1 = ledger.settle_r6_io_budget(lease_b10, "att_b10_1", outcome="COMPLETED", actual_known=complete_caps_vector_a1({"requests": 1, "payload_bytes": 1000, "decoded_bytes": 1000}), actual_now=now_utc)
+        s_dbl = ledger.settle_r6_io_budget(lease_b10, "att_b10_1", outcome="COMPLETED", actual_known=complete_caps_vector_a1({"requests": 1, "payload_bytes": 1000, "decoded_bytes": 1000}), actual_now=now_utc)
         ledger.finalize_r6_session(lease_b10, quarantine=False, reason="DONE", actual_now=now_utc)
         evidence_summary["duplicate_attempt_id_rejected"] = (r_dup["reserved"] is False)
         evidence_summary["double_settle_rejected"] = (s_dbl["settled"] is False)
@@ -343,8 +362,8 @@ def run_kh03_r6_controls_b12(*, executable_sha: str, run_id: str) -> Tuple[List[
         led_cap = open_r6_durable_ledger({"ledger_store_root": str(sr_cap), "store_id": store_id}, store_id, expected_trust_namespace=QA_ISOLATED_TRUST_NAMESPACE_R6, actual_now=now_utc)["ledger"]
         vg_cap1, _ = _make_verified("G_B11_1")
         vg_cap2, _ = _make_verified("G_B11_2")
-        c1 = led_cap.claim_r6_grant_session_atomic(vg_cap1, "p1", "s1", actual_now=now_utc)
-        c2 = led_cap.claim_r6_grant_session_atomic(vg_cap2, "p2", "s2", actual_now=now_utc)
+        c1 = led_cap.claim_r6_grant_session_atomic(vg_cap1, _mk_plan(vg_cap1, "p1"), "s1", actual_now=now_utc)
+        c2 = led_cap.claim_r6_grant_session_atomic(vg_cap2, _mk_plan(vg_cap2, "p2"), "s2", actual_now=now_utc)
         evidence_summary["capacity_full_blocks_without_eviction"] = (c1["claimed"] is True and c2["claimed"] is False and led_cap.snapshot_grant(vg_cap1.grant_identity_key) is not None)
         receipts.append(execute_r6_fault_pair(
             R6FaultCaseSpec("R6-B11", "B_DURABLE_LEDGER", "NEGATIVE_CONTRACT", "services.kh_03_r6_durable_grant_service.R6DurableGrantLedger.claim_r6_grant_session_atomic", "claim_denied_no_lease", "claim_accepted_once", "Full ledger capacity blocks new grant without evicting spent identity"),

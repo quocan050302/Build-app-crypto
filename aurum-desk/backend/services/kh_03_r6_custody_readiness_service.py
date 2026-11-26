@@ -26,6 +26,15 @@ import time
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from services.kh_02_r2_prospective_data_service import CANONICAL_DATASET_SHA256_KH02
+from services.kh_03_r6_a1_trust_service import (
+    A1_EXTERNAL_CAPTURE_ENABLED,
+    R6DurableSettlementReceipt,
+    R6TrustedSupervisorResult,
+    bind_provenance_receipt_to_trusted_token_a1,
+    verify_and_consume_custody_token_a1,
+    verify_durable_settlement_receipt_a1,
+    verify_trusted_supervisor_result_a1,
+)
 from services.kh_03_r6_durable_grant_service import (
     _atomic_write_json_fsync,
     _check_local_path_safety,
@@ -251,7 +260,7 @@ def assign_r6_dev_partition_before_io(
 
 
 # =====================================================================
-# F26: R6 Raw Provenance Receipts (Parent-Owned MAC, Never Fake C4 Proof)
+# F23 & F24: R6 Raw Provenance Receipts (Trusted Supervisor + Settlement Chain Only!)
 # =====================================================================
 @dataclass(frozen=True)
 class R6RawProvenanceReceipt:
@@ -262,10 +271,12 @@ class R6RawProvenanceReceipt:
     session_id: str
     lease_id: str
     attempt_id: str
+    plan_digest: str
+    request_digest: str
     endpoint_id: str
     contract_digest: str
     partition: str  # "DEV_ONLY" | "QA_FIXTURE"
-    provenance_class: str  # "RAW_OBSERVED_VERIFIED" | "QA_LOOPBACK" | "RAW_UNVERIFIED_REJECTED"
+    provenance_class: str  # Strictly "QA_LOOPBACK" or "RAW_UNVERIFIED_REJECTED" in A1!
     transport_kind: str
     tls_verified: bool
     child_pid: int
@@ -274,12 +285,19 @@ class R6RawProvenanceReceipt:
     reaped_verified: bool
     raw_payload_sha256: str
     raw_payload_bytes: int
+    decoded_payload_sha256: str
     decoded_bytes: int
+    settlement_generation: int
+    settlement_audit_hash: str
+    settlement_receipt_digest: str
+    child_result_digest: str
+    supervisor_result_digest: str
     transport_outcome: str
     accepted_for_custody: bool
     legacy_c4_proof_claimed: bool
     receipt_digest: str
     parent_mac_hex: str
+    capability_token: str = ""  # Process-local single-use token (NEVER serialized to JSON!)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -290,6 +308,8 @@ class R6RawProvenanceReceipt:
             "session_id": self.session_id,
             "lease_id": self.lease_id,
             "attempt_id": self.attempt_id,
+            "plan_digest": self.plan_digest,
+            "request_digest": self.request_digest,
             "endpoint_id": self.endpoint_id,
             "contract_digest": self.contract_digest,
             "partition": self.partition,
@@ -302,7 +322,13 @@ class R6RawProvenanceReceipt:
             "reaped_verified": self.reaped_verified,
             "raw_payload_sha256": self.raw_payload_sha256,
             "raw_payload_bytes": self.raw_payload_bytes,
+            "decoded_payload_sha256": self.decoded_payload_sha256,
             "decoded_bytes": self.decoded_bytes,
+            "settlement_generation": self.settlement_generation,
+            "settlement_audit_hash": self.settlement_audit_hash,
+            "settlement_receipt_digest": self.settlement_receipt_digest,
+            "child_result_digest": self.child_result_digest,
+            "supervisor_result_digest": self.supervisor_result_digest,
             "transport_outcome": self.transport_outcome,
             "accepted_for_custody": self.accepted_for_custody,
             "legacy_c4_proof_claimed": self.legacy_c4_proof_claimed,
@@ -323,72 +349,165 @@ def mint_r6_raw_provenance_receipt(
     partition: str,
     qa_loopback_mode: bool,
     transport_kind: str,
-    supervisor_result: Mapping[str, Any],
+    supervisor_result: Any,
     raw_payload_bytes_data: Optional[bytes],
+    settlement_receipt: Optional[R6DurableSettlementReceipt] = None,
 ) -> R6RawProvenanceReceipt:
     """
-    Mints a parent-owned R6 provenance receipt from an actual `supervise_r6_session` outcome.
-    Loopback is ALWAYS labeled `QA_LOOPBACK` (NEVER `RAW_OBSERVED_VERIFIED`).
-    Failed, partial, undrained, or late outcomes are ALWAYS `accepted_for_custody=False`.
-    NEVER claims legacy C4 proof equivalence.
+    F23: Mints a parent-owned R6 provenance receipt EXCLUSIVELY from a process-registered
+    `R6TrustedSupervisorResult` + verified `R6DurableSettlementReceipt` + exact matching raw payload bytes.
+    REMOVES caller `Mapping` flag trust! Passing a synthetic dict or mismatched bytes/IDs/settlement
+    produces `RAW_UNVERIFIED_REJECTED` (`accepted_for_custody=False`) and NEVER `RAW_OBSERVED_VERIFIED`!
+    In KH-03.R6.A1, NO code path can mint `RAW_OBSERVED_VERIFIED` (even if `tls_verified=True`).
     """
-    reap = dict(supervisor_result.get("reap_info") or {})
-    reaped_ok = reap.get("reaped_verified") is True
-    sup_ok = supervisor_result.get("ok") is True and supervisor_result.get("late_result_discarded") is not True
-    accepted_res = supervisor_result.get("accepted_result") or {}
-    tls_ok = bool(accepted_res.get("tls_verified", False))
-
-    raw_bytes = raw_payload_bytes_data if raw_payload_bytes_data is not None else b""
+    rid = f"r6prov_{run_id}_{attempt_id}"
+    raw_bytes = raw_payload_bytes_data if isinstance(raw_payload_bytes_data, (bytes, bytearray)) else b""
+    raw_bytes = bytes(raw_bytes)
     raw_sha = _sha256_bytes(raw_bytes)
     raw_len = len(raw_bytes)
-    dec_len = int(accepted_res.get("decoded_bytes", raw_len)) if sup_ok else 0
 
-    if not sup_ok or not reaped_ok:
-        prov_class = "RAW_UNVERIFIED_REJECTED"
-        accepted = False
-    elif qa_loopback_mode or partition == "QA_FIXTURE":
-        prov_class = "QA_LOOPBACK"
-        accepted = True
-    else:
-        if not tls_ok:
-            prov_class = "RAW_UNVERIFIED_REJECTED"
-            accepted = False
-        else:
-            prov_class = "RAW_OBSERVED_VERIFIED"
-            accepted = True
+    def _reject(reason_code: str) -> R6RawProvenanceReceipt:
+        core_rej = {
+            "schema_version": PROVENANCE_SCHEMA_VERSION_R6,
+            "receipt_id": rid,
+            "tested_executable_sha": str(tested_executable_sha),
+            "run_id": str(run_id),
+            "session_id": str(session_id),
+            "lease_id": str(lease_id),
+            "attempt_id": str(attempt_id),
+            "plan_digest": "",
+            "request_digest": "",
+            "endpoint_id": str(endpoint_id),
+            "contract_digest": str(contract_digest),
+            "partition": str(partition),
+            "provenance_class": "RAW_UNVERIFIED_REJECTED",
+            "transport_kind": str(transport_kind),
+            "tls_verified": False,
+            "child_pid": 0,
+            "child_create_time": 0.0,
+            "child_exit_code": -1,
+            "reaped_verified": False,
+            "raw_payload_sha256": raw_sha,
+            "raw_payload_bytes": raw_len,
+            "decoded_payload_sha256": "",
+            "decoded_bytes": 0,
+            "settlement_generation": 0,
+            "settlement_audit_hash": "",
+            "settlement_receipt_digest": "",
+            "child_result_digest": "",
+            "supervisor_result_digest": "",
+            "transport_outcome": reason_code,
+            "accepted_for_custody": False,
+            "legacy_c4_proof_claimed": False,
+        }
+        rdig = _sha256_canonical(core_rej)
+        mac = hmac.new(_PROVENANCE_MAC_SECRET_R6, rdig.encode("utf-8"), hashlib.sha256).hexdigest()
+        return R6RawProvenanceReceipt(**core_rej, receipt_digest=rdig, parent_mac_hex=mac, capability_token="")
 
-    rid = f"r6prov_{run_id}_{attempt_id}"
+    # Hard reject raw Mapping / forged non-trusted supervisor objects!
+    if not isinstance(supervisor_result, R6TrustedSupervisorResult):
+        return _reject("REJECTED_UNTRUSTED_OR_MAPPING_SUPERVISOR_RESULT")
+    if settlement_receipt is None or not isinstance(settlement_receipt, R6DurableSettlementReceipt):
+        return _reject("REJECTED_MISSING_DURABLE_SETTLEMENT_RECEIPT")
+
+    ok_tsr, tsr_viols, _ = verify_trusted_supervisor_result_a1(
+        supervisor_result,
+        expected_raw_payload_bytes=raw_bytes,
+        settlement_receipt=settlement_receipt,
+        require_unminted=True,
+        require_unconsumed=True,
+    )
+    if not ok_tsr:
+        return _reject(f"REJECTED_TRUSTED_SUPERVISOR_CHECK:{','.join(tsr_viols[:2])}")
+
+    # Strict cross-field binding verification
+    mismatches: List[str] = []
+    if supervisor_result.tested_executable_sha != str(tested_executable_sha):
+        mismatches.append("TESTED_SHA")
+    if supervisor_result.run_id != str(run_id):
+        mismatches.append("RUN_ID")
+    if supervisor_result.session_id != str(session_id):
+        mismatches.append("SESSION_ID")
+    if supervisor_result.lease_id != str(lease_id):
+        mismatches.append("LEASE_ID")
+    if supervisor_result.attempt_id != str(attempt_id):
+        mismatches.append("ATTEMPT_ID")
+    if supervisor_result.endpoint_id != str(endpoint_id):
+        mismatches.append("ENDPOINT_ID")
+    if supervisor_result.contract_digest != str(contract_digest):
+        mismatches.append("CONTRACT_DIGEST")
+    if supervisor_result.partition != str(partition):
+        mismatches.append("PARTITION")
+    if supervisor_result.transport_kind != str(transport_kind):
+        mismatches.append("TRANSPORT_KIND")
+    if bool(supervisor_result.qa_loopback_mode) != bool(qa_loopback_mode):
+        mismatches.append("QA_LOOPBACK_MODE")
+    if settlement_receipt.attempt_id != str(attempt_id) or settlement_receipt.lease_id != str(lease_id):
+        mismatches.append("SETTLEMENT_ATTEMPT_OR_LEASE")
+    if settlement_receipt.final_attempt_state != "COMPLETED" or not settlement_receipt.conservation_verified or settlement_receipt.quarantined:
+        mismatches.append("SETTLEMENT_NOT_COMPLETED_CONSERVED")
+    if partition == "DEV_ONLY" and (qa_loopback_mode or not A1_EXTERNAL_CAPTURE_ENABLED):
+        mismatches.append("QA_OR_A1_CANNOT_MINT_DEV_ONLY")
+    if not A1_EXTERNAL_CAPTURE_ENABLED and not qa_loopback_mode:
+        mismatches.append("A1_EXTERNAL_CAPTURE_DISABLED")
+    if mismatches:
+        return _reject(f"REJECTED_PROVENANCE_BINDING:{','.join(mismatches[:3])}")
+
+    # Bind receipt_id single-use to trusted supervisor capability token!
+    if not bind_provenance_receipt_to_trusted_token_a1(supervisor_result.capability_token, rid):
+        return _reject("REJECTED_TRUSTED_SUPERVISOR_TOKEN_REPLAY")
+
+    # A1 policy: strictly QA_LOOPBACK ONLY (never RAW_OBSERVED_VERIFIED!)
+    prov_class = "QA_LOOPBACK"
+    accepted = True
+
     core = {
         "schema_version": PROVENANCE_SCHEMA_VERSION_R6,
         "receipt_id": rid,
-        "tested_executable_sha": str(tested_executable_sha),
-        "run_id": str(run_id),
-        "session_id": str(session_id),
-        "lease_id": str(lease_id),
-        "attempt_id": str(attempt_id),
-        "endpoint_id": str(endpoint_id),
-        "contract_digest": str(contract_digest),
-        "partition": str(partition),
+        "tested_executable_sha": supervisor_result.tested_executable_sha,
+        "run_id": supervisor_result.run_id,
+        "session_id": supervisor_result.session_id,
+        "lease_id": supervisor_result.lease_id,
+        "attempt_id": supervisor_result.attempt_id,
+        "plan_digest": supervisor_result.plan_digest,
+        "request_digest": supervisor_result.request_digest,
+        "endpoint_id": supervisor_result.endpoint_id,
+        "contract_digest": supervisor_result.contract_digest,
+        "partition": supervisor_result.partition,
         "provenance_class": prov_class,
-        "transport_kind": str(transport_kind),
-        "tls_verified": tls_ok,
-        "child_pid": int(reap.get("child_pid") or 0),
-        "child_create_time": float(reap.get("child_create_time") or 0.0),
-        "child_exit_code": int(reap.get("child_returncode") if reap.get("child_returncode") is not None else -1),
-        "reaped_verified": reaped_ok,
-        "raw_payload_sha256": raw_sha,
-        "raw_payload_bytes": raw_len,
-        "decoded_bytes": dec_len,
-        "transport_outcome": str(supervisor_result.get("status") or "UNKNOWN"),
+        "transport_kind": supervisor_result.transport_kind,
+        "tls_verified": bool(supervisor_result.tls_verified),
+        "child_pid": int(supervisor_result.child_pid),
+        "child_create_time": float(supervisor_result.child_create_time),
+        "child_exit_code": int(supervisor_result.child_exit_code),
+        "reaped_verified": bool(supervisor_result.reaped_verified),
+        "raw_payload_sha256": supervisor_result.raw_payload_sha256,
+        "raw_payload_bytes": int(supervisor_result.raw_payload_bytes_len),
+        "decoded_payload_sha256": supervisor_result.decoded_payload_sha256,
+        "decoded_bytes": int(supervisor_result.decoded_payload_bytes_len),
+        "settlement_generation": int(supervisor_result.settlement_generation),
+        "settlement_audit_hash": supervisor_result.settlement_audit_hash,
+        "settlement_receipt_digest": supervisor_result.settlement_receipt_digest,
+        "child_result_digest": supervisor_result.child_result_digest,
+        "supervisor_result_digest": supervisor_result.result_digest,
+        "transport_outcome": "VERIFIED_TRUSTED_SUPERVISOR_SETTLED",
         "accepted_for_custody": accepted,
         "legacy_c4_proof_claimed": False,
     }
     rdig = _sha256_canonical(core)
     mac = hmac.new(_PROVENANCE_MAC_SECRET_R6, rdig.encode("utf-8"), hashlib.sha256).hexdigest()
-    return R6RawProvenanceReceipt(**core, receipt_digest=rdig, parent_mac_hex=mac)
+    return R6RawProvenanceReceipt(**core, receipt_digest=rdig, parent_mac_hex=mac, capability_token=supervisor_result.capability_token)
 
 
-def verify_r6_raw_provenance_receipt(receipt: Any, *, expected_payload_bytes: Optional[bytes] = None) -> Tuple[bool, List[str]]:
+def verify_r6_raw_provenance_receipt(
+    receipt: Any,
+    *,
+    expected_payload_bytes: Optional[bytes] = None,
+    expected_partition: Optional[str] = None,
+    expected_run_id: Optional[str] = None,
+    expected_attempt_id: Optional[str] = None,
+    require_live_process_token: bool = True,
+) -> Tuple[bool, List[str]]:
     viols: List[str] = []
     if not isinstance(receipt, R6RawProvenanceReceipt):
         return False, ["FORGED_OR_RAW_DICT_PROVENANCE_RECEIPT_REJECTED"]
@@ -404,6 +523,23 @@ def verify_r6_raw_provenance_receipt(receipt: Any, *, expected_payload_bytes: Op
         viols.append("FORBIDDEN_LEGACY_C4_PROOF_CLAIM")
     if receipt.partition == "DEV_ONLY" and receipt.provenance_class == "QA_LOOPBACK":
         viols.append("QA_LOOPBACK_PROMOTION_TO_DEV_ONLY_FORBIDDEN")
+    if not A1_EXTERNAL_CAPTURE_ENABLED and receipt.provenance_class == "RAW_OBSERVED_VERIFIED":
+        viols.append("A1_RAW_OBSERVED_VERIFIED_FORBIDDEN")
+    if receipt.accepted_for_custody:
+        if not receipt.reaped_verified or receipt.child_exit_code != 0 or receipt.child_pid <= 0:
+            viols.append("PROVENANCE_MISSING_REAPED_ZERO_EXIT_PROOF")
+        if receipt.settlement_generation <= 0 or not receipt.settlement_audit_hash or not receipt.settlement_receipt_digest:
+            viols.append("PROVENANCE_MISSING_SETTLEMENT_PROOF")
+        if require_live_process_token:
+            tok_ok, tok_viols = verify_and_consume_custody_token_a1(receipt.capability_token, receipt.receipt_id, consume=False)
+            if not tok_ok:
+                viols.extend(tok_viols)
+    if expected_partition is not None and receipt.partition != expected_partition:
+        viols.append(f"PROVENANCE_PARTITION_MISMATCH:{receipt.partition}!={expected_partition}")
+    if expected_run_id is not None and receipt.run_id != expected_run_id:
+        viols.append(f"PROVENANCE_RUN_ID_MISMATCH:{receipt.run_id}!={expected_run_id}")
+    if expected_attempt_id is not None and receipt.attempt_id != expected_attempt_id:
+        viols.append(f"PROVENANCE_ATTEMPT_ID_MISMATCH:{receipt.attempt_id}!={expected_attempt_id}")
     if expected_payload_bytes is not None:
         if _sha256_bytes(expected_payload_bytes) != receipt.raw_payload_sha256:
             viols.append("RAW_PAYLOAD_SHA256_MISMATCH")
@@ -508,7 +644,12 @@ class R6CustodyJournal:
         provenance_receipt: Any,
         simulate_crash_before_commit: bool = False,
     ) -> Dict[str, Any]:
-        ok_p, p_viols = verify_r6_raw_provenance_receipt(provenance_receipt, expected_payload_bytes=raw_payload)
+        ok_p, p_viols = verify_r6_raw_provenance_receipt(
+            provenance_receipt,
+            expected_payload_bytes=raw_payload,
+            expected_partition=self.partition,
+            require_live_process_token=True,
+        )
         if not ok_p:
             return {"persisted": False, "status": "REJECTED_PROVENANCE_INVALID", "violations": p_viols}
         assert isinstance(provenance_receipt, R6RawProvenanceReceipt)
@@ -518,6 +659,8 @@ class R6CustodyJournal:
             return {"persisted": False, "status": "REJECTED_PARTITION_MISMATCH", "violations": [f"PARTITION_MISMATCH:{provenance_receipt.partition}!={self.partition}"]}
         if self.partition == "DEV_ONLY" and provenance_receipt.provenance_class != "RAW_OBSERVED_VERIFIED":
             return {"persisted": False, "status": "REJECTED_QA_INTO_DEV_FORBIDDEN", "violations": ["ONLY_RAW_OBSERVED_VERIFIED_ALLOWED_IN_DEV_ONLY"]}
+        if not A1_EXTERNAL_CAPTURE_ENABLED and provenance_receipt.provenance_class == "RAW_OBSERVED_VERIFIED":
+            return {"persisted": False, "status": "REJECTED_A1_OBSERVED_FORBIDDEN", "violations": ["A1_CANNOT_PERSIST_RAW_OBSERVED_VERIFIED"]}
         if provenance_receipt.receipt_id in self._seen_receipt_ids:
             return {"persisted": False, "status": "REJECTED_DUPLICATE_PROVENANCE_RECEIPT", "violations": [f"DUPLICATE_RECEIPT_ID:{provenance_receipt.receipt_id}"]}
 
@@ -560,13 +703,25 @@ class R6CustodyJournal:
             os.close(fd_n)
 
         if simulate_crash_before_commit:
-            # Leave temp staged files on disk without committing to chain or renaming -> orphan recovery test!
+            # Consume token so failed/crashed staging CANNOT be replayed for duplicate promotion!
+            verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
             return {
                 "persisted": False,
                 "status": "ABORTED_PARTIAL_CRASH_BEFORE_COMMIT",
                 "orphan_temp_files": [str(raw_tmp), str(norm_tmp)],
                 "violations": ["SIMULATED_CRASH_BEFORE_COMMIT_ORPHAN_STAGED"],
             }
+
+        # Consume single-use trusted supervisor token atomically BEFORE final replace/commit!
+        tok_ok, tok_viols = verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
+        if not tok_ok:
+            for p_cln in (raw_tmp, norm_tmp):
+                try:
+                    p_cln.unlink()
+                    self._owned_temp_files.discard(p_cln)
+                except OSError:
+                    pass
+            return {"persisted": False, "status": "REJECTED_PROVENANCE_TOKEN_REPLAY", "violations": tok_viols}
 
         os.replace(str(raw_tmp), str(raw_path))
         os.replace(str(norm_tmp), str(norm_path))
@@ -575,13 +730,28 @@ class R6CustodyJournal:
         _fsync_file_and_parent(raw_path)
         _fsync_file_and_parent(norm_path)
 
-        # Append ordered chain record + sync external anchor
+        # Append ordered chain record with complete non-secret audit proof facts for post-restart verification!
         new_seq = self._seq + 1
         entry_core = {
             "seq": new_seq,
             "chunk_id": chunk_id,
             "receipt_id": provenance_receipt.receipt_id,
             "receipt_digest": provenance_receipt.receipt_digest,
+            "tested_executable_sha": provenance_receipt.tested_executable_sha,
+            "session_id": provenance_receipt.session_id,
+            "lease_id": provenance_receipt.lease_id,
+            "attempt_id": provenance_receipt.attempt_id,
+            "plan_digest": provenance_receipt.plan_digest,
+            "request_digest": provenance_receipt.request_digest,
+            "endpoint_id": provenance_receipt.endpoint_id,
+            "contract_digest": provenance_receipt.contract_digest,
+            "settlement_generation": int(provenance_receipt.settlement_generation),
+            "settlement_audit_hash": provenance_receipt.settlement_audit_hash,
+            "settlement_receipt_digest": provenance_receipt.settlement_receipt_digest,
+            "child_pid": int(provenance_receipt.child_pid),
+            "child_exit_code": int(provenance_receipt.child_exit_code),
+            "reaped_verified": bool(provenance_receipt.reaped_verified),
+            "decoded_payload_sha256": provenance_receipt.decoded_payload_sha256,
             "partition": self.partition,
             "provenance_class": provenance_receipt.provenance_class,
             "raw_file": f"chunks/{raw_path.name}",
@@ -653,11 +823,16 @@ def verify_r6_custody_readonly(
     *,
     expected_partition: str,
     expected_run_id: str,
+    ledger_store_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
-    Read-only independent custody verifier: recomputes every chunk SHA-256, verifies full hash chain,
+    F25: Read-only post-restart independent custody verifier: recomputes every chunk SHA-256 and
+    byte length, verifies full hash chain, verifies persisted non-secret settlement/reap proof facts
+    (and cross-checks against the SQLite ledger audit chain when `ledger_store_root` is provided!),
     checks external custody anchor against rollback/tamper, and detects uncommitted orphan `.tmp` files.
     """
+    import sqlite3 as _sqlite3
+
     viols: List[str] = []
     if not store_dir.is_dir():
         return {"valid": False, "status": "FAIL_CUSTODY_DIR_MISSING", "violations": ["CUSTODY_DIR_MISSING"]}
@@ -684,6 +859,28 @@ def verify_r6_custody_readonly(
     if str(anchor.get("run_id") or "") != expected_run_id:
         viols.append("CUSTODY_ANCHOR_RUN_ID_MISMATCH")
 
+    # Optional cross-check against SQLite ledger (post-restart authentic origin reconstruction!)
+    ledger_audit_by_gen: Dict[int, str] = {}
+    ledger_attempts_state: Dict[str, str] = {}
+    if ledger_store_root is not None:
+        db_p = Path(ledger_store_root) / "ledger.sqlite3"
+        if not db_p.is_file():
+            viols.append("CUSTODY_LINKED_LEDGER_DB_MISSING")
+        else:
+            try:
+                uri = f"{db_p.resolve().as_uri()}?mode=ro"
+                lconn = _sqlite3.connect(uri, uri=True, timeout=5.0)
+                lconn.row_factory = _sqlite3.Row
+                try:
+                    for r in lconn.execute("SELECT generation, entry_hash FROM audit_chain"):
+                        ledger_audit_by_gen[int(r["generation"])] = str(r["entry_hash"])
+                    for r in lconn.execute("SELECT attempt_id, state FROM attempts"):
+                        ledger_attempts_state[str(r["attempt_id"])] = str(r["state"])
+                finally:
+                    lconn.close()
+            except Exception as exc:
+                viols.append(f"CUSTODY_LINKED_LEDGER_READ_ERROR:{exc}")
+
     # Verify chain & chunk blobs
     prev = "0" * 64
     seq = 0
@@ -691,6 +888,7 @@ def verify_r6_custody_readonly(
     tot_rows = 0
     seen_rids: Set[str] = set()
     committed_files: Set[str] = set()
+    lineage_entries: List[Dict[str, Any]] = []
 
     if chain_p.is_file():
         for ln in chain_p.read_text("utf-8").splitlines():
@@ -712,6 +910,20 @@ def verify_r6_custody_readonly(
             seen_rids.add(rid)
             if expected_partition == "DEV_ONLY" and str(row.get("provenance_class") or "") != "RAW_OBSERVED_VERIFIED":
                 viols.append(f"CUSTODY_QA_IN_DEV_STORE:{row.get('provenance_class')}")
+            if not A1_EXTERNAL_CAPTURE_ENABLED and str(row.get("provenance_class") or "") == "RAW_OBSERVED_VERIFIED":
+                viols.append("CUSTODY_A1_FORBIDDEN_RAW_OBSERVED_VERIFIED")
+            if row.get("reaped_verified") is not True or int(row.get("child_exit_code", -1)) != 0 or int(row.get("child_pid", 0)) <= 0:
+                viols.append(f"CUSTODY_UNVERIFIED_CHILD_REAP_PROOF:seq={seq}")
+            if int(row.get("settlement_generation", 0)) <= 0 or not str(row.get("settlement_audit_hash") or ""):
+                viols.append(f"CUSTODY_MISSING_SETTLEMENT_PROOF:seq={seq}")
+            if ledger_store_root is not None:
+                sgen = int(row.get("settlement_generation", 0))
+                shash = str(row.get("settlement_audit_hash") or "")
+                aid = str(row.get("attempt_id") or "")
+                if ledger_audit_by_gen.get(sgen) != shash:
+                    viols.append(f"CUSTODY_LEDGER_SETTLEMENT_HASH_MISMATCH:seq={seq}:gen={sgen}")
+                if ledger_attempts_state.get(aid) != "COMPLETED":
+                    viols.append(f"CUSTODY_LEDGER_ATTEMPT_NOT_COMPLETED:seq={seq}:aid={aid}:state={ledger_attempts_state.get(aid)}")
 
             rf = store_dir / str(row.get("raw_file") or "")
             nf = store_dir / str(row.get("norm_file") or "")
@@ -722,13 +934,33 @@ def verify_r6_custody_readonly(
                 nb = nf.read_bytes()
                 if _sha256_bytes(rb) != str(row.get("raw_sha256") or ""):
                     viols.append(f"CUSTODY_RAW_BLOB_SHA_MISMATCH:seq={seq}")
+                if len(rb) != int(row.get("raw_bytes_len", -1)):
+                    viols.append(f"CUSTODY_RAW_BLOB_LEN_MISMATCH:seq={seq}")
                 if _sha256_bytes(nb) != str(row.get("norm_sha256") or ""):
                     viols.append(f"CUSTODY_NORM_BLOB_SHA_MISMATCH:seq={seq}")
+                try:
+                    n_arr = json.loads(nb.decode("utf-8"))
+                    if not isinstance(n_arr, list) or len(n_arr) != int(row.get("norm_rows_count", -1)):
+                        viols.append(f"CUSTODY_NORM_ROW_COUNT_MISMATCH:seq={seq}")
+                except Exception:
+                    viols.append(f"CUSTODY_NORM_JSON_CORRUPT:seq={seq}")
                 committed_files.add(rf.name)
                 committed_files.add(nf.name)
 
             tot_bytes += int(row.get("raw_bytes_len", 0))
             tot_rows += int(row.get("norm_rows_count", 0))
+            lineage_entries.append({
+                "seq": seq,
+                "chunk_id": row.get("chunk_id"),
+                "attempt_id": row.get("attempt_id"),
+                "endpoint_id": row.get("endpoint_id"),
+                "provenance_class": row.get("provenance_class"),
+                "raw_sha256": row.get("raw_sha256"),
+                "raw_bytes_len": row.get("raw_bytes_len"),
+                "norm_sha256": row.get("norm_sha256"),
+                "norm_rows_count": row.get("norm_rows_count"),
+                "settlement_generation": row.get("settlement_generation"),
+            })
             prev = calc
 
     # Anchor vs chain rollback/divergence detection
@@ -755,6 +987,7 @@ def verify_r6_custody_readonly(
         "total_normalized_rows": tot_rows,
         "tip_hash": prev,
         "orphan_files_detected": orphan_temps,
+        "lineage_entries": lineage_entries,
         "violations": viols,
     }
 
@@ -1354,8 +1587,8 @@ def build_r6_owner_handover_vi(
         "   - Mọi khóa ký Ed25519 của chủ dự án, trust root, SQLite ledger và dữ liệu thô DEV",
         "     PHẢI lưu cục bộ ngoài Git trên ổ đĩa cố định có phân quyền ACL riêng.",
         "   - Bước 1 (dry-run, 0 socket): python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --dry-run --plan <local-smoke-plan.json>",
-        "   - Bước 2 (chỉ sau khi chủ dự án tự cấp trust root + ký grant riêng cho executable SHA đã đóng băng):",
-        "     python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --grant <local-signed-smoke-grant.json> --owner-config <local-owner-config.json> --release-manifest <local-stageA-manifest.json>",
+        "   - Bước 2 (CHỈ DÀNH CHO R6.B TƯƠNG LAI sau khi chủ dự án tự cấp trust root + ký grant riêng cho executable SHA đã đóng băng):",
+        "     python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --execute-authorized --grant <local-signed-smoke-grant.json> --owner-config <local-owner-config.json> --release-manifest <local-stageA-manifest.json> --release-receipt <local-readback-28.json>",
         "==============================================================================",
     ]
     return "\n".join(lines) + "\n"

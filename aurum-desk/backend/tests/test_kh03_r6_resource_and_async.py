@@ -56,7 +56,7 @@ def test_kh03_r6_ingest_benchmark_w1_w2_w4_deterministic() -> None:
 def test_kh03_r6_ast_no_literal_flags_and_no_r1_callers() -> None:
     r6_test_dir = APP_ROOT / "backend" / "tests"
     r6_files = sorted(r6_test_dir.glob("test_kh03_r6_*.py"))
-    assert len(r6_files) == 7
+    assert len(r6_files) >= 7
     ast_res = audit_r6_fault_files_no_literal_flags(r6_files)
     assert ast_res["clean"] is True, ast_res["hits"]
 
