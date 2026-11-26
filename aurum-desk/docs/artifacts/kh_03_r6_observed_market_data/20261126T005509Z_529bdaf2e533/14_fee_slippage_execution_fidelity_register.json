@@ -1,0 +1,11 @@
+{
+  "orders_placed_count": 0,
+  "owner_fee_status": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+  "public_bbo_proves_execution_slippage": false,
+  "public_fee_rejected_as_owner_effective": true,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "slippage_status": "MISSING_NO_OWNER_FILL_EVIDENCE",
+  "spec_version": "KH-03.R6-v1.0",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b"
+}

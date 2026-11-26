@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="8.628" timestamp="2026-11-26T08:32:01.804753+07:00" hostname="DESKTOP-OEK2FHE"><testcase classname="backend.tests.test_kh03_r6_durable_grants" name="test_kh03_r6_paired_controls_b01_to_b12" time="8.402" /></testsuite></testsuites>

@@ -1,0 +1,13 @@
+{
+  "crossed_tick_ooo_rejected": true,
+  "duplicates_do_not_inflate_coverage": true,
+  "no_carry_across_disconnect_or_missing_snapshot": true,
+  "observed_dev_bbo_events": 0,
+  "observed_vs_state_known_reported_separately": true,
+  "rest_snapshot_rejected_as_streaming_bbo": true,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "spec_version": "KH-03.R6-v1.0",
+  "stale_quote_not_observed_despite_heartbeat": true,
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b"
+}

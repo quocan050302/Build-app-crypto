@@ -1,0 +1,589 @@
+{
+  "capability_matrix": {
+    "capability_matrix_sha256": "9b21d3927e7eefa1a039b7078002a91751759a8c036e75de3445962a60a8ac28",
+    "domains": [
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": false,
+        "doc_status": "DOC_VERIFIED",
+        "domain": "instruments",
+        "endpoint_id": "classic_v2_contracts",
+        "notes": "Classic v2 contract metadata endpoint documented; XAUUSDT exact tick/lot/fundInterval requires Stage B observation.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "https://api.bitget.com/api/v2/mix/market/contracts"
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": false,
+        "doc_status": "DOC_VERIFIED",
+        "domain": "ohlcv_history_m1",
+        "endpoint_id": "classic_v2_history_candles",
+        "notes": "Classic v2 history-candles (max 200/page) documented; exact XAUUSDT history retention depth unproven until Stage B.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "https://api.bitget.com/api/v2/mix/market/history-candles"
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": true,
+        "doc_status": "DOC_VERIFIED",
+        "domain": "bbo_ws_books1",
+        "endpoint_id": "classic_v2_ws_books1",
+        "notes": "Public wss books1 L1 channel documented; event-driven updates (not guaranteed periodic), forward capture only.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "wss://ws.bitget.com/v2/ws/public"
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": false,
+        "doc_status": "DOC_VERIFIED",
+        "domain": "rest_ticker_snapshot",
+        "endpoint_id": "classic_v2_ticker",
+        "notes": "REST ticker is point-in-time snapshot ONLY; NEVER classified as continuous BBO or historical BBO backfill.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "https://api.bitget.com/api/v2/mix/market/ticker"
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": false,
+        "doc_status": "DOC_VERIFIED",
+        "domain": "funding_history",
+        "endpoint_id": "classic_v2_history_fund_rate",
+        "notes": "Classic v2 history-fund-rate documented; exact settlement cadence & availability for XAUUSDT require Stage B observation.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "https://api.bitget.com/api/v2/mix/market/history-fund-rate"
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "continuous_bbo_capable": false,
+        "doc_status": "DOC_CANDIDATE_UNOBSERVED",
+        "domain": "public_server_time",
+        "endpoint_id": "classic_v2_public_time",
+        "notes": "Clock offset candidate endpoint; NEVER called before verified owner grant + durable claim.",
+        "observed_status": "NOT_OBSERVED_STAGE_A_OFFLINE",
+        "url": "https://api.bitget.com/api/v2/public/time"
+      },
+      {
+        "api_family": null,
+        "continuous_bbo_capable": false,
+        "doc_status": "NOT_AVAILABLE_PUBLIC_DOCS",
+        "domain": "owner_account_effective_fee",
+        "endpoint_id": null,
+        "notes": "Public API documentation never proves owner's account-specific effective maker/taker fee tier.",
+        "observed_status": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+        "url": null
+      },
+      {
+        "api_family": null,
+        "continuous_bbo_capable": false,
+        "doc_status": "NOT_AVAILABLE_PUBLIC_DOCS",
+        "domain": "owner_execution_slippage_and_fills",
+        "endpoint_id": null,
+        "notes": "Public BBO/quotes never reveal real execution slippage or fill mix; placing orders (incl. paper) is forbidden in R6.",
+        "observed_status": "MISSING_NO_OWNER_FILL_EVIDENCE",
+        "url": null
+      }
+    ],
+    "public_docs_prove_owner_fee_or_fills": false,
+    "registry_digest": "17bc8472dad096274d63adf81c46084bbfea6704531bc4123c48c1da2f82883f",
+    "rest_quote_snapshot_can_be_continuous_bbo": false,
+    "schema_version": "kh_03_r6_v1",
+    "selected_api_family": "BITGET_CLASSIC_V2",
+    "spec_version": "KH-03.R6-v1.0"
+  },
+  "doc_verified_endpoints_count": 7,
+  "mixed_v2_v3_rejected": true,
+  "observed_contract_verified_endpoints_count": 0,
+  "official_docs_retrieved_count": 8,
+  "private_or_redirect_rejected": true,
+  "registry": {
+    "alternate_api_families_documented": [
+      "BITGET_UTA_V3"
+    ],
+    "api_family_selection_reason": "Existing AURUM DESK XAUUSDT adapters (bitget_data.py, bitget_ws_service.py, kh_02_r2_c2_public_capture.py) use Bitget Classic v2 USDT-FUTURES. R6 locks BITGET_CLASSIC_V2 exclusively and forbids mixing v2 and UTA v3 schemas.",
+    "blocking_reasons": [],
+    "doc_evidence": [
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "content_bytes": 1000870,
+        "content_sha256": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "doc_id": "bitget_classic_contract_market",
+        "final_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "verified_markers": [
+          "/api/v2/mix/market/contracts",
+          "/api/v2/mix/market/candles",
+          "/api/v2/mix/market/history-candles",
+          "/api/v2/mix/market/history-fund-rate",
+          "/api/v2/mix/market/ticker",
+          "USDT-FUTURES"
+        ]
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "content_bytes": 115067,
+        "content_sha256": "0f86585d9271788a151d08378f789644e86ccf26e92abe6533e5190a55621a46",
+        "doc_id": "bitget_classic_rest_api",
+        "final_url": "https://www.bitget.com/docs/classic/rest-api",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:06Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/docs/classic/rest-api",
+        "verified_markers": [
+          "wss://ws.bitget.com/v2/ws/public",
+          "productType"
+        ]
+      },
+      {
+        "api_family": "BITGET_UTA_V3",
+        "content_bytes": 351909,
+        "content_sha256": "6535ed4c9d1996885b6a09b3b36f72f199dedb46c68bd3291ec0f982d22ea2f2",
+        "doc_id": "bitget_uta_derivatives_reference",
+        "final_url": "https://www.bitget.com/docs/catalog/market/derivatives",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:04Z",
+        "status": "DOC_VERIFIED_ALTERNATE_FAMILY_NOT_SELECTED",
+        "url": "https://www.bitget.com/docs/catalog/market/derivatives",
+        "verified_markers": [
+          "/api/v3/market/instruments",
+          "/api/v3/market/history-candles",
+          "/api/v3/market/history-fund-rate",
+          "USDT-FUTURES"
+        ]
+      },
+      {
+        "api_family": "BITGET_UTA_V3",
+        "content_bytes": 645733,
+        "content_sha256": "5b8752049aefdc39f76dbb20b23024413ba049d926465d3e1367e1c3fd1871fb",
+        "doc_id": "bitget_uta_market_data_reference",
+        "final_url": "https://www.bitget.com/docs/catalog/market/market-data",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:04Z",
+        "status": "DOC_VERIFIED_ALTERNATE_FAMILY_NOT_SELECTED",
+        "url": "https://www.bitget.com/docs/catalog/market/market-data",
+        "verified_markers": [
+          "/api/v3/market/instruments",
+          "/api/v3/market/history-candles",
+          "/api/v3/market/history-fund-rate"
+        ]
+      },
+      {
+        "api_family": "BITGET_UTA_V3",
+        "content_bytes": 143502,
+        "content_sha256": "12028cf3af7148134a92ba1e4674f0581cda16c307269e971a6a3eb8c70fd995",
+        "doc_id": "bitget_uta_best_practices",
+        "final_url": "https://www.bitget.com/docs/uta/best-practices-guide",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:04Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/docs/uta/best-practices-guide",
+        "verified_markers": [
+          "books1",
+          "/api/v3/market/instruments"
+        ]
+      },
+      {
+        "api_family": "BITGET_CLASSIC_V2",
+        "content_bytes": 46962,
+        "content_sha256": "43225d85e409f397eef63f623b13dad2cf7dda324a8b3283a2233999284a9771",
+        "doc_id": "bitget_ws_orderbook_channel",
+        "final_url": "https://www.bitget.com/legacy-docs/uta/websocket/public/Order-Book-Channel",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:05Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/legacy-docs/uta/websocket/public/Order-Book-Channel",
+        "verified_markers": [
+          "books1"
+        ]
+      },
+      {
+        "api_family": "BITGET_UTA_V3",
+        "content_bytes": 68057,
+        "content_sha256": "cc2cdf00a7839f9769eb49bd29754b7b3785cc07af72d10d62c9f416554ef95c",
+        "doc_id": "bitget_ws_tickers_channel",
+        "final_url": "https://www.bitget.com/docs/uta/websocket/public/Tickers-Channel",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:05Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/docs/uta/websocket/public/Tickers-Channel",
+        "verified_markers": []
+      },
+      {
+        "api_family": "BITGET_UTA_V3",
+        "content_bytes": 101307,
+        "content_sha256": "6aa858c0dd103126c92b723fa8909fb559304f5a361baf5ef21842391600f461",
+        "doc_id": "bitget_uta_rest_api",
+        "final_url": "https://www.bitget.com/docs/uta/rest-api",
+        "http_status": 200,
+        "retrieval_utc": "2026-11-25T08:01:06Z",
+        "status": "DOC_VERIFIED",
+        "url": "https://www.bitget.com/docs/uta/rest-api",
+        "verified_markers": [
+          "wss://ws.bitget.com/v2/ws/public"
+        ]
+      }
+    ],
+    "doc_verified_endpoints_count": 7,
+    "endpoints": {
+      "classic_v2_candles": {
+        "allowed_granularities": [
+          "1m",
+          "5m",
+          "15m",
+          "1H",
+          "4H",
+          "1D"
+        ],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_candles",
+        "evidence_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "funding_schedule_semantics": "not applicable",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 1048576,
+        "max_items_per_page": 200,
+        "max_response_bytes": 524288,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [
+          "startTime",
+          "endTime",
+          "limit",
+          "kLineType"
+        ],
+        "path": "/api/v2/mix/market/candles",
+        "port": 443,
+        "required_params": [
+          "symbol",
+          "productType",
+          "granularity"
+        ],
+        "retention_policy_notes": "Recent rolling K-line window (default 100, max 200 per request); retention varies by granularity.",
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "scheme": "https",
+        "sequence_semantics": "ordered by open timestamp UTC ms",
+        "timestamp_semantics": "row[0] open timestamp UTC integer ms; closed iff server_time_ms >= open_ms + bar_ms",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_contracts": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_contracts",
+        "evidence_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "funding_schedule_semantics": "fundInterval field in contract metadata if returned by exchange (never hardcoded 8h)",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 1048576,
+        "max_items_per_page": 500,
+        "max_response_bytes": 524288,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [
+          "symbol"
+        ],
+        "path": "/api/v2/mix/market/contracts",
+        "port": 443,
+        "required_params": [
+          "productType"
+        ],
+        "retention_policy_notes": "Current active contract specification snapshot only; version snapshots when rules change.",
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "scheme": "https",
+        "sequence_semantics": "stateless snapshot (no sequence)",
+        "timestamp_semantics": "requestTime UTC integer ms on envelope",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_history_candles": {
+        "allowed_granularities": [
+          "1m",
+          "5m",
+          "15m",
+          "1H",
+          "4H",
+          "1D"
+        ],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_history_candles",
+        "evidence_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "funding_schedule_semantics": "not applicable",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 1048576,
+        "max_items_per_page": 200,
+        "max_response_bytes": 524288,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [
+          "startTime",
+          "endTime",
+          "limit"
+        ],
+        "path": "/api/v2/mix/market/history-candles",
+        "port": 443,
+        "required_params": [
+          "symbol",
+          "productType",
+          "granularity"
+        ],
+        "retention_policy_notes": "Historical K-lines max 200 items/request; exact XAUUSDT depth requires Stage B observation.",
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "scheme": "https",
+        "sequence_semantics": "ordered by open timestamp UTC ms; deduplicate overlaps, quarantine conflicts",
+        "timestamp_semantics": "row[0] open timestamp UTC integer ms; endTime must align to half-open [start,end)",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_history_fund_rate": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_history_fund_rate",
+        "evidence_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "funding_schedule_semantics": "verify settlement spacing from observed contract fundInterval; never assume 8h or zero-fill missing",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 524288,
+        "max_items_per_page": 100,
+        "max_response_bytes": 262144,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [
+          "pageSize",
+          "pageNo"
+        ],
+        "path": "/api/v2/mix/market/history-fund-rate",
+        "port": 443,
+        "required_params": [
+          "symbol",
+          "productType"
+        ],
+        "retention_policy_notes": "Historical realized funding rate settlements; recent history bounded by venue retention.",
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "scheme": "https",
+        "sequence_semantics": "paginated by pageNo/pageSize; guard cursor replay and overlapping settlements",
+        "timestamp_semantics": "fundingTime UTC integer ms of realized settlement",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_public_time": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 1.0,
+        "content_digest": "0f86585d9271788a151d08378f789644e86ccf26e92abe6533e5190a55621a46",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_CANDIDATE_UNOBSERVED",
+        "endpoint_id": "classic_v2_public_time",
+        "evidence_url": "https://www.bitget.com/docs/classic/rest-api",
+        "funding_schedule_semantics": "not applicable",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 32768,
+        "max_items_per_page": 1,
+        "max_response_bytes": 16384,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [],
+        "path": "/api/v2/public/time",
+        "port": 443,
+        "required_params": [],
+        "retention_policy_notes": "Server clock offset diagnostic only; never called before verified owner grant+claim.",
+        "retrieval_utc": "2026-11-25T08:01:06Z",
+        "scheme": "https",
+        "sequence_semantics": "stateless",
+        "timestamp_semantics": "serverTime UTC integer ms",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_ticker": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "3feb6a4b45f29fe8c365f480dd5cb9fab5cb1c899c4dcaed1960f4d9365cce9a",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 20,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_ticker",
+        "evidence_url": "https://www.bitget.com/docs/catalog/classic-contract-market/classic-contract-market",
+        "funding_schedule_semantics": "fundingRate field is indicative/current, NOT realized historical settlement",
+        "host": "api.bitget.com",
+        "max_decoded_bytes": 262144,
+        "max_items_per_page": 1,
+        "max_response_bytes": 131072,
+        "method_or_op": "GET",
+        "observed_contract_verified": false,
+        "optional_params": [],
+        "path": "/api/v2/mix/market/ticker",
+        "port": 443,
+        "required_params": [
+          "symbol",
+          "productType"
+        ],
+        "retention_policy_notes": "Point-in-time prospective REST quote snapshot only; NEVER continuous BBO stream or historical backfill.",
+        "retrieval_utc": "2026-11-25T08:01:02Z",
+        "scheme": "https",
+        "sequence_semantics": "stateless snapshot only",
+        "timestamp_semantics": "ts UTC integer ms on item + requestTime on envelope",
+        "transport_kind": "REST_GET",
+        "venue": "BITGET",
+        "ws_channel": null
+      },
+      "classic_v2_ws_books1": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "43225d85e409f397eef63f623b13dad2cf7dda324a8b3283a2233999284a9771",
+        "continuous_bbo_capable": true,
+        "doc_rate_limit_rps": 10,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_ws_books1",
+        "evidence_url": "https://www.bitget.com/legacy-docs/uta/websocket/public/Order-Book-Channel",
+        "funding_schedule_semantics": "not applicable",
+        "host": "ws.bitget.com",
+        "max_decoded_bytes": 131072,
+        "max_items_per_page": 1,
+        "max_response_bytes": 65536,
+        "method_or_op": "subscribe",
+        "observed_contract_verified": false,
+        "optional_params": [],
+        "path": "/v2/ws/public",
+        "port": 443,
+        "required_params": [
+          "instType",
+          "channel",
+          "instId"
+        ],
+        "retention_policy_notes": "Prospective forward-only L1 BBO stream; event-driven updates (not guaranteed periodic).",
+        "retrieval_utc": "2026-11-25T08:01:05Z",
+        "scheme": "wss",
+        "sequence_semantics": "event-driven snapshot/push per connection epoch; seq optional, never invent contiguous sequence",
+        "timestamp_semantics": "data[].ts exchange UTC integer ms + parent local receipt UTC & monotonic timestamps",
+        "transport_kind": "WS_PUBLIC",
+        "venue": "BITGET",
+        "ws_channel": "books1"
+      },
+      "classic_v2_ws_ticker": {
+        "allowed_granularities": [],
+        "allowed_product_types": [
+          "USDT-FUTURES"
+        ],
+        "allowed_symbols": [
+          "XAUUSDT"
+        ],
+        "api_family": "BITGET_CLASSIC_V2",
+        "conservative_r6_rate_limit_rps": 2.0,
+        "content_digest": "0f86585d9271788a151d08378f789644e86ccf26e92abe6533e5190a55621a46",
+        "continuous_bbo_capable": false,
+        "doc_rate_limit_rps": 10,
+        "doc_status": "DOC_VERIFIED",
+        "endpoint_id": "classic_v2_ws_ticker",
+        "evidence_url": "https://www.bitget.com/docs/classic/rest-api",
+        "funding_schedule_semantics": "indicative fundingRate only, NOT realized historical settlement",
+        "host": "ws.bitget.com",
+        "max_decoded_bytes": 131072,
+        "max_items_per_page": 1,
+        "max_response_bytes": 65536,
+        "method_or_op": "subscribe",
+        "observed_contract_verified": false,
+        "optional_params": [],
+        "path": "/v2/ws/public",
+        "port": 443,
+        "required_params": [
+          "instType",
+          "channel",
+          "instId"
+        ],
+        "retention_policy_notes": "Prospective forward-only public ticker push; auxiliary to books1.",
+        "retrieval_utc": "2026-11-25T08:01:06Z",
+        "scheme": "wss",
+        "sequence_semantics": "event-driven push per connection epoch",
+        "timestamp_semantics": "data[].ts exchange UTC integer ms + local receipt UTC & monotonic",
+        "transport_kind": "WS_PUBLIC",
+        "venue": "BITGET",
+        "ws_channel": "ticker"
+      }
+    },
+    "observed_market_endpoints_verified_count": 0,
+    "registry_digest": "17bc8472dad096274d63adf81c46084bbfea6704531bc4123c48c1da2f82883f",
+    "registry_version": "kh_03_r6_bitget_classic_v2_registry_v1",
+    "schema_version": "kh_03_r6_v1",
+    "selected_api_family": "BITGET_CLASSIC_V2",
+    "spec_version": "KH-03.R6-v1.0",
+    "status": "DOC_VERIFIED_READY_FOR_STAGE_B_REVIEW",
+    "venue": "BITGET"
+  },
+  "registry_digest": "17bc8472dad096274d63adf81c46084bbfea6704531bc4123c48c1da2f82883f",
+  "registry_status": "DOC_VERIFIED_READY_FOR_STAGE_B_REVIEW",
+  "rest_quote_snapshot_can_be_continuous_bbo": false,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "selected_api_family": "BITGET_CLASSIC_V2",
+  "spec_version": "KH-03.R6-v1.0",
+  "substitute_symbol_rejected": true,
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b"
+}

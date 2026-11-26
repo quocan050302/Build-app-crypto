@@ -1,0 +1,14 @@
+{
+  "anchor_rollback_detected": true,
+  "observed_dev_persisted_chunks": 0,
+  "qa_custody_chain_verified": true,
+  "qa_promotion_to_dev_denied": true,
+  "raw_payloads_committed_to_git": false,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "spec_version": "KH-03.R6-v1.0",
+  "symlink_junction_oos_denied_before_open": true,
+  "tamper_and_duplicate_receipt_rejected": true,
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "unrelated_files_preserved_on_cleanup": true
+}

@@ -1,0 +1,11 @@
+{
+  "conflicting_settlement_quarantined": true,
+  "documented_settlements_validated": true,
+  "missing_settlements_not_zero_filled": true,
+  "observed_dev_funding_settlements": 0,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "spec_version": "KH-03.R6-v1.0",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "unknown_interval_blocked_no_8h_default": true
+}

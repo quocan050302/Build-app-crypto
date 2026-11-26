@@ -1,0 +1,67 @@
+{
+  "exact_local_cli_commands": {
+    "authorized_command": "python aurum-desk/tools/run_kh_03_r6_capture.py --stage dev --grant <local-signed-grant.json> --owner-config <local-owner-config.json> --release-manifest <local-stageA-manifest.json>",
+    "dry_run_command": "python aurum-desk/tools/run_kh_03_r6_capture.py --stage dev --dry-run --plan <local-plan.json>"
+  },
+  "proposed_grant_payload_template": {
+    "allowed_endpoints": [
+      "classic_v2_contracts",
+      "classic_v2_history_candles",
+      "classic_v2_history_fund_rate",
+      "classic_v2_ws_books1"
+    ],
+    "allowed_ws_channels": [
+      "books1"
+    ],
+    "api_family": "BITGET_CLASSIC_V2",
+    "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+    "caps": {
+      "connections": 4,
+      "decoded_bytes": 104857600,
+      "disk_bytes": 268435456,
+      "messages": 200000,
+      "pages": 250,
+      "payload_bytes": 52428800,
+      "records": 500000,
+      "requests": 500,
+      "retries": 20,
+      "subscriptions": 4
+    },
+    "destination_root": "<LOCAL_FIXED_DRIVE_PATH_OUTSIDE_GIT>",
+    "destination_store_id": "<OWNER_PROVISIONED_LOCAL_STORE_ID>",
+    "expires_utc_ms": "<OWNER_SETS_FINITE_EXPIRY_UTC_MS>",
+    "grant_id": "<OWNER_SETS_UNIQUE_ONE_SHOT_GRANT_ID>",
+    "issued_utc_ms": "<OWNER_SETS_INTEGER_UTC_MS>",
+    "issuer": "<OWNER_ISSUER_ID_MATCHING_TRUST_ROOT>",
+    "max_concurrency": 2,
+    "max_session_duration_sec": 3600,
+    "product_type": "USDT-FUTURES",
+    "purpose": "DEV_ONLY",
+    "release_manifest_sha256": "<OWNER_PINS_SEALED_26_MANIFEST_SHA256>",
+    "repo": "quocan050302/Build-app-crypto",
+    "retention_policy": {
+      "git_commit_raw_payloads": false,
+      "max_retention_days": 90
+    },
+    "stage": "C_DEV",
+    "symbol": "XAUUSDT",
+    "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+    "trust_namespace": "OWNER_EXTERNAL_PRODUCTION_TRUST",
+    "venue": "BITGET",
+    "window_end_ms": "<OWNER_SETS_DEV_WINDOW_END_UTC_MS>",
+    "window_start_ms": "<OWNER_SETS_DEV_WINDOW_START_UTC_MS>"
+  },
+  "required_prerequisites": [
+    "Independently verify Stage A run 20261126T005509Z_529bdaf2e533 on frozen executable SHA 529bdaf2e533d3616b1a8e0842c048da3b81126b.",
+    "Provision local Owner Ed25519 Trust Root JSON outside Git on fixed volume with restricted ACL.",
+    "Explicitly provision local durable SQLite ledger + external anchor outside Git (never auto-created).",
+    "Fill exact UTC window [window_start_ms, window_end_ms), expiry, local destination_root and store_id.",
+    "Sign grant_payload offline using Ed25519 private key (private key NEVER enters repo, CLI, logs, or chat)."
+  ],
+  "source_registry_digest": "17bc8472dad096274d63adf81c46084bbfea6704531bc4123c48c1da2f82883f",
+  "stage": "C_DEV",
+  "template_status": "UNSIGNED_OWNER_REVIEW_TEMPLATE",
+  "unsigned_template": true,
+  "valid_authorization": false,
+  "warning_vi": "DAY LA MAU PHE DUYET CHUA KY \u2014 KHONG CO HIEU LUC MO SOCKET. Chu du an phai tu kiem tra, dien duong dan local ngoai Git, va ky offline bang khoa Ed25519 rieng."
+}

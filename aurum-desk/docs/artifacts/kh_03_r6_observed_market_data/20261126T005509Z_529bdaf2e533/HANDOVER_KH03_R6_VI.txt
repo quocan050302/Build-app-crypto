@@ -1,0 +1,36 @@
+==============================================================================
+AURUM DESK — KH-03.R6 | BÁO CÁO BÀN GIAO CHỦ DỰ ÁN (STAGE A OFFLINE)
+==============================================================================
+Spec: KH-03.R6-v1.0 | Run ID: 20261126T005509Z_529bdaf2e533
+Branch: feature/v17-9-2-structural-sl-tp-from-qa
+Base Reviewed HEAD (C2): fd0df117ca38f0ac72312d27265dcdabaa5a0dba
+Tested Executable SHA:   529bdaf2e533d3616b1a8e0842c048da3b81126b
+Overall Classification:  FAIL_OR_BLOCKED_KH03_R6_REQUIRED_GATES
+
+1. PHÂN TÁCH GATE THEO GIAI ĐOẠN (KHÔNG BAO GIỜ BÁO 36/36 PASS KHI CHƯA CAPTURE)
+   - Stage A (bắt buộc offline): 30/31 core gates PASS (+ G36=PENDING_REMOTE_READBACK)
+   - Stage B/C (capture ngoài):  0/4 executed — G31=BLOCKED_OWNER_AUTHORIZATION, G32=NOT_RUN_BLOCKED_OWNER_AUTHORIZATION, G33=NOT_RUN_BLOCKED_OWNER_AUTHORIZATION, G34=NOT_RUN_BLOCKED_OWNER_AUTHORIZATION
+
+2. TRẠNG THÁI AN TOÀN & KHÔNG KÍCH HOẠT GIAO DỊCH
+   - PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO
+   - ECONOMIC=NO_PROVEN_EDGE | FRESH_OOS=BLOCKED_NO_UNTOUCHED_DATA | KH04_ENTRY=BLOCKED_NO_DEV_CANDIDATE | OOS_EVALUATIONS=0
+   - EXTERNAL_MARKET_REQUESTS_ATTEMPTED=0 | ACCEPTED_REAL_OBSERVED_RECORDS=0
+   - ACCOUNT_FEE=UNKNOWN_NOT_LOCALLY_VERIFIED | SLIPPAGE=MISSING_NO_OWNER_FILL_EVIDENCE | EXECUTION_FIDELITY=INCOMPLETE_NO_OWNER_EXECUTION_FILLS
+
+3. TÓM TẮT KIỂM ĐỊNH KỸ THUẬT STAGE A
+   - Source Docs: Bitget Classic v2 (DOC_VERIFIED_CLASSIC_V2_ONLY), chưa quan sát thực tế (NOT_OBSERVED_STAGE_A_OFFLINE)
+   - Durable Ledger: SQLite BEGIN IMMEDIATE + synchronous=FULL + external anchor (PASS_LOCAL_QA_TEST_ONLY; Owner trust: BLOCKED_NOT_PROVISIONED_BY_OWNER)
+   - Owned Transport: Subprocess + Windows Job Object / POSIX PGID reap (PASS_LOOPBACK_OS_REAP_VERIFIED; External: NOT_RUN_BLOCKED_OWNER_AUTHORIZATION)
+   - Full Pytest: 5956/5964 passed, 8 skipped (0 mandatory skip, 0 fail)
+   - Paired Controls: 56 mới (R6) + 91 C1/C2 + 288 inherited regression
+   - Verifier Mutations: 32/32 mới (R6) + 135/135 inherited
+   - Parity & R4 Replay: A1=56,710/0, SI8=6,375/0, Adapters=246/0, D4=0; R4 1x 203 closed (7W/196L), net -441.6118 USD, -0.8806R, 139 loss tails >2.50 USD
+
+4. HƯỚNG DẪN CHỦ DỰ ÁN NẾU MUỐN CHẠY STAGE B / C SAU NÀY (KHÔNG CHẠY TỰ ĐỘNG)
+   - Mẫu phê duyệt chưa ký (Unsigned Owner Review Template): aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/unsigned_owner_review_template_stage_b_smoke.json
+   - Mọi khóa ký Ed25519 của chủ dự án, trust root, SQLite ledger và dữ liệu thô DEV
+     PHẢI lưu cục bộ ngoài Git trên ổ đĩa cố định có phân quyền ACL riêng.
+   - Bước 1 (dry-run, 0 socket): python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --dry-run --plan <local-smoke-plan.json>
+   - Bước 2 (chỉ sau khi chủ dự án tự cấp trust root + ký grant riêng cho executable SHA đã đóng băng):
+     python aurum-desk/tools/run_kh_03_r6_capture.py --stage smoke --grant <local-signed-smoke-grant.json> --owner-config <local-owner-config.json> --release-manifest <local-stageA-manifest.json>
+==============================================================================

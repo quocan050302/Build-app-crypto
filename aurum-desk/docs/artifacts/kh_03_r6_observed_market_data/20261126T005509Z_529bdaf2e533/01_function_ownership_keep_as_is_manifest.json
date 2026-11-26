@@ -1,0 +1,256 @@
+{
+  "baseline_reviewed_head_sha": "fd0df117ca38f0ac72312d27265dcdabaa5a0dba",
+  "c2_live_hard_block_intact": true,
+  "changed_files_since_c2": [
+    "aurum-desk/backend/services/kh_03_r6_acceptance_service.py",
+    "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py",
+    "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py",
+    "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py",
+    "aurum-desk/backend/services/kh_03_r6_market_data_service.py",
+    "aurum-desk/backend/services/kh_03_r6_source_contract_service.py",
+    "aurum-desk/backend/tests/test_kh03_r6_custody_and_readiness.py",
+    "aurum-desk/backend/tests/test_kh03_r6_durable_grants.py",
+    "aurum-desk/backend/tests/test_kh03_r6_fault_truth_and_mutations.py",
+    "aurum-desk/backend/tests/test_kh03_r6_market_data_integrity.py",
+    "aurum-desk/backend/tests/test_kh03_r6_resource_and_async.py",
+    "aurum-desk/backend/tests/test_kh03_r6_source_contracts.py",
+    "aurum-desk/backend/tests/test_kh03_r6_transport_lifecycle.py",
+    "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/README.md",
+    "aurum-desk/docs/kh_03_r6/README.md",
+    "aurum-desk/docs/kh_03_r6/SPEC_KH_03_R6_v1.0.md",
+    "aurum-desk/tools/kh_03_r6_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r6_acceptance.py",
+    "aurum-desk/tools/run_kh_03_r6_capture.py"
+  ],
+  "forbidden_order_imports": [],
+  "forbidden_order_imports_count": 0,
+  "legacy_r1_unauthorized_callers_count": 0,
+  "locked_files_checked_count": 55,
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "production_cost_defaults_intact": true,
+  "r6_function_ownership_matrix": [
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_source_contract_service.py",
+      "functions": [
+        "build_r6_source_contract_registry",
+        "validate_r6_endpoint_contract",
+        "validate_r6_instrument_identity",
+        "build_r6_source_capability_matrix"
+      ],
+      "module": "M1",
+      "reason": "Bitget Classic v2 official docs-verified contract registry, non-mixing v2/v3 validator, strict Decimal instrument identity & capability matrix."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py",
+      "functions": [
+        "load_r6_owner_trust_root",
+        "verify_r6_owner_grant",
+        "canonical_r6_grant_identity",
+        "provision_r6_durable_ledger",
+        "open_r6_durable_ledger",
+        "R6DurableGrantLedger",
+        "verify_r6_ledger_readonly"
+      ],
+      "module": "M2",
+      "reason": "Cross-process/restart durable SQLite + external anchor one-shot owner authorization ledger using Ed25519 (cryptography) with fail-closed crash/rollback recovery."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py",
+      "functions": [
+        "build_r6_bound_capture_plan",
+        "start_r6_owned_transport_worker",
+        "execute_r6_bounded_rest_get",
+        "execute_r6_bounded_ws_session",
+        "supervise_r6_session",
+        "cancel_and_reap_r6_transport",
+        "validate_r6_resource_guard",
+        "R6BoundedQueueWriter"
+      ],
+      "module": "M3",
+      "reason": "Separate R6 owned-subprocess transport with Windows Job Object / POSIX PGID process-tree kill & OS reap proof, streaming bounded REST/WS clients, and multi-volume resource guard."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_market_data_service.py",
+      "functions": [
+        "paginate_r6_ohlcv_history",
+        "normalize_r6_bbo_event",
+        "validate_r6_bbo_epoch",
+        "build_r6_bbo_coverage_report",
+        "acquire_r6_funding_history",
+        "validate_r6_funding_settlements",
+        "validate_r6_owner_fee_evidence",
+        "build_r6_slippage_registry",
+        "build_r6_market_data_gap_ledger"
+      ],
+      "module": "M4",
+      "reason": "Strict Decimal/UTC-ms OHLCV pagination/quarantine, BBO event vs state-known coverage, funding completeness without zero-fill, owner fee/slippage honesty, and gap ledger."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py",
+      "functions": [
+        "assign_r6_dev_partition_before_io",
+        "enforce_r6_destination_guard",
+        "mint_r6_raw_provenance_receipt",
+        "R6CustodyJournal",
+        "verify_r6_custody_readonly",
+        "seal_r6_dev_dataset_manifest",
+        "derive_r6_readiness_verdicts",
+        "build_r6_owner_handover_vi"
+      ],
+      "module": "M5",
+      "reason": "DEV_ONLY/QA_FIXTURE partition & symlink/junction/OOS deny-before-open guard, R6 provenance, chunked append-only custody + anchor, sealed DEV manifest, and 36-gate stage-scoped verdicts."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/backend/services/kh_03_r6_acceptance_service.py",
+      "functions": [
+        "execute_r6_fault_pair",
+        "validate_r6_fault_pair",
+        "derive_r6_fault_verdict",
+        "build_r6_unsigned_owner_review_template",
+        "run_r6_fixture_ingest_w1_w2_w4_benchmark"
+      ],
+      "module": "M6",
+      "reason": "Paired fault truth receipts, unsigned owner review template generator, and deterministic W1/W2/W4/W1-repeat R6 fixture ingest benchmark."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/tools/run_kh_03_r6_acceptance.py",
+      "functions": [
+        "main"
+      ],
+      "module": "T1",
+      "reason": "Offline Stage A acceptance orchestrator (0 external market sockets, full regression/parity/replay/benchmarks/56+ pairs/30+ verifier mutations)."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/tools/run_kh_03_r6_capture.py",
+      "functions": [
+        "main"
+      ],
+      "module": "T2",
+      "reason": "Explicit owner-authorized Stage B/C acquisition CLI (defaults to --dry-run, zero trading/private endpoints, requires genuine local Ed25519 grant + ledger + frozen release)."
+    },
+    {
+      "change_type": "NEW_R6_ADDITIVE",
+      "file": "aurum-desk/tools/kh_03_r6_independent_verifier.py",
+      "functions": [
+        "verify_kh_03_r6_run_dir"
+      ],
+      "module": "T3",
+      "reason": "Distinct OS process read-only disk verifier auditing all 00..27 artifacts & raw logs/JUnit and sealing 26_independent_OS_verifier_manifest_sha256.json."
+    }
+  ],
+  "r6_source_files_inventory": [
+    {
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/kh_03_r6/README.md",
+      "sha256": "739268431c1ea7d36fe7ab3b8a8683d12e976233c4ac80963f661dae216f9442"
+    },
+    {
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/kh_03_r6/SPEC_KH_03_R6_v1.0.md",
+      "sha256": "f229ed7020864848da8d898b462111edf50a690ef686c3edf3798afb80687661"
+    },
+    {
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/README.md",
+      "sha256": "7efb8d3c6af5610b9a11d9ed1ae760b4ddb4ba1e15fb63c7462dd411ad25c024"
+    },
+    {
+      "functions_count": 11,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_source_contract_service.py",
+      "sha256": "b9c433c419cb77d0251f24b930d4ddf82d153def4662fa420bbade0aae219f78"
+    },
+    {
+      "functions_count": 43,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py",
+      "sha256": "c570965494cb3455ba85f0ac870665bbc4482c1219d6cde5bbe0e4402e506f93"
+    },
+    {
+      "functions_count": 28,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py",
+      "sha256": "635c517dffc55b1b67a27f4d9eb5889ee995ea080a0c621565be813e3bdfbd20"
+    },
+    {
+      "functions_count": 13,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_market_data_service.py",
+      "sha256": "f14afeb204c3443c29d835559363f9cb80244a508b55d9d70be80065fa8b0c6a"
+    },
+    {
+      "functions_count": 15,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py",
+      "sha256": "b60782dd179c4ea3f23185f65ee0719f5cdb5b8144105f0ead4b8e0c5c0e8f7e"
+    },
+    {
+      "functions_count": 34,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_acceptance_service.py",
+      "sha256": "a1746cecde6f9cb984baa4f8f2af462cdf2d13c9deed1e9ea7d83d2261cbe561"
+    },
+    {
+      "functions_count": 10,
+      "rel_path": "aurum-desk/tools/run_kh_03_r6_acceptance.py",
+      "sha256": "35b1cb32c9c94c55ec10c58506d0ceead8f92d8b5aaf5b92426231d56f12fb4c"
+    },
+    {
+      "functions_count": 3,
+      "rel_path": "aurum-desk/tools/run_kh_03_r6_capture.py",
+      "sha256": "cb272f227898fcc7dd0e33c4510f7a46fcbc3d105fba4e247ce9c48939fb124b"
+    },
+    {
+      "functions_count": 16,
+      "rel_path": "aurum-desk/tools/kh_03_r6_independent_verifier.py",
+      "sha256": "a8984fb619033bcba6adcddddaa3df5550561358ae68afbcce6c451653b39bb5"
+    },
+    {
+      "functions_count": 21,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_source_contracts.py",
+      "sha256": "3d1adc1261d34b67dc39f83f81f97e8dc6481bf5322d12eb77676c7e7dc8ead7"
+    },
+    {
+      "functions_count": 6,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_durable_grants.py",
+      "sha256": "dc36cd2d6201324bc2f82d2119f4181d1515f247e96448613e640f79f8fd9b45"
+    },
+    {
+      "functions_count": 15,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_transport_lifecycle.py",
+      "sha256": "eadca7abb61c63968ed6413be08307d54695c1e4c159bd00a2cbea1e7ee8a47c"
+    },
+    {
+      "functions_count": 4,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_market_data_integrity.py",
+      "sha256": "23efae7ba0dc47c4b88c9cbd25603fca7e138ab1a18b6f968750dacd2a58384f"
+    },
+    {
+      "functions_count": 5,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_custody_and_readiness.py",
+      "sha256": "7f5cdf6263237728e9a3a1df55c17dc6d463031f87a670e60e574a0c42983421"
+    },
+    {
+      "functions_count": 44,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_fault_truth_and_mutations.py",
+      "sha256": "5c3ddfd21acdb0de75460744e9267e0febb439359c38b4c2aadfd9bf8db9be54"
+    },
+    {
+      "functions_count": 3,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_resource_and_async.py",
+      "sha256": "67348c6d120708816ff5bd213e40e1cde05d80721147fd2472933fa805605579"
+    }
+  ],
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "secrets_detected": [],
+  "secrets_detected_count": 0,
+  "spec_version": "KH-03.R6-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "unauthorized_changed_files": [],
+  "unauthorized_changed_files_count": 0
+}

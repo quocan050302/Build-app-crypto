@@ -1,0 +1,243 @@
+{
+  "clean_clone_verifier_green": true,
+  "inherited_mutations_detected_count": 135,
+  "inherited_mutations_failed_detection_count": 0,
+  "inherited_mutations_tested_count": 135,
+  "isolated_temp_clones_only": true,
+  "new_r6_mutations_detected_count": 32,
+  "new_r6_mutations_failed_detection_count": 0,
+  "new_r6_mutations_tested_count": 32,
+  "new_r6_results": [
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_SOURCE_CONTRACT_03_INVALID",
+      "mutation_id": "R6-M01_wrong_api_family",
+      "output_sha256": "76efdc607d3a4b9ad941a621457979bf618f69733d11932070bcc30f4bf3521a",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_SOURCE_CONTRACT_03_INVALID",
+      "mutation_id": "R6-M02_rest_snapshot_as_bbo",
+      "output_sha256": "424ef19255adba40501d618037afe2e452ff5fd829cbb0aed34bc5254ead5250",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_OWNER_TRUST_04_INVALID",
+      "mutation_id": "R6-M03_embedded_owner_key",
+      "output_sha256": "b5c321317349a5c28405092a8378faf14788378213ba950485bd1350cf5c36a5",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_OWNER_TRUST_04_INVALID",
+      "mutation_id": "R6-M04_qa_can_authorize_ext",
+      "output_sha256": "1b0df7c96e891ff56f501a702fa97dc20f2cff2cdcefb4dd53c67caa17491bb3",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_DURABLE_CLAIM_05_INVALID",
+      "mutation_id": "R6-M05_cross_proc_2_winners",
+      "output_sha256": "45f24b3f706cc24f09b8327dd972b00e0360d7dd67a10ba7843dcb9281956599",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_DURABLE_CLAIM_05_INVALID",
+      "mutation_id": "R6-M06_restart_replay_allowed",
+      "output_sha256": "4b8c90ffe810addfdff3b5552ada43057e7823caee558e68533629979d388f4e",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_LEDGER_CRASH_06_INVALID",
+      "mutation_id": "R6-M07_missing_db_auto_init",
+      "output_sha256": "1bf6451262408653d05529952f8d06b97c1c5bb624a9f7ee6644d27b675b6196",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_LEDGER_CRASH_06_INVALID",
+      "mutation_id": "R6-M08_anchor_rollback_ignored",
+      "output_sha256": "52f174a0d13d6f744b9d1bf302cb9a3c432809defe18441843c011efa422a2a2",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_LEDGER_CRASH_06_INVALID",
+      "mutation_id": "R6-M09_unknown_bytes_refunded",
+      "output_sha256": "f10c87cd00814f1cad5351769f51fbc2738b21b04cb5f6a7329b37d1ba692109",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_TRANSPORT_LIFECYCLE_PID_MISMATCH_VS_08",
+      "mutation_id": "R6-M10_transport_pid_mismatch",
+      "output_sha256": "9f658212f4a41aa7325ae2969e1001573f22f41f4d454f6653767850b4a1d966",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_TRANSPORT_LIFECYCLE_SURVIVING_DESCENDANTS",
+      "mutation_id": "R6-M11_surviving_desc_rehashed",
+      "output_sha256": "a3a0ad5f6dd9721ec852d955da749b5982080b31cd98ecad833dda32bf329f2e",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_TRANSPORT_LIFECYCLE_GZ_SHA_MISMATCH",
+      "mutation_id": "R6-M12_transport_gz_sha_mismatch",
+      "output_sha256": "3612b03d1a1309c798c196b71c032fa4e2f0be3d82eeea7fb121141a1ab630bd",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_UNAUTHORIZED_EXTERNAL_TRAFFIC_IN_STAGE_A",
+      "mutation_id": "R6-M13_unauth_ext_req_stage_a",
+      "output_sha256": "168ab04baa80ffabfa6b9ee801f78202befd117007bd286d81bed2f60710b05a",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_OWNER_TEMPLATE_NOT_STRICTLY_UNSIGNED",
+      "mutation_id": "R6-M14_owner_tmpl_marked_valid",
+      "output_sha256": "a2b3742fa9ab214437f3945e33ac6659f6849b2748f6f8c83f81e471b3f5c9ac",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_ECONOMIC_OOS_ACTIVATION_09_VIOLATION",
+      "mutation_id": "R6-M15_oos_gt_zero",
+      "output_sha256": "380e51b36f8a7a20128fbcf70348353a0c64eb8ad35cd3be13c5ba3c699ecc2f",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_ECONOMIC_OOS_ACTIVATION_09_VIOLATION",
+      "mutation_id": "R6-M16_activation_ready_yes",
+      "output_sha256": "7b7798f66e0c09600d815af7ad176ff2be34c05a5ed14c5022faed94742f569b",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_BBO_COVERAGE_12_INVALID",
+      "mutation_id": "R6-M17_bbo_merged_event_state",
+      "output_sha256": "faa45a155ae9b231da1652519294eba9c08f6177c9555e645fdf4a9424888216",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_FUNDING_13_INVALID",
+      "mutation_id": "R6-M18_funding_zero_filled",
+      "output_sha256": "8cc4933177c7ce3698c1955b207e0737b12fb09b3b4783db90c5cf77ac73a699",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_FEE_SLIPPAGE_14_INVALID",
+      "mutation_id": "R6-M19_fake_owner_fee_verified",
+      "output_sha256": "9faadfe51844d55331faf39b0510ef1d585da078e802cbb803e7669ad3ba1a2c",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_CUSTODY_15_INVALID",
+      "mutation_id": "R6-M20_qa_promoted_to_dev",
+      "output_sha256": "b3166ed12026ca7dc32ee9e0b178f9c7db377aba3b3b32da48e9598c138030ca",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_R4_DECIMAL_SUM_MISMATCH",
+      "mutation_id": "R6-M21_r4_ledger_tampered",
+      "output_sha256": "0e2ce22614cba46e57c0c50a45f56e44c37e89e5e6024f58c8f48cb8881e8186",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_BASELINE_PARITY_18_INVALID",
+      "mutation_id": "R6-M22_parity_a1_mismatch",
+      "output_sha256": "8d8f7c1de8225c663d885dd070aaa9673940bc19a02ac2cc5a4192127bc038b5",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_JUNIT_XML_COUNT_MISMATCH",
+      "mutation_id": "R6-M23_junit_missing_testcase",
+      "output_sha256": "a571c7b6149b30564d07f640fce90dcf4773bf9b1ac90a628f7c46b14a7044c1",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_JUNIT_XML_NONZERO_FAIL_ERR_MANDATORY_SKIP",
+      "mutation_id": "R6-M24_junit_mandatory_skip",
+      "output_sha256": "67a770405a9155585c5456951a60fff42691911acdd802bb0d544b31e5f2cdca",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_R6_INGEST_SEMANTIC_HASH_MISMATCH",
+      "mutation_id": "R6-M25_benchmark_sem_mismatch",
+      "output_sha256": "bdddf180a8d609c7a9a7fbb25b7f9e8eaf2fec38747460ca5d9609b80a0423f4",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_TELEMETRY_RAM_BELOW_512",
+      "mutation_id": "R6-M26_telemetry_ram_below_512",
+      "output_sha256": "8b746ef5eaf905bebbcb385f21922fe9dad976c51d695540d3b5ba361afaf4ee",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_PAIRED_FAULT_INVALID",
+      "mutation_id": "R6-M27_paired_fault_forged",
+      "output_sha256": "6572443d7d3f2cfcee76b952070a98d3cfe261a2504c90e9dfdae4c4b644ac50",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_PAIRED_FAULT_BELOW_56",
+      "mutation_id": "R6-M28_paired_fault_below_56",
+      "output_sha256": "66fe92d126a4ceb048648d7788003f9e29e95b8f47442cc68f097d7aaf5721f1",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_MUTATIONS_24_INVALID",
+      "mutation_id": "R6-M29_mutations_below_30",
+      "output_sha256": "3b5295dabdba2cd7a59f0c77257feb243cf89b80094e1194af05b410b66cadc9",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_FORBIDDEN_STAGE_BC_PASS_IN_STAGE_A",
+      "mutation_id": "R6-M30_fake_stage_bc_pass",
+      "output_sha256": "dde527768bce52ef0b25218dd3f9adc8a1eba6cd9ca7c9e8b6f1f7aee739bcc6",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_STALE_PRIOR_SHA",
+      "mutation_id": "R6-M31_stale_prior_c2_sha",
+      "output_sha256": "5cc4fbe2b3e23af4fcbffb0eec401e8ae490ebde314ecc9e423b840cbae3d563",
+      "verifier_exit_code": 1
+    },
+    {
+      "detected_fail_closed": true,
+      "expected_violation_token": "R6V_JSON_STRICT_PARSE_ERR",
+      "mutation_id": "R6-M32_duplicate_json_key",
+      "output_sha256": "dc8294524f3ebb83622030b7312695436d11c97fb0f40c3f31c5e24a7265ee73",
+      "verifier_exit_code": 1
+    }
+  ],
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "sealed_run_dir_mutated": false,
+  "spec_version": "KH-03.R6-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "total_mutations_tested_count": 167
+}

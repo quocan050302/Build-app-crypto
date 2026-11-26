@@ -1,0 +1,34 @@
+{
+  "cli_env_prompt_bypass_rejected": true,
+  "default_embedded_owner_key_present": false,
+  "duplicate_key_rejected": true,
+  "expired_or_clock_rollback_rejected": true,
+  "payload_tamper_rejected": true,
+  "plan_exceeding_grant_rejected_no_clamp": true,
+  "qa_isolated_ed25519_verified": true,
+  "qa_trust_cannot_authorize_external": true,
+  "revoked_trust_root_rejected": true,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "sha_branch_store_drift_rejected": true,
+  "spec_version": "KH-03.R6-v1.0",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "threat_model_disclosure": {
+    "explicit_non_claims": [
+      "does_not_defend_against_fully_compromised_os_administrator_or_root",
+      "does_not_defend_against_stolen_owner_ed25519_private_signing_key",
+      "qa_isolated_trust_root_tests_do_not_prove_owner_trust_root_is_provisioned"
+    ],
+    "mitigated_threats": [
+      "accidental_or_adversarial_grant_replay_cross_process_and_cross_restart",
+      "plan_or_payload_mutation_under_same_grant_identity",
+      "crash_mid_dispatch_unknown_bytes_auto_refund",
+      "sqlite_db_deletion_swap_truncation_or_rollback_vs_external_anchor",
+      "clock_rollback_replay_against_ledger_high_water_mark",
+      "unsigned_template_cli_env_prompt_or_qa_grant_promotion_to_external",
+      "caller_supplied_alternate_ledger_path_quota_reset"
+    ]
+  },
+  "unprovisioned_owner_trust_blocked": true,
+  "unsigned_template_rejected": true
+}

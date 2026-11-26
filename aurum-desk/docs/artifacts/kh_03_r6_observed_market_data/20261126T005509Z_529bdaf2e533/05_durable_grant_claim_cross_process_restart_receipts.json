@@ -1,0 +1,14 @@
+{
+  "cross_process_contenders_count": 3,
+  "cross_process_race_single_winner": true,
+  "cross_process_winners_count": 1,
+  "post_kill_restart_replay_denied": true,
+  "readonly_ledger_audit_valid": true,
+  "replan_reissue_denied": true,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "same_identity_different_payload_rejected": true,
+  "schema_version": "kh_03_r6_v1",
+  "sequential_replay_denied": true,
+  "spec_version": "KH-03.R6-v1.0",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b"
+}

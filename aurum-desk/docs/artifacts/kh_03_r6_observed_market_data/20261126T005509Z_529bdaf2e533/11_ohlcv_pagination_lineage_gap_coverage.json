@@ -1,0 +1,14 @@
+{
+  "contradictory_duplicate_quarantined": true,
+  "cursor_replay_stopped": true,
+  "invalid_geometry_rejected": true,
+  "observed_dev_ohlcv_records": 0,
+  "qa_gap_ledger_sha256": "44b4ffde5327eebc1f2fef6659f0651ee234c46ba92c8478f987713cfdb8fae2",
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "spec_version": "KH-03.R6-v1.0",
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "unclosed_future_excluded_from_canonical": true,
+  "unknown_calendar_marked_incomplete": true,
+  "valid_closed_bars_accepted": true
+}
