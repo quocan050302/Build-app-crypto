@@ -2721,14 +2721,33 @@ def open_r6_durable_ledger(
         return {"opened": False, "status": "BLOCKED_STORE_ID_MISMATCH", "ledger": None, "violations": ["OWNER_CONFIG_STORE_ID_MISMATCH"]}
 
     store_root = Path(str(raw_root))
-    check = _validate_db_and_anchor(
-        store_root,
-        expected_store_id=expected_store_id,
-        expected_trust_namespace=expected_trust_namespace,
-        repo_root=repo_root,
-        actual_now=actual_now,
-        allow_forward_anchor_recovery=True,
+    # Serialize open-time DB + external anchor validation against live concurrent writers on the same store
+    # (ONLY if store_root already exists with a real DB file so we NEVER auto-create directories or files!).
+    use_lock = (
+        store_root.is_dir()
+        and not _is_reparse_or_symlink(store_root)
+        and (store_root / "ledger.sqlite3").is_file()
+        and not _check_local_path_safety(store_root, repo_root=repo_root, must_exist=True)
     )
+    if use_lock:
+        with _LedgerAnchorCrossProcessLock(store_root / ".ledger.anchor.lock"):
+            check = _validate_db_and_anchor(
+                store_root,
+                expected_store_id=expected_store_id,
+                expected_trust_namespace=expected_trust_namespace,
+                repo_root=repo_root,
+                actual_now=actual_now,
+                allow_forward_anchor_recovery=True,
+            )
+    else:
+        check = _validate_db_and_anchor(
+            store_root,
+            expected_store_id=expected_store_id,
+            expected_trust_namespace=expected_trust_namespace,
+            repo_root=repo_root,
+            actual_now=actual_now,
+            allow_forward_anchor_recovery=True,
+        )
     if not check["ok"]:
         return {
             "opened": False,
