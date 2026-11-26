@@ -1,0 +1,985 @@
+{
+  "all_sealed_files_remote_verified": true,
+  "base_reviewed_head_sha": "fd0df117ca38f0ac72312d27265dcdabaa5a0dba",
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_probe_http_status": 200,
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "ci_workflow_runs_count": 0,
+  "evidence_commit_sha": "c76bd74dedf2cfe42682cb4b9d68f11e6d585def",
+  "files_verified": [
+    {
+      "bytes": 7365,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "caefc1398203f8a1a49c2444bd598d3457e97c9ef90b827157ea9f3b852b6e9b",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/00_preflight_branch_sha_resource_lock.json",
+      "remote_sha256": "caefc1398203f8a1a49c2444bd598d3457e97c9ef90b827157ea9f3b852b6e9b"
+    },
+    {
+      "bytes": 10782,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2de43af1461b08881426049746f2071fa9c9f2b2eef9ba55690699a577290bd4",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/01_function_ownership_keep_as_is_manifest.json",
+      "remote_sha256": "2de43af1461b08881426049746f2071fa9c9f2b2eef9ba55690699a577290bd4"
+    },
+    {
+      "bytes": 32906,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6cb3122c5d532139158958927111f0431cfa99dce512f94ee3ef32f487a9f181",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/02_prior_c2_dataset_sealed_integrity_no_oos.json",
+      "remote_sha256": "6cb3122c5d532139158958927111f0431cfa99dce512f94ee3ef32f487a9f181"
+    },
+    {
+      "bytes": 24306,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "704f215ffa82a6f87fa48ea0e944b9eabd4ab30f5459d6678f07efad7a5cd377",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/03_official_source_contracts_and_api_family_registry.json",
+      "remote_sha256": "704f215ffa82a6f87fa48ea0e944b9eabd4ab30f5459d6678f07efad7a5cd377"
+    },
+    {
+      "bytes": 1496,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "db34dc54e348014dfe3fee64fde77b841ca9f89f7a32ee36f4f6253367068218",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/04_owner_trust_scope_and_plan_redacted.json",
+      "remote_sha256": "db34dc54e348014dfe3fee64fde77b841ca9f89f7a32ee36f4f6253367068218"
+    },
+    {
+      "bytes": 511,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6dcce5435bddf61e58e15ac3b95f66e07708706b71088253ebf5861b3b16b899",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/05_durable_grant_claim_cross_process_restart_receipts.json",
+      "remote_sha256": "6dcce5435bddf61e58e15ac3b95f66e07708706b71088253ebf5861b3b16b899"
+    },
+    {
+      "bytes": 694,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ba16300d9e9f6fd58d41cd0cbf48031c734f3397e2796aa2393cfa4f8e6f6a99",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/06_ledger_crash_anchor_and_conservation_receipts.json",
+      "remote_sha256": "ba16300d9e9f6fd58d41cd0cbf48031c734f3397e2796aa2393cfa4f8e6f6a99"
+    },
+    {
+      "bytes": 1108,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d7e47c9b96e5e171511d0d79af3a42f5b330593103b1eed06c3ff692c807b4f1",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/07_transport_actual_process_lifecycle.jsonl.gz",
+      "remote_sha256": "d7e47c9b96e5e171511d0d79af3a42f5b330593103b1eed06c3ff692c807b4f1"
+    },
+    {
+      "bytes": 1399,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "714b4ecdc6e88441509740ea8ed1cbb257997cb16c8131c11d08b7b5f5b25613",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/08_rest_ws_bounds_loopback_and_cancel_reap.json",
+      "remote_sha256": "714b4ecdc6e88441509740ea8ed1cbb257997cb16c8131c11d08b7b5f5b25613"
+    },
+    {
+      "bytes": 1197,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8c103485408f23eb13662b3fcb4672fd0ea6f280116214430bb8ca512414373b",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/09_capture_authorization_external_dispatch_provenance.json",
+      "remote_sha256": "8c103485408f23eb13662b3fcb4672fd0ea6f280116214430bb8ca512414373b"
+    },
+    {
+      "bytes": 1510,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "22d74ef1ed28e2e9bee51f597d0f6ea9fb4d5261e9e36c1179ddc1ebf7934546",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/10_instrument_identity_metadata_validation.json",
+      "remote_sha256": "22d74ef1ed28e2e9bee51f597d0f6ea9fb4d5261e9e36c1179ddc1ebf7934546"
+    },
+    {
+      "bytes": 570,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "df32a0064bfcfb41b059fa5f718f4fc51aa5d42efc07f882dcd165def9cb7e82",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/11_ohlcv_pagination_lineage_gap_coverage.json",
+      "remote_sha256": "df32a0064bfcfb41b059fa5f718f4fc51aa5d42efc07f882dcd165def9cb7e82"
+    },
+    {
+      "bytes": 522,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "921a40177484d133ccb93e87b960d162cea18c803a4215fa4f8f225d2a243768",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/12_bbo_epoch_event_state_coverage.json",
+      "remote_sha256": "921a40177484d133ccb93e87b960d162cea18c803a4215fa4f8f225d2a243768"
+    },
+    {
+      "bytes": 417,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f983cc75a0bfdfa02bfe1ece2727058c907ea8cb90ac1428b5a58797266cb117",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/13_funding_settlement_completeness.json",
+      "remote_sha256": "f983cc75a0bfdfa02bfe1ece2727058c907ea8cb90ac1428b5a58797266cb117"
+    },
+    {
+      "bytes": 425,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c47e0d85521d1d51adf42921b3dfe1914e26b50be05ef6b04bfdd087fe29d131",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/14_fee_slippage_execution_fidelity_register.json",
+      "remote_sha256": "c47e0d85521d1d51adf42921b3dfe1914e26b50be05ef6b04bfdd087fe29d131"
+    },
+    {
+      "bytes": 528,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "275269b9e2488918830196f813e5cec34cba6a6b2745c8e9e5d832463046fa25",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/15_dev_partition_custody_dataset_manifest.json",
+      "remote_sha256": "275269b9e2488918830196f813e5cec34cba6a6b2745c8e9e5d832463046fa25"
+    },
+    {
+      "bytes": 7613,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "13da46824c22ef940ffb95d5add9fe8074fdad858b714b7606c534ab9fa8ccbf",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/16_r4_replay_decimal_economic_bridge.json",
+      "remote_sha256": "13da46824c22ef940ffb95d5add9fe8074fdad858b714b7606c534ab9fa8ccbf"
+    },
+    {
+      "bytes": 6102,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "fd7ca2f3f7eea915b5e7416a4eac4bac2c7db8853d689b4980d0d24e8f428d36",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/17_six_cost_scenarios_and_arm_regression.json",
+      "remote_sha256": "fd7ca2f3f7eea915b5e7416a4eac4bac2c7db8853d689b4980d0d24e8f428d36"
+    },
+    {
+      "bytes": 2744,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2d4cb5c277fd476b7697eba64236851a28b2661ebf2a2413fe8860687916a86e",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/18_A1_SI8_adapter_D4_full_parity.json",
+      "remote_sha256": "2d4cb5c277fd476b7697eba64236851a28b2661ebf2a2413fe8860687916a86e"
+    },
+    {
+      "bytes": 997650,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "9b86eb0e53d85440228794ac8a7a349fd7414de4debc0cff57f0f157c31c2630",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/19_full_pytest_fresh_collection_junit_bijection.json",
+      "remote_sha256": "9b86eb0e53d85440228794ac8a7a349fd7414de4debc0cff57f0f157c31c2630"
+    },
+    {
+      "bytes": 12491,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2389b904f0ef188c314ee48ae96846f4e7c270bf3c9d825cd09211a8dfd4bbcb",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/20_W1_W2_W4_W1repeat_benchmark_worker_policy.json",
+      "remote_sha256": "2389b904f0ef188c314ee48ae96846f4e7c270bf3c9d825cd09211a8dfd4bbcb"
+    },
+    {
+      "bytes": 1116,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8c91ec538620d2242ec0beccd2add723702db9084930d9dbf4f8d4ecb31494b8",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/21_actual_resource_telemetry_cleanup.json",
+      "remote_sha256": "8c91ec538620d2242ec0beccd2add723702db9084930d9dbf4f8d4ecb31494b8"
+    },
+    {
+      "bytes": 12561,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "105b537ab85a0abd61128186e7d9343e1ce3737bfd9cc176b7fa4d3d2ccd9d50",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/22_paired_fault_execution_receipts.jsonl.gz",
+      "remote_sha256": "105b537ab85a0abd61128186e7d9343e1ce3737bfd9cc176b7fa4d3d2ccd9d50"
+    },
+    {
+      "bytes": 1114,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "494a4f5298b2a59868a2505c376bf28925445f1a2601c1e189186667ace5b170",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/23_inherited_regression_and_new_fault_truth.json",
+      "remote_sha256": "494a4f5298b2a59868a2505c376bf28925445f1a2601c1e189186667ace5b170"
+    },
+    {
+      "bytes": 9960,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7d7712f5d35709fac1195f7abd18eda17ba03d346b6832b2d48ec35777342797",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/24_independent_verifier_mutation_results.json",
+      "remote_sha256": "7d7712f5d35709fac1195f7abd18eda17ba03d346b6832b2d48ec35777342797"
+    },
+    {
+      "bytes": 3892,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4715ca28dcce0f26b42b992b46b2bcf621e63200841a15add48ffb2c32b6f82e",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/25_orthogonal_gates_and_verdicts.json",
+      "remote_sha256": "4715ca28dcce0f26b42b992b46b2bcf621e63200841a15add48ffb2c32b6f82e"
+    },
+    {
+      "bytes": 538,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8a75c7904d0e098f1d406b61f2d90eed308ea8defeb6cc608b427c8c736c4839",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/27_phase1_code_commit_push_receipt.json",
+      "remote_sha256": "8a75c7904d0e098f1d406b61f2d90eed308ea8defeb6cc608b427c8c736c4839"
+    },
+    {
+      "bytes": 3351,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d19d6ff82d23f6ae2c437e7f39ba03678b8e9c5b89ef8e73acf398f5269d3158",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/HANDOVER_KH03_R6_VI.txt",
+      "remote_sha256": "d19d6ff82d23f6ae2c437e7f39ba03678b8e9c5b89ef8e73acf398f5269d3158"
+    },
+    {
+      "bytes": 650,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "086c5417faeac927c25f8cf213e3b826597fdac863346343713f16d741f3b972",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/README.md",
+      "remote_sha256": "086c5417faeac927c25f8cf213e3b826597fdac863346343713f16d741f3b972"
+    },
+    {
+      "bytes": 17937,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e2819c61e99a471571e621663272951d779933381fbd95f8d3b2163f51b79062",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/checksums/sha256_inventory.json",
+      "remote_sha256": "e2819c61e99a471571e621663272951d779933381fbd95f8d3b2163f51b79062"
+    },
+    {
+      "bytes": 3489,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4803fa196bcd4ec7864c495aff4d5fcc7c7eea91a600a97231bb99177041739d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_EXCL_00_REALTIME_30MS.xml",
+      "remote_sha256": "4803fa196bcd4ec7864c495aff4d5fcc7c7eea91a600a97231bb99177041739d"
+    },
+    {
+      "bytes": 48955,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "91c982c3a42e3f2edd58c768420b2e99f5a61317220cb1fcef56223cf36db18c",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_EXCL_01_MULTI_CHILD.xml",
+      "remote_sha256": "91c982c3a42e3f2edd58c768420b2e99f5a61317220cb1fcef56223cf36db18c"
+    },
+    {
+      "bytes": 5706,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "978e014d281094cda3046fd241cae6a7088939e7dc20793c8cb5756893a07671",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_EXCL_03_DB_OWNERSHIP.xml",
+      "remote_sha256": "978e014d281094cda3046fd241cae6a7088939e7dc20793c8cb5756893a07671"
+    },
+    {
+      "bytes": 2858,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f1423e11c64d83c2c30cd456b7b02d9f979b6b896bd9cfb4a1193ee9473d6ecc",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_00_V17_9_0_1_RUNTIME.xml",
+      "remote_sha256": "f1423e11c64d83c2c30cd456b7b02d9f979b6b896bd9cfb4a1193ee9473d6ecc"
+    },
+    {
+      "bytes": 38112,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f0d99a111a009c123e57c4132a6ff60a097122df8297741428e3e42f8a5da58c",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_01_SHARED_DB_SERIAL.xml",
+      "remote_sha256": "f0d99a111a009c123e57c4132a6ff60a097122df8297741428e3e42f8a5da58c"
+    },
+    {
+      "bytes": 1617,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7c5e04552f83b4078538c911a981bcda950d573380627b09ec67c82259fd830a",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02A_V16_23_RED_ISOLATED.xml",
+      "remote_sha256": "7c5e04552f83b4078538c911a981bcda950d573380627b09ec67c82259fd830a"
+    },
+    {
+      "bytes": 1215,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b237206f2181c5ea434580a13d2ff536b1a231ee8a5c11cdf6e5f5b479de2573",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02B_V16_23_FLOW_ISOLATED.xml",
+      "remote_sha256": "b237206f2181c5ea434580a13d2ff536b1a231ee8a5c11cdf6e5f5b479de2573"
+    },
+    {
+      "bytes": 1405,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "afc9f3369333668f933dff41bdaee929eb2d3e2a0fed1432a96ae750989e5f72",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02C_V16_24_FLOW_ISOLATED.xml",
+      "remote_sha256": "afc9f3369333668f933dff41bdaee929eb2d3e2a0fed1432a96ae750989e5f72"
+    },
+    {
+      "bytes": 1268,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "433fa43c4c7482403df04b54e4fd69203d3e33806479183cdc07691d642deccc",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02D_V16_25_FLOW_ISOLATED.xml",
+      "remote_sha256": "433fa43c4c7482403df04b54e4fd69203d3e33806479183cdc07691d642deccc"
+    },
+    {
+      "bytes": 1561,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "945ce2972c136e27e47a64713aaaa0aa11f99b98ab873d6904d296828a334817",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02E_V16_20_RED_ISOLATED.xml",
+      "remote_sha256": "945ce2972c136e27e47a64713aaaa0aa11f99b98ab873d6904d296828a334817"
+    },
+    {
+      "bytes": 1201,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "bf0e798f9d179759ebac6dfe19084994037452d8f0ec6abca73b1f4f2bdd7ace",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02F_V16_20_FLOW_ISOLATED.xml",
+      "remote_sha256": "bf0e798f9d179759ebac6dfe19084994037452d8f0ec6abca73b1f4f2bdd7ace"
+    },
+    {
+      "bytes": 1627,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "cf664a6a5827d7dee5d56db0fbf0e620eabffa4ebf7b1b277068dbd7a6b6bf14",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02G_V16_21_RED_ISOLATED.xml",
+      "remote_sha256": "cf664a6a5827d7dee5d56db0fbf0e620eabffa4ebf7b1b277068dbd7a6b6bf14"
+    },
+    {
+      "bytes": 1194,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "07bc0b3a82c585cdbde37e74cab20c2defa837f7995d50bcd2fb5dadd399e700",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02H_V16_21_FLOW_ISOLATED.xml",
+      "remote_sha256": "07bc0b3a82c585cdbde37e74cab20c2defa837f7995d50bcd2fb5dadd399e700"
+    },
+    {
+      "bytes": 1679,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f13f24597268400e1810fcf56ed548e31ce7ac8ab8190eba8197093669cd831f",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02I_V16_22_RED_ISOLATED.xml",
+      "remote_sha256": "f13f24597268400e1810fcf56ed548e31ce7ac8ab8190eba8197093669cd831f"
+    },
+    {
+      "bytes": 1218,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "01a0ebdf5d5160079bad7079a1e98ebac64582a4e57abc9ed76110a7e07df0c2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02J_V16_22_FLOW_ISOLATED.xml",
+      "remote_sha256": "01a0ebdf5d5160079bad7079a1e98ebac64582a4e57abc9ed76110a7e07df0c2"
+    },
+    {
+      "bytes": 1733,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "cd760db829f51ab2a86cd00796e49a8e026f3944547a4e897670b10bb7fcb007",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02K_V16_24_RED_ISOLATED.xml",
+      "remote_sha256": "cd760db829f51ab2a86cd00796e49a8e026f3944547a4e897670b10bb7fcb007"
+    },
+    {
+      "bytes": 1731,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "49760f0583afc91ebecd0c058dc9e65604a1759716087017c44736743e5b98a2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_02L_V16_25_RED_ISOLATED.xml",
+      "remote_sha256": "49760f0583afc91ebecd0c058dc9e65604a1759716087017c44736743e5b98a2"
+    },
+    {
+      "bytes": 1615,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4edfaf5a9c7bd0bbece3e4d66ee8d633c63eaed97c39458ae87cf20efe584ed8",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_03_BALANCED.xml",
+      "remote_sha256": "4edfaf5a9c7bd0bbece3e4d66ee8d633c63eaed97c39458ae87cf20efe584ed8"
+    },
+    {
+      "bytes": 24158,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8d882d11850dd3617e7e73fe1570e81b92af1ff250723e539356376233a0ce52",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_04_BALANCED.xml",
+      "remote_sha256": "8d882d11850dd3617e7e73fe1570e81b92af1ff250723e539356376233a0ce52"
+    },
+    {
+      "bytes": 33512,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c17f67c8e140a17f519c379cfb126b6d9ff675b2cd0972478e899cc92220b3a4",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_05_BALANCED.xml",
+      "remote_sha256": "c17f67c8e140a17f519c379cfb126b6d9ff675b2cd0972478e899cc92220b3a4"
+    },
+    {
+      "bytes": 37782,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a24630d4b85dc0f84b4bed6a0ac4783028f700c7b8319e97178e2d50e48a0c64",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_06_BALANCED.xml",
+      "remote_sha256": "a24630d4b85dc0f84b4bed6a0ac4783028f700c7b8319e97178e2d50e48a0c64"
+    },
+    {
+      "bytes": 36669,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "63609707ddc5588f0f7e7f054c6efaf74717c80391fabf3c1870ebd98fa0cb8b",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_07_BALANCED.xml",
+      "remote_sha256": "63609707ddc5588f0f7e7f054c6efaf74717c80391fabf3c1870ebd98fa0cb8b"
+    },
+    {
+      "bytes": 38864,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2be5f84ac89c88678820621f9fb5876cc7d2ce8c63d4cc83e95945073884d937",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_08_BALANCED.xml",
+      "remote_sha256": "2be5f84ac89c88678820621f9fb5876cc7d2ce8c63d4cc83e95945073884d937"
+    },
+    {
+      "bytes": 34580,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "7926b60e386e7299c826d02392f88611e4595f2431f63cf364472191e78c4d64",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_09_BALANCED.xml",
+      "remote_sha256": "7926b60e386e7299c826d02392f88611e4595f2431f63cf364472191e78c4d64"
+    },
+    {
+      "bytes": 30425,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c9552d9f4b56d1d3a33687e1ce5b66f9b4440f0eca28a666bac7e8b21bfc0cda",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_10_BALANCED.xml",
+      "remote_sha256": "c9552d9f4b56d1d3a33687e1ce5b66f9b4440f0eca28a666bac7e8b21bfc0cda"
+    },
+    {
+      "bytes": 30539,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "8c14f0d6ef8b4d945edd4cf3f963a1dc0a6915f7233e6a9682938203527d3e70",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_11_BALANCED.xml",
+      "remote_sha256": "8c14f0d6ef8b4d945edd4cf3f963a1dc0a6915f7233e6a9682938203527d3e70"
+    },
+    {
+      "bytes": 40754,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "d9dbe911fd328af23f8e655edb0e111b10814e6883a3fd009ee070a0a79cb161",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_12_BALANCED.xml",
+      "remote_sha256": "d9dbe911fd328af23f8e655edb0e111b10814e6883a3fd009ee070a0a79cb161"
+    },
+    {
+      "bytes": 53567,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f85f188cf46ce73ab2f7d0e51048d25860a735e3774693c76fa415de80b506b7",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_13_BALANCED.xml",
+      "remote_sha256": "f85f188cf46ce73ab2f7d0e51048d25860a735e3774693c76fa415de80b506b7"
+    },
+    {
+      "bytes": 45208,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "10a44f9adb4dc750d3d519dbca8a358a2174f2f5b43c4f0bca2442a08d4159a5",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_14_BALANCED.xml",
+      "remote_sha256": "10a44f9adb4dc750d3d519dbca8a358a2174f2f5b43c4f0bca2442a08d4159a5"
+    },
+    {
+      "bytes": 26789,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "3f7dca3e517d54f36a035244215a4608ce71bd4ccbe255a065d2df98cd554e26",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_15_BALANCED.xml",
+      "remote_sha256": "3f7dca3e517d54f36a035244215a4608ce71bd4ccbe255a065d2df98cd554e26"
+    },
+    {
+      "bytes": 27474,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "fb9c7b8fa74d95e97ee230b0b6e21a7d166b1d2d576d3c0ac4756bcd5b450bc7",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_16_BALANCED.xml",
+      "remote_sha256": "fb9c7b8fa74d95e97ee230b0b6e21a7d166b1d2d576d3c0ac4756bcd5b450bc7"
+    },
+    {
+      "bytes": 28009,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f7c26f485defe716aed009c6b692141f49687dfcd79a58623f81cfd2db0c8921",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_17_BALANCED.xml",
+      "remote_sha256": "f7c26f485defe716aed009c6b692141f49687dfcd79a58623f81cfd2db0c8921"
+    },
+    {
+      "bytes": 39234,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "965aae5ccb8c2147857d7309787fab7c0799f15888591eb52b8fa97c8092a814",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_18_BALANCED.xml",
+      "remote_sha256": "965aae5ccb8c2147857d7309787fab7c0799f15888591eb52b8fa97c8092a814"
+    },
+    {
+      "bytes": 24858,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "79f65cf9d83d37f50fbfb0fd1d637f84656e1eeac2570f94c86135d692d5d5ba",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_19_BALANCED.xml",
+      "remote_sha256": "79f65cf9d83d37f50fbfb0fd1d637f84656e1eeac2570f94c86135d692d5d5ba"
+    },
+    {
+      "bytes": 33225,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2bce463b78dea282768c709b084a0b3831897f3797ed248651b8fbcc53c76901",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_20_BALANCED.xml",
+      "remote_sha256": "2bce463b78dea282768c709b084a0b3831897f3797ed248651b8fbcc53c76901"
+    },
+    {
+      "bytes": 39384,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "05b1f37c2041510688a4693892a38693b126649dfab8dcf5a24c2ed84aaa543d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_21_BALANCED.xml",
+      "remote_sha256": "05b1f37c2041510688a4693892a38693b126649dfab8dcf5a24c2ed84aaa543d"
+    },
+    {
+      "bytes": 27216,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ba82f08a6e7b021ac59afa91250e4a4fa07eddac09213cdae019c1576b817c76",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_INPROC_22_BALANCED.xml",
+      "remote_sha256": "ba82f08a6e7b021ac59afa91250e4a4fa07eddac09213cdae019c1576b817c76"
+    },
+    {
+      "bytes": 6158,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "67f6f17200a91edd2fcaa2cceca11e6b2323d8a74905e32b11a2529fe5518631",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_01_BUDGET2.xml",
+      "remote_sha256": "67f6f17200a91edd2fcaa2cceca11e6b2323d8a74905e32b11a2529fe5518631"
+    },
+    {
+      "bytes": 25524,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6f0da2fce905071eb24427b923d2d36c3483205ba9cb70a398e6d989559794a9",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_02_BUDGET2.xml",
+      "remote_sha256": "6f0da2fce905071eb24427b923d2d36c3483205ba9cb70a398e6d989559794a9"
+    },
+    {
+      "bytes": 39609,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "e9db688e3f21763254fedf28155e4d5a90ebb2cd8a846004541eb3a490d38670",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_03_BUDGET2.xml",
+      "remote_sha256": "e9db688e3f21763254fedf28155e4d5a90ebb2cd8a846004541eb3a490d38670"
+    },
+    {
+      "bytes": 3213,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ba53629c8b8235594d41986f1626ee29cdbf54f4bed9baa0dc362efd0dbf1670",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_01.xml",
+      "remote_sha256": "ba53629c8b8235594d41986f1626ee29cdbf54f4bed9baa0dc362efd0dbf1670"
+    },
+    {
+      "bytes": 2196,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ccf3e86d03c6f862a0f251cbdd799735e1f8be51d5983ce5568eda344c737d9a",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_02.xml",
+      "remote_sha256": "ccf3e86d03c6f862a0f251cbdd799735e1f8be51d5983ce5568eda344c737d9a"
+    },
+    {
+      "bytes": 3505,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "35e23d0beb5de5a0ce399c59650dba4a724d482a3761e9803074e3e7e1afa3b2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_03.xml",
+      "remote_sha256": "35e23d0beb5de5a0ce399c59650dba4a724d482a3761e9803074e3e7e1afa3b2"
+    },
+    {
+      "bytes": 3935,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "22db9bd2e0caa42179555a96992b11e7ef9fcfc7aa53bb3faf6304bc503e0b38",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_04.xml",
+      "remote_sha256": "22db9bd2e0caa42179555a96992b11e7ef9fcfc7aa53bb3faf6304bc503e0b38"
+    },
+    {
+      "bytes": 6626,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a335d62da046fb03b3cc2216ee64a1e367905f918821d30585a8f64168c8ba26",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_05.xml",
+      "remote_sha256": "a335d62da046fb03b3cc2216ee64a1e367905f918821d30585a8f64168c8ba26"
+    },
+    {
+      "bytes": 3693,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "2fdbb704b1a40a5df643202e27d02feee15e991c42ef4724814ade65294b4be8",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_06.xml",
+      "remote_sha256": "2fdbb704b1a40a5df643202e27d02feee15e991c42ef4724814ade65294b4be8"
+    },
+    {
+      "bytes": 3846,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "36a8ce211db3ae05844e1d595d88ca059c95f250136bcb6a07c39b09603cdf0d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_07.xml",
+      "remote_sha256": "36a8ce211db3ae05844e1d595d88ca059c95f250136bcb6a07c39b09603cdf0d"
+    },
+    {
+      "bytes": 982,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6ae20f56635154cda30ad43e422a8fca82c174dddfddaa664c78f0d5c5355ced",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_08.xml",
+      "remote_sha256": "6ae20f56635154cda30ad43e422a8fca82c174dddfddaa664c78f0d5c5355ced"
+    },
+    {
+      "bytes": 556,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "6141f20f2bee675f92f3ec664a6286542da319c52ddeed6ff729cddfb556c5a2",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_09.xml",
+      "remote_sha256": "6141f20f2bee675f92f3ec664a6286542da319c52ddeed6ff729cddfb556c5a2"
+    },
+    {
+      "bytes": 4915,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "c06af187f8ec78e30b524f22363748a69515303a93f0abad419986006006b193",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_10.xml",
+      "remote_sha256": "c06af187f8ec78e30b524f22363748a69515303a93f0abad419986006006b193"
+    },
+    {
+      "bytes": 721,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4001af77dd7061798c206fb4554871cdf349490b6bf6319941e606bac8caa8fc",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_11.xml",
+      "remote_sha256": "4001af77dd7061798c206fb4554871cdf349490b6bf6319941e606bac8caa8fc"
+    },
+    {
+      "bytes": 547,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "0800de16d73c8208b9749f0ff7dd32884540523f08b8d6a01a8ff561dfb4caa1",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_12.xml",
+      "remote_sha256": "0800de16d73c8208b9749f0ff7dd32884540523f08b8d6a01a8ff561dfb4caa1"
+    },
+    {
+      "bytes": 388,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "29547254a2a11db7c2a49bfa593079597dc6c5f932658656980a2ef98baa5c91",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_13.xml",
+      "remote_sha256": "29547254a2a11db7c2a49bfa593079597dc6c5f932658656980a2ef98baa5c91"
+    },
+    {
+      "bytes": 4827,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ede86cd19a2f1e908aa14f7d508c28337f3520927527e9719936f838f3aa76a6",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_14.xml",
+      "remote_sha256": "ede86cd19a2f1e908aa14f7d508c28337f3520927527e9719936f838f3aa76a6"
+    },
+    {
+      "bytes": 411,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "59a0f3abe6c172528e19f95029868a2e21d65165b94e1be41f56216aef617fab",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_15.xml",
+      "remote_sha256": "59a0f3abe6c172528e19f95029868a2e21d65165b94e1be41f56216aef617fab"
+    },
+    {
+      "bytes": 4347,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a4e6f379a0c013f01a9524d75800e65f2bcbc6dcd03b5ca1ba23e870e7e242b0",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_16.xml",
+      "remote_sha256": "a4e6f379a0c013f01a9524d75800e65f2bcbc6dcd03b5ca1ba23e870e7e242b0"
+    },
+    {
+      "bytes": 833,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "5a9dd73470ac1cb704b61e81b4f3e67a96adde9dcb04e50c6b1f7d33263caf3e",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_17.xml",
+      "remote_sha256": "5a9dd73470ac1cb704b61e81b4f3e67a96adde9dcb04e50c6b1f7d33263caf3e"
+    },
+    {
+      "bytes": 535,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "add818bd6355b88cf7450c6a4f96f41ce38e1eced023ecdc5def536b50648a83",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_18.xml",
+      "remote_sha256": "add818bd6355b88cf7450c6a4f96f41ce38e1eced023ecdc5def536b50648a83"
+    },
+    {
+      "bytes": 377,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "31ed940b73bfa1282240ced53a6f5cb0e706648723eb0e7c8e5bb5825ce1fb1d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_19.xml",
+      "remote_sha256": "31ed940b73bfa1282240ced53a6f5cb0e706648723eb0e7c8e5bb5825ce1fb1d"
+    },
+    {
+      "bytes": 405,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "aad8b98b2731771b6dc76ff7edd68587849ebfc557984167a31a4cc7373ca191",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_20.xml",
+      "remote_sha256": "aad8b98b2731771b6dc76ff7edd68587849ebfc557984167a31a4cc7373ca191"
+    },
+    {
+      "bytes": 680,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "95bf6ceeda55011ab73574169eb8a2901aacf87d865d10fdacdc3b8bbdcf7b61",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_21.xml",
+      "remote_sha256": "95bf6ceeda55011ab73574169eb8a2901aacf87d865d10fdacdc3b8bbdcf7b61"
+    },
+    {
+      "bytes": 384,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "401411d25c703b361ce00e4110dd660b5571dd8b55ab14f5fb74fcf277f83fa4",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_22.xml",
+      "remote_sha256": "401411d25c703b361ce00e4110dd660b5571dd8b55ab14f5fb74fcf277f83fa4"
+    },
+    {
+      "bytes": 729,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "0f2ef29eeb752694a9abec16b6471866c58c6e0a308fe9da6541466ef61df315",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_23.xml",
+      "remote_sha256": "0f2ef29eeb752694a9abec16b6471866c58c6e0a308fe9da6541466ef61df315"
+    },
+    {
+      "bytes": 934,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ff8e7a27fe21ee6a58a30949fe61435558c0d95643c71f4786aae8d833a005fc",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_24.xml",
+      "remote_sha256": "ff8e7a27fe21ee6a58a30949fe61435558c0d95643c71f4786aae8d833a005fc"
+    },
+    {
+      "bytes": 723,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "bdc9ac7131933b09cbb8fd7409bda0ba7580a981b63e04a1bfa7c85253186af8",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_25.xml",
+      "remote_sha256": "bdc9ac7131933b09cbb8fd7409bda0ba7580a981b63e04a1bfa7c85253186af8"
+    },
+    {
+      "bytes": 1523,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "088315b9eeb05ee5ff66eed393aad1f509eaaeba79db9d10916b516595d7a952",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_26.xml",
+      "remote_sha256": "088315b9eeb05ee5ff66eed393aad1f509eaaeba79db9d10916b516595d7a952"
+    },
+    {
+      "bytes": 685,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "67956cf9786cf73062b269a30a085fa659fe4f5537539f5333c52aa14860a937",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_27.xml",
+      "remote_sha256": "67956cf9786cf73062b269a30a085fa659fe4f5537539f5333c52aa14860a937"
+    },
+    {
+      "bytes": 789,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "66659212e6ad5cf66c2e7b2f6dd83bc6fdeb20e05613a3df4e5ef08a7c249c4b",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_28.xml",
+      "remote_sha256": "66659212e6ad5cf66c2e7b2f6dd83bc6fdeb20e05613a3df4e5ef08a7c249c4b"
+    },
+    {
+      "bytes": 577,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "4e1eaa933e573c30d5701341f2f917c98c30afa78460d2c5f91b357348571c49",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_29.xml",
+      "remote_sha256": "4e1eaa933e573c30d5701341f2f917c98c30afa78460d2c5f91b357348571c49"
+    },
+    {
+      "bytes": 419,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "3a6fe11806125e0c069794ce1b71f7afe2ff69b476dc84ec3109f77d056b7dc4",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_30.xml",
+      "remote_sha256": "3a6fe11806125e0c069794ce1b71f7afe2ff69b476dc84ec3109f77d056b7dc4"
+    },
+    {
+      "bytes": 1026,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a19a536f91809113affec5b98cf112127edae029c447f8ce2e12ef4cd1f90af6",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_31.xml",
+      "remote_sha256": "a19a536f91809113affec5b98cf112127edae029c447f8ce2e12ef4cd1f90af6"
+    },
+    {
+      "bytes": 572,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "ae45a041f1a36fdd5735ece306f21493ac1596e2a4fd984b9361e07c0e3aa5ec",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_32.xml",
+      "remote_sha256": "ae45a041f1a36fdd5735ece306f21493ac1596e2a4fd984b9361e07c0e3aa5ec"
+    },
+    {
+      "bytes": 417,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "b41dd011300b9289ac9909c8e706a94f2d163150e7b8bc0880f4666e3023b88d",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/junit/SHARD_SINGLE_CHILD_KH03_R6_SUBPROC_33.xml",
+      "remote_sha256": "b41dd011300b9289ac9909c8e706a94f2d163150e7b8bc0880f4666e3023b88d"
+    },
+    {
+      "bytes": 99217,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "a597459812e8c48514abcf15ac92da93e54f95b6cb0aa9fa4f7b5d6414cf58f8",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/pytest_collected_executed_nodeids.jsonl.gz",
+      "remote_sha256": "a597459812e8c48514abcf15ac92da93e54f95b6cb0aa9fa4f7b5d6414cf58f8"
+    },
+    {
+      "bytes": 3598,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "73774e2a7ef161bd159129c2e10d126b88971d7c7143fdb8a21975012ccf0346",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/pytest_shards_logs.jsonl.gz",
+      "remote_sha256": "73774e2a7ef161bd159129c2e10d126b88971d7c7143fdb8a21975012ccf0346"
+    },
+    {
+      "bytes": 23774,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "9a5648f27f73f547daf9ab138148c0fc7e6fe661a3d2063f84899a50fba1fc09",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/r4_replay_forensic_ledger_1x.jsonl.gz",
+      "remote_sha256": "9a5648f27f73f547daf9ab138148c0fc7e6fe661a3d2063f84899a50fba1fc09"
+    },
+    {
+      "bytes": 156647,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "5411f30a0f05eeeb9bcea24ae96f45ff41db743e40c0dba09f74f217f0af5187",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/runtime_memory_samples_0p5s.jsonl.gz",
+      "remote_sha256": "5411f30a0f05eeeb9bcea24ae96f45ff41db743e40c0dba09f74f217f0af5187"
+    },
+    {
+      "bytes": 3054,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "883b4b0a781e0e395664a6f5cfac3c2be516f7a6f982fdca5e9b61f99a2866fb",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/unsigned_owner_review_template_stage_b_smoke.json",
+      "remote_sha256": "883b4b0a781e0e395664a6f5cfac3c2be516f7a6f982fdca5e9b61f99a2866fb"
+    },
+    {
+      "bytes": 3055,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "af7e774ec3ba326587b9120d108bbc0c74e996984cb7999f2fc3410b4e85fb7c",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/logs/unsigned_owner_review_template_stage_c_dev.json",
+      "remote_sha256": "af7e774ec3ba326587b9120d108bbc0c74e996984cb7999f2fc3410b4e85fb7c"
+    },
+    {
+      "bytes": 21890,
+      "exact_match": true,
+      "http_status": 200,
+      "local_sha256": "f7ed2c978778075d219217cd88ecdc881fde458173c6817172b289f00950320f",
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/26_independent_OS_verifier_manifest_sha256.json",
+      "remote_sha256": "f7ed2c978778075d219217cd88ecdc881fde458173c6817172b289f00950320f"
+    }
+  ],
+  "gates": {
+    "G01_BRANCH_SHA_CLEAN": "PASS",
+    "G02_KEEP_AS_IS": "PASS",
+    "G03_PRIOR_C2_SEALED_DATASET_OOS": "PASS",
+    "G04_SOURCE_DOCS": "PASS",
+    "G05_STRICT_ENDPOINT_VERSION_IDENTITY": "PASS",
+    "G06_OWNER_TRUST_BOUNDARY": "PASS",
+    "G07_GRANT_PLAN_BINDING": "PASS",
+    "G08_DURABLE_ONE_SHOT": "PASS",
+    "G09_CRASH_ANCHOR_RECOVERY": "PASS",
+    "G10_BUDGET_CONSERVATION": "PASS",
+    "G11_OWNED_TRANSPORT_PROCESS": "PASS",
+    "G12_TERMINATION_REAP": "PASS",
+    "G13_REST_READ_DEADLINE_BOUND": "PASS",
+    "G14_WS_FRAME_RECONNECT_BOUND": "PASS",
+    "G15_RESOURCE_VOLUME": "PASS",
+    "G16_OHLCV_CONTRACT": "PASS",
+    "G17_BBO_CONTRACT": "PASS",
+    "G18_FUNDING_CONTRACT": "PASS",
+    "G19_FEE_SLIPPAGE_UNKNOWN_HONESTY": "PASS",
+    "G20_CUSTODY_PARTITION": "PASS",
+    "G21_FULL_PYTEST": "PASS",
+    "G22_BASELINE_PARITY": "PASS",
+    "G23_BACKTEST_PARITY": "PASS",
+    "G24_DETERMINISM": "PASS",
+    "G25_MEASURED_WORKER_POLICY": "PASS",
+    "G26_PAIRED_FAULT_TRUTH": "PASS",
+    "G27_INHERITED_REGRESSION": "PASS",
+    "G28_INDEPENDENT_VERIFIER": "PASS",
+    "G29_MUTATION_RESISTANCE": "PASS",
+    "G30_RESOURCE_CLEANUP": "PASS",
+    "G31_EXTERNAL_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "G32_AUTHORIZED_SMOKE": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "G33_DEV_ACQUISITION": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "G34_R7_DATA_READINESS": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "G35_ECONOMIC_ACTIVATION": "PASS",
+    "G36_REMOTE_PUBLICATION": "PASS_REMOTE_VERIFIED"
+  },
+  "independent_verdicts": {
+    "ACCOUNT_FEE": "UNKNOWN_NOT_LOCALLY_VERIFIED",
+    "ACQUISITION": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "ACTIVATION_READY": "NO",
+    "BACKTEST_PARITY": "PASS",
+    "BBO_EVENT_COVERAGE": "NOT_RUN_STAGE_A_OFFLINE_CONTRACT_VERIFIED",
+    "BBO_STATE_COVERAGE": "NOT_RUN_STAGE_A_OFFLINE_CONTRACT_VERIFIED",
+    "CAPTURE_AUTHORIZATION": "BLOCKED_OWNER_AUTHORIZATION",
+    "CI": "CI_UNKNOWN_NO_ACTIONS_RUN",
+    "CUSTODY": "PASS_QA_LOOPBACK_ONLY",
+    "DATA_READINESS_DEV": "BLOCKED_NO_AUTHORIZED_OBSERVED_DEV_DATA",
+    "DETERMINISM": "PASS",
+    "DURABLE_GRANT_LOCAL_TEST": "PASS_LOCAL_QA_TEST_ONLY",
+    "ECONOMIC": "NO_PROVEN_EDGE",
+    "ENGINEERING_OFFLINE": "PASS",
+    "EXECUTION_FIDELITY": "INCOMPLETE_NO_OWNER_EXECUTION_FILLS",
+    "FRESH_OOS": "BLOCKED_NO_UNTOUCHED_DATA",
+    "FUNDING_COMPLETENESS": "NOT_RUN_STAGE_A_OFFLINE_CONTRACT_VERIFIED",
+    "INSTRUMENT_OBSERVED_IDENTITY": "NOT_OBSERVED_STAGE_A_OFFLINE",
+    "KH04_ENTRY": "BLOCKED_NO_DEV_CANDIDATE",
+    "OHLCV_COVERAGE": "NOT_RUN_STAGE_A_OFFLINE_CONTRACT_VERIFIED",
+    "OWNER_TRUST_READY": "BLOCKED_NOT_PROVISIONED_BY_OWNER",
+    "PUBLICATION": "PASS_REMOTE_VERIFIED",
+    "REGRESSION": "PASS",
+    "RESOURCE_SAFETY": "PASS",
+    "SLIPPAGE": "MISSING_NO_OWNER_FILL_EVIDENCE",
+    "SMOKE": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "SOURCE_DOCS": "DOC_VERIFIED_CLASSIC_V2_ONLY",
+    "TRANSPORT_EXTERNAL_VERIFIED": "NOT_RUN_BLOCKED_OWNER_AUTHORIZATION",
+    "TRANSPORT_TERMINATION_LOOPBACK": "PASS_LOOPBACK_OS_REAP_VERIFIED"
+  },
+  "local_tests_are_not_ci_proof": true,
+  "manifest_26_rel_path": "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/20261126T005509Z_529bdaf2e533/26_independent_OS_verifier_manifest_sha256.json",
+  "manifest_26_sha256": "f7ed2c978778075d219217cd88ecdc881fde458173c6817172b289f00950320f",
+  "overall_classification": "ENGINEERING_PASS_OFFLINE_R6_ACQUISITION_READY_FOR_OWNER_REVIEW_CAPTURE_BLOCKED_NO_PROVEN_EDGE",
+  "raw_market_data_disclosure": "Remote HTTPS SHA-256 readback covers Git-sealed Stage A evidence blobs only; zero external market data was captured or stored in Git.",
+  "raw_market_data_remotely_verified": false,
+  "remote_readback_failed_files": 0,
+  "remote_readback_matched_files": 110,
+  "remote_readback_total_files": 110,
+  "remote_tested_sha_verified": true,
+  "run_id": "20261126T005509Z_529bdaf2e533",
+  "schema_version": "kh_03_r6_v1",
+  "spec_version": "KH-03.R6-v1.0",
+  "stage": "STAGE_A_OFFLINE",
+  "stage_denominators": {
+    "never_claim_36_of_36_without_capture": true,
+    "stage_a_mandatory_total": 32,
+    "stage_a_passed_including_remote": 32,
+    "stage_a_prepush_core_passed": 31,
+    "stage_a_prepush_core_total": 31,
+    "stage_bc_conditional_total": 4,
+    "stage_bc_executed_count": 0
+  },
+  "tested_executable_sha": "529bdaf2e533d3616b1a8e0842c048da3b81126b",
+  "verified_utc": "2026-11-26T01:52:56Z"
+}
