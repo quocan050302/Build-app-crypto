@@ -43,6 +43,19 @@ import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
+from services.kh_03_r6_a1_corrective_service import (
+    DEFAULT_EMERGENCY_AUDIT_RESERVE_BYTES,
+    DEFAULT_MANIFEST_AND_ANCHOR_RESERVE_BYTES,
+    DEFAULT_SQLITE_WAL_OVERHEAD_RESERVE_BYTES,
+    R6A1BoundedOrderedCustodyQueue,
+    R6A1CustodyWriterAuthority,
+    R6A1DiskBudgetLedger,
+    build_r6_a1_custody_envelope,
+    compute_chunk_conservative_peak_disk_bytes,
+    compute_effective_disk_budget_contract,
+    derive_r6_a1_terminal_disposition,
+    run_r6_a1_single_custody_writer,
+)
 from services.kh_03_r6_a1_release_service import R6A1VerifiedReleaseBinding
 from services.kh_03_r6_a1_trust_service import (
     A1_EXTERNAL_CAPTURE_ENABLED,
@@ -65,6 +78,7 @@ from services.kh_03_r6_custody_readiness_service import (
     R6CustodyJournal,
     assign_r6_dev_partition_before_io,
     mint_r6_raw_provenance_receipt,
+    recover_r6_custody_intents,
     seal_r6_dev_dataset_manifest,
     verify_r6_custody_readonly,
 )
@@ -72,7 +86,9 @@ from services.kh_03_r6_durable_grant_service import (
     R6DurableGrantLedger,
     R6DurableSessionLease,
     R6VerifiedGrant,
+    _atomic_write_json_fsync,
     _strict_loads_r6,
+    reconcile_r6_a1_claim_after_exception,
 )
 from services.kh_03_r6_market_data_service import (
     build_r6_bbo_coverage_report,
@@ -124,6 +140,7 @@ class R6A1AcquisitionSessionContext:
     qa_http_base_url: Optional[str]
     qa_ws_base_url: Optional[str]
     context_digest: str
+    budget_contract: Optional[Mapping[str, Any]] = None
 
 
 # =====================================================================
@@ -283,6 +300,10 @@ def build_r6_a1_acquisition_session(
     oos_roots: Sequence[Path] = (),
     allow_fixture_resource_sample: bool = False,
     actual_now: Optional[datetime] = None,
+    override_max_chunk_bytes: Optional[int] = None,
+    override_max_total_bytes: Optional[int] = None,
+    volume_free_bytes_override: Optional[int] = None,
+    volume_total_bytes_override: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     F02: Pre-claim session builder & validator.
@@ -369,15 +390,31 @@ def build_r6_a1_acquisition_session(
     if not part_res["assigned"]:
         viols.extend(part_res["violations"])
 
+    # P1-M / F05: Strict integer MIN-intersection disk budget contract BEFORE claim!
+    bud_res = compute_effective_disk_budget_contract(
+        grant_caps=verified_grant.caps,
+        plan_caps=plan.caps,
+        target_path=Path(verified_grant.destination_root),
+        repo_root=repo_root,
+        oos_roots=oos_roots,
+        override_max_chunk_bytes=override_max_chunk_bytes,
+        override_max_total_bytes=override_max_total_bytes,
+        volume_free_bytes_override=volume_free_bytes_override,
+        volume_total_bytes_override=volume_total_bytes_override,
+    )
+    if not bud_res["valid"] or bud_res["contract"] is None:
+        viols.extend(bud_res["violations"])
+
     if viols:
+        err_status = "BLOCKED_BUDGET_SCOPE" if (not bud_res["valid"] and not any("RESOURCE_PREFLIGHT" in v for v in viols)) else "BLOCKED_ACQUISITION_SESSION_PRECHECK"
         return {
             "built": False,
-            "status": "BLOCKED_ACQUISITION_SESSION_PRECHECK",
+            "status": err_status,
             "context": None,
             "violations": viols,
         }
 
-    eff_conc = max(1, min(int(plan.max_concurrency), int(verified_grant.max_concurrency), 2, GLOBAL_MAX_WORKERS_R6))
+    eff_conc = max(1, min(int(plan.max_concurrency), int(verified_grant.max_concurrency), 4 if qa_loopback_mode else 2, GLOBAL_MAX_WORKERS_R6))
     ctx_core = {
         "run_id": run_id,
         "session_id": session_id,
@@ -390,6 +427,7 @@ def build_r6_a1_acquisition_session(
         "partition": part_res["partition"],
         "effective_concurrency": eff_conc,
         "task_ids": [t.task_id for t in tasks],
+        "budget_contract_digest": bud_res["contract"]["contract_digest"],
     }
     ctx = R6A1AcquisitionSessionContext(
         run_id=run_id,
@@ -407,6 +445,7 @@ def build_r6_a1_acquisition_session(
         qa_http_base_url=clean_http_base,
         qa_ws_base_url=clean_ws_base,
         context_digest=_sha256_canonical_a1(ctx_core),
+        budget_contract=bud_res["contract"],
     )
     return {"built": True, "status": "SESSION_CONTEXT_BUILT", "context": ctx, "violations": []}
 
@@ -423,7 +462,7 @@ def execute_r6_a1_rest_task(
     plan: R6BoundCapturePlan,
     verified_grant: R6VerifiedGrant,
     registry: R6SourceContractRegistry,
-    custody: R6CustodyJournal,
+    custody: Optional[R6CustodyJournal] = None,
     resource_sample_fn: Callable[[], Mapping[str, Any]],
     expected_volumes: Mapping[str, Path],
     session_deadline_monotonic: float,
@@ -432,21 +471,29 @@ def execute_r6_a1_rest_task(
     allow_fixture_resource_sample: bool = False,
     observed_instrument_meta: Optional[Mapping[str, Any]] = None,
     post_exit_hook: Optional[Callable[[], None]] = None,
+    custody_queue: Optional[R6A1BoundedOrderedCustodyQueue] = None,
+    disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+    task_ordinal: int = 0,
+    get_cancel_epoch: Optional[Callable[[], int]] = None,
+    max_chunk_bytes_limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    F05 (REST): Executes a single REST task (`instrument_metadata`, `ohlcv_history`, or `funding_history`)
-    through F12 authorize -> F19 supervise (F13 reserve -> F14 start -> F15/F16 child -> F17 REST -> F20 settle
-    -> F22 trusted result) -> market-data validator -> F23 provenance -> F25 custody commit.
+    F05 (REST) + P1-L/P1-M: Executes a single REST task through F12 -> F19 -> validators -> F23.
+    When `custody_queue` is provided (ALWAYS inside `run_r6_a1_acquisition_session`), workers NEVER
+    touch `R6CustodyJournal` directly — they pre-reserve peak disk bytes in `R6A1DiskBudgetLedger`
+    and enqueue immutable `R6A1CustodyChunkEnvelope` records for the single custody writer thread!
     """
     ep = registry.endpoints[task.endpoint_id]
     loopback_url = f"{ctx.qa_http_base_url}{ep.path}" if ctx.qa_loopback_mode and ctx.qa_http_base_url else None
     lifecycle_traces: List[Dict[str, Any]] = []
     attempt_records: List[Dict[str, Any]] = []
     committed_chunks: List[Dict[str, Any]] = []
+    enqueued_chunks: List[Dict[str, Any]] = []
     violations: List[str] = []
     raw_bytes_total = 0
     decoded_bytes_total = 0
     requests_count = 0
+    chunk_ord_box = [0]
 
     def _run_one_rest_attempt(attempt_idx: int, params: Mapping[str, Any]) -> Dict[str, Any]:
         nonlocal raw_bytes_total, decoded_bytes_total, requests_count
@@ -532,7 +579,7 @@ def execute_r6_a1_rest_task(
         return {"ok": True, "status": "OK", "sup": sup, "auth_req": auth_req}
 
     def _mint_and_commit(chunk_id: str, sup: Mapping[str, Any], norm_rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
-        # Re-check cancellation strictly BEFORE persisting to custody!
+        # Re-check cancellation strictly BEFORE persisting/enqueueing to custody!
         if cancel_event.is_set() or time.monotonic() >= session_deadline_monotonic:
             violations.append("CANCELLED_BEFORE_CUSTODY_PERSIST")
             return {"persisted": False, "status": "ABORTED_CANCELLED_BEFORE_PERSIST", "violations": ["CANCELLED_BEFORE_CUSTODY_PERSIST"]}
@@ -557,11 +604,75 @@ def execute_r6_a1_rest_task(
         if not prov.accepted_for_custody:
             violations.append(f"PROVENANCE_REJECTED:{prov.transport_outcome}")
             return {"persisted": False, "status": "REJECTED_PROVENANCE", "violations": [prov.transport_outcome]}
+
+        # P1-L / P1-M path: enqueue immutable envelope for single custody writer (NEVER direct worker write!)
+        if custody_queue is not None:
+            chunk_ord_box[0] += 1
+            c_ord = chunk_ord_box[0]
+            rows_list = list(norm_rows)
+            norm_b_pre = json.dumps(rows_list, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            if max_chunk_bytes_limit is not None and (len(raw_b) + len(norm_b_pre)) > int(max_chunk_bytes_limit):
+                v = f"CHUNK_RAW_PLUS_NORM_EXCEEDS_CONTRACT:{len(raw_b) + len(norm_b_pre)}>{max_chunk_bytes_limit}"
+                violations.append(v)
+                return {"persisted": False, "status": "REJECTED_CHUNK_SIZE_EXCEEDED", "violations": [v]}
+
+            dsk_res_id: Optional[str] = None
+            if disk_budget_ledger is not None:
+                peak_b = compute_chunk_conservative_peak_disk_bytes(raw_bytes_len=len(raw_b), norm_bytes_len=len(norm_b_pre))["conservative_peak_bytes"]
+                dsk_res_id = f"dsk_{ctx.session_id}_{task_ordinal:02d}_{c_ord:02d}_{chunk_id}"
+                r_dsk = disk_budget_ledger.reserve_r6_disk_bytes(
+                    session_id=ctx.session_id,
+                    reservation_id=dsk_res_id,
+                    write_class="chunk_persist",
+                    requested_bytes=peak_b,
+                )
+                if not r_dsk["reserved"]:
+                    violations.extend(r_dsk["violations"])
+                    return {"persisted": False, "status": str(r_dsk["status"]), "violations": r_dsk["violations"]}
+
+            env_res = build_r6_a1_custody_envelope(
+                session_id=ctx.session_id,
+                run_id=ctx.run_id,
+                partition=ctx.partition,
+                task_ordinal=task_ordinal,
+                task_id=task.task_id,
+                chunk_ordinal=c_ord,
+                chunk_id=chunk_id,
+                attempt_id=t_res.attempt_id,
+                plan_digest=plan.plan_digest,
+                raw_payload=raw_b,
+                normalized_rows=rows_list,
+                provenance_receipt=prov,
+                disk_reservation_id=dsk_res_id,
+                cancel_epoch=int(get_cancel_epoch()) if get_cancel_epoch is not None else 0,
+            )
+            if not env_res["valid"] or env_res["envelope"] is None:
+                if disk_budget_ledger is not None and dsk_res_id:
+                    disk_budget_ledger.release_r6_disk_reservation(session_id=ctx.session_id, reservation_id=dsk_res_id, proven_unused_or_deleted=True, reason="ENVELOPE_BUILD_REJECTED")
+                violations.extend(env_res["violations"])
+                return {"persisted": False, "status": env_res["status"], "violations": env_res["violations"]}
+
+            enq = custody_queue.put_envelope(env_res["envelope"], deadline_monotonic=session_deadline_monotonic, cancel_event=cancel_event)
+            if not enq["enqueued"]:
+                if disk_budget_ledger is not None and dsk_res_id:
+                    disk_budget_ledger.release_r6_disk_reservation(session_id=ctx.session_id, reservation_id=dsk_res_id, proven_unused_or_deleted=True, reason="ENQUEUE_ABORTED_NO_IO")
+                violations.extend(enq["violations"])
+                return {"persisted": False, "status": enq["status"], "violations": enq["violations"]}
+            enqueued_chunks.append({"chunk_id": chunk_id, "task_ordinal": task_ordinal, "chunk_ordinal": c_ord, "disk_reservation_id": dsk_res_id})
+            return {"persisted": True, "queued_for_single_writer": True, "status": "ENQUEUED_FOR_SINGLE_WRITER", "violations": []}
+
+        # Fallback direct standalone call (only when custody_queue is None)
+        if custody is None:
+            violations.append("MISSING_CUSTODY_JOURNAL")
+            return {"persisted": False, "status": "REJECTED_MISSING_CUSTODY", "violations": ["MISSING_CUSTODY_JOURNAL"]}
         pers = custody.persist_r6_verified_chunk(
             chunk_id=chunk_id,
             raw_payload=raw_b,
             normalized_rows=norm_rows,
             provenance_receipt=prov,
+            disk_budget_ledger=disk_budget_ledger,
+            task_ordinal=task_ordinal,
+            chunk_ordinal=chunk_ord_box[0] + 1,
         )
         if not pers.get("persisted"):
             violations.extend(pers.get("violations") or ["CUSTODY_PERSIST_FAILED"])
@@ -717,13 +828,13 @@ def execute_r6_a1_rest_task(
                 break
         return {
             "task_id": task.task_id, "task_kind": task.task_kind, "endpoint_id": task.endpoint_id,
-            "ok": all_pers and len(committed_chunks) > 0,
-            "terminal_status": "COMPLETED" if (all_pers and len(committed_chunks) > 0) else "FAILED_CUSTODY_PERSIST",
+            "ok": all_pers and (len(committed_chunks) > 0 or len(enqueued_chunks) > 0),
+            "terminal_status": "COMPLETED" if (all_pers and (len(committed_chunks) > 0 or len(enqueued_chunks) > 0)) else "FAILED_CUSTODY_PERSIST",
             "valid_rows_count": int(ohlcv_res["canonical_valid_count"]),
             "invalid_rows_count": int(ohlcv_res["invalid_rows_count"]),
             "raw_bytes": raw_bytes_total, "decoded_bytes": decoded_bytes_total, "requests_count": requests_count,
             "ohlcv_result": {k: v for k, v in ohlcv_res.items() if k != "canonical_rows"},
-            "attempt_records": attempt_records, "committed_chunks": committed_chunks,
+            "attempt_records": attempt_records, "committed_chunks": committed_chunks, "enqueued_chunks": enqueued_chunks,
             "lifecycle_traces": lifecycle_traces, "violations": violations,
         }
 
@@ -815,7 +926,7 @@ def execute_r6_a1_ws_task(
     plan: R6BoundCapturePlan,
     verified_grant: R6VerifiedGrant,
     registry: R6SourceContractRegistry,
-    custody: R6CustodyJournal,
+    custody: Optional[R6CustodyJournal] = None,
     resource_sample_fn: Callable[[], Mapping[str, Any]],
     expected_volumes: Mapping[str, Path],
     session_deadline_monotonic: float,
@@ -823,6 +934,11 @@ def execute_r6_a1_ws_task(
     utc_now_fn: Callable[[], datetime],
     allow_fixture_resource_sample: bool = False,
     observed_instrument_meta: Optional[Mapping[str, Any]] = None,
+    custody_queue: Optional[R6A1BoundedOrderedCustodyQueue] = None,
+    disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+    task_ordinal: int = 0,
+    get_cancel_epoch: Optional[Callable[[], int]] = None,
+    max_chunk_bytes_limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     F05 (WS): Executes bounded BBO WebSocket acquisition through F12 -> F19 -> BBO validators
@@ -1018,45 +1134,115 @@ def execute_r6_a1_ws_task(
         raw_payload_bytes_data=sup["raw_payload_bytes"],
         settlement_receipt=s_rec,
     )
-    pers = custody.persist_r6_verified_chunk(
-        chunk_id=f"{task.task_id}_chunk_01",
-        raw_payload=sup["raw_payload_bytes"],
-        normalized_rows=norm_events,
-        provenance_receipt=prov,
-    )
-    ok_ws = bool(pers.get("persisted"))
-    chunks_out = []
-    if ok_ws:
-        chunks_out.append({
-            "chunk_id": f"{task.task_id}_chunk_01",
-            "attempt_id": t_res.attempt_id,
-            "receipt_id": prov.receipt_id,
-            "provenance_class": prov.provenance_class,
-            "raw_sha256": pers["raw_sha256"],
-            "raw_bytes_len": len(sup["raw_payload_bytes"]),
-            "norm_sha256": pers["norm_sha256"],
-            "norm_rows_count": len(norm_events),
-            "settlement_generation": s_rec.settled_generation,
-        })
+    chunks_out: List[Dict[str, Any]] = []
+    enqueued_out: List[Dict[str, Any]] = []
+    ok_ws = False
+    ws_term_status = "FAILED_CUSTODY_PERSIST"
+    chunk_id_ws = f"{task.task_id}_chunk_01"
+
+    if custody_queue is not None:
+        raw_b_ws = sup["raw_payload_bytes"]
+        norm_b_ws = json.dumps(norm_events, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        if max_chunk_bytes_limit is not None and (len(raw_b_ws) + len(norm_b_ws)) > int(max_chunk_bytes_limit):
+            v = f"WS_CHUNK_RAW_PLUS_NORM_EXCEEDS_CONTRACT:{len(raw_b_ws) + len(norm_b_ws)}>{max_chunk_bytes_limit}"
+            violations.append(v)
+            ws_term_status = "REJECTED_CHUNK_SIZE_EXCEEDED"
+        else:
+            dsk_res_id_ws: Optional[str] = None
+            res_ok = True
+            if disk_budget_ledger is not None:
+                peak_ws = compute_chunk_conservative_peak_disk_bytes(raw_bytes_len=len(raw_b_ws), norm_bytes_len=len(norm_b_ws))["conservative_peak_bytes"]
+                dsk_res_id_ws = f"dsk_{ctx.session_id}_{task_ordinal:02d}_01_{chunk_id_ws}"
+                r_dsk = disk_budget_ledger.reserve_r6_disk_bytes(
+                    session_id=ctx.session_id,
+                    reservation_id=dsk_res_id_ws,
+                    write_class="chunk_persist",
+                    requested_bytes=peak_ws,
+                )
+                if not r_dsk["reserved"]:
+                    res_ok = False
+                    violations.extend(r_dsk["violations"])
+                    ws_term_status = str(r_dsk["status"])
+            if res_ok:
+                env_res = build_r6_a1_custody_envelope(
+                    session_id=ctx.session_id,
+                    run_id=ctx.run_id,
+                    partition=ctx.partition,
+                    task_ordinal=task_ordinal,
+                    task_id=task.task_id,
+                    chunk_ordinal=1,
+                    chunk_id=chunk_id_ws,
+                    attempt_id=t_res.attempt_id,
+                    plan_digest=plan.plan_digest,
+                    raw_payload=raw_b_ws,
+                    normalized_rows=norm_events,
+                    provenance_receipt=prov,
+                    disk_reservation_id=dsk_res_id_ws,
+                    cancel_epoch=int(get_cancel_epoch()) if get_cancel_epoch is not None else 0,
+                )
+                if not env_res["valid"] or env_res["envelope"] is None:
+                    if disk_budget_ledger is not None and dsk_res_id_ws:
+                        disk_budget_ledger.release_r6_disk_reservation(session_id=ctx.session_id, reservation_id=dsk_res_id_ws, proven_unused_or_deleted=True, reason="WS_ENVELOPE_REJECTED")
+                    violations.extend(env_res["violations"])
+                    ws_term_status = env_res["status"]
+                else:
+                    enq = custody_queue.put_envelope(env_res["envelope"], deadline_monotonic=session_deadline_monotonic, cancel_event=cancel_event)
+                    if not enq["enqueued"]:
+                        if disk_budget_ledger is not None and dsk_res_id_ws:
+                            disk_budget_ledger.release_r6_disk_reservation(session_id=ctx.session_id, reservation_id=dsk_res_id_ws, proven_unused_or_deleted=True, reason="WS_ENQUEUE_ABORTED")
+                        violations.extend(enq["violations"])
+                        ws_term_status = enq["status"]
+                    else:
+                        ok_ws = True
+                        ws_term_status = "COMPLETED"
+                        enqueued_out.append({"chunk_id": chunk_id_ws, "task_ordinal": task_ordinal, "chunk_ordinal": 1, "disk_reservation_id": dsk_res_id_ws})
     else:
-        violations.extend(pers.get("violations") or ["WS_CUSTODY_PERSIST_FAILED"])
+        if custody is None:
+            violations.append("MISSING_CUSTODY_JOURNAL")
+            ws_term_status = "REJECTED_MISSING_CUSTODY"
+        else:
+            pers = custody.persist_r6_verified_chunk(
+                chunk_id=chunk_id_ws,
+                raw_payload=sup["raw_payload_bytes"],
+                normalized_rows=norm_events,
+                provenance_receipt=prov,
+                disk_budget_ledger=disk_budget_ledger,
+                task_ordinal=task_ordinal,
+                chunk_ordinal=1,
+            )
+            ok_ws = bool(pers.get("persisted"))
+            ws_term_status = "COMPLETED" if ok_ws else str(pers.get("status"))
+            if ok_ws:
+                chunks_out.append({
+                    "chunk_id": chunk_id_ws,
+                    "attempt_id": t_res.attempt_id,
+                    "receipt_id": prov.receipt_id,
+                    "provenance_class": prov.provenance_class,
+                    "raw_sha256": pers["raw_sha256"],
+                    "raw_bytes_len": len(sup["raw_payload_bytes"]),
+                    "norm_sha256": pers["norm_sha256"],
+                    "norm_rows_count": len(norm_events),
+                    "settlement_generation": s_rec.settled_generation,
+                })
+            else:
+                violations.extend(pers.get("violations") or ["WS_CUSTODY_PERSIST_FAILED"])
 
     return {
         "task_id": task.task_id, "task_kind": task.task_kind, "endpoint_id": task.endpoint_id,
-        "ok": ok_ws, "terminal_status": "COMPLETED" if ok_ws else str(pers.get("status")),
+        "ok": ok_ws, "terminal_status": ws_term_status,
         "valid_rows_count": len(norm_events), "invalid_rows_count": invalid_ev,
         "raw_bytes": len(sup["raw_payload_bytes"]), "decoded_bytes": len(sup["decoded_payload_bytes"]),
         "requests_count": 0, "connections_opened": int(acc.get("connections_opened", 0)),
         "subscriptions_sent": int(acc.get("subscriptions_sent", 0)),
         "reconnects_used": int(acc.get("reconnects_used", 0)),
         "messages_count": int(acc.get("total_messages", 0)),
-        "bbo_coverage": bbo_cov, "attempt_records": [att_rec], "committed_chunks": chunks_out,
+        "bbo_coverage": bbo_cov, "attempt_records": [att_rec], "committed_chunks": chunks_out, "enqueued_chunks": enqueued_out,
         "lifecycle_traces": traces, "violations": violations,
     }
 
 
 # =====================================================================
-# F03 / F06 / F07: Orchestrator State Machine, Finalization & Immutable Receipt
+# F03 / F06 / F07 / P1-L / P1-M / P1-N: Single-Writer Orchestrator & Exception-Safe Finalization
 # =====================================================================
 def build_r6_a1_session_receipt(
     *,
@@ -1074,61 +1260,69 @@ def build_r6_a1_session_receipt(
     violations: Sequence[str],
     quarantined: bool,
     cancelled: bool,
+    deadline_expired: bool = False,
+    original_error: Optional[str] = None,
+    cleanup_errors: Sequence[str] = (),
+    ledger_terminal_verified_from_db: bool = True,
+    unproven_terminal: bool = False,
+    unreaped_worker_detected: bool = False,
+    disk_budget_snapshot: Optional[Mapping[str, Any]] = None,
+    custody_queue_stats: Optional[Mapping[str, Any]] = None,
+    writer_report: Optional[Mapping[str, Any]] = None,
+    committed_chunks_override: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
-    F07: Computes immutable terminal status & exit code STRICTLY from observed facts — NEVER from
-    a caller-supplied status string! `QA_ACQUISITION_END_TO_END_PASS` requires ALL planned QA tasks
-    complete, non-empty committed chunks, read-only custody verified, zero quarantine/overrun,
-    and `accepted_real_observed_records == 0`.
+    F07 / F11: Computes immutable terminal status & exit code STRICTLY via
+    `derive_r6_a1_terminal_disposition()` from observed durable facts — NEVER equating durable
+    ledger `SPENT`/`FINALIZED` after `ABORTED` with acquisition PASS!
     """
     expected_tasks = len(ctx.tasks) if ctx is not None else 0
     completed_tasks = sum(1 for t in task_results if t.get("ok") is True)
     failed_tasks = sum(1 for t in task_results if t.get("ok") is not True)
-    committed_chunks = [c for t in task_results for c in (t.get("committed_chunks") or ())]
+    if committed_chunks_override is not None:
+        committed_chunks = list(committed_chunks_override)
+    else:
+        committed_chunks = [c for t in task_results for c in (t.get("committed_chunks") or ())]
     total_raw_bytes = sum(int(c.get("raw_bytes_len", 0)) for c in committed_chunks)
     total_norm_rows = sum(int(c.get("norm_rows_count", 0)) for c in committed_chunks)
     all_attempts = [a for t in task_results for a in (t.get("attempt_records") or ())]
-    all_reaped = all(bool(a.get("reaped_verified")) for a in all_attempts if a.get("child_pid"))
+    all_reaped = all(bool(a.get("reaped_verified")) for a in all_attempts if a.get("child_pid")) and (not unreaped_worker_detected)
     custody_ok = bool(custody_audit and custody_audit.get("valid") is True)
+    unresolved_dsk = int((disk_budget_snapshot or {}).get("active_reservations_count", 0)) if disk_budget_snapshot else 0
 
-    if ctx is None:
-        final_status = claim_status or "BLOCKED_ACQUISITION_PRECHECK"
-        exit_code = 2
-    elif not A1_EXTERNAL_CAPTURE_ENABLED and not ctx.qa_loopback_mode:
-        final_status = "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED"
-        exit_code = 2
-    elif quarantined or ledger_final_status == "QUARANTINED":
-        final_status = "QUARANTINED_ACQUISITION_SESSION"
-        exit_code = 2
-    elif cancelled:
-        final_status = "ABORTED_CANCELLED" if not committed_chunks else "PARTIAL_ABORTED_CANCELLED"
-        exit_code = 2
-    elif (
-        expected_tasks > 0
-        and completed_tasks == expected_tasks
-        and failed_tasks == 0
-        and len(committed_chunks) > 0
-        and total_raw_bytes > 0
-        and total_norm_rows > 0
-        and custody_ok
-        and all_reaped
-        and ledger_final_status == "SPENT"
-        and not violations
-    ):
-        final_status = TERMINAL_QA_PASS_STATUS_A1
-        exit_code = 0
-    elif committed_chunks:
-        final_status = "PARTIAL_ACQUISITION_FAILED"
-        exit_code = 2
-    else:
-        final_status = "FAILED_ACQUISITION_NO_COMMITTED_DATA"
-        exit_code = 2
+    disp = derive_r6_a1_terminal_disposition(
+        has_context=(ctx is not None),
+        qa_loopback_mode=bool(ctx.qa_loopback_mode) if ctx else False,
+        expected_tasks=expected_tasks,
+        completed_tasks=completed_tasks,
+        failed_tasks=failed_tasks,
+        committed_chunks_count=len(committed_chunks),
+        total_raw_bytes=total_raw_bytes,
+        total_norm_rows=total_norm_rows,
+        custody_readonly_valid=custody_ok,
+        all_children_reaped_verified=all_reaped,
+        unreaped_worker_detected=unreaped_worker_detected,
+        ledger_final_status=ledger_final_status,
+        ledger_terminal_verified_from_db=ledger_terminal_verified_from_db,
+        unproven_terminal=unproven_terminal,
+        quarantined=quarantined,
+        cancelled=cancelled,
+        deadline_expired=deadline_expired,
+        original_error=original_error,
+        cleanup_errors=cleanup_errors,
+        violations=violations,
+        unresolved_disk_reservations=unresolved_dsk,
+        claim_status=claim_status,
+    )
+    final_status = disp["acquisition_status"]
+    exit_code = int(disp["exit_code"])
 
     core = {
         "spec_version": SPEC_VERSION_KH03_R6_A1,
         "schema_version": SCHEMA_VERSION_KH03_R6_A1,
         "status": final_status,
         "exit_code": exit_code,
+        "terminal_disposition": disp,
         "run_id": ctx.run_id if ctx else None,
         "session_id": ctx.session_id if ctx else None,
         "stage": ctx.stage if ctx else None,
@@ -1141,7 +1335,10 @@ def build_r6_a1_session_receipt(
         "partition": ctx.partition if ctx else None,
         "state_history": list(state_history),
         "claim_status": claim_status,
-        "ledger_final_status": ledger_final_status,
+        "ledger_final_status": disp["ledger_terminal_state"],
+        "ledger_terminal_verified_from_db": bool(ledger_terminal_verified_from_db),
+        "original_error": original_error,
+        "cleanup_errors": list(cleanup_errors),
         "tasks_planned_count": expected_tasks,
         "tasks_completed_count": completed_tasks,
         "tasks_failed_count": failed_tasks,
@@ -1152,9 +1349,21 @@ def build_r6_a1_session_receipt(
         "accepted_real_observed_records": 0,
         "qa_loopback_records_persisted": total_norm_rows if (ctx and ctx.qa_loopback_mode) else 0,
         "all_spawned_children_reaped_verified": all_reaped,
+        "unreaped_worker_detected": bool(unreaped_worker_detected),
         "custody_readonly_valid": custody_ok,
         "custody_tip_hash": custody_audit.get("tip_hash") if custody_audit else None,
+        "custody_semantic_chain_digest": custody_audit.get("semantic_chain_digest") if custody_audit else None,
         "dataset_manifest_sha256": dataset_manifest.get("manifest_sha256") if dataset_manifest else None,
+        "budget_contract": dict(ctx.budget_contract) if (ctx and ctx.budget_contract) else None,
+        "disk_budget_snapshot": disk_budget_snapshot,
+        "custody_queue_stats": custody_queue_stats,
+        "writer_summary": {
+            "status": writer_report.get("status"),
+            "authority_id": writer_report.get("authority_id"),
+            "writer_pid": writer_report.get("writer_pid"),
+            "writer_thread_ident": writer_report.get("writer_thread_ident"),
+            "committed_count": len(writer_report.get("committed_chunks") or ()),
+        } if writer_report else None,
         "task_results": [
             {k: v for k, v in t.items() if k != "lifecycle_traces"}
             for t in task_results
@@ -1170,6 +1379,353 @@ def build_r6_a1_session_receipt(
     }
     core["receipt_digest"] = _sha256_canonical_a1(core)
     return core
+
+
+def finalize_r6_a1_session_safely(
+    *,
+    ctx: R6A1AcquisitionSessionContext,
+    verified_grant: R6VerifiedGrant,
+    ledger: R6DurableGrantLedger,
+    lease: Optional[R6DurableSessionLease],
+    claim_attempted: bool,
+    plan: R6BoundCapturePlan,
+    custody: Optional[R6CustodyJournal],
+    writer_authority: Optional[R6A1CustodyWriterAuthority],
+    writer_thread: Optional[threading.Thread],
+    writer_report_box: List[Dict[str, Any]],
+    custody_queue: Optional[R6A1BoundedOrderedCustodyQueue],
+    disk_budget_ledger: Optional[R6A1DiskBudgetLedger],
+    task_results: Sequence[Mapping[str, Any]],
+    state_history: List[str],
+    resource_samples: List[Dict[str, Any]],
+    resource_sample_fn: Callable[[], Mapping[str, Any]],
+    violations: List[str],
+    original_error: Optional[str],
+    quarantine_required: bool,
+    cancelled: bool,
+    deadline_expired: bool,
+    cancel_event: threading.Event,
+    bump_cancel_epoch: Callable[[], int],
+    utc_now_fn: Callable[[], datetime],
+    metadata_versions: Sequence[Mapping[str, Any]],
+    cleanup_deadline_sec: float = 10.0,
+    inject_db_finalize_error: bool = False,
+    simulate_unreaped_worker: bool = False,
+) -> Dict[str, Any]:
+    """
+    F06 / F09 / F11 (P1-N): Exception-isolated, bounded-deadline session finalizer!
+    Every substep runs inside its own `try/except`: telemetry/custody/temp-cleanup errors are
+    recorded in `cleanup_errors` and NEVER prevent durable ledger finalization or quarantine!
+    Order:
+      1. Bump cancel_epoch + set cancel_event + abort/close custody_queue (releasing proven-unused dropped reservations)
+      2. Drain & join single custody writer thread + release writer authority + close OS custody lock
+      3. Check owned descendants reap (unreaped worker -> quarantine + poison store!)
+      4. Guarded post-run telemetry sample (failure NEVER skips ledger finalize!)
+      5. Guarded temp cleanup + read-only custody verify + disk budget fixed overhead reconciliation
+      6. Manifest seal ONLY if ALL positive invariants hold (writer stopped, 0 intents, 0 quarantine, 0 errors, complete coverage)
+      7. CAS durable ledger finalize (or claim-exception reconcile if lease wasn't returned) + DB read-back verification!
+    """
+    cleanup_errors: List[str] = []
+    cleanup_deadline = time.monotonic() + max(2.0, float(cleanup_deadline_sec))
+    unreaped_worker = bool(simulate_unreaped_worker)
+
+    # Substep 1: Stop intake & cancel epoch so ZERO late writes can ever occur!
+    try:
+        bump_cancel_epoch()
+        if cancelled or deadline_expired or original_error or quarantine_required or violations:
+            cancel_event.set()
+            if custody_queue is not None:
+                dropped_envs = custody_queue.abort("FINALIZE_CLEANUP_ABORT")
+                if disk_budget_ledger is not None:
+                    for de in dropped_envs:
+                        if de.disk_reservation_id:
+                            try:
+                                disk_budget_ledger.release_r6_disk_reservation(
+                                    session_id=ctx.session_id,
+                                    reservation_id=de.disk_reservation_id,
+                                    proven_unused_or_deleted=True,
+                                    reason="DROPPED_BEFORE_CUSTODY_WRITE",
+                                )
+                            except Exception as exc_r:
+                                cleanup_errors.append(f"DROP_RES_RELEASE_ERR:{exc_r}")
+        elif custody_queue is not None:
+            custody_queue.close_intake()
+    except Exception as exc:
+        cleanup_errors.append(f"SUBSTEP1_STOP_INTAKE_ERR:{type(exc).__name__}:{exc}")
+        quarantine_required = True
+
+    # Substep 2: Join single custody writer thread & release writer authority + OS lock!
+    writer_rep: Optional[Dict[str, Any]] = None
+    try:
+        if writer_thread is not None and writer_thread.is_alive():
+            rem_join = max(0.5, cleanup_deadline - time.monotonic())
+            writer_thread.join(timeout=rem_join)
+            if writer_thread.is_alive():
+                unreaped_worker = True
+                quarantine_required = True
+                cleanup_errors.append("SINGLE_CUSTODY_WRITER_THREAD_UNDRAINED")
+        if writer_report_box:
+            writer_rep = writer_report_box[0]
+            if not writer_rep.get("ok") and writer_rep.get("violations"):
+                violations.extend(v for v in writer_rep["violations"] if v not in violations)
+                if writer_rep.get("status") in ("WRITER_QUARANTINED", "WRITER_EXCEPTION"):
+                    quarantine_required = True
+    except Exception as exc:
+        cleanup_errors.append(f"SUBSTEP2_WRITER_JOIN_ERR:{type(exc).__name__}:{exc}")
+        quarantine_required = True
+    finally:
+        if custody is not None:
+            try:
+                custody.release_writer_authority(writer_authority)
+            except Exception as exc:
+                cleanup_errors.append(f"SUBSTEP2_RELEASE_AUTH_ERR:{exc}")
+                quarantine_required = True
+
+    # Substep 3: Verify ALL spawned owned children reaped (unreaped -> quarantine + hard block new sessions!)
+    try:
+        all_atts = [a for t in task_results for a in (t.get("attempt_records") or ())]
+        if any(a.get("child_pid") and not bool(a.get("reaped_verified")) for a in all_atts):
+            unreaped_worker = True
+        if unreaped_worker:
+            quarantine_required = True
+            violations.append("UNREAPED_OWNED_WORKER_QUARANTINED_STORE_BLOCKED")
+            ledger.mark_store_unproven_terminal("UNREAPED_OWNED_WORKER_DETECTED", session_id=ctx.session_id, grant_identity_key=verified_grant.grant_identity_key)
+    except Exception as exc:
+        cleanup_errors.append(f"SUBSTEP3_REAP_CHECK_ERR:{exc}")
+        quarantine_required = True
+
+    # Substep 4: Guarded post-run telemetry sample (NEVER blocks ledger finalization if telemetry raises!)
+    try:
+        samp = resource_sample_fn()
+        if isinstance(samp, Mapping):
+            resource_samples.append(dict(samp))
+        else:
+            cleanup_errors.append("FINALIZE_TELEMETRY_NOT_MAPPING")
+    except Exception as exc:
+        cleanup_errors.append(f"FINALIZE_TELEMETRY_ERROR:{type(exc).__name__}:{exc}")
+
+    # Substep 5: Guarded temp cleanup, custody read-only audit & disk budget fixed reservation reconciliation
+    custody_audit: Optional[Dict[str, Any]] = None
+    if custody is not None:
+        try:
+            cln = custody.cleanup_owned_temp_files_safe(disk_budget_ledger=disk_budget_ledger)
+            if not cln["all_owned_temps_deleted"]:
+                quarantine_required = True
+                cleanup_errors.append("CUSTODY_OWNED_TEMP_UNLINK_FAILED_QUARANTINED")
+                violations.append("CUSTODY_OWNED_TEMP_UNLINK_FAILED_QUARANTINED")
+        except Exception as exc:
+            quarantine_required = True
+            cleanup_errors.append(f"SUBSTEP5_TEMP_CLEANUP_ERR:{type(exc).__name__}:{exc}")
+
+        try:
+            custody.close()
+        except Exception as exc:
+            cleanup_errors.append(f"SUBSTEP5_CUSTODY_CLOSE_ERR:{exc}")
+
+        try:
+            custody_audit = verify_r6_custody_readonly(
+                custody.store_dir,
+                expected_partition=ctx.partition,
+                expected_run_id=ctx.run_id,
+                ledger_store_root=ledger.store_root,
+                expected_volume_id=custody.expected_volume_id,
+            )
+            if not custody_audit["valid"]:
+                quarantine_required = True
+                violations.extend(v for v in custody_audit["violations"] if v not in violations)
+        except Exception as exc:
+            quarantine_required = True
+            cleanup_errors.append(f"SUBSTEP5_CUSTODY_AUDIT_ERR:{type(exc).__name__}:{exc}")
+
+    # Substep 6: Seal QA dataset manifest ONLY if ALL positive invariants hold!
+    dataset_manifest: Optional[Dict[str, Any]] = None
+    committed_all = list(writer_rep.get("committed_chunks") or ()) if writer_rep is not None else [c for t in task_results for c in (t.get("committed_chunks") or ())]
+    expected_tasks = len(ctx.tasks)
+    completed_tasks = sum(1 for t in task_results if t.get("ok") is True)
+    missing_cov = max(0, expected_tasks - completed_tasks)
+
+    if disk_budget_ledger is not None:
+        try:
+            # Reconcile fixed overhead reservation (actual manifest/anchor/WAL bytes vs reserved)
+            fixed_rid = f"fixed_overhead_{ctx.session_id}"
+            wal_b = disk_budget_ledger.checkpoint_wal_bounded()
+            clean_reconcile = (not quarantine_required and not original_error and not cleanup_errors and not unreaped_worker)
+            if clean_reconcile:
+                disk_budget_ledger.reconcile_r6_disk_actual(
+                    session_id=ctx.session_id,
+                    reservation_id=fixed_rid,
+                    actual_committed_bytes=min(wal_b, DEFAULT_EMERGENCY_AUDIT_RESERVE_BYTES + DEFAULT_MANIFEST_AND_ANCHOR_RESERVE_BYTES + DEFAULT_SQLITE_WAL_OVERHEAD_RESERVE_BYTES),
+                    uncertain_bytes=0,
+                    reason="FIXED_OVERHEAD_RECONCILED",
+                )
+            else:
+                disk_budget_ledger.release_r6_disk_reservation(
+                    session_id=ctx.session_id,
+                    reservation_id=fixed_rid,
+                    proven_unused_or_deleted=False,
+                    reason="FIXED_OVERHEAD_UNCERTAIN_ON_ERROR",
+                )
+        except Exception as exc:
+            cleanup_errors.append(f"SUBSTEP6_DISK_FIXED_RECONCILE_ERR:{exc}")
+
+    dsk_snap: Optional[Dict[str, Any]] = None
+    if disk_budget_ledger is not None:
+        try:
+            dsk_snap = disk_budget_ledger.snapshot_r6_disk_budget(ctx.session_id)
+        except Exception as exc:
+            cleanup_errors.append(f"SUBSTEP6_DISK_SNAP_ERR:{exc}")
+
+    unresolved_dsk_n = int((dsk_snap or {}).get("active_reservations_count", 0)) if dsk_snap else 0
+
+    try:
+        if (
+            custody is not None
+            and custody_audit is not None
+            and custody_audit.get("valid") is True
+            and int(custody_audit.get("committed_chunks", 0)) > 0
+            and not quarantine_required
+            and not cancelled
+            and not deadline_expired
+            and not original_error
+            and not cleanup_errors
+            and not unreaped_worker
+            and missing_cov == 0
+            and unresolved_dsk_n == 0
+        ):
+            ohlcv_res = next((t.get("ohlcv_result") for t in task_results if t.get("task_kind") == "ohlcv_history"), None)
+            bbo_res = next((t.get("bbo_coverage") for t in task_results if t.get("task_kind") == "bbo_ws_stream"), None)
+            fund_res = next((t.get("funding_result") for t in task_results if t.get("task_kind") == "funding_history"), None)
+            gap_ledger = build_r6_market_data_gap_ledger(
+                dataset_scope=ctx.partition,
+                ohlcv_result=ohlcv_res,
+                bbo_result=bbo_res,
+                funding_result=fund_res,
+            )
+            valid_total = sum(int(t.get("valid_rows_count", 0)) for t in task_results)
+            invalid_total = sum(int(t.get("invalid_rows_count", 0)) for t in task_results)
+            committed_rows = int(custody_audit.get("total_normalized_rows", 0))
+            raw_obs = max(valid_total + invalid_total, committed_rows)
+
+            dm = seal_r6_dev_dataset_manifest(
+                run_id=ctx.run_id,
+                stage=ctx.stage,
+                partition=ctx.partition,
+                tested_executable_sha=ctx.tested_executable_sha,
+                source_registry_digest=ctx.registry_digest,
+                instrument_metadata_versions=metadata_versions,
+                window_start_ms=plan.window_start_ms,
+                window_end_ms=plan.window_end_ms,
+                custody_audit=custody_audit,
+                gap_ledger=gap_ledger,
+                raw_observed_count=raw_obs,
+                normalized_valid_count=valid_total,
+                rejected_or_quarantined_count=invalid_total,
+                persisted_accepted_count=committed_rows,
+                provenance_classes=["QA_LOOPBACK"] if ctx.qa_loopback_mode else ["RAW_UNVERIFIED_REJECTED"],
+                retention_policy={"max_retention_days": 30, "git_commit_raw_payloads": False},
+                local_store_redacted_id=f"qa_store:{ledger.store_id}",
+                active_writer_present=False,
+                pending_intents_count=0,
+                quarantined_artifacts_count=0,
+                unresolved_reservations_count=unresolved_dsk_n,
+                cancelled=cancelled,
+                deadline_expired=deadline_expired,
+                missing_task_coverage_count=missing_cov,
+            )
+            if dm.get("sealed") is True:
+                dataset_manifest = dm
+                state_history.append("SEALED")
+                _atomic_write_json_fsync(custody.store_dir / "qa_dataset_manifest.json", dataset_manifest)
+            else:
+                cleanup_errors.append(f"MANIFEST_SEAL_REJECTED:{dm.get('violations')}")
+                quarantine_required = True
+    except Exception as exc:
+        cleanup_errors.append(f"SUBSTEP6_MANIFEST_SEAL_ERR:{type(exc).__name__}:{exc}")
+        quarantine_required = True
+
+    # Substep 7: CAS Durable Ledger Finalization (or post-claim exception reconciliation) + DB verification!
+    ledger_final_status = "NOT_CLAIMED"
+    ledger_terminal_verified = True
+    unproven_terminal = False
+    snap: Optional[Dict[str, Any]] = None
+
+    fin_reason = (
+        "QA_E2E_ACQUISITION_COMPLETE"
+        if (not quarantine_required and not cancelled and not deadline_expired and not original_error and not cleanup_errors and not violations and missing_cov == 0)
+        else ("ABORTED_CANCELLED" if cancelled else ("ABORTED_DEADLINE" if deadline_expired else "PARTIAL_OR_QUARANTINED"))
+    )
+
+    try:
+        if lease is not None:
+            fin_res = ledger.finalize_r6_session(
+                lease,
+                quarantine=bool(quarantine_required),
+                reason=fin_reason,
+                actual_now=utc_now_fn(),
+                inject_db_finalize_error=inject_db_finalize_error,
+            )
+            ledger_final_status = str(fin_res.get("status") or "UNPROVEN_TERMINAL")
+            ledger_terminal_verified = bool(fin_res.get("terminal_verified_from_db"))
+            if not fin_res.get("finalized") or not ledger_terminal_verified or ledger_final_status == "UNPROVEN_TERMINAL":
+                unproven_terminal = True
+                cleanup_errors.extend(fin_res.get("violations") or ["LEDGER_FINALIZE_UNPROVEN_TERMINAL"])
+            state_history.append("FINALIZED" if (not quarantine_required and not unproven_terminal) else ("UNPROVEN_TERMINAL" if unproven_terminal else "QUARANTINED"))
+            snap = ledger.snapshot_grant(lease.grant_identity_key)
+        elif claim_attempted:
+            rec_cl = reconcile_r6_a1_claim_after_exception(
+                ledger,
+                verified_grant,
+                plan,
+                ctx.session_id,
+                actual_now=utc_now_fn(),
+                quarantine=True,
+                reason=f"CLAIM_EXCEPTION_RECONCILED:{original_error or 'UNKNOWN'}",
+            )
+            ledger_final_status = str(rec_cl.get("status") or "UNPROVEN_TERMINAL")
+            ledger_terminal_verified = bool(rec_cl.get("terminal_verified_from_db"))
+            if not rec_cl.get("reconciled") or not ledger_terminal_verified or ledger_final_status == "UNPROVEN_TERMINAL":
+                unproven_terminal = True
+                cleanup_errors.extend(rec_cl.get("violations") or ["CLAIM_RECONCILE_UNPROVEN"])
+            state_history.append("CLAIM_RECONCILED_TERMINAL" if ledger_terminal_verified else "UNPROVEN_TERMINAL")
+            snap = ledger.snapshot_grant(verified_grant.grant_identity_key)
+    except Exception as exc:
+        unproven_terminal = True
+        ledger_terminal_verified = False
+        ledger_final_status = "UNPROVEN_TERMINAL"
+        cleanup_errors.append(f"SUBSTEP7_LEDGER_FINALIZE_EXC:{type(exc).__name__}:{exc}")
+        try:
+            ledger.mark_store_unproven_terminal(f"FINALIZE_EXC:{exc}", session_id=ctx.session_id, grant_identity_key=verified_grant.grant_identity_key)
+        except Exception:
+            pass
+
+    q_stats = custody_queue.snapshot_stats() if custody_queue is not None else None
+    claim_st = "CLAIMED_ONE_SHOT" if lease is not None else ("CLAIM_EXCEPTION_RECONCILED" if claim_attempted else "NOT_CLAIMED")
+    return build_r6_a1_session_receipt(
+        ctx=ctx,
+        state_history=state_history,
+        claim_status=claim_st,
+        lease=lease,
+        plan=plan,
+        task_results=task_results,
+        custody_audit=custody_audit,
+        dataset_manifest=dataset_manifest,
+        ledger_snapshot=snap,
+        ledger_final_status=ledger_final_status,
+        resource_samples=resource_samples,
+        violations=violations,
+        quarantined=bool(quarantine_required or ledger_final_status == "QUARANTINED"),
+        cancelled=cancelled,
+        deadline_expired=deadline_expired,
+        original_error=original_error,
+        cleanup_errors=cleanup_errors,
+        ledger_terminal_verified_from_db=ledger_terminal_verified,
+        unproven_terminal=unproven_terminal,
+        unreaped_worker_detected=unreaped_worker,
+        disk_budget_snapshot=dsk_snap,
+        custody_queue_stats=q_stats,
+        writer_report=writer_rep,
+        committed_chunks_override=committed_all,
+    )
 
 
 def finalize_r6_a1_acquisition_session(
@@ -1188,99 +1744,33 @@ def finalize_r6_a1_acquisition_session(
     utc_now_fn: Callable[[], datetime],
     metadata_versions: Sequence[Mapping[str, Any]],
 ) -> Dict[str, Any]:
-    """
-    F06: Finalizes owned session strictly once: verifies custody read-only against linked SQLite ledger,
-    builds gap ledger, seals QA dataset manifest ONLY after validation, finalizes durable one-shot ledger
-    (never resetting spent grants), and returns immutable receipt (F07).
-    """
-    # Always verify custody read-only with linked SQLite ledger proof!
-    custody_audit = verify_r6_custody_readonly(
-        custody.store_dir,
-        expected_partition=ctx.partition,
-        expected_run_id=ctx.run_id,
-        ledger_store_root=ledger.store_root,
-    )
-    if not custody_audit["valid"]:
-        quarantine_required = True
-        violations.extend(custody_audit["violations"])
-
-    ohlcv_res = next((t.get("ohlcv_result") for t in task_results if t.get("task_kind") == "ohlcv_history"), None)
-    bbo_res = next((t.get("bbo_coverage") for t in task_results if t.get("task_kind") == "bbo_ws_stream"), None)
-    fund_res = next((t.get("funding_result") for t in task_results if t.get("task_kind") == "funding_history"), None)
-    gap_ledger = build_r6_market_data_gap_ledger(
-        dataset_scope=ctx.partition,
-        ohlcv_result=ohlcv_res,
-        bbo_result=bbo_res,
-        funding_result=fund_res,
-    )
-
-    valid_total = sum(int(t.get("valid_rows_count", 0)) for t in task_results)
-    invalid_total = sum(int(t.get("invalid_rows_count", 0)) for t in task_results)
-    committed_rows = int(custody_audit.get("total_normalized_rows", 0))
-    raw_obs = max(valid_total + invalid_total, committed_rows)
-
-    dataset_manifest: Optional[Dict[str, Any]] = None
-    if custody_audit["valid"] and int(custody_audit.get("committed_chunks", 0)) > 0:
-        state_history.append("SEALED")
-        dataset_manifest = seal_r6_dev_dataset_manifest(
-            run_id=ctx.run_id,
-            stage=ctx.stage,
-            partition=ctx.partition,
-            tested_executable_sha=ctx.tested_executable_sha,
-            source_registry_digest=ctx.registry_digest,
-            instrument_metadata_versions=metadata_versions,
-            window_start_ms=plan.window_start_ms,
-            window_end_ms=plan.window_end_ms,
-            custody_audit=custody_audit,
-            gap_ledger=gap_ledger,
-            raw_observed_count=raw_obs,
-            normalized_valid_count=valid_total,
-            rejected_or_quarantined_count=invalid_total,
-            persisted_accepted_count=committed_rows,
-            provenance_classes=["QA_LOOPBACK"] if ctx.qa_loopback_mode else ["RAW_UNVERIFIED_REJECTED"],
-            retention_policy={"max_retention_days": 30, "git_commit_raw_payloads": False},
-            local_store_redacted_id=f"qa_store:{ledger.store_id}",
-        )
-        # Write manifest file atomically inside custody run directory
-        manifest_path = custody.store_dir / "qa_dataset_manifest.json"
-        manifest_path.write_text(json.dumps(dataset_manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
-
-    # Clean up ONLY owned temp files
-    cln = custody.cleanup_owned_temp_files_safe()
-    if not cln["all_owned_temps_deleted"]:
-        quarantine_required = True
-        violations.append("CUSTODY_OWNED_TEMP_UNLINK_FAILED_QUARANTINED")
-
-    fin_reason = (
-        "QA_E2E_ACQUISITION_COMPLETE"
-        if (not quarantine_required and not cancelled and not violations)
-        else ("ABORTED_CANCELLED" if cancelled else "PARTIAL_OR_QUARANTINED")
-    )
-    fin_res = ledger.finalize_r6_session(
-        lease,
-        quarantine=bool(quarantine_required),
-        reason=fin_reason,
-        actual_now=utc_now_fn(),
-    )
-    ledger_final_status = str(fin_res.get("status") or "UNKNOWN")
-    state_history.append("FINALIZED" if not quarantine_required else "QUARANTINED")
-    snap = ledger.snapshot_grant(lease.grant_identity_key)
-
-    return build_r6_a1_session_receipt(
+    """Backward-compatible wrapper delegating cleanly to `finalize_r6_a1_session_safely`."""
+    return finalize_r6_a1_session_safely(
         ctx=ctx,
-        state_history=state_history,
-        claim_status="CLAIMED_ONE_SHOT",
+        verified_grant=type("_VG", (), {"grant_identity_key": lease.grant_identity_key})(),  # type: ignore[arg-type]
+        ledger=ledger,
         lease=lease,
+        claim_attempted=True,
         plan=plan,
+        custody=custody,
+        writer_authority=None,
+        writer_thread=None,
+        writer_report_box=[],
+        custody_queue=None,
+        disk_budget_ledger=None,
         task_results=task_results,
-        custody_audit=custody_audit,
-        dataset_manifest=dataset_manifest,
-        ledger_snapshot=snap,
-        ledger_final_status=ledger_final_status,
-        resource_samples=resource_samples,
+        state_history=state_history,
+        resource_samples=list(resource_samples),
+        resource_sample_fn=lambda: {},
         violations=violations,
-        quarantined=bool(quarantine_required or ledger_final_status == "QUARANTINED"),
+        original_error=None,
+        quarantine_required=quarantine_required,
         cancelled=cancelled,
+        deadline_expired=False,
+        cancel_event=threading.Event(),
+        bump_cancel_epoch=lambda: 1,
+        utc_now_fn=utc_now_fn,
+        metadata_versions=metadata_versions,
     )
 
 
@@ -1300,11 +1790,31 @@ def run_r6_a1_acquisition_session(
     allow_fixture_resource_sample: bool = False,
     cancel_between_claim_and_first_attempt: bool = False,
     post_exit_hook: Optional[Callable[[], None]] = None,
+    # Corrective P1-L / P1-M / P1-N explicit controls & fault hooks
+    disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+    queue_max_items: int = 8,
+    queue_max_bytes: Optional[int] = None,
+    claim_crash_hook: Optional[Callable[[str], None]] = None,
+    post_claim_hook: Optional[Callable[[], None]] = None,
+    writer_per_commit_hook: Optional[Callable[[Any], None]] = None,
+    inject_db_finalize_error: bool = False,
+    simulate_unreaped_worker: bool = False,
+    propagate_base_exceptions: bool = True,
+    receipt_sink: Optional[List[Dict[str, Any]]] = None,
+    volume_free_bytes_override: Optional[int] = None,
+    volume_total_bytes_override: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    F03: Single end-to-end acquisition orchestration authority.
-    Executes real state machine:
-      PRECHECK -> PLAN_BOUND -> PARTITION_ASSIGNED -> CLAIMED -> ACQUIRING -> VALIDATING -> PERSISTING -> SEALED -> FINALIZED
+    F01 / F03 / F05 / F09: Single end-to-end acquisition orchestration authority (P1-L + P1-M + P1-N).
+      - All pre-claim checks (external block, strict MIN disk budget contract, initial telemetry)
+        execute BEFORE claim so pre-claim exceptions consume ZERO grants/workers/custody!
+      - Enters guarded `try / except BaseException / finally` BEFORE calling claim!
+      - Parallel transport/validation workers NEVER write custody directly — they enqueue immutable
+        envelopes into `R6A1BoundedOrderedCustodyQueue` consumed by ONE single custody writer thread
+        holding `R6A1CustodyWriterAuthority` + OS cross-process store lock!
+      - ZERO `max()` cap enlargement: `max_chunk_bytes` and `max_total_bytes` come strictly from
+        `compute_effective_disk_budget_contract()` MIN intersection!
+      - Exception-isolated `finalize_r6_a1_session_safely()` runs in `finally:` (no `return` in `finally`).
     """
     state_history: List[str] = ["PRECHECK", "PLAN_BOUND", "PARTITION_ASSIGNED"]
     violations: List[str] = []
@@ -1312,8 +1822,19 @@ def run_r6_a1_acquisition_session(
     task_results: List[Dict[str, Any]] = []
     all_lifecycle_traces: List[Dict[str, Any]] = []
     ev_cancel = cancel_event if cancel_event is not None else threading.Event()
+    lifecycle_lock = threading.Lock()
+    cancel_epoch_box = [0]
 
-    # Hard A1 external block BEFORE claiming any grant!
+    def _get_cancel_epoch() -> int:
+        with lifecycle_lock:
+            return cancel_epoch_box[0]
+
+    def _bump_cancel_epoch() -> int:
+        with lifecycle_lock:
+            cancel_epoch_box[0] += 1
+            return cancel_epoch_box[0]
+
+    # 1. Hard A1 external block BEFORE claiming any grant!
     if not A1_EXTERNAL_CAPTURE_ENABLED and not ctx.qa_loopback_mode:
         return build_r6_a1_session_receipt(
             ctx=ctx,
@@ -1332,167 +1853,401 @@ def run_r6_a1_acquisition_session(
             cancelled=False,
         )
 
-    now_start = utc_now_fn()
-    now_start_ms = int(now_start.astimezone(timezone.utc).timestamp() * 1000)
-    # Immutable absolute monotonic session deadline computed ONCE (never reset per request/page/reconnect!)
-    rem_grant_sec = max(0.0, (verified_grant.expires_utc_ms - now_start_ms) / 1000.0)
-    session_deadline_mono = time.monotonic() + min(float(plan.max_session_duration_sec), rem_grant_sec)
-
-    # Record initial resource sample
-    resource_samples.append(dict(resource_sample_fn()))
-
-    # Claim one-shot grant ONCE after all prechecks!
-    claim_res = ledger.claim_r6_grant_session_atomic(verified_grant, plan, ctx.session_id, actual_now=now_start)
-    if not claim_res.get("claimed") or claim_res.get("lease") is None:
+    # 2. Pre-claim strict MIN disk budget contract (ZERO `max()` enlargement!)
+    bud_res = compute_effective_disk_budget_contract(
+        grant_caps=verified_grant.caps,
+        plan_caps=plan.caps,
+        target_path=Path(verified_grant.destination_root),
+        repo_root=repo_root,
+        oos_roots=oos_roots,
+        volume_free_bytes_override=volume_free_bytes_override,
+        volume_total_bytes_override=volume_total_bytes_override,
+    )
+    if not bud_res["valid"] or bud_res["contract"] is None:
         return build_r6_a1_session_receipt(
             ctx=ctx,
             state_history=state_history,
-            claim_status=str(claim_res.get("status") or "REJECTED_CLAIM"),
+            claim_status=str(bud_res["status"]),
             lease=None,
             plan=plan,
             task_results=[],
             custody_audit=None,
             dataset_manifest=None,
-            ledger_snapshot=ledger.snapshot_grant(verified_grant.grant_identity_key),
+            ledger_snapshot=None,
+            ledger_final_status="NOT_CLAIMED",
+            resource_samples=[],
+            violations=list(bud_res["violations"]),
+            quarantined=False,
+            cancelled=False,
+        )
+    bud_contract = bud_res["contract"]
+
+    # 3. Pre-claim initial resource sample (exception BEFORE claim -> ZERO grant consumption!)
+    try:
+        init_samp = resource_sample_fn()
+        if not isinstance(init_samp, Mapping):
+            raise ValueError("PRECLAIM_TELEMETRY_NOT_MAPPING")
+        resource_samples.append(dict(init_samp))
+        rg_pre = validate_r6_resource_guard(
+            init_samp,
+            expected_volumes=expected_volumes,
+            phase="preflight",
+            allow_fixture_sample=allow_fixture_resource_sample,
+        )
+        if not rg_pre["ok"]:
+            return build_r6_a1_session_receipt(
+                ctx=ctx,
+                state_history=state_history,
+                claim_status="BLOCKED_PRECLAIM_RESOURCE_GUARD",
+                lease=None,
+                plan=plan,
+                task_results=[],
+                custody_audit=None,
+                dataset_manifest=None,
+                ledger_snapshot=None,
+                ledger_final_status="NOT_CLAIMED",
+                resource_samples=resource_samples,
+                violations=list(rg_pre["violations"]),
+                quarantined=False,
+                cancelled=False,
+            )
+    except Exception as exc:
+        return build_r6_a1_session_receipt(
+            ctx=ctx,
+            state_history=state_history,
+            claim_status="FAILED_PRECLAIM_EXCEPTION",
+            lease=None,
+            plan=plan,
+            task_results=[],
+            custody_audit=None,
+            dataset_manifest=None,
+            ledger_snapshot=ledger.snapshot_grant(verified_grant.grant_identity_key) if not ledger.is_store_unproven_terminal() else None,
             ledger_final_status="NOT_CLAIMED",
             resource_samples=resource_samples,
-            violations=list(claim_res.get("violations") or [str(claim_res.get("status"))]),
+            violations=[f"PRECLAIM_EXCEPTION:{type(exc).__name__}:{exc}"],
+            original_error=f"{type(exc).__name__}:{exc}",
             quarantined=False,
             cancelled=False,
         )
 
-    lease: R6DurableSessionLease = claim_res["lease"]
-    state_history.append("CLAIMED")
+    now_start = utc_now_fn()
+    now_start_ms = int(now_start.astimezone(timezone.utc).timestamp() * 1000)
+    rem_grant_sec = max(0.0, (verified_grant.expires_utc_ms - now_start_ms) / 1000.0)
+    session_deadline_mono = time.monotonic() + min(float(plan.max_session_duration_sec), rem_grant_sec)
 
-    custody = R6CustodyJournal(
-        approved_root=Path(verified_grant.destination_root),
-        partition=ctx.partition,
-        run_id=ctx.run_id,
-        repo_root=repo_root,
-        oos_roots=oos_roots,
-        max_chunk_bytes=max(65_536, int(plan.caps.get("payload_bytes", 1_048_576))),
-        max_total_bytes=max(262_144, int(plan.caps.get("disk_bytes", 16_777_216))),
-    )
-
+    # 4. Enter guarded lifecycle BEFORE calling claim (P1-N / F09)!
+    claim_attempted = False
+    lease: Optional[R6DurableSessionLease] = None
+    custody: Optional[R6CustodyJournal] = None
+    writer_authority: Optional[R6A1CustodyWriterAuthority] = None
+    writer_thread: Optional[threading.Thread] = None
+    writer_report_box: List[Dict[str, Any]] = []
+    custody_queue: Optional[R6A1BoundedOrderedCustodyQueue] = None
+    eff_disk_ledger: Optional[R6A1DiskBudgetLedger] = disk_budget_ledger
     quarantine_req = False
+    deadline_expired = False
+    original_error: Optional[str] = None
+    base_exc_to_reraise: Optional[BaseException] = None
     metadata_versions: List[Dict[str, Any]] = []
+    early_claim_rejection_receipt: Optional[Dict[str, Any]] = None
+    final_receipt: Optional[Dict[str, Any]] = None
 
     try:
-        if cancel_between_claim_and_first_attempt:
-            ev_cancel.set()
-
-        if ev_cancel.is_set() or time.monotonic() >= session_deadline_mono:
-            state_history.append("ABORTED")
-            violations.append("CANCELLED_OR_EXPIRED_BEFORE_FIRST_ATTEMPT")
-        else:
-            state_history.append("ACQUIRING")
-            # 1. Execute mandatory metadata identity gate FIRST (serial prerequisite!)
-            meta_task = ctx.tasks[0]
-            meta_res = execute_r6_a1_rest_task(
+        claim_attempted = True
+        claim_res = ledger.claim_r6_grant_session_atomic(
+            verified_grant,
+            plan,
+            ctx.session_id,
+            actual_now=now_start,
+            crash_hook=claim_crash_hook,
+        )
+        if not claim_res.get("claimed") or claim_res.get("lease") is None:
+            claim_attempted = False
+            early_claim_rejection_receipt = build_r6_a1_session_receipt(
                 ctx=ctx,
-                task=meta_task,
+                state_history=state_history,
+                claim_status=str(claim_res.get("status") or "REJECTED_CLAIM"),
+                lease=None,
+                plan=plan,
+                task_results=[],
+                custody_audit=None,
+                dataset_manifest=None,
+                ledger_snapshot=ledger.snapshot_grant(verified_grant.grant_identity_key),
+                ledger_final_status="NOT_CLAIMED",
+                resource_samples=resource_samples,
+                violations=list(claim_res.get("violations") or [str(claim_res.get("status"))]),
+                quarantined=False,
+                cancelled=False,
+            )
+        else:
+            lease = claim_res["lease"]
+            state_history.append("CLAIMED")
+
+            if post_claim_hook is not None:
+                post_claim_hook()
+
+            # Initialize atomic disk budget ledger bound to verified destination store volume
+            if eff_disk_ledger is None:
+                eff_disk_ledger = R6A1DiskBudgetLedger(
+                    store_root=ledger.store_root,
+                    volume_id=bud_contract["volume_id"],
+                    global_cap_bytes=int(bud_contract["peak_physical_disk_cap_bytes"]),
+                    safe_floor_bytes=int(bud_contract["volume_safe_floor_bytes"]),
+                    volume_free_bytes_fn=(lambda: int(volume_free_bytes_override)) if volume_free_bytes_override is not None else None,
+                )
+            reg_dsk = eff_disk_ledger.register_session_budget(
+                session_id=ctx.session_id,
+                session_cap_bytes=int(bud_contract["peak_physical_disk_cap_bytes"]),
+                emergency_audit_reserve_bytes=int(bud_contract["emergency_audit_reserve_bytes"]),
+                manifest_and_wal_reserve_bytes=int(bud_contract["manifest_and_anchor_reserve_bytes"]) + int(bud_contract["sqlite_wal_overhead_reserve_bytes"]),
+            )
+            if not reg_dsk["registered"]:
+                quarantine_req = True
+                violations.extend(reg_dsk["violations"])
+                raise RuntimeError(f"DISK_BUDGET_SESSION_REGISTER_FAILED:{reg_dsk['status']}")
+
+            # STRICT MIN CAPS (ZERO `max(65_536, ...)` / `max(262_144, ...)` enlargement!)
+            custody = R6CustodyJournal(
+                approved_root=Path(verified_grant.destination_root),
+                partition=ctx.partition,
+                run_id=ctx.run_id,
+                repo_root=repo_root,
+                oos_roots=oos_roots,
+                max_chunk_bytes=int(bud_contract["max_chunk_bytes"]),
+                max_total_bytes=int(bud_contract["persisted_logical_dataset_cap_bytes"]),
+                strict_authority_required=True,
+                session_id=ctx.session_id,
+                expected_volume_id=bud_contract["volume_id"],
+            )
+            wa_res = custody.acquire_writer_authority(
+                session_id=ctx.session_id,
+                cancel_epoch=_get_cancel_epoch(),
+                deadline_monotonic=session_deadline_mono,
+                disk_budget_ledger=eff_disk_ledger,
+            )
+            if not wa_res["acquired"] or wa_res["authority"] is None:
+                quarantine_req = True
+                violations.extend(wa_res["violations"])
+                raise RuntimeError(f"CUSTODY_WRITER_AUTHORITY_DENIED:{wa_res['status']}")
+            writer_authority = wa_res["authority"]
+
+            if cancel_between_claim_and_first_attempt:
+                ev_cancel.set()
+
+            if ev_cancel.is_set():
+                state_history.append("ABORTED")
+                violations.append("CANCELLED_BEFORE_FIRST_ATTEMPT")
+            elif time.monotonic() >= session_deadline_mono:
+                deadline_expired = True
+                state_history.append("ABORTED")
+                violations.append("DEADLINE_EXPIRED_BEFORE_FIRST_ATTEMPT")
+            else:
+                # Start bounded ordered custody queue + SINGLE custody writer thread!
+                eff_q_bytes = int(queue_max_bytes) if queue_max_bytes is not None else max(4096, int(bud_contract["ram_queue_cap_bytes"]))
+                custody_queue = R6A1BoundedOrderedCustodyQueue(
+                    ordered_task_ordinals=list(range(len(ctx.tasks))),
+                    max_items=max(2, int(queue_max_items)),
+                    max_bytes=eff_q_bytes,
+                )
+
+                def _writer_entry() -> None:
+                    wres = run_r6_a1_single_custody_writer(
+                        queue=custody_queue,
+                        custody=custody,
+                        writer_authority=writer_authority,
+                        disk_budget_ledger=eff_disk_ledger,
+                        deadline_monotonic=session_deadline_mono,
+                        cancel_event=ev_cancel,
+                        get_cancel_epoch=_get_cancel_epoch,
+                        on_writer_error=lambda _msg: _bump_cancel_epoch(),
+                        per_commit_hook=writer_per_commit_hook,
+                    )
+                    writer_report_box.append(wres)
+
+                writer_thread = threading.Thread(target=_writer_entry, name=f"custody_writer_{ctx.session_id[:16]}", daemon=False)
+                writer_thread.start()
+
+                state_history.append("ACQUIRING")
+                # 1. Mandatory metadata identity gate FIRST (task_ordinal=0)!
+                meta_task = ctx.tasks[0]
+                try:
+                    meta_res = execute_r6_a1_rest_task(
+                        ctx=ctx,
+                        task=meta_task,
+                        ledger=ledger,
+                        lease=lease,
+                        plan=plan,
+                        verified_grant=verified_grant,
+                        registry=registry,
+                        custody=None,
+                        resource_sample_fn=resource_sample_fn,
+                        expected_volumes=expected_volumes,
+                        session_deadline_monotonic=session_deadline_mono,
+                        cancel_event=ev_cancel,
+                        utc_now_fn=utc_now_fn,
+                        allow_fixture_resource_sample=allow_fixture_resource_sample,
+                        post_exit_hook=post_exit_hook,
+                        custody_queue=custody_queue,
+                        disk_budget_ledger=eff_disk_ledger,
+                        task_ordinal=0,
+                        get_cancel_epoch=_get_cancel_epoch,
+                        max_chunk_bytes_limit=int(bud_contract["max_chunk_bytes"]),
+                    )
+                finally:
+                    custody_queue.mark_task_complete(0)
+                task_results.append(meta_res)
+                all_lifecycle_traces.extend(meta_res.get("lifecycle_traces") or ())
+
+                if not meta_res.get("ok"):
+                    violations.extend(meta_res.get("violations") or ["METADATA_IDENTITY_GATE_FAILED"])
+                    state_history.append("ABORTED")
+                    for rem_ord in range(1, len(ctx.tasks)):
+                        custody_queue.mark_task_complete(rem_ord)
+                    custody_queue.close_intake()
+                else:
+                    obs_meta = meta_res.get("normalized_instrument") or {}
+                    metadata_versions.append(dict(obs_meta))
+                    state_history.append("VALIDATING")
+
+                    # 2. Execute remaining planned tasks in parallel; workers ONLY enqueue envelopes!
+                    remaining_indexed = list(enumerate(ctx.tasks[1:], start=1))
+
+                    async def _run_remaining_async() -> List[Dict[str, Any]]:
+                        sem = asyncio.Semaphore(ctx.effective_concurrency)
+                        loop = asyncio.get_running_loop()
+                        with ThreadPoolExecutor(max_workers=ctx.effective_concurrency) as pool:
+
+                            async def _run_one(t_ord: int, t: R6A1AcquisitionTask) -> Dict[str, Any]:
+                                try:
+                                    async with sem:
+                                        if ev_cancel.is_set() or time.monotonic() >= session_deadline_mono:
+                                            return {
+                                                "task_id": t.task_id, "task_kind": t.task_kind, "endpoint_id": t.endpoint_id,
+                                                "ok": False, "terminal_status": "ABORTED_CANCELLED_BEFORE_TASK",
+                                                "valid_rows_count": 0, "invalid_rows_count": 0, "raw_bytes": 0, "decoded_bytes": 0,
+                                                "requests_count": 0, "attempt_records": [], "committed_chunks": [],
+                                                "lifecycle_traces": [], "violations": ["CANCELLED_BEFORE_TASK"],
+                                            }
+                                        if t.transport_kind == "ws_session":
+                                            return await loop.run_in_executor(
+                                                pool,
+                                                lambda: execute_r6_a1_ws_task(
+                                                    ctx=ctx, task=t, ledger=ledger, lease=lease, plan=plan,
+                                                    verified_grant=verified_grant, registry=registry, custody=None,
+                                                    resource_sample_fn=resource_sample_fn, expected_volumes=expected_volumes,
+                                                    session_deadline_monotonic=session_deadline_mono, cancel_event=ev_cancel,
+                                                    utc_now_fn=utc_now_fn, allow_fixture_resource_sample=allow_fixture_resource_sample,
+                                                    observed_instrument_meta=obs_meta,
+                                                    custody_queue=custody_queue, disk_budget_ledger=eff_disk_ledger,
+                                                    task_ordinal=t_ord, get_cancel_epoch=_get_cancel_epoch,
+                                                    max_chunk_bytes_limit=int(bud_contract["max_chunk_bytes"]),
+                                                ),
+                                            )
+                                        return await loop.run_in_executor(
+                                            pool,
+                                            lambda: execute_r6_a1_rest_task(
+                                                ctx=ctx, task=t, ledger=ledger, lease=lease, plan=plan,
+                                                verified_grant=verified_grant, registry=registry, custody=None,
+                                                resource_sample_fn=resource_sample_fn, expected_volumes=expected_volumes,
+                                                session_deadline_monotonic=session_deadline_mono, cancel_event=ev_cancel,
+                                                utc_now_fn=utc_now_fn, allow_fixture_resource_sample=allow_fixture_resource_sample,
+                                                observed_instrument_meta=obs_meta,
+                                                custody_queue=custody_queue, disk_budget_ledger=eff_disk_ledger,
+                                                task_ordinal=t_ord, get_cancel_epoch=_get_cancel_epoch,
+                                                max_chunk_bytes_limit=int(bud_contract["max_chunk_bytes"]),
+                                            ),
+                                        )
+                                finally:
+                                    custody_queue.mark_task_complete(t_ord)
+
+                            coros = [_run_one(ord_i, t_obj) for ord_i, t_obj in remaining_indexed]
+                            return list(await asyncio.gather(*coros))
+
+                    if remaining_indexed:
+                        rem_out = asyncio.run(_run_remaining_async())
+                        for r_t in rem_out:
+                            task_results.append(r_t)
+                            all_lifecycle_traces.extend(r_t.get("lifecycle_traces") or ())
+                            if not r_t.get("ok"):
+                                violations.extend(r_t.get("violations") or [str(r_t.get("terminal_status"))])
+                                if "QUARANTINED" in str(r_t.get("terminal_status") or "") or "FAIL_UNDRAINED" in str(r_t.get("terminal_status") or ""):
+                                    quarantine_req = True
+
+                    # Close intake & wait for single custody writer to finish draining strictly in canonical order!
+                    custody_queue.close_intake()
+                    state_history.append("PERSISTING")
+                    writer_thread.join(timeout=max(2.0, session_deadline_mono - time.monotonic() + 2.0))
+                    if writer_thread.is_alive():
+                        ev_cancel.set()
+                        _bump_cancel_epoch()
+                        custody_queue.abort("WRITER_JOIN_TIMEOUT")
+                        quarantine_req = True
+                        violations.append("SINGLE_WRITER_DRAIN_TIMEOUT")
+                    elif writer_report_box:
+                        # Map deterministically committed chunks back to their originating task records
+                        by_task_id: Dict[str, List[Dict[str, Any]]] = {}
+                        for cc in writer_report_box[0].get("committed_chunks") or ():
+                            by_task_id.setdefault(str(cc.get("task_id") or ""), []).append(cc)
+                        for tr in task_results:
+                            tid = str(tr.get("task_id") or "")
+                            if tid in by_task_id:
+                                tr["committed_chunks"] = by_task_id[tid]
+                        if not writer_report_box[0].get("ok"):
+                            violations.extend(writer_report_box[0].get("violations") or ["SINGLE_WRITER_FAILED"])
+                            if writer_report_box[0].get("status") in ("WRITER_QUARANTINED", "WRITER_EXCEPTION"):
+                                quarantine_req = True
+                    if time.monotonic() >= session_deadline_mono and not ev_cancel.is_set():
+                        deadline_expired = True
+    except BaseException as exc:
+        original_error = f"{type(exc).__name__}:{exc}"
+        ev_cancel.set()
+        _bump_cancel_epoch()
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            base_exc_to_reraise = exc
+            violations.append(f"BASE_EXCEPTION_INTERRUPTED:{type(exc).__name__}")
+        else:
+            quarantine_req = True
+            violations.append(f"ORCHESTRATOR_UNHANDLED_EXCEPTION:{type(exc).__name__}:{exc}")
+    finally:
+        # NEVER put `return` inside `finally:`!
+        if early_claim_rejection_receipt is None:
+            final_receipt = finalize_r6_a1_session_safely(
+                ctx=ctx,
+                verified_grant=verified_grant,
                 ledger=ledger,
                 lease=lease,
+                claim_attempted=claim_attempted,
                 plan=plan,
-                verified_grant=verified_grant,
-                registry=registry,
                 custody=custody,
+                writer_authority=writer_authority,
+                writer_thread=writer_thread,
+                writer_report_box=writer_report_box,
+                custody_queue=custody_queue,
+                disk_budget_ledger=eff_disk_ledger,
+                task_results=task_results,
+                state_history=state_history,
+                resource_samples=resource_samples,
                 resource_sample_fn=resource_sample_fn,
-                expected_volumes=expected_volumes,
-                session_deadline_monotonic=session_deadline_mono,
+                violations=violations,
+                original_error=original_error,
+                quarantine_required=quarantine_req,
+                cancelled=ev_cancel.is_set(),
+                deadline_expired=deadline_expired,
                 cancel_event=ev_cancel,
+                bump_cancel_epoch=_bump_cancel_epoch,
                 utc_now_fn=utc_now_fn,
-                allow_fixture_resource_sample=allow_fixture_resource_sample,
-                post_exit_hook=post_exit_hook,
+                metadata_versions=metadata_versions,
+                inject_db_finalize_error=inject_db_finalize_error,
+                simulate_unreaped_worker=simulate_unreaped_worker,
             )
-            task_results.append(meta_res)
-            all_lifecycle_traces.extend(meta_res.get("lifecycle_traces") or ())
+            final_receipt["lifecycle_traces"] = all_lifecycle_traces
+            if receipt_sink is not None:
+                receipt_sink.append(final_receipt)
 
-            if not meta_res.get("ok"):
-                violations.extend(meta_res.get("violations") or ["METADATA_IDENTITY_GATE_FAILED"])
-                state_history.append("ABORTED")
-            else:
-                obs_meta = meta_res.get("normalized_instrument") or {}
-                metadata_versions.append(dict(obs_meta))
-                state_history.append("VALIDATING")
-
-                # 2. Execute remaining planned tasks via bounded async coordinator!
-                remaining_tasks = list(ctx.tasks[1:])
-
-                async def _run_remaining_async() -> List[Dict[str, Any]]:
-                    sem = asyncio.Semaphore(ctx.effective_concurrency)
-                    loop = asyncio.get_running_loop()
-                    # Bounded executor matching ctx.effective_concurrency (<= 2)
-                    with ThreadPoolExecutor(max_workers=ctx.effective_concurrency) as pool:
-
-                        async def _run_one(t: R6A1AcquisitionTask) -> Dict[str, Any]:
-                            async with sem:
-                                if ev_cancel.is_set() or time.monotonic() >= session_deadline_mono:
-                                    return {
-                                        "task_id": t.task_id, "task_kind": t.task_kind, "endpoint_id": t.endpoint_id,
-                                        "ok": False, "terminal_status": "ABORTED_CANCELLED_BEFORE_TASK",
-                                        "valid_rows_count": 0, "invalid_rows_count": 0, "raw_bytes": 0, "decoded_bytes": 0,
-                                        "requests_count": 0, "attempt_records": [], "committed_chunks": [],
-                                        "lifecycle_traces": [], "violations": ["CANCELLED_BEFORE_TASK"],
-                                    }
-                                if t.transport_kind == "ws_session":
-                                    return await loop.run_in_executor(
-                                        pool,
-                                        lambda: execute_r6_a1_ws_task(
-                                            ctx=ctx, task=t, ledger=ledger, lease=lease, plan=plan,
-                                            verified_grant=verified_grant, registry=registry, custody=custody,
-                                            resource_sample_fn=resource_sample_fn, expected_volumes=expected_volumes,
-                                            session_deadline_monotonic=session_deadline_mono, cancel_event=ev_cancel,
-                                            utc_now_fn=utc_now_fn, allow_fixture_resource_sample=allow_fixture_resource_sample,
-                                            observed_instrument_meta=obs_meta,
-                                        ),
-                                    )
-                                return await loop.run_in_executor(
-                                    pool,
-                                    lambda: execute_r6_a1_rest_task(
-                                        ctx=ctx, task=t, ledger=ledger, lease=lease, plan=plan,
-                                        verified_grant=verified_grant, registry=registry, custody=custody,
-                                        resource_sample_fn=resource_sample_fn, expected_volumes=expected_volumes,
-                                        session_deadline_monotonic=session_deadline_mono, cancel_event=ev_cancel,
-                                        utc_now_fn=utc_now_fn, allow_fixture_resource_sample=allow_fixture_resource_sample,
-                                        observed_instrument_meta=obs_meta,
-                                    ),
-                                )
-
-                        coros = [_run_one(t) for t in remaining_tasks]
-                        return list(await asyncio.gather(*coros))
-
-                if remaining_tasks:
-                    rem_out = asyncio.run(_run_remaining_async())
-                    for r_t in rem_out:
-                        task_results.append(r_t)
-                        all_lifecycle_traces.extend(r_t.get("lifecycle_traces") or ())
-                        if not r_t.get("ok"):
-                            violations.extend(r_t.get("violations") or [str(r_t.get("terminal_status"))])
-                            if "QUARANTINED" in str(r_t.get("terminal_status") or "") or "FAIL_UNDRAINED" in str(r_t.get("terminal_status") or ""):
-                                quarantine_req = True
-
-                state_history.append("PERSISTING")
-    except Exception as exc:
-        quarantine_req = True
-        violations.append(f"ORCHESTRATOR_UNHANDLED_EXCEPTION:{exc}")
-    finally:
-        resource_samples.append(dict(resource_sample_fn()))
-        receipt = finalize_r6_a1_acquisition_session(
-            ctx=ctx,
-            ledger=ledger,
-            lease=lease,
-            plan=plan,
-            custody=custody,
-            task_results=task_results,
-            state_history=state_history,
-            resource_samples=resource_samples,
-            violations=violations,
-            quarantine_required=quarantine_req,
-            cancelled=ev_cancel.is_set(),
-            utc_now_fn=utc_now_fn,
-            metadata_versions=metadata_versions,
-        )
-
-    receipt["lifecycle_traces"] = all_lifecycle_traces
-    return receipt
+    if base_exc_to_reraise is not None and propagate_base_exceptions:
+        raise base_exc_to_reraise
+    if early_claim_rejection_receipt is not None:
+        early_claim_rejection_receipt["lifecycle_traces"] = all_lifecycle_traces
+        return early_claim_rejection_receipt
+    assert final_receipt is not None
+    return final_receipt

@@ -1277,6 +1277,45 @@ class R6DurableGrantLedger:
         self.max_grants = int(max_grants)
         self.max_db_bytes = int(max_db_bytes)
         self.busy_timeout_ms = int(busy_timeout_ms)
+        self.unproven_terminal_marker_path = self.store_root / "STORE_UNPROVEN_TERMINAL.lock.json"
+        self._unproven_terminal_poisoned: bool = False
+
+    def mark_store_unproven_terminal(self, reason: str, *, session_id: str = "", grant_identity_key: str = "") -> Dict[str, Any]:
+        """F10 (P1-N): Fail-closed store quarantine marker when durable terminal persistence/verification fails!"""
+        self._unproven_terminal_poisoned = True
+        doc = {
+            "schema_version": LEDGER_SCHEMA_VERSION_R6,
+            "status": "UNPROVEN_TERMINAL",
+            "store_id": self.store_id,
+            "trust_namespace": self.trust_namespace,
+            "session_id": str(session_id),
+            "grant_identity_key": str(grant_identity_key),
+            "reason": str(reason),
+            "recorded_utc_ms": int(datetime.now(timezone.utc).timestamp() * 1000),
+        }
+        try:
+            _atomic_write_json_fsync(self.unproven_terminal_marker_path, doc)
+            return {"marker_written": True, "status": "UNPROVEN_TERMINAL_MARKER_PERSISTED"}
+        except Exception as exc:
+            return {"marker_written": False, "status": "UNPROVEN_TERMINAL_MARKER_WRITE_FAILED", "error": str(exc)}
+
+    def is_store_unproven_terminal(self) -> bool:
+        return bool(self._unproven_terminal_poisoned or self.unproven_terminal_marker_path.is_file())
+
+    def lookup_r6_session_durable(self, grant_identity_key: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Read-only durable lookup used by `reconcile_r6_a1_claim_after_exception`."""
+        conn = self._connect()
+        try:
+            if session_id is not None:
+                row = conn.execute(
+                    "SELECT * FROM grants WHERE grant_identity_key = ? AND session_id = ?",
+                    (grant_identity_key, session_id),
+                ).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (grant_identity_key,)).fetchone()
+            return dict(row) if row is not None else None
+        finally:
+            conn.close()
 
     def _connect(self) -> sqlite3.Connection:
         # URI mode=rw ensures SQLite NEVER silently creates a missing DB file!
@@ -1383,6 +1422,13 @@ class R6DurableGrantLedger:
         actual_now: datetime,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
+        if self.is_store_unproven_terminal():
+            return {
+                "claimed": False,
+                "status": "BLOCKED_STORE_UNPROVEN_TERMINAL",
+                "lease": None,
+                "violations": ["STORE_POISONED_UNPROVEN_TERMINAL_REQUIRES_EXPLICIT_RECOVERY"],
+            }
         if not isinstance(verified_grant, R6VerifiedGrant):
             return {"claimed": False, "status": "REJECTED_INVALID_GRANT_OBJECT", "lease": None, "violations": ["INVALID_GRANT_TYPE"]}
         ok_vg, vg_viols = verify_registered_grant_authenticity_a1(verified_grant)
@@ -1636,6 +1682,8 @@ class R6DurableGrantLedger:
         require_complete_caps: bool = True,
         crash_hook: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
+        if self.is_store_unproven_terminal():
+            return {"reserved": False, "status": "BLOCKED_STORE_UNPROVEN_TERMINAL", "reservation_receipt": None, "violations": ["STORE_POISONED_UNPROVEN_TERMINAL"]}
         if not isinstance(lease, R6DurableSessionLease) or lease.store_id != self.store_id:
             return {"reserved": False, "status": "REJECTED_INVALID_LEASE", "reservation_receipt": None, "violations": ["INVALID_OR_FOREIGN_LEASE"]}
         ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
@@ -2138,7 +2186,7 @@ class R6DurableGrantLedger:
             finally:
                 conn.close()
 
-    # F21: Finalize one-shot grant as SPENT or QUARANTINED (never healthy SPENT if unsettled STARTED attempts remain!)
+    # F10 / F21: CAS Monotonic Idempotent Finalization + Post-Commit DB Verification + Fail-Closed UNPROVEN_TERMINAL
     def finalize_r6_session(
         self,
         lease: R6DurableSessionLease,
@@ -2147,83 +2195,150 @@ class R6DurableGrantLedger:
         reason: str = "SESSION_COMPLETE",
         actual_now: datetime,
         crash_hook: Optional[Callable[[str], None]] = None,
+        inject_db_finalize_error: bool = False,
     ) -> Dict[str, Any]:
         ok_l, l_viols = verify_registered_lease_authenticity_a1(lease)
         if not ok_l:
-            return {"finalized": False, "status": "REJECTED_FORGED_LEASE", "violations": l_viols}
+            return {"finalized": False, "status": "REJECTED_FORGED_LEASE", "terminal_verified_from_db": False, "violations": l_viols}
+        return self._finalize_grant_cas_internal(
+            grant_identity_key=lease.grant_identity_key,
+            session_id=lease.session_id,
+            plan_digest=lease.plan_digest,
+            quarantine=quarantine,
+            reason=reason,
+            actual_now=actual_now,
+            crash_hook=crash_hook,
+            inject_db_finalize_error=inject_db_finalize_error,
+        )
+
+    def _finalize_grant_cas_internal(
+        self,
+        *,
+        grant_identity_key: str,
+        session_id: str,
+        plan_digest: str,
+        quarantine: bool,
+        reason: str,
+        actual_now: datetime,
+        crash_hook: Optional[Callable[[str], None]] = None,
+        inject_db_finalize_error: bool = False,
+    ) -> Dict[str, Any]:
         now_ms = int(actual_now.astimezone(timezone.utc).timestamp() * 1000)
-        with self._anchor_lock():
-            conn = self._connect()
-            try:
-                conn.execute("BEGIN IMMEDIATE;")
-                grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (lease.grant_identity_key,)).fetchone()
-                if grow is None or str(grow["session_id"]) != lease.session_id or str(grow["plan_digest"]) != lease.plan_digest:
-                    conn.execute("ROLLBACK;")
-                    return {"finalized": False, "status": "REJECTED_UNKNOWN_SESSION", "violations": ["GRANT_SESSION_NOT_FOUND"]}
+        try:
+            with self._anchor_lock():
+                conn = self._connect()
+                try:
+                    conn.execute("BEGIN IMMEDIATE;")
+                    grow = conn.execute("SELECT * FROM grants WHERE grant_identity_key = ?", (grant_identity_key,)).fetchone()
+                    if grow is None or str(grow["session_id"]) != session_id or str(grow["plan_digest"]) != plan_digest:
+                        conn.execute("ROLLBACK;")
+                        return {"finalized": False, "status": "REJECTED_UNKNOWN_SESSION", "terminal_verified_from_db": False, "violations": ["GRANT_SESSION_NOT_FOUND"]}
 
-                if str(grow["state"]) in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
-                    conn.execute("ROLLBACK;")
-                    return {"finalized": True, "status": str(grow["state"]), "idempotent_already_finalized": True, "violations": []}
+                    if str(grow["state"]) in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
+                        conn.execute("ROLLBACK;")
+                        return {
+                            "finalized": True,
+                            "status": str(grow["state"]),
+                            "idempotent_already_finalized": True,
+                            "terminal_verified_from_db": True,
+                            "violations": [],
+                        }
 
-                g_unc = json.loads(grow["uncertain_json"])
-                g_out = json.loads(grow["outstanding_json"])
-                open_atts = conn.execute(
-                    "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
-                    (lease.grant_identity_key,),
-                ).fetchall()
-                had_unsettled_started = False
-                for arow in open_atts:
-                    res = json.loads(arow["reserved_json"])
-                    if str(arow["state"]) == "STARTED":
-                        had_unsettled_started = True
-                        for k in BUDGET_FIELDS_R6:
-                            g_unc[k] = int(g_unc[k]) + int(res[k])
-                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                        conn.execute(
-                            "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSETTLED_STARTED' WHERE attempt_id = ?",
-                            (arow["reserved_json"], now_ms, arow["attempt_id"]),
-                        )
-                    else:
-                        for k in BUDGET_FIELDS_R6:
-                            g_out[k] = max(0, int(g_out[k]) - int(res[k]))
-                        conn.execute(
-                            "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSTARTED_QUEUED' WHERE attempt_id = ?",
-                            (now_ms, arow["attempt_id"]),
-                        )
+                    if inject_db_finalize_error:
+                        conn.execute("ROLLBACK;")
+                        raise sqlite3.OperationalError("INJECTED_FINALIZE_DB_PERSISTENCE_FAILURE")
 
-                # F21: Unsettled/unknown worker state forces QUARANTINED (never healthy SPENT!)
-                eff_quarantine = bool(quarantine or had_unsettled_started)
-                eff_reason = str(reason) if not (had_unsettled_started and not quarantine) else f"{reason}|UNSETTLED_STARTED_FORCED_QUARANTINE"
-                final_state = "QUARANTINED" if eff_quarantine else "SPENT"
-                conn.execute(
-                    """
-                    UPDATE grants
-                    SET state = ?, finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = ?
-                    WHERE grant_identity_key = ?
-                    """,
-                    (
-                        final_state,
-                        now_ms,
-                        json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
-                        json.dumps(g_out, sort_keys=True, separators=(",", ":")),
-                        eff_reason,
-                        lease.grant_identity_key,
-                    ),
-                )
-                new_meta = self._append_audit_in_tx(
-                    conn,
-                    event_type="SESSION_FINALIZED",
-                    event_utc_ms=now_ms,
-                    payload={"grant_identity_key": lease.grant_identity_key, "session_id": lease.session_id, "final_state": final_state, "reason": eff_reason},
-                    set_quarantine=(eff_reason if eff_quarantine else None),
-                )
-                conn.execute("COMMIT;")
-                if crash_hook is not None:
-                    crash_hook("post_finalize_pre_anchor")
-                self._sync_anchor_from_meta(new_meta)
-                return {"finalized": True, "status": final_state, "idempotent_already_finalized": False, "violations": []}
-            finally:
-                conn.close()
+                    g_unc = json.loads(grow["uncertain_json"])
+                    g_out = json.loads(grow["outstanding_json"])
+                    open_atts = conn.execute(
+                        "SELECT * FROM attempts WHERE grant_identity_key = ? AND state IN ('QUEUED', 'STARTED')",
+                        (grant_identity_key,),
+                    ).fetchall()
+                    had_unsettled_started = False
+                    for arow in open_atts:
+                        res = json.loads(arow["reserved_json"])
+                        if str(arow["state"]) == "STARTED":
+                            had_unsettled_started = True
+                            for k in BUDGET_FIELDS_R6:
+                                g_unc[k] = int(g_unc[k]) + int(res[k])
+                                g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                            conn.execute(
+                                "UPDATE attempts SET state = 'UNCERTAIN', uncertain_json = ?, settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSETTLED_STARTED' WHERE attempt_id = ?",
+                                (arow["reserved_json"], now_ms, arow["attempt_id"]),
+                            )
+                        else:
+                            for k in BUDGET_FIELDS_R6:
+                                g_out[k] = max(0, int(g_out[k]) - int(res[k]))
+                            conn.execute(
+                                "UPDATE attempts SET state = 'ABORTED', settled_utc_ms = ?, outcome_reason = 'FINALIZE_UNSTARTED_QUEUED' WHERE attempt_id = ?",
+                                (now_ms, arow["attempt_id"]),
+                            )
+
+                    eff_quarantine = bool(quarantine or had_unsettled_started)
+                    eff_reason = str(reason) if not (had_unsettled_started and not quarantine) else f"{reason}|UNSETTLED_STARTED_FORCED_QUARANTINE"
+                    final_state = "QUARANTINED" if eff_quarantine else "SPENT"
+                    # Compare-and-set monotonic transition strictly from CLAIMED!
+                    cur = conn.execute(
+                        """
+                        UPDATE grants
+                        SET state = ?, finalized_utc_ms = ?, uncertain_json = ?, outstanding_json = ?, final_reason = ?
+                        WHERE grant_identity_key = ? AND state = 'CLAIMED'
+                        """,
+                        (
+                            final_state,
+                            now_ms,
+                            json.dumps(g_unc, sort_keys=True, separators=(",", ":")),
+                            json.dumps(g_out, sort_keys=True, separators=(",", ":")),
+                            eff_reason,
+                            grant_identity_key,
+                        ),
+                    )
+                    if cur.rowcount != 1:
+                        conn.execute("ROLLBACK;")
+                        cur_row = conn.execute("SELECT state FROM grants WHERE grant_identity_key = ?", (grant_identity_key,)).fetchone()
+                        cur_st = str(cur_row["state"]) if cur_row else "UNKNOWN"
+                        if cur_st in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
+                            return {"finalized": True, "status": cur_st, "idempotent_already_finalized": True, "terminal_verified_from_db": True, "violations": []}
+                        raise sqlite3.OperationalError(f"CAS_FINALIZE_CONFLICT:state={cur_st}")
+
+                    new_meta = self._append_audit_in_tx(
+                        conn,
+                        event_type="SESSION_FINALIZED",
+                        event_utc_ms=now_ms,
+                        payload={"grant_identity_key": grant_identity_key, "session_id": session_id, "final_state": final_state, "reason": eff_reason},
+                        set_quarantine=(eff_reason if eff_quarantine else None),
+                    )
+                    conn.execute("COMMIT;")
+                    # Read-back verification directly from durable DB!
+                    ver = conn.execute("SELECT state FROM grants WHERE grant_identity_key = ?", (grant_identity_key,)).fetchone()
+                    if ver is None or str(ver["state"]) != final_state:
+                        raise sqlite3.OperationalError(f"FINALIZE_POST_COMMIT_VERIFY_FAILED:got={ver['state'] if ver else None}")
+                    if crash_hook is not None:
+                        crash_hook("post_finalize_pre_anchor")
+                    self._sync_anchor_from_meta(new_meta)
+                    return {
+                        "finalized": True,
+                        "status": final_state,
+                        "idempotent_already_finalized": False,
+                        "terminal_verified_from_db": True,
+                        "violations": [],
+                    }
+                finally:
+                    conn.close()
+        except Exception as exc:
+            marker_res = self.mark_store_unproven_terminal(
+                f"FINALIZE_PERSIST_FAILED:{type(exc).__name__}:{exc}",
+                session_id=session_id,
+                grant_identity_key=grant_identity_key,
+            )
+            return {
+                "finalized": False,
+                "status": "UNPROVEN_TERMINAL",
+                "idempotent_already_finalized": False,
+                "terminal_verified_from_db": False,
+                "unproven_terminal_marker": marker_res,
+                "violations": [f"FINALIZE_PERSIST_OR_VERIFY_FAILED:{type(exc).__name__}:{exc}"],
+            }
 
     def snapshot_grant(self, grant_identity_key: str) -> Optional[Dict[str, Any]]:
         conn = self._connect()
@@ -2395,6 +2510,9 @@ def _validate_db_and_anchor(
 
     db_path = store_root / "ledger.sqlite3"
     anchor_path = store_root / "ledger.anchor.json"
+    unproven_marker = store_root / "STORE_UNPROVEN_TERMINAL.lock.json"
+    if unproven_marker.is_file():
+        return {"ok": False, "status": "BLOCKED_STORE_UNPROVEN_TERMINAL", "violations": ["STORE_UNPROVEN_TERMINAL_MARKER_PRESENT"]}
     if not db_path.is_file():
         return {"ok": False, "status": "BLOCKED_LEDGER_DB_MISSING_NO_AUTO_INIT", "violations": ["LEDGER_DB_MISSING"]}
     if not anchor_path.is_file():
@@ -2668,4 +2786,99 @@ def verify_r6_ledger_readonly(
         "grants_count": res.get("grants_count", 0),
         "attempts_count": res.get("attempts_count", 0),
         "recovery_action": res.get("recovery_action"),
+    }
+
+
+def reconcile_r6_a1_claim_after_exception(
+    ledger: R6DurableGrantLedger,
+    verified_grant: R6VerifiedGrant,
+    plan: Any,
+    session_id: str,
+    *,
+    actual_now: datetime,
+    quarantine: bool = True,
+    reason: str = "CLAIM_COMMITTED_THEN_RETURN_RAISED",
+) -> Dict[str, Any]:
+    """
+    F10 / F11 (P1-N): Resolves a claim-return exception by read-only durable lookup under
+    the trusted ledger identity. If the grant row committed as CLAIMED for this `(grant, session_id,
+    plan_digest)`, finalizes/aborts it ONCE via CAS. If lookup itself fails, marks store UNPROVEN_TERMINAL!
+    """
+    try:
+        row = ledger.lookup_r6_session_durable(verified_grant.grant_identity_key, session_id=session_id)
+    except Exception as exc:
+        ledger.mark_store_unproven_terminal(f"CLAIM_RECONCILE_LOOKUP_FAILED:{exc}", session_id=session_id, grant_identity_key=verified_grant.grant_identity_key)
+        return {
+            "reconciled": False,
+            "found_claimed": False,
+            "status": "UNPROVEN_TERMINAL",
+            "terminal_verified_from_db": False,
+            "violations": [f"CLAIM_RECONCILE_LOOKUP_ERROR:{exc}"],
+        }
+    if row is None:
+        return {
+            "reconciled": True,
+            "found_claimed": False,
+            "status": "NOT_CLAIMED",
+            "terminal_verified_from_db": True,
+            "violations": [],
+        }
+    st = str(row.get("state") or "")
+    if st in ("SPENT", "QUARANTINED", "SPENT_CRASH_RECOVERED"):
+        return {
+            "reconciled": True,
+            "found_claimed": True,
+            "status": st,
+            "terminal_verified_from_db": True,
+            "violations": [],
+        }
+    fin = ledger._finalize_grant_cas_internal(
+        grant_identity_key=verified_grant.grant_identity_key,
+        session_id=session_id,
+        plan_digest=str(getattr(plan, "plan_digest", row.get("plan_digest", ""))),
+        quarantine=bool(quarantine),
+        reason=reason,
+        actual_now=actual_now,
+    )
+    return {
+        "reconciled": bool(fin.get("finalized")),
+        "found_claimed": True,
+        "status": str(fin.get("status") or "UNPROVEN_TERMINAL"),
+        "terminal_verified_from_db": bool(fin.get("terminal_verified_from_db")),
+        "violations": list(fin.get("violations") or ()),
+    }
+
+
+def recover_r6_a1_incomplete_sessions(
+    ledger: R6DurableGrantLedger,
+    *,
+    actual_now: datetime,
+    custody_store_dir: Optional[Path] = None,
+    expected_partition: str = "QA_FIXTURE",
+    expected_run_id: str = "",
+    disk_budget_ledger: Optional[Any] = None,
+    active_session_ids: Sequence[str] = (),
+) -> Dict[str, Any]:
+    """
+    F10 / F11: Coordinated startup crash recovery across grant ledger, custody commit intents,
+    and disk budget reservations (never resets spent grants or uncertain bytes; never auto-resumes!).
+    """
+    led_rec = ledger.recover_r6_ledger_after_restart(actual_now=actual_now, active_session_ids=active_session_ids)
+    cust_rec = None
+    if custody_store_dir is not None and Path(custody_store_dir).is_dir():
+        from services.kh_03_r6_custody_readiness_service import recover_r6_custody_intents
+        cust_rec = recover_r6_custody_intents(
+            Path(custody_store_dir),
+            expected_partition=expected_partition,
+            expected_run_id=expected_run_id,
+            disk_budget_ledger=disk_budget_ledger,
+        )
+    dsk_rec = None
+    if disk_budget_ledger is not None:
+        dsk_rec = disk_budget_ledger.recover_r6_disk_reservations(active_session_ids=active_session_ids)
+    return {
+        "recovered": bool(led_rec.get("recovered")) and (cust_rec is None or bool(cust_rec.get("recovered"))),
+        "ledger_recovery": led_rec,
+        "custody_recovery": cust_rec,
+        "disk_budget_recovery": dsk_rec,
     }

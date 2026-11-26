@@ -22,10 +22,25 @@ import math
 import os
 from pathlib import Path
 import secrets
+import shutil
+import threading
 import time
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from services.kh_02_r2_prospective_data_service import CANONICAL_DATASET_SHA256_KH02
+from services.kh_03_r6_a1_corrective_service import (
+    R6A1CrossProcessCustodyLock,
+    R6A1CustodyChunkEnvelope,
+    R6A1CustodyWriterAuthority,
+    R6A1DiskBudgetLedger,
+    _is_pid_alive_with_create_time,
+    _volume_identity_for_path_corr,
+    compute_chunk_conservative_peak_disk_bytes,
+    register_custody_writer_authority_a1,
+    revoke_custody_writer_authority_a1,
+    verify_custody_envelope_a1,
+    verify_custody_writer_authority_a1,
+)
 from services.kh_03_r6_a1_trust_service import (
     A1_EXTERNAL_CAPTURE_ENABLED,
     R6DurableSettlementReceipt,
@@ -549,18 +564,231 @@ def verify_r6_raw_provenance_receipt(
 
 
 # =====================================================================
-# F27: Chunked Append-Only Custody Journal + External Anchor + Crash Recovery
+# F27 / P1-L / P1-M: Single-Writer Transactional Custody Journal + Intent Recovery
 # =====================================================================
+def _compute_semantic_chain_digest(semantic_entries: Sequence[Mapping[str, Any]]) -> str:
+    if not semantic_entries:
+        return "0" * 64
+    return _sha256_canonical(list(semantic_entries))
+
+
+def recover_r6_custody_intents(
+    store_dir: Path,
+    *,
+    expected_partition: str,
+    expected_run_id: str,
+    disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+) -> Dict[str, Any]:
+    """
+    F02: Explicit crash/restart recovery for `intents/*.intent.json` and incomplete `.tmp` files!
+      - If intent entry_hash is ALREADY in `custody_chain.jsonl` and blobs match -> complete anchor sync & clear intent (0 duplicates).
+      - If final blobs exist & match intent SHA-256 but chain append didn't run -> append exact record ONCE, sync anchor, clear intent.
+      - Otherwise (incomplete staging / missing or mismatched blob) -> quarantine incomplete artifacts into `quarantine/`,
+        record `quarantine_receipt.json`, retain uncertain disk reservation bytes, NEVER fabricate chain head!
+    """
+    sdir = Path(store_dir)
+    intents_dir = sdir / "intents"
+    quarantine_dir = sdir / "quarantine"
+    chunks_dir = sdir / "chunks"
+    chain_p = sdir / "custody_chain.jsonl"
+    anchor_p = sdir / "custody.anchor.json"
+    writer_lock_meta = sdir / "writer.lock.json"
+
+    # Refuse recovery if a live writer process owns the store!
+    if writer_lock_meta.is_file():
+        try:
+            wmeta = _strict_loads_r6(writer_lock_meta.read_bytes(), max_bytes=16_384)
+            if isinstance(wmeta, Mapping) and _is_pid_alive_with_create_time(int(wmeta.get("owner_pid") or 0), wmeta.get("owner_create_time")):
+                return {
+                    "recovered": False,
+                    "status": "BLOCKED_LIVE_WRITER_ACTIVE",
+                    "completed_intents": [],
+                    "quarantined_intents": [],
+                    "violations": ["CANNOT_RECOVER_WHILE_LIVE_WRITER_ACTIVE"],
+                }
+            # Dead owner metadata -> preserve record in quarantine log & remove stale metadata
+            quarantine_dir.mkdir(parents=True, exist_ok=True)
+            _atomic_write_json_fsync(
+                quarantine_dir / f"stale_writer_owner_{int(time.time() * 1000)}.json",
+                {"event": "DEAD_WRITER_LOCK_RECOVERED", "stale_owner": dict(wmeta)},
+            )
+            writer_lock_meta.unlink()
+        except Exception as exc:
+            return {
+                "recovered": False,
+                "status": "QUARANTINED_CORRUPT_WRITER_LOCK",
+                "completed_intents": [],
+                "quarantined_intents": [],
+                "violations": [f"CORRUPT_WRITER_LOCK:{exc}"],
+            }
+
+    completed: List[str] = []
+    quarantined: List[Dict[str, Any]] = []
+    viols: List[str] = []
+
+    # Load existing chain rows
+    chain_rows: List[Dict[str, Any]] = []
+    seen_entry_hashes: Set[str] = set()
+    if chain_p.is_file():
+        for ln in chain_p.read_text("utf-8").splitlines():
+            if not ln.strip():
+                continue
+            row = json.loads(ln)
+            chain_rows.append(row)
+            seen_entry_hashes.add(str(row.get("entry_hash") or ""))
+
+    if intents_dir.is_dir():
+        for ip in sorted(intents_dir.glob("*.intent.json")):
+            try:
+                intent = _strict_loads_r6(ip.read_bytes(), max_bytes=131_072)
+            except Exception as exc:
+                quarantine_dir.mkdir(parents=True, exist_ok=True)
+                q_dst = quarantine_dir / ip.name
+                shutil.move(str(ip), str(q_dst))
+                quarantined.append({"intent": ip.name, "reason": f"CORRUPT_INTENT_JSON:{exc}"})
+                continue
+
+            entry = intent.get("entry")
+            raw_path = sdir / str(intent.get("raw_file") or "")
+            norm_path = sdir / str(intent.get("norm_file") or "")
+            raw_tmp = Path(str(intent.get("raw_tmp") or ""))
+            norm_tmp = Path(str(intent.get("norm_tmp") or ""))
+            exp_raw_sha = str(intent.get("raw_sha256") or "")
+            exp_norm_sha = str(intent.get("norm_sha256") or "")
+            ehash = str((entry or {}).get("entry_hash") or "")
+            res_id = intent.get("disk_reservation_id")
+            sess_id = str(intent.get("session_id") or "")
+
+            blobs_ok = (
+                raw_path.is_file()
+                and norm_path.is_file()
+                and _sha256_bytes(raw_path.read_bytes()) == exp_raw_sha
+                and _sha256_bytes(norm_path.read_bytes()) == exp_norm_sha
+            )
+            if blobs_ok and ehash and ehash in seen_entry_hashes:
+                # Already committed in chain; remove leftover tmp if any & remove intent!
+                for tp in (raw_tmp, norm_tmp):
+                    if tp.is_file() and _is_inside_directory(tp, sdir):
+                        try:
+                            tp.unlink()
+                        except OSError:
+                            pass
+                ip.unlink()
+                completed.append(str(intent.get("chunk_id") or ip.name))
+                continue
+
+            cur_tip = str(chain_rows[-1]["entry_hash"]) if chain_rows else ("0" * 64)
+            cur_seq = len(chain_rows)
+            if (
+                blobs_ok
+                and isinstance(entry, Mapping)
+                and int(entry.get("seq", -1)) == cur_seq + 1
+                and str(entry.get("prev_hash") or "") == cur_tip
+            ):
+                # Blobs fully replaced & verified; complete single chain append once!
+                with chain_p.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(dict(entry), sort_keys=True, separators=(",", ":")) + "\n")
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                chain_rows.append(dict(entry))
+                seen_entry_hashes.add(ehash)
+                for tp in (raw_tmp, norm_tmp):
+                    if tp.is_file() and _is_inside_directory(tp, sdir):
+                        try:
+                            tp.unlink()
+                        except OSError:
+                            pass
+                ip.unlink()
+                completed.append(str(intent.get("chunk_id") or ip.name))
+                continue
+
+            # Incomplete crash (staging only or partial raw replace) -> QUARANTINE! Never fabricate chain head!
+            quarantine_dir.mkdir(parents=True, exist_ok=True)
+            moved: List[str] = []
+            for p_cand in (raw_tmp, norm_tmp, raw_path, norm_path):
+                if p_cand.is_file() and _is_inside_directory(p_cand, sdir):
+                    dst = quarantine_dir / f"q_{ip.stem}_{p_cand.name}"
+                    try:
+                        shutil.move(str(p_cand), str(dst))
+                        moved.append(dst.name)
+                    except OSError:
+                        pass
+            q_rec = {
+                "schema_version": CUSTODY_SCHEMA_VERSION_R6,
+                "status": "QUARANTINED_INCOMPLETE_INTENT",
+                "chunk_id": intent.get("chunk_id"),
+                "session_id": sess_id,
+                "disk_reservation_id": res_id,
+                "moved_files": moved,
+                "recovered_utc_ms": int(datetime.now(timezone.utc).timestamp() * 1000),
+            }
+            _atomic_write_json_fsync(quarantine_dir / f"{ip.stem}.quarantine.json", q_rec)
+            ip.unlink()
+            quarantined.append(q_rec)
+            # Retain uncertain disk reservation bytes on incomplete crash!
+            if disk_budget_ledger is not None and res_id and sess_id:
+                disk_budget_ledger.release_r6_disk_reservation(
+                    session_id=sess_id,
+                    reservation_id=str(res_id),
+                    proven_unused_or_deleted=False,
+                    reason="CRASH_INTENT_QUARANTINED",
+                )
+
+    # Resync anchor monotonically if chain progressed during recovery
+    if chain_rows:
+        tot_raw = sum(int(r.get("raw_bytes_len", 0)) for r in chain_rows)
+        tot_norm = sum(int(r.get("norm_bytes_len", 0)) for r in chain_rows)
+        sem_entries = [
+            {
+                "seq": int(r["seq"]),
+                "task_ordinal": r.get("task_ordinal"),
+                "chunk_ordinal": r.get("chunk_ordinal"),
+                "chunk_id": r.get("chunk_id"),
+                "raw_sha256": r.get("raw_sha256"),
+                "raw_bytes_len": int(r.get("raw_bytes_len", 0)),
+                "norm_sha256": r.get("norm_sha256"),
+                "norm_bytes_len": int(r.get("norm_bytes_len", 0)),
+                "norm_rows_count": int(r.get("norm_rows_count", 0)),
+            }
+            for r in chain_rows
+        ]
+        sem_dig = _compute_semantic_chain_digest(sem_entries)
+        tip = str(chain_rows[-1]["entry_hash"])
+        anc_seq = 0
+        if anchor_p.is_file():
+            try:
+                anc_seq = int(_strict_loads_r6(anchor_p.read_bytes(), max_bytes=32_768).get("seq", 0))
+            except Exception:
+                anc_seq = 0
+        if len(chain_rows) >= anc_seq:
+            body = {
+                "schema_version": CUSTODY_SCHEMA_VERSION_R6,
+                "partition": expected_partition,
+                "run_id": expected_run_id,
+                "seq": len(chain_rows),
+                "tip_hash": tip,
+                "semantic_chain_digest": sem_dig,
+                "total_raw_bytes": tot_raw,
+                "total_norm_bytes": tot_norm,
+                "total_persisted_bytes": tot_raw + tot_norm,
+            }
+            body["anchor_sha256"] = _sha256_canonical(body)
+            _atomic_write_json_fsync(anchor_p, body)
+
+    return {
+        "recovered": len(viols) == 0,
+        "status": "RECOVERY_QUARANTINED_INCOMPLETE" if quarantined else ("RECOVERY_COMPLETED_INTENTS" if completed else "RECOVERY_CLEAN"),
+        "completed_intents": completed,
+        "quarantined_intents": quarantined,
+        "violations": viols,
+    }
+
+
 class R6CustodyJournal:
     """
-    Single-writer bounded chunked custody store with append-only hash chain + external anchor.
-    Enforces:
-      - Pre-open destination/symlink/junction/OOS guard
-      - Parent-MAC verified provenance receipt + exact raw SHA-256 verification
-      - Duplicate receipt / duplicate chunk rejection
-      - Partition isolation (`QA_LOOPBACK` cannot persist into `DEV_ONLY` store!)
-      - Atomic exclusive temp staging + fsync + same-FS replace
-      - Safe owned-temp cleanup (NEVER deletes unrelated files; records failed unlink as quarantine!)
+    Single-writer transactional bounded chunked custody store with append-only hash chain,
+    durable commit intents, cross-process OS store lock, strict writer authority, and exact
+    raw + normalized UTF-8 byte & peak disk reservation enforcement (P1-L & P1-M).
     """
 
     def __init__(
@@ -573,7 +801,17 @@ class R6CustodyJournal:
         oos_roots: Sequence[Path] = (),
         max_chunk_bytes: int = 4 * 1024 * 1024,
         max_total_bytes: int = 50 * 1024 * 1024,
+        strict_authority_required: bool = False,
+        session_id: Optional[str] = None,
+        expected_volume_id: Optional[str] = None,
     ) -> None:
+        if not _is_strict_int(max_chunk_bytes) or int(max_chunk_bytes) <= 0:
+            raise ValueError(f"INVALID_MAX_CHUNK_BYTES:{max_chunk_bytes!r}")
+        if not _is_strict_int(max_total_bytes) or int(max_total_bytes) <= 0:
+            raise ValueError(f"INVALID_MAX_TOTAL_BYTES:{max_total_bytes!r}")
+        if int(max_chunk_bytes) > int(max_total_bytes):
+            raise ValueError(f"MAX_CHUNK_BYTES_EXCEEDS_MAX_TOTAL_BYTES:{max_chunk_bytes}>{max_total_bytes}")
+
         self.approved_root = approved_root.resolve(strict=False)
         self.partition = partition
         self.run_id = run_id
@@ -581,6 +819,8 @@ class R6CustodyJournal:
         self.oos_roots = tuple(oos_roots)
         self.max_chunk_bytes = int(max_chunk_bytes)
         self.max_total_bytes = int(max_total_bytes)
+        self.strict_authority_required = bool(strict_authority_required)
+        self.session_id = session_id
 
         self.store_dir = self.approved_root / partition.lower() / run_id
         guard = enforce_r6_destination_guard(
@@ -593,25 +833,150 @@ class R6CustodyJournal:
         if not guard["allowed"]:
             raise PermissionError(f"CUSTODY_DESTINATION_DENIED:{','.join(guard['violations'])}")
 
+        actual_vol = _volume_identity_for_path_corr(self.store_dir)
+        if expected_volume_id is not None and actual_vol != str(expected_volume_id):
+            raise PermissionError(f"CUSTODY_VOLUME_SUBSTITUTION_DENIED:expected={expected_volume_id}:got={actual_vol}")
+        self.expected_volume_id = actual_vol
+
         self.store_dir.mkdir(parents=True, exist_ok=True)
         self.chunks_dir = self.store_dir / "chunks"
         self.chunks_dir.mkdir(parents=True, exist_ok=True)
+        self.intents_dir = self.store_dir / "intents"
+        self.intents_dir.mkdir(parents=True, exist_ok=True)
+        self.quarantine_dir = self.store_dir / "quarantine"
         self.chain_path = self.store_dir / "custody_chain.jsonl"
         self.anchor_path = self.store_dir / "custody.anchor.json"
+
+        self._tx_lock = threading.RLock()
+        self._os_lock: Optional[R6A1CrossProcessCustodyLock] = None
+        self._active_authority: Optional[R6A1CustodyWriterAuthority] = None
         self._owned_temp_files: Set[Path] = set()
         self._seen_receipt_ids: Set[str] = set()
+        self._seen_chunk_ids: Set[str] = set()
+        self._seen_attempt_hashes: Dict[str, Tuple[str, str]] = {}
+        self._total_raw_bytes = 0
+        self._total_norm_bytes = 0
         self._total_persisted_bytes = 0
         self._seq = 0
         self._tip_hash = "0" * 64
+        self._semantic_entries: List[Dict[str, Any]] = []
+        self._semantic_chain_digest = "0" * 64
+        self._closed = False
 
-        if self.chain_path.exists():
-            self._load_existing_state()
-        else:
-            self._sync_anchor()
+        with self._tx_lock:
+            if self.chain_path.exists():
+                self._load_existing_state()
+            elif not self.anchor_path.exists():
+                self._sync_anchor()
+
+    def __enter__(self) -> "R6CustodyJournal":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
+
+    def acquire_writer_authority(
+        self,
+        *,
+        session_id: str,
+        cancel_epoch: int = 0,
+        deadline_monotonic: Optional[float] = None,
+        disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+        timeout_sec: float = 0.25,
+    ) -> Dict[str, Any]:
+        """Acquires exclusive cross-process OS store lock + registered single-writer authority."""
+        with self._tx_lock:
+            if self._active_authority is not None:
+                return {
+                    "acquired": False,
+                    "status": "REJECTED_WRITER_AUTHORITY_ALREADY_ACTIVE",
+                    "authority": None,
+                    "violations": ["SINGLE_WRITER_ALREADY_ACTIVE_IN_JOURNAL"],
+                }
+            dl = float(deadline_monotonic) if deadline_monotonic is not None else (time.monotonic() + 3600.0)
+            auth = register_custody_writer_authority_a1(
+                store_dir=self.store_dir,
+                session_id=session_id,
+                run_id=self.run_id,
+                partition=self.partition,
+                cancel_epoch_snapshot=int(cancel_epoch),
+                deadline_monotonic=dl,
+            )
+            os_lock = R6A1CrossProcessCustodyLock(
+                self.store_dir,
+                session_id=session_id,
+                authority_id=auth.authority_id,
+                partition=self.partition,
+                timeout_sec=timeout_sec,
+            )
+            l_res = os_lock.acquire()
+            if not l_res["acquired"]:
+                revoke_custody_writer_authority_a1(auth)
+                return {
+                    "acquired": False,
+                    "status": l_res["status"],
+                    "authority": None,
+                    "violations": list(l_res.get("violations") or ()),
+                }
+            # If recovering from a dead prior owner or leftover intents, reconcile before accepting new writes!
+            rec_info = None
+            if l_res.get("stale_owner") is not None or any(self.intents_dir.glob("*.intent.json")):
+                # Temporarily release meta check isn't needed because we inspect intents directly inside locked owner
+                os_lock.release()
+                rec_info = recover_r6_custody_intents(
+                    self.store_dir,
+                    expected_partition=self.partition,
+                    expected_run_id=self.run_id,
+                    disk_budget_ledger=disk_budget_ledger,
+                )
+                l_res2 = os_lock.acquire()
+                if not l_res2["acquired"]:
+                    revoke_custody_writer_authority_a1(auth)
+                    return {
+                        "acquired": False,
+                        "status": l_res2["status"],
+                        "authority": None,
+                        "violations": list(l_res2.get("violations") or ()),
+                    }
+                if self.chain_path.exists():
+                    self._load_existing_state()
+
+            self._os_lock = os_lock
+            self._active_authority = auth
+            self.session_id = session_id
+            return {
+                "acquired": True,
+                "status": "WRITER_AUTHORITY_ACQUIRED",
+                "authority": auth,
+                "recovery_info": rec_info,
+                "violations": [],
+            }
+
+    def release_writer_authority(self, authority: Optional[R6A1CustodyWriterAuthority] = None) -> None:
+        with self._tx_lock:
+            target = authority or self._active_authority
+            if target is not None:
+                revoke_custody_writer_authority_a1(target)
+            if self._active_authority is target or authority is None:
+                self._active_authority = None
+            if self._os_lock is not None:
+                self._os_lock.release()
+                self._os_lock = None
+
+    def close(self) -> None:
+        with self._tx_lock:
+            self.release_writer_authority()
+            self._closed = True
 
     def _load_existing_state(self) -> None:
         prev = "0" * 64
         seq = 0
+        tot_raw = 0
+        tot_norm = 0
+        self._seen_receipt_ids.clear()
+        self._seen_chunk_ids.clear()
+        self._seen_attempt_hashes.clear()
+        self._semantic_entries.clear()
         for line in self.chain_path.read_text("utf-8").splitlines():
             if not line.strip():
                 continue
@@ -619,9 +984,31 @@ class R6CustodyJournal:
             seq += 1
             prev = str(row["entry_hash"])
             self._seen_receipt_ids.add(str(row["receipt_id"]))
-            self._total_persisted_bytes += int(row["raw_bytes_len"])
+            self._seen_chunk_ids.add(str(row["chunk_id"]))
+            aid = str(row.get("attempt_id") or "")
+            if aid:
+                self._seen_attempt_hashes[aid] = (str(row.get("raw_sha256") or ""), str(row.get("norm_sha256") or ""))
+            r_len = int(row.get("raw_bytes_len", 0))
+            n_len = int(row.get("norm_bytes_len", 0))
+            tot_raw += r_len
+            tot_norm += n_len
+            self._semantic_entries.append({
+                "seq": seq,
+                "task_ordinal": row.get("task_ordinal"),
+                "chunk_ordinal": row.get("chunk_ordinal"),
+                "chunk_id": row.get("chunk_id"),
+                "raw_sha256": row.get("raw_sha256"),
+                "raw_bytes_len": r_len,
+                "norm_sha256": row.get("norm_sha256"),
+                "norm_bytes_len": n_len,
+                "norm_rows_count": int(row.get("norm_rows_count", 0)),
+            })
         self._seq = seq
         self._tip_hash = prev
+        self._total_raw_bytes = tot_raw
+        self._total_norm_bytes = tot_norm
+        self._total_persisted_bytes = tot_raw + tot_norm
+        self._semantic_chain_digest = _compute_semantic_chain_digest(self._semantic_entries)
 
     def _sync_anchor(self) -> None:
         body = {
@@ -630,192 +1017,501 @@ class R6CustodyJournal:
             "run_id": self.run_id,
             "seq": self._seq,
             "tip_hash": self._tip_hash,
+            "semantic_chain_digest": self._semantic_chain_digest,
+            "total_raw_bytes": self._total_raw_bytes,
+            "total_norm_bytes": self._total_norm_bytes,
             "total_persisted_bytes": self._total_persisted_bytes,
         }
         body["anchor_sha256"] = _sha256_canonical(body)
         _atomic_write_json_fsync(self.anchor_path, body)
+
+    def commit_r6_custody_transaction(
+        self,
+        *,
+        envelope: R6A1CustodyChunkEnvelope,
+        writer_authority: R6A1CustodyWriterAuthority,
+        disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+        current_cancel_epoch: Optional[int] = None,
+        crash_stage: Optional[str] = None,
+        inject_write_error: Optional[Exception] = None,
+    ) -> Dict[str, Any]:
+        """F02/F03: Commits a pre-validated immutable `R6A1CustodyChunkEnvelope` under exclusive writer authority."""
+        ok_env, env_viols = verify_custody_envelope_a1(envelope)
+        if not ok_env:
+            return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_INVALID_ENVELOPE", "violations": env_viols}
+        return self.persist_r6_verified_chunk(
+            chunk_id=envelope.chunk_id,
+            raw_payload=envelope.raw_payload,
+            normalized_rows=None,
+            pre_serialized_norm_bytes=envelope.normalized_bytes,
+            norm_rows_count_override=envelope.norm_rows_count,
+            provenance_receipt=envelope.provenance_receipt,
+            writer_authority=writer_authority,
+            disk_budget_ledger=disk_budget_ledger,
+            disk_reservation_id=envelope.disk_reservation_id,
+            task_ordinal=envelope.task_ordinal,
+            chunk_ordinal=envelope.chunk_ordinal,
+            current_cancel_epoch=current_cancel_epoch,
+            crash_stage=crash_stage,
+            inject_write_error=inject_write_error,
+        )
 
     def persist_r6_verified_chunk(
         self,
         *,
         chunk_id: str,
         raw_payload: bytes,
-        normalized_rows: Sequence[Mapping[str, Any]],
+        normalized_rows: Optional[Sequence[Mapping[str, Any]]] = None,
         provenance_receipt: Any,
         simulate_crash_before_commit: bool = False,
+        writer_authority: Optional[Any] = None,
+        disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+        disk_reservation_id: Optional[str] = None,
+        task_ordinal: Optional[int] = None,
+        chunk_ordinal: Optional[int] = None,
+        pre_serialized_norm_bytes: Optional[bytes] = None,
+        norm_rows_count_override: Optional[int] = None,
+        cancel_event: Optional[threading.Event] = None,
+        deadline_monotonic: Optional[float] = None,
+        current_cancel_epoch: Optional[int] = None,
+        crash_stage: Optional[str] = None,
+        inject_write_error: Optional[Exception] = None,
     ) -> Dict[str, Any]:
-        ok_p, p_viols = verify_r6_raw_provenance_receipt(
-            provenance_receipt,
-            expected_payload_bytes=raw_payload,
-            expected_partition=self.partition,
-            require_live_process_token=True,
-        )
-        if not ok_p:
-            return {"persisted": False, "status": "REJECTED_PROVENANCE_INVALID", "violations": p_viols}
-        assert isinstance(provenance_receipt, R6RawProvenanceReceipt)
-        if not provenance_receipt.accepted_for_custody:
-            return {"persisted": False, "status": "REJECTED_PROVENANCE_NOT_ACCEPTED", "violations": ["RECEIPT_NOT_ACCEPTED_FOR_CUSTODY"]}
-        if provenance_receipt.partition != self.partition:
-            return {"persisted": False, "status": "REJECTED_PARTITION_MISMATCH", "violations": [f"PARTITION_MISMATCH:{provenance_receipt.partition}!={self.partition}"]}
-        if self.partition == "DEV_ONLY" and provenance_receipt.provenance_class != "RAW_OBSERVED_VERIFIED":
-            return {"persisted": False, "status": "REJECTED_QA_INTO_DEV_FORBIDDEN", "violations": ["ONLY_RAW_OBSERVED_VERIFIED_ALLOWED_IN_DEV_ONLY"]}
-        if not A1_EXTERNAL_CAPTURE_ENABLED and provenance_receipt.provenance_class == "RAW_OBSERVED_VERIFIED":
-            return {"persisted": False, "status": "REJECTED_A1_OBSERVED_FORBIDDEN", "violations": ["A1_CANNOT_PERSIST_RAW_OBSERVED_VERIFIED"]}
-        if provenance_receipt.receipt_id in self._seen_receipt_ids:
-            return {"persisted": False, "status": "REJECTED_DUPLICATE_PROVENANCE_RECEIPT", "violations": [f"DUPLICATE_RECEIPT_ID:{provenance_receipt.receipt_id}"]}
-
-        if len(raw_payload) > self.max_chunk_bytes:
-            return {"persisted": False, "status": "REJECTED_CHUNK_SIZE_EXCEEDED", "violations": [f"CHUNK_TOO_LARGE:{len(raw_payload)}>{self.max_chunk_bytes}"]}
-        if self._total_persisted_bytes + len(raw_payload) > self.max_total_bytes:
-            return {"persisted": False, "status": "REJECTED_STORE_TOTAL_BYTES_CAP", "violations": ["STORE_BYTE_CAP_EXCEEDED"]}
-
-        raw_path = self.chunks_dir / f"{chunk_id}.raw.bin"
-        norm_path = self.chunks_dir / f"{chunk_id}.norm.json"
-        for tp in (raw_path, norm_path):
-            g = enforce_r6_destination_guard(tp, approved_root=self.approved_root, partition=self.partition, repo_root=self.repo_root, oos_roots=self.oos_roots)
-            if not g["allowed"]:
-                return {"persisted": False, "status": "REJECTED_DESTINATION_GUARD", "violations": g["violations"]}
-            if tp.exists():
-                return {"persisted": False, "status": "REJECTED_DUPLICATE_CHUNK_ID", "violations": [f"CHUNK_EXISTS:{chunk_id}"]}
-
-        # Atomic exclusive staging on same filesystem
-        raw_tmp = self.chunks_dir / f".{chunk_id}.{os.getpid()}.raw.tmp"
-        norm_tmp = self.chunks_dir / f".{chunk_id}.{os.getpid()}.norm.tmp"
-        self._owned_temp_files.add(raw_tmp)
-        self._owned_temp_files.add(norm_tmp)
-
-        norm_bytes = json.dumps(list(normalized_rows), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-        norm_sha = _sha256_bytes(norm_bytes)
-        raw_sha = _sha256_bytes(raw_payload)
-
-        fd_r = os.open(str(raw_tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        try:
-            os.write(fd_r, raw_payload)
-            os.fsync(fd_r)
-        finally:
-            os.close(fd_r)
-
-        fd_n = os.open(str(norm_tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        try:
-            os.write(fd_n, norm_bytes)
-            os.fsync(fd_n)
-        finally:
-            os.close(fd_n)
-
-        if simulate_crash_before_commit:
-            # Consume token so failed/crashed staging CANNOT be replayed for duplicate promotion!
-            verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
-            return {
-                "persisted": False,
-                "status": "ABORTED_PARTIAL_CRASH_BEFORE_COMMIT",
-                "orphan_temp_files": [str(raw_tmp), str(norm_tmp)],
-                "violations": ["SIMULATED_CRASH_BEFORE_COMMIT_ORPHAN_STAGED"],
-            }
-
-        # Consume single-use trusted supervisor token atomically BEFORE final replace/commit!
-        tok_ok, tok_viols = verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
-        if not tok_ok:
-            for p_cln in (raw_tmp, norm_tmp):
-                try:
-                    p_cln.unlink()
-                    self._owned_temp_files.discard(p_cln)
-                except OSError:
-                    pass
-            return {"persisted": False, "status": "REJECTED_PROVENANCE_TOKEN_REPLAY", "violations": tok_viols}
-
-        os.replace(str(raw_tmp), str(raw_path))
-        os.replace(str(norm_tmp), str(norm_path))
-        self._owned_temp_files.discard(raw_tmp)
-        self._owned_temp_files.discard(norm_tmp)
-        _fsync_file_and_parent(raw_path)
-        _fsync_file_and_parent(norm_path)
-
-        # Append ordered chain record with complete non-secret audit proof facts for post-restart verification!
-        new_seq = self._seq + 1
-        entry_core = {
-            "seq": new_seq,
-            "chunk_id": chunk_id,
-            "receipt_id": provenance_receipt.receipt_id,
-            "receipt_digest": provenance_receipt.receipt_digest,
-            "tested_executable_sha": provenance_receipt.tested_executable_sha,
-            "session_id": provenance_receipt.session_id,
-            "lease_id": provenance_receipt.lease_id,
-            "attempt_id": provenance_receipt.attempt_id,
-            "plan_digest": provenance_receipt.plan_digest,
-            "request_digest": provenance_receipt.request_digest,
-            "endpoint_id": provenance_receipt.endpoint_id,
-            "contract_digest": provenance_receipt.contract_digest,
-            "settlement_generation": int(provenance_receipt.settlement_generation),
-            "settlement_audit_hash": provenance_receipt.settlement_audit_hash,
-            "settlement_receipt_digest": provenance_receipt.settlement_receipt_digest,
-            "child_pid": int(provenance_receipt.child_pid),
-            "child_exit_code": int(provenance_receipt.child_exit_code),
-            "reaped_verified": bool(provenance_receipt.reaped_verified),
-            "decoded_payload_sha256": provenance_receipt.decoded_payload_sha256,
-            "partition": self.partition,
-            "provenance_class": provenance_receipt.provenance_class,
-            "raw_file": f"chunks/{raw_path.name}",
-            "norm_file": f"chunks/{norm_path.name}",
-            "raw_sha256": raw_sha,
-            "raw_bytes_len": len(raw_payload),
-            "norm_sha256": norm_sha,
-            "norm_rows_count": len(normalized_rows),
-            "prev_hash": self._tip_hash,
-        }
-        entry_hash = _sha256_canonical(entry_core)
-        entry = dict(entry_core)
-        entry["entry_hash"] = entry_hash
-
-        with self.chain_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n")
-            fh.flush()
-            os.fsync(fh.fileno())
-
-        self._seq = new_seq
-        self._tip_hash = entry_hash
-        self._total_persisted_bytes += len(raw_payload)
-        self._seen_receipt_ids.add(provenance_receipt.receipt_id)
-        self._sync_anchor()
-
-        return {
-            "persisted": True,
-            "status": "PERSISTED_COMMITTED",
-            "seq": new_seq,
-            "chunk_id": chunk_id,
-            "raw_sha256": raw_sha,
-            "norm_sha256": norm_sha,
-            "entry_hash": entry_hash,
-            "violations": [],
-        }
-
-    def cleanup_owned_temp_files_safe(self, *, fail_unlink_paths: Optional[Set[Path]] = None) -> Dict[str, Any]:
         """
-        Cleans up ONLY tracked owned `.tmp` files; NEVER deletes unrelated files!
-        If an unlink fails, records the file as QUARANTINED_FAILED_UNLINK with SHA-256 and NEVER claims deletion.
+        F02/F03: Full-transaction locked custody persist:
+          - Acquires `_tx_lock` + cross-process OS store lock across the ENTIRE read-head -> seq ->
+            prev_hash -> dup check -> budget check -> durable intent -> staging -> replace -> chain
+            append -> anchor sync -> intent clear transaction!
+          - Enforces `strict_authority_required` (and always validates `writer_authority` if supplied).
+          - Counts exact serialized `len(raw_payload) + len(norm_bytes)` BEFORE write (no `len(str(obj))`!).
+          - Integrates `R6A1DiskBudgetLedger` reservations & retains uncertain bytes on failure/crash!
         """
-        deleted: List[str] = []
-        quarantined: List[Dict[str, Any]] = []
-        for p in sorted(list(self._owned_temp_files)):
-            if not p.exists():
-                self._owned_temp_files.discard(p)
-                continue
+        with self._tx_lock:
+            if self._closed:
+                return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_CUSTODY_CLOSED", "violations": ["CUSTODY_JOURNAL_CLOSED"]}
+
+            # 1. Writer authority verification (STRICT whenever strict_authority_required OR writer_authority passed!)
+            if self.strict_authority_required or writer_authority is not None:
+                ok_a, a_viols = verify_custody_writer_authority_a1(
+                    writer_authority,
+                    expected_store_dir=self.store_dir,
+                    expected_partition=self.partition,
+                    expected_session_id=self.session_id,
+                    current_cancel_epoch=current_cancel_epoch,
+                    check_deadline=True,
+                )
+                if not ok_a:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_MISSING_OR_INVALID_WRITER_AUTHORITY", "violations": a_viols}
+                if self._active_authority is not None and writer_authority is not self._active_authority:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_WRITER_AUTHORITY_MISMATCH", "violations": ["WRITER_AUTHORITY_NOT_ACTIVE_OWNER"]}
+
+            if cancel_event is not None and cancel_event.is_set():
+                return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_CANCELLED_BEFORE_WRITE", "violations": ["CANCELLED_BEFORE_CUSTODY_WRITE"]}
+            if deadline_monotonic is not None and time.monotonic() >= float(deadline_monotonic):
+                return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_DEADLINE_EXPIRED", "violations": ["DEADLINE_EXPIRED_BEFORE_CUSTODY_WRITE"]}
+
+            # Acquire transient cross-process OS store lock if no long-lived writer lock held!
+            transient_lock: Optional[R6A1CrossProcessCustodyLock] = None
+            if self._os_lock is None or not self._os_lock.acquired:
+                transient_lock = R6A1CrossProcessCustodyLock(
+                    self.store_dir,
+                    session_id=self.session_id or "standalone_tx",
+                    authority_id=f"tx_{os.getpid()}_{threading.get_ident()}",
+                    partition=self.partition,
+                    timeout_sec=0.1,
+                )
+                tl_res = transient_lock.acquire()
+                if not tl_res["acquired"]:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": tl_res["status"], "violations": list(tl_res.get("violations") or ())}
+
             try:
-                if fail_unlink_paths and p in fail_unlink_paths:
-                    raise PermissionError("SIMULATED_UNLINK_FAILURE")
-                p.unlink()
-                deleted.append(p.name)
-                self._owned_temp_files.discard(p)
-            except OSError as exc:
-                quarantined.append({
-                    "name": p.name,
-                    "sha256": _sha256_bytes(p.read_bytes()) if p.is_file() else None,
-                    "error": str(exc),
-                })
-        return {
-            "deleted_owned_temps": deleted,
-            "quarantined_failed_unlinks": quarantined,
-            "all_owned_temps_deleted": len(quarantined) == 0,
-        }
+                # Re-sync from disk if store was modified cleanly before this transaction
+                if self.chain_path.exists() and self._seq == 0 and self.chain_path.stat().st_size > 0:
+                    self._load_existing_state()
+
+                # 2. Verify destination & volume identity BEFORE any serialization or disk write!
+                cur_vol = _volume_identity_for_path_corr(self.store_dir)
+                if cur_vol != self.expected_volume_id:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_VOLUME_SUBSTITUTION", "violations": [f"VOLUME_CHANGED:{cur_vol}!={self.expected_volume_id}"]}
+
+                ok_p, p_viols = verify_r6_raw_provenance_receipt(
+                    provenance_receipt,
+                    expected_payload_bytes=raw_payload,
+                    expected_partition=self.partition,
+                    require_live_process_token=True,
+                )
+                if not ok_p:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_PROVENANCE_INVALID", "violations": p_viols}
+                assert isinstance(provenance_receipt, R6RawProvenanceReceipt)
+                if not provenance_receipt.accepted_for_custody:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_PROVENANCE_NOT_ACCEPTED", "violations": ["RECEIPT_NOT_ACCEPTED_FOR_CUSTODY"]}
+                if provenance_receipt.partition != self.partition:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_PARTITION_MISMATCH", "violations": [f"PARTITION_MISMATCH:{provenance_receipt.partition}!={self.partition}"]}
+                if self.partition == "DEV_ONLY" and provenance_receipt.provenance_class != "RAW_OBSERVED_VERIFIED":
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_QA_INTO_DEV_FORBIDDEN", "violations": ["ONLY_RAW_OBSERVED_VERIFIED_ALLOWED_IN_DEV_ONLY"]}
+                if not A1_EXTERNAL_CAPTURE_ENABLED and provenance_receipt.provenance_class == "RAW_OBSERVED_VERIFIED":
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_A1_OBSERVED_FORBIDDEN", "violations": ["A1_CANNOT_PERSIST_RAW_OBSERVED_VERIFIED"]}
+                if provenance_receipt.receipt_id in self._seen_receipt_ids:
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_DUPLICATE_PROVENANCE_RECEIPT", "violations": [f"DUPLICATE_RECEIPT_ID:{provenance_receipt.receipt_id}"]}
+
+                # 3. Exact serialized normalized UTF-8 bytes & SHA-256 BEFORE any file open!
+                if pre_serialized_norm_bytes is not None:
+                    norm_bytes = bytes(pre_serialized_norm_bytes)
+                    norm_rows_count = int(norm_rows_count_override) if norm_rows_count_override is not None else len(json.loads(norm_bytes.decode("utf-8")))
+                else:
+                    rows_seq = list(normalized_rows or ())
+                    norm_bytes = json.dumps(rows_seq, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                    norm_rows_count = len(rows_seq)
+
+                raw_sha = _sha256_bytes(raw_payload)
+                norm_sha = _sha256_bytes(norm_bytes)
+                raw_len = len(raw_payload)
+                norm_len = len(norm_bytes)
+                combined_logical_len = raw_len + norm_len
+
+                # Conflicting duplicate attempt check
+                prev_att = self._seen_attempt_hashes.get(provenance_receipt.attempt_id)
+                if prev_att is not None:
+                    if prev_att != (raw_sha, norm_sha):
+                        return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_CONFLICTING_DUPLICATE_ATTEMPT", "violations": [f"CONFLICTING_ATTEMPT_CONTENT:{provenance_receipt.attempt_id}"]}
+                    return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_DUPLICATE_ATTEMPT", "violations": [f"DUPLICATE_ATTEMPT_ID:{provenance_receipt.attempt_id}"]}
+
+                # 4. Strict byte cap enforcement covering BOTH raw AND normalized UTF-8 bytes!
+                if combined_logical_len > self.max_chunk_bytes:
+                    return {
+                        "persisted": False,
+                        "terminal_status": "REJECTED",
+                        "status": "REJECTED_CHUNK_SIZE_EXCEEDED",
+                        "violations": [f"CHUNK_RAW_PLUS_NORM_TOO_LARGE:{combined_logical_len}>{self.max_chunk_bytes}:raw={raw_len}:norm={norm_len}"],
+                    }
+                if self._total_persisted_bytes + combined_logical_len > self.max_total_bytes:
+                    return {
+                        "persisted": False,
+                        "terminal_status": "REJECTED",
+                        "status": "REJECTED_STORE_TOTAL_BYTES_CAP",
+                        "violations": [f"STORE_BYTE_CAP_EXCEEDED:{self._total_persisted_bytes}+{combined_logical_len}>{self.max_total_bytes}"],
+                    }
+
+                raw_path = self.chunks_dir / f"{chunk_id}.raw.bin"
+                norm_path = self.chunks_dir / f"{chunk_id}.norm.json"
+                for tp in (raw_path, norm_path):
+                    g = enforce_r6_destination_guard(tp, approved_root=self.approved_root, partition=self.partition, repo_root=self.repo_root, oos_roots=self.oos_roots)
+                    if not g["allowed"]:
+                        return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_DESTINATION_GUARD", "violations": g["violations"]}
+                    if tp.exists() or chunk_id in self._seen_chunk_ids:
+                        return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_DUPLICATE_CHUNK_ID", "violations": [f"CHUNK_EXISTS:{chunk_id}"]}
+
+                # 5. Atomic Disk Budget Ledger reservation (if attached & not pre-reserved)
+                peak_calc = compute_chunk_conservative_peak_disk_bytes(
+                    raw_bytes_len=raw_len,
+                    norm_bytes_len=norm_len,
+                    same_volume_atomic_rename=True,
+                )
+                eff_res_id = disk_reservation_id
+                eff_sess_id = self.session_id or provenance_receipt.session_id
+                if disk_budget_ledger is not None and not eff_res_id:
+                    eff_res_id = f"chk_disk_{eff_sess_id}_{chunk_id}_{self._seq + 1}"
+                    r_dsk = disk_budget_ledger.reserve_r6_disk_bytes(
+                        session_id=eff_sess_id,
+                        reservation_id=eff_res_id,
+                        write_class="chunk_persist",
+                        requested_bytes=peak_calc["conservative_peak_bytes"],
+                    )
+                    if not r_dsk["reserved"]:
+                        return {
+                            "persisted": False,
+                            "terminal_status": "REJECTED",
+                            "status": str(r_dsk.get("status") or "REJECTED_DISK_RESERVATION"),
+                            "violations": list(r_dsk.get("violations") or ()),
+                        }
+
+                # 6. Prepare deterministic entry + durable commit intent BEFORE staging!
+                new_seq = self._seq + 1
+                raw_tmp = self.chunks_dir / f".{chunk_id}.{os.getpid()}.raw.tmp"
+                norm_tmp = self.chunks_dir / f".{chunk_id}.{os.getpid()}.norm.tmp"
+                self._owned_temp_files.add(raw_tmp)
+                self._owned_temp_files.add(norm_tmp)
+
+                content_id_core = {
+                    "seq": new_seq,
+                    "task_ordinal": task_ordinal,
+                    "chunk_ordinal": chunk_ordinal,
+                    "chunk_id": chunk_id,
+                    "endpoint_id": provenance_receipt.endpoint_id,
+                    "partition": self.partition,
+                    "provenance_class": provenance_receipt.provenance_class,
+                    "raw_sha256": raw_sha,
+                    "raw_bytes_len": raw_len,
+                    "norm_sha256": norm_sha,
+                    "norm_bytes_len": norm_len,
+                    "norm_rows_count": norm_rows_count,
+                }
+                content_identity_hash = _sha256_canonical(content_id_core)
+
+                entry_core = {
+                    "seq": new_seq,
+                    "task_ordinal": task_ordinal,
+                    "chunk_ordinal": chunk_ordinal,
+                    "chunk_id": chunk_id,
+                    "receipt_id": provenance_receipt.receipt_id,
+                    "receipt_digest": provenance_receipt.receipt_digest,
+                    "tested_executable_sha": provenance_receipt.tested_executable_sha,
+                    "session_id": provenance_receipt.session_id,
+                    "lease_id": provenance_receipt.lease_id,
+                    "attempt_id": provenance_receipt.attempt_id,
+                    "plan_digest": provenance_receipt.plan_digest,
+                    "request_digest": provenance_receipt.request_digest,
+                    "endpoint_id": provenance_receipt.endpoint_id,
+                    "contract_digest": provenance_receipt.contract_digest,
+                    "settlement_generation": int(provenance_receipt.settlement_generation),
+                    "settlement_audit_hash": provenance_receipt.settlement_audit_hash,
+                    "settlement_receipt_digest": provenance_receipt.settlement_receipt_digest,
+                    "child_pid": int(provenance_receipt.child_pid),
+                    "child_exit_code": int(provenance_receipt.child_exit_code),
+                    "reaped_verified": bool(provenance_receipt.reaped_verified),
+                    "decoded_payload_sha256": provenance_receipt.decoded_payload_sha256,
+                    "partition": self.partition,
+                    "provenance_class": provenance_receipt.provenance_class,
+                    "raw_file": f"chunks/{raw_path.name}",
+                    "norm_file": f"chunks/{norm_path.name}",
+                    "raw_sha256": raw_sha,
+                    "raw_bytes_len": raw_len,
+                    "norm_sha256": norm_sha,
+                    "norm_bytes_len": norm_len,
+                    "norm_rows_count": norm_rows_count,
+                    "content_identity_hash": content_identity_hash,
+                    "disk_reservation_id": eff_res_id or "",
+                    "prev_hash": self._tip_hash,
+                }
+                entry_hash = _sha256_canonical(entry_core)
+                entry = dict(entry_core)
+                entry["entry_hash"] = entry_hash
+
+                intent_path = self.intents_dir / f"{new_seq:06d}_{chunk_id}.intent.json"
+                intent_doc = {
+                    "schema_version": CUSTODY_SCHEMA_VERSION_R6,
+                    "seq": new_seq,
+                    "chunk_id": chunk_id,
+                    "session_id": eff_sess_id,
+                    "disk_reservation_id": eff_res_id,
+                    "raw_file": f"chunks/{raw_path.name}",
+                    "norm_file": f"chunks/{norm_path.name}",
+                    "raw_tmp": str(raw_tmp),
+                    "norm_tmp": str(norm_tmp),
+                    "raw_sha256": raw_sha,
+                    "norm_sha256": norm_sha,
+                    "entry": entry,
+                }
+
+                try:
+                    _atomic_write_json_fsync(intent_path, intent_doc)
+                    if crash_stage == "after_intent":
+                        raise RuntimeError("INJECTED_CRASH_AFTER_INTENT")
+
+                    if inject_write_error is not None:
+                        raise inject_write_error
+
+                    fd_r = os.open(str(raw_tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    try:
+                        os.write(fd_r, raw_payload)
+                        os.fsync(fd_r)
+                    finally:
+                        os.close(fd_r)
+
+                    fd_n = os.open(str(norm_tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    try:
+                        os.write(fd_n, norm_bytes)
+                        os.fsync(fd_n)
+                    finally:
+                        os.close(fd_n)
+
+                    if simulate_crash_before_commit or crash_stage == "after_staging":
+                        verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
+                        if disk_budget_ledger is not None and eff_res_id:
+                            disk_budget_ledger.release_r6_disk_reservation(
+                                session_id=eff_sess_id,
+                                reservation_id=eff_res_id,
+                                proven_unused_or_deleted=False,
+                                reason="SIMULATED_CRASH_BEFORE_COMMIT",
+                            )
+                        return {
+                            "persisted": False,
+                            "terminal_status": "QUARANTINED",
+                            "status": "ABORTED_PARTIAL_CRASH_BEFORE_COMMIT",
+                            "orphan_temp_files": [str(raw_tmp), str(norm_tmp)],
+                            "intent_file": str(intent_path),
+                            "violations": ["SIMULATED_CRASH_BEFORE_COMMIT_ORPHAN_STAGED"],
+                        }
+
+                    # Consume single-use trusted supervisor token atomically BEFORE final replace/commit!
+                    tok_ok, tok_viols = verify_and_consume_custody_token_a1(provenance_receipt.capability_token, provenance_receipt.receipt_id, consume=True)
+                    if not tok_ok:
+                        for p_cln in (raw_tmp, norm_tmp, intent_path):
+                            try:
+                                if p_cln.exists():
+                                    p_cln.unlink()
+                                self._owned_temp_files.discard(p_cln)
+                            except OSError:
+                                pass
+                        if disk_budget_ledger is not None and eff_res_id:
+                            disk_budget_ledger.release_r6_disk_reservation(
+                                session_id=eff_sess_id,
+                                reservation_id=eff_res_id,
+                                proven_unused_or_deleted=(not raw_tmp.exists() and not norm_tmp.exists()),
+                                reason="TOKEN_REPLAY_REJECTED",
+                            )
+                        return {"persisted": False, "terminal_status": "REJECTED", "status": "REJECTED_PROVENANCE_TOKEN_REPLAY", "violations": tok_viols}
+
+                    os.replace(str(raw_tmp), str(raw_path))
+                    self._owned_temp_files.discard(raw_tmp)
+                    _fsync_file_and_parent(raw_path)
+                    if crash_stage == "after_raw_replace":
+                        raise RuntimeError("INJECTED_CRASH_AFTER_RAW_REPLACE")
+
+                    os.replace(str(norm_tmp), str(norm_path))
+                    self._owned_temp_files.discard(norm_tmp)
+                    _fsync_file_and_parent(norm_path)
+                    if crash_stage == "after_norm_replace":
+                        raise RuntimeError("INJECTED_CRASH_AFTER_NORM_REPLACE")
+
+                    line_bytes = (json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+                    with self.chain_path.open("ab") as fh:
+                        fh.write(line_bytes)
+                        fh.flush()
+                        os.fsync(fh.fileno())
+                    if crash_stage == "after_chain_append":
+                        raise RuntimeError("INJECTED_CRASH_AFTER_CHAIN_APPEND")
+
+                    self._seq = new_seq
+                    self._tip_hash = entry_hash
+                    self._total_raw_bytes += raw_len
+                    self._total_norm_bytes += norm_len
+                    self._total_persisted_bytes += combined_logical_len
+                    self._seen_receipt_ids.add(provenance_receipt.receipt_id)
+                    self._seen_chunk_ids.add(chunk_id)
+                    self._seen_attempt_hashes[provenance_receipt.attempt_id] = (raw_sha, norm_sha)
+                    self._semantic_entries.append({
+                        "seq": new_seq,
+                        "task_ordinal": task_ordinal,
+                        "chunk_ordinal": chunk_ordinal,
+                        "chunk_id": chunk_id,
+                        "raw_sha256": raw_sha,
+                        "raw_bytes_len": raw_len,
+                        "norm_sha256": norm_sha,
+                        "norm_bytes_len": norm_len,
+                        "norm_rows_count": norm_rows_count,
+                    })
+                    self._semantic_chain_digest = _compute_semantic_chain_digest(self._semantic_entries)
+                    self._sync_anchor()
+
+                    # Clear completed durable intent after anchor sync!
+                    try:
+                        if intent_path.exists():
+                            intent_path.unlink()
+                    except OSError:
+                        pass
+
+                    # Reconcile actual measured physical bytes in disk budget ledger
+                    if disk_budget_ledger is not None and eff_res_id:
+                        actual_phys = raw_len + norm_len + len(line_bytes)
+                        rec_dsk = disk_budget_ledger.reconcile_r6_disk_actual(
+                            session_id=eff_sess_id,
+                            reservation_id=eff_res_id,
+                            actual_committed_bytes=actual_phys,
+                            uncertain_bytes=0,
+                            reason=f"COMMITTED:{chunk_id}",
+                        )
+                        if not rec_dsk.get("reconciled"):
+                            return {
+                                "persisted": False,
+                                "terminal_status": "QUARANTINED",
+                                "status": str(rec_dsk.get("status") or "QUARANTINED_DISK_RECONCILE"),
+                                "violations": list(rec_dsk.get("violations") or ()),
+                            }
+
+                    return {
+                        "persisted": True,
+                        "terminal_status": "COMMITTED",
+                        "status": "PERSISTED_COMMITTED",
+                        "seq": new_seq,
+                        "chunk_id": chunk_id,
+                        "raw_sha256": raw_sha,
+                        "raw_bytes_len": raw_len,
+                        "norm_sha256": norm_sha,
+                        "norm_bytes_len": norm_len,
+                        "entry_hash": entry_hash,
+                        "content_identity_hash": content_identity_hash,
+                        "semantic_chain_digest": self._semantic_chain_digest,
+                        "violations": [],
+                    }
+                except BaseException as exc:
+                    # Conservative accounting on ANY write/fsync/ENOSPC/crash error: retain uncertain bytes!
+                    if disk_budget_ledger is not None and eff_res_id:
+                        try:
+                            disk_budget_ledger.release_r6_disk_reservation(
+                                session_id=eff_sess_id,
+                                reservation_id=eff_res_id,
+                                proven_unused_or_deleted=False,
+                                reason=f"WRITE_EXCEPTION:{type(exc).__name__}",
+                            )
+                        except Exception:
+                            pass
+                    if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                        raise
+                    return {
+                        "persisted": False,
+                        "terminal_status": "QUARANTINED",
+                        "status": "QUARANTINED_CUSTODY_WRITE_EXCEPTION",
+                        "intent_file": str(intent_path),
+                        "violations": [f"CUSTODY_WRITE_ERROR:{type(exc).__name__}:{exc}"],
+                    }
+            finally:
+                if transient_lock is not None:
+                    transient_lock.release()
+
+    def cleanup_owned_temp_files_safe(
+        self,
+        *,
+        fail_unlink_paths: Optional[Set[Path]] = None,
+        disk_budget_ledger: Optional[R6A1DiskBudgetLedger] = None,
+    ) -> Dict[str, Any]:
+        """
+        F07: Cleans up ONLY tracked run-owned `.tmp` files verified by store_dir containment,
+        volume identity, and non-symlink check; NEVER deletes unrelated or outside files!
+        Failed unlink -> quarantined + retains uncertain disk reservation!
+        """
+        with self._tx_lock:
+            deleted: List[str] = []
+            quarantined: List[Dict[str, Any]] = []
+            for p in sorted(list(self._owned_temp_files)):
+                if not p.exists() and not p.is_symlink():
+                    self._owned_temp_files.discard(p)
+                    continue
+                # Strict ownership, containment, non-symlink & volume verification BEFORE unlink!
+                if (
+                    _is_reparse_or_symlink(p)
+                    or not _is_inside_directory(p, self.store_dir)
+                    or _volume_identity_for_path_corr(p) != self.expected_volume_id
+                ):
+                    quarantined.append({"name": p.name, "sha256": None, "error": "REFUSED_UNSAFE_OR_OUTSIDE_OWNED_ROOT"})
+                    continue
+                try:
+                    if fail_unlink_paths and p in fail_unlink_paths:
+                        raise PermissionError("SIMULATED_UNLINK_FAILURE")
+                    p.unlink()
+                    deleted.append(p.name)
+                    self._owned_temp_files.discard(p)
+                except OSError as exc:
+                    quarantined.append({
+                        "name": p.name,
+                        "sha256": _sha256_bytes(p.read_bytes()) if p.is_file() else None,
+                        "error": str(exc),
+                    })
+            return {
+                "deleted_owned_temps": deleted,
+                "quarantined_failed_unlinks": quarantined,
+                "all_owned_temps_deleted": len(quarantined) == 0,
+            }
 
 
 def verify_r6_custody_readonly(
@@ -824,12 +1520,17 @@ def verify_r6_custody_readonly(
     expected_partition: str,
     expected_run_id: str,
     ledger_store_root: Optional[Path] = None,
+    expected_task_ordinals: Optional[Sequence[int]] = None,
+    expected_volume_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    F25: Read-only post-restart independent custody verifier: recomputes every chunk SHA-256 and
-    byte length, verifies full hash chain, verifies persisted non-secret settlement/reap proof facts
-    (and cross-checks against the SQLite ledger audit chain when `ledger_store_root` is provided!),
-    checks external custody anchor against rollback/tamper, and detects uncommitted orphan `.tmp` files.
+    F04 / F25: Read-only post-restart independent custody verifier:
+      - Rejects active writer lock (`writer.lock.json` live owner), pending unrecovered intents,
+        or quarantined artifacts!
+      - Recomputes EVERY raw & normalized blob SHA-256 and byte length, verifies continuous unique
+        sequence & prev_hash chain, canonical `(task_ordinal, chunk_ordinal)` ordering, exact totals,
+        `semantic_chain_digest`, anchor consistency, optional linked SQLite ledger proof, and zero
+        orphan `.tmp` files.
     """
     import sqlite3 as _sqlite3
 
@@ -838,18 +1539,39 @@ def verify_r6_custody_readonly(
         return {"valid": False, "status": "FAIL_CUSTODY_DIR_MISSING", "violations": ["CUSTODY_DIR_MISSING"]}
     if _has_any_reparse_ancestor(store_dir):
         return {"valid": False, "status": "FAIL_CUSTODY_SYMLINK", "violations": ["CUSTODY_SYMLINK_FORBIDDEN"]}
+    if expected_volume_id is not None and _volume_identity_for_path_corr(store_dir) != str(expected_volume_id):
+        return {"valid": False, "status": "FAIL_CUSTODY_VOLUME_MISMATCH", "violations": ["CUSTODY_VOLUME_MISMATCH"]}
+
+    # Reject if active writer lock exists!
+    writer_lock_meta = store_dir / "writer.lock.json"
+    if writer_lock_meta.is_file():
+        viols.append("CUSTODY_ACTIVE_WRITER_IN_PROGRESS")
+
+    # Reject if pending unrecovered commit intents exist!
+    intents_dir = store_dir / "intents"
+    if intents_dir.is_dir():
+        pending_intents = sorted(f.name for f in intents_dir.glob("*.intent.json"))
+        if pending_intents:
+            viols.append(f"CUSTODY_PENDING_UNRECOVERED_INTENTS:{','.join(pending_intents[:5])}")
+
+    # Reject if quarantined incomplete artifacts exist!
+    quarantine_dir = store_dir / "quarantine"
+    if quarantine_dir.is_dir():
+        q_files = sorted(f.name for f in quarantine_dir.glob("*.quarantine.json"))
+        if q_files:
+            viols.append(f"CUSTODY_QUARANTINED_ARTIFACTS_PRESENT:{','.join(q_files[:5])}")
 
     anchor_p = store_dir / "custody.anchor.json"
     chain_p = store_dir / "custody_chain.jsonl"
     chunks_dir = store_dir / "chunks"
 
     if not anchor_p.is_file():
-        return {"valid": False, "status": "FAIL_CUSTODY_ANCHOR_MISSING", "violations": ["CUSTODY_ANCHOR_MISSING"]}
+        return {"valid": False, "status": "FAIL_CUSTODY_ANCHOR_MISSING", "violations": viols + ["CUSTODY_ANCHOR_MISSING"]}
 
     try:
         anchor = _strict_loads_r6(anchor_p.read_bytes(), max_bytes=32_768)
     except Exception as exc:
-        return {"valid": False, "status": "FAIL_CUSTODY_ANCHOR_CORRUPT", "violations": [f"CUSTODY_ANCHOR_PARSE:{exc}"]}
+        return {"valid": False, "status": "FAIL_CUSTODY_ANCHOR_CORRUPT", "violations": viols + [f"CUSTODY_ANCHOR_PARSE:{exc}"]}
 
     anc_copy = {k: v for k, v in anchor.items() if k != "anchor_sha256"}
     if str(anchor.get("anchor_sha256") or "") != _sha256_canonical(anc_copy):
@@ -884,11 +1606,16 @@ def verify_r6_custody_readonly(
     # Verify chain & chunk blobs
     prev = "0" * 64
     seq = 0
-    tot_bytes = 0
+    tot_raw_bytes = 0
+    tot_norm_bytes = 0
     tot_rows = 0
     seen_rids: Set[str] = set()
+    seen_cids: Set[str] = set()
     committed_files: Set[str] = set()
     lineage_entries: List[Dict[str, Any]] = []
+    semantic_entries: List[Dict[str, Any]] = []
+    observed_task_ordinals: Set[int] = set()
+    last_order_tuple: Optional[Tuple[int, int]] = None
 
     if chain_p.is_file():
         for ln in chain_p.read_text("utf-8").splitlines():
@@ -905,9 +1632,23 @@ def verify_r6_custody_readonly(
             if calc != str(row.get("entry_hash") or ""):
                 viols.append(f"CUSTODY_ENTRY_HASH_TAMPERED:seq={seq}")
             rid = str(row.get("receipt_id") or "")
+            cid = str(row.get("chunk_id") or "")
             if rid in seen_rids:
                 viols.append(f"CUSTODY_DUPLICATE_RECEIPT:{rid}")
             seen_rids.add(rid)
+            if cid in seen_cids:
+                viols.append(f"CUSTODY_DUPLICATE_CHUNK_ID:{cid}")
+            seen_cids.add(cid)
+
+            t_ord = row.get("task_ordinal")
+            c_ord = row.get("chunk_ordinal")
+            if t_ord is not None and c_ord is not None:
+                cur_ord = (int(t_ord), int(c_ord))
+                if last_order_tuple is not None and cur_ord < last_order_tuple:
+                    viols.append(f"CUSTODY_CANONICAL_ORDER_BROKEN:seq={seq}:{cur_ord}<{last_order_tuple}")
+                last_order_tuple = cur_ord
+                observed_task_ordinals.add(int(t_ord))
+
             if expected_partition == "DEV_ONLY" and str(row.get("provenance_class") or "") != "RAW_OBSERVED_VERIFIED":
                 viols.append(f"CUSTODY_QA_IN_DEV_STORE:{row.get('provenance_class')}")
             if not A1_EXTERNAL_CAPTURE_ENABLED and str(row.get("provenance_class") or "") == "RAW_OBSERVED_VERIFIED":
@@ -927,17 +1668,21 @@ def verify_r6_custody_readonly(
 
             rf = store_dir / str(row.get("raw_file") or "")
             nf = store_dir / str(row.get("norm_file") or "")
+            nb_len_actual = 0
             if not rf.is_file() or not nf.is_file():
                 viols.append(f"CUSTODY_MISSING_BLOB:seq={seq}")
             else:
                 rb = rf.read_bytes()
                 nb = nf.read_bytes()
+                nb_len_actual = len(nb)
                 if _sha256_bytes(rb) != str(row.get("raw_sha256") or ""):
                     viols.append(f"CUSTODY_RAW_BLOB_SHA_MISMATCH:seq={seq}")
                 if len(rb) != int(row.get("raw_bytes_len", -1)):
                     viols.append(f"CUSTODY_RAW_BLOB_LEN_MISMATCH:seq={seq}")
                 if _sha256_bytes(nb) != str(row.get("norm_sha256") or ""):
                     viols.append(f"CUSTODY_NORM_BLOB_SHA_MISMATCH:seq={seq}")
+                if "norm_bytes_len" in row and len(nb) != int(row.get("norm_bytes_len", -1)):
+                    viols.append(f"CUSTODY_NORM_BLOB_LEN_MISMATCH:seq={seq}")
                 try:
                     n_arr = json.loads(nb.decode("utf-8"))
                     if not isinstance(n_arr, list) or len(n_arr) != int(row.get("norm_rows_count", -1)):
@@ -947,21 +1692,43 @@ def verify_r6_custody_readonly(
                 committed_files.add(rf.name)
                 committed_files.add(nf.name)
 
-            tot_bytes += int(row.get("raw_bytes_len", 0))
+            tot_raw_bytes += int(row.get("raw_bytes_len", 0))
+            tot_norm_bytes += int(row.get("norm_bytes_len", nb_len_actual))
             tot_rows += int(row.get("norm_rows_count", 0))
+            semantic_entries.append({
+                "seq": seq,
+                "task_ordinal": t_ord,
+                "chunk_ordinal": c_ord,
+                "chunk_id": cid,
+                "raw_sha256": row.get("raw_sha256"),
+                "raw_bytes_len": int(row.get("raw_bytes_len", 0)),
+                "norm_sha256": row.get("norm_sha256"),
+                "norm_bytes_len": int(row.get("norm_bytes_len", nb_len_actual)),
+                "norm_rows_count": int(row.get("norm_rows_count", 0)),
+            })
             lineage_entries.append({
                 "seq": seq,
-                "chunk_id": row.get("chunk_id"),
+                "task_ordinal": t_ord,
+                "chunk_ordinal": c_ord,
+                "chunk_id": cid,
                 "attempt_id": row.get("attempt_id"),
                 "endpoint_id": row.get("endpoint_id"),
                 "provenance_class": row.get("provenance_class"),
                 "raw_sha256": row.get("raw_sha256"),
                 "raw_bytes_len": row.get("raw_bytes_len"),
                 "norm_sha256": row.get("norm_sha256"),
+                "norm_bytes_len": int(row.get("norm_bytes_len", nb_len_actual)),
                 "norm_rows_count": row.get("norm_rows_count"),
                 "settlement_generation": row.get("settlement_generation"),
             })
             prev = calc
+
+    if expected_task_ordinals is not None:
+        missing_ords = sorted(set(int(x) for x in expected_task_ordinals) - observed_task_ordinals)
+        if missing_ords:
+            viols.append(f"CUSTODY_MISSING_TASK_ORDINALS:{missing_ords}")
+
+    sem_dig = _compute_semantic_chain_digest(semantic_entries)
 
     # Anchor vs chain rollback/divergence detection
     anc_seq = int(anchor.get("seq", -1))
@@ -969,6 +1736,12 @@ def verify_r6_custody_readonly(
         viols.append(f"CUSTODY_CHAIN_ROLLBACK_DETECTED:chain_seq={seq}<anchor_seq={anc_seq}")
     elif seq != anc_seq or prev != str(anchor.get("tip_hash") or ""):
         viols.append("CUSTODY_CHAIN_ANCHOR_DIVERGENCE")
+    if "semantic_chain_digest" in anchor and str(anchor.get("semantic_chain_digest") or "") != sem_dig:
+        viols.append("CUSTODY_SEMANTIC_DIGEST_ANCHOR_DIVERGENCE")
+    if "total_raw_bytes" in anchor and int(anchor["total_raw_bytes"]) != tot_raw_bytes:
+        viols.append("CUSTODY_TOTAL_RAW_BYTES_ANCHOR_DIVERGENCE")
+    if "total_norm_bytes" in anchor and int(anchor["total_norm_bytes"]) != tot_norm_bytes:
+        viols.append("CUSTODY_TOTAL_NORM_BYTES_ANCHOR_DIVERGENCE")
 
     # Detect uncommitted orphan .tmp files in chunks_dir
     orphan_temps: List[str] = []
@@ -983,9 +1756,12 @@ def verify_r6_custody_readonly(
         "valid": len(viols) == 0,
         "status": "CUSTODY_VERIFIED_OK" if not viols else "CUSTODY_VERIFICATION_FAILED",
         "committed_chunks": seq,
-        "total_persisted_bytes": tot_bytes,
+        "total_raw_bytes": tot_raw_bytes,
+        "total_norm_bytes": tot_norm_bytes,
+        "total_persisted_bytes": tot_raw_bytes + tot_norm_bytes,
         "total_normalized_rows": tot_rows,
         "tip_hash": prev,
+        "semantic_chain_digest": sem_dig,
         "orphan_files_detected": orphan_temps,
         "lineage_entries": lineage_entries,
         "violations": viols,
@@ -993,7 +1769,7 @@ def verify_r6_custody_readonly(
 
 
 # =====================================================================
-# F28: Seal DEV Dataset Manifest
+# F04 / F28: Seal DEV Dataset Manifest (Fail-Closed Preconditions!)
 # =====================================================================
 def seal_r6_dev_dataset_manifest(
     *,
@@ -1014,11 +1790,52 @@ def seal_r6_dev_dataset_manifest(
     provenance_classes: Sequence[str],
     retention_policy: Mapping[str, Any],
     local_store_redacted_id: str,
+    active_writer_present: bool = False,
+    pending_intents_count: int = 0,
+    quarantined_artifacts_count: int = 0,
+    unresolved_reservations_count: int = 0,
+    cancelled: bool = False,
+    deadline_expired: bool = False,
+    missing_task_coverage_count: int = 0,
 ) -> Dict[str, Any]:
+    """
+    F04: Refuses to seal manifest if custody audit failed, active writer present, pending staging/
+    intents exist, quarantined files exist, unresolved reservations remain, coverage incomplete,
+    or session was cancelled/expired!
+    """
+    seal_viols: List[str] = []
+    if custody_audit.get("valid") is not True:
+        seal_viols.append("CANNOT_SEAL_INVALID_CUSTODY_AUDIT")
+    if int(custody_audit.get("committed_chunks") or 0) <= 0:
+        seal_viols.append("CANNOT_SEAL_ZERO_COMMITTED_CHUNKS")
+    if active_writer_present:
+        seal_viols.append("CANNOT_SEAL_WHILE_WRITER_ACTIVE")
+    if int(pending_intents_count) > 0:
+        seal_viols.append("CANNOT_SEAL_PENDING_INTENTS_PRESENT")
+    if int(quarantined_artifacts_count) > 0:
+        seal_viols.append("CANNOT_SEAL_QUARANTINED_ARTIFACTS_PRESENT")
+    if int(unresolved_reservations_count) > 0:
+        seal_viols.append("CANNOT_SEAL_UNRESOLVED_RESERVATIONS_PRESENT")
+    if cancelled:
+        seal_viols.append("CANNOT_SEAL_CANCELLED_SESSION")
+    if deadline_expired:
+        seal_viols.append("CANNOT_SEAL_DEADLINE_EXPIRED")
+    if int(missing_task_coverage_count) > 0:
+        seal_viols.append(f"CANNOT_SEAL_MISSING_TASK_COVERAGE:{missing_task_coverage_count}")
+    if seal_viols:
+        return {
+            "sealed": False,
+            "status": "REJECTED_CANNOT_SEAL_MANIFEST",
+            "manifest_sha256": None,
+            "violations": seal_viols,
+        }
+
     conservation_ok = (normalized_valid_count + rejected_or_quarantined_count <= raw_observed_count) and (
         persisted_accepted_count <= normalized_valid_count
     )
     doc = {
+        "sealed": True,
+        "status": "MANIFEST_SEALED",
         "spec_version": SPEC_VERSION_KH03_R6,
         "schema_version": DATASET_MANIFEST_SCHEMA_R6,
         "run_id": run_id,
@@ -1036,6 +1853,7 @@ def seal_r6_dev_dataset_manifest(
         "window_end_ms": window_end_ms,
         "instrument_metadata_versions": list(instrument_metadata_versions),
         "custody_tip_hash": custody_audit.get("tip_hash"),
+        "custody_semantic_chain_digest": custody_audit.get("semantic_chain_digest"),
         "custody_committed_chunks": int(custody_audit.get("committed_chunks") or 0),
         "custody_valid": custody_audit.get("valid") is True,
         "gap_ledger_sha256": gap_ledger.get("gap_ledger_sha256"),

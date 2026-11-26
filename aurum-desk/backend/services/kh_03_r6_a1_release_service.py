@@ -60,6 +60,7 @@ from services.kh_03_r6_source_contract_service import (
 EVIDENCE_ONLY_DIFF_PREFIXES_A1: Tuple[str, ...] = (
     "aurum-desk/docs/artifacts/kh_03_r6_observed_market_data/",
     "aurum-desk/docs/artifacts/kh_03_r6_a1_acquisition_trust_closure/",
+    "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/",
 )
 
 # Core executable/config/dependency paths fingerprinted for frozen runtime verification
@@ -73,6 +74,7 @@ FROZEN_RUNTIME_FINGERPRINT_REL_PATHS_A1: Tuple[str, ...] = (
     "aurum-desk/backend/services/kh_03_r6_a1_trust_service.py",
     "aurum-desk/backend/services/kh_03_r6_a1_release_service.py",
     "aurum-desk/backend/services/kh_03_r6_a1_acquisition_service.py",
+    "aurum-desk/backend/services/kh_03_r6_a1_corrective_service.py",
 )
 
 WORKTREE_SENTINEL_FILENAME_A1 = ".kh03_r6_a1_owned_frozen_worktree.json"

@@ -61,6 +61,20 @@ from services.kh_03_r6_a1_acceptance_service import (
     derive_r6_a1_fault_verdict,
     derive_r6_a1_readiness_verdicts,
 )
+from services.kh_03_r6_a1_corrective_service import (
+    CLASSIFICATION_PASS_OFFLINE_CORRECTIVE,
+    CORRECTIVE_12_GATE_KEYS,
+    PRIOR_A1_EVIDENCE_COMMIT_SHA,
+    PRIOR_A1_LATEST_POINTER_SHA256,
+    PRIOR_A1_MANIFEST_26_SHA256,
+    PRIOR_A1_PUBLICATION_HEAD_SHA,
+    PRIOR_A1_READBACK_28_SHA256,
+    PRIOR_A1_REVIEWED_TESTED_SHA,
+    PRIOR_A1_RUN_ID,
+    SCHEMA_VERSION_KH03_R6_A1_CORRECTIVE,
+    SPEC_VERSION_KH03_R6_A1_CORRECTIVE,
+    derive_corrective_fault_verdict,
+)
 from services.kh_03_r6_a1_trust_service import (
     BASELINE_REVIEWED_HEAD_SHA_R6_A1,
     PRIOR_R6_EVIDENCE_COMMIT_SHA,
@@ -71,6 +85,7 @@ from services.kh_03_r6_a1_trust_service import (
     SCHEMA_VERSION_KH03_R6_A1,
     SPEC_VERSION_KH03_R6_A1,
 )
+from services.kh_03_r6_source_contract_service import MANDATORY_BRANCH_KH03_R6
 from tools.fresh_junit_io import write_json_durable_atomic
 from tools.kh_03_r6_independent_verifier import (
     PRIOR_SEALED_POINTERS_AND_ARTIFACTS_KH03_R6,
@@ -211,6 +226,95 @@ STALE_PRIOR_SHAS_R6_A1: Tuple[str, ...] = (
 STALE_PRIOR_RUN_IDS_R6_A1: Tuple[str, ...] = (
     *STALE_PRIOR_RUN_IDS_R6,
     PRIOR_R6_RUN_ID,
+)
+
+# =====================================================================
+# KH-03.R6.A1 POST-REVIEW CORRECTIVE CLOSURE (P1-L / P1-M / P1-N)
+# =====================================================================
+MANIFEST_23_NAME_KH03_R6_A1_CORRECTIVE = "23_independent_verifier_manifest_sha256.json"
+MIN_EXPECTED_PYTEST_COLLECTED_R6_A1_CORRECTIVE = 5978
+MIN_NEW_LMN_PAIRED_CONTROLS_CORRECTIVE = 41
+MIN_NEW_VERIFIER_MUTATIONS_CORRECTIVE = 18
+
+PRIOR_SEALED_POINTERS_AND_ARTIFACTS_KH03_R6_A1_CORRECTIVE: Tuple[Tuple[str, str, str], ...] = (
+    *PRIOR_SEALED_POINTERS_AND_ARTIFACTS_KH03_R6_A1,
+    (
+        "aurum-desk/docs/artifacts/kh_03_r6_a1_acquisition_trust_closure/latest_run.json",
+        PRIOR_A1_LATEST_POINTER_SHA256,
+        "KH03_R6_A1_LATEST_RUN_POINTER",
+    ),
+    (
+        f"aurum-desk/docs/artifacts/kh_03_r6_a1_acquisition_trust_closure/28_phase2_remote_readback_{PRIOR_A1_RUN_ID}.json",
+        PRIOR_A1_READBACK_28_SHA256,
+        "KH03_R6_A1_SEALED_POSTPUSH_READBACK_28",
+    ),
+    (
+        f"aurum-desk/docs/artifacts/kh_03_r6_a1_acquisition_trust_closure/{PRIOR_A1_RUN_ID}/26_independent_OS_verifier_manifest_sha256.json",
+        PRIOR_A1_MANIFEST_26_SHA256,
+        "KH03_R6_A1_SEALED_MANIFEST_26",
+    ),
+)
+
+KH03_R6_A1_CORRECTIVE_SOURCE_FILES_ALLOWLIST: Tuple[str, ...] = (
+    # Corrective docs
+    "aurum-desk/docs/kh_03_r6_a1_corrective/README.md",
+    "aurum-desk/docs/kh_03_r6_a1_corrective/SPEC_KH_03_R6_A1_CORRECTIVE_v1.0.md",
+    "aurum-desk/docs/kh_03_r6_a1_corrective/FUNCTION_OWNERSHIP_MATRIX.md",
+    "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/README.md",
+    # Modified core production modules & verifier/runner
+    "aurum-desk/backend/services/kh_03_r6_a1_acquisition_service.py",
+    "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py",
+    "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py",
+    "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py",
+    "aurum-desk/backend/services/kh_03_r6_a1_release_service.py",
+    "aurum-desk/tools/kh_03_r6_a1_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r6_a1_acceptance.py",
+    # New corrective service & 4 new test suites
+    "aurum-desk/backend/services/kh_03_r6_a1_corrective_service.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_custody_l.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_budget_m.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_finalization_n.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_verifier_mutations.py",
+)
+
+REQUIRED_ARTIFACTS_KH03_R6_A1_CORRECTIVE: Tuple[str, ...] = (
+    "00_preflight_branch_sha_resource_lock.json",
+    "01_function_ownership_and_protected_hashes.json",
+    "02_prior_sealed_manifest_integrity_no_oos.json",
+    "03_baseline_red_l_m_n_receipts.jsonl.gz",
+    "04_custody_writer_ownership_and_transaction_traces.jsonl.gz",
+    "05_ordered_queue_and_w1_w2_w4_semantic_hashes.json",
+    "06_crash_intent_restart_and_seal_truth.json",
+    "07_hard_caps_and_effective_budget_contract.json",
+    "08_disk_reservation_conservation_and_actual_bytes.jsonl.gz",
+    "09_resource_telemetry_peak_allocations_and_cleanup.json",
+    "10_claim_exception_and_durable_terminal_receipts.jsonl.gz",
+    "11_finalize_errors_cancel_drain_reap_and_late_write.json",
+    "12_compound_fault_and_quarantine_recovery.json",
+    "13_external_block_qa_only_no_oos_no_trade.json",
+    "14_inherited_g_to_k_and_36_gate_regression.json",
+    "15_fresh_pytest_collection_junit_bijection.json",
+    "16_r4_decimal_economic_replay_ledger_bridge.json",
+    "17_six_cost_scenarios_e1_e2_e3_regression.json",
+    "18_a1_si8_adapter_d4_parity.json",
+    "19_worker_benchmark_and_safe_selection.json",
+    "20_new_and_inherited_paired_test_receipts.jsonl.gz",
+    "21_independent_verifier_mutation_receipts.jsonl.gz",
+    "22_corrective_gate_predicates_and_verdicts.json",
+    "24_code_publication_receipt.json",
+    "README.md",
+    "HANDOVER_KH03_R6_A1_CORRECTIVE_VI.txt",
+)
+
+STALE_PRIOR_SHAS_CORRECTIVE: Tuple[str, ...] = (
+    *STALE_PRIOR_SHAS_R6_A1,
+    PRIOR_A1_REVIEWED_TESTED_SHA,
+    PRIOR_A1_EVIDENCE_COMMIT_SHA,
+    PRIOR_A1_PUBLICATION_HEAD_SHA,
+)
+STALE_PRIOR_RUN_IDS_CORRECTIVE: Tuple[str, ...] = (
+    *STALE_PRIOR_RUN_IDS_R6_A1,
+    PRIOR_A1_RUN_ID,
 )
 
 
@@ -733,12 +837,407 @@ def verify_kh_03_r6_a1_run_dir(
     return (0 if status == "PASS" else 1), manifest
 
 
+def _load_jsonl_gz_strict(p: Path) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]], Optional[str]]:
+    if not p.is_file() or p.stat().st_size == 0:
+        return None, [], f"MISSING_OR_EMPTY_GZ:{p.name}"
+    rows: List[Dict[str, Any]] = []
+    try:
+        with gzip.open(p, "rt", encoding="utf-8") as fh:
+            for ln in fh:
+                if ln.strip():
+                    obj = _strict_loads(ln)
+                    if not isinstance(obj, dict):
+                        return None, [], f"GZ_LINE_NOT_OBJ:{p.name}"
+                    rows.append(obj)
+    except Exception as exc:
+        return None, [], f"GZ_PARSE_ERR:{p.name}:{exc}"
+    if not rows:
+        return None, [], f"GZ_EMPTY:{p.name}"
+    return rows[0], rows[1:], None
+
+
+def verify_kh_03_r6_a1_corrective_run_dir(
+    run_dir: Path,
+    *,
+    expected_run_id: str,
+    expected_tested_sha: str,
+    orchestrator_pid: Optional[int] = None,
+    write_manifest: bool = True,
+    check_prior_sealed_on_disk: bool = True,
+) -> Tuple[int, Dict[str, Any]]:
+    """
+    Separate-OS Independent Read-Only Verifier for KH-03.R6.A1 Post-Review Corrective Closure (P1-L/M/N).
+    Independently recomputes ALL 12 corrective gates (`C01..C12`) directly from raw `.json`/`.jsonl.gz`/JUnit
+    artifacts WITHOUT delegating core gate predicates to the orchestrator's verdict helper!
+    Seals `23_independent_verifier_manifest_sha256.json`.
+    """
+    verifier_pid = os.getpid()
+    violations: List[str] = []
+
+    if orchestrator_pid is not None and int(orchestrator_pid) == int(verifier_pid):
+        violations.append("CORRV_SELF_VERIFICATION_SAME_PID_FORBIDDEN")
+    if not run_dir.is_dir():
+        return 1, {"status": "FAIL", "violations": ["CORRV_RUN_DIR_NOT_FOUND"]}
+
+    for rel in REQUIRED_ARTIFACTS_KH03_R6_A1_CORRECTIVE:
+        fp = run_dir / rel
+        if not fp.is_file() or fp.stat().st_size == 0:
+            violations.append(f"CORRV_MISSING_OR_EMPTY_ARTIFACT:{rel}")
+
+    arts: Dict[str, Dict[str, Any]] = {}
+    for rel in REQUIRED_ARTIFACTS_KH03_R6_A1_CORRECTIVE:
+        if not rel.endswith(".json"):
+            continue
+        fp = run_dir / rel
+        if not fp.is_file():
+            continue
+        key = rel[:2]
+        try:
+            obj = _strict_loads(fp.read_text("utf-8"))
+        except Exception as exc:
+            violations.append(f"CORRV_JSON_STRICT_PARSE_ERR:{rel}:{exc}")
+            continue
+        if not isinstance(obj, dict):
+            violations.append(f"CORRV_JSON_NOT_OBJECT:{rel}")
+            continue
+        if obj.get("run_id") != expected_run_id:
+            violations.append(f"CORRV_RUN_ID_MISMATCH:{rel}:{obj.get('run_id')}")
+        if obj.get("tested_executable_sha") != expected_tested_sha:
+            violations.append(f"CORRV_TESTED_SHA_MISMATCH:{rel}:{obj.get('tested_executable_sha')}")
+        if str(obj.get("tested_executable_sha") or "") in STALE_PRIOR_SHAS_CORRECTIVE:
+            violations.append(f"CORRV_STALE_PRIOR_SHA:{rel}")
+        if str(obj.get("run_id") or "") in STALE_PRIOR_RUN_IDS_CORRECTIVE:
+            violations.append(f"CORRV_STALE_PRIOR_RUN_ID:{rel}")
+        arts[key] = obj
+
+    prior_checked = 0
+    if check_prior_sealed_on_disk:
+        for rel_p, exp_sha, label in PRIOR_SEALED_POINTERS_AND_ARTIFACTS_KH03_R6_A1_CORRECTIVE:
+            abs_p = REPO_ROOT / rel_p
+            if not abs_p.is_file():
+                violations.append(f"CORRV_PRIOR_SEALED_MISSING:{label}")
+                continue
+            if _sha256_file(abs_p) != exp_sha:
+                violations.append(f"CORRV_PRIOR_SEALED_TAMPERED:{label}")
+            prior_checked += 1
+
+    # Audit gzipped streams directly from disk (03, 04, 08, 10, 20, 21)
+    h03, r03, e03 = _load_jsonl_gz_strict(run_dir / "03_baseline_red_l_m_n_receipts.jsonl.gz")
+    if e03 or h03 is None:
+        violations.append(f"CORRV_RED_03_INVALID:{e03}")
+        h03 = {}
+    else:
+        if h03.get("run_id") != expected_run_id or h03.get("tested_executable_sha") != expected_tested_sha:
+            violations.append("CORRV_RED_03_PROVENANCE_MISMATCH")
+        if h03.get("baseline_sha") != PRIOR_A1_REVIEWED_TESTED_SHA or h03.get("all_reproduced") is not True or not _is_int(h03.get("reproduced_count")) or int(h03["reproduced_count"]) < 4 or h03.get("positive_control_ok") is not True:
+            violations.append("CORRV_RED_03_INVALID")
+        red_rows = [r for r in r03 if r.get("defect") != "POSITIVE_CONTROL"]
+        if len(red_rows) < 4 or any(r.get("baseline_sha") != PRIOR_A1_REVIEWED_TESTED_SHA or r.get("reproduced") is not True for r in red_rows):
+            violations.append("CORRV_RED_03_RECEIPTS_INCOMPLETE")
+
+    h04, r04, e04 = _load_jsonl_gz_strict(run_dir / "04_custody_writer_ownership_and_transaction_traces.jsonl.gz")
+    if e04 or h04 is None:
+        violations.append(f"CORRV_CUSTODY_04_INVALID:{e04}")
+        h04 = {}
+    else:
+        if h04.get("run_id") != expected_run_id or h04.get("tested_executable_sha") != expected_tested_sha:
+            violations.append("CORRV_CUSTODY_04_PROVENANCE_MISMATCH")
+        if h04.get("duplicate_seq_detected") is not False:
+            violations.append("CORRV_CUSTODY_04_DUPLICATE_SEQ")
+        if h04.get("broken_prev_hash_detected") is not False:
+            violations.append("CORRV_CUSTODY_04_BROKEN_PREV_HASH")
+        if h04.get("active_writer_lock_after_close") is not False or h04.get("cross_process_single_writer_enforced") is not True or h04.get("direct_unauthorized_persist_denied") is not True:
+            violations.append("CORRV_CUSTODY_04_WRITER_AUTHORITY_OR_LOCK")
+        if h04.get("concurrent_writers_serialized_unique_seq") is not True:
+            violations.append("CORRV_CUSTODY_04_SERIALIZATION_FAILED")
+        # Check raw trace rows for duplicate seqs
+        for tr in r04:
+            sqs = tr.get("seqs")
+            if isinstance(sqs, list) and len(sqs) != len(set(sqs)):
+                violations.append("CORRV_CUSTODY_04_DUPLICATE_SEQ")
+            if tr.get("readonly_valid") is False:
+                violations.append("CORRV_CUSTODY_04_BROKEN_PREV_HASH")
+
+    a05 = arts.get("05") or {}
+    if (
+        a05.get("w1_w2_w4_shuffled_order_identical_semantic_digest") is not True
+        or a05.get("w4_repeated_seeds_byte_conserved") is not True
+        or not a05.get("canonical_custody_semantic_sha256")
+        or a05.get("bounded_queue_item_and_byte_backpressure_verified") is not True
+        or a05.get("head_slot_anti_starvation_verified") is not True
+        or a05.get("producer_failure_queue_full_no_deadlock_no_late_commit") is not True
+        or a05.get("forged_or_expired_envelope_denied") is not True
+    ):
+        violations.append("CORRV_QUEUE_05_INVALID")
+
+    a06 = arts.get("06") or {}
+    if a06.get("crash_intent_restart_zero_duplicates") is not True or a06.get("concurrent_seal_before_writer_done_rejected") is not True:
+        violations.append("CORRV_CRASH_SEAL_06_INVALID")
+
+    a07 = arts.get("07") or {}
+    if (
+        a07.get("max_cap_enlargement_removed_verified") is not True
+        or a07.get("narrow_plan_chunk_cap_plus1_rejected") is not True
+        or a07.get("conflicting_cap_cannot_enlarge_via_override") is not True
+        or a07.get("strict_int_bool_neg_overflow_rejected") is not True
+    ):
+        violations.append("CORRV_CAPS_07_ENLARGEMENT_OR_INVALID")
+
+    h08, r08, e08 = _load_jsonl_gz_strict(run_dir / "08_disk_reservation_conservation_and_actual_bytes.jsonl.gz")
+    if e08 or h08 is None:
+        violations.append(f"CORRV_DISK_08_INVALID:{e08}")
+        h08 = {}
+    else:
+        if h08.get("run_id") != expected_run_id or h08.get("tested_executable_sha") != expected_tested_sha:
+            violations.append("CORRV_DISK_08_PROVENANCE_MISMATCH")
+        if h08.get("double_release_rejected") is not True or h08.get("negative_bytes_detected") is not False:
+            violations.append("CORRV_DISK_08_DOUBLE_RELEASE_OR_NEG")
+        if h08.get("interrupted_write_uncertain_bytes_retained") is not True:
+            violations.append("CORRV_DISK_08_MISSING_UNCERTAIN")
+        if (
+            h08.get("omitted_staging_json_wal_bytes") is not False
+            or h08.get("normalized_utf8_expansion_prewrite_rejected") is not True
+            or h08.get("peak_staging_manifest_wal_log_overhead_enforced") is not True
+            or h08.get("w4_concurrent_reservations_conserved") is not True
+            or h08.get("emergency_reserve_and_wal_bounded") is not True
+        ):
+            violations.append("CORRV_DISK_08_OVERHEAD_OR_CONSERVATION")
+
+    a09 = arts.get("09") or {}
+    if (
+        a09.get("enospc_pressure_fail_closed_no_seal") is not True
+        or a09.get("cleanup_fail_retains_uncertain_no_outside_delete") is not True
+        or a09.get("symlink_junction_volume_substitution_rejected") is not True
+        or a09.get("stale_or_nan_telemetry_rejected") is not True
+        or a09.get("owned_temp_cleaned_verified") is not True
+        or a09.get("orphan_workers_count") != 0
+        or a09.get("disk_waiver_exit2_proven") is not True
+    ):
+        violations.append("CORRV_TELEMETRY_CLEANUP_09_INVALID")
+    violations.extend(_audit_telemetry_21_a1(run_dir, a09))
+
+    h10, r10, e10 = _load_jsonl_gz_strict(run_dir / "10_claim_exception_and_durable_terminal_receipts.jsonl.gz")
+    if e10 or h10 is None:
+        violations.append(f"CORRV_CLAIM_10_REUSED_OR_INVALID:{e10}")
+        h10 = {}
+    else:
+        if h10.get("run_id") != expected_run_id or h10.get("tested_executable_sha") != expected_tested_sha:
+            violations.append("CORRV_CLAIM_10_PROVENANCE_MISMATCH")
+        if (
+            h10.get("reused_one_shot_claim_accepted") is not False
+            or h10.get("preclaim_exception_zero_consumption") is not True
+            or h10.get("postclaim_return_exception_reconciled_once") is not True
+            or h10.get("immediate_postclaim_telemetry_exception_finalized") is not True
+            or h10.get("competing_finalizers_cas_idempotent") is not True
+            or h10.get("persist_failure_classified_unproven_terminal") is not True
+        ):
+            violations.append("CORRV_CLAIM_10_REUSED_OR_INVALID")
+
+    a11 = arts.get("11") or {}
+    if (
+        a11.get("finally_telemetry_exception_still_finalizes_ledger") is not True
+        or a11.get("original_and_cleanup_errors_preserved_separately") is not True
+        or a11.get("keyboard_interrupt_cancel_cleans_up_no_hidden_pass") is not True
+        or a11.get("unreaped_worker_quarantines_and_blocks_new_session") is not True
+        or a11.get("expired_deadline_cleanup_bounded_no_late_io") is not True
+    ):
+        violations.append("CORRV_FINALIZE_11_INVALID")
+
+    a12 = arts.get("12") or {}
+    if (
+        a12.get("compound_l_m_n_fault_quarantined_conserved") is not True
+        or a12.get("crash_restart_one_shot_spent_remains_spent") is not True
+        or a12.get("durable_finalized_after_aborted_not_acquisition_pass") is not True
+        or a12.get("positive_qa_e2e_full_chain_verified") is not True
+    ):
+        violations.append("CORRV_COMPOUND_12_INVALID")
+
+    a01 = arts.get("01") or {}
+    if a01.get("locked_files_modified_count") != 0 or a01.get("unauthorized_changed_files_count") != 0 or a01.get("forbidden_order_imports_count") != 0 or a01.get("secrets_detected_count") != 0:
+        violations.append("CORRV_OWNERSHIP_01_INVALID")
+
+    a02 = arts.get("02") or {}
+    if a02.get("canonical_dataset_sha256") != CANONICAL_DATASET_SHA256_KH02 or a02.get("oos_reads_executed") != 0 or a02.get("oos_evaluations") != 0 or a02.get("all_prior_sealed_artifacts_intact") is not True:
+        violations.append("CORRV_PRIOR_SEALED_02_INVALID")
+
+    a13 = arts.get("13") or {}
+    if (
+        a13.get("a1_external_capture_enabled") is not False
+        or int(a13.get("external_market_requests_attempted") or 0) != 0
+        or int(a13.get("accepted_real_observed_records") or 0) != 0
+        or int(a13.get("owner_grant_consumed_count") or 0) != 0
+        or a13.get("production_mode") != "OFF"
+        or a13.get("live_trading_mode") != "OFF"
+        or a13.get("paper_trading_mode") != "OFF"
+        or a13.get("auto_trading_mode") != "OFF"
+        or a13.get("activation_ready") != "NO"
+        or a13.get("economic_verdict") != "NO_PROVEN_EDGE"
+        or a13.get("oos_evaluations") != 0
+    ):
+        violations.append("CORRV_EXTERNAL_13_NONZERO")
+
+    a14 = arts.get("14") or {}
+    if (
+        a14.get("original_36_a1_prepush_gates_passed") != 35
+        or a14.get("external_r6_bcd_executed_count") != 0
+        or not _is_int(a14.get("inherited_a1_55_paired_passed")) or int(a14["inherited_a1_55_paired_passed"]) < 55
+        or not _is_int(a14.get("inherited_r6_56_paired_passed")) or int(a14["inherited_r6_56_paired_passed"]) < 56
+        or not _is_int(a14.get("inherited_c1_c2_91_paired_passed")) or int(a14["inherited_c1_c2_91_paired_passed"]) < 91
+        or not _is_int(a14.get("inherited_regression_288_passed")) or int(a14["inherited_regression_288_passed"]) < 288
+    ):
+        violations.append("CORRV_INHERITED_14_INVALID")
+
+    # Audit JUnit 15, R4 16, Six Costs 17, Parity 18, Benchmarks 19
+    violations.extend(_audit_junit_19_a1(run_dir, arts.get("15") or {}))
+    violations.extend(_audit_r4_replay_ledger_16_a1(run_dir, arts.get("16") or {}))
+
+    a17 = arts.get("17") or {}
+    if a17.get("all_six_scenarios_exact_match") is not True or a17.get("all_three_arms_exact_match") is not True:
+        violations.append("CORRV_SIX_COST_17_INVALID")
+
+    a18 = arts.get("18") or {}
+    if a18.get("a1_checked") != 56710 or a18.get("a1_mismatches") != 0 or a18.get("si8_checked") != 6375 or a18.get("si8_mismatches") != 0 or a18.get("adapters_checked") != 246 or a18.get("adapters_mismatches") != 0 or a18.get("d4_mismatches") != 0:
+        violations.append("CORRV_PARITY_18_INVALID")
+
+    a19 = arts.get("19") or {}
+    violations.extend(_audit_benchmarks_20_a1(a19, expected_run_id=expected_run_id, expected_tested_sha=expected_tested_sha))
+    cw_b = a19.get("custody_w_benchmark")
+    if not isinstance(cw_b, Mapping) or not isinstance(cw_b.get("runs"), list) or len(cw_b["runs"]) != 4:
+        violations.append("CORRV_BENCH_19_CUSTODY_MISSING")
+    else:
+        c_shas = {str(r.get("semantic_result_sha256") or "") for r in cw_b["runs"]}
+        if len(c_shas) != 1 or not next(iter(c_shas)) or [r.get("mode_label") for r in cw_b["runs"]] != ["w=1", "w=2", "w=4", "w=1_repeat"]:
+            violations.append("CORRV_BENCH_19_CUSTODY_DRIFT")
+
+    # Audit paired L/M/N receipts 20
+    h20, r20, e20 = _load_jsonl_gz_strict(run_dir / "20_new_and_inherited_paired_test_receipts.jsonl.gz")
+    if e20 or h20 is None:
+        violations.append(f"CORRV_PAIRED_20_INVALID:{e20}")
+        h20 = {}
+    else:
+        verd20 = derive_corrective_fault_verdict(r20, expected_executable_sha=expected_tested_sha, expected_run_id=expected_run_id)
+        if not verd20["valid"] or verd20["passed_controls"] < MIN_NEW_LMN_PAIRED_CONTROLS_CORRECTIVE:
+            violations.append(f"CORRV_PAIRED_20_VERDICT_FAILED:{verd20['violations'][:4]}")
+        if h20.get("new_lmn_paired_passed_count") != verd20["passed_controls"] or h20.get("ast_literal_flags_count") != 0:
+            violations.append("CORRV_PAIRED_20_SUMMARY_DRIFT")
+
+    # Audit mutation receipts 21
+    h21, r21, e21 = _load_jsonl_gz_strict(run_dir / "21_independent_verifier_mutation_receipts.jsonl.gz")
+    if e21 or h21 is None:
+        violations.append(f"CORRV_MUTATIONS_21_INVALID:{e21}")
+        h21 = {}
+    else:
+        n_mut_t = h21.get("new_corrective_mutations_tested_count")
+        n_mut_d = h21.get("new_corrective_mutations_detected_count")
+        i_mut_t = h21.get("inherited_mutations_tested_count")
+        i_mut_d = h21.get("inherited_mutations_detected_count")
+        if (
+            h21.get("clean_clone_verifier_green") is not True
+            or not _is_int(n_mut_t) or int(n_mut_t) < MIN_NEW_VERIFIER_MUTATIONS_CORRECTIVE or n_mut_d != n_mut_t
+            or not _is_int(i_mut_t) or int(i_mut_t) < 201 or i_mut_d != i_mut_t
+            or len(r21) < int(n_mut_t)
+            or any(m.get("detected_fail_closed") is not True for m in r21)
+        ):
+            violations.append("CORRV_MUTATIONS_21_FAILED")
+
+    # Audit 22 denominators (NEVER conflate into 40 or 48!)
+    a22 = arts.get("22") or {}
+    cd22 = a22.get("corrective_denominators") or {}
+    if (
+        cd22.get("corrective_mandatory_total") != 12
+        or cd22.get("original_a1_mandatory_total") != 36
+        or cd22.get("external_r6_bcd_total") != 4
+        or cd22.get("external_r6_bcd_executed") != 0
+        or cd22.get("never_conflate_denominators_into_40_or_48") is not True
+    ):
+        violations.append("CORRV_DENOMINATOR_22_CONFLATED")
+
+    # Independently recompute ALL 12 corrective gates directly from raw parsed objects!
+    a00 = arts.get("00") or {}
+    a24 = arts.get("24") or {}
+    recomp_gates: Dict[str, str] = {
+        "C01_BASELINE_RED_REPRODUCTION": "PASS" if (not any(v.startswith("CORRV_RED_03") for v in violations)) else "FAIL",
+        "C02_SINGLE_WRITER_ATOMICITY_RESTART": "PASS" if (not any(v.startswith(("CORRV_CUSTODY_04", "CORRV_CRASH_SEAL_06")) for v in violations)) else "FAIL",
+        "C03_DETERMINISTIC_W1_W2_W4_CUSTODY": "PASS" if (not any(v.startswith(("CORRV_QUEUE_05", "CORRV_BENCH_19_CUSTODY")) for v in violations)) else "FAIL",
+        "C04_BOUNDED_QUEUE_BACKPRESSURE_NO_LATE_WRITE": "PASS" if (not any(v.startswith("CORRV_QUEUE_05") for v in violations)) else "FAIL",
+        "C05_HARD_CAP_MIN_INTERSECTION_NO_ENLARGEMENT": "PASS" if (not any(v.startswith("CORRV_CAPS_07") for v in violations)) else "FAIL",
+        "C06_ATOMIC_DISK_RESERVATIONS_PEAK_OVERHEAD": "PASS" if (not any(v.startswith("CORRV_DISK_08") for v in violations)) else "FAIL",
+        "C07_REAL_TELEMETRY_PRESSURE_CLEANUP_ENOSPC": "PASS" if (not any(v.startswith(("CORRV_TELEMETRY_CLEANUP_09", "A1V_TELEMETRY")) for v in violations)) else "FAIL",
+        "C08_CLAIM_EXCEPTION_DURABLE_TERMINAL_RECONCILE": "PASS" if (not any(v.startswith("CORRV_CLAIM_10") for v in violations)) else "FAIL",
+        "C09_FINALIZER_ISOLATION_CANCEL_OWNED_REAP": "PASS" if (not any(v.startswith("CORRV_FINALIZE_11") for v in violations)) else "FAIL",
+        "C10_COMPOUND_CRASH_QUARANTINE_REPLAY_NO_SEAL": "PASS" if (not any(v.startswith("CORRV_COMPOUND_12") for v in violations)) else "FAIL",
+        "C11_INDEPENDENT_VERIFIER_MUTATIONS_INHERITED": "PASS" if (len(violations) == 0) else "FAIL",
+        "C12_PROTECTED_SOURCE_PARITY_FROZEN_REMOTE": "PENDING_REMOTE_READBACK" if (
+            a00.get("branch") == MANDATORY_BRANCH_KH03_R6
+            and a00.get("worktree_clean_at_start") is True
+            and a24.get("phase1_executable_committed") is True
+            and not any(v.startswith(("CORRV_OWNERSHIP_01", "CORRV_PRIOR_SEALED_02", "CORRV_EXTERNAL_13", "A1V_R4_", "CORRV_SIX_COST_17", "CORRV_PARITY_18", "CORRV_STALE_PRIOR_SHA")) for v in violations)
+        ) else "FAIL",
+    }
+
+    prod_gates = a22.get("corrective_12_gates") or {}
+    for gk in CORRECTIVE_12_GATE_KEYS:
+        if gk == "C11_INDEPENDENT_VERIFIER_MUTATIONS_INHERITED":
+            continue
+        if prod_gates.get(gk) != recomp_gates.get(gk):
+            violations.append(f"CORRV_GATE_22_DRIFT:{gk}:prod={prod_gates.get(gk)}:recomp={recomp_gates.get(gk)}")
+        if gk != "C12_PROTECTED_SOURCE_PARITY_FROZEN_REMOTE" and recomp_gates.get(gk) != "PASS":
+            violations.append(f"CORRV_MANDATORY_GATE_FAILED:{gk}")
+    if recomp_gates["C12_PROTECTED_SOURCE_PARITY_FROZEN_REMOTE"] not in ("PENDING_REMOTE_READBACK", "PASS_REMOTE_VERIFIED"):
+        violations.append("CORRV_C12_LOCAL_PRECONDITIONS_FAILED")
+
+    status = "PASS" if len(violations) == 0 else "FAIL"
+    recomp_gates["C11_INDEPENDENT_VERIFIER_MUTATIONS_INHERITED"] = "PASS" if status == "PASS" else "FAIL"
+
+    file_hashes: Dict[str, Dict[str, Any]] = {}
+    for fp in sorted(run_dir.rglob("*")):
+        if not fp.is_file():
+            continue
+        rel_f = str(fp.relative_to(run_dir)).replace("\\", "/")
+        if rel_f == MANIFEST_23_NAME_KH03_R6_A1_CORRECTIVE:
+            continue
+        file_hashes[rel_f] = {"bytes": fp.stat().st_size, "sha256": _sha256_file(fp)}
+
+    manifest = {
+        "spec_version": SPEC_VERSION_KH03_R6_A1_CORRECTIVE,
+        "schema_version": SCHEMA_VERSION_KH03_R6_A1_CORRECTIVE,
+        "run_id": expected_run_id,
+        "tested_executable_sha": expected_tested_sha,
+        "sealed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "verifier_pid": verifier_pid,
+        "orchestrator_pid": int(orchestrator_pid) if orchestrator_pid is not None else None,
+        "distinct_os_process_verified": (orchestrator_pid is None or int(orchestrator_pid) != verifier_pid),
+        "prior_sealed_artifacts_verified_count": prior_checked,
+        "status": status,
+        "verifier_status": status,
+        "violations_count": len(violations),
+        "violations": violations,
+        "recomputed_12_corrective_gates": recomp_gates,
+        "corrective_denominators": {
+            "corrective_mandatory_total": 12,
+            "corrective_prepush_passed": sum(1 for k in CORRECTIVE_12_GATE_KEYS if k != "C12_PROTECTED_SOURCE_PARITY_FROZEN_REMOTE" and recomp_gates[k] == "PASS"),
+            "original_a1_mandatory_total": 36,
+            "original_a1_prepush_passed": int(a14.get("original_36_a1_prepush_gates_passed") or 0),
+            "external_r6_bcd_total": 4,
+            "external_r6_bcd_executed": 0,
+            "never_conflate_denominators_into_40_or_48": True,
+        },
+        "overall_classification": CLASSIFICATION_PASS_OFFLINE_CORRECTIVE if status == "PASS" else "FAIL_OR_BLOCKED_KH03_R6_A1_CORRECTIVE",
+        "sealed_files_count": len(file_hashes),
+        "sealed_files_sha256": file_hashes,
+    }
+    if write_manifest:
+        write_json_durable_atomic(run_dir / MANIFEST_23_NAME_KH03_R6_A1_CORRECTIVE, manifest)
+    return (0 if status == "PASS" else 1), manifest
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="KH-03.R6.A1 Separate-OS Independent Read-Only Verifier")
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--expected-run-id", default=None)
     ap.add_argument("--expected-tested-sha", default=None)
     ap.add_argument("--orchestrator-pid", type=int, default=None)
+    ap.add_argument("--corrective", action="store_true", help="Verify KH-03.R6.A1 corrective closure (P1-L/M/N) run directory.")
     ap.add_argument("--no-write-manifest", action="store_true")
     ap.add_argument("--skip-prior-disk-check", action="store_true")
     ns = ap.parse_args(argv)
@@ -751,7 +1250,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         exp_rid = exp_rid or str(a00.get("run_id") or "")
         exp_sha = exp_sha or str(a00.get("tested_executable_sha") or "")
 
-    rc, rep = verify_kh_03_r6_a1_run_dir(
+    verify_fn = verify_kh_03_r6_a1_corrective_run_dir if ns.corrective else verify_kh_03_r6_a1_run_dir
+    rc, rep = verify_fn(
         rdir, expected_run_id=str(exp_rid or ""), expected_tested_sha=str(exp_sha or ""),
         orchestrator_pid=ns.orchestrator_pid, write_manifest=(not ns.no_write_manifest),
         check_prior_sealed_on_disk=(not ns.skip_prior_disk_check),

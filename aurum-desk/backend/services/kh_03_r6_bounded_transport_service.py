@@ -127,12 +127,17 @@ def _volume_key_for_path(p: Path) -> str:
         return str(res.anchor)
 
 
-def _disk_free_gib_for_path(p: Path) -> float:
+def _disk_usage_gib_for_path(p: Path) -> Tuple[float, float]:
     cur = p.resolve(strict=False)
     while not cur.exists() and cur.parent != cur:
         cur = cur.parent
     du = shutil.disk_usage(cur)
-    return float(du.free) / float(1024 ** 3)
+    return float(du.free) / float(1024 ** 3), float(du.total) / float(1024 ** 3)
+
+
+def _disk_free_gib_for_path(p: Path) -> float:
+    free_g, _ = _disk_usage_gib_for_path(p)
+    return free_g
 
 
 def collect_real_r6_resource_sample(
@@ -140,30 +145,43 @@ def collect_real_r6_resource_sample(
     *,
     projected_writes_bytes_by_role: Optional[Mapping[str, int]] = None,
     active_workers: int = 0,
+    queue_depth: int = 0,
+    allocated_store_bytes: int = 0,
 ) -> Dict[str, Any]:
-    """Collects an authentic OS resource telemetry sample (real psutil RAM + real shutil disk)."""
+    """Collects an authentic OS resource telemetry sample (real psutil RAM/CPU/handles/descendants + real shutil disk)."""
     now_mono = time.monotonic()
     now_utc_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     vm = psutil.virtual_memory()
     proc = psutil.Process(os.getpid())
     rss_bytes = int(proc.memory_info().rss)
-    for ch in proc.children(recursive=True):
+    descendants = proc.children(recursive=True)
+    for ch in descendants:
         try:
             rss_bytes += int(ch.memory_info().rss)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
+    try:
+        ct = proc.cpu_times()
+        proc_cpu_sec = round(float(ct.user + ct.system), 4)
+    except Exception:
+        proc_cpu_sec = 0.0
+    try:
+        open_handles = int(proc.num_handles()) if os.name == "nt" else int(proc.num_fds())
+    except Exception:
+        open_handles = -1
 
     vol_map: Dict[str, Dict[str, Any]] = {}
     proj_by_vol: Dict[str, int] = {}
     role_proj = dict(projected_writes_bytes_by_role or {})
     for role, path in volumes.items():
         vk = _volume_key_for_path(path)
-        free_gib = _disk_free_gib_for_path(path)
+        free_gib, total_gib = _disk_usage_gib_for_path(path)
         proj_by_vol[vk] = proj_by_vol.get(vk, 0) + int(role_proj.get(role, 0))
         vol_map[role] = {
             "path": str(path.resolve(strict=False)),
             "volume_id": vk,
             "free_gib": round(free_gib, 4),
+            "total_gib": round(total_gib, 4),
         }
 
     return {
@@ -173,9 +191,44 @@ def collect_real_r6_resource_sample(
         "ram_available_mib": round(float(vm.available) / float(1024 ** 2), 3),
         "ram_total_mib": round(float(vm.total) / float(1024 ** 2), 3),
         "tree_rss_mib": round(float(rss_bytes) / float(1024 ** 2), 3),
+        "process_cpu_sec": proc_cpu_sec,
+        "descendants_count": len(descendants),
+        "thread_count": int(threading.active_count()),
+        "open_handles_count": open_handles,
+        "queue_depth": int(queue_depth),
+        "allocated_store_bytes": int(allocated_store_bytes),
         "active_workers": int(active_workers),
         "volumes": vol_map,
         "projected_writes_bytes_by_volume": proj_by_vol,
+    }
+
+
+def compute_safe_worker_cap_from_telemetry_a1(
+    sample: Mapping[str, Any],
+    *,
+    requested_workers: int,
+    policy_cap: int = GLOBAL_MAX_WORKERS_R6,
+    per_worker_ram_mib: float = 512.0,
+    ram_base_headroom_mib: float = 1024.0,
+) -> Dict[str, Any]:
+    """Computes effective safe worker count bounded by OS RAM headroom, policy cap, and requested cap."""
+    avail_ram = float(sample.get("ram_available_mib") or 0.0)
+    tot_ram = float(sample.get("ram_total_mib") or 0.0)
+    advisory_20pct_mib = round(tot_ram * 0.20, 2) if tot_ram > 0 else 0.0
+    if avail_ram < HARD_RAM_FLOOR_MIB_R6:
+        ram_cap = 0
+    elif avail_ram <= ram_base_headroom_mib:
+        ram_cap = 1
+    else:
+        ram_cap = max(1, min(int(policy_cap), int((avail_ram - ram_base_headroom_mib) // max(128.0, float(per_worker_ram_mib))) + 1))
+    eff = min(int(requested_workers), int(policy_cap), int(ram_cap))
+    return {
+        "effective_workers": max(0, eff),
+        "ram_derived_cap": ram_cap,
+        "policy_cap": int(policy_cap),
+        "ram_available_mib": avail_ram,
+        "advisory_20pct_ram_mib": advisory_20pct_mib,
+        "ram_base_headroom_mib": ram_base_headroom_mib,
     }
 
 
@@ -194,8 +247,8 @@ def validate_r6_resource_guard(
 ) -> Dict[str, Any]:
     """
     Fail-closed multi-volume resource validator.
-    Enforces >=20.5 GiB preflight, >=20.0 GiB runtime (accounting for deduplicated same-volume
-    projected writes), >=512 MiB hard RAM floor, global worker cap <=4, and rejects missing,
+    Enforces >=max(20.5 GiB preflight / 20.0 GiB runtime, 5 GiB, 10% volume total when reported),
+    >=512 MiB hard RAM floor (or adaptive reserve), global worker cap <=4, and rejects missing,
     stale, future, nonfinite, bool-as-num, wrong-volume, or QA-fixture samples in live mode.
     """
     viols: List[str] = []
@@ -252,6 +305,13 @@ def validate_r6_resource_guard(
             if not _is_finite_num(fg):
                 viols.append(f"NONFINITE_DISK_FREE:{role}")
                 continue
+            tot_g = vinfo.get("total_gib")
+            req_disk_gib = max(min_disk_gib, 5.0)
+            if tot_g is not None:
+                if not _is_finite_num(tot_g) or float(tot_g) <= 0.0:
+                    viols.append(f"INVALID_DISK_TOTAL:{role}")
+                    continue
+                req_disk_gib = max(req_disk_gib, float(tot_g) * 0.10)
             # Deduplicate same-volume projected writes once per physical volume
             proj_b = proj_by_vol.get(got_vk, 0)
             if not _is_strict_int(proj_b) or int(proj_b) < 0:
@@ -259,8 +319,8 @@ def validate_r6_resource_guard(
                 continue
             eff_free_gib = float(fg) - (float(proj_b) / float(1024 ** 3))
             checked_vols[got_vk] = min(checked_vols.get(got_vk, eff_free_gib), eff_free_gib)
-            if eff_free_gib < min_disk_gib:
-                viols.append(f"DISK_BELOW_FLOOR:{role}:{got_vk}:eff_free={eff_free_gib:.3f}GiB<{min_disk_gib}GiB")
+            if eff_free_gib < req_disk_gib:
+                viols.append(f"DISK_BELOW_FLOOR:{role}:{got_vk}:eff_free={eff_free_gib:.3f}GiB<{req_disk_gib:.3f}GiB")
 
     return {
         "ok": len(viols) == 0,
