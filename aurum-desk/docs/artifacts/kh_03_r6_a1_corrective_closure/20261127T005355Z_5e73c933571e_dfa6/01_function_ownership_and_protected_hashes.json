@@ -1,0 +1,153 @@
+{
+  "c2_live_hard_block_intact": true,
+  "changed_files_since_prior_a1_published": [
+    "aurum-desk/backend/services/kh_03_r6_a1_acquisition_service.py",
+    "aurum-desk/backend/services/kh_03_r6_a1_corrective_service.py",
+    "aurum-desk/backend/services/kh_03_r6_a1_release_service.py",
+    "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py",
+    "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py",
+    "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_budget_m.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_custody_l.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_finalization_n.py",
+    "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_verifier_mutations.py",
+    "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/README.md",
+    "aurum-desk/docs/kh_03_r6_a1_corrective/FUNCTION_OWNERSHIP_MATRIX.md",
+    "aurum-desk/docs/kh_03_r6_a1_corrective/README.md",
+    "aurum-desk/docs/kh_03_r6_a1_corrective/SPEC_KH_03_R6_A1_CORRECTIVE_v1.0.md",
+    "aurum-desk/tools/kh_03_r6_a1_independent_verifier.py",
+    "aurum-desk/tools/run_kh_03_r6_a1_acceptance.py"
+  ],
+  "corrective_source_files_inventory": [
+    {
+      "after_sha256": "71522b3a4636b8e2986759d38724841c12b24d28814a4458edb50befb1d6e215",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/kh_03_r6_a1_corrective/README.md"
+    },
+    {
+      "after_sha256": "a621afe008e8c8257877054bb1cc6e102f646ad6b1d0435b5fe6e35b04ce7c0f",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/kh_03_r6_a1_corrective/SPEC_KH_03_R6_A1_CORRECTIVE_v1.0.md"
+    },
+    {
+      "after_sha256": "83af3521279b004e84249d5c44ef957feecf5389be63bb999d5965f3b91001fd",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/kh_03_r6_a1_corrective/FUNCTION_OWNERSHIP_MATRIX.md"
+    },
+    {
+      "after_sha256": "2f4d475d32a0a502a72bdac05456cb167c48fd766a6732586886685dfabbda9a",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": null,
+      "rel_path": "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/README.md"
+    },
+    {
+      "after_sha256": "61e3af4c6b040832166bfaf37dc8ca137e945ed11d4ffd0c803f113fd9d147a8",
+      "before_sha256_at_133980ac": "785cea2c41b148683350010edd54680b13db0b32cc6fe289fd288f85af7c5c79",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 17,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_a1_acquisition_service.py"
+    },
+    {
+      "after_sha256": "2f8278869187bab081abb4e04a4bf31cb8cb6cac546b2be2ce8a7579efef8e32",
+      "before_sha256_at_133980ac": "b16a8082f0656f709b99991bdcc877f27982b943574647b03aa1d02ac3284b7d",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 24,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_custody_readiness_service.py"
+    },
+    {
+      "after_sha256": "579d92ddfe8301af7f88fb429c95e392e2f375bd3dd4ff81a624d1ea99bb4170",
+      "before_sha256_at_133980ac": "4c20dc07ec48c5c2a09b6403788267f58b3067625f324aa755183e275d633649",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 53,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_durable_grant_service.py"
+    },
+    {
+      "after_sha256": "02ec2c01ace81381d183b895ecd0e647938510113532dedd8457d0ade643b713",
+      "before_sha256_at_133980ac": "cd0bb8703c12003802cf7093ad60bf0099e90b3b8d4707c9e5dfdeefbf2f5edb",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 33,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_bounded_transport_service.py"
+    },
+    {
+      "after_sha256": "8fee2660a2097cfd9df7f634188f72ef4d8d1fbce53735cd63100860f01acc29",
+      "before_sha256_at_133980ac": "dd0b9136395582afe0ec59bd549c8116cbc5a2a2b4ab2a3db84b5248030502bc",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 11,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_a1_release_service.py"
+    },
+    {
+      "after_sha256": "902a35151f3dc168a5a84281193bae0e89545e0de032c9d1849bf7c24fd40025",
+      "before_sha256_at_133980ac": "c8d744ba272cac54c916b2c29cce60508b383df56fff94d289155340e1e2dc7c",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 18,
+      "rel_path": "aurum-desk/tools/kh_03_r6_a1_independent_verifier.py"
+    },
+    {
+      "after_sha256": "7933042a3a1a2cd8c4213680a19851085b33e39b37f495f33be104655a76d625",
+      "before_sha256_at_133980ac": "5e8a05f102d53771e5617ff78a4e5b9ebc87609273a7af284eb98ed075097ee9",
+      "change_kind": "MODIFIED_P1_LMN_HARDENING",
+      "functions_count": 15,
+      "rel_path": "aurum-desk/tools/run_kh_03_r6_a1_acceptance.py"
+    },
+    {
+      "after_sha256": "2bb70d96b20f5673030f0b4880f182e732a5b1b81ab51a74958d2a69e773ec9e",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": 48,
+      "rel_path": "aurum-desk/backend/services/kh_03_r6_a1_corrective_service.py"
+    },
+    {
+      "after_sha256": "d182469e340a332d67befea9b2b416c3a449f3247847527d762f198d8ce95872",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": 42,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_custody_l.py"
+    },
+    {
+      "after_sha256": "ec3e4d142481801a6725564335d9b336b540d1d4d49a9975f07506691e5df8c6",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": 31,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_budget_m.py"
+    },
+    {
+      "after_sha256": "938d731b2ffc74c3b0883a54e274d488e990088fb667d29776313178fe5595fb",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": 43,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_finalization_n.py"
+    },
+    {
+      "after_sha256": "2996338ab86dcbaaac0dd62a0168561036b4267efc72ccab49d10c1a05e0a800",
+      "before_sha256_at_133980ac": null,
+      "change_kind": "NEW_CORRECTIVE_FILE",
+      "functions_count": 15,
+      "rel_path": "aurum-desk/backend/tests/test_kh03_r6_a1_corrective_verifier_mutations.py"
+    }
+  ],
+  "forbidden_order_imports": [],
+  "forbidden_order_imports_count": 0,
+  "legacy_r1_unauthorized_callers_count": 0,
+  "locked_files_checked_count": 59,
+  "locked_files_modified": [],
+  "locked_files_modified_count": 0,
+  "prior_a1_publication_head_sha": "ff69871d466d0df9925e62f6dd336d633a369714",
+  "prior_a1_tested_sha": "133980ac9e28e663df8284617bc4306791a0f86a",
+  "production_cost_defaults_intact": true,
+  "run_id": "20261127T005355Z_5e73c933571e_dfa6",
+  "schema_version": "kh_03_r6_a1_corrective_v1",
+  "secrets_detected": [],
+  "secrets_detected_count": 0,
+  "spec_version": "KH-03.R6.A1-CORRECTIVE-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90",
+  "unauthorized_changed_files": [],
+  "unauthorized_changed_files_count": 0
+}

@@ -1,0 +1,11 @@
+{
+  "expired_deadline_cleanup_bounded_no_late_io": true,
+  "finally_telemetry_exception_still_finalizes_ledger": true,
+  "keyboard_interrupt_cancel_cleans_up_no_hidden_pass": true,
+  "original_and_cleanup_errors_preserved_separately": true,
+  "run_id": "20261127T005355Z_5e73c933571e_dfa6",
+  "schema_version": "kh_03_r6_a1_corrective_v1",
+  "spec_version": "KH-03.R6.A1-CORRECTIVE-v1.0",
+  "tested_executable_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90",
+  "unreaped_worker_quarantines_and_blocks_new_session": true
+}

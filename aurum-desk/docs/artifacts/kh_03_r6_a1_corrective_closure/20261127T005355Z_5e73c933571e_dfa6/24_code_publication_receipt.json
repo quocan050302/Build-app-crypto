@@ -1,0 +1,14 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "ci_status": "CI_UNKNOWN_NO_ACTIONS_RUN",
+  "evidence_commit_sha": null,
+  "phase1_executable_committed": true,
+  "publication_head_sha": null,
+  "remote_readback_sha256_verified": false,
+  "run_id": "20261127T005355Z_5e73c933571e_dfa6",
+  "schema_version": "kh_03_r6_a1_corrective_v1",
+  "spec_version": "KH-03.R6.A1-CORRECTIVE-v1.0",
+  "start_head_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90",
+  "status": "PENDING_REMOTE_READBACK",
+  "tested_executable_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90"
+}

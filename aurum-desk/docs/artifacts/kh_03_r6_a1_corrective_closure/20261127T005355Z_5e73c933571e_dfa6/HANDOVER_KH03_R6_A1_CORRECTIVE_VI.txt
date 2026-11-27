@@ -1,0 +1,20 @@
+AURUM DESK — KH-03.R6.A1 POST-REVIEW CORRECTIVE CLOSURE (P1-L / P1-M / P1-N)
+================================================================================
+Run ID                 : 20261127T005355Z_5e73c933571e_dfa6
+Branch                 : feature/v17-9-2-structural-sl-tp-from-qa
+Tested Executable SHA  : 5e73c933571edcbfc96ad7ca38c62cd089205c90
+Prior A1 Reviewed SHA  : 133980ac9e28e663df8284617bc4306791a0f86a (Published HEAD ff69871d466d0df9925e62f6dd336d633a369714)
+Pre-Verifier Status    : PENDING_SEPARATE_OS_VERIFIER_CORRECTIVE_10_OF_10_PRE_VERIFIER_PASS
+Corrective Gates (12)  : 10/12 prepush (+C11 separate-OS verifier, +C12 remote readback)
+Original A1 Gates (36) : 35/36 prepush (+G36 remote readback)
+External R6.B/C/D (4)  : 0/4 executed (BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED)
+M0 Baseline RED 133980a: 4/4 RED + POS control = True
+New L/M/N Pairs        : 41/41 (L=12, M=14, N=15)
+Inherited Pairs        : A1=55/55, R6=56/56, C1+C2=91/91, Reg=288/288
+Verifier Mutations     : NEW=20/20, Inherited=201/201
+Full Pytest Collection : 5970 passed / 5978 collected / 8 skipped / 0 failed / 0 mandatory skipped
+R4 1x Decimal Parity   : closed=203 (7W/196L), net=-441.6118 USD, losses>2.50=139
+Baseline Parity (18)   : A1=56710 (0 diff), SI8=6375 (0 diff), Adapters=246 (0 diff), D4=0 diff
+Resource Peaks (09)    : min_disk=43.301 GiB, min_ram=3024.28 MiB, max_desc=4, orphans=0
+Safety Matrix          : PRODUCTION=OFF | LIVE=OFF | PAPER=OFF | AUTO=OFF | ACTIVATION_READY=NO | ECONOMIC=NO_PROVEN_EDGE | OOS_EVALUATIONS=0 | EXTERNAL_REQUESTS=0 | REAL_OBSERVED=0
+Next Step              : OWNER_REVIEW_FOR_R6_B (separate future phase; NOT automatic GO)

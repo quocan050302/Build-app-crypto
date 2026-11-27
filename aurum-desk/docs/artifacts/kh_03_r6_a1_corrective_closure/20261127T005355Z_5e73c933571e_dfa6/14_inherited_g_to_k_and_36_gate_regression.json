@@ -1,0 +1,21 @@
+{
+  "external_r6_bcd_executed_count": 0,
+  "external_r6_bcd_status": "BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED",
+  "external_r6_bcd_total": 4,
+  "inherited_a1_55_paired_executed": 55,
+  "inherited_a1_55_paired_passed": 55,
+  "inherited_c1_c2_91_paired_executed": 91,
+  "inherited_c1_c2_91_paired_passed": 91,
+  "inherited_r6_56_paired_executed": 56,
+  "inherited_r6_56_paired_passed": 56,
+  "inherited_regression_288_executed": 288,
+  "inherited_regression_288_passed": 288,
+  "original_36_a1_g36_remote_status": "PENDING_REMOTE_READBACK",
+  "original_36_a1_mandatory_total": 36,
+  "original_36_a1_prepush_gates_passed": 35,
+  "run_id": "20261127T005355Z_5e73c933571e_dfa6",
+  "schema_version": "kh_03_r6_a1_corrective_v1",
+  "spec_version": "KH-03.R6.A1-CORRECTIVE-v1.0",
+  "status": "PASS",
+  "tested_executable_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90"
+}
