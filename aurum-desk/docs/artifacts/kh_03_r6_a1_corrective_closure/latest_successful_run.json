@@ -1,0 +1,30 @@
+{
+  "branch": "feature/v17-9-2-structural-sl-tp-from-qa",
+  "corrective_gates_summary": "12/12 PASS (C01..C12 incl. C12 remote verified)",
+  "external_r6_bcd_summary": "0/4 executed (BLOCKED_A1_EXTERNAL_CAPTURE_DISABLED)",
+  "manifest_23_rel": "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/20261127T005355Z_5e73c933571e_dfa6/23_independent_verifier_manifest_sha256.json",
+  "manifest_23_sha256": "d644a2db7f7654614fafa8f219aaf07cf41812cb0e89ba9263de17e4b4a4e983",
+  "original_a1_gates_summary": "36/36 PASS (separate denominator)",
+  "overall_classification": "ENGINEERING_PASS_OFFLINE_R6_A1_CORRECTIVE_L_M_N_CLOSED_CAPTURE_BLOCKED_NO_PROVEN_EDGE",
+  "recommendation": "OWNER_REVIEW_FOR_R6_B",
+  "remote_readback_25_rel": "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/25_remote_readback_20261127T005355Z_5e73c933571e_dfa6.json",
+  "remote_readback_25_sha256": "eb43efbed44a81c1739b47b3f67a47795389cd1a3ab6ed1b85a643e340885201",
+  "run_dir_rel": "aurum-desk/docs/artifacts/kh_03_r6_a1_corrective_closure/20261127T005355Z_5e73c933571e_dfa6",
+  "run_id": "20261127T005355Z_5e73c933571e_dfa6",
+  "safety_invariants": {
+    "ACTIVATION_READY": "NO",
+    "AUTO": "OFF",
+    "ECONOMIC_EDGE": "NO_PROVEN_EDGE",
+    "EXTERNAL_MARKET_REQUESTS": 0,
+    "LIVE": "OFF",
+    "OOS_EVALUATIONS": 0,
+    "PAPER": "OFF",
+    "PRODUCTION": "OFF",
+    "REAL_OBSERVED_RECORDS": 0
+  },
+  "schema_version": "kh_03_r6_a1_corrective_v1",
+  "sealed_evidence_commit_sha": "e17f741cc634748f33a11fe44c1090c6f26be416",
+  "spec_version": "KH-03.R6.A1-CORRECTIVE-v1.0",
+  "tested_executable_sha": "5e73c933571edcbfc96ad7ca38c62cd089205c90",
+  "updated_utc": "2026-11-27T02:42:28Z"
+}
